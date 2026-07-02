@@ -240,11 +240,14 @@
 
 <h2 id="summary">1. Summary</h2>
 <p>
-  The maker-operations backend is <strong>implemented</strong> (Specs
+  The maker-operations backend is <strong>implemented end-to-end</strong> (Specs
   <a href="050.ingredient-recipe-bom.html">050</a>–<a href="057.margin-and-profit-report.html">057</a>,
-  PRs #165–#173): recipes, ingredient costing, raw-material stock with alerts, suppliers and purchase
-  orders on the Order spine, goods receipt, production planning, production orders with kitchen
-  sheets, and the margin report. The admin <em>design surface</em> has none of it: the starter kit's
+  PRs #165–#173 — merged through #167 at the time of writing, the remainder an open stacked chain
+  this spec's branch <strong>stacks on</strong>, so every family cross-reference below resolves
+  against the amended specs and the landed code, not the pre-implementation drafts): recipes,
+  ingredient costing, raw-material stock with alerts, suppliers and purchase orders on the Order
+  spine, goods receipt, production planning, production orders with kitchen sheets, and the margin
+  report. The admin <em>design surface</em> has none of it: the starter kit's
   Commerce section covers only the <strong>sell-side</strong> (overview, catalog, inventory,
   carts/orders, discounts). An operations manager's day cannot be walked through on an artboard.
 </p>
@@ -376,9 +379,13 @@
 
 <h2 id="nav">7. Navigation &amp; IA — the Commerce group</h2>
 <p>
-  A new group in <code>SIDEBAR_NAV</code>, placed in the <em>Products</em> band after Billing.
-  Sell-side items point at the existing screens; make-side items at the new ones. Badge counts come
-  from the mock datasets (active alerts; POs pending receipt).
+  Two new sibling parent items in <code>SIDEBAR_NAV</code>'s <em>Products</em> band after Billing —
+  <strong>deliberately one level of nesting each</strong>: the shell's sidebar renders exactly
+  <code>parent.children</code> and its active-state lookup checks one child level
+  (<code>kit/shell-aonik.jsx</code> — grandchildren get a chevron but are never rendered), so a
+  nested "Make" sub-group would be unreachable. Splitting sell-side and make-side into two parents
+  keeps the IA without any shell code change. Badge counts come from the mock datasets (active
+  alerts; POs pending receipt).
 </p>
 <pre><code>{ group: 'Products', items: [
     ...existing (Bill Payments, Remittances, Billing, Personal Finance)...,
@@ -388,16 +395,16 @@
       { id: 'cm-inventory',  label: 'Inventory',       icon: 'layers' },
       { id: 'cm-orders',     label: 'Orders & carts',  icon: 'receipt' },
       { id: 'cm-discounts',  label: 'Discounts',       icon: 'tag' },
-      { id: 'cm-make', label: 'Make', icon: 'chef', children: [
-        { id: 'cm-ingredients', label: 'Ingredients',       icon: 'wheat' },
-        { id: 'cm-recipes',     label: 'Recipes',           icon: 'book' },
-        { id: 'cm-planning',    label: 'Planning',          icon: 'calendar' },
-        { id: 'cm-production',  label: 'Production',        icon: 'flame' },
-        { id: 'cm-lowstock',    label: 'Low stock',         icon: 'alert', badge: 3 },
-        { id: 'cm-suppliers',   label: 'Suppliers',         icon: 'truck' },
-        { id: 'cm-pos',         label: 'Purchase orders',   icon: 'clipboard', badge: 2 },
-        { id: 'cm-margin',      label: 'Margin',            icon: 'chart' },
-      ]},
+    ]},
+    { id: 'cm-make', label: 'Commerce · Make', icon: 'chef', children: [
+      { id: 'cm-ingredients', label: 'Ingredients',       icon: 'wheat' },
+      { id: 'cm-recipes',     label: 'Recipes',           icon: 'book' },
+      { id: 'cm-planning',    label: 'Planning',          icon: 'calendar' },
+      { id: 'cm-production',  label: 'Production',        icon: 'flame' },
+      { id: 'cm-lowstock',    label: 'Low stock',         icon: 'alert', badge: 3 },
+      { id: 'cm-suppliers',   label: 'Suppliers',         icon: 'truck' },
+      { id: 'cm-pos',         label: 'Purchase orders',   icon: 'clipboard', badge: 2 },
+      { id: 'cm-margin',      label: 'Margin',            icon: 'chart' },
     ]},
 ]}</code></pre>
 <p>
@@ -500,7 +507,7 @@
 <ul>
   <li><strong>Layout:</strong> a receive form against a Pending PO — per-line received quantity (vs remaining), optional <em>actual unit cost</em> ("updates the ingredient's cost from this delivery"), received-at; a summary rail showing what posting will do: stock ↑, cost refresh, alert resolution, PO completion.</li>
   <li><strong>Second panel (posted state):</strong> the outcome of a posted receipt — stock applied, cost row written (effective-dated), "alert resolved" vs "<strong>alert kept — still below reorder point</strong>" (the short-receipt honesty rule from #164), PO Complete vs still Pending with the progress bar.</li>
-  <li><strong>Must demonstrate:</strong> an over-receipt rejection naming the ingredient and figures; the idempotent-retry note ("same receipt returned, applied once" — the 054 claim-first design, one caption line).</li>
+  <li><strong>Must demonstrate:</strong> an over-receipt rejection naming the ingredient and figures — the <em>landed</em> 054 v1 rule (cumulative received may never exceed ordered; tolerance bands remain 054's Open item); the idempotent-retry note ("same receipt returned, applied once" — the 054 claim-first design, one caption line).</li>
 </ul>
 <table>
   <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
@@ -662,7 +669,7 @@ cmMarginRows(window)         // rows + honest aggregate (known-COGS denominator)
     <tr><td>R5</td><td>The kitchen sheet and the production-order drawer both state the frozen-snapshot guarantee; the release flow demonstrates the all-or-nothing insufficient-stock error naming ingredient + figures.</td></tr>
     <tr><td>R6</td><td>The prep list demonstrates netting against Available (the 10/8/5 ⇒ 3 example) and the no-recipe diagnostic; the production sheet states the demand-status rule and marks bundle-expanded demand.</td></tr>
     <tr><td>R7</td><td>Goods receipt demonstrates: full receipt outcomes, the short-receipt "alert kept" state, an over-receipt rejection, and the idempotent-retry caption.</td></tr>
-    <tr><td>R8</td><td>Every §8 screen carries its API-mapping table content as an HTML comment atop the screen file (the hand-off contract for the production AdminUi build).</td></tr>
+    <tr><td>R8</td><td>Every §8 screen carries its API-mapping table content as a <strong>JavaScript block comment</strong> (<code>/* API mapping: … */</code>) atop the screen file — the files are Babel-parsed JSX, so an HTML <code>&lt;!-- --&gt;</code> comment would be parsed as code and break R1's no-console-errors guarantee.</td></tr>
     <tr><td>R9</td><td>Mock data reuses the pinned family economics (jollof ₦400/portion · 80% margin; rice 2 kg / reorder 5 kg; 25 kg sack @ ₦28,000) so figures trace across spec → tests → artboards.</td></tr>
     <tr><td>R10</td><td>Only tokens and existing kit primitives are used (plus <code>WindowPicker</code> and <code>ProgressCells</code>); no new dependencies, no fetch, no build step.</td></tr>
   </tbody>
@@ -673,7 +680,7 @@ cmMarginRows(window)         // rows + honest aggregate (known-COGS denominator)
   <li>Nav: Commerce group in <code>kit/shell-aonik.jsx</code>; icons in <code>icons-extra.jsx</code>; re-point existing commerce artboards' <code>mkShell</code> ids.</li>
   <li>Mock data: §9 datasets, tone lookups, helpers; window exports.</li>
   <li>Shared helpers: <code>WindowPicker</code>, <code>ProgressCells</code> in <code>kit/components.jsx</code>.</li>
-  <li>Screens 8.1–8.9 (phases 1→4), each with its listed states and the R8 API-mapping comment.</li>
+  <li>Screens 8.1–8.9 (phases 1→4), each with its listed states and the R8 API-mapping <code>/* … */</code> comment.</li>
   <li>Overview tiles (Phase 4).</li>
   <li>Registration: script tags + the <code>DCSection</code> per §10.</li>
   <li>Verification pass per §14 (both themes, tweaks-panel density settings, focus-mode navigation).</li>
