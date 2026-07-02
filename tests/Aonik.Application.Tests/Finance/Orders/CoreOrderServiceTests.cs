@@ -256,4 +256,56 @@ public class CoreOrderServiceTests
         (await context.Orders.CountAsync()).Should().Be(2);
         (await context.Orders.CountAsync(o => o.IdempotencyKey == null)).Should().Be(2);
     }
+
+    [Fact]
+    public async Task FindByIdempotencyKeyAsync_Should_ReturnTheKeyedOrder_WithTheSameNormalization_AsCreate()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        var created = await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "order-123" });
+        await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "   " }); // blank-key noise, stored NULL
+
+        // Exact key and a whitespace-padded retry key both resolve to the stored (trimmed) order,
+        // items included — the lookup a type-specific creation flow uses to settle a lost-response
+        // retry BEFORE re-running validation (Spec 053 §12).
+        var found = await service.FindByIdempotencyKeyAsync("order-123");
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
+        found.Items.Should().HaveCount(2);
+        (await service.FindByIdempotencyKeyAsync("  order-123  "))!.Id.Should().Be(created.Id);
+
+        // An unknown key finds nothing; a blank key NEVER matches (blank keys are stored as NULL —
+        // they are non-keys, not a shared bucket).
+        (await service.FindByIdempotencyKeyAsync("order-999")).Should().BeNull();
+        (await service.FindByIdempotencyKeyAsync("   ")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TransitionAsync_Should_ApplyOnMatchingExpectedFromStatus_AndThrowOnMismatch_LeavingStatusUntouched()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+        var created = await service.CreateAsync(ProductPurchaseCommand());
+
+        // Compare-and-set (Spec 053 §13): a matching expectation applies as usual…
+        var pending = await service.TransitionAsync(
+            created.Id, OrderStatuses.Pending, "ready", expectedFromStatus: OrderStatuses.Draft);
+        pending.Status.Should().Be(OrderStatuses.Pending);
+
+        // …and a stale expectation (the caller observed Draft, but the order moved on) throws,
+        // naming actual vs expected, WITHOUT applying — closing the check-then-act window that
+        // would otherwise let a stale caller overwrite an interleaved transition.
+        var stale = async () => await service.TransitionAsync(
+            created.Id, OrderStatuses.Cancelled, "stale guard", expectedFromStatus: OrderStatuses.Draft);
+        await stale.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{OrderStatuses.Pending}*{OrderStatuses.Draft}*");
+
+        (await context.Orders.SingleAsync(o => o.Id == created.Id)).Status.Should().Be(OrderStatuses.Pending);
+        // No history row was written for the rejected transition — only the successful one.
+        (await context.OrderHistoryEvents.CountAsync(e => e.OrderId == created.Id && e.EventType == "StatusChanged"))
+            .Should().Be(1);
+    }
 }

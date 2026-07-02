@@ -486,4 +486,185 @@ public class PurchaseOrderServiceTests
         var pending = await h.PurchaseOrders().ListAsync(OrderStatusCodes.Pending);
         pending.Items.Single().Id.Should().Be(a.Id);
     }
+
+    // ── §12 idempotent retry + concurrent-seed compensation ────────────────────────────────────
+
+    [Fact]
+    public async Task CreateFromShortfall_Should_ReturnTheExistingOrder_OnAKeyedRetry_AfterTheAlertsFlipped()
+    {
+        var h = new Harness();
+        var (supplierId, riceId) = await h.SeedSupplierWithRiceAsync();
+        var rice = StockItemRef.Ingredient(riceId);
+        await h.Inventory().SetOnHandAsync(rice, 2m);
+        await h.Inventory().SetReorderPointAsync(rice, 30m);
+        await h.Alerts().ScanAndRaiseAsync();
+        Guid alertId;
+        await using (var commerce = h.Commerce())
+        {
+            alertId = (await commerce.LowStockAlerts.SingleAsync()).Id;
+        }
+
+        // First attempt (named-alerts path, keyed) succeeds and flips the alert to Ordered.
+        var command = new CreateFromShortfallCommand(supplierId, new[] { alertId }, IdempotencyKey: "seed-1");
+        var first = await h.PurchaseOrders().CreateFromShortfallAsync(command);
+
+        // A lost-response retry re-sends the SAME command. The alert validation would now reject
+        // it ("'…' is Ordered") even though the seed succeeded — the key lookup runs FIRST and
+        // returns the existing order instead (§12).
+        var namedRetry = await h.PurchaseOrders().CreateFromShortfallAsync(command);
+        namedRetry.Id.Should().Be(first.Id);
+
+        // Same for the AUTO path: no active alert remains for this supplier, which would throw
+        // "No active…" — the keyed retry still resolves to the seeded order.
+        var autoRetry = await h.PurchaseOrders().CreateFromShortfallAsync(
+            new CreateFromShortfallCommand(supplierId, IdempotencyKey: "seed-1"));
+        autoRetry.Id.Should().Be(first.Id);
+
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(1); // one order, three calls
+    }
+
+    [Fact]
+    public async Task CreateFromShortfall_Should_CancelItsOrder_AndConflict_WhenARivalSeedOrderedEveryAlertFirst()
+    {
+        var h = new Harness();
+        var (supplierId, riceId) = await h.SeedSupplierWithRiceAsync();
+        var rice = StockItemRef.Ingredient(riceId);
+        await h.Inventory().SetOnHandAsync(rice, 2m);
+        await h.Inventory().SetReorderPointAsync(rice, 30m);
+        await h.Alerts().ScanAndRaiseAsync();
+        Guid alertId;
+        await using (var commerce = h.Commerce())
+        {
+            alertId = (await commerce.LowStockAlerts.SingleAsync()).Id;
+        }
+
+        // Interleave the seed's two uncoordinated commits directly: OUR spine order has already
+        // persisted (what CreateFromShortfallAsync does first), and a RIVAL seed flips the alert
+        // to Ordered before our flip runs.
+        var ourSeed = h.PurchaseOrders();
+        var ourOrder = await h.Orders().CreateAsync(new CreateOrderCommand(
+            OrderTypeCodes.PurchaseOrder, null, "NGN",
+            new[] { new OrderItemCommand(OrderTypeCodes.PurchaseOrder, 0, 50_000m, "NGN") }));
+        var rivalOrder = await h.PurchaseOrders().CreateFromShortfallAsync(new CreateFromShortfallCommand(supplierId));
+
+        var act = async () => await ourSeed.FlipSourceAlertsToOrderedAsync(
+            ourOrder.Id, new[] { alertId }, CancellationToken.None);
+
+        // ZERO source alerts were still active → our PO is compensated (cancelled, never a silent
+        // duplicate) and the call conflicts; the rival's PO stays live and the alert stays Ordered
+        // — the alerts win exactly once.
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*concurrent shortfall seed*");
+
+        (await h.Orders().GetAsync(ourOrder.Id))!.Status.Should().Be(OrderStatusCodes.Cancelled);
+        (await h.Orders().GetAsync(rivalOrder.Id))!.Status.Should().Be(OrderStatusCodes.Draft);
+
+        await using var ordering = h.Ordering();
+        var cancelHistory = await ordering.OrderHistoryEvents
+            .SingleAsync(e => e.OrderId == ourOrder.Id && e.EventType == "StatusChanged");
+        cancelHistory.DetailsJson.Should().Contain("Superseded by a concurrent shortfall seed");
+
+        await using var commerce2 = h.Commerce();
+        (await commerce2.LowStockAlerts.SingleAsync(a => a.Id == alertId)).Status.Should().Be(LowStockAlertStatuses.Ordered);
+    }
+
+    // ── §13 compare-and-set transitions ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Cancel_Then_StaleSubmit_Should_Conflict_AndTheOrderStaysCancelled()
+    {
+        var h = new Harness();
+        var (supplierId, riceId) = await h.SeedSupplierWithRiceAsync();
+        var order = await h.PurchaseOrders().CreateAsync(new CreatePurchaseOrderCommand(
+            supplierId, new[] { new PurchaseOrderLineCommand(riceId, 25m) }));
+
+        // The check-then-act window: a submit's guard observed Draft, then a cancel landed before
+        // the submit's transition. The submit carries its observed status to the spine, so the
+        // spine rejects the stale write instead of resurrecting the cancelled PO to Pending.
+        await h.PurchaseOrders().CancelAsync(order.Id, "changed plans");
+
+        var staleSubmit = async () => await h.Orders().TransitionAsync(
+            order.Id, OrderStatusCodes.Pending, "Submitted to supplier",
+            expectedFromStatus: OrderStatusCodes.Draft);
+
+        await staleSubmit.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{OrderStatusCodes.Cancelled}*{OrderStatusCodes.Draft}*");
+        (await h.Orders().GetAsync(order.Id))!.Status.Should().Be(OrderStatusCodes.Cancelled);
+    }
+
+    // ── §10 money rounding at computation ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Create_Should_RoundLineMoneyToFourDecimals_AtComputation_SoStoredEqualsReturned()
+    {
+        var h = new Harness();
+        // 0.75 L bottle @ ₦1,000 → derived unit price ₦1,333.3333/L. Ordering 1.5 L would compute
+        // 1.5 × 1,333.3333 = 1,999.99995 — more precision than the decimal(19,4) money columns
+        // hold, so without rounding at computation the stored amount would differ from the
+        // returned one (SqlClient coerces silently).
+        var oil = await h.SeedIngredientAsync("Palm Oil", IngredientBaseUnits.L);
+        var supplier = await h.Suppliers().CreateAsync(new CreateSupplierCommand("Oil Co", "NGN"));
+        await h.Suppliers().UpsertCatalogItemAsync(new UpsertSupplierIngredientCommand(
+            supplier.Id, oil, PackSize: 0.75m, PackPrice: 1_000m));
+
+        var order = await h.PurchaseOrders().CreateAsync(new CreatePurchaseOrderCommand(
+            supplier.Id, new[] { new PurchaseOrderLineCommand(oil, Quantity: 1.5m) }));
+
+        var line = order.Items.Single();
+        line.UnitPrice.Should().Be(1_333.3333m);
+        line.AmountIn.Should().Be(2_000.0000m);                    // rounded at computation
+        order.AmountIn.Should().Be(order.Items.Sum(i => i.AmountIn)); // header == Σ lines
+
+        // The persisted row carries the SAME 4 dp values — stored == returned, header == Σ lines.
+        await using var ordering = h.Ordering();
+        (await ordering.OrderItems.SingleAsync(i => i.OrderId == order.Id)).AmountIn.Should().Be(2_000.0000m);
+        (await ordering.Orders.SingleAsync(o => o.Id == order.Id)).AmountIn.Should().Be(2_000.0000m);
+    }
+
+    [Fact]
+    public async Task CreateFromShortfall_Should_RoundLineMoneyToFourDecimals_TheSameWay()
+    {
+        var h = new Harness();
+        var oil = await h.SeedIngredientAsync("Palm Oil", IngredientBaseUnits.L);
+        var supplier = await h.Suppliers().CreateAsync(new CreateSupplierCommand("Oil Co", "NGN"));
+        await h.Suppliers().UpsertCatalogItemAsync(new UpsertSupplierIngredientCommand(
+            supplier.Id, oil, PackSize: 0.75m, PackPrice: 1_000m));
+
+        // Shortfall 1.5 − 0.3 = 1.2 L → ceil(1.2 / 0.75) = 2 bottles = 1.5 L — the same
+        // 1.5 × 1,333.3333 = 1,999.99995 economics on the seed path.
+        var oilRef = StockItemRef.Ingredient(oil);
+        await h.Inventory().SetOnHandAsync(oilRef, 0.3m);
+        await h.Inventory().SetReorderPointAsync(oilRef, 1.5m);
+        (await h.Alerts().ScanAndRaiseAsync()).Raised.Should().Be(1);
+
+        var order = await h.PurchaseOrders().CreateFromShortfallAsync(new CreateFromShortfallCommand(supplier.Id));
+
+        var line = order.Items.Single();
+        line.Quantity.Should().Be(1.5m);
+        line.AmountIn.Should().Be(2_000.0000m);
+        order.AmountIn.Should().Be(2_000.0000m);
+
+        await using var ordering = h.Ordering();
+        (await ordering.OrderItems.SingleAsync(i => i.OrderId == order.Id)).AmountIn.Should().Be(2_000.0000m);
+    }
+
+    // ── §11 empty-Guid party link normalization ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Create_Should_Succeed_WithNoSupplierRole_WhenTheSupplierWasSavedWithAnEmptyPartyId()
+    {
+        var h = new Harness();
+        // Guid.Empty is "not linked", never a real Party — SupplierService normalizes it to null,
+        // so BuildSupplierRole never emits the empty-party role the spine rejects (which would
+        // otherwise poison EVERY PO create for this supplier).
+        var (supplierId, riceId) = await h.SeedSupplierWithRiceAsync(partyId: Guid.Empty);
+        (await h.Suppliers().GetAsync(supplierId))!.PartyId.Should().BeNull();
+
+        var order = await h.PurchaseOrders().CreateAsync(new CreatePurchaseOrderCommand(
+            supplierId, new[] { new PurchaseOrderLineCommand(riceId, 25m) }));
+
+        order.Status.Should().Be(OrderStatusCodes.Draft);
+        await using var ordering = h.Ordering();
+        (await ordering.OrderPartyRoles.CountAsync(r => r.OrderId == order.Id)).Should().Be(0);
+    }
 }

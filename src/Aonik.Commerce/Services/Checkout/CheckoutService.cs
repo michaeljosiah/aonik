@@ -248,7 +248,8 @@ internal sealed class CheckoutService : ICheckoutService
 
         // Always ensure the order reaches Complete — TransitionAsync is a no-op when already there,
         // so an outbox retry after a transition failure (cart already CheckedOut) still completes it
-        // rather than leaving the order stuck in PendingFunding.
-        await _orders.TransitionAsync(orderId, "Complete", "Payment completed", cancellationToken);
+        // rather than leaving the order stuck in PendingFunding. Deliberately no expectedFromStatus:
+        // this is an unconditional converge-to-Complete, not a guarded transition.
+        await _orders.TransitionAsync(orderId, "Complete", "Payment completed", cancellationToken: cancellationToken);
     }
 }

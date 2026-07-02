@@ -495,6 +495,15 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 (unused on a PO)    →  AmountOut, CurrencyOut, FxQuoteId, …   left unset — FX/remittance fields
 </div>
 <p>
+  Money is normalized <em>at computation</em>, not left to storage: the money columns hold
+  <code>decimal(19,4)</code>, and <code>Quantity × UnitPrice</code> can carry more precision than that (a
+  0.75-pack @ ₦1,000 derives a unit price of ₦1,333.3333; a 1.5-base-unit line computes 1,999.99995) — so line
+  quantities and each line total are rounded to 4&nbsp;dp (away-from-zero) when the line is built, and the header
+  <code>AmountIn</code> is passed explicitly as the sum of the <em>rounded</em> line totals. Relying on
+  SqlClient's silent coercion instead would let the stored amount differ from the returned one and the header
+  drift from Σ&nbsp;lines.
+</p>
+<p>
   The PO is created by calling the spine directly — <code>IOrderService.CreateAsync</code> with
   <code>OrderType = "PurchaseOrder"</code>, <code>PayerPartyId = null</code> (the payer is the tenant itself,
   which has no <code>Party</code> row — §11), the <code>Supplier</code> as a party role when the supplier is
@@ -565,6 +574,9 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   operator does not re-key it:
 </p>
 <div class="ascii-diagram">IPurchaseOrderService.CreateFromShortfallAsync(supplierId, alertIds?)
+  → IdempotencyKey set? look it up on the spine FIRST (IOrderService.FindByIdempotencyKeyAsync):
+      a lost-response retry returns the already-created PO BEFORE any alert validation
+      (the first attempt flipped its alerts to Ordered — re-validating would wrongly reject)
   → resolve the alerts: the given ids, or (auto) every Open/Acknowledged LowStockAlert
     for an ingredient this supplier has a SupplierIngredient row for            — Spec 052 + this spec
   → per alert, from the (supplierId, IngredientId) catalog row:
@@ -574,7 +586,10 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
                         × PackSize                                               // base units, whole packs
   → build one OrderItem line per alert (ProductId = IngredientId, Sku, AmountIn = qty × price, DetailsJson)
   → IOrderService.CreateAsync( OrderType = "PurchaseOrder", Supplier role when party-linked, lines )  → Draft PO
-  → flip the source alerts Open/Acknowledged → Ordered (Spec 052's constant), same operation</div>
+  → flip the source alerts Open/Acknowledged → Ordered (Spec 052's constant), same operation
+      — state-based: the alerts are re-read at flip time and only those still active flip; if a
+        CONCURRENT seed already Ordered them ALL, the just-created PO is cancelled ("Superseded by
+        a concurrent shortfall seed") and the call conflicts — the alerts win exactly once</div>
 <p>
   Prices and packs come from the supplier catalog (<code>SupplierIngredient</code>) — a catalog row is
   <strong>required</strong> on this path, because pack rounding needs <code>PackSize</code> and a defensible
@@ -586,7 +601,18 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   figures the operator is acting on. The operator can also create a PO from <strong>explicit lines</strong>
   (no alert) — the seed path is a convenience over the same <code>CreateAsync</code>, not a separate order
   concept. The seed flips the source alerts to <code>Ordered</code> (Spec&nbsp;052's status constant) in the
-  same operation, ending their active cycle so the scan stops refreshing them.
+  same operation, ending their active cycle so the scan stops refreshing them. Because the order create and the
+  alert flip are two uncoordinated commits (Ordering's context, then Commerce's), the seed is hardened at both
+  ends. <strong>Retry:</strong> a retry carrying the same <code>IdempotencyKey</code> resolves through a spine
+  lookup <em>before</em> any alert validation — the additive <code>IOrderService.FindByIdempotencyKeyAsync</code> —
+  and returns the PO the first attempt created (re-validating would wrongly reject it, since that attempt already
+  flipped the alerts); the spine's <code>CreateAsync</code> dedupe remains the second line of defense.
+  <strong>Concurrency:</strong> the flip is state-based — it re-reads the alerts at flip time and flips only those
+  still active, so when a concurrent seed <code>Ordered</code> them all first the just-created PO is compensated
+  (cancelled with reason "Superseded by a concurrent shortfall seed") and a conflict is raised rather than leaving
+  two live POs for one shortfall; a concurrency-token collision on the flip save reloads and re-runs the same
+  state-based pass once. Every failure direction stays safe: an unflipped alert simply stays active and re-flags,
+  and a compensated PO is visible with its reason, never a silent duplicate.
 </p>
 
 <h2 id="lifecycle">13. PO lifecycle</h2>
@@ -597,7 +623,13 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <code>OrderStatusChangedEvent</code>. So this spec (a) maps the PO lifecycle onto the spine's
   <strong>existing <code>OrderStatusCodes</code></strong> — no new status strings, so <code>IsTerminal()</code>
   and every existing status consumer keep working — and (b) enforces the PO's <em>allowed</em> transitions in
-  <code>IPurchaseOrderService</code> itself, before calling <code>TransitionAsync</code>. This spec drives a PO
+  <code>IPurchaseOrderService</code> itself, before calling <code>TransitionAsync</code>. Because that guard reads
+  a snapshot, its observation must <em>travel with the call</em>: <code>TransitionAsync</code> takes an additive
+  optional <code>expectedFromStatus</code>, and when set the transition is <strong>compare-and-set</strong> — the
+  spine throws instead of applying when the order's current status no longer matches what the guard observed, so a
+  cancel interleaved between a submit's check and its write can no longer be overwritten (a Cancelled PO
+  resurrected to Pending). The spine itself stays state-machine-free — it validates no graph of its own, it only
+  honours an expectation the caller sends. This spec drives a PO
   up to <strong>Pending</strong> (submitted to the supplier); <code>Complete</code> is <em>effected</em> by goods
   receipt (Spec&nbsp;054):
 </p>
@@ -621,7 +653,9 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   and the transition reason) landing on the existing <code>Pending</code> status, and <em>Received/Closed</em>
   collapse into <code>Complete</code> when Spec&nbsp;054 confirms full receipt.
   <code>IPurchaseOrderService.SubmitAsync</code> guards that the order <em>is</em> a PO and is currently
-  <code>Draft</code>; <code>CancelAsync</code> guards <code>Draft</code>/<code>Pending</code>. Funding is
+  <code>Draft</code>; <code>CancelAsync</code> guards <code>Draft</code>/<code>Pending</code> — and each passes the
+  status it observed as <code>expectedFromStatus</code>, so the spine rejects the write if the order moved in
+  between. Funding is
   <em>not</em> a state in this machine — a supplier is paid by a separate <code>PaymentIntent</code> leg (the
   deferred follow-up), which can happen against a Pending or Complete PO without adding a lifecycle state here.
 </p>
@@ -730,7 +764,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; a unit test asserts the mapping.</td></tr>
+    <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; line quantities and totals rounded to the columns' 4&nbsp;dp at computation with the header passed as Σ of the rounded lines (§10), so stored, returned, and header money always agree; unit tests assert the mapping and the rounding.</td></tr>
     <tr><td>Direction of money (payer = us) mis-modelled as an inbound sale</td><td>Medium</td><td><code>PayerPartyId</code> deliberately <code>null</code> (no buyer-party — the tenant pays, §11) + an explicit <code>"Supplier"</code> <code>OrderPartyRole</code> when party-linked + supplier identity always in <code>ProvenanceJson</code>; tests assert the null payer, the role, and the provenance; the outward-payment leg is deferred so nothing moves money on a mismodel.</td></tr>
     <tr><td>Counterparty mis-modelled because the <code>Supplier</code> role is silently dropped (today's <code>CreateOrderCommand</code> can't carry it — only Payer/Receiver)</td><td>Medium</td><td>Land the additive <code>CreateOrderCommand.PartyRoles</code> hook so <code>CoreOrderService.CreateAsync</code> actually persists the role (§10, R10); a test asserts the <code>Supplier</code> role is present on the created PO, not merely intended.</td></tr>
     <tr><td>Reusing <code>ProductId</code> soft-ref to carry <code>IngredientId</code></td><td>Low</td><td><code>ProductId</code> is an opaque <code>Guid?</code> with no FK — semantically fine to hold any soft-ref; the <code>DetailsJson</code> discriminator + <code>ingredientId</code> make the reuse self-describing and documented.</td></tr>

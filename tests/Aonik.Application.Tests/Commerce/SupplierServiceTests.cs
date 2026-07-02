@@ -113,6 +113,28 @@ public class SupplierServiceTests
     }
 
     [Fact]
+    public async Task Create_And_Update_Should_NormalizeEmptyPartyIdToNull()
+    {
+        var (service, ctx, _) = Build();
+        await using var _ = ctx;
+
+        // Guid.Empty means "not party-linked", never a real Party. Stored as-is it would make the
+        // PO create emit an empty-party Supplier role — which the spine rejects — poisoning every
+        // PO for this supplier; both write paths normalize it to null (the blank-SKU precedent).
+        var created = await service.CreateAsync(new CreateSupplierCommand("Farm A", "NGN", PartyId: Guid.Empty));
+        created.PartyId.Should().BeNull();
+        (await ctx.Suppliers.SingleAsync(s => s.Id == created.Id)).PartyId.Should().BeNull();
+
+        var realPartyId = Guid.NewGuid();
+        var linked = await service.UpdateAsync(new UpdateSupplierCommand(created.Id, "Farm A", "NGN", PartyId: realPartyId));
+        linked.PartyId.Should().Be(realPartyId); // a real link still round-trips
+
+        var unlinked = await service.UpdateAsync(new UpdateSupplierCommand(created.Id, "Farm A", "NGN", PartyId: Guid.Empty));
+        unlinked.PartyId.Should().BeNull();
+        (await ctx.Suppliers.SingleAsync(s => s.Id == created.Id)).PartyId.Should().BeNull();
+    }
+
+    [Fact]
     public async Task UpsertCatalogItem_Should_Create_ThenUpdateTheSameRow()
     {
         var (service, ctx, tenantId) = Build();

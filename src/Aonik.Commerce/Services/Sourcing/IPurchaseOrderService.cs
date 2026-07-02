@@ -30,7 +30,11 @@ public interface IPurchaseOrderService
     /// Open/Acknowledged alert for an ingredient this supplier has a catalog row for. Quantity =
     /// the level's <c>ReorderQuantity</c> when set, else the alert-snapshot shortfall rounded up
     /// to whole packs (min one pack); unit price = <c>PackPrice / PackSize</c>. Flips the source
-    /// alerts to <c>Ordered</c> in the same operation.
+    /// alerts to <c>Ordered</c> in the same operation. A retry carrying the same
+    /// <c>IdempotencyKey</c> returns the already-created PO (looked up BEFORE alert validation —
+    /// the first attempt flipped the alerts); when a concurrent seed Ordered every source alert
+    /// first, the just-created PO is cancelled ("Superseded by a concurrent shortfall seed") and a
+    /// conflict is thrown so the shortfall is never double-ordered.
     /// </summary>
     Task<OrderDto> CreateFromShortfallAsync(CreateFromShortfallCommand command, CancellationToken cancellationToken = default);
 

@@ -40,7 +40,10 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         {
             throw new ArgumentException("A purchase order requires at least one line.", nameof(command));
         }
-        if (command.Lines.Any(l => l.Quantity <= 0))
+        // Validated on the NORMALIZED value (§10): explicit quantities are rounded to the 4 dp the
+        // columns store (see BuildLine), so a raw value that rounds to zero is rejected here rather
+        // than silently becoming a zero-quantity line.
+        if (command.Lines.Any(l => NormalizeQuantity(l.Quantity) <= 0))
         {
             throw new ArgumentException("Every purchase-order line quantity must be positive (in the ingredient's base unit).", nameof(command));
         }
@@ -108,11 +111,29 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
             Items: items,
             IdempotencyKey: command.IdempotencyKey,
             ProvenanceJson: BuildProvenance(supplier, command.Notes, alertIds: null),
+            // The header total is passed explicitly as the sum of the ROUNDED line totals (§10),
+            // so header == Σ lines by construction, not by the spine's default.
+            AmountIn: items.Sum(i => i.AmountIn),
             PartyRoles: BuildSupplierRole(supplier)), cancellationToken);
     }
 
     public async Task<OrderDto> CreateFromShortfallAsync(CreateFromShortfallCommand command, CancellationToken cancellationToken = default)
     {
+        // Idempotent retry FIRST (§12), before any alert validation — on both the named-alerts and
+        // auto paths. A successful first attempt flipped its source alerts to Ordered, so a
+        // lost-response retry re-running the validation below would be rejected ("is Ordered" /
+        // "No active alerts") even though the seed succeeded. The spine's CreateAsync dedupe can't
+        // help here because it runs after that validation; it remains the second line of defense
+        // for the explicit-lines path (and for a race through this lookup).
+        if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
+        {
+            var existing = await _orders.FindByIdempotencyKeyAsync(command.IdempotencyKey, cancellationToken);
+            if (existing is not null)
+            {
+                return existing;
+            }
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var supplier = await GetActiveSupplierAsync(tenantId, command.SupplierId, cancellationToken);
         var currency = NormalizeCurrency(supplier.Currency);
@@ -123,13 +144,15 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
             .ToDictionaryAsync(si => si.IngredientId, cancellationToken);
 
         // Resolve the source alerts: named ids, or (auto) every ACTIVE (Open/Acknowledged) alert
-        // for an ingredient this supplier has a catalog row for (§12). Alerts are loaded TRACKED —
-        // they flip to Ordered in this same operation.
+        // for an ingredient this supplier has a catalog row for (§12). These are SNAPSHOT reads
+        // (no tracking) used for validation and line building; the flip to Ordered re-reads the
+        // alerts fresh so it acts on their state at flip time, not at this read (§12).
         List<LowStockAlert> alerts;
         if (command.AlertIds is { Count: > 0 })
         {
             var alertIds = command.AlertIds.Distinct().ToList();
             alerts = await _dbContext.LowStockAlerts
+                .AsNoTracking()
                 .Where(a => a.TenantId == tenantId && alertIds.Contains(a.Id))
                 .ToListAsync(cancellationToken);
 
@@ -153,6 +176,7 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         {
             var suppliableIngredientIds = supplierCatalog.Keys.ToList();
             alerts = await _dbContext.LowStockAlerts
+                .AsNoTracking()
                 .Where(a => a.TenantId == tenantId
                     && suppliableIngredientIds.Contains(a.IngredientId)
                     && (a.Status == LowStockAlertStatuses.Open || a.Status == LowStockAlertStatuses.Acknowledged))
@@ -228,18 +252,102 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
             Items: items,
             IdempotencyKey: command.IdempotencyKey,
             ProvenanceJson: BuildProvenance(supplier, command.Notes, alerts.Select(a => a.Id).ToList()),
+            // Header total = Σ of the ROUNDED line totals (§10), passed explicitly.
+            AmountIn: items.Sum(i => i.AmountIn),
             PartyRoles: BuildSupplierRole(supplier)), cancellationToken);
 
-        // Flip the source alerts to Ordered (Spec 052's constant) — ends their active cycle so the
-        // scan stops refreshing them. Done after the order exists: if this save failed, the alerts
-        // would simply stay active and re-flag, which is the safe direction.
-        foreach (var alert in alerts)
+        await FlipSourceAlertsToOrderedAsync(order.Id, alerts.Select(a => a.Id).ToList(), cancellationToken);
+
+        return order;
+    }
+
+    /// <summary>
+    /// Flips a shortfall seed's source alerts to Ordered (Spec 052's constant) — ending their
+    /// active cycle so the scan stops refreshing them — AFTER the purchase order exists (§12).
+    /// The order create (Ordering's context) and this flip (Commerce's context) are two
+    /// uncoordinated commits, so the flip is deliberately STATE-BASED rather than transactional:
+    /// it re-reads the alerts fresh (tracked) and flips only those still active, so two concurrent
+    /// seeds over the same alerts cannot both keep a live PO. Outcomes:
+    /// <list type="bullet">
+    /// <item>Some alerts still active → flip them; success. (A rival that took a subset loses only
+    /// that subset — this PO keeps the remainder.)</item>
+    /// <item>ZERO still active → a rival seed already Ordered them all; the just-created PO would
+    /// double-order the same shortfall, so it is compensated: cancelled on the spine (expected
+    /// from Draft — its id has not left this request, so nothing can have legitimately advanced
+    /// it) and a conflict is thrown. The operator retries and sees the rival's PO; the alerts win
+    /// exactly once.</item>
+    /// <item><see cref="DbUpdateConcurrencyException"/> on save (a rival flipped between our read
+    /// and our write — the RowVersion token caught it) → reload the stale alerts and re-run the
+    /// same state-based logic ONCE, landing in one of the two outcomes above.</item>
+    /// </list>
+    /// Every failure direction stays safe: if the flip itself fails the alerts stay active and
+    /// simply re-flag; a cancelled-but-real PO is visible with its "superseded" reason, never a
+    /// silent duplicate. Internal (not on <see cref="IPurchaseOrderService"/>) so tests can drive
+    /// the rival interleaving directly.
+    /// </summary>
+    internal async Task FlipSourceAlertsToOrderedAsync(
+        Guid orderId, IReadOnlyList<Guid> alertIds, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await FlipStillActiveAlertsOrCompensateAsync(orderId, alertIds, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A rival committed between our fresh read and our save. Reload every tracked alert we
+            // touched (dropping our rejected local flips AND their stale concurrency tokens), then
+            // re-run the same state-based pass once — it now sees the rival's committed statuses.
+            var staleEntries = _dbContext.ChangeTracker.Entries<LowStockAlert>()
+                .Where(e => alertIds.Contains(e.Entity.Id))
+                .ToList();
+            foreach (var entry in staleEntries)
+            {
+                await entry.ReloadAsync(cancellationToken);
+            }
+
+            await FlipStillActiveAlertsOrCompensateAsync(orderId, alertIds, cancellationToken);
+        }
+    }
+
+    private async Task FlipStillActiveAlertsOrCompensateAsync(
+        Guid orderId, IReadOnlyList<Guid> alertIds, CancellationToken cancellationToken)
+    {
+        // Fresh, TRACKED read: decisions are made on the alerts' state NOW, not on the snapshot
+        // that priced the order (the validation loads above are AsNoTracking precisely so this
+        // read is not served stale from the identity map).
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var alerts = await _dbContext.LowStockAlerts
+            .Where(a => a.TenantId == tenantId && alertIds.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+
+        var stillActive = alerts
+            .Where(a => a.Status is LowStockAlertStatuses.Open or LowStockAlertStatuses.Acknowledged)
+            .ToList();
+
+        if (stillActive.Count == 0)
+        {
+            // A rival seed Ordered every source alert first: compensate. Cancelling is the safe
+            // direction — the rival's PO already covers the shortfall, and leaving ours live would
+            // double-order it; expectedFromStatus guards against ever cancelling an order that has
+            // somehow advanced beyond the Draft this request just created.
+            await _orders.TransitionAsync(
+                orderId,
+                OrderStatusCodes.Cancelled,
+                "Superseded by a concurrent shortfall seed",
+                expectedFromStatus: OrderStatusCodes.Draft,
+                cancellationToken);
+
+            throw new InvalidOperationException(
+                $"The source low-stock alert(s) were already Ordered by a concurrent shortfall seed; " +
+                $"purchase order '{orderId}' was cancelled to avoid double-ordering the same shortfall. " +
+                "Retry to see the purchase order that covered the alerts.");
+        }
+
+        foreach (var alert in stillActive)
         {
             alert.Status = LowStockAlertStatuses.Ordered;
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return order;
     }
 
     public async Task<OrderDto> SubmitAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -252,8 +360,13 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         }
 
         // The spine records the transition + history + OrderStatusChangedEvent; the guard above is
-        // the PO state machine (the spine itself enforces none — §13).
-        return await _orders.TransitionAsync(orderId, OrderStatusCodes.Pending, "Submitted to supplier", cancellationToken);
+        // the PO state machine (the spine itself enforces none — §13). The observed status travels
+        // with the call as the compare-and-set expectation, so a transition interleaved between our
+        // read and this write (e.g. a cancel) makes the spine reject the submit instead of
+        // resurrecting a Cancelled PO to Pending.
+        return await _orders.TransitionAsync(
+            orderId, OrderStatusCodes.Pending, "Submitted to supplier",
+            expectedFromStatus: OrderStatusCodes.Draft, cancellationToken);
     }
 
     public async Task<OrderDto> CancelAsync(Guid orderId, string? reason = null, CancellationToken cancellationToken = default)
@@ -265,8 +378,12 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
                 $"Purchase order '{orderId}' is {order.Status}; only a Draft or Pending purchase order can be cancelled.");
         }
 
+        // Compare-and-set on the SPECIFIC status we observed (Draft or Pending — §13), so an
+        // interleaved transition (a rival cancel, a Spec 054 receipt completing the PO) fails this
+        // call rather than being silently overwritten.
         return await _orders.TransitionAsync(
-            orderId, OrderStatusCodes.Cancelled, reason ?? "Cancelled before receipt", cancellationToken);
+            orderId, OrderStatusCodes.Cancelled, reason ?? "Cancelled before receipt",
+            expectedFromStatus: order.Status, cancellationToken);
     }
 
     public Task<PagedResult<OrderSummary>> ListAsync(string? status = null, int pageNumber = 1, int pageSize = 20, CancellationToken cancellationToken = default)
@@ -358,15 +475,23 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
     /// <summary>The §10 line mapping: PO line → <c>OrderItem</c> columns. <c>ProductId</c> is the
     /// documented soft-ref reinterpretation carrying the <c>IngredientId</c> (opaque Guid, no FK);
     /// the <c>DetailsJson</c> discriminator makes the reuse self-describing; the FX/remittance
-    /// columns are simply left unset.</summary>
+    /// columns are simply left unset. Money is normalized HERE, at computation (§10): the money
+    /// columns store decimal(19,4), and Quantity × UnitPrice can carry more precision (a 0.75-pack
+    /// @ ₦1,000 derives unit ₦1,333.3333; qty 1.5 → 1,999.99995) — relying on SqlClient's silent
+    /// 4 dp coercion would make the stored amount differ from the returned one and the header
+    /// drift from Σ lines, so the quantity and the line total are both rounded to 4 dp
+    /// (away-from-zero, the direction money is conventionally rounded) before they leave this
+    /// method, on the explicit-lines and shortfall paths alike.</summary>
     private static OrderItemCommand BuildLine(
         int index, Ingredient ingredient, decimal quantity, decimal unitPrice, string? sku, string currency)
-        => new(
+    {
+        var normalizedQuantity = NormalizeQuantity(quantity);
+        return new(
             ItemType: OrderTypeCodes.PurchaseOrder,
             ItemIndex: index,
-            AmountIn: quantity * unitPrice,
+            AmountIn: Math.Round(normalizedQuantity * unitPrice, 4, MidpointRounding.AwayFromZero),
             CurrencyIn: currency,
-            Quantity: quantity,
+            Quantity: normalizedQuantity,
             UnitPrice: unitPrice,
             ProductId: ingredient.Id,
             Sku: sku,
@@ -376,6 +501,15 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
                 ["ingredientId"] = ingredient.Id,
                 ["unit"] = ingredient.BaseUnit,
             }));
+    }
+
+    /// <summary>Quantities are stored at the same decimal(19,4) scale as the money columns; an
+    /// explicit line quantity is normalized to 4 dp (away-from-zero) so the persisted value — and
+    /// the line total computed from it — match what the caller gets back. Shortfall-path
+    /// quantities (whole packs × a 4 dp PackSize, or a stored ReorderQuantity) are already at
+    /// scale, so this is a no-op for them.</summary>
+    private static decimal NormalizeQuantity(decimal quantity)
+        => Math.Round(quantity, 4, MidpointRounding.AwayFromZero);
 
     /// <summary>Supplier identity always travels in the order's provenance (§11), so the PO is
     /// self-describing whether or not the supplier is party-linked.</summary>

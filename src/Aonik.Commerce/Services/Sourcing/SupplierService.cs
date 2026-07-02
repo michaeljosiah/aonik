@@ -35,7 +35,7 @@ internal sealed class SupplierService : ISupplierService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            PartyId = command.PartyId,
+            PartyId = NormalizePartyId(command.PartyId),
             Name = name,
             Currency = currency,
             LeadTimeDays = command.LeadTimeDays,
@@ -68,7 +68,7 @@ internal sealed class SupplierService : ISupplierService
 
         supplier.Name = name;
         supplier.Currency = currency;
-        supplier.PartyId = command.PartyId;
+        supplier.PartyId = NormalizePartyId(command.PartyId);
         supplier.LeadTimeDays = command.LeadTimeDays;
         supplier.PaymentTerms = NormalizeOptional(command.PaymentTerms);
         // A null IsActive preserves the stored state — an update that says nothing about the flag
@@ -246,6 +246,13 @@ internal sealed class SupplierService : ISupplierService
         var trimmed = value?.Trim();
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
+
+    /// <summary>Guid.Empty means "not party-linked", never a real Party — normalized to null on
+    /// create AND update (the Guid twin of the blank-SKU normalization above). A stored empty
+    /// PartyId would make BuildSupplierRole emit an empty-party Supplier role, which the spine
+    /// rejects — poisoning every subsequent PO create for the supplier.</summary>
+    private static Guid? NormalizePartyId(Guid? partyId)
+        => partyId == Guid.Empty ? null : partyId;
 
     private static SupplierDto Map(Supplier s)
         => new(s.Id, s.Name, s.Currency, s.PartyId, s.LeadTimeDays, s.PaymentTerms, s.IsActive);
