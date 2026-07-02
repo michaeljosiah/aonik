@@ -14,6 +14,9 @@ public class GoodsReceiptConfiguration : IEntityTypeConfiguration<GoodsReceipt>
         // in retry stories (Spec 054 §8 mirrors CreateOrderCommand.IdempotencyKey).
         builder.Property(x => x.IdempotencyKey).IsRequired().HasMaxLength(200);
         builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
+        // SHA-256 hex of PO id + canonicalized normalized lines (§8): a keyed retry with a
+        // different payload conflicts instead of silently returning the stored receipt.
+        builder.Property(x => x.PayloadHash).IsRequired().HasMaxLength(64);
         builder.Property(x => x.Notes).HasMaxLength(1024);
 
         // The §8 resolve-or-create idempotency backstop: one receipt per (tenant, key). The

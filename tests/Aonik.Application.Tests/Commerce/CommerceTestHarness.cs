@@ -20,6 +20,8 @@ internal static class CommerceTestHarness
                 .UseInMemoryDatabase($"Commerce_{Guid.NewGuid()}").Options,
             Guid.NewGuid());
 
-    public static CommerceDbContext CreateContext(DbContextOptions<CommerceDbContext> options, Guid tenantId)
-        => new(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider());
+    /// <summary>Optionally pass a <see cref="TestClock"/> so audit stamping (CreatedAt — the
+    /// Spec 054 claim-order tiebreaker) is test-controlled instead of wall-clock.</summary>
+    public static CommerceDbContext CreateContext(DbContextOptions<CommerceDbContext> options, Guid tenantId, IClock? clock = null)
+        => new(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider(), clock);
 }

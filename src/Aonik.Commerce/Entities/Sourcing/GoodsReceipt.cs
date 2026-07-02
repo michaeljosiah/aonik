@@ -26,6 +26,28 @@ public class GoodsReceipt : AuditableEntity, ITenantScoped
 
     public string Status { get; set; } = GoodsReceiptStatuses.Posted;
 
+    /// <summary>
+    /// SHA-256 hex (64 chars) of the purchase order id + the canonicalized normalized lines
+    /// (ingredient/quantity/unit-cost, ordered), computed at claim (§8). A keyed retry must carry
+    /// the SAME payload to resume; the same key with a different payload is a conflict, never a
+    /// silent no-op returning a receipt for goods the caller did not describe.
+    /// </summary>
+    public string PayloadHash { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the §8 stock increments were applied (UTC); null = not yet. Set on the tracked receipt
+    /// BEFORE the first increment so marker and stock commit atomically on the shared
+    /// <c>CommerceDbContext</c> SaveChanges — a keyed retry of a receive that crashed post-claim
+    /// re-runs the stock step only while this is null (resume, never double-count).
+    /// </summary>
+    public DateTime? StockAppliedAt { get; set; }
+
+    /// <summary>
+    /// When the §10 cost refresh was applied (UTC); null = not yet. Same marker pattern as
+    /// <see cref="StockAppliedAt"/>, riding the first cost row's SaveChanges on the shared context.
+    /// </summary>
+    public DateTime? CostAppliedAt { get; set; }
+
     public string? Notes { get; set; }
 }
 
@@ -39,4 +61,12 @@ public class GoodsReceipt : AuditableEntity, ITenantScoped
 public static class GoodsReceiptStatuses
 {
     public const string Posted = "Posted";
+
+    /// <summary>
+    /// The receipt lost the post-claim over-receipt re-validation to a concurrently claimed rival
+    /// (§8): it applied no stock/cost and is kept for audit only. Voided receipts are excluded from
+    /// every cumulative received sum, and a keyed retry of a voided receipt surfaces the conflict
+    /// rather than success — the caller must submit corrected quantities under a NEW key.
+    /// </summary>
+    public const string Voided = "Voided";
 }

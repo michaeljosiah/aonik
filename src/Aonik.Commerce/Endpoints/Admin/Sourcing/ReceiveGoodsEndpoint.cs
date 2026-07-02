@@ -22,11 +22,16 @@ public class ReceiveGoodsEndpoint : Endpoint<ReceiveGoodsRequest, GoodsReceiptDt
     public override async Task HandleAsync(ReceiveGoodsRequest req, CancellationToken ct)
     {
         var orderId = Route<Guid>("orderId");
+        // A body with Lines omitted binds null — project it to an empty list so the service's
+        // "requires at least one line" validation produces the domain error, not an NRE here.
+        var lines = req.Lines?
+            .Select(l => new ReceiveGoodsLineCommand(l.IngredientId, l.QuantityReceived, l.UnitCostActual))
+            .ToList() ?? [];
         var result = await _goodsReceipts.ReceiveAsync(
             new ReceiveGoodsCommand(
                 orderId,
                 req.IdempotencyKey,
-                req.Lines.Select(l => new ReceiveGoodsLineCommand(l.IngredientId, l.QuantityReceived, l.UnitCostActual)).ToList(),
+                lines,
                 req.ReceivedAt,
                 req.Notes),
             ct);

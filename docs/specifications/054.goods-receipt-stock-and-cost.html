@@ -358,8 +358,13 @@
 <p>All entities are anemic, <code>ITenantScoped</code>, inherit <code>AuditableEntity</code>.</p>
 <pre><code>class GoodsReceipt     { Guid Id, TenantId, PurchaseOrderId;
                         string   IdempotencyKey;   // client-supplied; UNIQUE index (per tenant)
+                        string   PayloadHash;      // SHA-256 hex (64) of PO id + canonicalized normalized lines —
+                                                   // pins the key to ONE logical receive (§8)
                         DateTime ReceivedAt;
-                        string   Status;   // Posted (v1; Draft reserved for a future review workflow)
+                        string   Status;   // Posted | Voided (lost the §8 post-claim over-receipt race;
+                                           // counted nowhere; Draft reserved for a future review workflow)
+                        DateTime? StockAppliedAt;  // §8 resume marker — stock increments committed
+                        DateTime? CostAppliedAt;   // §8 resume marker — cost refresh committed
                         string?  Notes; }
 
 class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;   // flat soft-link, no navigation
@@ -380,11 +385,17 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;   // f
   before validation, per the Spec&nbsp;053 convention.
   <code>IdempotencyKey</code> is the idempotency lever: it is client-supplied and carries a DB <code>UNIQUE</code>
   index, so a retried receive resolves back to the already-posted receipt (§8) rather than opening a fresh
-  one — mirroring the Order spine's <code>CreateOrderCommand.IdempotencyKey</code>. <code>Status</code> is a
-  marker, not a guard: <code>ReceiveAsync</code> is an atomic single call, so v1 persists a receipt straight
-  to <code>Posted</code> — the row's existence under the unique key IS the applied-once claim, and a separate
-  Draft state would only be ambiguous on retry (partially-applied effects are unknowable). Draft stays
-  reserved for a future review-before-post workflow.
+  one — mirroring the Order spine's <code>CreateOrderCommand.IdempotencyKey</code> — and <code>PayloadHash</code>
+  pins that key to <em>one logical receive</em>: a keyed retry must carry the same PO and (normalized) lines to
+  resolve, and a key reused with a different payload is a <em>conflict</em>, never a silent no-op returning a
+  receipt for goods the caller did not describe. <code>Status</code> is <code>Posted</code> in the normal case —
+  the row's existence under the unique key IS the applied-once claim — with one exception: a receipt that loses
+  the §8 <em>post-claim</em> over-receipt re-validation to a concurrently committed rival flips itself to
+  <code>Voided</code> (audit-preserving; excluded from every cumulative sum; a keyed retry of it surfaces the
+  conflict, not success). The nullable <code>StockAppliedAt</code>/<code>CostAppliedAt</code> markers make a
+  post-claim crash <em>resumable</em>: each is set on the tracked receipt immediately before its step and
+  commits atomically with the step's first write on the shared module context, so a keyed retry re-runs exactly
+  the steps whose marker is still null (§8). Draft stays reserved for a future review-before-post workflow.
 </p>
 
 <h2 id="flow">8. The receiving flow (stock up → cost refresh → alert resolve → PO transition)</h2>
@@ -394,41 +405,67 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;   // f
 </p>
 <div class="ascii-diagram">IGoodsReceiptService.ReceiveAsync(purchaseOrderId, idempotencyKey, lines[], ct)
   0. RESOLVE  the receipt by IdempotencyKey (per-tenant DB UNIQUE) — FIRST, before every guard   ── idempotency
-              a receipt for this key already exists (already applied) → return it, NOTHING re-applied
+              a receipt exists → the key must match what it claimed:
+                Voided                              → surface the over-receipt conflict (key is spent)
+                different PO or different PayloadHash → key-reuse conflict, never a silent no-op
+                same payload                        → RESUME: re-run stock only if StockAppliedAt is
+                                                      null, cost only if CostAppliedAt is null, then
+                                                      ALWAYS the idempotent tail (steps 4–5) → return
               (before the status guard too: a retry of a receive that COMPLETED its PO must not be
                rejected by the Pending check — the Spec 053 lesson)
   0. GUARD    load the PO (053); reject unless Pending (submitted) — Draft/Cancelled/Complete refused
               lines: one per ingredient, each ON the PO (ProductId soft-ref), quantities &gt; 0 (at 4 dp);
-              cumulative received (prior receipts + this one) must not exceed ordered per ingredient
-              → violations rejected NAMING the ingredient. ALL validation runs before anything persists.
-  1. CLAIM    persist the receipt + lines, Posted — the applied-once claim (first commit):
-              from here a keyed retry returns THIS receipt, whatever happens below
-  2. STOCK ▲  for each line → IInventoryService.AdjustOnHandAsync(Ingredient(id), quantity)     (052+054)
-              a signed increment — raises the ingredient's InventoryLevel.OnHand, never overwrites it
-  3. COST  ↻  for each line with UnitCostActual set → write a new effective-dated IngredientCost (051)
-              (EffectiveFrom = ReceivedAt, currency = the line's PO-stamped Currency); the prior
-              cost row is superseded, not mutated
+              cumulative received (prior NON-VOIDED receipts + this one) must not exceed ordered per
+              ingredient → violations rejected NAMING the ingredient
+  0. COST ✓   every cost-carrying line is validated against the Spec 051 window rules
+              (ValidateSetCostAsync — the SAME rule seam SetCostAsync enforces): a backdated
+              ReceivedAt inside an elapsed window rejects the WHOLE receive here, before anything
+              persists. ALL validation runs before the claim.
+  1. CLAIM    persist the receipt + lines, Posted, PayloadHash stamped — the applied-once claim
+              (first commit): from here a keyed retry resolves/resumes THIS receipt
+  1½. RE-SUM  re-validate over-receipt on COMMITTED state: all non-voided receipts of the PO ordered
+              by (CreatedAt, Id), counting receipts up to and including THIS one — two racers with
+              different keys that both passed the pre-claim sum arbitrate deterministically, and the
+              later claim that breaches VOIDS ITSELF (Status = Voided, counted nowhere, nothing
+              applied) and throws the conflict naming the ingredient + figures. The same read yields
+              the all-receipts totals step 5 reuses.
+  2. STOCK ▲  set StockAppliedAt on the tracked receipt, then for each line →
+              IInventoryService.AdjustOnHandAsync(Ingredient(id), quantity)                     (052+054)
+              a signed increment — never overwrites; marker + first increment commit atomically on
+              the shared CommerceDbContext; a rowversion conflict reloads the level and re-applies
+              the delta (bounded retry — signed increments commute)
+  3. COST  ↻  set CostAppliedAt (same marker pattern), then for each line with UnitCostActual set →
+              write a new effective-dated IngredientCost (051) (EffectiveFrom = ReceivedAt, currency
+              = the line's PO-stamped Currency); the prior cost row is superseded, not mutated
   4. ALERT ✓  ILowStockAlertService.ResolveIfRecoveredAsync(receivedIngredientIds)              (052/054)
                  live available (OnHand − Reserved) STRICTLY above the level's live reorder point
                    → flip the unresolved alert (Open/Acknowledged/Ordered) → Resolved
                  still at/below, level missing, or reorder point cleared → left exactly as it was
-  5. PO    →  compute received-vs-ordered across all receipts for this PO:
+  5. PO    →  fully received per the step-1½ totals over ALL non-voided posted receipts:
                  fully satisfied → TransitionAsync(po, Complete, "Fully received",
                                                    expectedFromStatus: Pending)                  (041)
+                   an expected-from mismatch where the PO is ALREADY Complete = a concurrent
+                   sibling receipt won the same transition → success; any other mismatch rethrows
                  short           → leave the PO Pending (partial receipt is DERIVED, not a status)
   → return { receipt, per-line ordered/cumulative/on-hand-after, alertsResolved, costRowsWritten, poStatus }</div>
 <p>
   The composed services each own their <code>SaveChanges</code>, and the PO transition rides the separate
   Ordering context — so this is an <strong>ordered sequence of commits</strong>, not one transaction (the same
   two-context reality Spec&nbsp;053 documented for its alert flip). The ordering is the guard: every
-  validation runs <em>before</em> the claim, so a post-claim failure is infrastructure-only and the system
-  fails toward <em>under</em>-application — a Posted receipt whose keyed retry returns it without re-applying
-  (visible, reconciled by hand at worst) — never toward double-counted stock, this spec's High risk. The
+  validation — including the Spec&nbsp;051 cost-window rules — runs <em>before</em> the claim, so a post-claim
+  failure is infrastructure-only, and the <code>StockAppliedAt</code>/<code>CostAppliedAt</code> markers (each
+  committed atomically with its step's first write on the shared module context) make that failure
+  <em>resumable</em>: a keyed retry re-runs exactly the steps that never applied, then the always-idempotent
+  tail (alert resolve + completion recompute), converging on exactly-once application — never double-counted
+  stock, this spec's High risk. Concurrency is arbitrated twice: the per-tenant <code>UNIQUE</code> key
+  catches same-key races at the claim, and the post-claim re-sum catches different-key over-receipt races
+  deterministically — the earlier claim by (CreatedAt,&nbsp;Id) wins, the later one voids itself, visibly. The
   client-supplied <code>IdempotencyKey</code> is resolved <em>before</em> any stock/cost mutation and before
-  the Pending guard, so a client or agent that times out after the claim and retries gets the existing receipt
-  back rather than a second application — mirroring the Order spine, whose <code>CreateOrderCommand</code>
-  already carries an <code>IdempotencyKey</code>. The agent's args-hash binding (§11) carries the key inside
-  the approved arguments, reinforcing the guard.
+  the Pending guard, and <code>PayloadHash</code> pins it to one logical receive — a client or agent that
+  times out after the claim and retries gets the existing receipt back (resumed if needed) rather than a
+  second application, while a key reused with different lines conflicts — mirroring the Order spine, whose
+  <code>CreateOrderCommand</code> already carries an <code>IdempotencyKey</code>. The agent's args-hash
+  binding (§11) carries the key inside the approved arguments, reinforcing the guard.
 </p>
 
 <h2 id="partial">9. Partial receipts</h2>
@@ -553,11 +590,11 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;   // f
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Double receipt double-counts stock (client/agent retries after commit)</td><td>High</td><td>Client-supplied <code>IdempotencyKey</code> with a per-tenant DB <code>UNIQUE</code> constraint, resolved before any inventory/cost mutation — a duplicate key returns the existing receipt, so a post-commit retry never re-applies. The receipt row persisted first is the applied-once claim that precedes every effect, and the agent args-hash binding carries the key. Effects apply exactly once per receipt.</td></tr>
+    <tr><td>Double receipt double-counts stock (client/agent retries after commit, or two operators race)</td><td>High</td><td>Client-supplied <code>IdempotencyKey</code> with a per-tenant DB <code>UNIQUE</code> constraint, resolved before any inventory/cost mutation — a duplicate key resolves the existing receipt: resumed via the <code>StockAppliedAt</code>/<code>CostAppliedAt</code> markers when a crash left steps unapplied, returned as-is when fully applied; <code>PayloadHash</code> pins the key to one payload, so reuse with different lines conflicts instead of silently no-oping. A different-key over-receipt race is arbitrated post-claim on committed state in deterministic (CreatedAt,&nbsp;Id) order — the losing receipt voids itself and counts nowhere. The receipt row persisted first is the applied-once claim that precedes every effect, and the agent args-hash binding carries the key. Effects apply exactly once per receipt.</td></tr>
     <tr><td>Short receipt prematurely resolves a low-stock alert</td><td>Medium</td><td>After applying stock, <code>ResolveIfRecoveredAsync</code> recomputes the LIVE available (<code>OnHand − Reserved</code>) vs the level's LIVE reorder point; the alert flips to <code>Resolved</code> only when strictly above it — a partial receipt still at/below the reorder point (or a level whose reorder point was cleared) leaves the alert (<code>Open</code>/<code>Acknowledged</code>/<code>Ordered</code>) exactly as it was, so the operator is not told a still-short shortage is fixed.</td></tr>
     <tr><td>Partial receipt leaves a PO indefinitely half-open</td><td>Medium</td><td>Explicit received-vs-ordered tracking (summed receipt lines vs PO lines) plus the existing Spec&nbsp;053 cancel to end an un-completable PO.</td></tr>
     <tr><td>Actual cost overwrites a manually set standard cost</td><td>Medium</td><td>Cost refresh writes a new effective-dated <code>IngredientCost</code> row that supersedes cleanly; the prior row is retained with a closed <code>EffectiveTo</code>, so history is intact.</td></tr>
-    <tr><td>Partial step failure leaves stock up but PO/alert unmoved</td><td>Medium</td><td>All validation runs before the receipt claim, so a post-claim failure is infrastructure-only; the ordering fails toward under-application — a Posted receipt whose keyed retry returns it without re-applying (visible for reconciliation) — never toward double-counted stock.</td></tr>
+    <tr><td>Partial step failure leaves stock up but PO/alert unmoved</td><td>Medium</td><td>All validation — including the Spec&nbsp;051 cost-window rules, via the pre-claim <code>ValidateSetCostAsync</code> seam — runs before the receipt claim, so a post-claim failure is infrastructure-only and <em>resumable</em>: the <code>StockAppliedAt</code>/<code>CostAppliedAt</code> markers commit atomically with each step's first write on the shared module context, and a keyed retry re-runs exactly the unapplied steps plus the always-idempotent alert/completion tail. Convergence is exactly-once — never toward double-counted stock.</td></tr>
     <tr><td>Schema drift from new tables</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 2-table diff; <code>Ank</code> prefix.</td></tr>
   </tbody>
 </table>

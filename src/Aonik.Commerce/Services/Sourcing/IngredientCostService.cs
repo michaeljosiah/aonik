@@ -26,23 +26,11 @@ internal sealed class IngredientCostService : IIngredientCostService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var currency = NormalizeCurrency(command.Currency);
-        if (command.UnitCost <= 0m)
-        {
-            throw new ArgumentException("Unit cost must be positive.");
-        }
-
-        var ingredient = await _dbContext.Ingredients
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == command.IngredientId && i.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Ingredient '{command.IngredientId}' was not found.");
-        if (!ingredient.IsActive)
-        {
-            throw new InvalidOperationException(
-                $"Ingredient '{ingredient.Name}' is deactivated and cannot be costed.");
-        }
-
-        var effectiveFrom = command.EffectiveFrom ?? _clock.UtcNow;
+        // ONE rule seam (Spec 054 FIX): every guard — ingredient exists/active, positive cost,
+        // currency, and the window/history-rewrite check — lives in EnsureSetCostAllowedAsync,
+        // shared verbatim with the no-write ValidateSetCostAsync that composing flows (the goods
+        // receipt) run BEFORE claiming anything.
+        var (currency, effectiveFrom) = await EnsureSetCostAllowedAsync(tenantId, command, cancellationToken);
 
         // The tail = the single open row (EffectiveTo == null) for (tenant, ingredient, currency).
         var tail = await _dbContext.IngredientCosts
@@ -73,14 +61,18 @@ internal sealed class IngredientCostService : IIngredientCostService
             // effectiveFrom lands BEFORE the tail's start, i.e. at least one scheduled row starts
             // after it. Scheduling a future cost must not lock out correcting the window that is
             // pricing today (§8), so split the window containing effectiveFrom, leaving the tail —
-            // and every other later row — untouched.
+            // and every other later row — untouched. The rewrite guards already ran in
+            // EnsureSetCostAllowedAsync; the defensive throw below only trips if the timeline
+            // changed between the validation read and this tracked read.
             var containing = await _dbContext.IngredientCosts
                 .Where(c => c.TenantId == tenantId
                     && c.IngredientId == command.IngredientId
                     && c.Currency == currency
                     && c.EffectiveFrom <= effectiveFrom)
                 .OrderByDescending(c => c.EffectiveFrom)
-                .FirstOrDefaultAsync(cancellationToken);
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new InvalidOperationException(
+                    $"Cost history changed concurrently: no window contains {effectiveFrom:u} anymore. Retry the write.");
 
             // The earliest row starting after effectiveFrom — at minimum the tail. It bounds the
             // new (closed) window and is preserved as-is, so the tail remains the single open row
@@ -93,27 +85,6 @@ internal sealed class IngredientCostService : IIngredientCostService
                     && c.EffectiveFrom > effectiveFrom)
                 .OrderBy(c => c.EffectiveFrom)
                 .FirstAsync(cancellationToken);
-
-            // HISTORY-REWRITE GUARD (§8): a window that already finished pricing the past is
-            // immutable — only the currently-effective window (the one date-effective at "now")
-            // or a future window may be corrected. Because windows are contiguous, a fully
-            // elapsed containing window is exactly an effectiveFrom earlier than the start of
-            // the currently-effective window. Before all recorded history there is no window
-            // to split at all.
-            if (containing is null)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot set a cost effective {effectiveFrom:u} — no cost window for '{ingredient.Name}' in {currency} " +
-                    $"contains that date; recorded history starts at {successor.EffectiveFrom:u}. " +
-                    "Use an effective date inside the currently-effective window or later.");
-            }
-            if (containing.EffectiveTo is not null && containing.EffectiveTo <= _clock.UtcNow)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot set a cost effective {effectiveFrom:u} for '{ingredient.Name}' in {currency} — that window " +
-                    $"closed at {containing.EffectiveTo:u} and has already priced the past. Only the currently-effective " +
-                    "window or a future window can be corrected.");
-            }
 
             // Split: the containing row now ends where the correction begins, and the correction
             // runs up to the untouched successor. Same-instant convention as the tail path: an
@@ -142,6 +113,101 @@ internal sealed class IngredientCostService : IIngredientCostService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Map(cost);
+    }
+
+    public async Task ValidateSetCostAsync(SetIngredientCostCommand command, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        await EnsureSetCostAllowedAsync(tenantId, command, cancellationToken);
+    }
+
+    /// <summary>
+    /// The single validation seam behind <see cref="SetCostAsync"/> and
+    /// <see cref="ValidateSetCostAsync"/> — no writes, no tracking. Throws exactly what the write
+    /// would: missing currency, non-positive cost, unknown/deactivated ingredient, and the §8
+    /// history-rewrite guard (an <c>EffectiveFrom</c> inside a window that already finished pricing
+    /// the past, or before all recorded history, is refused — only the currently-effective window
+    /// or a future one may be corrected). Returns the normalized currency and resolved effective
+    /// date for the write path to reuse.
+    /// </summary>
+    private async Task<(string Currency, DateTime EffectiveFrom)> EnsureSetCostAllowedAsync(
+        Guid tenantId, SetIngredientCostCommand command, CancellationToken cancellationToken)
+    {
+        var currency = NormalizeCurrency(command.Currency);
+        if (command.UnitCost <= 0m)
+        {
+            throw new ArgumentException("Unit cost must be positive.");
+        }
+
+        var ingredient = await _dbContext.Ingredients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == command.IngredientId && i.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException($"Ingredient '{command.IngredientId}' was not found.");
+        if (!ingredient.IsActive)
+        {
+            throw new InvalidOperationException(
+                $"Ingredient '{ingredient.Name}' is deactivated and cannot be costed.");
+        }
+
+        var effectiveFrom = command.EffectiveFrom ?? _clock.UtcNow;
+
+        // The tail = the single open row (EffectiveTo == null) for (tenant, ingredient, currency).
+        // On/after its start the write simply closes it — always allowed. Before its start we are
+        // splitting an earlier window, and the HISTORY-REWRITE GUARD (§8) applies: a window that
+        // already finished pricing the past is immutable — only the currently-effective window
+        // (the one date-effective at "now") or a future window may be corrected. Because windows
+        // are contiguous, a fully elapsed containing window is exactly an effectiveFrom earlier
+        // than the start of the currently-effective window. Before all recorded history there is
+        // no window to split at all.
+        var tail = await _dbContext.IngredientCosts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                c => c.TenantId == tenantId
+                    && c.IngredientId == command.IngredientId
+                    && c.Currency == currency
+                    && c.EffectiveTo == null,
+                cancellationToken);
+        if (tail is null || effectiveFrom >= tail.EffectiveFrom)
+        {
+            return (currency, effectiveFrom);
+        }
+
+        var containing = await _dbContext.IngredientCosts
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId
+                && c.IngredientId == command.IngredientId
+                && c.Currency == currency
+                && c.EffectiveFrom <= effectiveFrom)
+            .OrderByDescending(c => c.EffectiveFrom)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // The earliest row starting after effectiveFrom — at minimum the tail. It bounds the new
+        // (closed) window in the write path and anchors the "history starts at" message here.
+        var successor = await _dbContext.IngredientCosts
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId
+                && c.IngredientId == command.IngredientId
+                && c.Currency == currency
+                && c.EffectiveFrom > effectiveFrom)
+            .OrderBy(c => c.EffectiveFrom)
+            .FirstAsync(cancellationToken);
+
+        if (containing is null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot set a cost effective {effectiveFrom:u} — no cost window for '{ingredient.Name}' in {currency} " +
+                $"contains that date; recorded history starts at {successor.EffectiveFrom:u}. " +
+                "Use an effective date inside the currently-effective window or later.");
+        }
+        if (containing.EffectiveTo is not null && containing.EffectiveTo <= _clock.UtcNow)
+        {
+            throw new InvalidOperationException(
+                $"Cannot set a cost effective {effectiveFrom:u} for '{ingredient.Name}' in {currency} — that window " +
+                $"closed at {containing.EffectiveTo:u} and has already priced the past. Only the currently-effective " +
+                "window or a future window can be corrected.");
+        }
+
+        return (currency, effectiveFrom);
     }
 
     public async Task<IngredientCostDto?> GetCurrentCostAsync(Guid ingredientId, string currency, DateTime? atUtc = null, CancellationToken cancellationToken = default)
