@@ -2,9 +2,13 @@ using System.ComponentModel;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Production;
+using Aonik.Commerce.Contracts.Models.Sourcing;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.Production;
+using Aonik.Commerce.Services.Sourcing;
 
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,19 +29,25 @@ internal sealed class CommerceAgentTools
     private readonly IInventoryService _inventory;
     private readonly ICartService _carts;
     private readonly ICheckoutService _checkout;
+    private readonly IIngredientService _ingredients;
+    private readonly IRecipeService _recipes;
 
     private CommerceAgentTools(
         IProductService products,
         IProductPricingService pricing,
         IInventoryService inventory,
         ICartService carts,
-        ICheckoutService checkout)
+        ICheckoutService checkout,
+        IIngredientService ingredients,
+        IRecipeService recipes)
     {
         _products = products;
         _pricing = pricing;
         _inventory = inventory;
         _carts = carts;
         _checkout = checkout;
+        _ingredients = ingredients;
+        _recipes = recipes;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -67,6 +77,25 @@ internal sealed class CommerceAgentTools
         [Description("The product variant id (GUID)")] Guid productVariantId,
         CancellationToken cancellationToken = default)
         => _inventory.GetAvailableAsync(productVariantId, cancellationToken);
+
+    [Description("Lists the tenant's ingredients (raw materials) with their base units, ordered by name.")]
+    public Task<IReadOnlyList<IngredientDto>> ListIngredients(
+        [Description("Include deactivated ingredients (default false)")] bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+        => _ingredients.ListAsync(includeInactive, cancellationToken);
+
+    [Description("Gets the active recipe (bill of materials) for a product variant, including each ingredient component with its quantity and base unit. Returns null when the variant has no recipe.")]
+    public Task<RecipeDto?> GetRecipe(
+        [Description("The product variant id (GUID)")] Guid productVariantId,
+        CancellationToken cancellationToken = default)
+        => _recipes.GetRecipeAsync(productVariantId, cancellationToken);
+
+    [Description("Explodes a product variant's recipe into the required ingredient quantities for a number of portions. When the variant has no active recipe, HasActiveRecipe is false and the lines are empty.")]
+    public Task<RecipeExplosionDto> ExplodeRecipe(
+        [Description("The product variant id (GUID)")] Guid productVariantId,
+        [Description("The number of portions (yield-units) to produce")] decimal portions,
+        CancellationToken cancellationToken = default)
+        => _recipes.ExplodeAsync(productVariantId, portions, cancellationToken);
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -131,6 +160,25 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType), cancellationToken);
 
+    [Description("Creates an ingredient (raw material) in the tenant's master. The base unit (kg, g, L, ml, or each) is the single unit all recipe quantities for this ingredient use.")]
+    public Task<IngredientDto> CreateIngredient(
+        [Description("Ingredient name (unique per tenant)")] string name,
+        [Description("Base unit of measure: kg, g, L, ml, or each")] string baseUnit,
+        [Description("Optional SKU / internal code (unique per tenant where set)")] string? sku = null,
+        [Description("Optional category (e.g. Produce, Meat, Dry goods)")] string? category = null,
+        CancellationToken cancellationToken = default)
+        => _ingredients.CreateAsync(new CreateIngredientCommand(name, baseUnit, sku, category), cancellationToken);
+
+    [Description("Defines (or replaces) the recipe — the bill of materials — for a product variant. Each component is an ingredient id plus the quantity, in that ingredient's base unit, consumed per yield. Replacing overwrites the existing recipe's components.")]
+    public Task<RecipeDto> SetRecipe(
+        [Description("The product variant id (GUID) the recipe produces")] Guid productVariantId,
+        [Description("Recipe display name")] string name,
+        [Description("How many yield-units (e.g. portions) one run of the recipe produces")] decimal yieldQuantity,
+        [Description("The yield unit, e.g. portion")] string yieldUnit,
+        [Description("The components: each item is an ingredient id, a quantity in that ingredient's base unit, and optional notes")] List<RecipeComponentCommand> components,
+        CancellationToken cancellationToken = default)
+        => _recipes.SetRecipeAsync(new SetRecipeCommand(productVariantId, name, yieldQuantity, yieldUnit, components), cancellationToken);
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new CommerceAgentTools(
@@ -138,13 +186,18 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<IProductPricingService>(),
             serviceProvider.GetRequiredService<IInventoryService>(),
             serviceProvider.GetRequiredService<ICartService>(),
-            serviceProvider.GetRequiredService<ICheckoutService>());
+            serviceProvider.GetRequiredService<ICheckoutService>(),
+            serviceProvider.GetRequiredService<IIngredientService>(),
+            serviceProvider.GetRequiredService<IRecipeService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
         yield return AIFunctionFactory.Create(tools.GetProduct, name: "commerce_get_product");
         yield return AIFunctionFactory.Create(tools.ViewCart, name: "commerce_view_cart");
         yield return AIFunctionFactory.Create(tools.CheckInventory, name: "commerce_check_inventory");
+        yield return AIFunctionFactory.Create(tools.ListIngredients, name: "commerce_list_ingredients");
+        yield return AIFunctionFactory.Create(tools.GetRecipe, name: "commerce_get_recipe");
+        yield return AIFunctionFactory.Create(tools.ExplodeRecipe, name: "commerce_explode_recipe");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -156,5 +209,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.SetPrice, name: "commerce_set_price");
         yield return AIFunctionFactory.Create(tools.AdjustInventory, name: "commerce_adjust_inventory");
         yield return AIFunctionFactory.Create(tools.Checkout, name: "commerce_checkout");
+        yield return AIFunctionFactory.Create(tools.CreateIngredient, name: "commerce_create_ingredient");
+        yield return AIFunctionFactory.Create(tools.SetRecipe, name: "commerce_set_recipe");
     }
 }

@@ -344,7 +344,7 @@
   <li><code>Ingredient</code> entity + <code>IIngredientService</code> (create / update / list / deactivate) + admin endpoints.</li>
   <li><code>Recipe</code> + <code>RecipeComponent</code> entities + <code>IRecipeService</code> (define / replace a variant's recipe, get, list, validate) + admin endpoints.</li>
   <li>Recipe <strong>explosion</strong>: given a <code>ProductVariant</code> and a portion count, return the per-ingredient required quantity in each ingredient's base unit.</li>
-  <li>Validation: components reference active ingredients; quantities positive; one active recipe per variant; recipe target is a real variant in the tenant.</li>
+  <li>Validation: components reference active ingredients; quantities positive; one active recipe per variant (service-validated <em>and</em> DB-enforced via a filtered unique index, §8); recipe target is a real variant in the tenant.</li>
   <li>New Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceRecipesAndIngredients</code>).</li>
   <li>Commerce-agent read tools for ingredients/recipe + medium-gated write tools for create-ingredient / set-recipe.</li>
 </ul>
@@ -403,6 +403,17 @@ class RecipeComponent { Guid Id, TenantId, RecipeId, IngredientId;
   let a recipe describe a batch — "this recipe yields 10 portions" — while components are quantities
   <em>per that yield</em>; explosion (§10) scales to any requested portion count. <code>RecipeComponent.Quantity</code>
   is always expressed in the referenced ingredient's <code>BaseUnit</code>.
+</p>
+<p>
+  Uniqueness is enforced at the <strong>database</strong>, not in the service alone (grounded on the
+  Spec&nbsp;042 index conventions and the Spec&nbsp;051 concurrent-repricing finding):
+  <code>Ingredient</code> is unique per tenant on <code>Name</code> (and on <code>Sku</code> where
+  set, via a filtered index); <code>Recipe</code> carries a <strong>filtered unique index</strong> on
+  (<code>TenantId</code>, <code>ProductVariantId</code>) <code>WHERE IsActive = 1</code> so two
+  concurrent <code>SetRecipe</code> calls cannot each insert an active recipe; and
+  <code>RecipeComponent</code> is unique per (<code>RecipeId</code>, <code>IngredientId</code>) —
+  one component line per ingredient, duplicate submissions merged by the service. Quantities use the
+  house <code>decimal(19,4)</code> precision.
 </p>
 
 <h2 id="recipe-vs-bundle">9. Recipe vs. Bundle — the key distinction</h2>
@@ -473,7 +484,8 @@ IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a who
 <h2 id="dbcontext">13. CommerceDbContext &amp; migrations</h2>
 <p>
   Three new <code>Ank</code>-prefixed tables — <code>AnkIngredients</code>, <code>AnkRecipes</code>,
-  <code>AnkRecipeComponents</code> — are created by one EF-CLI migration against <code>AonikDbContext</code>.
+  <code>AnkRecipeComponents</code> — are created by one EF-CLI migration against <code>AonikDbContext</code>,
+  together with the §8 unique indexes.
   Each entity is added to both <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code>
   (canonical stream); all are tenant-scoped (none global). Configurations live in
   <code>Persistence/Configurations/Sourcing</code> and <code>…/Production</code> as
@@ -510,7 +522,7 @@ IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a who
   <tbody>
     <tr><td>R1</td><td>An <code>Ingredient</code> (name, base unit, optional sku/category) can be created, updated, listed, and deactivated (admin + agent), tenant-scoped.</td></tr>
     <tr><td>R2</td><td>A <code>Recipe</code> can be attached to a <code>ProductVariant</code> with one or more <code>RecipeComponent</code>s (ingredient + quantity in the ingredient's base unit); replacing it overwrites components under one audited entity.</td></tr>
-    <tr><td>R3</td><td>Validation holds: components reference active ingredients in the tenant; quantities &gt; 0; at most one active recipe per variant; the recipe target is a real variant.</td></tr>
+    <tr><td>R3</td><td>Validation holds: components reference active ingredients in the tenant; quantities &gt; 0; at most one active recipe per variant; the recipe target is a real variant. The one-active-recipe rule is additionally enforced by a DB filtered unique index (InMemory tests prove the service validation; the index guards SQL Server under concurrency).</td></tr>
     <tr><td>R4</td><td><code>ExplodeAsync(variant, portions)</code> returns per-ingredient required quantities scaled by <code>portions / YieldQuantity</code>; <code>ExplodeManyAsync</code> sums across variants into a merged bill of materials.</td></tr>
     <tr><td>R5</td><td>A variant with no active recipe explodes to an empty bill with a "no recipe" diagnostic, never a silent zero.</td></tr>
     <tr><td>R6</td><td>Recipes draw down ingredient stock, never saleable-variant stock; the Bundle concept (Spec&nbsp;042) is untouched.</td></tr>
@@ -522,7 +534,7 @@ IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a who
 <h2 id="tasks">16. Tasks</h2>
 <ol>
   <li><code>Ingredient</code> entity + <code>IEntityTypeConfiguration</code> + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IIngredientService</code> + DTOs + admin endpoints.</li>
-  <li><code>Recipe</code>/<code>RecipeComponent</code> entities + configs; <code>IRecipeService</code> (set/get/list, validation, <code>ExplodeAsync</code>/<code>ExplodeManyAsync</code>) + admin endpoints.</li>
+  <li><code>Recipe</code>/<code>RecipeComponent</code> entities + configs incl. the §8 unique indexes (one-active-recipe filtered index; per-tenant ingredient name/sku; one component row per ingredient); <code>IRecipeService</code> (set/get/list, validation, <code>ExplodeAsync</code>/<code>ExplodeManyAsync</code>) + admin endpoints.</li>
   <li>The <code>CommerceRecipesAndIngredients</code> migration against <code>AonikDbContext</code>; review the diff (3 tables only).</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the ingredient/recipe read + medium tools; route through the gate.</li>
   <li>Tests: unit (ingredient CRUD, recipe validation, explosion scaling + multi-variant merge, no-recipe diagnostic) + an architecture test still asserting no Commerce↔Finance reference.</li>
@@ -545,6 +557,7 @@ IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a who
     <tr><td>Unit mismatch (kg vs g) silently mis-explodes</td><td>Medium</td><td>Single base unit per ingredient; all quantities in that unit; no conversion in v1; validation rejects unit-bearing free text.</td></tr>
     <tr><td>Recipe edited after historical production, distorting past valuations</td><td>Low</td><td>Historical stability comes from cost/stock snapshots (051/054/056), not recipe versioning; versioning noted as Open.</td></tr>
     <tr><td>Explosion ignores yield, double-counting a batch recipe</td><td>Medium</td><td>Explosion scales by <code>portions / YieldQuantity</code>; unit test covers a &gt;1 yield recipe.</td></tr>
+    <tr><td>Concurrent <code>SetRecipe</code> calls create two active recipes for one variant</td><td>Medium</td><td>Filtered unique index on (<code>TenantId</code>, <code>ProductVariantId</code>) <code>WHERE IsActive = 1</code> (the Spec&nbsp;051 costing precedent) + service validation; the losing writer surfaces a domain error, never a second active recipe.</td></tr>
     <tr><td>Schema drift from new tables</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 3-table diff; <code>Ank</code> prefix.</td></tr>
   </tbody>
 </table>
