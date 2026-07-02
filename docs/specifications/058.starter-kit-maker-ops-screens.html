@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 058 · Admin starter kit — maker-operations screens (the day-in-the-life surface)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 058</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Design / AdminUi</span>
+  <h1>Admin starter kit — maker-operations screens (the day-in-the-life surface)</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Extends the design-prototype starter kit at <code>Templates/aonik-admin-starterkit</code> with the
+    <strong>make-side screens</strong> that let an operations manager run the full day-in-the-life on
+    Aonik: production sheet → prep list → low-stock alerts → suppliers &amp; purchase orders → goods
+    receipt → production orders &amp; kitchen sheet → margin report → ingredient repricing. Every screen
+    is a mock artboard on the existing canvas (Babel-in-browser, no build), faithful to the
+    <strong>landed semantics of Specs 050–057</strong> — the status vocabularies, honest unknown-COGS
+    states, and frozen-snapshot rules the implemented services actually enforce. Also gives Commerce
+    its missing home in the shell navigation.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#grounding">Grounding: how the starter kit works</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#nav">Navigation &amp; IA — the Commerce group</a></li>
+    <li><a href="#screens">Screen inventory</a></li>
+    <li><a href="#mock-data">Mock-data additions</a></li>
+    <li><a href="#registration">Canvas registration</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  The maker-operations backend is <strong>implemented</strong> (Specs
+  <a href="050.ingredient-recipe-bom.html">050</a>–<a href="057.margin-and-profit-report.html">057</a>,
+  PRs #165–#173): recipes, ingredient costing, raw-material stock with alerts, suppliers and purchase
+  orders on the Order spine, goods receipt, production planning, production orders with kitchen
+  sheets, and the margin report. The admin <em>design surface</em> has none of it: the starter kit's
+  Commerce section covers only the <strong>sell-side</strong> (overview, catalog, inventory,
+  carts/orders, discounts). An operations manager's day cannot be walked through on an artboard.
+</p>
+<p>
+  This spec adds one new canvas section — <strong>Commerce · Make</strong> — with <strong>9 screen
+  files / 11 artboards</strong>, a <strong>Commerce navigation group</strong> in the shell (today the
+  sell-side screens have no sidebar home at all — they exist only as breadcrumbed artboards), and the
+  <strong>mock datasets</strong> that make every state on those screens demonstrable, in the same
+  wellness-food domain the kit already uses — including the exact jollof economics the Spec 050/051/057
+  tests pin (₦400/portion cost, 80% margin), so docs, code, tests, and design all tell one story.
+</p>
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Opening <code>Templates/aonik-admin-starterkit/index.html</code> shows the new "Commerce · Make"
+  section with all 11 artboards rendering cleanly in light and dark themes; the sidebar carries the
+  new Commerce group; every status pill on the new screens uses the <em>landed</em> vocabulary
+  (alerts <code>Open|Acknowledged|Ordered|Resolved</code>; POs
+  <code>Draft|Pending|Complete|Cancelled</code>; production
+  <code>Planned|Released|InProgress|Completed|Cancelled</code>); the margin screen shows an
+  unknown-COGS row with a null margin — never a fake zero; and the kitchen sheet states its
+  frozen-snapshot guarantee.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+<p>
+  The 050–057 family was driven by a concrete day-in-the-life: the operations manager reviews orders,
+  reads the aggregated production sheet, consults the ingredient prep list, reacts to a low-stock
+  alert, places a purchase order, receives stock, prints the kitchen sheet, reviews the profit report,
+  and updates ingredient costs when suppliers reprice. Every one of those moments now has a real API
+  and agent tool. The starter kit is where Aonik's admin UX is designed before it is built in
+  <code>src/Aonik.AdminUi</code> — so the day-in-the-life needs its screens there first, both as the
+  design contract for the production build and as the demo surface for the wellness-food tenant story
+  that Spec&nbsp;042 started.
+</p>
+<p>
+  A secondary motivation surfaced during grounding: the existing Commerce screens are registered as
+  artboards with breadcrumbs like <code>['Commerce', 'Inventory']</code>, but <code>SIDEBAR_NAV</code>
+  in <code>kit/shell-aonik.jsx</code> has <strong>no Commerce group</strong> — commerce has no place
+  in the app's information architecture. This spec fixes that for the sell-side and make-side
+  together (§7).
+</p>
+
+<h2 id="grounding">3. Grounding: how the starter kit works</h2>
+<p>Verified against the template (2026-07-02); the spec's tasks assume exactly this machinery.</p>
+<ul>
+  <li><strong>Runtime:</strong> static <code>index.html</code>, CDN React 18.3 + Babel standalone —
+      JSX transpiled in-browser, no build step. Screens load via
+      <code>&lt;script type="text/babel" src="screens/…"&gt;</code> tags in a fixed order (kit → screens → canvas → app).</li>
+  <li><strong>Canvas:</strong> <code>design-canvas.jsx</code> renders <code>DCSection</code>s of
+      <code>DCArtboard</code>s (typically 1480×980). Artboards wrap screens via the
+      <code>mkShell(activeNavId, breadcrumbs, ScreenComponent)</code> helper in the main app script,
+      which composes <code>AonikShell</code>. Artboard order/labels persist to
+      <code>.design-canvas.state.json</code>.</li>
+  <li><strong>Screen anatomy</strong> (per <code>commerce-inventory.jsx</code> /
+      <code>commerce-orders.jsx</code>, the closest siblings): one
+      <code>function ScreenX()</code> per artboard; local <code>useState</code> for tabs/filters/selection;
+      page header (22px/700 title + 13px secondary subtitle); a 4-tile KPI grid; a segmented
+      tab/filter control; a CSS-grid data table (header row on <code>--surface-inset</code>, clickable
+      rows); a conditionally-rendered right-side <strong>drawer</strong> for detail/edit; status pills
+      driven by <code>{ tone, label }</code> lookup objects.</li>
+  <li><strong>Kit:</strong> <code>Icon</code> (Tabler/Lucide-style, ~80 names + <code>icons-extra.jsx</code>),
+      <code>Avatar</code>, <code>Pill</code> (tones: default/tint/muted/success/warning/danger/pending),
+      <code>KPI</code>, <code>Card</code>, <code>Tabs</code>, <code>FilterBar</code>, <code>DataTable</code>,
+      <code>PageHeader</code>, <code>.btn/.input</code> classes, drawer pattern. Design tokens in
+      <code>tokens.css</code> (brand teal <code>--brand-primary #055a60</code>, status colors, dark theme
+      via <code>data-theme="dark"</code>).</li>
+  <li><strong>Mock data:</strong> global-scope <code>mock-data.js</code> — <code>CM_*</code> UPPERCASE
+      datasets, <code>cm*</code> helper functions, <code>*_TONE</code>-style status lookups; wellness-food
+      domain (granolas, cold-brew, wellness shots, build-your-own boxes; NGN/GBP pricing;
+      Lagos&nbsp;DC / Abuja&nbsp;DC locations).</li>
+  <li><strong>Not production code:</strong> the starter kit is a design prototype. Screens do not map
+      1:1 to <code>src/Aonik.AdminUi</code>; there is no API wiring and none is added here.</li>
+</ul>
+
+<h2 id="reuse-vs-build">4. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Canvas / artboard machinery</td><td><span class="tag reuse">reuse</span></td><td><code>DCSection</code>/<code>DCArtboard</code>/<code>mkShell</code> exactly as the sell-side screens use them; one new section.</td></tr>
+    <tr><td>Shell + navigation</td><td><span class="tag reuse">reuse</span> + <span class="tag new">extend</span></td><td><code>AonikShell</code> unchanged; <code>SIDEBAR_NAV</code> gains the Commerce group (§7).</td></tr>
+    <tr><td>Component kit</td><td><span class="tag reuse">reuse</span></td><td>Pill/KPI/Tabs/FilterBar/DataTable/PageHeader/Avatar/Icon/drawer pattern — <strong>no new kit primitives</strong> except the two §8 helpers explicitly listed.</td></tr>
+    <tr><td>Design tokens</td><td><span class="tag reuse">reuse</span></td><td>tokens.css untouched; light + dark must both render.</td></tr>
+    <tr><td>Sell-side commerce screens</td><td><span class="tag existing">existing</span></td><td>Overview/Catalog/Inventory/Carts+Orders/Discounts stay; Overview gains make-side tiles in Phase 4 only.</td></tr>
+    <tr><td>Make-side screens (9 files / 11 artboards)</td><td><span class="tag new">build</span></td><td>§8 — ingredients, recipes, low stock, suppliers, purchase orders, goods receipt, planning (sheet + prep list), production (orders + kitchen sheet), margin.</td></tr>
+    <tr><td>Make-side mock data + tone lookups + helpers</td><td><span class="tag new">build</span></td><td>§9 — <code>CM_INGREDIENTS</code>, <code>CM_RECIPES</code>, <code>CM_SUPPLIERS</code>, <code>CM_POS</code>, <code>CM_RECEIPTS</code>, <code>CM_ALERTS</code>, <code>CM_PROD_ORDERS</code>, <code>CM_MARGIN</code>.</td></tr>
+    <tr><td>API wiring, production AdminUi pages</td><td><span class="tag existing">later</span></td><td>Out of scope; §8's API-mapping tables are the contract for that follow-up.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li>9 new screen files under <code>Templates/aonik-admin-starterkit/screens/</code> (11 artboards) per §8.</li>
+  <li>A new <code>DCSection</code> "Commerce · Make · Specs 050–057" registered in <code>index.html</code> (§10).</li>
+  <li>The Commerce navigation group in <code>kit/shell-aonik.jsx</code>'s <code>SIDEBAR_NAV</code>, covering sell-side and make-side (§7); existing artboards' <code>mkShell</code> active-ids updated to match.</li>
+  <li>Mock datasets, status-tone lookups, and helpers in <code>mock-data.js</code> (§9), continuous with the existing wellness-food domain and the 050–057 test economics.</li>
+  <li>Phase 4: three make-side tiles on the existing Commerce overview screen (low-stock count, POs awaiting receipt, this-week margin).</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li>Production pages in <code>src/Aonik.AdminUi</code> and any API wiring — the §8 mapping tables are the hand-off contract for that separate spec.</li>
+  <li>New kit primitives beyond the two §8 helpers; changes to the canvas machinery, tweaks panel, tokens, or fonts.</li>
+  <li>The <code>payabo-mobile-starterkit</code> (mobile parity is an Open item).</li>
+  <li>Print/PDF styling for the kitchen sheet beyond a print-intent layout on the artboard (real print CSS lands with the production build).</li>
+</ul>
+
+<h2 id="guardrails">6. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>Semantics fidelity is the point.</strong> Every status vocabulary, state, and rule shown
+      must match what Specs 050–057 <em>landed</em> — not what early drafts sketched. Concretely:
+      alerts are <code>Open | Acknowledged | Ordered | Resolved</code> and Open+Acknowledged is one
+      <em>active</em> set; POs are <code>Draft | Pending | Complete | Cancelled</code> (there is no
+      "Submitted/Received" status — submitted <em>lands on</em> Pending, partial receipt is a
+      <em>derived</em> progress bar, never a status); production orders are
+      <code>Planned | Released | InProgress | Completed | Cancelled</code>; margins with unknown COGS
+      are <code>null</code> ("—"), never zero, and excluded from the aggregate; the kitchen sheet
+      consumes the <em>frozen creation-time snapshot</em>, stated on the artboard.</li>
+  <li><strong>Mock-only.</strong> No fetch, no backend, no new dependencies; all interactivity is
+      local <code>useState</code> theatre, as on the existing screens.</li>
+  <li><strong>House patterns only.</strong> Tokens for every color (both themes must render);
+      kit components over bespoke ones; CSS-grid tables; drawers for detail/edit;
+      <code>{ tone, label }</code> lookups for statuses; <code>cmMoney()</code> for money.</li>
+  <li><strong>Domain continuity.</strong> The wellness-food catalog (jollof, granola, rice, tomato,
+      Lagos/Abuja DCs, NGN-first) carries through; the demo numbers reuse the family's pinned test
+      economics (§9) so a reader can trace a figure from spec → test → artboard.</li>
+  <li><strong>Additive registration.</strong> New screens append; existing artboard ids, labels, and
+      the state sidecar are not disturbed.</li>
+</ul>
+
+<h2 id="nav">7. Navigation &amp; IA — the Commerce group</h2>
+<p>
+  A new group in <code>SIDEBAR_NAV</code>, placed in the <em>Products</em> band after Billing.
+  Sell-side items point at the existing screens; make-side items at the new ones. Badge counts come
+  from the mock datasets (active alerts; POs pending receipt).
+</p>
+<pre><code>{ group: 'Products', items: [
+    ...existing (Bill Payments, Remittances, Billing, Personal Finance)...,
+    { id: 'commerce', label: 'Commerce', icon: 'cart', children: [
+      { id: 'cm-overview',   label: 'Overview',        icon: 'dashboard' },
+      { id: 'cm-catalog',    label: 'Catalog',         icon: 'box' },
+      { id: 'cm-inventory',  label: 'Inventory',       icon: 'layers' },
+      { id: 'cm-orders',     label: 'Orders & carts',  icon: 'receipt' },
+      { id: 'cm-discounts',  label: 'Discounts',       icon: 'tag' },
+      { id: 'cm-make', label: 'Make', icon: 'chef', children: [
+        { id: 'cm-ingredients', label: 'Ingredients',       icon: 'wheat' },
+        { id: 'cm-recipes',     label: 'Recipes',           icon: 'book' },
+        { id: 'cm-planning',    label: 'Planning',          icon: 'calendar' },
+        { id: 'cm-production',  label: 'Production',        icon: 'flame' },
+        { id: 'cm-lowstock',    label: 'Low stock',         icon: 'alert', badge: 3 },
+        { id: 'cm-suppliers',   label: 'Suppliers',         icon: 'truck' },
+        { id: 'cm-pos',         label: 'Purchase orders',   icon: 'clipboard', badge: 2 },
+        { id: 'cm-margin',      label: 'Margin',            icon: 'chart' },
+      ]},
+    ]},
+]}</code></pre>
+<p>
+  Icons reuse the existing set where possible; <code>chef</code>/<code>wheat</code>/<code>truck</code>/<code>flame</code>
+  are added to <code>icons-extra.jsx</code> if absent (same stroke style). Existing commerce artboards'
+  <code>mkShell('commerce', …)</code> calls update to the new child ids so the sidebar highlights
+  correctly.
+</p>
+
+<h2 id="screens">8. Screen inventory</h2>
+<p>
+  Nine files, eleven artboards, each 1480×980 under <code>mkShell</code>. For every screen: the
+  day-in-the-life moment it serves, its artboards and layout, the states that MUST be demonstrated
+  (the mock data is designed to produce them), and the API mapping the production build will wire.
+  Two small shared helpers are permitted (kit-level, reused across screens):
+  <code>WindowPicker</code> (from/to date-range chip row used by Planning + Margin) and
+  <code>ProgressCells</code> (received-vs-ordered / margin-vs-target mini bars in table rows).
+</p>
+
+<h3>8.1 Ingredients — <code>screens/commerce-ingredients.jsx</code> · <code>ScreenCommerceIngredients</code></h3>
+<p><em>Moment: "updates ingredient costs in the system if suppliers change prices."</em></p>
+<ul>
+  <li><strong>KPIs:</strong> ingredients count · below reorder point · avg cost movement (30d) · uncosted ingredients.</li>
+  <li><strong>Table:</strong> name+emoji, base unit, category, current cost (<code>cmMoney</code>/unit), stock available (OnHand−Reserved), reorder point, status pill (Active/Inactive).</li>
+  <li><strong>Drawer</strong> (row click): identity (name/sku/unit/category, unit locked with a "referenced by recipes/costs" note — the landed 050/051 guard); <strong>cost history</strong> as an effective-dated timeline (closed windows, the current window, and one <em>scheduled</em> future cost — the 051 window-split semantics); a reprice form (new cost + effective-from) with the backdate-rejected error state; stock &amp; reorder-point editing (052).</li>
+  <li><strong>Must demonstrate:</strong> a scheduled future cost rendered distinctly; the unit-change-blocked note; an uncosted ingredient flagged.</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>List / create / edit / deactivate</td><td><code>GET/POST/PUT /commerce/admin/ingredients</code> (050)</td></tr>
+    <tr><td>Cost history + reprice</td><td><code>GET .../{id}/cost/history</code> · <code>PUT .../{id}/cost</code> (051)</td></tr>
+    <tr><td>Stock + reorder point</td><td><code>GET/POST .../{id}/inventory</code> · <code>PUT .../{id}/reorder-point</code> (052)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.2 Recipes — <code>screens/commerce-recipes.jsx</code> · <code>ScreenCommerceRecipes</code></h3>
+<p><em>Moment: the master data behind every prep list and kitchen sheet.</em></p>
+<ul>
+  <li><strong>Table:</strong> product/variant (Avatar+name), recipe name, yield ("4 portions"), component count, per-portion standard cost (051 rollup — "—" when incomplete), recipe status.</li>
+  <li><strong>Drawer:</strong> component editor (ingredient picker, quantity in the ingredient's base unit, per-yield note); an <strong>explosion preview</strong> panel — "40 portions ⇒ 10 kg rice · 5 kg tomato" (the 050 worked example verbatim); validation states (inactive ingredient, non-positive qty).</li>
+  <li><strong>Must demonstrate:</strong> a variant <em>without</em> a recipe listed with a "no recipe — excluded from prep &amp; costing" diagnostic row (the family's never-silent rule); the recipe-vs-bundle distinction in the header subtitle (recipes draw <em>ingredient</em> stock).</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>Get / set recipe</td><td><code>GET/PUT /commerce/admin/variants/{id}/recipe</code> (050)</td></tr>
+    <tr><td>Explosion preview</td><td><code>GET .../recipe/explosion?portions=N</code> (050)</td></tr>
+    <tr><td>Standard cost</td><td><code>GET .../standard-cost?currency=NGN</code> (051)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.3 Low stock — <code>screens/commerce-low-stock.jsx</code> · <code>ScreenCommerceLowStock</code></h3>
+<p><em>Moment: "they notice a low-stock alert — only 2 kg of rice left."</em></p>
+<ul>
+  <li><strong>Tabs:</strong> Active (Open + Acknowledged — one active set, per 052) · Ordered · Resolved.</li>
+  <li><strong>Table:</strong> ingredient, available at raise vs reorder point ("2 kg / reorder at 5 kg" — the 052 notification string), raised-at, status pill, per-row actions: Acknowledge (Open only) and <strong>Order from shortfall</strong> (routes to 8.5's from-shortfall flow).</li>
+  <li><strong>Must demonstrate:</strong> an Acknowledged alert that a re-scan <em>refreshed but did not re-open</em> (updated figures, same status — the 052 Codex fix); an Ordered alert linking its PO; a Resolved alert with its resolving receipt.</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>List / acknowledge</td><td><code>GET /commerce/admin/low-stock-alerts?status=</code> · <code>POST .../{id}/acknowledge</code> (052)</td></tr>
+    <tr><td>Order from shortfall</td><td><code>POST /commerce/admin/purchase-orders/from-shortfall</code> (053)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.4 Suppliers — <code>screens/commerce-suppliers.jsx</code> · <code>ScreenCommerceSuppliers</code></h3>
+<p><em>Moment: who to order the rice from, and at what pack economics.</em></p>
+<ul>
+  <li><strong>Table:</strong> supplier (Avatar+name), currency, lead time, payment terms, catalog size, party-linked pill (linked ⇒ the PO carries a Supplier role; unlinked ⇒ provenance-only — the landed 053 §11 rule, one line in the drawer).</li>
+  <li><strong>Drawer:</strong> supplier detail + <strong>catalog</strong> table (ingredient, supplier SKU, pack "25 kg @ ₦28,000", derived unit price ₦1,120/kg, lead time), with a <em>cheapest for this ingredient</em> badge; catalog upsert form; a currency-mismatch warning state (a GBP row can't price an NGN PO — the 053 honesty guard).</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>Suppliers CRUD</td><td><code>GET/POST/PUT /commerce/admin/suppliers</code> (053)</td></tr>
+    <tr><td>Catalog read / upsert</td><td><code>GET/PUT .../{id}/catalog</code> (053)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.5 Purchase orders — <code>screens/commerce-purchase-orders.jsx</code> · <code>ScreenCommercePurchaseOrders</code></h3>
+<p><em>Moment: "they place an order for more."</em></p>
+<ul>
+  <li><strong>Status filter:</strong> All · Draft · Pending · Complete · Cancelled — <strong>exactly the landed codes</strong>; the Pending chip is subtitled "submitted to supplier".</li>
+  <li><strong>Table:</strong> PO ref, supplier, lines, total (<code>cmMoney</code>), status pill, <strong>received progress</strong> (ProgressCells: cumulative received vs ordered — partial receipt is a bar, never a status), created.</li>
+  <li><strong>Drawer:</strong> lines (ingredient, qty in base units, unit price, line total — 4dp-honest numbers), provenance ("seeded from low-stock alerts …"), receipts list, actions by state: Submit (Draft), Cancel (Draft/Pending), <strong>Receive</strong> (Pending → routes to 8.6). A "create PO" flow: explicit lines or <em>from shortfall</em> (supplier picker → pre-filled pack-rounded quantities, min one pack).</li>
+  <li><strong>Must demonstrate:</strong> a partially-received Pending PO; a Cancelled PO whose drawer explains the compare-and-set guard (a stale submit shows a conflict toast mock).</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>List / create / from-shortfall</td><td><code>GET/POST /commerce/admin/purchase-orders</code> · <code>POST .../from-shortfall</code> (053)</td></tr>
+    <tr><td>Submit / cancel</td><td><code>POST .../{id}/submit</code> · <code>POST .../{id}/cancel</code> (053)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.6 Goods receipt — <code>screens/commerce-goods-receipt.jsx</code> · <code>ScreenCommerceGoodsReceipt</code></h3>
+<p><em>Moment: "once stock is confirmed."</em></p>
+<ul>
+  <li><strong>Layout:</strong> a receive form against a Pending PO — per-line received quantity (vs remaining), optional <em>actual unit cost</em> ("updates the ingredient's cost from this delivery"), received-at; a summary rail showing what posting will do: stock ↑, cost refresh, alert resolution, PO completion.</li>
+  <li><strong>Second panel (posted state):</strong> the outcome of a posted receipt — stock applied, cost row written (effective-dated), "alert resolved" vs "<strong>alert kept — still below reorder point</strong>" (the short-receipt honesty rule from #164), PO Complete vs still Pending with the progress bar.</li>
+  <li><strong>Must demonstrate:</strong> an over-receipt rejection naming the ingredient and figures; the idempotent-retry note ("same receipt returned, applied once" — the 054 claim-first design, one caption line).</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>Receive against a PO</td><td><code>POST /commerce/admin/purchase-orders/{id}/receipts</code> (054 — idempotency key + payload hash)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.7 Planning — <code>screens/commerce-planning.jsx</code> · 2 artboards</h3>
+<p><em>Moments: "the aggregated production sheet" and "the ingredient prep list".</em></p>
+<h4>ScreenCommerceProductionSheet</h4>
+<ul>
+  <li><strong>WindowPicker</strong> (this week default; half-open UTC range caption); KPIs: orders counted · portions total · variants · without-recipe count.</li>
+  <li><strong>Table:</strong> variant (Avatar+name), portions demanded, orders contributing, bundle-expanded pill where demand came through a build-your-own-box (the 055 expansion rule), recipe? check.</li>
+  <li><strong>Actions:</strong> "Create production order from this sheet" (routes to 8.8; skipped no-recipe variants surfaced).</li>
+  <li><strong>Caption states the demand rule:</strong> paid-or-committed statuses only, Draft checkouts excluded (landed 055 predicate).</li>
+</ul>
+<h4>ScreenCommercePrepList</h4>
+<ul>
+  <li><strong>Table:</strong> ingredient, required (base unit), available (OnHand−Reserved), <strong>shortfall</strong> (danger when &gt;0), suggested order (pack-rounded, "1 × 25 kg sack"), cheapest supplier.</li>
+  <li><strong>Must demonstrate:</strong> the Codex netting example verbatim — 10 kg on hand, 8 kg reserved, 5 kg required ⇒ shortfall <strong>3 kg</strong> (never 0); the no-recipe diagnostic panel; an "order shortfalls" CTA into 8.5.</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>Production sheet</td><td><code>GET /commerce/admin/planning/production-sheet?fromUtc=&amp;toUtc=</code> (055)</td></tr>
+    <tr><td>Prep list</td><td><code>GET /commerce/admin/planning/prep-list?fromUtc=&amp;toUtc=&amp;net=true</code> (055)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.8 Production — <code>screens/commerce-production.jsx</code> · 2 artboards</h3>
+<p><em>Moments: the production run and "they print the kitchen sheet".</em></p>
+<h4>ScreenCommerceProductionOrders</h4>
+<ul>
+  <li><strong>Status filter:</strong> Planned · Released · InProgress · Completed · Cancelled (landed lifecycle).</li>
+  <li><strong>Table:</strong> run ref, planned-for, lines/portions, status pill, released/completed timestamps.</li>
+  <li><strong>Drawer:</strong> lines with planned vs produced; actions by state — Release (with a <strong>stock-impact preview</strong>: per-ingredient draw-down, and the <em>insufficient-stock error state</em> naming ingredient + figures, nothing applied — the 056 all-or-nothing rule), Start, Complete (actuals + a "yield finished goods" toggle), Cancel ("released runs do not restock" caption). A "snapshot frozen at creation" note: recipe edits after creation don't change this run.</li>
+</ul>
+<h4>ScreenCommerceKitchenSheet</h4>
+<ul>
+  <li><strong>Print-intent layout</strong> (white sheet, generous type): run header (date, ref, portions); per-dish blocks — dish, portions, per-ingredient prep quantities; a merged <strong>all-ingredients totals</strong> section; footer note: "quantities from the recipe snapshot frozen at creation — matches what Release consumes."</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>List / create / from-sheet</td><td><code>GET/POST /commerce/admin/production-orders</code> · <code>POST .../from-sheet</code> (056)</td></tr>
+    <tr><td>Lifecycle</td><td><code>POST .../{id}/release|start|complete|cancel</code> (056)</td></tr>
+    <tr><td>Kitchen sheet</td><td><code>GET .../{id}/kitchen-sheet</code> (056)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.9 Margin — <code>screens/commerce-margin.jsx</code> · <code>ScreenCommerceMargin</code></h3>
+<p><em>Moment: "they review the profit report, comparing actual costs to their target margins."</em></p>
+<ul>
+  <li><strong>WindowPicker</strong> + currency chip; <strong>aggregate tiles:</strong> Revenue · COGS · Gross margin · Margin % (over known-COGS rows only) · <strong>Unknown-COGS revenue</strong> (its own tile — surfaced, excluded, with an info caption).</li>
+  <li><strong>Table:</strong> variant, qty sold, revenue (discount-allocated), COGS, gross margin, margin % vs <strong>target</strong> (ProgressCells; BelowTarget row treatment), bundle-expanded pill, and an <em>unknown-COGS row</em> rendering "—" for cost/margin with a "no recipe / no cost" reason — <strong>never zero</strong> (the #164 P1 rule).</li>
+  <li><strong>Inline target editing:</strong> target-margin % per product (nullable — clearing shows "no target · cannot judge").</li>
+  <li><strong>Must demonstrate:</strong> the pinned economics — jollof ₦400/portion cost, 80% row margin, the honest aggregate vs the zeroed counterfactual in the tile caption.</li>
+</ul>
+<table>
+  <thead><tr><th>UI action</th><th>Landed API</th></tr></thead>
+  <tbody>
+    <tr><td>Report</td><td><code>GET /commerce/admin/reports/margin?fromUtc=&amp;toUtc=&amp;currency=</code> (057)</td></tr>
+    <tr><td>Target margin</td><td><code>PUT /commerce/admin/products/{id}/target-margin</code> (057)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="mock-data">9. Mock-data additions</h2>
+<p>All in <code>mock-data.js</code>, following the CM_* / cm* / tone-lookup conventions; window-exported like the existing sets.</p>
+<pre><code>// Masters (continuous with CM_PRODUCTS' wellness-food domain)
+CM_INGREDIENTS  // ~10: rice (kg), tomato (kg), beef (kg), oats (kg), honey (L), ginger (kg), …
+                //  { id, name, emoji, unit, cat, cost: { current, ccy, since, scheduled? },
+                //    history: [...], onHand, reserved, reorderPoint, reorderQty, active }
+CM_RECIPES      // per variant: { variantSku, name, yield, unit: 'portion',
+                //    components: [{ ing, qty }], perPortionCost }   // jollof: ₦400/portion
+CM_SUPPLIERS    // 3: Lagos Grains Co (NGN, party-linked), FreshFarm NG (NGN), Albion Foods (GBP)
+                //  each with catalog: [{ ing, sku, packSize, packPrice, ccy, lead }]
+// Flows
+CM_ALERTS       // Open (rice: 2kg / reorder 5kg), Acknowledged (refreshed), Ordered→PO, Resolved→receipt
+CM_POS          // Draft, Pending(partial 15/25kg), Complete, Cancelled — lines + provenance + receipts
+CM_RECEIPTS     // posted full + posted short (alert kept) + over-receipt rejection sample
+CM_PROD_ORDERS  // Planned, Released, InProgress, Completed(+yield), Cancelled — lines with
+                //  frozen snapshots + planned/produced portions
+CM_MARGIN       // rows incl. jollof (80%), a BelowTarget row, an unknown-COGS row, a bundle-expanded row
+// Tone lookups (landed vocabularies ONLY)
+CM_ALERT_STATUS = { open:{tone:'danger'}, acknowledged:{tone:'warning'},
+                    ordered:{tone:'pending'}, resolved:{tone:'success'} }
+CM_PO_STATUS    = { draft:{tone:'muted'}, pending:{tone:'warning'},
+                    complete:{tone:'success'}, cancelled:{tone:'danger'} }
+CM_RUN_STATUS   = { planned:{tone:'muted'}, released:{tone:'pending'}, inprogress:{tone:'warning'},
+                    completed:{tone:'success'}, cancelled:{tone:'danger'} }
+// Helpers
+cmUnit(qty, unit)            // "10 kg", "2 × 25 kg sack"
+cmPrepRows(window)           // sheet → recipes → requirements → net vs available (incl. the 10/8/5⇒3 row)
+cmMarginRows(window)         // rows + honest aggregate (known-COGS denominator)</code></pre>
+
+<h2 id="registration">10. Canvas registration</h2>
+<pre><code>&lt;!-- index.html: after the existing commerce screen scripts --&gt;
+&lt;script type="text/babel" src="screens/commerce-ingredients.jsx"&gt;&lt;/script&gt;
+… (8 more) …
+
+&lt;!-- main app script: new section after "Commerce · Spec 042" --&gt;
+&lt;DCSection id="commerce-make" title="Commerce · Make · Specs 050–057"
+           subtitle="The operations manager's day: plan, source, receive, produce, price."&gt;
+  &lt;DCArtboard id="cm-ingredients"     label="Ingredients · cost history & repricing" …&gt;
+    {mkShell('cm-ingredients', ['Commerce', 'Make', 'Ingredients'], ScreenCommerceIngredients)}
+  &lt;/DCArtboard&gt;
+  &lt;DCArtboard id="cm-recipes"         label="Recipes · components + explosion preview" …&gt;
+  &lt;DCArtboard id="cm-lowstock"        label="Low stock · active alerts → order from shortfall" …&gt;
+  &lt;DCArtboard id="cm-suppliers"       label="Suppliers · catalog & pack economics" …&gt;
+  &lt;DCArtboard id="cm-pos"             label="Purchase orders · Draft→Pending→Complete" …&gt;
+  &lt;DCArtboard id="cm-receipt"         label="Goods receipt · claim-first receive + outcomes" …&gt;
+  &lt;DCArtboard id="cm-prod-sheet"      label="Production sheet · windowed demand" …&gt;
+  &lt;DCArtboard id="cm-prep-list"       label="Prep list · required vs available vs shortfall" …&gt;
+  &lt;DCArtboard id="cm-prod-orders"     label="Production orders · release consumes the snapshot" …&gt;
+  &lt;DCArtboard id="cm-kitchen-sheet"   label="Kitchen sheet · printable, snapshot-frozen" …&gt;
+  &lt;DCArtboard id="cm-margin"          label="Margin report · honest unknown-COGS aggregate" …&gt;
+&lt;/DCSection&gt;</code></pre>
+
+<h2 id="phases">11. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Foundations: nav + mock data + master data screens</h4>
+  <div class="phase-summary">The Commerce group exists; ingredients &amp; recipes browsable.</div>
+  <ul>
+    <li><code>SIDEBAR_NAV</code> Commerce group (+ icons); existing commerce artboards re-pointed at the child ids.</li>
+    <li>All §9 datasets/lookups/helpers; screens 8.1 (Ingredients) + 8.2 (Recipes).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Sourcing: alerts → suppliers → POs → receipt</h4>
+  <div class="phase-summary">The reorder loop, end to end on artboards.</div>
+  <ul>
+    <li>Screens 8.3 (Low stock), 8.4 (Suppliers), 8.5 (Purchase orders), 8.6 (Goods receipt) with every listed state.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Make: planning + production + kitchen sheet</h4>
+  <div class="phase-summary">The morning artefacts and the run.</div>
+  <ul>
+    <li>Screen 8.7 (2 artboards) + 8.8 (2 artboards), incl. the stock-impact preview, insufficient-stock error state, and the print-intent kitchen sheet.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 4 — Money: margin report + overview tiles</h4>
+  <div class="phase-summary">The profit review closes the day.</div>
+  <ul>
+    <li>Screen 8.9 (Margin) incl. the unknown-COGS tile + inline targets; three make-side tiles added to the existing Commerce overview (low-stock count, POs awaiting receipt, this-week margin).</li>
+  </ul>
+</div>
+
+<h2 id="requirements">12. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>Opening <code>index.html</code> renders the "Commerce · Make" section with all 11 artboards, in light AND dark themes, with no console errors; existing artboards and the state sidecar are undisturbed.</td></tr>
+    <tr><td>R2</td><td>The sidebar carries the Commerce group of §7; every commerce artboard (sell-side + make-side) highlights its correct nav child.</td></tr>
+    <tr><td>R3</td><td>Status vocabularies match the LANDED 050–057 semantics exactly (guardrails §6): no "Submitted/Received" PO status, no re-opened Acknowledged alert, partial receipt only ever a progress bar.</td></tr>
+    <tr><td>R4</td><td>The margin screen renders an unknown-COGS row as "—" (null), surfaces its revenue in a dedicated excluded tile, and never shows a zero-cost margin (the #164 P1 rule, in pixels).</td></tr>
+    <tr><td>R5</td><td>The kitchen sheet and the production-order drawer both state the frozen-snapshot guarantee; the release flow demonstrates the all-or-nothing insufficient-stock error naming ingredient + figures.</td></tr>
+    <tr><td>R6</td><td>The prep list demonstrates netting against Available (the 10/8/5 ⇒ 3 example) and the no-recipe diagnostic; the production sheet states the demand-status rule and marks bundle-expanded demand.</td></tr>
+    <tr><td>R7</td><td>Goods receipt demonstrates: full receipt outcomes, the short-receipt "alert kept" state, an over-receipt rejection, and the idempotent-retry caption.</td></tr>
+    <tr><td>R8</td><td>Every §8 screen carries its API-mapping table content as an HTML comment atop the screen file (the hand-off contract for the production AdminUi build).</td></tr>
+    <tr><td>R9</td><td>Mock data reuses the pinned family economics (jollof ₦400/portion · 80% margin; rice 2 kg / reorder 5 kg; 25 kg sack @ ₦28,000) so figures trace across spec → tests → artboards.</td></tr>
+    <tr><td>R10</td><td>Only tokens and existing kit primitives are used (plus <code>WindowPicker</code> and <code>ProgressCells</code>); no new dependencies, no fetch, no build step.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li>Nav: Commerce group in <code>kit/shell-aonik.jsx</code>; icons in <code>icons-extra.jsx</code>; re-point existing commerce artboards' <code>mkShell</code> ids.</li>
+  <li>Mock data: §9 datasets, tone lookups, helpers; window exports.</li>
+  <li>Shared helpers: <code>WindowPicker</code>, <code>ProgressCells</code> in <code>kit/components.jsx</code>.</li>
+  <li>Screens 8.1–8.9 (phases 1→4), each with its listed states and the R8 API-mapping comment.</li>
+  <li>Overview tiles (Phase 4).</li>
+  <li>Registration: script tags + the <code>DCSection</code> per §10.</li>
+  <li>Verification pass per §14 (both themes, tweaks-panel density settings, focus-mode navigation).</li>
+</ol>
+
+<h2 id="verification">14. Verification</h2>
+<ul>
+  <li>Open <code>Templates/aonik-admin-starterkit/index.html</code>; the new section renders; pan/zoom/focus-mode work; no console errors; toggle dark theme and compact density via the tweaks panel — all 11 artboards stay legible.</li>
+  <li>Walk the day-in-the-life across artboards in order: orders (existing) → production sheet → prep list → low stock → PO from shortfall → receipt → kitchen sheet → margin → reprice — every hand-off CTA points at the next screen.</li>
+  <li>Semantics checklist (R3–R7) against the landed specs: alert lifecycle, PO codes + progress-bar partials, production lifecycle + snapshot notes, unknown-COGS rendering, netting example, short-receipt honesty.</li>
+  <li>Figures audit (R9): the jollof margin row, the rice alert, and the sack economics match the numbers pinned in the 050/051/052/055/057 tests.</li>
+</ul>
+
+<h2 id="risks">15. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Design drifts from landed semantics (e.g. a "Submitted" PO pill) and the production build copies the drift</td><td>High</td><td>§6 guardrails + R3–R7 are review gates; §8 API tables + R8 comments bind each screen to real endpoints.</td></tr>
+    <tr><td>Babel-in-browser payload grows (9 more files) and canvas load slows</td><td>Low</td><td>Screens follow the existing size profile (~300 lines); no new libraries; acceptable for a design tool.</td></tr>
+    <tr><td>Nav restructure breaks existing artboards' active-state</td><td>Medium</td><td>One task re-points all commerce <code>mkShell</code> ids; §14 verifies every artboard's highlight.</td></tr>
+    <tr><td>Mock data contradicts itself across screens (an alert's PO missing from the PO list)</td><td>Medium</td><td>§9 datasets are cross-linked by ids (alert→PO→receipt→cost row); the §14 walk-through checks the chain.</td></tr>
+    <tr><td>State sidecar (<code>.design-canvas.state.json</code>) conflicts with new artboard ids</td><td>Low</td><td>New ids are namespaced (<code>cm-*</code> under <code>commerce-make</code>); registration is additive.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">16. Decisions baked in</h2>
+<ul>
+  <li><strong>The starter kit is the design contract</strong> for the production AdminUi build — hence the R8 per-screen API-mapping comments and the semantics-fidelity guardrails.</li>
+  <li><strong>One new canvas section, nine files, eleven artboards</strong> — mirrors the family's screen-per-moment shape; planning and production get two artboards each.</li>
+  <li><strong>Commerce finally gets a nav group</strong>, covering sell-side and make-side; make-side nests under a "Make" child.</li>
+  <li><strong>Landed semantics over draft semantics</strong> — the screens teach the implemented rules (status codes, honest nulls, frozen snapshots, derived partials).</li>
+  <li><strong>Demo numbers = test numbers</strong> — the pinned economics carry from the 050–057 suites onto the artboards.</li>
+</ul>
+
+<h2 id="open">17. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Production AdminUi port.</strong> Which framework surface in <code>src/Aonik.AdminUi</code>
+  (Dockview panel set vs routed pages) these screens map onto, and whether the port is one spec or
+  per-phase. The §8 API tables are its input either way.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Agent rail presence.</strong> Whether the make-side screens show the commerce agent rail
+  (with the 050–057 read/medium tools as tool-card mocks) by default or leave it off like most
+  existing artboards. A single "planning + agent" variant artboard could sell the agentic story.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Kitchen-sheet print CSS.</strong> Real <code>@media print</code> styling and a PDF export
+  belong to the production build; the artboard ships a print-intent layout only.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Mobile parity.</strong> Whether <code>payabo-mobile-starterkit</code> gets a maker-ops
+  subset (kitchen sheet + low stock are the obvious mobile moments).
+</div>
+
+<h2 id="refs">18. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec 050</a> · <a href="051.ingredient-costing-standard-cost.html">051</a> · <a href="052.raw-material-inventory-reorder-alerts.html">052</a> · <a href="053.suppliers-and-purchase-orders.html">053</a> · <a href="054.goods-receipt-stock-and-cost.html">054</a> · <a href="055.production-planning-sheet-prep-list.html">055</a> · <a href="056.production-orders-kitchen-sheet.html">056</a> · <a href="057.margin-and-profit-report.html">057</a> — the landed maker-operations family these screens surface (PRs #165–#173).</li>
+  <li><a href="042.commerce-retail-module.html">Spec 042</a> — the sell-side module whose starter-kit screens this section joins.</li>
+  <li><code>Templates/aonik-admin-starterkit/</code> — the canvas, kit, tokens, and mock-data conventions grounded in §3.</li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032</a> — the approval tiers behind the agent-rail Open item.</li>
+</ul>
+
+<footer>
+  Spec 058 &middot; Admin starter kit — maker-operations screens &middot; Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>
