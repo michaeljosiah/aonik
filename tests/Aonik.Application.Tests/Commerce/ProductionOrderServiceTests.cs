@@ -628,6 +628,31 @@ public class ProductionOrderServiceTests
     }
 
     [Fact]
+    public async Task Cancel_Should_ClampTheAppendedNotesToTheColumnMax_KeepingTheReasonVisible()
+    {
+        var h = new Harness();
+        var (variantId, _, _) = await h.SeedJollofAsync();
+        // Near-max existing notes + a long reason: the combined append would overflow the 1024-char
+        // Notes column (a SQL-Server-only failure — InMemory never enforces lengths), so the
+        // service clamps the COMBINED value, truncating the OLDEST content and keeping the newest
+        // tail — the cancel reason — visible.
+        var nearMaxNotes = new string('n', 1_000);
+        var longReason = new string('r', 200);
+        var order = await h.ProductionOrders().CreateAsync(new CreateProductionOrderCommand(
+            PlannedFor, new[] { new ProductionOrderLineCommand(variantId, 4m) }, Notes: nearMaxNotes));
+
+        var cancelled = await h.ProductionOrders().CancelAsync(order.Id, longReason);
+
+        cancelled.Status.Should().Be(ProductionOrderStatuses.Cancelled);
+        cancelled.Notes!.Length.Should().BeLessThanOrEqualTo(1_024);
+        cancelled.Notes.Should().StartWith("…");                      // oldest content truncated away
+        cancelled.Notes.Should().Contain($"Cancelled: {longReason}"); // the reason stays visible
+
+        await using var ctx = h.Commerce();
+        (await ctx.ProductionOrders.SingleAsync(o => o.Id == order.Id)).Notes.Should().Be(cancelled.Notes);
+    }
+
+    [Fact]
     public async Task Cancel_Should_Throw_WhenTheOrderIsCompleted()
     {
         var h = new Harness();
@@ -760,7 +785,7 @@ public class ProductionOrderServiceTests
     }
 
     [Fact]
-    public async Task List_Should_FilterByStatus_MostRecentPlannedForFirst()
+    public async Task List_Should_FilterByStatus_MostRecentPlannedForFirst_AsSummaryRows()
     {
         var h = new Harness();
         var (variantId, riceId, tomatoId) = await h.SeedJollofAsync();
@@ -774,12 +799,61 @@ public class ProductionOrderServiceTests
         await h.ProductionOrders().ReleaseAsync(monday.Id);
 
         var all = await h.ProductionOrders().ListAsync();
-        all.Select(o => o.Id).Should().ContainInOrder(friday.Id, monday.Id); // planned-for desc
+        all.TotalCount.Should().Be(2);
+        all.PageNumber.Should().Be(1);
+        all.PageSize.Should().Be(20);
+        all.Items.Select(o => o.Id).Should().ContainInOrder(friday.Id, monday.Id); // planned-for desc
+
+        // Summary rows carry the header + a line count — never the per-line snapshots (the §11
+        // kitchen sheet is the heavy read, mirroring the 053 OrderSummary list convention).
+        var fridayRow = all.Items.Single(o => o.Id == friday.Id);
+        fridayRow.Status.Should().Be(ProductionOrderStatuses.Planned);
+        fridayRow.PlannedFor.Should().Be(new DateTime(2026, 7, 10, 6, 0, 0, DateTimeKind.Utc));
+        fridayRow.LineCount.Should().Be(1);
+        all.Items.Single(o => o.Id == monday.Id).ReleasedAt.Should().NotBeNull();
 
         var planned = await h.ProductionOrders().ListAsync(ProductionOrderStatuses.Planned);
-        planned.Should().ContainSingle(o => o.Id == friday.Id);
+        planned.TotalCount.Should().Be(1);
+        planned.Items.Should().ContainSingle(o => o.Id == friday.Id);
 
         var released = await h.ProductionOrders().ListAsync(ProductionOrderStatuses.Released);
-        released.Should().ContainSingle(o => o.Id == monday.Id);
+        released.Items.Should().ContainSingle(o => o.Id == monday.Id);
+    }
+
+    [Fact]
+    public async Task List_Should_PageDeterministically_WithTheIdTieBreak_AndNormalizeOutOfRangePaging()
+    {
+        var h = new Harness();
+        var (variantId, _, _) = await h.SeedJollofAsync();
+
+        // Three runs planned for the SAME instant and created at the SAME (frozen) clock instant:
+        // PlannedFor and CreatedAt are full ties, so only the Id tie-break makes the page walk
+        // deterministic — without it a walk could skip or double-count a run between page queries
+        // (the CoreOrderService.ListAsync discipline the Spec 053 purchase-order list rides).
+        var a = await h.ProductionOrders().CreateAsync(new CreateProductionOrderCommand(
+            PlannedFor, new[] { new ProductionOrderLineCommand(variantId, 1m) }));
+        var b = await h.ProductionOrders().CreateAsync(new CreateProductionOrderCommand(
+            PlannedFor, new[] { new ProductionOrderLineCommand(variantId, 2m) }));
+        var c = await h.ProductionOrders().CreateAsync(new CreateProductionOrderCommand(
+            PlannedFor, new[] { new ProductionOrderLineCommand(variantId, 3m) }));
+        var expectedWalk = new[] { a.Id, b.Id, c.Id }.OrderBy(id => id).ToList(); // ties break Id-ascending
+
+        var page1 = await h.ProductionOrders().ListAsync(status: null, pageNumber: 1, pageSize: 2);
+        var page2 = await h.ProductionOrders().ListAsync(status: null, pageNumber: 2, pageSize: 2);
+
+        page1.TotalCount.Should().Be(3);
+        page1.Items.Should().HaveCount(2);
+        page1.HasNextPage.Should().BeTrue();
+        page2.TotalCount.Should().Be(3);
+        page2.Items.Should().HaveCount(1);
+        page2.HasNextPage.Should().BeFalse();
+        // The walk covers every run exactly once, in the deterministic tie-broken order.
+        page1.Items.Select(o => o.Id).Concat(page2.Items.Select(o => o.Id)).Should().Equal(expectedWalk);
+
+        // Out-of-range paging resets to the defaults (the 053 NormalizePaging convention).
+        var normalized = await h.ProductionOrders().ListAsync(status: null, pageNumber: 0, pageSize: 500);
+        normalized.PageNumber.Should().Be(1);
+        normalized.PageSize.Should().Be(20);
+        normalized.Items.Should().HaveCount(3);
     }
 }

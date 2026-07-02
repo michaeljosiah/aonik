@@ -40,6 +40,10 @@ internal sealed class ProductionOrderService : IProductionOrderService
     private const string UnknownProductName = "(unknown product)";
     private const string UnknownVariantName = "(unknown variant)";
 
+    /// <summary>Must match the <c>Notes</c> max length in <c>ProductionOrderConfiguration</c> —
+    /// SQL Server rejects an overflow at SaveChanges (InMemory does not enforce it).</summary>
+    private const int NotesMaxLength = 1024;
+
     private readonly CommerceDbContext _dbContext;
     private readonly IRecipeService _recipes;
     private readonly IProductionPlanningService _planning;
@@ -370,7 +374,14 @@ internal sealed class ProductionOrderService : IProductionOrderService
         if (!string.IsNullOrWhiteSpace(reason))
         {
             var note = $"Cancelled: {reason.Trim()}";
-            order.Notes = string.IsNullOrWhiteSpace(order.Notes) ? note : $"{order.Notes}\n{note}";
+            var combined = string.IsNullOrWhiteSpace(order.Notes) ? note : $"{order.Notes}\n{note}";
+            // The append is clamped to the column max: near-max existing notes + a long reason
+            // would otherwise overflow at SaveChanges (a SQL-Server-only 500). The OLDEST content
+            // is truncated away — the cancel reason is the newest, operationally live tail and
+            // must stay visible.
+            order.Notes = combined.Length <= NotesMaxLength
+                ? combined
+                : $"…{combined[^(NotesMaxLength - 1)..]}";
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
         return Map(order);
@@ -424,24 +435,41 @@ internal sealed class ProductionOrderService : IProductionOrderService
         return new KitchenSheetDto(order.Id, order.PlannedFor, order.Status, order.Notes, dishes, totals);
     }
 
-    public async Task<IReadOnlyList<ProductionOrderDto>> ListAsync(string? status = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ProductionOrderSummaryDto>> ListAsync(
+        string? status = null, int pageNumber = 1, int pageSize = 20, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        // The spine's list convention (CoreOrderService.NormalizePaging, which the Spec 053
+        // purchase-order list rides): out-of-range values reset to the defaults, never throw.
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize is < 1 or > 200 ? 20 : pageSize;
+
         var query = _dbContext.ProductionOrders
             .AsNoTracking()
-            .Include(o => o.Lines)
             .Where(o => o.TenantId == tenantId);
         if (!string.IsNullOrWhiteSpace(status))
         {
             query = query.Where(o => o.Status == status);
         }
 
-        var orders = await query
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Summary rows only (the 053 OrderSummary convention): the frozen per-line snapshots are
+        // the heavy payload and belong to the §11 kitchen sheet, never the board list. PlannedFor
+        // and CreatedAt are not a total order — Id breaks ties deterministically so a multi-page
+        // window walk never skips or double-counts a run (the CoreOrderService.ListAsync
+        // discipline).
+        var items = await query
             .OrderByDescending(o => o.PlannedFor)
             .ThenByDescending(o => o.CreatedAt)
             .ThenBy(o => o.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(o => new ProductionOrderSummaryDto(
+                o.Id, o.PlannedFor, o.Status, o.Notes, o.ReleasedAt, o.CompletedAt, o.Lines.Count))
             .ToListAsync(cancellationToken);
-        return orders.Select(Map).ToList();
+
+        return new PagedResult<ProductionOrderSummaryDto>(items, totalCount, pageNumber, pageSize);
     }
 
     // ── internals ───────────────────────────────────────────────────────────────────────────────

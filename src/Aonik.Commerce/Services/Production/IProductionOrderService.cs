@@ -1,4 +1,5 @@
 using Aonik.Commerce.Contracts.Models.Production;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Commerce.Services.Production;
 
@@ -71,6 +72,9 @@ public interface IProductionOrderService
     /// </summary>
     Task<KitchenSheetDto?> GetKitchenSheetAsync(Guid productionOrderId, CancellationToken cancellationToken = default);
 
-    /// <summary>Lists the tenant's production runs, optionally filtered by status, most recent planned-for first.</summary>
-    Task<IReadOnlyList<ProductionOrderDto>> ListAsync(string? status = null, CancellationToken cancellationToken = default);
+    /// <summary>Lists the tenant's production runs as paged summary rows (header + line count —
+    /// the §11 kitchen sheet is the heavy read), optionally filtered by status, most recent
+    /// planned-for first with an Id tie-break so a page walk never skips or double-counts a run.
+    /// Out-of-range paging resets to the defaults (the Spec 053 list convention).</summary>
+    Task<PagedResult<ProductionOrderSummaryDto>> ListAsync(string? status = null, int pageNumber = 1, int pageSize = 20, CancellationToken cancellationToken = default);
 }

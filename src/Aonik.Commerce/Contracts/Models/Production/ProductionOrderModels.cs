@@ -67,6 +67,18 @@ public record ProductionOrderDto(
     DateTime? CompletedAt,
     IReadOnlyList<ProductionOrderLineDto> Lines);
 
+/// <summary>One row of the production-run list: the run's header plus a line count, mirroring the
+/// spine's <c>OrderSummary</c> (the Spec 053 purchase-order list convention). The frozen per-line
+/// snapshots are the heavy payload and belong to the §11 kitchen sheet, never the board list.</summary>
+public record ProductionOrderSummaryDto(
+    Guid Id,
+    DateTime PlannedFor,
+    string Status,
+    string? Notes,
+    DateTime? ReleasedAt,
+    DateTime? CompletedAt,
+    int LineCount);
+
 /// <summary>A from-sheet seed's result (Spec 056 §7): the created run plus the demanded variants
 /// that were skipped because they carry no active recipe — reported, never silently dropped.</summary>
 public record ProductionOrderFromSheetDto(
