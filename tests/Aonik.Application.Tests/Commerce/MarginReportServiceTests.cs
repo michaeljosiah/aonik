@@ -351,6 +351,51 @@ public class MarginReportServiceTests
         report.Aggregate.UnknownCogsRevenue.Should().Be(900m);
     }
 
+    // ── the report currency is normalized ONCE (051 convention) and used everywhere ──────────────
+
+    [Fact]
+    public async Task GetMarginReport_Should_NormalizeCurrency_KeepingValueWeightedBundleSplit()
+    {
+        var h = new Harness();
+        var category = await h.Products().CreateCategoryAsync(new CreateCategoryCommand("mains", "Mains"));
+        var (_, jollof) = await h.SeedSimpleAsync("Jollof rice", priceNgn: 2_000m, category.Id);
+        var (_, moimoi) = await h.SeedSimpleAsync("Moi moi", priceNgn: 1_000m, category.Id);
+        await h.GiveJollofEconomicsAsync(jollof);
+
+        // UNEQUAL component prices: the value split (4,000 : 1,000 ⇒ 3,600 / 900) and the
+        // quantity fallback (2 : 1 ⇒ 3,000 / 1,500) visibly disagree.
+        var box = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "family-box", "Family Box", ProductKinds.Bundle,
+            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 4_500m, BundleCurrency: "NGN"));
+        var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(
+            box.Id, "Pick 3", MinItems: 3, MaxItems: 3, FromCategoryId: category.Id));
+
+        h.Clock.UtcNow = FromUtc.AddDays(1);
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, new[]
+        {
+            new BundleSelectionLine(slot.Id, jollof, 2m),
+            new BundleSelectionLine(slot.Id, moimoi, 1m),
+        }));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+
+        // A lowercase report currency must behave IDENTICALLY to the uppercase call. The order
+        // filter admits case-insensitively but ResolvePriceAsync matches ProductPrice.Currency
+        // exactly — an un-normalized "ngn" would find the order, miss every component's standalone
+        // NGN price, and silently degrade the §8 value-weighted split to the quantity fallback.
+        var lower = await h.ReportAsync("ngn");
+        var upper = await h.ReportAsync("NGN");
+
+        lower.Currency.Should().Be("NGN");                  // the DTO echoes the NORMALIZED currency
+        lower.OrdersExcludedByCurrency.Should().Be(0);
+        var jollofRow = lower.Rows.Single(r => r.ProductVariantId == jollof);
+        jollofRow.Revenue.Should().Be(3_600m);              // value-weighted, NOT the 3,000 fallback
+        jollofRow.Cogs.Should().Be(800m);                   // the rollup got the normalized currency too
+        lower.Rows.Single(r => r.ProductVariantId == moimoi).Revenue.Should().Be(900m);
+        lower.Should().BeEquivalentTo(upper);
+    }
+
     // ── §8 — whole-order discount apportioned pro-rata; Σ rows == discounted total EXACTLY ───────
 
     [Fact]
@@ -505,6 +550,24 @@ public class MarginReportServiceTests
         // The boundary values themselves are legal.
         (await h.Margins().SetTargetMarginAsync(productId, 0m)).TargetMarginPct.Should().Be(0m);
         (await h.Margins().SetTargetMarginAsync(productId, 100m)).TargetMarginPct.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task SetTargetMargin_Should_BeExposedOnProductReads()
+    {
+        var h = new Harness();
+        var (productId, _) = await h.SeedSimpleAsync("Jollof rice", priceNgn: 2_000m);
+
+        // Freshly created — no target yet.
+        (await h.Products().GetProductAsync(productId))!.TargetMarginPct.Should().BeNull();
+
+        // Set → the full product read (the admin edit surface) carries it.
+        await h.Margins().SetTargetMarginAsync(productId, 62.5m);
+        (await h.Products().GetProductAsync(productId))!.TargetMarginPct.Should().Be(62.5m);
+
+        // Clear → null again.
+        await h.Margins().SetTargetMarginAsync(productId, null);
+        (await h.Products().GetProductAsync(productId))!.TargetMarginPct.Should().BeNull();
     }
 
     // ── window validation (mirrors Spec 055 §12) ─────────────────────────────────────────────────

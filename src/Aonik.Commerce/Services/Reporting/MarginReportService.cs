@@ -61,13 +61,19 @@ internal sealed class MarginReportService : IMarginReportService
     public async Task<MarginReportDto> GetMarginReportAsync(ProductionWindow window, string currency, CancellationToken cancellationToken = default)
     {
         ValidateWindow(window);
+        // ONE normalized report currency (the Spec 051 convention: reject null/empty, trim,
+        // uppercase), used for the order filter, the COGS rollup AND the bundle price lookups.
+        // ResolvePriceAsync matches ProductPrice.Currency EXACTLY, so a raw "ngn" would silently
+        // miss every component's standalone price and degrade the §8 value-weighted bundle split
+        // to the quantity fallback — misreported per-variant revenue, not an error.
         if (string.IsNullOrWhiteSpace(currency))
         {
             throw new ArgumentException("A report currency is required.", nameof(currency));
         }
+        var reportCurrency = currency.Trim().ToUpperInvariant();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var (orders, ordersExcludedByCurrency) = await ReadRevenueOrdersAsync(window, currency, cancellationToken);
+        var (orders, ordersExcludedByCurrency) = await ReadRevenueOrdersAsync(window, reportCurrency, cancellationToken);
         var orderIds = orders.Select(o => o.Id).ToList();
 
         var summariesByOrder = await LoadChargeSummariesAsync(tenantId, orderIds, cancellationToken);
@@ -102,7 +108,7 @@ internal sealed class MarginReportService : IMarginReportService
                 // Quantity is already the line TOTAL (selection × boxes, as checkout wrote it).
                 if (selectionsByLine.TryGetValue((order.Id, item.ItemIndex), out var selections))
                 {
-                    await ExpandBundleLineAsync(byVariant, selections, lineRevenue, currency, cancellationToken);
+                    await ExpandBundleLineAsync(byVariant, selections, lineRevenue, reportCurrency, cancellationToken);
                     continue;
                 }
 
@@ -132,7 +138,7 @@ internal sealed class MarginReportService : IMarginReportService
                 // rollup withholds the total (UnitCost = null) when the variant has no active
                 // recipe or any component lacks an effective cost in that currency — surfaced
                 // below as CogsKnown = false, never a silent zero (§9/R5).
-                var rollup = await _costing.RollupStandardCostAsync(variantId, currency, atUtc: null, cancellationToken);
+                var rollup = await _costing.RollupStandardCostAsync(variantId, reportCurrency, atUtc: null, cancellationToken);
                 unitCost = rollup.UnitCost;
                 if (!rollup.HasActiveRecipe)
                 {
@@ -181,7 +187,7 @@ internal sealed class MarginReportService : IMarginReportService
 
         return new MarginReportDto(
             window,
-            currency,
+            reportCurrency,
             rows,
             Aggregate(rows),
             variantsWithoutRecipe,
