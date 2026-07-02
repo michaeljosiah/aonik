@@ -62,6 +62,16 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IIngredientService, IngredientService>();
         services.AddScoped<IRecipeService, RecipeService>();
 
+        // Spec 051 — ingredient costing: effective-dated unit costs (mirrors ProductPrice) and the
+        // standard-cost rollup that values a recipe at date-aware current cost.
+        services.AddScoped<IIngredientCostService, IngredientCostService>();
+        services.AddScoped<IProductCostingService, ProductCostingService>();
+
+        // Spec 052 — raw-material inventory: low-stock alerting over ingredient levels (the
+        // generalized InventoryService stocks both kinds; the scan raises/refreshes one active
+        // alert per ingredient and enqueues LowStockAlertRaisedEvent for the Spec 016 inbox).
+        services.AddScoped<ILowStockAlertService, LowStockAlertService>();
+
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);

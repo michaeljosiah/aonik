@@ -103,6 +103,19 @@ internal sealed class IngredientService : IIngredientService
                 }
                 throw DeactivationBlocked(ingredient.Name, referencingRecipes);
             }
+
+            if (baseUnitChanged && await HasLiveCostRowsAsync(tenantId, ingredient.Id, cancellationToken))
+            {
+                // Recorded costs (Spec 051) are bare amounts per the ingredient's CURRENT base
+                // unit and v1 has no unit conversion — changing the unit would silently reprice
+                // every stored cost at rollup. This guard IS the v1 answer (no unit snapshot on
+                // cost rows); deactivation stays allowed so the advised path works.
+                throw new InvalidOperationException(
+                    $"Cannot change the base unit of ingredient '{ingredient.Name}' from '{ingredient.BaseUnit}' to " +
+                    $"'{command.BaseUnit}' while recorded costs exist for it. Costs are amounts per the current " +
+                    "base unit and there is no unit conversion in v1, so they would be silently repriced " +
+                    "(e.g. ₦1,200/kg becoming ₦1,200/g). Deactivate this ingredient and create a new one instead.");
+            }
         }
 
         ingredient.Name = name;
@@ -180,6 +193,14 @@ internal sealed class IngredientService : IIngredientService
             .Distinct()
             .OrderBy(n => n)
             .ToListAsync(cancellationToken);
+
+    /// <summary>Whether any live (non-soft-deleted) <see cref="Entities.Sourcing.IngredientCost"/>
+    /// rows (Spec 051) exist for the ingredient, in any currency. Recorded costs are amounts per
+    /// the ingredient's current base unit, so they pin it — v1 has no unit conversion.</summary>
+    private async Task<bool> HasLiveCostRowsAsync(Guid tenantId, Guid ingredientId, CancellationToken cancellationToken)
+        => await _dbContext.IngredientCosts
+            .AsNoTracking()
+            .AnyAsync(c => c.TenantId == tenantId && c.IngredientId == ingredientId && !c.IsDeleted, cancellationToken);
 
     private static InvalidOperationException DeactivationBlocked(string ingredientName, IReadOnlyList<string> recipeNames)
         => new(

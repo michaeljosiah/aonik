@@ -129,6 +129,12 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<Recipe> Recipes { get; set; } = null!;
     public virtual DbSet<RecipeComponent> RecipeComponents { get; set; } = null!;
 
+    // Commerce maker-ops (Spec 051) — effective-dated ingredient unit costs.
+    public virtual DbSet<IngredientCost> IngredientCosts { get; set; } = null!;
+
+    // Commerce maker-ops (Spec 052) — low-stock alerts over raw-material inventory.
+    public virtual DbSet<LowStockAlert> LowStockAlerts { get; set; } = null!;
+
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
@@ -397,6 +403,12 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<Ingredient>(modelBuilder, "Ingredients");
         MapCommerceTable<Recipe>(modelBuilder, "Recipes");
         MapCommerceTable<RecipeComponent>(modelBuilder, "RecipeComponents");
+
+        // Commerce maker-ops (Spec 051)
+        MapCommerceTable<IngredientCost>(modelBuilder, "IngredientCosts");
+
+        // Commerce maker-ops (Spec 052)
+        MapCommerceTable<LowStockAlert>(modelBuilder, "LowStockAlerts");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

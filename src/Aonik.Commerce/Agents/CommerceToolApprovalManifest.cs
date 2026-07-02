@@ -7,7 +7,8 @@ namespace Aonik.Commerce.Agents;
 /// agent tools are mutating and at what tier, so the central <see cref="IToolApprovalGate"/> wraps
 /// them before they reach the model. Read tools (<c>commerce_search_products</c>, <c>_get_product</c>,
 /// <c>_view_cart</c>, <c>_check_inventory</c>, <c>_list_ingredients</c>, <c>_get_recipe</c>,
-/// <c>_explode_recipe</c>) are omitted — the gate passes unclassified, read-looking
+/// <c>_explode_recipe</c>, <c>_get_product_cost</c>, <c>_check_ingredient_stock</c>,
+/// <c>_list_low_stock</c>) are omitted — the gate passes unclassified, read-looking
 /// tools through. Commerce never captures money, so no tool is High here (capture stays a Finance
 /// high-tier action; a future <c>commerce_refund</c> would be High via a Finance proposal).
 /// </summary>
@@ -32,6 +33,13 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             // ── Medium — maker-ops master-data writes (Spec 050 §12) ──
             ["commerce_create_ingredient"] = Medium("Create an ingredient"),
             ["commerce_set_recipe"] = Medium("Define a product recipe"),
+
+            // ── Medium — maker-ops costing writes (Spec 051 §11) ──
+            ["commerce_update_ingredient_cost"] = Medium("Update an ingredient's unit cost"),
+
+            // ── Medium — maker-ops raw-material stock writes (Spec 052 §11) ──
+            ["commerce_set_ingredient_stock"] = Medium("Set ingredient stock"),
+            ["commerce_set_reorder_point"] = Medium("Set an ingredient reorder point"),
         };
 
     public ToolClassification? Classify(string toolName) =>

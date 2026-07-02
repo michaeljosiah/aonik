@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701220136_CommerceIngredientCosts")]
+    partial class CommerceIngredientCosts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3471,9 +3474,6 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("IngredientId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -3485,16 +3485,8 @@ namespace Aonik.Infrastructure.Migrations
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
 
-                    b.Property<Guid?>("ProductVariantId")
+                    b.Property<Guid>("ProductVariantId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("ReorderPoint")
-                        .HasPrecision(19, 4)
-                        .HasColumnType("decimal(19,4)");
-
-                    b.Property<decimal?>("ReorderQuantity")
-                        .HasPrecision(19, 4)
-                        .HasColumnType("decimal(19,4)");
 
                     b.Property<decimal>("Reserved")
                         .HasPrecision(19, 4)
@@ -3505,13 +3497,6 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
-
-                    b.Property<string>("StockItemKind")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
-                        .HasDefaultValue("ProductVariant");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -3524,28 +3509,20 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "IngredientId")
-                        .IsUnique()
-                        .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NULL");
-
-                    b.HasIndex("TenantId", "IngredientId", "Location")
-                        .IsUnique()
-                        .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NOT NULL");
-
                     b.HasIndex("TenantId", "ProductVariantId", "Location")
                         .IsUnique()
-                        .HasFilter("[ProductVariantId] IS NOT NULL AND [Location] IS NOT NULL");
+                        .HasFilter("[Location] IS NOT NULL");
 
-                    b.ToTable("AnkInventoryLevels", "dbo", t =>
-                        {
-                            t.HasCheckConstraint("CK_InventoryLevels_ExactlyOneStockItem", "([ProductVariantId] IS NOT NULL AND [IngredientId] IS NULL AND [StockItemKind] = N'ProductVariant') OR ([ProductVariantId] IS NULL AND [IngredientId] IS NOT NULL AND [StockItemKind] = N'Ingredient')");
-                        });
+                    b.ToTable("AnkInventoryLevels", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Inventory.InventoryReservation", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CartId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -3563,17 +3540,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("HoldRef")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CartId");
-
-                    b.Property<Guid?>("IngredientId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<Guid?>("ProductVariantId")
+                    b.Property<Guid>("ProductVariantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Quantity")
@@ -3591,13 +3561,6 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
-                    b.Property<string>("StockItemKind")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
-                        .HasDefaultValue("ProductVariant");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3609,18 +3572,13 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IngredientId");
-
                     b.HasIndex("ProductVariantId");
 
                     b.HasIndex("Status", "ExpiresAt");
 
-                    b.HasIndex("TenantId", "HoldRef");
+                    b.HasIndex("TenantId", "CartId");
 
-                    b.ToTable("AnkInventoryReservations", "dbo", t =>
-                        {
-                            t.HasCheckConstraint("CK_InventoryReservations_ExactlyOneStockItem", "([ProductVariantId] IS NOT NULL AND [IngredientId] IS NULL AND [StockItemKind] = N'ProductVariant') OR ([ProductVariantId] IS NULL AND [IngredientId] IS NOT NULL AND [StockItemKind] = N'Ingredient')");
-                        });
+                    b.ToTable("AnkInventoryReservations", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Production.Recipe", b =>
@@ -4052,72 +4010,6 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("TenantId", "IngredientId", "Currency", "EffectiveFrom");
 
                     b.ToTable("AnkIngredientCosts", "dbo");
-                });
-
-            modelBuilder.Entity("Aonik.Commerce.Entities.Sourcing.LowStockAlert", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("AvailableAtRaise")
-                        .HasPrecision(19, 4)
-                        .HasColumnType("decimal(19,4)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("IngredientId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("RaisedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("ReorderPoint")
-                        .HasPrecision(19, 4)
-                        .HasColumnType("decimal(19,4)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "IngredientId")
-                        .IsUnique()
-                        .HasFilter("[Status] IN (N'Open', N'Acknowledged')");
-
-                    b.HasIndex("TenantId", "Status", "RaisedAt");
-
-                    b.ToTable("AnkLowStockAlerts", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Documents.Entities.DocumentExtraction", b =>
