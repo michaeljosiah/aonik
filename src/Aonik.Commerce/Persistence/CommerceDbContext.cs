@@ -42,6 +42,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<LowStockAlert> LowStockAlerts => Set<LowStockAlert>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierIngredient> SupplierIngredients => Set<SupplierIngredient>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -89,6 +91,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<LowStockAlert>(modelBuilder, "LowStockAlerts");
         MapTable<Supplier>(modelBuilder, "Suppliers");
         MapTable<SupplierIngredient>(modelBuilder, "SupplierIngredients");
+        MapTable<GoodsReceipt>(modelBuilder, "GoodsReceipts");
+        MapTable<GoodsReceiptLine>(modelBuilder, "GoodsReceiptLines");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

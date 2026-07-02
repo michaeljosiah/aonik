@@ -5,8 +5,9 @@ namespace Aonik.Commerce.Services.Sourcing;
 /// <summary>
 /// Low-stock alerting over ingredient levels (Spec 052 §9/§10). The scan raises at most one ACTIVE
 /// (Open/Acknowledged) alert per (tenant, ingredient) and refreshes it thereafter — it never
-/// re-opens an acknowledged alert and never auto-resolves on incidental restock. Ordered/Resolved
-/// transitions belong to the procurement specs (053/054).
+/// re-opens an acknowledged alert and never auto-resolves on incidental restock. The Ordered
+/// transition belongs to the Spec 053 shortfall seed; Resolved belongs to the Spec 054 goods
+/// receipt via <see cref="ResolveIfRecoveredAsync"/>.
 /// </summary>
 public interface ILowStockAlertService
 {
@@ -27,4 +28,15 @@ public interface ILowStockAlertService
     /// the alert has left the active set; null when not found.
     /// </summary>
     Task<LowStockAlertDto?> AcknowledgeAsync(Guid alertId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The Resolved transition (Spec 054 §8/R4): for each ingredient's unresolved alert(s)
+    /// (Open/Acknowledged/Ordered), recomputes the live default-location available
+    /// (OnHand - Reserved) against the level's live reorder point and flips to Resolved ONLY when
+    /// available is strictly back above it — a short receipt that leaves the ingredient at/below
+    /// the threshold (or a level whose reorder point was cleared, so recovery cannot be
+    /// demonstrated) leaves the alert exactly as it was, so the operator is never told a
+    /// still-short shortage is fixed. Returns the resolved alert ids.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ResolveIfRecoveredAsync(IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken = default);
 }

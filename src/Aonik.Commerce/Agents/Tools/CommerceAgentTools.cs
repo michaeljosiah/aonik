@@ -39,6 +39,7 @@ internal sealed class CommerceAgentTools
     private readonly ILowStockAlertService _lowStockAlerts;
     private readonly ISupplierService _suppliers;
     private readonly IPurchaseOrderService _purchaseOrders;
+    private readonly IGoodsReceiptService _goodsReceipts;
 
     private CommerceAgentTools(
         IProductService products,
@@ -52,7 +53,8 @@ internal sealed class CommerceAgentTools
         IProductCostingService costing,
         ILowStockAlertService lowStockAlerts,
         ISupplierService suppliers,
-        IPurchaseOrderService purchaseOrders)
+        IPurchaseOrderService purchaseOrders,
+        IGoodsReceiptService goodsReceipts)
     {
         _products = products;
         _pricing = pricing;
@@ -66,6 +68,7 @@ internal sealed class CommerceAgentTools
         _lowStockAlerts = lowStockAlerts;
         _suppliers = suppliers;
         _purchaseOrders = purchaseOrders;
+        _goodsReceipts = goodsReceipts;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -271,6 +274,15 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _purchaseOrders.SubmitAsync(orderId, cancellationToken);
 
+    [Description("Receives goods against a submitted (Pending) purchase order, fully or partially: increments each ingredient's on-hand stock, records the actual unit cost paid when given (superseding the prior cost from the receipt date), resolves low-stock alerts that recovered above their reorder point, and completes the purchase order when every line is fully received. Never moves money. Retrying the SAME delivery must reuse the SAME idempotency key — a retried key returns the existing receipt without double-counting stock.")]
+    public Task<GoodsReceiptDto> ReceiveGoods(
+        [Description("The purchase order id (GUID); must be submitted (Pending)")] Guid orderId,
+        [Description("A key that uniquely identifies this physical delivery (e.g. 'po-<id>-delivery-1'); reuse it when retrying the same delivery")] string idempotencyKey,
+        [Description("The received lines: each item is an ingredient id, the quantity received in that ingredient's base unit, and an optional actual unit cost paid (per base unit, in the purchase order's currency)")] List<ReceiveGoodsLineCommand> lines,
+        [Description("Optional UTC time the goods arrived; omit for now")] DateTime? receivedAt = null,
+        CancellationToken cancellationToken = default)
+        => _goodsReceipts.ReceiveAsync(new ReceiveGoodsCommand(orderId, idempotencyKey, lines, receivedAt), cancellationToken);
+
     [Description("Sets an ingredient's reorder point — the available quantity at or below which a low-stock alert is raised — and an optional suggested reorder quantity. Pass no reorder point to clear alerting for the ingredient.")]
     public async Task<string> SetReorderPoint(
         [Description("The ingredient id (GUID)")] Guid ingredientId,
@@ -300,7 +312,8 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<IProductCostingService>(),
             serviceProvider.GetRequiredService<ILowStockAlertService>(),
             serviceProvider.GetRequiredService<ISupplierService>(),
-            serviceProvider.GetRequiredService<IPurchaseOrderService>());
+            serviceProvider.GetRequiredService<IPurchaseOrderService>(),
+            serviceProvider.GetRequiredService<IGoodsReceiptService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -333,5 +346,6 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.CreateSupplier, name: "commerce_create_supplier");
         yield return AIFunctionFactory.Create(tools.CreatePurchaseOrder, name: "commerce_create_purchase_order");
         yield return AIFunctionFactory.Create(tools.SubmitPurchaseOrder, name: "commerce_submit_purchase_order");
+        yield return AIFunctionFactory.Create(tools.ReceiveGoods, name: "commerce_receive_goods");
     }
 }

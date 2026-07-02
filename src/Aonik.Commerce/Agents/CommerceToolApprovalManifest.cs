@@ -48,6 +48,11 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             ["commerce_create_supplier"] = Medium("Create a supplier"),
             ["commerce_create_purchase_order"] = Medium("Create a purchase order"),
             ["commerce_submit_purchase_order"] = Medium("Submit a purchase order to the supplier"),
+
+            // ── Medium — maker-ops receiving (Spec 054 §11): moves stock and cost, never money;
+            // the args-hash binding carries the idempotency key, reinforcing the receipt's
+            // resolve-or-create guard against a double-counted re-invocation ──
+            ["commerce_receive_goods"] = Medium("Receive goods against a purchase order"),
         };
 
     public ToolClassification? Classify(string toolName) =>

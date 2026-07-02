@@ -7,11 +7,12 @@ namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
 /// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032 / Spec 050 §12 /
-/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14). Read tools pass through unclassified; cart writes
-/// are Low; catalog/price/inventory/checkout, maker-ops master-data + costing + raw-material
-/// stock, and sourcing (supplier / purchase-order placement) writes are Medium; nothing is High
-/// (Commerce never captures or pays out money — paying a purchase-order supplier is the deferred
-/// Spec 053 high-tier follow-up, deliberately not registered).
+/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11). Read tools pass through
+/// unclassified; cart writes are Low; catalog/price/inventory/checkout, maker-ops master-data +
+/// costing + raw-material stock, and sourcing (supplier / purchase-order placement / goods
+/// receipt) writes are Medium; nothing is High (Commerce never captures or pays out money —
+/// receiving moves stock and cost, not money, and paying a purchase-order supplier is the
+/// deferred Spec 053 high-tier follow-up, deliberately not registered).
 /// </summary>
 public class CommerceToolApprovalManifestTests
 {
@@ -45,6 +46,7 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_create_supplier")]
     [InlineData("commerce_create_purchase_order")]
     [InlineData("commerce_submit_purchase_order")]
+    [InlineData("commerce_receive_goods")]
     public void DomainWritesAndCheckout_Should_BeMedium(string tool)
     {
         var classification = _manifest.Classify(tool);
@@ -77,6 +79,7 @@ public class CommerceToolApprovalManifestTests
             "commerce_create_ingredient", "commerce_set_recipe", "commerce_update_ingredient_cost",
             "commerce_set_ingredient_stock", "commerce_set_reorder_point",
             "commerce_create_supplier", "commerce_create_purchase_order", "commerce_submit_purchase_order",
+            "commerce_receive_goods",
         ];
         foreach (var tool in all)
         {

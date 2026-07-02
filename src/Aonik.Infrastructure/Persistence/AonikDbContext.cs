@@ -139,6 +139,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<Supplier> Suppliers { get; set; } = null!;
     public virtual DbSet<SupplierIngredient> SupplierIngredients { get; set; } = null!;
 
+    // Commerce maker-ops (Spec 054) — goods receipts against purchase orders.
+    public virtual DbSet<GoodsReceipt> GoodsReceipts { get; set; } = null!;
+    public virtual DbSet<GoodsReceiptLine> GoodsReceiptLines { get; set; } = null!;
+
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
@@ -417,6 +421,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Commerce maker-ops (Spec 053)
         MapCommerceTable<Supplier>(modelBuilder, "Suppliers");
         MapCommerceTable<SupplierIngredient>(modelBuilder, "SupplierIngredients");
+
+        // Commerce maker-ops (Spec 054)
+        MapCommerceTable<GoodsReceipt>(modelBuilder, "GoodsReceipts");
+        MapCommerceTable<GoodsReceiptLine>(modelBuilder, "GoodsReceiptLines");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

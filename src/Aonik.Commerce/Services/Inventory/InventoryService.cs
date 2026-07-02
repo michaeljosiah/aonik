@@ -63,6 +63,18 @@ internal sealed class InventoryService : IInventoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<StockLevelDto> AdjustOnHandAsync(StockItemRef item, decimal delta, CancellationToken cancellationToken = default)
+    {
+        ValidateKind(item);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        await EnsureIngredientExistsAsync(tenantId, item, cancellationToken);
+        var level = await GetOrCreateDefaultLevelAsync(tenantId, item, cancellationToken);
+        level.OnHand += delta;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new StockLevelDto(item.Kind, item.Id, level.OnHand, level.Reserved, level.OnHand - level.Reserved, level.ReorderPoint, level.ReorderQuantity);
+    }
+
     public async Task<StockLevelDto> SetReorderPointAsync(StockItemRef item, decimal? reorderPoint, decimal? reorderQuantity = null, CancellationToken cancellationToken = default)
     {
         ValidateKind(item);
