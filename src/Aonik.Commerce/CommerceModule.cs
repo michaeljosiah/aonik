@@ -5,6 +5,7 @@ using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Production;
 using Aonik.Commerce.Services.Promotions;
+using Aonik.Commerce.Services.Reporting;
 using Aonik.Commerce.Services.Sourcing;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Events;
@@ -95,6 +96,12 @@ public sealed class CommerceModule : IModule
         // in one all-or-nothing commit; completion optionally yields finished-good stock; the
         // kitchen sheet is a pure read over the same snapshots.
         services.AddScoped<IProductionOrderService, ProductionOrderService>();
+
+        // Spec 057 — the margin & profit report: revenue (payment-completed ProductPurchase
+        // orders + the 042 charge summary's discounted total) vs COGS (the 051 standard-cost
+        // rollup × quantity sold) vs the product's target margin. Pure read projection — the only
+        // write is Product.TargetMarginPct.
+        services.AddScoped<IMarginReportService, MarginReportService>();
 
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
