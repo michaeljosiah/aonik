@@ -84,6 +84,12 @@ public sealed class CommerceModule : IModule
         // by a client-supplied key resolved before any mutation.
         services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 
+        // Spec 055 — production planning: the production sheet (ProductPurchase demand by variant
+        // over a window, read through the Ordering contract) and the prep list (that sheet exploded
+        // through 050 recipes, optionally netted against 052 available stock). Pure read/aggregation
+        // — no entity, no DbSet, no migration.
+        services.AddScoped<IProductionPlanningService, ProductionPlanningService>();
+
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);

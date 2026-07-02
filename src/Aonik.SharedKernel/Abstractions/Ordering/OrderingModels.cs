@@ -75,12 +75,18 @@ public sealed record OrderSummary(
     DateTime CreatedAt,
     int ItemCount);
 
+/// <summary>List filter. The created-range bounds (Spec 055 §9 — additive, like the Spec 053/054
+/// contract extensions) are half-open over the order's <c>CreatedAt</c> UTC instant:
+/// <see cref="CreatedFromUtc"/> is inclusive, <see cref="CreatedToUtc"/> exclusive, so adjacent
+/// windows never double-count a boundary order.</summary>
 public sealed record ListOrdersQuery(
     string? OrderType = null,
     string? Status = null,
     Guid? PayerPartyId = null,
     int PageNumber = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    DateTime? CreatedFromUtc = null,
+    DateTime? CreatedToUtc = null);
 
 /// <summary>Links an order to the execution record that fulfils it. Exactly one id must be set,
 /// matching the <c>OrderFulfilmentRef</c> "one-of" CHECK.</summary>

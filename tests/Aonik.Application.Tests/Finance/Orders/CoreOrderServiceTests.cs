@@ -24,8 +24,15 @@ public class CoreOrderServiceTests
         public DateTime UtcNow { get; } = new(2026, 6, 17, 12, 0, 0, DateTimeKind.Utc);
     }
 
-    private static OrderingDbContext CreateDbContext(DbContextOptions<OrderingDbContext> options, Guid tenantId)
-        => new(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider());
+    /// <summary>A settable clock, passed into the DbContext so audit stamping (Order.CreatedAt —
+    /// the Spec 055 created-range filter field) is test-controlled instead of wall-clock.</summary>
+    private sealed class MutableClock : IClock
+    {
+        public DateTime UtcNow { get; set; } = new(2026, 6, 17, 12, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static OrderingDbContext CreateDbContext(DbContextOptions<OrderingDbContext> options, Guid tenantId, IClock? clock = null)
+        => new(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider(), clock);
 
     private static (DbContextOptions<OrderingDbContext> Options, Guid TenantId) NewDb()
         => (new DbContextOptionsBuilder<OrderingDbContext>()
@@ -157,6 +164,57 @@ public class CoreOrderServiceTests
         products.TotalCount.Should().Be(2);
         products.Items.Should().OnlyContain(o => o.OrderType == "ProductPurchase");
         products.Items.Should().OnlyContain(o => o.ItemCount == 2);
+    }
+
+    [Fact]
+    public async Task ListAsync_Should_FilterByCreatedRange_HalfOpen()
+    {
+        // Spec 055 §9 — CreatedFromUtc is INCLUSIVE, CreatedToUtc EXCLUSIVE, so adjacent windows
+        // never double-count a boundary order.
+        var (options, tenantId) = NewDb();
+        var clock = new MutableClock();
+        await using var context = CreateDbContext(options, tenantId, clock);
+        var service = CreateService(context, tenantId);
+
+        var fromUtc = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toUtc = new DateTime(2026, 7, 8, 0, 0, 0, DateTimeKind.Utc);
+
+        clock.UtcNow = fromUtc.AddDays(-1);
+        await service.CreateAsync(ProductPurchaseCommand());          // before the window
+        clock.UtcNow = fromUtc;
+        var atFrom = await service.CreateAsync(ProductPurchaseCommand());   // ON the lower bound — counts
+        clock.UtcNow = fromUtc.AddDays(3);
+        var inside = await service.CreateAsync(ProductPurchaseCommand());   // inside — counts
+        clock.UtcNow = toUtc;
+        await service.CreateAsync(ProductPurchaseCommand());          // ON the upper bound — excluded
+
+        var page = await service.ListAsync(new ListOrdersQuery(CreatedFromUtc: fromUtc, CreatedToUtc: toUtc));
+
+        page.TotalCount.Should().Be(2);
+        page.Items.Select(o => o.Id).Should().BeEquivalentTo(new[] { atFrom.Id, inside.Id });
+    }
+
+    [Fact]
+    public async Task ListWithItemsAsync_Should_ReturnFullOrders_WithLineItems_UnderTheSameFilters()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        await service.CreateAsync(ProductPurchaseCommand());
+        await service.CreateAsync(new CreateOrderCommand(
+            OrderTypeCodes.BillPayment, Guid.NewGuid(), "NGN",
+            new[] { new OrderItemCommand(OrderTypeCodes.BillPayment, 0, 5_000m, "NGN") }));
+
+        var page = await service.ListWithItemsAsync(new ListOrdersQuery(OrderType: OrderTypeCodes.ProductPurchase));
+
+        // Full OrderDto per order — the per-line retail fields the production sheet aggregates
+        // (Quantity, ProductId) are present, which OrderSummary deliberately omits.
+        page.TotalCount.Should().Be(1);
+        var order = page.Items.Single();
+        order.OrderType.Should().Be(OrderTypeCodes.ProductPurchase);
+        order.Items.Should().HaveCount(2);
+        order.Items.Should().OnlyContain(i => i.Quantity != null && i.ProductId != null);
     }
 
     [Fact]

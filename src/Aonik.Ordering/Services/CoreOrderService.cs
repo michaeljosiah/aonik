@@ -266,23 +266,9 @@ internal sealed class CoreOrderService : IOrderService
     public async Task<PagedResult<OrderSummary>> ListAsync(ListOrdersQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
-        var pageSize = query.PageSize is < 1 or > 200 ? 20 : query.PageSize;
+        var (pageNumber, pageSize) = NormalizePaging(query);
 
-        var orders = _dbContext.Orders.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(query.OrderType))
-        {
-            orders = orders.Where(o => o.OrderType == query.OrderType);
-        }
-        if (!string.IsNullOrWhiteSpace(query.Status))
-        {
-            orders = orders.Where(o => o.Status == query.Status);
-        }
-        if (query.PayerPartyId is { } payerPartyId)
-        {
-            orders = orders.Where(o => o.PayerPartyId == payerPartyId);
-        }
+        var orders = ApplyListFilters(_dbContext.Orders.AsNoTracking(), query);
 
         var totalCount = await orders.CountAsync(cancellationToken);
 
@@ -295,6 +281,60 @@ internal sealed class CoreOrderService : IOrderService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<OrderSummary>(items, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<OrderDto>> ListWithItemsAsync(ListOrdersQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var (pageNumber, pageSize) = NormalizePaging(query);
+
+        // Same filters as ListAsync (one predicate, Spec 055 §9's centralisation), but the page is
+        // materialised with line items so per-line retail fields can be aggregated.
+        var orders = ApplyListFilters(_dbContext.Orders.AsNoTracking(), query);
+
+        var totalCount = await orders.CountAsync(cancellationToken);
+
+        var page = await orders
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Include(o => o.Items)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<OrderDto>(page.Select(MapToDto).ToList(), totalCount, pageNumber, pageSize);
+    }
+
+    private static (int PageNumber, int PageSize) NormalizePaging(ListOrdersQuery query)
+        => (query.PageNumber < 1 ? 1 : query.PageNumber,
+            query.PageSize is < 1 or > 200 ? 20 : query.PageSize);
+
+    /// <summary>The one list predicate <see cref="ListAsync"/> and <see cref="ListWithItemsAsync"/>
+    /// share. The created-range bounds are half-open ([From, To) — from inclusive, to exclusive,
+    /// Spec 055 §9) so adjacent windows never double-count a boundary order.</summary>
+    private static IQueryable<Order> ApplyListFilters(IQueryable<Order> orders, ListOrdersQuery query)
+    {
+        if (!string.IsNullOrWhiteSpace(query.OrderType))
+        {
+            orders = orders.Where(o => o.OrderType == query.OrderType);
+        }
+        if (!string.IsNullOrWhiteSpace(query.Status))
+        {
+            orders = orders.Where(o => o.Status == query.Status);
+        }
+        if (query.PayerPartyId is { } payerPartyId)
+        {
+            orders = orders.Where(o => o.PayerPartyId == payerPartyId);
+        }
+        if (query.CreatedFromUtc is { } createdFromUtc)
+        {
+            orders = orders.Where(o => o.CreatedAt >= createdFromUtc);
+        }
+        if (query.CreatedToUtc is { } createdToUtc)
+        {
+            orders = orders.Where(o => o.CreatedAt < createdToUtc);
+        }
+
+        return orders;
     }
 
     public async Task<OrderDto> TransitionAsync(Guid orderId, string toStatus, string? reason = null, string? expectedFromStatus = null, CancellationToken cancellationToken = default)
