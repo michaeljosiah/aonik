@@ -272,8 +272,12 @@ internal sealed class CoreOrderService : IOrderService
 
         var totalCount = await orders.CountAsync(cancellationToken);
 
+        // CreatedAt alone is not a total order — on ties SQL Server may order rows differently
+        // between page queries, so a multi-page window walk could skip or double-count an order.
+        // Id breaks the tie deterministically (same ordering as ListWithItemsAsync).
         var items = await orders
             .OrderByDescending(o => o.CreatedAt)
+            .ThenBy(o => o.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new OrderSummary(
@@ -289,13 +293,16 @@ internal sealed class CoreOrderService : IOrderService
         var (pageNumber, pageSize) = NormalizePaging(query);
 
         // Same filters as ListAsync (one predicate, Spec 055 §9's centralisation), but the page is
-        // materialised with line items so per-line retail fields can be aggregated.
+        // materialised with line items so per-line retail fields can be aggregated. Same
+        // deterministic (CreatedAt DESC, Id) ordering too — CreatedAt ties must not let a window
+        // walk skip or double-count an order between page queries.
         var orders = ApplyListFilters(_dbContext.Orders.AsNoTracking(), query);
 
         var totalCount = await orders.CountAsync(cancellationToken);
 
         var page = await orders
             .OrderByDescending(o => o.CreatedAt)
+            .ThenBy(o => o.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Include(o => o.Items)

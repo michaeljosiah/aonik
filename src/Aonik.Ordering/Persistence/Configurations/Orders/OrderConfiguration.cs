@@ -80,6 +80,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(x => x.OrderType);
         builder.HasIndex(x => x.PayerPartyId);
 
+        // Spec 055 §9/§14 — the planning demand-window read: a tenant's orders of one type over a
+        // CreatedAt range. The single-column indexes above give that query nothing to seek on, so
+        // without this it scans order history. Composite, tenant first, so the (always
+        // tenant-filtered) windowed list seeks straight to the range.
+        builder.HasIndex(x => new { x.TenantId, x.OrderType, x.CreatedAt });
+
         // Idempotency is enforced per (tenant, order type, key). Filtered so the
         // many orders WITHOUT a key are exempt — NULL keys are never deduplicated.
         // This is the DB-level authority behind the race catch in

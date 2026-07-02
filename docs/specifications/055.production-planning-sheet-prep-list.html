@@ -278,7 +278,8 @@
   numbers from Spec&nbsp;050's verification, now driven by real in-window orders. A variant with no active
   recipe shows up as a <em>diagnostic line</em>, not a silent under-count. <code>dotnet build Aonik.sln</code>
   stays green with <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
-  and <strong>no new migration</strong>; <code>dotnet test Aonik.sln</code> stays green with aggregation +
+  and <strong>one additive migration only</strong> — the §14 supporting index on the existing order table
+  (no new entity, table, or column); <code>dotnet test Aonik.sln</code> stays green with aggregation +
   explosion + netting unit tests.
 </div>
 
@@ -376,7 +377,8 @@
 </ul>
 <h3>Out of scope</h3>
 <ul>
-  <li><strong>Any new persisted entity or migration.</strong> This is a pure read/aggregation spec; a
+  <li><strong>Any new persisted entity, table, or column.</strong> This is a pure read/aggregation spec; the
+      only schema artefact that ships is the additive §14 supporting index on the existing order table. A
       persisted plan snapshot is <a href="#open">Open</a>.</li>
   <li><strong>Forecast demand.</strong> v1 plans from <em>actual</em> in-window orders only; predictive demand
       is <a href="#open">Open</a>.</li>
@@ -396,7 +398,9 @@
       orders it created on the shared spine, <em>not</em> via any <code>Aonik.Finance</code> reference.
       <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
       (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
-  <li><strong>No new schema.</strong> No entity, no <code>DbSet</code>, no migration. Both artefacts are
+  <li><strong>No new entity, table, or column.</strong> No entity, no <code>DbSet</code>; the one migration
+      is the additive §14 supporting index (<code>(TenantId, OrderType, CreatedAt)</code> on the existing
+      order table), tool-generated in the canonical <code>AonikDbContext</code> stream. Both artefacts are
       computed on read from existing data (order projections + recipes + optional inventory).</li>
   <li><strong>Explicit inclusion filter.</strong> Which order statuses count and which date field defines
       "in the window" is documented and centralised (§9), never left implicit — this is the spec's chief
@@ -425,21 +429,24 @@
                      PrepListDto(LineDto), ProductionWindow(FromUtc, ToUtc)
 
 src/Aonik.SharedKernel + src/Aonik.Ordering                    # EXTEND (additive, §9 contract note):
-                     ListOrdersQuery + CreatedFromUtc/CreatedToUtc; IOrderService.ListWithItemsAsync
+                     ListOrdersQuery + CreatedFromUtc/CreatedToUtc; IOrderService.ListWithItemsAsync;
+                     OrderConfiguration + (TenantId, OrderType, CreatedAt) index (§14)
 
-# No Entities/*, no Persistence/Configurations/*, no DbSet, no migration — pure read/aggregation.</div>
+# Commerce adds no Entities/*, no Persistence/Configurations/*, no DbSet; the one migration is the
+# additive §14 order-window index on the Ordering spine — otherwise pure read/aggregation.</div>
 
 <h2 id="domain-model">8. Domain model (contracts, no entity)</h2>
 <p>
   <strong>There is no new persisted entity in v1</strong> — the only additions are read-model DTOs in
-  <code>Contracts/Models/Production/PlanningModels.cs</code>. A <code>window</code> is a plain pair of
+  <code>Contracts/Models/Production/PlanningModels.cs</code>, plus (at the persistence layer) the additive
+  §14 supporting index on the existing order table — no new table or column. A <code>window</code> is a plain pair of
   UTC instants (a named/rolling <code>ProductionWindow</code> entity is <a href="#open">Open</a>).
   <code>Order.CreatedAt</code> — the §9 date field — is a UTC <code>DateTime</code>, so the window is
   two UTC instants with <strong>half-open</strong> semantics (<code>[FromUtc, ToUtc)</code>), not a
   <code>DateOnly</code> pair whose closed upper bound would hide an end-of-day conversion rule inside
   the very filter this spec calls its chief correctness risk.
 </p>
-<pre><code>// No entity, no DbSet, no migration. Read-model DTOs only.
+<pre><code>// No entity, no DbSet, no new table or column. Read-model DTOs only (schema: just the §14 additive index).
 
 record ProductionWindow  ( DateTime FromUtc, DateTime ToUtc );   // UTC instants, half-open [From, To); not persisted
 
@@ -503,7 +510,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <tbody>
     <tr><td>Order type</td><td><code>OrderType == "ProductPurchase"</code> only</td><td>Only sell-side product demand drives production; purchase orders (Spec&nbsp;053) and other order types are excluded.</td></tr>
     <tr><td>Status</td><td>Committed, non-terminal-failed statuses — exactly <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> from <code>OrderStatusCodes</code>. Excluded: <code>Draft</code>, <code>Cancelled</code>, <code>Failed</code>, <code>Expired</code>.</td><td>Plan against real committed demand, not speculative baskets. Checkout creates the <code>ProductPurchase</code> order in <strong>Draft</strong> and only payment completion advances it to <strong>Complete</strong> (Spec&nbsp;042 §11) — a Draft is an initiated, unpaid checkout, so counting it would cook for orders that may never fund. <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code> are the terminal failures (<code>IsTerminal()</code> minus Complete). The in-between codes are non-terminal committed states any ops flow may use and are included.</td></tr>
-    <tr><td>Date field</td><td>The order <strong>creation instant</strong> (<code>Order.CreatedAt</code>, UTC) must fall in the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no schema; v1 filters on <code>CreatedAt</code> <strong>only</strong>, the one demand-date field available. Half-open bounds mean adjacent windows tile without double-counting a boundary order. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
+    <tr><td>Date field</td><td>The order <strong>creation instant</strong> (<code>Order.CreatedAt</code>, UTC) must fall in the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no new column; v1 filters on <code>CreatedAt</code> <strong>only</strong>, the one demand-date field available. Half-open bounds mean adjacent windows tile without double-counting a boundary order. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
     <tr><td>Quantity — simple/variant line</td><td><code>OrderItem.Quantity</code> = portions for the variant in <code>OrderItem.ProductId</code></td><td>A <code>ProductPurchase</code> line already carries retail quantity, and checkout writes the <em>variant</em> id into the soft-ref <code>ProductId</code> for simple lines (Spec&nbsp;041/042 line shape); one unit sold = one portion demanded.</td></tr>
     <tr><td>Quantity — bundle line</td><td>Expanded through <code>OrderBundleSelection</code>: each selection row contributes (<code>ProductVariantId</code>, <code>Quantity</code>) demand; the bundle line itself is never counted</td><td>A build-your-own-box line carries the <strong>bundle product id</strong> in <code>ProductId</code>, not a variant (Spec&nbsp;042 §12 Option A) — the kitchen makes the chosen <em>components</em>. Commerce owns the selection rows (soft-linked by <code>OrderId</code> + <code>OrderItemIndex</code>, quantities already the line totals: selection × boxes), so the expansion is a direct Commerce read. A line is a bundle line exactly when selection rows exist for it; without rows it falls through as simple demand and an unresolvable <code>ProductId</code> surfaces via the diagnostic names.</td></tr>
   </tbody>
@@ -522,7 +529,10 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   spine; and <code>IOrderService</code> gains <code>ListWithItemsAsync(ListOrdersQuery) →
   PagedResult&lt;OrderDto&gt;</code>, because the sheet aggregates per-line <code>Quantity</code>/<code>ProductId</code>
   and the existing <code>ListAsync</code> returns <code>OrderSummary</code>, which deliberately carries only
-  an item <em>count</em>. Commerce holds no reference to the Ordering DbContext — the contract is the only
+  an item <em>count</em>. Both list reads return pages in a deterministic
+  <code>(CreatedAt DESC, Id)</code> order — <code>CreatedAt</code> alone is not unique, and the
+  <code>Id</code> tie-breaker is what lets a multi-page window walk see every order exactly once, with no
+  skips or double-counts between page queries. Commerce holds no reference to the Ordering DbContext — the contract is the only
   path, so the aggregation composes the contract rather than reaching into another module's tables.
 </div>
 
@@ -638,19 +648,25 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
 
 <h2 id="dbcontext">14. CommerceDbContext &amp; migrations</h2>
 <div class="callout">
-  <span class="callout-label">No migration</span>
-  <strong>This spec adds no schema.</strong> It defines no entity and no <code>DbSet</code>, so there is
-  <strong>no EF-CLI migration</strong> against <code>AonikDbContext</code> and no change to
-  <code>CommerceDbContext</code>. Both artefacts are computed on read from existing data — order projections
+  <span class="callout-label">One additive index; no new table or column</span>
+  <strong>This spec adds no new entity, table, or column.</strong> It defines no entity and no
+  <code>DbSet</code>, and there is no change to <code>CommerceDbContext</code>. One schema artefact
+  <em>does</em> ship: an <strong>additive supporting index</strong>
+  <code>(TenantId, OrderType, CreatedAt)</code> on the <em>existing</em> order table, declared on the
+  Order-spine's <code>OrderConfiguration</code> (in <code>Aonik.Ordering</code>) and generated with the
+  EF CLI against <code>AonikDbContext</code> in the canonical migration stream — its diff is a single
+  <code>CreateIndex</code> (plus snapshot), nothing else. Both artefacts are computed on read from existing data — order projections
   (via the Ordering read contract), recipes (Spec&nbsp;050), and optional inventory (Spec&nbsp;052). A
   persisted plan snapshot — which <em>would</em> introduce a table and a migration — is a follow-up under
   <a href="#open">Open</a>.
 </div>
 <p>
-  The only performance-relevant note: the production-sheet query is <strong>period-bounded</strong> (it filters
-  orders to the window and to <code>ProductPurchase</code>), and relies on the Ordering spine's existing
-  indexes on the order date field and type — see the aggregation-performance risk (§18). No index is added by
-  this spec; if one is needed it belongs to the Ordering/Order-spine schema, not to Commerce.
+  The performance rationale: the production-sheet query is <strong>period-bounded</strong> (it filters
+  orders to the window and to <code>ProductPurchase</code>), but the spine's pre-existing single-column
+  indexes (Status / OrderType / PayerPartyId / the filtered idempotency index) carry no date component, so
+  the window read would scan order history — see the aggregation-performance risk (§19). The composite index
+  ships with this spec for that hot path, and it lives where it belongs: in the Ordering/Order-spine schema,
+  not in Commerce.
 </p>
 
 <h2 id="phases">15. Phased rollout</h2>
@@ -697,15 +713,15 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td><code>GetProductionSheetAsync(window)</code> returns per-<code>ProductVariant</code> portion demand aggregated from <code>ProductPurchase</code> orders in the window, read through the <code>SharedKernel.Abstractions.Ordering</code> read contract (no <code>Aonik.Finance</code> reference), tenant-scoped.</td></tr>
-    <tr><td>R2</td><td>The order-inclusion filter is explicit, centralised in one place, and documented (§9): order type = <code>ProductPurchase</code>; status ∈ <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> (never <code>Draft</code> — an unpaid checkout intent — nor <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code>); <code>Order.CreatedAt</code> (UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code> — the spine exposes no needed-by date and this spec adds no schema.</td></tr>
+    <tr><td>R2</td><td>The order-inclusion filter is explicit, centralised in one place, and documented (§9): order type = <code>ProductPurchase</code>; status ∈ <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> (never <code>Draft</code> — an unpaid checkout intent — nor <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code>); <code>Order.CreatedAt</code> (UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code> — the spine exposes no needed-by date and this spec adds no new column.</td></tr>
     <tr><td>R3</td><td><code>GetPrepListAsync(window)</code> explodes the production sheet through active recipes via <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050 §11), returning per-<code>Ingredient</code> required quantity in base unit, merged across variants.</td></tr>
     <tr><td>R4</td><td>Variants with no active recipe are surfaced as a diagnostic (<code>VariantsWithoutRecipe</code>, from 050), never silently under-counted.</td></tr>
     <tr><td>R5</td><td>Netting (caller flag <code>netAgainstStock</code>, default true) computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedOrderQuantity</code> per the §11 seed precedence (ReorderQuantity as-is; else cheapest single-currency active-catalog whole packs; else the shortfall); with <code>netAgainstStock = false</code> those fields are <code>null</code> and the prep list is a pure requirements list.</td></tr>
-    <tr><td>R6</td><td>No new persisted entity, <code>DbSet</code>, or migration is introduced; both artefacts are computed on read.</td></tr>
+    <tr><td>R6</td><td>No new persisted entity, <code>DbSet</code>, table, or column is introduced; both artefacts are computed on read. The one schema artefact is <strong>additive</strong>: a supporting index <code>(TenantId, OrderType, CreatedAt)</code> on the existing order table for the §9 window hot path, tool-generated in the canonical <code>AonikDbContext</code> migration stream (§14).</td></tr>
     <tr><td>R7</td><td><code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference; it references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>.</td></tr>
     <tr><td>R8</td><td>Two agent read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) are unclassified reads (omitted from the manifest, per the house convention), execute directly (no approval), and each records an <code>AiRun</code> via the gate pipeline.</td></tr>
     <tr><td>R9</td><td>Order lines for build-your-own-box bundles are expanded through <code>OrderBundleSelection</code> (Spec&nbsp;042 §12 Option A): each selection row contributes variant demand; the bundle product id itself never appears as demand (§9).</td></tr>
-    <tr><td>R10</td><td>The Ordering contract is extended <strong>additively only</strong> (§9 contract note): <code>ListOrdersQuery.CreatedFromUtc/CreatedToUtc</code> (half-open) and <code>IOrderService.ListWithItemsAsync</code>; existing callers are unaffected.</td></tr>
+    <tr><td>R10</td><td>The Ordering contract is extended <strong>additively only</strong> (§9 contract note): <code>ListOrdersQuery.CreatedFromUtc/CreatedToUtc</code> (half-open) and <code>IOrderService.ListWithItemsAsync</code>; both list reads page in a deterministic <code>(CreatedAt DESC, Id)</code> order; existing callers are unaffected.</td></tr>
   </tbody>
 </table>
 
@@ -713,8 +729,9 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
 <ol>
   <li>Extend the Ordering contract additively (§9 contract note): <code>ListOrdersQuery</code> +
       <code>CreatedFromUtc/CreatedToUtc</code>, <code>IOrderService.ListWithItemsAsync</code>, one shared
-      filter predicate in <code>CoreOrderService</code>, and <code>CoreOrderServiceTests</code> coverage
-      (half-open boundaries; items returned).</li>
+      filter predicate in <code>CoreOrderService</code> with deterministic <code>(CreatedAt DESC, Id)</code>
+      page ordering, and <code>CoreOrderServiceTests</code> coverage
+      (half-open boundaries; items returned; stable paging under <code>CreatedAt</code> ties).</li>
   <li>Add <code>IProductionPlanningService</code> + implementation in <code>Services/Production/</code>; define
       <code>ProductionWindow</code>, <code>ProductionSheetDto(LineDto)</code>, <code>PrepListDto(LineDto)</code>
       in <code>Contracts/Models/Production/PlanningModels.cs</code> (no entity).</li>
@@ -730,14 +747,18 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <li>Tests: unit (inclusion-filter exclusions + half-open boundaries, bundle expansion, multi-variant merge
       equals Spec&nbsp;050's 10&nbsp;kg rice / 5&nbsp;kg tomato, no-recipe diagnostic, netting shortfall vs
       Available with the seed-precedence suggestion, raw-requirements mode, window validation)
-      + the architecture test still asserting no Commerce↔Finance reference. No migration to review.</li>
+      + the architecture test still asserting no Commerce↔Finance reference. One migration to review: the
+      §14 additive order-window index — exactly one <code>CreateIndex</code> (plus snapshot), tool-generated,
+      nothing else.</li>
 </ol>
 
 <h2 id="verification">18. Verification</h2>
 <ul>
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no
-      <code>Aonik.Finance</code> reference; <code>dotnet ef migrations list</code> shows <strong>no new
-      migration</strong> from this spec.</li>
+      <code>Aonik.Finance</code> reference; <code>dotnet ef migrations list</code> shows <strong>exactly one
+      new migration</strong> from this spec — the §14 additive <code>(TenantId, OrderType, CreatedAt)</code>
+      index on the existing order table, whose diff is a single <code>CreateIndex</code> (no new entity,
+      table, or column).</li>
   <li><strong>Production sheet:</strong> seed <code>ProductPurchase</code> orders for 40 portions jollof + 30
       portions steak within the window (plus a cancelled order, a draft — unpaid checkout — order, an
       out-of-window order, and an order created exactly at <code>ToUtc</code>, none of which may count);
@@ -767,7 +788,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
     <tr><td>Ambiguity over <em>which orders count</em> (status / date field / window boundaries) mis-states demand</td><td>Medium</td><td>The inclusion filter is <strong>explicit, centralised, and documented</strong> (§9): one predicate for order type, status set, and date-field-with-fallback; tests assert cancelled / draft / out-of-window orders are excluded.</td></tr>
-    <tr><td>Aggregation performance over many orders</td><td>Medium</td><td>The query is <strong>period-bounded</strong> (filtered to the window and to <code>ProductPurchase</code>) and rides the Order-spine's existing date/type indexes; no unbounded scan. Heavy windows are a reporting-store concern noted as future, not solved here.</td></tr>
+    <tr><td>Aggregation performance over many orders</td><td>Medium</td><td>The query is <strong>period-bounded</strong> (filtered to the window and to <code>ProductPurchase</code>) and seeks on the additive §14 composite index <code>(TenantId, OrderType, CreatedAt)</code> shipped with this spec (the spine's pre-existing single-column indexes carry no date component); no unbounded scan. Heavy windows are a reporting-store concern noted as future, not solved here.</td></tr>
     <tr><td>Double-counting demand that has already been produced</td><td>Medium</td><td>v1 deliberately counts <strong>all in-window demand</strong> and documents this; excluding demand already covered by completed production orders is <a href="056.production-orders-kitchen-sheet.html">Spec&nbsp;056</a> / <a href="#open">Open</a>, not silently assumed.</td></tr>
     <tr><td>Silent under-count when a sold variant has no recipe</td><td>Medium</td><td>The Spec&nbsp;050 no-recipe diagnostic is surfaced as <code>VariantsWithoutRecipe</code>; the operator sees the gap explicitly.</td></tr>
     <tr><td>Netting coupled too tightly to Spec&nbsp;052, blocking 055's release</td><td>Low</td><td>Netting sits behind a capability check; with no on-hand source the prep list returns pure requirements — 055 ships before/without 052.</td></tr>
@@ -776,7 +797,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
 
 <h2 id="decisions">20. Decisions baked in</h2>
 <ul>
-  <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no migration; both artefacts are computed on read. The only contract change is the additive Ordering extension (§9 contract note).</li>
+  <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no new table or column; the one schema artefact is the additive §14 supporting index <code>(TenantId, OrderType, CreatedAt)</code> on the existing order table, tool-generated in the canonical stream; both artefacts are computed on read. The only contract change is the additive Ordering extension (§9 contract note), whose list reads page deterministically on <code>(CreatedAt DESC, Id)</code>.</li>
   <li><strong>The production sheet aggregates <code>ProductPurchase</code> demand by variant</strong> over a half-open UTC window on <code>Order.CreatedAt</code>, read through the Ordering read contract — never via a Finance reference — counting only the committed §9 status set (never Draft or the terminal failures).</li>
   <li><strong>Bundle order lines are expanded, never counted as demand</strong> — a build-your-own-box line's <code>OrderBundleSelection</code> components are the kitchen demand (Spec&nbsp;042 §12 Option A); the bundle product id itself never reaches the sheet.</li>
   <li><strong>The prep list <em>is</em> the exploded sheet</strong> — it calls Spec&nbsp;050's <code>ExplodeManyAsync</code> (055 is that primitive's primary consumer) and never re-implements BOM math.</li>
@@ -804,7 +825,8 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <code>Order</code> or <code>OrderFulfilmentRef</code>. Planning by <em>when a thing is needed</em> — so an
   order placed today but due tomorrow lands in tomorrow's sheet — requires an <strong>additive field on the
   Order spine</strong> (a small <code>OrderFulfilmentRef</code>/<code>Order</code> column). That is a
-  follow-up, and adopting it would change this spec's <em>no schema change</em> claim; the §9 filter is
+  follow-up, and adopting it would take this spec's schema footprint (§14 — an additive index only) to a
+  real column; the §9 filter is
   centralised so only its date predicate would move.
 </div>
 <div class="callout open">

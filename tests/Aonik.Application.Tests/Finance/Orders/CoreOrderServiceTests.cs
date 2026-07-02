@@ -195,6 +195,41 @@ public class CoreOrderServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_AndListWithItemsAsync_Should_PageDeterministically_When_CreatedAtTies()
+    {
+        // CreatedAt alone is not a total order: orders created in the same instant leave the
+        // database free to reorder ties between page queries, so a multi-page window walk could
+        // skip or double-count an order. Both list paths pin (CreatedAt DESC, Id ASC), so pages
+        // tile the window exactly — every order once, no duplicates, stable across calls.
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId, new TestClock()); // fixed clock — every order gets the identical CreatedAt
+        var service = CreateService(context, tenantId);
+
+        var created = new List<Guid>();
+        for (var i = 0; i < 5; i++)
+        {
+            created.Add((await service.CreateAsync(ProductPurchaseCommand())).Id);
+        }
+        // All CreatedAt equal → the Id tie-breaker alone defines the total order.
+        var expectedOrder = created.OrderBy(id => id).ToList();
+
+        var summaryWalk = new List<Guid>();
+        var fullWalk = new List<Guid>();
+        for (var pageNumber = 1; pageNumber <= 3; pageNumber++)
+        {
+            var summaries = await service.ListAsync(new ListOrdersQuery(PageNumber: pageNumber, PageSize: 2));
+            summaryWalk.AddRange(summaries.Items.Select(o => o.Id));
+
+            var fulls = await service.ListWithItemsAsync(new ListOrdersQuery(PageNumber: pageNumber, PageSize: 2));
+            fullWalk.AddRange(fulls.Items.Select(o => o.Id));
+        }
+
+        // Union of the pages = all five orders, in the pinned order — no skips, no double-counts.
+        summaryWalk.Should().Equal(expectedOrder);
+        fullWalk.Should().Equal(expectedOrder);
+    }
+
+    [Fact]
     public async Task ListWithItemsAsync_Should_ReturnFullOrders_WithLineItems_UnderTheSameFilters()
     {
         var (options, tenantId) = NewDb();
