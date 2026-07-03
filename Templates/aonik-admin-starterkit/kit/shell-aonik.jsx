@@ -44,6 +44,28 @@ const SIDEBAR_NAV = [
         { id: 'journal',        label: 'Journal entries',   icon: 'invoice' },
       ]},
     ]},
+    // Commerce (Spec 042 sell-side) + Commerce · Make (Specs 050–057 maker-ops).
+    // Deliberately two FLAT sibling parents (Spec 058 §7): the sidebar renders
+    // exactly one child level, so a nested "Make" sub-group would be unreachable.
+    // Badges come from the mock datasets: 3 active low-stock alerts (Open +
+    // Acknowledged), 2 POs pending receipt.
+    { id: 'commerce', label: 'Commerce', icon: 'cart', children: [
+      { id: 'cm-overview',   label: 'Overview',        icon: 'dashboard' },
+      { id: 'cm-catalog',    label: 'Catalog',         icon: 'box' },
+      { id: 'cm-inventory',  label: 'Inventory',       icon: 'layers' },
+      { id: 'cm-orders',     label: 'Orders & carts',  icon: 'receipt' },
+      { id: 'cm-discounts',  label: 'Discounts',       icon: 'tag' },
+    ]},
+    { id: 'cm-make', label: 'Commerce · Make', icon: 'chef', children: [
+      { id: 'cm-ingredients', label: 'Ingredients',       icon: 'wheat' },
+      { id: 'cm-recipes',     label: 'Recipes',           icon: 'book' },
+      { id: 'cm-planning',    label: 'Planning',          icon: 'calendar' },
+      { id: 'cm-production',  label: 'Production',        icon: 'flame' },
+      { id: 'cm-lowstock',    label: 'Low stock',         icon: 'alert', badge: 3 },
+      { id: 'cm-suppliers',   label: 'Suppliers',         icon: 'truck' },
+      { id: 'cm-pos',         label: 'Purchase orders',   icon: 'clipboard', badge: 2 },
+      { id: 'cm-margin',      label: 'Margin',            icon: 'chart' },
+    ]},
     { id: 'personal-finance', label: 'Personal Finance', icon: 'bank', children: [
       { id: 'wallets',  label: 'Wallets',   icon: 'bank' },
       { id: 'savings',  label: 'Savings',   icon: 'chart' },
