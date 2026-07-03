@@ -22,6 +22,16 @@ public interface IIngredientCostService
     Task<IngredientCostDto> SetCostAsync(SetIngredientCostCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Validates a <see cref="SetCostAsync"/> command WITHOUT writing — the same rules, one code
+    /// path (ingredient exists and is active, positive cost, currency present, and the §8
+    /// window/history-rewrite guard for the given <c>EffectiveFrom</c>). Lets a composing flow
+    /// (Spec 054's goods receipt) reject an un-writable cost — e.g. a backdated date inside a
+    /// fully elapsed window — BEFORE it claims/applies anything else. Throws exactly what
+    /// <see cref="SetCostAsync"/> would; returns normally when the write would be accepted.
+    /// </summary>
+    Task ValidateSetCostAsync(SetIngredientCostCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// The cost effective at <paramref name="atUtc"/> (default: now) — the row where
     /// <c>EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo)</c>,
     /// newest first (Spec 051 §8/R3). Date-aware: a scheduled (future-dated) row never prices

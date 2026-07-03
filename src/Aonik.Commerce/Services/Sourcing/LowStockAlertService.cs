@@ -184,6 +184,70 @@ internal sealed class LowStockAlertService : ILowStockAlertService
         return Map(alert, ingredientName);
     }
 
+    public async Task<IReadOnlyList<Guid>> ResolveIfRecoveredAsync(IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken = default)
+    {
+        if (ingredientIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var ids = ingredientIds.Distinct().ToList();
+
+        // Every UNRESOLVED alert for the ingredients — Open, Acknowledged, or Ordered (the goods
+        // receipt normally lands on an Ordered alert the Spec 053 seed flipped). Tracked: the
+        // recovered ones flip below.
+        var unresolved = await _dbContext.LowStockAlerts
+            .Where(a => a.TenantId == tenantId
+                && ids.Contains(a.IngredientId)
+                && (a.Status == LowStockAlertStatuses.Open
+                    || a.Status == LowStockAlertStatuses.Acknowledged
+                    || a.Status == LowStockAlertStatuses.Ordered))
+            .ToListAsync(cancellationToken);
+        if (unresolved.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        // The LIVE default-location level is the recompute source — the same level the scan
+        // breaches on and the receipt just incremented — never the alert's raise-time snapshot
+        // (Spec 054 §8/R4). The level's CURRENT reorder point is the comparator (it may have been
+        // retuned since the alert fired).
+        var affected = unresolved.Select(a => a.IngredientId).Distinct().ToList();
+        var levels = await _dbContext.InventoryLevels
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId
+                && l.StockItemKind == StockItemKinds.Ingredient
+                && l.IngredientId != null
+                && affected.Contains(l.IngredientId!.Value)
+                && l.Location == null)
+            .ToDictionaryAsync(l => l.IngredientId!.Value, cancellationToken);
+
+        var resolved = new List<Guid>();
+        foreach (var alert in unresolved)
+        {
+            // Resolve ONLY on demonstrable recovery: the scan raises at available <= reorder
+            // point, so recovery is strictly above it. A missing level or a cleared (null)
+            // reorder point cannot demonstrate recovery — the alert stays exactly as it was
+            // (the #164 short-receipt rule).
+            if (!levels.TryGetValue(alert.IngredientId, out var level) || level.ReorderPoint is null)
+            {
+                continue;
+            }
+            if (level.OnHand - level.Reserved > level.ReorderPoint.Value)
+            {
+                alert.Status = LowStockAlertStatuses.Resolved;
+                resolved.Add(alert.Id);
+            }
+        }
+
+        if (resolved.Count > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        return resolved;
+    }
+
     private static LowStockAlertDto Map(LowStockAlert alert, string? ingredientName)
         => new(alert.Id, alert.IngredientId, ingredientName, alert.AvailableAtRaise, alert.ReorderPoint, alert.Status, alert.RaisedAt);
 }

@@ -78,6 +78,12 @@ public sealed class CommerceModule : IModule
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
+        // Spec 054 — goods receipt: the convergence write that turns a submitted PO into
+        // raw-material on-hand (052 stock increment), refreshed landed cost (051), recovered-alert
+        // resolution (052/054), and the PO's Complete transition on the spine (041) — idempotent
+        // by a client-supplied key resolved before any mutation.
+        services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);

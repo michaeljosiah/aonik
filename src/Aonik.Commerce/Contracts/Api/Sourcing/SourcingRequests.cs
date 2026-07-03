@@ -78,3 +78,20 @@ public record CreatePurchaseOrderFromShortfallRequest(
 
 /// <summary>Cancels a purchase order before receipt (Spec 053 §13).</summary>
 public record CancelPurchaseOrderRequest(string? Reason = null);
+
+/// <summary>One received line (Spec 054 §7): quantity in the ingredient's base unit; a non-null
+/// UnitCostActual (per base unit, in the purchase order's currency) also refreshes the
+/// ingredient's Spec 051 cost effective from the receipt date.</summary>
+public record ReceiveGoodsLineRequest(
+    Guid IngredientId,
+    decimal QuantityReceived,
+    decimal? UnitCostActual = null);
+
+/// <summary>Receives goods against a submitted purchase order (Spec 054 §8) — fully or partially.
+/// IdempotencyKey is required: the same key returns the existing receipt instead of
+/// double-counting stock, so retries are safe. Omit ReceivedAt for now.</summary>
+public record ReceiveGoodsRequest(
+    string IdempotencyKey,
+    List<ReceiveGoodsLineRequest> Lines,
+    DateTime? ReceivedAt = null,
+    string? Notes = null);

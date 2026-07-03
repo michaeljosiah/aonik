@@ -27,6 +27,14 @@ public interface IInventoryService
     Task SetOnHandAsync(StockItemRef item, decimal onHand, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Adjusts the on-hand quantity for a stock item by a signed delta — the receive path
+    /// (Spec 054 §8: a goods receipt increments rather than overwrites, so a concurrent
+    /// set/receive never loses the other's movement). Returns the resulting level snapshot.
+    /// The caller owns sign/positivity validation.
+    /// </summary>
+    Task<StockLevelDto> AdjustOnHandAsync(StockItemRef item, decimal delta, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sets the reorder point (low-stock alert threshold on available stock) and the optional
     /// suggested reorder quantity for a stock item (Spec 052 §9). Null clears alerting.
     /// </summary>

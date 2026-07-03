@@ -63,6 +63,40 @@ internal sealed class InventoryService : IInventoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<StockLevelDto> AdjustOnHandAsync(StockItemRef item, decimal delta, CancellationToken cancellationToken = default)
+    {
+        ValidateKind(item);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        await EnsureIngredientExistsAsync(tenantId, item, cancellationToken);
+        var level = await GetOrCreateDefaultLevelAsync(tenantId, item, cancellationToken);
+        level.OnHand += delta;
+
+        // Bounded rowversion-conflict retry (Spec 054 §8/R2): a signed increment COMMUTES with any
+        // rival write — reloading the level pulls the rival's committed OnHand and re-applying the
+        // same delta lands on the value both movements together demand, so neither is lost. Without
+        // this, a receipt racing a checkout commit (or a rival receipt line) would surface a raw
+        // DbUpdateConcurrencyException and drop the increment on the floor. Three attempts bound
+        // pathological contention; exhaustion rethrows so the caller fails loudly, never silently.
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                break;
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
+            {
+                // Reload the level FRESH (drops our stale local value and concurrency token, pulls
+                // the rival's committed row) and re-apply the signed delta on top of it.
+                await _dbContext.Entry(level).ReloadAsync(cancellationToken);
+                level.OnHand += delta;
+            }
+        }
+
+        return new StockLevelDto(item.Kind, item.Id, level.OnHand, level.Reserved, level.OnHand - level.Reserved, level.ReorderPoint, level.ReorderQuantity);
+    }
+
     public async Task<StockLevelDto> SetReorderPointAsync(StockItemRef item, decimal? reorderPoint, decimal? reorderQuantity = null, CancellationToken cancellationToken = default)
     {
         ValidateKind(item);
