@@ -28,6 +28,14 @@ public interface IOrderService
     Task<PagedResult<OrderSummary>> ListAsync(ListOrdersQuery query, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Same filters and paging as <see cref="ListAsync"/>, but each order is returned as a full
+    /// <see cref="OrderDto"/> including its line items. Additive (Spec 055 §9): a consumer that
+    /// aggregates per-line retail fields (<c>Quantity</c>, <c>ProductId</c> — the production
+    /// sheet) needs the lines, and <see cref="OrderSummary"/> deliberately carries only a count.
+    /// </summary>
+    Task<PagedResult<OrderDto>> ListWithItemsAsync(ListOrdersQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Records a status transition (history + <c>OrderStatusChangedEvent</c>); a same-status call
     /// is a no-op. The spine enforces no state machine — but a caller that guards its own machine
     /// can send its observed status in <paramref name="expectedFromStatus"/> (Spec 053 §13): when

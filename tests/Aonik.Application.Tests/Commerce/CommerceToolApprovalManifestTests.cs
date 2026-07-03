@@ -7,7 +7,8 @@ namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
 /// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032 / Spec 050 §12 /
-/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11). Read tools pass through
+/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11 / Spec 055 §13). Read tools —
+/// including the Spec 055 planning reads (production sheet, prep list) — pass through
 /// unclassified; cart writes are Low; catalog/price/inventory/checkout, maker-ops master-data +
 /// costing + raw-material stock, and sourcing (supplier / purchase-order placement / goods
 /// receipt) writes are Medium; nothing is High (Commerce never captures or pays out money —
@@ -66,6 +67,8 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_check_ingredient_stock")]
     [InlineData("commerce_list_low_stock")]
     [InlineData("commerce_list_suppliers")]
+    [InlineData("commerce_get_production_sheet")]
+    [InlineData("commerce_get_prep_list")]
     public void ReadTools_Should_BeUnclassified(string tool)
         => _manifest.Classify(tool).Should().BeNull();
 

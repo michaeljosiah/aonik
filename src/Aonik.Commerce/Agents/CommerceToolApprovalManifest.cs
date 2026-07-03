@@ -8,7 +8,8 @@ namespace Aonik.Commerce.Agents;
 /// them before they reach the model. Read tools (<c>commerce_search_products</c>, <c>_get_product</c>,
 /// <c>_view_cart</c>, <c>_check_inventory</c>, <c>_list_ingredients</c>, <c>_get_recipe</c>,
 /// <c>_explode_recipe</c>, <c>_get_product_cost</c>, <c>_check_ingredient_stock</c>,
-/// <c>_list_low_stock</c>, <c>_list_suppliers</c>) are omitted — the gate passes unclassified,
+/// <c>_list_low_stock</c>, <c>_list_suppliers</c>, <c>_get_production_sheet</c>,
+/// <c>_get_prep_list</c>) are omitted — the gate passes unclassified,
 /// read-looking tools through. Commerce never captures money, so no tool is High here (capture
 /// stays a Finance high-tier action; a future <c>commerce_refund</c> would be High via a Finance
 /// proposal, and PAYING a purchase-order supplier — <c>commerce_pay_purchase_order</c> — is the

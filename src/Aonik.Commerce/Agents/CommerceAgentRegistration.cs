@@ -27,8 +27,11 @@ public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
         "required ingredient quantities, plus raw-material stock: ingredient on-hand levels, " +
         "reorder points, and low-stock alerts. Handles sourcing: lists and registers suppliers " +
         "and creates and submits purchase orders for raw materials (placement only — orders on " +
-        "the shared spine). Never captures or pays out money — checkout creates an order and a " +
-        "draft payment only, and paying a supplier is a separate approval-gated flow.";
+        "the shared spine). Answers production planning questions: the production sheet (portion " +
+        "demand by variant for a date window) and the ingredient prep list (that demand exploded " +
+        "through recipes, netted against available stock). Never captures or pays out money — " +
+        "checkout creates an order and a draft payment only, and paying a supplier is a separate " +
+        "approval-gated flow.";
 
     string? IDomainAgentDescriptor.Instructions => InstructionsText;
 
@@ -49,6 +52,7 @@ public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
         - Cart: create a cart, add a simple product line, add a build-your-own-box bundle (a selection of component variants per slot).
         - Inventory (read): check available units for a variant.
         - Maker ops (read): list ingredients, get a variant's recipe, explode a recipe into required ingredient quantities for N portions, check an ingredient's stock (on-hand/reserved/available and reorder point), list active low-stock alerts, list suppliers (with currency, lead time, payment terms).
+        - Production planning (read): get the production sheet (per-variant portion demand from committed product-purchase orders created in a UTC window, half-open [from, to); build-your-own-box lines expanded into their components) and the ingredient prep list (the sheet exploded through active recipes; by default netted against available stock with a shortfall and suggested order quantity; variants without a recipe are flagged).
         - Maker ops (write): create an ingredient (with a base unit: kg, g, L, ml, each), define or replace a variant's recipe, set an ingredient's on-hand stock, set an ingredient's reorder point (and optional suggested reorder quantity). Recipe component quantities are always in each ingredient's base unit, per the recipe's yield.
         - Sourcing (write): register a supplier (name + the currency we buy in), create a Draft purchase order to a supplier for raw materials (line quantities in each ingredient's base unit; unit prices default from the supplier's catalog), and submit a Draft purchase order to the supplier. A purchase order records intent and lifecycle only — money flows OUTWARD to the supplier, and paying them is a separate, deferred, high-approval action you cannot perform.
         - Checkout: reserve stock, create the product-purchase order, and initiate a DRAFT payment. Checkout never captures money.
