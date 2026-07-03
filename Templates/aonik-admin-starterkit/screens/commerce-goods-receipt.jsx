@@ -17,7 +17,9 @@
 
 const CMGR_IDEM_KEYS = { po_0112: 'rcv-9d41f2', po_0119: 'rcv-3c77a0' };
 const cmGrIngById = id => CM_INGREDIENTS.find(i => i.id === id) || { name: id, emoji: '❔', unit: '', onHand: 0, reserved: 0 };
-const cmGrActiveAlertFor = ing => CM_ALERTS.find(a => a.ing === ing && (a.status === 'open' || a.status === 'acknowledged'));
+// Landed 054 ResolveIfRecoveredAsync flips Open, Acknowledged AND Ordered alerts — an Ordered
+// alert is exactly what a receipt against its seeded PO recovers (the rice chain's payoff).
+const cmGrUnresolvedAlertsFor = ing => CM_ALERTS.filter(a => a.ing === ing && (a.status === 'open' || a.status === 'acknowledged' || a.status === 'ordered'));
 
 function ScreenCommerceGoodsReceipt() {
   const grPending = CM_POS.filter(p => p.status === 'pending');
@@ -39,8 +41,8 @@ function ScreenCommerceGoodsReceipt() {
     const over = now > remainingBefore;
     const ingr = cmGrIngById(l.ing);
     const availAfter = cmIngAvail(ingr) + now;
-    const alert = cmGrActiveAlertFor(l.ing);
-    return { l, key, now, cost, remainingBefore, remainingAfter, over, ingr, availAfter, alert };
+    const alerts = cmGrUnresolvedAlertsFor(l.ing);
+    return { l, key, now, cost, remainingBefore, remainingAfter, over, ingr, availAfter, alerts };
   });
   const anyOver = calc.some(x => x.over);
   const allDone = !anyOver && calc.every(x => x.remainingAfter <= 0);
@@ -52,11 +54,15 @@ function ScreenCommerceGoodsReceipt() {
     railRows.push(x.cost
       ? { icon: 'refresh', color: 'var(--brand-primary)', text: <span>Cost refresh — {x.ingr.name} {cmMoney(Number(x.cost))}/{x.l.unit} written effective from received-at (new cost window)</span> }
       : { icon: 'refresh', color: 'var(--text-tertiary)', text: <span>No actual cost given — {x.ingr.name} keeps its current standard cost{x.ingr.cost ? ' (' + cmMoney(x.ingr.cost.current) + '/' + x.ingr.unit + ')' : ''}</span> });
-    railRows.push(x.alert
-      ? (x.availAfter >= x.alert.reorderPoint
-        ? { icon: 'check2', color: 'var(--success)', text: <span>Alert {x.alert.ref} resolves — {cmUnit(x.availAfter, x.l.unit)} is at or above the {cmUnit(x.alert.reorderPoint, x.l.unit)} reorder point</span> }
-        : { icon: 'alertc', color: 'var(--warning)', text: <span>Alert {x.alert.ref} kept — still below reorder point ({cmUnit(x.availAfter, x.l.unit)} of {cmUnit(x.alert.reorderPoint, x.l.unit)})</span> })
-      : { icon: 'check2', color: 'var(--text-tertiary)', text: <span>No active low-stock alert for {x.ingr.name}</span> });
+    // Boundary per landed 052/054: resolve ONLY strictly above the reorder point — landing
+    // exactly on it keeps the alert (the short-receipt honesty rule).
+    if (x.alerts.length === 0) {
+      railRows.push({ icon: 'check2', color: 'var(--text-tertiary)', text: <span>No unresolved low-stock alert for {x.ingr.name}</span> });
+    } else x.alerts.forEach(al => {
+      railRows.push(x.availAfter > al.reorderPoint
+        ? { icon: 'check2', color: 'var(--success)', text: <span>Alert {al.ref} resolves — {cmUnit(x.availAfter, x.l.unit)} is strictly above the {cmUnit(al.reorderPoint, x.l.unit)} reorder point</span> }
+        : { icon: 'alertc', color: 'var(--warning)', text: <span>Alert {al.ref} kept — still at or below the reorder point ({cmUnit(x.availAfter, x.l.unit)} of {cmUnit(al.reorderPoint, x.l.unit)})</span> });
+    });
   });
   railRows.push(allDone
     ? { icon: 'clipcheck', color: 'var(--success)', text: <span>PO completion — everything ordered received, <b>{po.ref} completes</b></span> }
@@ -245,7 +251,7 @@ function ScreenCommerceGoodsReceipt() {
             )}
 
             <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
-              <Icon name="check2" size={12} color="var(--success)" style={{ flex: 'none', marginTop: 2 }} /> An alert resolves only when available stock is back at or above the reorder point — a short receipt keeps it, honestly. Cumulative received may never exceed ordered.
+              <Icon name="check2" size={12} color="var(--success)" style={{ flex: 'none', marginTop: 2 }} /> An alert resolves only when available stock is strictly back above the reorder point — landing exactly on it, or a short receipt, keeps the alert honestly. Cumulative received may never exceed ordered.
             </div>
           </div>
         </div>
