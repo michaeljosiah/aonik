@@ -253,11 +253,12 @@
   A new tenant admin sees a "Commerce" section and a "Commerce · Make" section in the sidebar, entirely
   sourced from <code>modules/commerce/index.ts</code>'s own <code>navigation</code> array — no
   parallel edit to <code>sidebarNav.ts</code> required, because the sidebar now reads
-  <code>getAggregatedNavigation()</code> for every module, existing ones included, with their rendered
-  tree unchanged. Commerce's catalog pages live at <code>/commerce/catalog/*</code>, not colliding
-  with Finance's existing <code>/catalog/*</code>. No page renders a hardcoded label string — every
-  Commerce-facing string routes through one small labels module, so a future vertical preset is a
-  data change, not a find-and-replace across components.
+  <code>useModules().navigation</code> (manifest filtering intact) for every module, existing ones
+  included, with their rendered tree matching today's exactly — reconciled on icon vocabulary and
+  content first, not merely relocated. Commerce's catalog pages live at <code>/commerce/catalog</code>,
+  not colliding with Finance's existing <code>/catalog/*</code>. No page, nav label, or breadcrumb
+  renders a hardcoded string — every Commerce-facing string routes through one small labels module, so
+  a future vertical preset is a data change, not a find-and-replace across components.
 </div>
 
 <h2 id="context">2. Context &amp; motivation</h2>
@@ -274,10 +275,13 @@
   <code>Recipe.YieldUnit</code> is a free string the tenant sets, and the BOM-explosion / costing /
   procurement / work-order mechanics are standard light-manufacturing primitives. A PC-builder's bill of
   materials (1 CPU + 1 GPU + 2 RAM + 1 case) explodes through the exact same <code>ExplodeAsync</code>
-  path as a jollof recipe. The gap is entirely in the presentation layer: some UI-facing and
-  agent-facing strings (<code>KitchenSheetDto</code>, the <code>/kitchen-sheet</code> route, agent tool
-  descriptions reading "food cost per portion" and "the kitchen is cooking") are food-flavored. This spec
-  lays the seam that keeps that swappable without touching the backend.
+  path as a jollof recipe. The gap is entirely in the presentation layer — but it runs deeper than
+  loose strings: it's baked into C# <em>type and method names</em> across every layer (the whole
+  <code>KitchenSheetDto</code>/<code>KitchenSheetDishDto</code>/<code>KitchenSheetComponentDto</code>
+  family, <code>GetKitchenSheetAsync</code>, the <code>/kitchen-sheet</code> route) and into several
+  (at least four) agent tool <code>[Description]</code> attributes reading "food cost per portion,"
+  "the kitchen is cooking," and similar. This spec lays the seam that keeps the UI-facing half of
+  that swappable without touching the backend; §8 is explicit about which half it does not reach.
 </p>
 
 <h2 id="grounding">3. Grounding: the real AdminUi today</h2>
@@ -297,16 +301,31 @@
   panelComponents: Record&lt;string, ComponentType&lt;WorkspacePanelRenderProps&gt;&gt;;
   breadcrumbs: ModuleBreadcrumb[];
 }</code></pre>
-      Registered today (<code>modules/registry.ts</code>): <code>core</code>, <code>finance</code>,
-      <code>platform</code>, <code>agent-command-center</code>, <code>agent-extensions</code>. Routes
-      and workspace panels ARE module-driven and correctly stitched by the registry.</li>
+      Registered today, in this exact order (<code>modules/registry.ts</code>'s <code>allModules</code>
+      array): <code>core</code>, <code>agent-command-center</code>, <code>agent-extensions</code>,
+      <code>finance</code>, <code>platform</code>. Order is not incidental — the registry's own comment
+      states <em>"Order matters for navigation rendering"</em>, because it drives the section-merge
+      iteration order inside <code>getAggregatedNavigation()</code>. Routes and workspace panels ARE
+      module-driven and correctly stitched by the registry.</li>
   <li><strong>The sidebar is NOT module-driven.</strong> <code>components/layout/aonik/sidebarNav.ts</code>
       exports a static <code>SIDEBAR_NAV</code> array that <code>AonikSidebar</code> renders directly.
       The file's own comment: <em>"the per-module <code>navigation</code> arrays in
       <code>modules/*/index.ts</code> are aggregated by <code>getAggregatedNavigation()</code> but are not
       currently wired into the rendered sidebar — this file is the live source."</em> Finance and Platform
       both have fully-implemented pages/routes today, and both have their nav items hand-duplicated into
-      <code>SIDEBAR_NAV</code> rather than sourced from their own <code>navigation</code> field.</li>
+      <code>SIDEBAR_NAV</code> rather than sourced from their own <code>navigation</code> field — and
+      not a faithful duplicate: see the icon-vocabulary finding immediately below.</li>
+  <li><strong>The two representations have already diverged — confirmed, not hypothetical.</strong>
+      <code>sidebarNav.ts</code> spreads Finance's items across three top-level sections with a closed,
+      hand-authored lowercase icon vocabulary (<code>home</code>, <code>receipt</code>, <code>building</code>…).
+      Finance's own <code>navigation</code> field (<code>modules/finance/index.ts</code>) uses a
+      <em>different</em> section shape (one section, <code>childGroups</code>) and a <em>different</em>
+      icon vocabulary — PascalCase Lucide-style names (<code>Building2</code>, <code>ClipboardList</code>,
+      <code>BookOpen</code>…). The renderer, <code>AonikTemplateIcon.tsx</code>, is a closed lookup table
+      keyed to the lowercase vocabulary: <code>const paths = ICON_PATHS[name]; if (!paths) return null;</code>.
+      None of Finance's or Platform's own PascalCase icon names exist in that table today. Reading
+      <code>navigation</code> directly, unreconciled, would render every Finance and Platform icon blank —
+      confirmed by direct inspection of both files, not inferred. §4 addresses this explicitly.</li>
   <li><strong>Commerce: zero presence.</strong> No <code>modules/commerce/</code>, no Commerce routes in
       the registry, no <code>pages/commerce/</code>, no Commerce nav entries.</li>
   <li><strong>PersonalFinance: zero presence, and it's deliberate</strong> — <code>sidebarNav.ts</code>
@@ -322,12 +341,23 @@
       no <code>locales/</code> or strings config, for any module. Every existing module hardcodes English
       strings inline. This is a platform-wide gap, not a Commerce-specific one; §8 scopes what this spec
       does and does not attempt to fix about it.</li>
-  <li><strong>Nav item shape</strong> (from the live <code>SIDEBAR_NAV</code>): <code>{ id, label, icon,
-      href?, children?, audience? }</code>. <code>audience: 'host'</code> gates host-operator-only items
-      (Tenants, Observability, global Settings) out of tenant-admin view — confirmed real, currently used.
-      A <code>badge</code> field was NOT observed on any live item (the starter kit's mock had one; the
-      real type was not confirmed to support it) — treat as unconfirmed until the type definition is
-      checked (§13 T1).</li>
+  <li><strong>Nav item shape</strong> — the real <code>NavItem</code> type
+      (<code>src/Aonik.AdminUi/src/types/index.ts</code>) is richer than <code>SIDEBAR_NAV</code>'s
+      current usage suggests:
+<pre><code>interface NavItem {
+  id: string; label: string; icon: string;
+  href?: string; badge?: string; children?: NavItem[];
+  audience?: 'host' | 'tenant' | 'all';
+  childGroups?: NavItemGroup[]; viewAllHref?: string; viewAllLabel?: string;
+}</code></pre>
+      <code>badge?: string</code> is confirmed supported — §6's badge notes are not speculative.
+      <code>audience: 'host'</code> gates host-operator-only items (Tenants, Observability, global
+      Settings) out of tenant-admin view — confirmed real, currently used. <code>childGroups</code>
+      also exists and is already used by Finance's and Platform's own <code>navigation</code> fields
+      (a 2-level grouping richer than <code>SIDEBAR_NAV</code>'s flat <code>children</code>) — this
+      spec's flat-two-sections nav tree (§6) does not use it, kept as the conservative default; whether
+      <code>AonikSidebar</code> reliably renders <code>childGroups</code> nesting beyond what
+      <code>SIDEBAR_NAV</code> exercises today remains open (§13 T1, narrowed).</li>
 </ul>
 
 <h2 id="wiring-gap">4. The navigation-wiring gap, and the decision to fix it</h2>
@@ -335,19 +365,50 @@
   Three ways to add Commerce's nav: (a) hand-edit <code>sidebarNav.ts</code>, matching how Finance and
   Platform did it — cheapest, but perpetuates the exact duplication the module contract exists to avoid,
   and leaves Commerce's own <code>navigation</code> field dead on arrival, same as every other module's;
-  (b) leave the gap and give Commerce a special case; (c) <strong>fix the wiring</strong> — make
-  <code>AonikSidebar</code> render <code>getAggregatedNavigation()</code> instead of importing
-  <code>SIDEBAR_NAV</code>, and migrate Finance's and Platform's existing entries into their own modules'
-  <code>navigation</code> fields as a mechanical, output-preserving move.
+  (b) leave the gap and give Commerce a special case; (c) <strong>fix the wiring</strong> — make the
+  sidebar render every module's own <code>navigation</code>, and migrate the four other modules'
+  existing entries into their own <code>navigation</code> fields.
 </p>
 <p>
-  <strong>Decision: (c).</strong> It is a data-relocation refactor, not a UI change — the rendered tree
-  for Finance and Platform must be byte-identical before and after (§12 verification: a nav-tree
-  snapshot diff), which makes it low-risk to verify. Doing it now, while there is a concrete reason to
-  touch navigation, is cheaper than justifying it later as a standalone refactor PR with no immediate
-  visible motivation. And it directly delivers the organizing principle this whole spec was requested
-  for: a module's menu items live <em>in the module</em>, not in a second file someone has to remember
-  to also edit.
+  <strong>Decision: (c) — but it is not the cheap, purely mechanical move first drafted here.</strong>
+  Direct inspection surfaced two compounding problems that make this a real reconciliation, not a
+  data-relocation refactor:
+</p>
+<ul>
+  <li><strong>Icon vocabulary must be reconciled, not just relocated</strong> (§3). Finance's and
+      Platform's own <code>navigation</code> fields already use a PascalCase icon vocabulary that does
+      not exist in <code>AonikTemplateIcon</code>'s lookup table — reading them as-is renders every icon
+      in both sections blank. Fix by rewriting <code>navigation.icon</code> values in
+      <code>finance/index.ts</code> and <code>platform/index.ts</code> to the lowercase vocabulary
+      <code>AonikTemplateIcon</code> already supports (cheaper and safer than extending a shared lookup
+      two ways), before switching the sidebar's read source.</li>
+  <li><strong>Content, not just presentation, has diverged for every module — not only Finance/Platform.</strong>
+      Core's <code>navigation</code> field labels the root route "Dashboard"; the live sidebar shows
+      "My Space." Agent Command Center's and Agent Extensions' own <code>navigation</code> fields
+      include AI links (<code>/ai/runs</code>, <code>/ai/models</code>, <code>/ai/prompts</code>,
+      <code>/ai/routing</code>, <code>/ai/traces</code>, <code>/ai/agent-extensions</code>) that are not
+      in the live sidebar at all today. Reconciliation covers all five existing modules, not two — either
+      bring each module's <code>navigation</code> field in line with what's actually live today, or
+      treat a specific, reviewed content change as an intentional improvement and say so explicitly; do
+      not assume silence means identity.</li>
+  <li><strong>The sidebar should read through <code>useModules()</code>, not the raw aggregator.</strong>
+      <code>modules/useModules.ts</code> already wraps <code>getAggregatedNavigation()</code> with
+      per-tenant manifest filtering — <code>manifest.enabledModules</code> (confirmed:
+      <code>useModules.ts</code> returns <code>manifest.enabledModules</code>) and
+      <code>disabledNavItems</code>. Calling the raw aggregator directly, as first drafted, would bypass
+      that filtering and default every tenant to all build-time-registered modules regardless of what
+      their manifest disables. <code>AonikSidebar</code> must consume <code>useModules().navigation</code>.</li>
+  <li><strong>The backend manifest must add Commerce, or none of this matters.</strong> The manifest
+      <code>useModules()</code> filters against comes from <code>GetAdminManifestEndpoint</code>, which
+      currently hardcodes its enabled-modules list without <code>commerce</code>. Registering Commerce in
+      the frontend and fixing the sidebar's read source both do nothing for any tenant if the backend
+      manifest still filters Commerce out. This is a required, coupled backend change, not an
+      AdminUi-only spec.</li>
+</ul>
+<p>
+  Doing this now, while there is a concrete reason to touch navigation, is still cheaper than justifying
+  it later as a standalone refactor with no immediate visible motivation — but §11's tasks and §13's risk
+  register now reflect the real shape of the work, not the originally-assumed mechanical move.
 </p>
 
 <h2 id="scaffolding">5. Commerce module scaffolding</h2>
@@ -367,37 +428,45 @@
 
 <h2 id="nav-tree">6. The Commerce navigation tree</h2>
 <p>
-  Two flat top-level sections (not nested under "Products" — Commerce is 13 leaf destinations, larger
+  Two flat top-level sections (not nested under "Products" — Commerce is 14 leaf destinations, larger
   than the entire existing Products group, and nesting three deep risks the same rendering ceiling the
   starter kit hit for real: its <code>NavPopover</code> renders only one child level. Confirm the real
   <code>AonikSidebar</code>'s depth support before nesting further — §13 T1). No <code>audience</code>
   restriction on any Commerce item — this is tenant-scoped business functionality, not host-operator
-  tooling.
+  tooling. The <strong>Route</strong> column below is the <code>NavItem.href</code> — a concrete leaf
+  path, never a wildcard (<code>*</code> patterns belong only in route <em>declarations</em> for the
+  router, e.g. matching <code>/commerce/catalog/products</code>; <code>AonikSidebar</code> passes
+  <code>href</code> straight to <code>&lt;Link&gt;</code>, so a literal <code>/commerce/catalog/*</code>
+  href would navigate nowhere useful).
 </p>
 <table>
   <thead><tr><th>Section</th><th>Item</th><th>Route</th><th>Notes</th></tr></thead>
   <tbody>
     <tr><td rowspan="5"><strong>Commerce</strong></td><td>Overview</td><td><code>/commerce</code></td><td>KPIs, revenue trend, needs-attention</td></tr>
-    <tr><td>Catalog</td><td><code>/commerce/catalog/*</code></td><td>Products, Categories — <strong>not</strong> <code>/catalog/*</code> (Finance collision, §3)</td></tr>
+    <tr><td>Catalog</td><td><code>/commerce/catalog</code></td><td>Products; a <code>Categories</code> child leaf at <code>/commerce/catalog/categories</code> — <strong>not</strong> <code>/catalog/*</code> (Finance collision, §3)</td></tr>
     <tr><td>Inventory</td><td><code>/commerce/inventory</code></td><td>Sell-side stock levels + reservations</td></tr>
-    <tr><td>Orders &amp; carts</td><td><code>/commerce/orders/*</code></td><td>Carts, Orders (tabs or two leaf items)</td></tr>
+    <tr><td>Orders &amp; carts</td><td><code>/commerce/orders</code></td><td>Orders; a <code>Carts</code> child leaf at <code>/commerce/orders/carts</code> (or one page with tabs — §15 Open)</td></tr>
     <tr><td>Discounts</td><td><code>/commerce/discounts</code></td><td>Coupons</td></tr>
-    <tr><td rowspan="8"><strong>Commerce · Make</strong></td><td>Ingredients</td><td><code>/commerce/ingredients</code></td><td>Cost history, reprice, stock/reorder</td></tr>
+    <tr><td rowspan="9"><strong>Commerce · Make</strong></td><td>Ingredients</td><td><code>/commerce/ingredients</code></td><td>Cost history, reprice, stock/reorder</td></tr>
     <tr><td>Recipes</td><td><code>/commerce/recipes</code></td><td>Components, rollup, explosion preview</td></tr>
     <tr><td>Production sheet</td><td><code>/commerce/planning/production-sheet</code></td><td></td></tr>
     <tr><td>Prep list</td><td><code>/commerce/planning/prep-list</code></td><td></td></tr>
-    <tr><td>Low stock</td><td><code>/commerce/low-stock</code></td><td>Badge = active-alert count, if the type supports it (§13 T1)</td></tr>
+    <tr><td>Low stock</td><td><code>/commerce/low-stock</code></td><td>Badge = active-alert count (<code>NavItem.badge</code> confirmed supported, §3)</td></tr>
     <tr><td>Suppliers</td><td><code>/commerce/suppliers</code></td><td>Catalog, pack economics</td></tr>
-    <tr><td>Purchase orders</td><td><code>/commerce/purchase-orders</code></td><td>Badge = pending count, if supported. <span class="tag drilldown">Goods receipt</span> is reached from a specific PO's detail page — no standalone nav entry (it's an action against one PO, not an independent list)</td></tr>
+    <tr><td>Purchase orders</td><td><code>/commerce/purchase-orders</code></td><td>Badge = pending count. <span class="tag drilldown">Goods receipt</span> is reached from a specific PO's detail page — no standalone nav entry (it's an action against one PO, not an independent list)</td></tr>
+    <tr><td>Production orders</td><td><code>/commerce/production-orders</code></td><td>The list/action surface for production runs (create, from-sheet, release, start, complete, cancel). <span class="tag drilldown">Kitchen sheet</span> is reached from a specific run's detail page — no standalone nav entry</td></tr>
     <tr><td>Margin</td><td><code>/commerce/margin</code></td><td></td></tr>
   </tbody>
 </table>
 <p>
-  Deliberately dropped from a naive 1:1 port of Spec 058's 11 artboards: <strong>Kitchen Sheet</strong>
-  (a print view drilled into from a specific production order, not an independent destination) and
-  <strong>Goods Receipt</strong> (an action scoped to one purchase order). Both get routes
+  Deliberately dropped from a naive 1:1 port of Spec 058's 11 artboards: only <strong>Kitchen Sheet</strong>
+  (a print view drilled into from a specific production order) and <strong>Goods Receipt</strong> (an
+  action scoped to one purchase order) — both reached via drill-down, with routes
   (<code>/commerce/production-orders/:id/kitchen-sheet</code>,
-  <code>/commerce/purchase-orders/:id/receive</code>) but no sidebar entry.
+  <code>/commerce/purchase-orders/:id/receive</code>) but no sidebar entry. <strong>Production Orders
+  itself is a real, distinct list destination</strong> (058's "production (orders + kitchen sheet)" is
+  two artboards, not one) and gets its own nav item above, exactly as Purchase Orders keeps its nav item
+  while its own drill-down (Goods Receipt) does not.
 </p>
 
 <h2 id="page-inventory">7. Page inventory &amp; hand-off</h2>
@@ -417,7 +486,7 @@
     <tr><td><code>/commerce/planning/*</code></td><td>§8.7</td><td>055</td></tr>
     <tr><td><code>/commerce/production-orders</code> (+ kitchen-sheet)</td><td>§8.8</td><td>056</td></tr>
     <tr><td><code>/commerce/margin</code></td><td>§8.9</td><td>057</td></tr>
-    <tr><td><code>/commerce</code>, <code>/commerce/catalog/*</code>, <code>/commerce/inventory</code>, <code>/commerce/orders/*</code>, <code>/commerce/discounts</code></td><td>the pre-058 sell-side artboards</td><td>042</td></tr>
+    <tr><td><code>/commerce</code>, <code>/commerce/catalog</code> (+ <code>/categories</code>), <code>/commerce/inventory</code>, <code>/commerce/orders</code> (+ <code>/carts</code>), <code>/commerce/discounts</code></td><td>the pre-058 sell-side artboards</td><td>042</td></tr>
   </tbody>
 </table>
 
@@ -426,10 +495,14 @@
   <strong>v1 (this spec's scope):</strong> one small module, <code>src/Aonik.AdminUi/src/modules/commerce/labels.ts</code>
   — a single <code>CommerceLabels</code> object of named strings (<code>ingredientSingular</code>,
   <code>ingredientPlural</code>, <code>recipeSingular</code>, <code>productionOrderVerb</code>,
-  <code>workOrderSheetTitle</code>, …) with English, food-default values. Every new Commerce page imports
-  from this module — no page inlines a label string it doesn't own. This costs almost nothing and
-  guarantees the future step (§8, future) is a data change to one file, not a grep-and-replace across
-  a dozen components.
+  <code>workOrderSheetTitle</code>, …) with English, food-default values. Every new Commerce page — and
+  <code>COMMERCE_NAVIGATION</code> itself, plus <code>COMMERCE_BREADCRUMBS</code> and any panel
+  titles — imports from this module; none inlines a label string it doesn't own. Nav labels are exactly
+  as vertical-sensitive as page copy ("Ingredients," "Recipes," "Production sheet" would all need to
+  change under a Hardware preset), so leaving the nav tree out of the seam would leave the sidebar
+  saying food-flavored terms while page copy had already moved — this costs almost nothing to include
+  now and guarantees the future step (below) is a data change to one file, not a grep-and-replace
+  across a dozen components plus the nav config.
 </p>
 <p><strong>Future (explicitly not built now):</strong> a per-tenant vertical preset system —</p>
 <ul>
@@ -469,7 +542,7 @@
 <h3>Out of scope</h3>
 <ul>
   <li><strong>Full page implementations</strong> — real data-fetching, forms, tables, drawers against the
-      live Commerce API for all 13 routes. That is comparable in size to Spec 058 itself and belongs to
+      live Commerce API for all 14 routes. That is comparable in size to Spec 058 itself and belongs to
       dedicated follow-up work, page-group by page-group, using §7 as the hand-off contract.</li>
   <li>The vertical preset system (§8, future) — entity, presets, resolution API, tool-description
       templating.</li>
@@ -482,50 +555,58 @@
 <table>
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
-    <tr><td>R1</td><td><code>AonikSidebar</code> renders <code>getAggregatedNavigation()</code>; the rendered tree for Core, Finance, Platform, Agent Command Center, and Agent Extensions is unchanged (snapshot-verified) after their entries move into their own modules.</td></tr>
+    <tr><td>R1</td><td><code>AonikSidebar</code> renders <code>useModules().navigation</code> (not the raw <code>getAggregatedNavigation()</code> — R1 must preserve manifest-based enable/disable filtering). Icon vocabulary is reconciled to the lowercase set <code>AonikTemplateIcon</code> supports for every module before the switch. The rendered tree for Core, Finance, Platform, Agent Command Center, and Agent Extensions matches what is live today — any deliberate content difference (e.g. Core's Dashboard-vs-My-Space label, the Agent modules' extra AI links) is called out and explicitly accepted in the same change, not silently introduced.</td></tr>
     <tr><td>R2</td><td>Commerce is registered in <code>modules/registry.ts</code> and contributes navigation/routes/panels/breadcrumbs through the standard <code>AdminModule</code> contract — no Commerce-specific special-casing in the sidebar or router.</td></tr>
-    <tr><td>R3</td><td>Commerce catalog routes live under <code>/commerce/catalog/*</code>; no route registered by Commerce collides with any route already registered by Finance, Platform, Core, Agent Command Center, or Agent Extensions.</td></tr>
+    <tr><td>R3</td><td>Commerce catalog routes live under <code>/commerce/catalog</code> (not <code>/catalog/*</code>, which Finance owns); no route registered by Commerce collides with any route already registered by Finance, Platform, Core, Agent Command Center, or Agent Extensions.</td></tr>
     <tr><td>R4</td><td>No Commerce nav item carries <code>audience: 'host'</code>.</td></tr>
-    <tr><td>R5</td><td>Kitchen Sheet and Goods Receipt are reachable only via drill-down from Production Orders and Purchase Orders respectively — neither has a sidebar entry.</td></tr>
-    <tr><td>R6</td><td>Every Commerce-facing string introduced by this spec's page skeletons resolves through <code>CommerceLabels</code> — none is inlined.</td></tr>
-    <tr><td>R7</td><td>The page inventory (§7) is complete: every route in §6 has exactly one row.</td></tr>
+    <tr><td>R5</td><td>Kitchen Sheet and Goods Receipt are reachable only via drill-down from Production Orders and Purchase Orders respectively — neither has a sidebar entry. Production Orders itself has a sidebar entry (§6).</td></tr>
+    <tr><td>R6</td><td>Every Commerce-facing string introduced by this spec — page skeletons, <code>COMMERCE_NAVIGATION</code> labels, breadcrumbs, and panel titles alike — resolves through <code>CommerceLabels</code>. None is inlined.</td></tr>
+    <tr><td>R7</td><td>The page inventory (§7) and the nav/route table (§6) agree exactly: every route in §6 has one §7 row, and every §7 row has a corresponding §6 route (or an explicit drill-down callout, for Kitchen Sheet/Goods Receipt).</td></tr>
+    <tr><td>R8</td><td><code>GetAdminManifestEndpoint</code>'s enabled-modules list includes <code>commerce</code> — without it, R1/R2 are inert for every tenant regardless of frontend registration.</td></tr>
   </tbody>
 </table>
 
 <h2 id="tasks">11. Tasks</h2>
 <ol>
-  <li>Confirm the real <code>NavItem</code>/<code>NavigationSection</code> TypeScript type definitions — specifically whether <code>badge</code> and nested-children depth beyond one level are supported — before finalizing §6's badge notes and confirming the flat-two-sections decision is necessary rather than merely cautious.</li>
-  <li>Implement the nav-wiring fix (§4); migrate Finance's and Platform's <code>SIDEBAR_NAV</code> entries into their own modules' <code>navigation</code> fields; snapshot the rendered tree before and after.</li>
+  <li>Confirm whether <code>AonikSidebar</code> reliably renders <code>childGroups</code> nesting beyond what <code>SIDEBAR_NAV</code>'s flat <code>children</code> exercises today (the type supports it, §3 — the open question is renderer behavior, not type shape) — informs whether §6's flat-two-sections split could later relax, not a blocker for this spec.</li>
+  <li>Reconcile icon vocabulary: rewrite <code>navigation.icon</code> values in <code>finance/index.ts</code> and <code>platform/index.ts</code> (and any other module using the PascalCase vocabulary) to the lowercase set <code>AonikTemplateIcon</code>'s <code>ICON_PATHS</code> supports, extending that table first for any icon genuinely missing.</li>
+  <li>Reconcile content for all five existing modules' <code>navigation</code> fields against what <code>SIDEBAR_NAV</code> renders today (Core's label, the Agent modules' extra AI links) — bring each in line, or explicitly accept and document the change.</li>
+  <li>Switch <code>AonikSidebar</code> to <code>useModules().navigation</code> (not the raw aggregator); snapshot the rendered tree before and after tasks 2–4 as the acceptance gate (R1).</li>
+  <li>Add <code>commerce</code> to <code>GetAdminManifestEndpoint</code>'s enabled-modules list (R8).</li>
   <li>Scaffold <code>modules/commerce/</code> (§5) and register it.</li>
-  <li>Author <code>COMMERCE_NAVIGATION</code>, <code>COMMERCE_ROUTES</code>, <code>COMMERCE_PANELS</code> per §6/§7, pointing routes at skeleton page components.</li>
-  <li>Author <code>CommerceLabels</code> (§8 v1) and wire skeleton pages to import from it, not inline strings.</li>
+  <li>Author <code>COMMERCE_NAVIGATION</code>, <code>COMMERCE_ROUTES</code>, <code>COMMERCE_PANELS</code> per §6/§7 — concrete leaf <code>href</code>s only, wildcards reserved for route declarations — pointing routes at skeleton page components.</li>
+  <li>Author <code>CommerceLabels</code> (§8 v1) and wire skeleton pages, nav labels, and breadcrumbs to import from it, not inline strings.</li>
   <li>Verification pass per §12.</li>
 </ol>
 
 <h2 id="verification">12. Verification</h2>
 <ul>
-  <li>Before/after nav-tree diff for Core, Finance, Platform, Agent Command Center, Agent Extensions — must be empty (R1).</li>
+  <li>Before/after nav-tree diff for Core, Finance, Platform, Agent Command Center, Agent Extensions — must be empty except any content difference explicitly documented and accepted in Task 3 (R1). Visually confirm every icon in both sections still renders (not blank) — the specific failure mode Task 2 exists to prevent.</li>
   <li>Route table cross-check: every Commerce route grepped against every other module's route table — zero collisions (R3).</li>
+  <li>Confirm <code>commerce</code> is present in the live <code>/admin/manifest</code> response for a test tenant before the manual walk below — otherwise a missing sidebar entry is indistinguishable between an R1/R2 bug and an unmet R8 (R8).</li>
   <li>Manual walk: log in as a tenant admin, confirm "Commerce" and "Commerce · Make" render, every leaf item navigates to its route without a 404, no item is visible under a host-only login check that shouldn't be (R4).</li>
-  <li>Grep skeleton page components for hardcoded Commerce-domain strings outside <code>labels.ts</code> — zero hits (R6).</li>
+  <li>Grep skeleton page components AND <code>COMMERCE_NAVIGATION</code>/<code>COMMERCE_BREADCRUMBS</code> for hardcoded Commerce-domain strings outside <code>labels.ts</code> — zero hits (R6).</li>
+  <li>§7 ↔ §6 cross-check both directions: every route has exactly one counterpart in the other table (R7).</li>
 </ul>
 
 <h2 id="risks">13. Risk register</h2>
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>The nav-wiring refactor subtly changes Finance's or Platform's rendered sidebar (ordering, icons, hrefs) since it's already in production use</td><td>Medium</td><td>Snapshot diff before/after as the explicit acceptance gate (R1); this is the highest-blast-radius task in the spec precisely because it touches live modules — do it first and get it reviewed before building Commerce on top.</td></tr>
-    <tr><td>A future page-implementation spec inlines labels anyway, eroding the seam</td><td>Low</td><td>R6 + the verification grep; keep enforcing it at each follow-up spec's review, not just this one.</td></tr>
-    <tr><td>The real <code>AonikSidebar</code> turns out to support deeper nesting than the starter kit's, making the flat-two-sections split unnecessarily conservative</td><td>Low</td><td>T1 resolves this before nav authoring — cheap to check, expensive to guess wrong on a live app.</td></tr>
+    <tr><td><strong>Confirmed, not hypothetical:</strong> switching the sidebar to the modules' own <code>navigation</code> fields blanks every Finance/Platform icon (PascalCase names absent from <code>ICON_PATHS</code>) unless reconciled first</td><td>High</td><td>Task 2 is a required prerequisite step, not an optional cleanup — do it and verify icons render (§12) before task 4 flips the read source. This is the highest-blast-radius part of the spec precisely because it touches live, in-use modules.</td></tr>
+    <tr><td>Content reconciliation (Task 3) is skipped or done incompletely for Core/Agent Command Center/Agent Extensions, silently changing their live nav (extra AI links, relabeled Dashboard)</td><td>Medium</td><td>R1's snapshot diff names the five modules explicitly, not just Finance/Platform; any accepted difference must be called out in the same change, not left implicit.</td></tr>
+    <tr><td>Commerce is registered in the frontend but invisible to every tenant because the backend manifest still filters it out</td><td>Medium</td><td>R8 + the manifest-response check in §12, run before the manual walk so the failure mode is attributable.</td></tr>
+    <tr><td>A future page-implementation spec inlines labels anyway, eroding the seam</td><td>Low</td><td>R6 (now covering nav config, not just page skeletons) + the verification grep; keep enforcing it at each follow-up spec's review, not just this one.</td></tr>
+    <tr><td>The real <code>AonikSidebar</code> turns out to support deeper <code>childGroups</code> nesting than <code>SIDEBAR_NAV</code>'s flat usage exercises, making the flat-two-sections split unnecessarily conservative</td><td>Low</td><td>T1 resolves this before nav authoring — cheap to check, expensive to guess wrong on a live app. Not blocking: flat-two-sections is a safe default either way.</td></tr>
     <tr><td>Vertical-preset ambition creeps into this spec's scope before a second vertical tenant exists</td><td>Medium</td><td>§9 explicitly excludes it; §8 records the design so it isn't re-litigated from scratch when it's actually needed.</td></tr>
   </tbody>
 </table>
 
 <h2 id="decisions">14. Decisions baked in</h2>
 <ul>
-  <li><strong>Fix the nav-wiring gap now</strong>, migrating Finance and Platform too — not a Commerce-only workaround (§4).</li>
+  <li><strong>Fix the nav-wiring gap now</strong>, reconciling all five existing modules (icon vocabulary and content, not just relocation) and reading through <code>useModules()</code> plus the backend manifest — not a Commerce-only workaround, and not the purely mechanical move first assumed (§4).</li>
   <li><strong>Two flat top-level nav sections</strong> (Commerce, Commerce · Make), not Commerce nested under Products — sized by leaf-item count, guarded against an unconfirmed depth ceiling (§6).</li>
-  <li><strong>Kitchen Sheet and Goods Receipt are drill-down destinations, not nav items</strong> — a stricter read of Spec 058's 11 artboards than a straight port would give (§6).</li>
+  <li><strong>Kitchen Sheet and Goods Receipt are drill-down destinations, not nav items — but Production Orders itself is</strong>, exactly as Purchase Orders keeps a nav item while Goods Receipt (its own drill-down) does not (§6).</li>
   <li><strong>Route prefix <code>/commerce/*</code> throughout</strong>, with catalog explicitly <code>/commerce/catalog/*</code> to avoid the confirmed Finance collision (§3, §6).</li>
   <li><strong>Labels seam ships now; the vertical-preset system does not</strong> — cheap infrastructure now, expensive infrastructure deferred until a real second vertical needs it (§8).</li>
   <li><strong>This spec stops at routing + scaffolding, not full pages</strong> — sized against the 050–057 precedent of one coherent slice per spec, not a re-run of Spec 058's full build in one shot (§9).</li>
