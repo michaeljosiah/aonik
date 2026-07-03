@@ -212,8 +212,8 @@
     <code>Order</code>/<code>OrderItem</code> with ingredient soft-ref lines and an inverted direction of money —
     <em>we</em> are the payer, the supplier is the payee. This spec builds on
     <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> (the maker-operations <strong>keystone</strong>:
-    the <code>Ingredient</code> master), and consumes <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>
-    default cost and <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> low-stock alerts.
+    the <code>Ingredient</code> master), and consumes <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>
+    low-stock alerts (<a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> costing is adjacent — informed by receipts, not a PO price source).
     Everything lives in <code>Aonik.Commerce</code> and references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
     — never <code>Aonik.Finance</code>: the PO rides the <em>spine</em>, not Finance.
   </p>
@@ -281,8 +281,9 @@
   <span class="callout-label">Success signals</span>
   An operator (or the <code>commerce-agent</code>) can register a supplier, add supplier-ingredient price-list
   rows, and place a purchase order — either from explicit lines or seeded from a Spec&nbsp;052
-  <code>LowStockAlert</code> (defaulting price/pack from <code>SupplierIngredient</code> and cost from
-  Spec&nbsp;051) — then move it Draft&nbsp;→&nbsp;Submitted. The PO is a real <code>Order</code> on the spine,
+  <code>LowStockAlert</code> (defaulting price/pack from <code>SupplierIngredient</code>) — then submit it
+  (Draft&nbsp;→&nbsp;<code>Pending</code>, the spine's existing "placed, awaiting" status — no new status
+  strings). The PO is a real <code>Order</code> on the spine,
   visible to the ordering layer, with lines that soft-reference ingredients. <code>dotnet build Aonik.sln</code>
   stays green with <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
   (no Finance); an architecture test still proves the boundary; <code>dotnet test Aonik.sln</code> stays green
@@ -332,7 +333,7 @@
   <thead><tr><th>#</th><th>Spec</th><th>Delivers</th><th>Relation to this spec</th></tr></thead>
   <tbody>
     <tr><td>050</td><td><a href="050.ingredient-recipe-bom.html">Ingredient master + Recipe/BOM</a></td><td>What a product is made of.</td><td><strong>Depends on</strong> — the <code>Ingredient</code> a PO line soft-refs.</td></tr>
-    <tr><td>051</td><td><a href="051.ingredient-costing-standard-cost.html">Ingredient costing + standard cost</a></td><td>What raw material costs.</td><td><strong>Depends on</strong> — default line cost when seeding a PO.</td></tr>
+    <tr><td>051</td><td><a href="051.ingredient-costing-standard-cost.html">Ingredient costing + standard cost</a></td><td>What raw material costs.</td><td><strong>Adjacent</strong> — the standard-cost view a PO's buy price will inform via Spec&nbsp;054 receipts; not a price source here (§12).</td></tr>
     <tr><td>052</td><td><a href="052.raw-material-inventory-reorder-alerts.html">Raw-material inventory + reorder alerts</a></td><td>On-hand stock; when to reorder.</td><td><strong>Depends on</strong> — a <code>LowStockAlert</code> seeds a PO.</td></tr>
     <tr><td><strong>053</strong></td><td><strong>Suppliers + purchase orders</strong> (this spec)</td><td>Ordering more stock from suppliers.</td><td>—</td></tr>
     <tr><td>054</td><td><a href="054.goods-receipt-stock-and-cost.html">Goods receipt (stock + cost)</a></td><td>Receiving a PO → stock up, cost refresh.</td><td><strong>Referenced by</strong> — receipt closes a PO placed here.</td></tr>
@@ -348,9 +349,9 @@
   <tbody>
     <tr><td>Purchase-order record + lifecycle</td><td><span class="tag reuse">reuse</span></td><td>The <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>: a new <code>OrderType</code> <code>"PurchaseOrder"</code>; created via <code>IOrderService.CreateAsync</code>, transitioned via <code>IOrderService.TransitionAsync</code>. No new order concept (§10).</td></tr>
     <tr><td>PO line shape</td><td><span class="tag reuse">reuse</span></td><td><code>OrderItem</code> — <code>Quantity</code>/<code>UnitPrice</code>/<code>ProductId</code>/<code>Sku</code>/<code>AmountIn</code>/<code>DetailsJson</code>, with <code>ProductId</code> holding the ingredient soft-ref (§10).</td></tr>
-    <tr><td>Party roles</td><td><span class="tag reuse">reuse</span></td><td><code>OrderPartyRole</code> rows; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; the <code>Payer</code> role rides the existing header <code>PayerPartyId</code>. The <code>Supplier</code> role needs the additive <code>CreateOrderCommand.PartyRoles</code> hook — today's command materializes only Payer/Receiver (§10, §11).</td></tr>
+    <tr><td>Party roles</td><td><span class="tag reuse">reuse</span></td><td><code>OrderPartyRole</code> rows; <code>OrderPartyRoles</code>/<code>OrderPartyRoleCodes</code> gain <code>"Supplier"</code>. The tenant-as-payer has <strong>no Party row</strong>, so <code>PayerPartyId</code> stays <code>null</code> on a PO (§11); the <code>Supplier</code> role is written when <code>Supplier.PartyId</code> is set, via the additive <code>CreateOrderCommand.PartyRoles</code> hook — today's command materializes only Payer/Receiver (§10, §11).</td></tr>
     <tr><td>Ingredient identity</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;050 <code>Ingredient</code> a PO line orders; its <code>BaseUnit</code> is the stock unit the pack converts into.</td></tr>
-    <tr><td>Default cost / pack when seeding</td><td><span class="tag reuse">reuse</span></td><td><code>SupplierIngredient.PackPrice</code>/<code>PackSize</code> for the buy price; Spec&nbsp;051 <code>IngredientCost</code> as the fallback default (§12).</td></tr>
+    <tr><td>Default cost / pack when seeding</td><td><span class="tag reuse">reuse</span></td><td><code>SupplierIngredient.PackPrice</code>/<code>PackSize</code> for the buy price — the per-base-unit price is <code>PackPrice / PackSize</code>. No Spec&nbsp;051 fallback: pack rounding needs <code>PackSize</code>, which only a catalog row carries; the explicit-lines path covers the no-catalog case with an explicit <code>UnitPrice</code> (§12).</td></tr>
     <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
     <tr><td>Migration stream + agent rails</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
     <tr><td>Supplier master</td><td><span class="tag new">build</span></td><td><code>Supplier</code> — counterparty we buy from; soft <code>PartyId</code>, not a standalone party (§9, §20).</td></tr>
@@ -367,14 +368,14 @@
   <li><code>SupplierIngredient</code> entity + upsert (per supplier × ingredient) + admin endpoint — the supplier price list.</li>
   <li>A <strong>purchase order created as a new <code>OrderType</code></strong> (<code>"PurchaseOrder"</code>) on the Order spine, with a <code>Supplier</code> party role and <code>OrderItem</code> lines whose <code>ProductId</code> soft-refs an ingredient; created via <code>IOrderService.CreateAsync</code>.</li>
   <li>A <strong>minor, additive extension to the shared create contract</strong> in <code>Aonik.Ordering</code>: an optional <code>IReadOnlyList&lt;OrderPartyRoleCommand&gt;? PartyRoles = null</code> on <code>CreateOrderCommand</code>, materialized by <code>CoreOrderService.CreateAsync</code> alongside the existing Payer/Receiver roles — the hook that lets a PO persist its <code>Supplier</code> role (§10, §11). Same class of expansion the order-spine work already flagged for Finance-specific fields; not a redesign.</li>
-  <li><code>IPurchaseOrderService</code>: create from explicit lines <strong>or</strong> seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall (default pack/price from <code>SupplierIngredient</code>, default cost from Spec&nbsp;051); submit; lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled via <code>IOrderService.TransitionAsync</code>.</li>
+  <li><code>IPurchaseOrderService</code>: create from explicit lines <strong>or</strong> seeded from Spec&nbsp;052 <code>LowStockAlert</code> shortfalls (pack/price from <code>SupplierIngredient</code>; the seed flips the source alerts to <code>Ordered</code> in the same operation); submit; lifecycle mapped onto the spine's <strong>existing</strong> <code>OrderStatusCodes</code> — Draft&nbsp;→&nbsp;Pending&nbsp;→&nbsp;Complete&nbsp;/&nbsp;Cancelled — via <code>IOrderService.TransitionAsync</code>, with the allowed transitions enforced by this service (§13).</li>
   <li>Admin endpoints: create supplier, upsert supplier-ingredient, create PO, submit PO, list POs.</li>
   <li>The two new Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceSuppliersAndPurchaseOrders</code>).</li>
   <li>Commerce-agent read tool (list suppliers) + medium-gated write tools (create supplier, create PO, submit PO).</li>
 </ul>
 <h3>Out of scope</h3>
 <ul>
-  <li><strong>Receiving goods</strong> — stock-up + actual-cost refresh + PO→Received on arrival — is <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a>. This spec only advances a PO <em>up to</em> Submitted; the Received/Closed transitions are defined here but <em>driven</em> by 054.</li>
+  <li><strong>Receiving goods</strong> — stock-up + actual-cost refresh + PO→<code>Complete</code> on full receipt — is <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a>. This spec only advances a PO <em>up to</em> <code>Pending</code> (submitted to the supplier); the <code>Complete</code> transition is defined here (§13) but <em>driven</em> by 054, and "partially received" is derived data there, never a status.</li>
   <li><strong>Paying the supplier</strong> — a <code>PaymentIntent</code> to the supplier account, the outward-money leg — is a funding follow-up (<code>commerce_pay_purchase_order</code>, high-tier Finance <code>Proposal</code>); noted, not built (§10, §21).</li>
   <li>Multi-supplier price comparison, preferred-supplier selection, blanket/standing orders, RFQs, PO approval routing, three-way match, supplier onboarding/KYC — <a href="#open">Open</a>, not built.</li>
   <li>A unit-of-measure conversion <em>engine</em>. <code>SupplierIngredient.PackSize</code> is a single per-row buy-side factor (25&nbsp;kg&nbsp;→&nbsp;kg), not a general conversion table.</li>
@@ -406,10 +407,12 @@
     ├── CommerceDbContext.cs           (+ Supplier / SupplierIngredient DbSets, no migrations)
     └── Configurations/Sourcing/       (IEntityTypeConfiguration&lt;T&gt;)   # NEW
 
-Aonik.Ordering (unchanged code — used, not modified):
-  OrderType.cs           # gains the known value "PurchaseOrder" (open string; additive)
-  OrderPartyRoles.cs     # gains the constant "Supplier"
-  IOrderService          # CreateAsync / TransitionAsync — the PO rides these</div>
+Aonik.Ordering + SharedKernel.Abstractions.Ordering (small ADDITIVE changes — §10/§11):
+  OrderTypeCodes.cs / OrderType.cs         # gain the known value "PurchaseOrder" (open string; additive)
+  OrderPartyRoleCodes.cs / OrderPartyRoles.cs   # gain the constant "Supplier" (kept in lockstep)
+  OrderingModels.cs      # CreateOrderCommand gains optional PartyRoles (OrderPartyRoleCommand list)
+  CoreOrderService.cs    # CreateAsync materializes the supplied PartyRoles (deduped)
+  IOrderService          # UNCHANGED — CreateAsync / TransitionAsync; the PO rides these</div>
 
 <h2 id="domain-model">8. Domain model</h2>
 <p>
@@ -492,9 +495,19 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 (unused on a PO)    →  AmountOut, CurrencyOut, FxQuoteId, …   left unset — FX/remittance fields
 </div>
 <p>
+  Money is normalized <em>at computation</em>, not left to storage: the money columns hold
+  <code>decimal(19,4)</code>, and <code>Quantity × UnitPrice</code> can carry more precision than that (a
+  0.75-pack @ ₦1,000 derives a unit price of ₦1,333.3333; a 1.5-base-unit line computes 1,999.99995) — so line
+  quantities and each line total are rounded to 4&nbsp;dp (away-from-zero) when the line is built, and the header
+  <code>AmountIn</code> is passed explicitly as the sum of the <em>rounded</em> line totals. Relying on
+  SqlClient's silent coercion instead would let the stored amount differ from the returned one and the header
+  drift from Σ&nbsp;lines.
+</p>
+<p>
   The PO is created by calling the spine directly — <code>IOrderService.CreateAsync</code> with
-  <code>OrderType = "PurchaseOrder"</code>, the tenant as <code>PayerPartyId</code> on the command header, the
-  <code>Supplier</code> as a party role, and the ingredient lines above. One honest gap: today
+  <code>OrderType = "PurchaseOrder"</code>, <code>PayerPartyId = null</code> (the payer is the tenant itself,
+  which has no <code>Party</code> row — §11), the <code>Supplier</code> as a party role when the supplier is
+  party-linked, supplier identity always in <code>ProvenanceJson</code>, and the ingredient lines above. One honest gap: today
   <code>CreateOrderCommand</code> has <strong>no party-roles collection</strong> — its only party inputs are the
   header <code>PayerPartyId</code> and per-line <code>OrderItemCommand.ReceiverPartyId</code>, and
   <code>CoreOrderService.CreateAsync</code> materializes only a <code>Payer</code> role and per-line
@@ -528,22 +541,30 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <table>
   <thead><tr><th>Role on the order</th><th>ProductPurchase (inbound)</th><th>PurchaseOrder (outbound)</th></tr></thead>
   <tbody>
-    <tr><td><code>Payer</code></td><td>The customer</td><td><strong>Us</strong> (the tenant) — we pay</td></tr>
-    <tr><td>Counterparty</td><td>Merchant / seller (<code>Receiver</code>/<code>Payee</code>)</td><td>The <strong><code>Supplier</code></strong> — receives payment</td></tr>
+    <tr><td><code>Payer</code></td><td>The customer (<code>PayerPartyId</code> = the buyer's Party)</td><td><strong>Us</strong> (the tenant) — we pay. The tenant has <strong>no <code>Party</code> row</strong>, so <code>PayerPartyId</code> stays <code>null</code> and no <code>Payer</code> role row is written.</td></tr>
+    <tr><td>Counterparty</td><td>Merchant / seller (<code>Receiver</code>/<code>Payee</code>)</td><td>The <strong><code>Supplier</code></strong> — receives payment. A <code>"Supplier"</code> role row when <code>Supplier.PartyId</code> is set; identity always in <code>ProvenanceJson</code>.</td></tr>
     <tr><td>Money moves</td><td>Inward (collect)</td><td>Outward (pay)</td></tr>
   </tbody>
 </table>
 <p>
-  So a PO carries a <code>Payer</code> role for the tenant and a new <code>"Supplier"</code>
-  <code>OrderPartyRole</code> for the counterparty. The <code>Payer</code> role rides the existing header
-  <code>PayerPartyId</code>, but the <code>Supplier</code> role has nowhere to enter today: <code>CreateOrderCommand</code>
-  materializes only Payer and per-line Receiver roles, so persisting <code>Supplier</code> depends on the additive
-  <code>PartyRoles</code> command hook described in §10. Getting this direction right is what makes the eventual
-  funding leg (a <code>PaymentIntent</code> paying the supplier) unambiguous — and mismodelling it (treating a
-  PO like an inbound sale, or dropping the <code>Supplier</code> role because the command couldn't carry it) is
-  the risk the explicit <code>Supplier</code> role is there to prevent (§18). The
-  outward payment itself is the deferred high-tier follow-up (§21); this spec only records <em>the intent and
-  the direction</em>, never moves money.
+  The honest v1 party mechanics, grounded against the landed spine: on a customer sale, checkout puts the
+  <em>buyer's</em> Party in the header <code>PayerPartyId</code> and <code>CoreOrderService</code> materializes
+  a <code>Payer</code> role from it. On a PO the payer is <strong>the tenant itself</strong>, which has no
+  <code>Party</code> row to reference — so <code>PayerPartyId</code> is deliberately <code>null</code> (a
+  fabricated tenant-party would be a lie in the data). The outbound direction is instead carried by three
+  explicit signals: the order type itself (<code>"PurchaseOrder"</code> <em>means</em> money flows outward), a
+  <code>"Supplier"</code> <code>OrderPartyRole</code> written <strong>when</strong> the supplier row is
+  soft-linked to a platform <code>Party</code> (<code>Supplier.PartyId</code> set), and — regardless of party
+  linkage — the supplier's identity in the order's <code>ProvenanceJson</code>
+  (<code>{"kind":"purchase-order","supplierId":…,"supplierName":…}</code>), so the PO is self-describing even
+  for an unlinked supplier. The <code>Supplier</code> role has nowhere to enter today:
+  <code>CreateOrderCommand</code> materializes only Payer and per-line Receiver roles, so persisting it depends
+  on the additive <code>PartyRoles</code> command hook described in §10. Getting this direction right is what
+  makes the eventual funding leg (a <code>PaymentIntent</code> paying the supplier) unambiguous — and
+  mismodelling it (treating a PO like an inbound sale, or dropping the supplier identity because the command
+  couldn't carry the role) is the risk the role + provenance pair is there to prevent (§18). The outward payment
+  itself is the deferred high-tier follow-up (§21); this spec only records <em>the intent and the direction</em>,
+  never moves money.
 </p>
 
 <h2 id="seed-from-shortfall">12. Creating a PO from a low-stock shortfall (Spec 052)</h2>
@@ -552,48 +573,91 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <code>LowStockAlert</code>. <code>IPurchaseOrderService</code> can seed a draft PO directly from an alert so the
   operator does not re-key it:
 </p>
-<div class="ascii-diagram">IPurchaseOrderService.CreateFromShortfallAsync(alertId, supplierId)
-  → load the LowStockAlert (IngredientId, ReorderPoint, AvailableAtRaise)  — Spec 052
-  → find the SupplierIngredient row for (supplierId, IngredientId)         — this spec
-      default UnitPrice ← SupplierIngredient.PackPrice
-      default packs     ← ceil( shortfall / SupplierIngredient.PackSize )   // shortfall in base units
-      fallback unit cost← active IngredientCost.UnitCost                    — Spec 051 (if no catalog row)
-  → build one OrderItem line (ProductId = IngredientId, Sku, AmountIn = qty × price, DetailsJson)
-  → IOrderService.CreateAsync( OrderType = "PurchaseOrder", Supplier + Payer roles, [line] )  → Draft PO
-  → (Spec 052) the alert may move Open → Ordered once a PO references it</div>
+<div class="ascii-diagram">IPurchaseOrderService.CreateFromShortfallAsync(supplierId, alertIds?)
+  → IdempotencyKey set? look it up on the spine FIRST (IOrderService.FindByIdempotencyKeyAsync):
+      a lost-response retry returns the already-created PO BEFORE any alert validation
+      (the first attempt flipped its alerts to Ordered — re-validating would wrongly reject)
+  → resolve the alerts: the given ids, or (auto) every Open/Acknowledged LowStockAlert
+    for an ingredient this supplier has a SupplierIngredient row for            — Spec 052 + this spec
+  → per alert, from the (supplierId, IngredientId) catalog row:
+      unit price ← SupplierIngredient.PackPrice / PackSize                       // per base unit
+      quantity   ← InventoryLevel.ReorderQuantity if set (operator's suggestion, as-is)
+                   else ceil( (ReorderPoint − AvailableAtRaise) / PackSize ) packs, min 1 pack,
+                        × PackSize                                               // base units, whole packs
+  → build one OrderItem line per alert (ProductId = IngredientId, Sku, AmountIn = qty × price, DetailsJson)
+  → IOrderService.CreateAsync( OrderType = "PurchaseOrder", Supplier role when party-linked, lines )  → Draft PO
+  → flip the source alerts Open/Acknowledged → Ordered (Spec 052's constant), same operation
+      — state-based: the alerts are re-read at flip time and only those still active flip; if a
+        CONCURRENT seed already Ordered them ALL, the just-created PO is cancelled ("Superseded by
+        a concurrent shortfall seed") and the call conflicts — the alerts win exactly once</div>
 <p>
-  Prices/packs default from the supplier catalog (<code>SupplierIngredient</code>); when no catalog row exists,
-  the per-base-unit cost falls back to the Spec&nbsp;051 <code>IngredientCost</code> so a PO can still be drafted.
-  The operator can also create a PO from <strong>explicit lines</strong> (no alert) — the seed path is a
-  convenience over the same <code>CreateAsync</code>, not a separate order concept. Flipping the source
-  <code>LowStockAlert</code> to <code>Ordered</code> is a Spec&nbsp;052 status concern; this spec supplies the PO
-  it points at.
+  Prices and packs come from the supplier catalog (<code>SupplierIngredient</code>) — a catalog row is
+  <strong>required</strong> on this path, because pack rounding needs <code>PackSize</code> and a defensible
+  buy price needs <code>PackPrice</code>; explicitly-named alerts for ingredients this supplier has no catalog
+  row for are rejected naming the ingredient (the earlier idea of falling back to the Spec&nbsp;051
+  <code>IngredientCost</code> is dropped: a standard cost carries no pack size, so it cannot answer "how many
+  sacks", and the explicit-lines path already covers the no-catalog case with an explicit <code>UnitPrice</code>).
+  The shortfall is computed from the alert's own snapshots (<code>ReorderPoint − AvailableAtRaise</code>) — the
+  figures the operator is acting on. The operator can also create a PO from <strong>explicit lines</strong>
+  (no alert) — the seed path is a convenience over the same <code>CreateAsync</code>, not a separate order
+  concept. The seed flips the source alerts to <code>Ordered</code> (Spec&nbsp;052's status constant) in the
+  same operation, ending their active cycle so the scan stops refreshing them. Because the order create and the
+  alert flip are two uncoordinated commits (Ordering's context, then Commerce's), the seed is hardened at both
+  ends. <strong>Retry:</strong> a retry carrying the same <code>IdempotencyKey</code> resolves through a spine
+  lookup <em>before</em> any alert validation — the additive <code>IOrderService.FindByIdempotencyKeyAsync</code> —
+  and returns the PO the first attempt created (re-validating would wrongly reject it, since that attempt already
+  flipped the alerts); the spine's <code>CreateAsync</code> dedupe remains the second line of defense.
+  <strong>Concurrency:</strong> the flip is state-based — it re-reads the alerts at flip time and flips only those
+  still active, so when a concurrent seed <code>Ordered</code> them all first the just-created PO is compensated
+  (cancelled with reason "Superseded by a concurrent shortfall seed") and a conflict is raised rather than leaving
+  two live POs for one shortfall; a concurrency-token collision on the flip save reloads and re-runs the same
+  state-based pass once. Every failure direction stays safe: an unflipped alert simply stays active and re-flags,
+  and a compensated PO is visible with its reason, never a silent duplicate.
 </p>
 
 <h2 id="lifecycle">13. PO lifecycle</h2>
 <p>
-  A purchase order moves through the spine's status machine via <code>IOrderService.TransitionAsync</code> — the
-  same mechanism every order type uses. This spec drives it up to <strong>Submitted</strong>; the later
-  transitions are defined here but <em>effected</em> by goods receipt (Spec&nbsp;054):
+  A purchase order moves through the spine via <code>IOrderService.TransitionAsync</code> — the same mechanism
+  every order type uses. Grounded reality: <strong>the spine has no state machine</strong> —
+  <code>TransitionAsync</code> accepts any non-empty status string, records history, and enqueues
+  <code>OrderStatusChangedEvent</code>. So this spec (a) maps the PO lifecycle onto the spine's
+  <strong>existing <code>OrderStatusCodes</code></strong> — no new status strings, so <code>IsTerminal()</code>
+  and every existing status consumer keep working — and (b) enforces the PO's <em>allowed</em> transitions in
+  <code>IPurchaseOrderService</code> itself, before calling <code>TransitionAsync</code>. Because that guard reads
+  a snapshot, its observation must <em>travel with the call</em>: <code>TransitionAsync</code> takes an additive
+  optional <code>expectedFromStatus</code>, and when set the transition is <strong>compare-and-set</strong> — the
+  spine throws instead of applying when the order's current status no longer matches what the guard observed, so a
+  cancel interleaved between a submit's check and its write can no longer be overwritten (a Cancelled PO
+  resurrected to Pending). The spine itself stays state-machine-free — it validates no graph of its own, it only
+  honours an expectation the caller sends. This spec drives a PO
+  up to <strong>Pending</strong> (submitted to the supplier); <code>Complete</code> is <em>effected</em> by goods
+  receipt (Spec&nbsp;054):
 </p>
-<div class="ascii-diagram">Draft ──submit──▶ Submitted ──(Spec 054 receipt)──▶ Received ──▶ Closed
-  │                   │
-  └──── Cancelled ◀───┘        (either state may be cancelled before receipt)</div>
+<div class="ascii-diagram">Draft ──submit──▶ Pending ──(Spec 054: fully received)──▶ Complete
+  │                  │
+  └──── Cancelled ◀──┘        (Draft or Pending may be cancelled before receipt;
+                               "partially received" is DERIVED data in Spec 054 —
+                               received-vs-ordered quantities — never a status)</div>
 <table>
-  <thead><tr><th>State</th><th>Meaning</th><th>Driven by</th></tr></thead>
+  <thead><tr><th>Status (existing <code>OrderStatusCodes</code>)</th><th>PO meaning</th><th>Driven by</th></tr></thead>
   <tbody>
     <tr><td><strong>Draft</strong></td><td>Created (explicit or shortfall-seeded); editable; nothing committed.</td><td>this spec (<code>CreateAsync</code>)</td></tr>
-    <tr><td><strong>Submitted</strong></td><td>Placed with the supplier; awaiting delivery.</td><td>this spec (<code>SubmitAsync</code> → <code>TransitionAsync</code>)</td></tr>
-    <tr><td><strong>Received</strong></td><td>Goods arrived; stock &amp; cost updated.</td><td><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a></td></tr>
-    <tr><td><strong>Closed</strong></td><td>Fully received / finalised.</td><td>Spec&nbsp;054</td></tr>
-    <tr><td><strong>Cancelled</strong></td><td>Abandoned before receipt.</td><td>this spec</td></tr>
+    <tr><td><strong>Pending</strong></td><td>Submitted to the supplier; awaiting delivery.</td><td>this spec (<code>SubmitAsync</code> → <code>TransitionAsync(Pending, "Submitted to supplier")</code>)</td></tr>
+    <tr><td><strong>Complete</strong></td><td>Fully received / finalised (stock &amp; cost updated).</td><td><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a></td></tr>
+    <tr><td><strong>Cancelled</strong></td><td>Abandoned before receipt (from Draft or Pending only).</td><td>this spec (<code>CancelAsync</code>)</td></tr>
   </tbody>
 </table>
 <p>
-  <code>IPurchaseOrderService.SubmitAsync</code> validates the draft (a supplier, at least one line, positive
-  quantities) and calls <code>TransitionAsync</code> Draft&nbsp;→&nbsp;Submitted. Funding is <em>not</em> a state
-  in this machine — a supplier is paid by a separate <code>PaymentIntent</code> leg (the deferred follow-up),
-  which can happen against a Submitted or Received PO without adding a lifecycle state here.
+  The earlier draft named bespoke states (Submitted / Received / Closed); those are replaced by the
+  existing-codes mapping above — <em>Submitted</em> is the <strong>action</strong> (<code>SubmitAsync</code>,
+  and the transition reason) landing on the existing <code>Pending</code> status, and <em>Received/Closed</em>
+  collapse into <code>Complete</code> when Spec&nbsp;054 confirms full receipt.
+  <code>IPurchaseOrderService.SubmitAsync</code> guards that the order <em>is</em> a PO and is currently
+  <code>Draft</code>; <code>CancelAsync</code> guards <code>Draft</code>/<code>Pending</code> — and each passes the
+  status it observed as <code>expectedFromStatus</code>, so the spine rejects the write if the order moved in
+  between. Funding is
+  <em>not</em> a state in this machine — a supplier is paid by a separate <code>PaymentIntent</code> leg (the
+  deferred follow-up), which can happen against a Pending or Complete PO without adding a lifecycle state here.
 </p>
 
 <h2 id="agent">14. Agent &amp; tools</h2>
@@ -607,7 +671,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
     <tr><td><code>commerce_list_suppliers</code></td><td><span class="tag read">read</span></td><td>Direct execution; lists suppliers (and, by argument, their catalog rows) in tenant scope.</td></tr>
     <tr><td><code>commerce_create_supplier</code></td><td><span class="tag medium">medium</span></td><td>Register a supplier; in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
     <tr><td><code>commerce_create_purchase_order</code></td><td><span class="tag medium">medium</span></td><td>Place a PO on the spine (explicit lines or from a <code>LowStockAlert</code>); medium-gated; records an <code>AiRun</code>.</td></tr>
-    <tr><td><code>commerce_submit_purchase_order</code></td><td><span class="tag medium">medium</span></td><td>Draft&nbsp;→&nbsp;Submitted via the spine; medium-gated; records an <code>AiRun</code>.</td></tr>
+    <tr><td><code>commerce_submit_purchase_order</code></td><td><span class="tag medium">medium</span></td><td>Submit to the supplier — Draft&nbsp;→&nbsp;<code>Pending</code> via the spine; medium-gated; records an <code>AiRun</code>.</td></tr>
     <tr><td><code>commerce_pay_purchase_order</code></td><td><span class="tag high">high</span></td><td><strong>Follow-up, not built.</strong> Funds a PO via a <code>PaymentIntent</code> to the supplier — money movement, so a durable Finance <code>Proposal</code>, never in-band (§21).</td></tr>
   </tbody>
 </table>
@@ -647,7 +711,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <h4>Phase 2 — Purchase order on the spine</h4>
   <div class="phase-summary">Place and submit a PO as a new OrderType.</div>
   <ul>
-    <li><code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code>; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; the additive <code>CreateOrderCommand.PartyRoles</code> hook + <code>CoreOrderService.CreateAsync</code> materialization (§10) so the <code>Supplier</code> role persists; <code>IPurchaseOrderService</code> (create from explicit lines or shortfall-seed, submit) built over <code>IOrderService.CreateAsync</code>/<code>TransitionAsync</code>; ingredient soft-ref line mapping (§10) with <code>DetailsJson</code> discriminator; admin endpoints (create / submit / list POs); unit tests for line mapping, direction-of-money party roles, and the shortfall seed.</li>
+    <li><code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code>; <code>OrderPartyRoles</code>/<code>OrderPartyRoleCodes</code> gain <code>"Supplier"</code>; the additive <code>CreateOrderCommand.PartyRoles</code> hook + <code>CoreOrderService.CreateAsync</code> materialization (§10) so the <code>Supplier</code> role persists; <code>IPurchaseOrderService</code> (create from explicit lines or shortfall-seed, submit/cancel with service-enforced guards over the existing status codes — §13) built over <code>IOrderService.CreateAsync</code>/<code>TransitionAsync</code>; ingredient soft-ref line mapping (§10) with <code>DetailsJson</code> discriminator; admin endpoints (create / from-shortfall / submit / cancel / list POs); unit tests for line mapping, direction-of-money party roles, and the shortfall seed.</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -665,9 +729,9 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
     <tr><td>R1</td><td>A <code>Supplier</code> (name, currency, optional lead time / payment terms / soft <code>PartyId</code>) can be created, updated, listed, and deactivated (admin + agent), tenant-scoped.</td></tr>
     <tr><td>R2</td><td>A <code>SupplierIngredient</code> price-list row (supplier × ingredient, <code>Sku</code>, <code>PackSize</code> in base unit, <code>PackPrice</code>, currency) can be upserted; <code>PackSize</code> carries the buy-side pack→base-unit conversion.</td></tr>
     <tr><td>R3</td><td>A purchase order is created as an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code> via <code>IOrderService.CreateAsync</code> — <strong>no standalone PurchaseOrder entity</strong>; lines reuse <code>OrderItem</code> with <code>ProductId</code> = <code>IngredientId</code> (opaque soft-ref), <code>AmountIn</code> = line total, and a <code>DetailsJson</code> discriminator.</td></tr>
-    <tr><td>R4</td><td>Direction of money is explicit: the PO carries a <code>Payer</code> role for the tenant (header <code>PayerPartyId</code>) and a <code>"Supplier"</code> <code>OrderPartyRole</code> for the counterparty, persisted via the additive <code>CreateOrderCommand.PartyRoles</code> hook (§10) — the inverse of a customer <code>ProductPurchase</code>. The <code>Supplier</code> role must actually land on the order, not be dropped.</td></tr>
-    <tr><td>R5</td><td>A PO can be seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall, defaulting price/pack from <code>SupplierIngredient</code> and cost from the Spec&nbsp;051 <code>IngredientCost</code> when no catalog row exists; or created from explicit lines.</td></tr>
-    <tr><td>R6</td><td>PO lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled runs via <code>IOrderService.TransitionAsync</code>; this spec drives Draft→Submitted (and Cancel); Received/Closed are effected by Spec&nbsp;054.</td></tr>
+    <tr><td>R4</td><td>Direction of money is explicit — the inverse of a customer <code>ProductPurchase</code>: <code>PayerPartyId</code> is <code>null</code> (the payer is the tenant, which has no <code>Party</code> row — §11); a <code>"Supplier"</code> <code>OrderPartyRole</code> is persisted via the additive <code>CreateOrderCommand.PartyRoles</code> hook (§10) whenever <code>Supplier.PartyId</code> is set; and the supplier's identity always lands in <code>ProvenanceJson</code> (<code>kind:"purchase-order"</code>, supplier id + name), so the PO is self-describing regardless of party linkage.</td></tr>
+    <tr><td>R5</td><td>A PO can be seeded from Spec&nbsp;052 <code>LowStockAlert</code> shortfalls (named ids, or auto: every active alert this supplier can supply): quantity = the level's <code>ReorderQuantity</code> when set, else the alert-snapshot shortfall rounded <em>up</em> to whole packs (min one pack); unit price = <code>PackPrice / PackSize</code>; a catalog row is required (no Spec&nbsp;051 fallback — §12); the seed flips the source alerts to <code>Ordered</code> in the same operation. A PO can also be created from explicit lines, where an explicit <code>UnitPrice</code> wins over the catalog and lines with neither are rejected naming the ingredient.</td></tr>
+    <tr><td>R6</td><td>The PO lifecycle maps onto the <strong>existing</strong> <code>OrderStatusCodes</code> — Draft&nbsp;→&nbsp;Pending&nbsp;→&nbsp;Complete&nbsp;/&nbsp;Cancelled (no new status strings) — via <code>IOrderService.TransitionAsync</code>, with allowed transitions enforced by <code>IPurchaseOrderService</code> (the spine has no state machine — §13); this spec drives Draft→Pending (submit) and Cancel from Draft/Pending; Complete is effected by Spec&nbsp;054.</td></tr>
     <tr><td>R7</td><td>Funding is deferred: no <code>PaymentIntent</code> and no Finance dependency in this spec; paying the supplier is a documented high-tier follow-up.</td></tr>
     <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code> (<code>Ank</code> prefix); only <code>AnkSuppliers</code>/<code>AnkSupplierIngredients</code> are new — the Order tables are unchanged since <code>OrderType</code> is an open string; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R9</td><td>Agent tools are classified (list suppliers direct; create-supplier / create-PO / submit-PO medium); every invocation records an <code>AiRun</code>.</td></tr>
@@ -680,7 +744,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <li><code>Supplier</code> + <code>SupplierIngredient</code> entities + <code>IEntityTypeConfiguration</code>s + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ISupplierService</code> (supplier CRUD + supplier-ingredient upsert) + DTOs + admin endpoints.</li>
   <li>Add <code>"PurchaseOrder"</code> to <code>OrderTypeCodes</code> and <code>"Supplier"</code> to <code>OrderPartyRoles</code> in <code>Aonik.Ordering</code> (additive; open-string values).</li>
   <li>Extend the shared create contract in <code>Aonik.Ordering</code>: add the optional <code>IReadOnlyList&lt;OrderPartyRoleCommand&gt;? PartyRoles = null</code> to <code>CreateOrderCommand</code> and have <code>CoreOrderService.CreateAsync</code> materialize those roles alongside the existing Payer/per-line Receiver roles (additive; existing callers unaffected). This is the hook a PO uses to persist its <code>Supplier</code> role (§10, §11).</li>
-  <li><code>IPurchaseOrderService</code>: build the <code>OrderItem</code> line mapping (§10) with the <code>DetailsJson</code> discriminator; create via <code>IOrderService.CreateAsync</code> (explicit lines and <code>CreateFromShortfallAsync</code>); <code>SubmitAsync</code> + cancel via <code>TransitionAsync</code>; admin endpoints (create / submit / list POs).</li>
+  <li><code>IPurchaseOrderService</code>: build the <code>OrderItem</code> line mapping (§10) with the <code>DetailsJson</code> discriminator; create via <code>IOrderService.CreateAsync</code> (explicit lines and <code>CreateFromShortfallAsync</code>, which also flips the source alerts to <code>Ordered</code>); <code>SubmitAsync</code> (Draft→Pending) + <code>CancelAsync</code> (Draft/Pending→Cancelled) with service-enforced guards over <code>TransitionAsync</code>; admin endpoints (create / from-shortfall / submit / cancel / list POs).</li>
   <li>The <code>CommerceSuppliersAndPurchaseOrders</code> migration against <code>AonikDbContext</code>; review the diff (2 supplier tables only — no Order-table change).</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the list-suppliers read tool + the three medium write tools; route through the gate.</li>
   <li>Tests: unit (supplier CRUD, PO line mapping incl. <code>ProductId</code>=<code>IngredientId</code> and <code>DetailsJson</code>, direction-of-money party roles, shortfall seed with catalog + cost fallback, submit transition) + an architecture test still asserting no Commerce↔Finance reference.</li>
@@ -689,9 +753,9 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <h2 id="verification">19. Verification</h2>
 <ul>
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference (the PO rides the spine, not Finance).</li>
-  <li><strong>PO on the spine:</strong> create a supplier + a <code>SupplierIngredient</code> for rice (25&nbsp;kg sack @ price), place a PO for 4 sacks; assert an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code>, a <code>Supplier</code> party role, a <code>Payer</code> role for the tenant, and one <code>OrderItem</code> whose <code>ProductId</code> equals the rice <code>IngredientId</code>, <code>AmountIn</code> = 4 × pack price, and <code>DetailsJson.kind = "purchase-order-line"</code>. <strong>No new PurchaseOrder table exists.</strong></li>
-  <li><strong>Shortfall seed:</strong> from a Spec&nbsp;052 rice <code>LowStockAlert</code>, <code>CreateFromShortfallAsync</code> drafts a PO with packs = ceil(shortfall / <code>PackSize</code>) and unit price = <code>PackPrice</code>; with no catalog row, unit cost falls back to the Spec&nbsp;051 <code>IngredientCost</code>.</li>
-  <li><strong>Lifecycle:</strong> <code>SubmitAsync</code> moves Draft&nbsp;→&nbsp;Submitted via <code>TransitionAsync</code>; a draft with no supplier or no lines is rejected; cancel works before receipt.</li>
+  <li><strong>PO on the spine:</strong> create a supplier + a <code>SupplierIngredient</code> for rice (25&nbsp;kg sack @ price), place a PO for 100&nbsp;kg; assert an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code>, <code>PayerPartyId = null</code> (no <code>Payer</code> role row — the tenant is the payer, §11), a <code>Supplier</code> party role when the supplier is party-linked (and none when it is not), <code>ProvenanceJson</code> carrying the supplier id + name, and one <code>OrderItem</code> whose <code>ProductId</code> equals the rice <code>IngredientId</code>, <code>AmountIn</code> = quantity × unit price, and <code>DetailsJson.kind = "purchase-order-line"</code>. <strong>No new PurchaseOrder table exists.</strong></li>
+  <li><strong>Shortfall seed:</strong> from a Spec&nbsp;052 rice <code>LowStockAlert</code>, <code>CreateFromShortfallAsync</code> drafts a PO with quantity = ceil(shortfall / <code>PackSize</code>) × <code>PackSize</code> (or the level's <code>ReorderQuantity</code> when set) and unit price = <code>PackPrice / PackSize</code>; the source alerts flip to <code>Ordered</code>; an alert for an ingredient the supplier has no catalog row for is rejected naming the ingredient.</li>
+  <li><strong>Lifecycle:</strong> <code>SubmitAsync</code> moves Draft&nbsp;→&nbsp;<code>Pending</code> via <code>TransitionAsync</code> (reason "Submitted to supplier") and rejects any other current status or a non-PO order; <code>CancelAsync</code> works from Draft/Pending only.</li>
   <li><strong>Agent:</strong> <code>commerce_create_purchase_order</code> and <code>commerce_submit_purchase_order</code> surface a medium approval; <code>commerce_list_suppliers</code> executes directly; each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -700,8 +764,8 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; a unit test asserts the mapping.</td></tr>
-    <tr><td>Direction of money (payer = us) mis-modelled as an inbound sale</td><td>Medium</td><td>An explicit <code>"Supplier"</code> <code>OrderPartyRole</code> + a <code>Payer</code> role for the tenant (§11); a test asserts both roles; the outward-payment leg is deferred so nothing moves money on a mismodel.</td></tr>
+    <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; line quantities and totals rounded to the columns' 4&nbsp;dp at computation with the header passed as Σ of the rounded lines (§10), so stored, returned, and header money always agree; unit tests assert the mapping and the rounding.</td></tr>
+    <tr><td>Direction of money (payer = us) mis-modelled as an inbound sale</td><td>Medium</td><td><code>PayerPartyId</code> deliberately <code>null</code> (no buyer-party — the tenant pays, §11) + an explicit <code>"Supplier"</code> <code>OrderPartyRole</code> when party-linked + supplier identity always in <code>ProvenanceJson</code>; tests assert the null payer, the role, and the provenance; the outward-payment leg is deferred so nothing moves money on a mismodel.</td></tr>
     <tr><td>Counterparty mis-modelled because the <code>Supplier</code> role is silently dropped (today's <code>CreateOrderCommand</code> can't carry it — only Payer/Receiver)</td><td>Medium</td><td>Land the additive <code>CreateOrderCommand.PartyRoles</code> hook so <code>CoreOrderService.CreateAsync</code> actually persists the role (§10, R10); a test asserts the <code>Supplier</code> role is present on the created PO, not merely intended.</td></tr>
     <tr><td>Reusing <code>ProductId</code> soft-ref to carry <code>IngredientId</code></td><td>Low</td><td><code>ProductId</code> is an opaque <code>Guid?</code> with no FK — semantically fine to hold any soft-ref; the <code>DetailsJson</code> discriminator + <code>ingredientId</code> make the reuse self-describing and documented.</td></tr>
     <tr><td>PO drifting from a parallel Commerce order concept</td><td>Low</td><td>There is no parallel concept — the PO <em>is</em> an <code>Order</code>; Commerce holds only supplier master data, and rides <code>IOrderService</code> for the order.</td></tr>
@@ -716,8 +780,10 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <li><strong>Additive by open string.</strong> <code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code> and <code>OrderPartyRoles</code> gains <code>"Supplier"</code> as string values — no Order-table schema change.</li>
   <li><strong>Additive create-contract hook, not a redesign.</strong> Persisting the <code>Supplier</code> role needs one small additive change in <code>Aonik.Ordering</code> — an optional <code>PartyRoles</code> list on <code>CreateOrderCommand</code> that <code>CoreOrderService.CreateAsync</code> materializes alongside Payer/Receiver — because today's command carries no party-roles collection (only header <code>PayerPartyId</code> + per-line <code>ReceiverPartyId</code>). Same class of expansion the order-spine work already anticipated for Finance-specific fields; the PO still rides the spine, and existing callers are unaffected.</li>
   <li><strong>Line reuse.</strong> PO lines reuse <code>OrderItem</code>; <code>ProductId</code> (opaque soft-ref) carries <code>IngredientId</code>; <code>AmountIn</code> holds the line total; a <code>DetailsJson</code> discriminator marks the kind.</li>
-  <li><strong>Supplier is a soft <code>PartyId</code></strong>, not a standalone party — a light sourcing-side counterparty; link to a platform <code>Party</code> when one exists, stand alone otherwise (no Platform ProjectReference).</li>
-  <li><strong>Direction of money is explicit:</strong> we are the <code>Payer</code>, the supplier is the payee — the inverse of a customer <code>ProductPurchase</code>.</li>
+  <li><strong>Supplier is a soft <code>PartyId</code></strong>, not a standalone party — a light sourcing-side counterparty; link to a platform <code>Party</code> when one exists, stand alone otherwise (no Platform ProjectReference). The <code>Supplier</code> party-role row is written only when that link exists; the supplier's identity always rides <code>ProvenanceJson</code> so the PO is self-describing either way (§11).</li>
+  <li><strong>Direction of money is explicit:</strong> we pay, the supplier is the payee — the inverse of a customer <code>ProductPurchase</code>. <code>PayerPartyId</code> stays <code>null</code> (the tenant has no <code>Party</code> row); the outbound direction is carried by the order type, the <code>Supplier</code> role, and the provenance (§11).</li>
+  <li><strong>Lifecycle rides the existing <code>OrderStatusCodes</code></strong> — Draft&nbsp;→&nbsp;Pending&nbsp;→&nbsp;Complete&nbsp;/&nbsp;Cancelled; no new status strings (the spine's <code>TransitionAsync</code> enforces no state machine, so <code>IPurchaseOrderService</code> enforces the PO's allowed transitions itself; "partially received" is derived data in Spec&nbsp;054, never a status) (§13).</li>
+  <li><strong>Catalog row required on the shortfall path; no Spec&nbsp;051 cost fallback.</strong> Pack rounding needs <code>PackSize</code> and the buy price is <code>PackPrice / PackSize</code> — a standard cost carries neither; the explicit-lines path covers the no-catalog case with an explicit <code>UnitPrice</code> (§12).</li>
   <li><strong>Funding deferred; no Finance reference.</strong> This spec covers create + lifecycle only; paying the supplier is a high-tier Finance <code>Proposal</code> follow-up (<code>commerce_pay_purchase_order</code>), and receiving goods is Spec&nbsp;054.</li>
   <li><strong>Grow in place in <code>Aonik.Commerce</code></strong> (no new module); references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>; migrations stay with <code>AonikDbContext</code>.</li>
 </ul>
@@ -754,9 +820,9 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <h2 id="refs">23. References</h2>
 <ul>
   <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations <strong>keystone</strong>; source of the <code>Ingredient</code> master a PO line soft-refs and the <code>BaseUnit</code> that <code>PackSize</code> converts into.</li>
-  <li><a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> — <code>IngredientCost</code>, the default unit cost when seeding a PO with no catalog row.</li>
+  <li><a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> — <code>IngredientCost</code>, the standard-cost view; adjacent, not a PO price source (§12) — Spec&nbsp;054 receipts feed it from PO buy prices.</li>
   <li><a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> — <code>LowStockAlert</code>; a shortfall seeds a PO (§12).</li>
-  <li><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> — goods receipt; effects the PO Received/Closed transitions defined here.</li>
+  <li><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> — goods receipt; effects the PO <code>Complete</code> transition defined here (§13).</li>
   <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine; <code>OrderType</code> as an open string, <code>OrderItem</code> retail-line columns, <code>OrderPartyRole</code>, <code>IOrderService</code>.</li>
   <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail commerce module (agent, gate, admin rails) this reuses; the customer <code>ProductPurchase</code> whose direction of money a PO inverts.</li>
   <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule).</li>

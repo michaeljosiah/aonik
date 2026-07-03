@@ -22,4 +22,8 @@ public static class OrderPartyRoleCodes
 
     /// <summary>The party to whom payment is being made.</summary>
     public const string Payee = "Payee";
+
+    /// <summary>The counterparty we buy from on a purchase order (Spec 053 §11) — the payee of
+    /// the outward money. Written when the Commerce <c>Supplier</c> is soft-linked to a Party.</summary>
+    public const string Supplier = "Supplier";
 }

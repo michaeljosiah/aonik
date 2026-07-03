@@ -193,6 +193,55 @@ public class CoreOrderServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_Should_MaterializeSuppliedPartyRoles_AndDedupeAgainstAutoRoles()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        // Spec 053 §10 — the additive PartyRoles hook: a supplied Supplier role is persisted
+        // alongside the auto-materialized Payer role; an entry duplicating the Payer (same party,
+        // same role) and a duplicate of a supplied entry are deduped, not double-inserted.
+        var payerPartyId = Guid.NewGuid();
+        var supplierPartyId = Guid.NewGuid();
+
+        var created = await service.CreateAsync(ProductPurchaseCommand(payerPartyId) with
+        {
+            PartyRoles = new[]
+            {
+                new OrderPartyRoleCommand(supplierPartyId, OrderPartyRoleCodes.Supplier),
+                new OrderPartyRoleCommand(supplierPartyId, OrderPartyRoleCodes.Supplier), // duplicate supplied entry
+                new OrderPartyRoleCommand(payerPartyId, OrderPartyRoleCodes.Payer),       // duplicates the auto Payer
+            },
+        });
+
+        var roles = await context.OrderPartyRoles.Where(r => r.OrderId == created.Id).ToListAsync();
+        roles.Should().HaveCount(2);
+        roles.Should().ContainSingle(r => r.PartyId == payerPartyId && r.Role == OrderPartyRoles.Payer);
+        roles.Should().ContainSingle(r => r.PartyId == supplierPartyId && r.Role == OrderPartyRoles.Supplier);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_RejectSuppliedPartyRole_WithEmptyPartyOrBlankRole()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        var emptyParty = async () => await service.CreateAsync(ProductPurchaseCommand() with
+        {
+            PartyRoles = new[] { new OrderPartyRoleCommand(Guid.Empty, OrderPartyRoleCodes.Supplier) },
+        });
+        await emptyParty.Should().ThrowAsync<ArgumentException>().WithMessage("*PartyId*");
+
+        var blankRole = async () => await service.CreateAsync(ProductPurchaseCommand() with
+        {
+            PartyRoles = new[] { new OrderPartyRoleCommand(Guid.NewGuid(), "  ") },
+        });
+        await blankRole.Should().ThrowAsync<ArgumentException>().WithMessage("*Role*");
+    }
+
+    [Fact]
     public async Task CreateAsync_Should_StoreNullIdempotencyKey_ForBlankInput()
     {
         var (options, tenantId) = NewDb();
@@ -206,5 +255,57 @@ public class CoreOrderServiceTests
 
         (await context.Orders.CountAsync()).Should().Be(2);
         (await context.Orders.CountAsync(o => o.IdempotencyKey == null)).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task FindByIdempotencyKeyAsync_Should_ReturnTheKeyedOrder_WithTheSameNormalization_AsCreate()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        var created = await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "order-123" });
+        await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "   " }); // blank-key noise, stored NULL
+
+        // Exact key and a whitespace-padded retry key both resolve to the stored (trimmed) order,
+        // items included — the lookup a type-specific creation flow uses to settle a lost-response
+        // retry BEFORE re-running validation (Spec 053 §12).
+        var found = await service.FindByIdempotencyKeyAsync("order-123");
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
+        found.Items.Should().HaveCount(2);
+        (await service.FindByIdempotencyKeyAsync("  order-123  "))!.Id.Should().Be(created.Id);
+
+        // An unknown key finds nothing; a blank key NEVER matches (blank keys are stored as NULL —
+        // they are non-keys, not a shared bucket).
+        (await service.FindByIdempotencyKeyAsync("order-999")).Should().BeNull();
+        (await service.FindByIdempotencyKeyAsync("   ")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TransitionAsync_Should_ApplyOnMatchingExpectedFromStatus_AndThrowOnMismatch_LeavingStatusUntouched()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+        var created = await service.CreateAsync(ProductPurchaseCommand());
+
+        // Compare-and-set (Spec 053 §13): a matching expectation applies as usual…
+        var pending = await service.TransitionAsync(
+            created.Id, OrderStatuses.Pending, "ready", expectedFromStatus: OrderStatuses.Draft);
+        pending.Status.Should().Be(OrderStatuses.Pending);
+
+        // …and a stale expectation (the caller observed Draft, but the order moved on) throws,
+        // naming actual vs expected, WITHOUT applying — closing the check-then-act window that
+        // would otherwise let a stale caller overwrite an interleaved transition.
+        var stale = async () => await service.TransitionAsync(
+            created.Id, OrderStatuses.Cancelled, "stale guard", expectedFromStatus: OrderStatuses.Draft);
+        await stale.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{OrderStatuses.Pending}*{OrderStatuses.Draft}*");
+
+        (await context.Orders.SingleAsync(o => o.Id == created.Id)).Status.Should().Be(OrderStatuses.Pending);
+        // No history row was written for the rejected transition — only the successful one.
+        (await context.OrderHistoryEvents.CountAsync(e => e.OrderId == created.Id && e.EventType == "StatusChanged"))
+            .Should().Be(1);
     }
 }

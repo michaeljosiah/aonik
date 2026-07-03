@@ -128,6 +128,41 @@ internal sealed class CoreOrderService : IOrderService
             });
         }
 
+        // Spec 053 §10 — explicitly supplied party roles (e.g. the Supplier counterparty on a
+        // purchase order), materialized alongside the auto-materialized Payer/Receiver roles.
+        // Entries duplicating an already-added (party, role) pair — auto-materialized or an
+        // earlier supplied entry — are deduped so one role never lands twice on the same order.
+        if (command.PartyRoles is { Count: > 0 })
+        {
+            foreach (var partyRole in command.PartyRoles)
+            {
+                if (partyRole.PartyId == Guid.Empty)
+                {
+                    throw new ArgumentException("A supplied party role requires a non-empty PartyId.", nameof(command));
+                }
+                if (string.IsNullOrWhiteSpace(partyRole.Role))
+                {
+                    throw new ArgumentException("A supplied party role requires a non-empty Role.", nameof(command));
+                }
+
+                var role = partyRole.Role.Trim();
+                if (order.PartyRoles.Any(r =>
+                        r.PartyId == partyRole.PartyId && string.Equals(r.Role, role, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                order.PartyRoles.Add(new OrderPartyRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    OrderId = orderId,
+                    PartyId = partyRole.PartyId,
+                    Role = role
+                });
+            }
+        }
+
         order.HistoryEvents.Add(BuildHistoryEvent(tenantId, orderId, "Created", string.Empty));
 
         _dbContext.Orders.Add(order);
@@ -209,6 +244,25 @@ internal sealed class CoreOrderService : IOrderService
         return order is null ? null : MapToDto(order);
     }
 
+    public async Task<OrderDto?> FindByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        // Same normalization as CreateAsync's dedupe, so a whitespace-padded retry key still
+        // resolves to the order the original create stored (trimmed). Tenant scoping comes from
+        // the global query filter, exactly like the CreateAsync lookup.
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return null;
+        }
+        var key = idempotencyKey.Trim();
+
+        var order = await _dbContext.Orders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.IdempotencyKey == key, cancellationToken);
+
+        return order is null ? null : MapToDto(order);
+    }
+
     public async Task<PagedResult<OrderSummary>> ListAsync(ListOrdersQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
@@ -243,7 +297,7 @@ internal sealed class CoreOrderService : IOrderService
         return new PagedResult<OrderSummary>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<OrderDto> TransitionAsync(Guid orderId, string toStatus, string? reason = null, CancellationToken cancellationToken = default)
+    public async Task<OrderDto> TransitionAsync(Guid orderId, string toStatus, string? reason = null, string? expectedFromStatus = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(toStatus))
         {
@@ -255,6 +309,18 @@ internal sealed class CoreOrderService : IOrderService
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
             ?? throw new KeyNotFoundException($"Order {orderId} was not found.");
+
+        // Compare-and-set (Spec 053 §13): the caller's guard read a snapshot; without this check an
+        // interleaved transition could invalidate it between the read and this write (e.g. a
+        // cancelled PO resurrected to Pending by a stale submit). The expectation is verified on
+        // THIS tracked read; the RowVersion concurrency token still guards the write itself. The
+        // spine remains state-machine-free — it only honours an expectation the caller sends.
+        if (expectedFromStatus is not null && !string.Equals(order.Status, expectedFromStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Order {orderId} is {order.Status}, not the expected {expectedFromStatus}; " +
+                $"the transition to {toStatus} was not applied.");
+        }
 
         var previousStatus = order.Status;
         if (!string.Equals(previousStatus, toStatus, StringComparison.Ordinal))

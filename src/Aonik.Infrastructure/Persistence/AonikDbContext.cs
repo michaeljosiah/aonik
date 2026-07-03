@@ -135,6 +135,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Commerce maker-ops (Spec 052) — low-stock alerts over raw-material inventory.
     public virtual DbSet<LowStockAlert> LowStockAlerts { get; set; } = null!;
 
+    // Commerce maker-ops (Spec 053) — supplier master + supplier catalog (price list).
+    public virtual DbSet<Supplier> Suppliers { get; set; } = null!;
+    public virtual DbSet<SupplierIngredient> SupplierIngredients { get; set; } = null!;
+
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
@@ -409,6 +413,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
         // Commerce maker-ops (Spec 052)
         MapCommerceTable<LowStockAlert>(modelBuilder, "LowStockAlerts");
+
+        // Commerce maker-ops (Spec 053)
+        MapCommerceTable<Supplier>(modelBuilder, "Suppliers");
+        MapCommerceTable<SupplierIngredient>(modelBuilder, "SupplierIngredients");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

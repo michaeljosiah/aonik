@@ -72,6 +72,12 @@ public sealed class CommerceModule : IModule
         // alert per ingredient and enqueues LowStockAlertRaisedEvent for the Spec 016 inbox).
         services.AddScoped<ILowStockAlertService, LowStockAlertService>();
 
+        // Spec 053 — suppliers + supplier catalog (price list) and purchase orders. The PO is NOT
+        // a Commerce entity: PurchaseOrderService composes the shared IOrderService spine
+        // (OrderType "PurchaseOrder"); Commerce persists only the supplier master data.
+        services.AddScoped<ISupplierService, SupplierService>();
+        services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);
