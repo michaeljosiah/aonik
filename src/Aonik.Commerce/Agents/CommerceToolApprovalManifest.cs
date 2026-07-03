@@ -9,7 +9,7 @@ namespace Aonik.Commerce.Agents;
 /// <c>_view_cart</c>, <c>_check_inventory</c>, <c>_list_ingredients</c>, <c>_get_recipe</c>,
 /// <c>_explode_recipe</c>, <c>_get_product_cost</c>, <c>_check_ingredient_stock</c>,
 /// <c>_list_low_stock</c>, <c>_list_suppliers</c>, <c>_get_production_sheet</c>,
-/// <c>_get_prep_list</c>) are omitted — the gate passes unclassified,
+/// <c>_get_prep_list</c>, <c>_get_kitchen_sheet</c>) are omitted — the gate passes unclassified,
 /// read-looking tools through. Commerce never captures money, so no tool is High here (capture
 /// stays a Finance high-tier action; a future <c>commerce_refund</c> would be High via a Finance
 /// proposal, and PAYING a purchase-order supplier — <c>commerce_pay_purchase_order</c> — is the
@@ -54,6 +54,13 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             // the args-hash binding carries the idempotency key, reinforcing the receipt's
             // resolve-or-create guard against a double-counted re-invocation ──
             ["commerce_receive_goods"] = Medium("Receive goods against a purchase order"),
+
+            // ── Medium — maker-ops production runs (Spec 056 §12): release moves REAL inventory
+            // (consumes ingredient stock through the frozen recipe snapshots) but never money —
+            // consistent with the family's other inventory writes, unlike the High money tools
+            // that are marshalled into a durable Finance Proposal ──
+            ["commerce_create_production_order"] = Medium("Create a production order"),
+            ["commerce_release_production_order"] = Medium("Release a production run (consumes ingredient stock)"),
         };
 
     public ToolClassification? Classify(string toolName) =>
