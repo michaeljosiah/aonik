@@ -38,7 +38,8 @@ public record BundleSlotDto(
 
 public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder);
 
-/// <summary>Full product detail, including variants, media and (for bundles) selection slots.</summary>
+/// <summary>Full product detail, including variants, media, (for bundles) selection slots, and
+/// the Spec 057 target gross-margin percentage (null = no target set).</summary>
 public record ProductDto(
     Guid Id,
     string Slug,
@@ -53,6 +54,7 @@ public record ProductDto(
     decimal? BundleFixedAmount,
     decimal? BundlePremium,
     string? BundleCurrency,
+    decimal? TargetMarginPct,
     IReadOnlyList<ProductVariantDto> Variants,
     IReadOnlyList<ProductMediaDto> Media,
     IReadOnlyList<BundleSlotDto> BundleSlots);

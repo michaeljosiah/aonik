@@ -23,6 +23,10 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.BundleFixedAmount).HasPrecision(19, 4);
         builder.Property(x => x.BundlePremium).HasPrecision(19, 4);
 
+        // Spec 057 — target gross-margin percentage (0–100, two decimal places); range enforced in
+        // MarginReportService.SetTargetMarginAsync (InMemory tests cannot prove DB precision).
+        builder.Property(x => x.TargetMarginPct).HasPrecision(5, 2);
+
         builder.HasMany(x => x.Variants)
             .WithOne()
             .HasForeignKey(x => x.ProductId)

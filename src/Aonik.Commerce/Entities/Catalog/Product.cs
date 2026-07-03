@@ -28,6 +28,10 @@ public class Product : AuditableEntity, ITenantScoped
     public decimal? BundlePremium { get; set; }
     public string? BundleCurrency { get; set; }
 
+    /// <summary>Spec 057 §10 — target gross-margin percentage (0–100) the margin report measures
+    /// achieved margin against. Null = no target set (the report never flags the product).</summary>
+    public decimal? TargetMarginPct { get; set; }
+
     public List<ProductVariant> Variants { get; set; } = new();
     public List<ProductMedia> Media { get; set; } = new();
     public List<BundleSlot> BundleSlots { get; set; } = new();

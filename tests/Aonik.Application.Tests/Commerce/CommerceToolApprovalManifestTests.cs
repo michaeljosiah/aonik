@@ -7,15 +7,15 @@ namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
 /// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032 / Spec 050 §12 /
-/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11 / Spec 055 §13 / Spec 056 §12).
-/// Read tools — including the Spec 055 planning reads (production sheet, prep list) and the
-/// Spec 056 kitchen sheet — pass through unclassified; cart writes are Low;
-/// catalog/price/inventory/checkout, maker-ops master-data + costing + raw-material stock,
-/// sourcing (supplier / purchase-order placement / goods receipt), and production-run
-/// (create / release — release consumes ingredient stock) writes are Medium; nothing is High
-/// (Commerce never captures or pays out money — receiving and releasing move stock, not money,
-/// and paying a purchase-order supplier is the deferred Spec 053 high-tier follow-up,
-/// deliberately not registered).
+/// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11 / Spec 055 §13 / Spec 056 §12 /
+/// Spec 057 §12). Read tools — including the Spec 055 planning reads (production sheet, prep
+/// list), the Spec 056 kitchen sheet, and the Spec 057 margin report — pass through unclassified;
+/// cart writes are Low; catalog/price/inventory/checkout, maker-ops master-data + costing +
+/// raw-material stock, sourcing (supplier / purchase-order placement / goods receipt),
+/// production-run (create / release — release consumes ingredient stock), and target-margin
+/// writes are Medium; nothing is High (Commerce never captures or pays out money — receiving and
+/// releasing move stock, not money, and paying a purchase-order supplier is the deferred
+/// Spec 053 high-tier follow-up, deliberately not registered).
 /// </summary>
 public class CommerceToolApprovalManifestTests
 {
@@ -52,6 +52,7 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_receive_goods")]
     [InlineData("commerce_create_production_order")]
     [InlineData("commerce_release_production_order")]
+    [InlineData("commerce_set_target_margin")]
     public void DomainWritesAndCheckout_Should_BeMedium(string tool)
     {
         var classification = _manifest.Classify(tool);
@@ -74,6 +75,7 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_get_production_sheet")]
     [InlineData("commerce_get_prep_list")]
     [InlineData("commerce_get_kitchen_sheet")]
+    [InlineData("commerce_get_margin_report")]
     public void ReadTools_Should_BeUnclassified(string tool)
         => _manifest.Classify(tool).Should().BeNull();
 
@@ -89,6 +91,7 @@ public class CommerceToolApprovalManifestTests
             "commerce_create_supplier", "commerce_create_purchase_order", "commerce_submit_purchase_order",
             "commerce_receive_goods",
             "commerce_create_production_order", "commerce_release_production_order",
+            "commerce_set_target_margin",
         ];
         foreach (var tool in all)
         {

@@ -213,7 +213,7 @@ internal sealed class ProductService : IProductService
 
     private static ProductDto Map(Product p) => new(
         p.Id, p.Slug, p.Name, p.Description, p.Status, p.Kind, p.CategoryId, p.TagsJson, p.AttributesJson,
-        p.BundlePricingMode, p.BundleFixedAmount, p.BundlePremium, p.BundleCurrency,
+        p.BundlePricingMode, p.BundleFixedAmount, p.BundlePremium, p.BundleCurrency, p.TargetMarginPct,
         p.Variants.OrderBy(v => v.Name).Select(v => MapVariant(v, v.Prices)).ToList(),
         p.Media.OrderBy(m => m.SortOrder).Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder)).ToList(),
         p.BundleSlots.OrderBy(s => s.SortOrder).Select(MapSlot).ToList());

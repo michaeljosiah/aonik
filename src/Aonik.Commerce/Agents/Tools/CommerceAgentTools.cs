@@ -4,12 +4,14 @@ using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Contracts.Models.Inventory;
 using Aonik.Commerce.Contracts.Models.Production;
+using Aonik.Commerce.Contracts.Models.Reporting;
 using Aonik.Commerce.Contracts.Models.Sourcing;
 using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Production;
+using Aonik.Commerce.Services.Reporting;
 using Aonik.Commerce.Services.Sourcing;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
@@ -42,6 +44,7 @@ internal sealed class CommerceAgentTools
     private readonly IGoodsReceiptService _goodsReceipts;
     private readonly IProductionPlanningService _planning;
     private readonly IProductionOrderService _productionOrders;
+    private readonly IMarginReportService _margins;
 
     private CommerceAgentTools(
         IProductService products,
@@ -58,7 +61,8 @@ internal sealed class CommerceAgentTools
         IPurchaseOrderService purchaseOrders,
         IGoodsReceiptService goodsReceipts,
         IProductionPlanningService planning,
-        IProductionOrderService productionOrders)
+        IProductionOrderService productionOrders,
+        IMarginReportService margins)
     {
         _products = products;
         _pricing = pricing;
@@ -75,6 +79,7 @@ internal sealed class CommerceAgentTools
         _goodsReceipts = goodsReceipts;
         _planning = planning;
         _productionOrders = productionOrders;
+        _margins = margins;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -173,6 +178,14 @@ internal sealed class CommerceAgentTools
         [Description("The production order id (GUID)")] Guid productionOrderId,
         CancellationToken cancellationToken = default)
         => _productionOrders.GetKitchenSheetAsync(productionOrderId, cancellationToken);
+
+    [Description("Builds the margin & profit report for a UTC window in a currency: per product variant sold — quantity, discounted revenue, standard food cost (COGS), gross margin, margin %, and a below-target flag — plus the window aggregate. Only PAYMENT-COMPLETED product-purchase orders created in [fromUtc, toUtc) count as revenue (unpaid checkouts never do). Build-your-own-box lines are expanded into their chosen components. A variant with no recipe or a missing ingredient cost is surfaced as COGS-unknown and excluded from the aggregate margin — never counted as zero cost.")]
+    public Task<MarginReportDto> GetMarginReport(
+        [Description("Window start (UTC, inclusive)")] DateTime fromUtc,
+        [Description("Window end (UTC, exclusive)")] DateTime toUtc,
+        [Description("ISO 4217 report currency (e.g. NGN, GBP); orders and costs in other currencies are skipped and flagged, never converted")] string currency,
+        CancellationToken cancellationToken = default)
+        => _margins.GetMarginReportAsync(new ProductionWindow(fromUtc, toUtc), currency, cancellationToken);
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -339,6 +352,13 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _productionOrders.ReleaseAsync(productionOrderId, cancellationToken);
 
+    [Description("Sets (or clears) a product's target gross-margin percentage (0-100). The margin report flags any variant whose achieved margin falls below its product's target. Omit the percentage to clear the target so the product is never flagged.")]
+    public Task<TargetMarginDto> SetTargetMargin(
+        [Description("The product id (GUID)")] Guid productId,
+        [Description("Target gross margin as a percentage between 0 and 100 (e.g. 70 for 70%); omit to clear")] decimal? targetMarginPct = null,
+        CancellationToken cancellationToken = default)
+        => _margins.SetTargetMarginAsync(productId, targetMarginPct, cancellationToken);
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new CommerceAgentTools(
@@ -356,7 +376,8 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<IPurchaseOrderService>(),
             serviceProvider.GetRequiredService<IGoodsReceiptService>(),
             serviceProvider.GetRequiredService<IProductionPlanningService>(),
-            serviceProvider.GetRequiredService<IProductionOrderService>());
+            serviceProvider.GetRequiredService<IProductionOrderService>(),
+            serviceProvider.GetRequiredService<IMarginReportService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -373,6 +394,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.GetProductionSheet, name: "commerce_get_production_sheet");
         yield return AIFunctionFactory.Create(tools.GetPrepList, name: "commerce_get_prep_list");
         yield return AIFunctionFactory.Create(tools.GetKitchenSheet, name: "commerce_get_kitchen_sheet");
+        yield return AIFunctionFactory.Create(tools.GetMarginReport, name: "commerce_get_margin_report");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -395,5 +417,6 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.ReceiveGoods, name: "commerce_receive_goods");
         yield return AIFunctionFactory.Create(tools.CreateProductionOrder, name: "commerce_create_production_order");
         yield return AIFunctionFactory.Create(tools.ReleaseProductionOrder, name: "commerce_release_production_order");
+        yield return AIFunctionFactory.Create(tools.SetTargetMargin, name: "commerce_set_target_margin");
     }
 }

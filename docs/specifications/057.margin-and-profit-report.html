@@ -258,10 +258,11 @@
 <p>
   This spec answers it with a single read service, <code>IMarginReportService</code>, that for a date window
   computes — <strong>per <code>ProductVariant</code> and in aggregate</strong> — <em>revenue</em> (from
-  <code>ProductPurchase</code> order lines), <em>COGS</em> (the Spec&nbsp;051 standard-cost rollup times the
-  quantity sold), the resulting <em>gross margin</em> and <em>margin percentage</em>, and a
-  <strong>variance flag</strong> against a target margin. The only persisted change is one additive nullable
-  column, <code>TargetMarginPct</code>, on the existing Spec&nbsp;042 <code>Product</code>.
+  <strong>payment-completed</strong> <code>ProductPurchase</code> orders' lines, §8), <em>COGS</em> (the
+  Spec&nbsp;051 standard-cost rollup times the quantity sold), the resulting <em>gross margin</em> and
+  <em>margin percentage</em>, and a <strong>variance flag</strong> against a target margin. The only persisted
+  change is one additive nullable column, <code>TargetMarginPct</code>, on the existing Spec&nbsp;042
+  <code>Product</code>.
 </p>
 
 <div class="callout ok">
@@ -318,10 +319,10 @@
 <h3>In scope</h3>
 <ul>
   <li><code>IMarginReportService</code>: for a window, per <code>ProductVariant</code> and aggregate — revenue, COGS, gross margin, margin&nbsp;%, and target-variance flag.</li>
-  <li>Revenue from <code>ProductPurchase</code> order lines using the Spec&nbsp;042 <code>OrderChargeSummary</code> <strong>discounted</strong> total, read via the Ordering/charge data (no Finance reference).</li>
+  <li>Revenue from <strong>payment-completed</strong> <code>ProductPurchase</code> orders' lines using the Spec&nbsp;042 <code>OrderChargeSummary</code> <strong>discounted</strong> total (apportioned pro-rata, §8), read via the Ordering/charge data (no Finance reference).</li>
   <li>COGS = <code>RollupStandardCostAsync(variant, currency, atUtc)</code> (Spec&nbsp;051) × quantity sold in the window.</li>
-  <li>One additive nullable column <code>TargetMarginPct</code> on the existing <code>Product</code> entity; a set-target write path.</li>
-  <li>A read endpoint (get margin report for a window) + <code>commerce_get_margin_report</code> read tool and <code>commerce_set_target_margin</code> medium tool.</li>
+  <li>One additive nullable column <code>TargetMarginPct</code> on the existing <code>Product</code> entity; a set-target write path (<code>SetTargetMarginAsync</code>, 0–100 range-validated, null clears).</li>
+  <li>A read endpoint (get margin report for a window + currency) and a PUT set-target endpoint; <code>commerce_get_margin_report</code> read tool and <code>commerce_set_target_margin</code> medium tool.</li>
   <li>One tool-generated migration (<code>CommerceTargetMargin</code>) adding the single column.</li>
 </ul>
 <h3>Out of scope</h3>
@@ -336,7 +337,7 @@
 <h2 id="guardrails">5. Constraints &amp; guardrails</h2>
 <ul>
   <li><strong>No reference to Finance.</strong> Revenue is read from the <a href="041.unified-order-spine-ordering-layer.html">Ordering</a> spine (<code>ProductPurchase</code> lines + <code>OrderChargeSummary</code>), <em>not</em> from the ledger. <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code> (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
-  <li><strong>Revenue is the discounted total.</strong> The report uses the funded amount from <code>OrderChargeSummary</code> (subtotal − discount, per Spec&nbsp;042 §17), never gross list price — so margin reflects what the customer actually paid (§8).</li>
+  <li><strong>Revenue is the discounted total of payment-completed orders.</strong> The report uses the funded amount from <code>OrderChargeSummary</code> (subtotal − discount, per Spec&nbsp;042 §17), never gross list price, and counts only orders whose status is <code>Complete</code> — the transition payment completion applies (§8) — so margin reflects money that actually arrived.</li>
   <li><strong>COGS is standard cost.</strong> v1 values sold quantity at the Spec&nbsp;051 rollup, not receipt-based actual cost, keeping revenue/COGS timing honest without lot valuation (§9, <a href="#risks">Risks</a>).</li>
   <li><strong>Read-only bar one column.</strong> The service computes and returns DTOs; the only mutation is setting <code>Product.TargetMarginPct</code>. No new money movement, no ledger, no <code>OrderChargeSummary</code> writes.</li>
   <li><strong>Single migration stream.</strong> The one additive column is EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> table; <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
@@ -350,7 +351,7 @@
 ├── Services/
 │   └── Reporting/   IMarginReportService                         # NEW (revenue vs COGS vs target)
 ├── Endpoints/Admin/
-│   └── Reporting/   GetMarginReport                              # NEW (window → report)
+│   └── Reporting/   GetMarginReport, SetTargetMargin             # NEW (window → report; PUT target)
 ├── Agents/Tools/    CommerceAgentTools (+ margin-report / set-target tools)   # EXTEND
 ├── Contracts/       MarginReport models + Api records            # EXTEND
 └── Persistence/
@@ -364,51 +365,92 @@
 </p>
 <pre><code>// EXTEND — Spec 042 catalog entity, anemic, ITenantScoped, AuditableEntity
 class Product { /* …existing Spec 042 fields… */
-                decimal? TargetMarginPct;   // NEW — target gross-margin %, null = no target set
+                decimal? TargetMarginPct;   // NEW — target gross-margin %, 0–100, precision (5,2); null = no target set
               }
 
-// Computed DTOs (not persisted)
-record MarginReportRow  { Guid ProductVariantId; string VariantName;
-                          decimal QuantitySold; string Currency;
-                          decimal Revenue;        // discounted total, from OrderChargeSummary
-                          decimal? Cogs;          // RollupStandardCost × QuantitySold; null ⇒ COGS unknown
-                          decimal? GrossMargin;   // Revenue − Cogs (null when Cogs unknown)
-                          decimal? MarginPct;     // GrossMargin / Revenue (null when Revenue = 0 or COGS unknown)
-                          decimal? TargetMarginPct;
-                          bool    BelowTarget;    // MarginPct &lt; TargetMarginPct
-                          bool    CogsKnown;      // false ⇒ no recipe / no component cost — excluded from aggregate
-                          bool    IsBundle; }     // true ⇒ bundle line; Revenue/Cogs are component-expanded (§8)
+// Computed DTOs (not persisted; Contracts/Models/Reporting). The window record is Spec 055's
+// ProductionWindow — the landed half-open [FromUtc, ToUtc) primitive, reused not duplicated.
+record MarginReportRowDto { Guid ProductVariantId; string ProductName, VariantName;
+                            decimal QuantitySold;
+                            decimal Revenue;        // DISCOUNTED goods revenue attributed to the variant (§8)
+                            decimal? Cogs;          // RollupStandardCost × QuantitySold; null ⇒ COGS unknown
+                            decimal? GrossMargin;   // Revenue − Cogs (null when Cogs unknown)
+                            decimal? MarginPct;     // 0–100 scale, 2 dp (null when Revenue = 0 or COGS unknown)
+                            bool     CogsKnown;     // false ⇒ no recipe / no component cost — excluded from aggregate
+                            bool     IsBundle;      // row includes bundle attribution (component-expanded, §8)
+                            decimal? TargetMarginPct;
+                            bool?    BelowTarget; } // MarginPct &lt; TargetMarginPct; NULL when either is unknown
 
-record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
-                          IReadOnlyList&lt;MarginReportRow&gt; Rows;   // both aggregated and unknown-COGS rows
-                          decimal TotalRevenue, TotalCogs, TotalGrossMargin;   // COGS-known rows only
-                          decimal? AggregateMarginPct;
-                          decimal UnknownCogsRevenue; }   // revenue on rows excluded for unknown COGS</code></pre>
+record MarginAggregateDto { decimal Revenue;             // ALL rows (incl. unknown-COGS rows)
+                            decimal KnownCogsRevenue;    // COGS-known rows only — the margin denominator
+                            decimal Cogs, GrossMargin;   // COGS-known rows only
+                            decimal? MarginPct;          // over KnownCogsRevenue ONLY; 0–100 scale, 2 dp
+                            decimal UnknownCogsRevenue; }// = Revenue − KnownCogsRevenue: surfaced, excluded
+
+record MarginReportDto    { ProductionWindow Window; string Currency;
+                            IReadOnlyList&lt;MarginReportRowDto&gt; Rows;   // incl. unknown-COGS rows
+                            MarginAggregateDto Aggregate;
+                            IReadOnlyList&lt;Guid&gt; VariantsWithoutRecipe;    // Spec 050 diagnostic
+                            IReadOnlyList&lt;Guid&gt; VariantsWithUnknownCost;  // Spec 051 diagnostic (recipe, no cost)
+                            int OrdersExcludedByCurrency; }               // other-currency orders: skipped, surfaced
+
+record TargetMarginDto    { Guid ProductId; string ProductName; decimal? TargetMarginPct; }</code></pre>
 <p>
   <code>Cogs</code>, <code>GrossMargin</code>, and <code>MarginPct</code> are all nullable because a variant
   with sales but no computable cost (no active recipe, or a component with no active cost) must be surfaced as a
   diagnostic rather than a misleading zero (§9): its <code>CogsKnown = false</code> row is <strong>excluded from
-  the aggregate</strong>, never counted as zero cost. <code>IsBundle</code> marks build-your-own-box lines,
-  whose revenue and cost are attributed by expanding the chosen components (§8).
-  <code>TargetMarginPct</code> lives on <code>Product</code> (not <code>ProductVariant</code>): a target is a
-  product-level commercial intent, and the row carries the resolved value so callers need not re-join.
+  the aggregate</strong>, never counted as zero cost — the two diagnostics lists say <em>why</em> (no recipe vs.
+  recipe with a missing component cost). <code>MarginPct</code> is expressed on the <strong>0–100 percentage
+  scale</strong> (2 dp, away-from-zero) so it compares directly against <code>TargetMarginPct</code>;
+  <code>BelowTarget</code> is <strong>nullable</strong> — null means "cannot judge" (no target set, or margin
+  unknown), never a false-negative <code>false</code>. <code>IsBundle</code> marks rows carrying
+  build-your-own-box attribution — a component variant expanded from a bundle line, or an unexpanded bundle line
+  surfaced as its own flagged row (§8). <code>TargetMarginPct</code> lives on <code>Product</code> (not
+  <code>ProductVariant</code>): a target is a product-level commercial intent, and the row carries the resolved
+  value so callers need not re-join.
 </p>
 
 <h2 id="revenue">8. Revenue source (reusing OrderChargeSummary)</h2>
 <p>
   Revenue is read from the <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>, not the
-  ledger — keeping the Commerce/Finance boundary intact. For each <code>ProductPurchase</code> order whose
-  fulfilment falls in the window, the service reads the line-level goods (<code>OrderItem.ProductId</code> /
-  variant, <code>Quantity</code>) and the order's durable <strong><code>OrderChargeSummary</code></strong>
-  — the record Spec&nbsp;042 §17 persists at checkout capturing subtotal → discount → tax → payable, funded
-  via the <code>PaymentIntent</code>.
+  ledger — keeping the Commerce/Finance boundary intact. For each qualifying <code>ProductPurchase</code>
+  order (decision below), the service reads the line-level goods (<code>OrderItem.ProductId</code> /
+  variant, <code>Quantity</code>, <code>AmountIn</code> — the line total as checkout wrote it) via
+  <code>IOrderService.ListWithItemsAsync</code> (the Spec&nbsp;055 read path, type + window pushed into the
+  query) and the order's durable <strong><code>OrderChargeSummary</code></strong> — the record Spec&nbsp;042
+  §17 persists at checkout capturing subtotal → discount → tax → payable, funded via the
+  <code>PaymentIntent</code>.
 </p>
+<div class="callout">
+  <span class="callout-label">Decision — which orders count (grounded)</span>
+  <strong>This is a profit report: only payment-completed orders count as revenue.</strong> The landed
+  lifecycle: checkout creates the order in <code>Draft</code> and writes
+  <code>OrderChargeSummary.PaymentStatus</code> <em>once</em>, with the intent's <em>initial</em> status —
+  <strong>nothing ever updates that column</strong>. Payment completion is signalled on the spine:
+  <code>PaymentCompletedEvent</code> → <code>CommercePaymentCompletedHandler</code> →
+  <code>ConfirmPaymentAsync</code> commits inventory, closes the cart, and transitions the <em>order</em> to
+  <code>Complete</code>. So the honest "money actually arrived" predicate is
+  <strong><code>Order.Status = Complete</code></strong>, not the charge summary's snapshot field. v1
+  therefore counts <code>ProductPurchase</code> orders with status <code>Complete</code>, created in the
+  half-open UTC window <code>[FromUtc, ToUtc)</code> — <code>CreatedAt</code> is the spine's only windowable
+  instant on the read contract; completion-time windowing would need a status-history read and is
+  deliberately not v1. This is <strong>narrower than Spec&nbsp;055's demand set</strong>
+  (Pending / UnderReview / Approved / Transmitted / Complete): the kitchen cooks for <em>committed</em>
+  orders, but profit counts only <em>funded</em> ones — a Pending order appears on the production sheet and
+  not in the margin report. Orders in a currency other than the requested report currency are skipped and
+  surfaced (<code>OrdersExcludedByCurrency</code>) — Commerce holds no FX; ₦ and £ are never summed.
+</div>
 <div class="callout">
   <span class="callout-label">Decision</span>
   Revenue uses the <strong>discounted total</strong> from <code>OrderChargeSummary</code> (subtotal minus
   discount), <em>not</em> gross list price. That is the amount actually funded, so margin reflects what the
-  customer paid. Where a whole-order discount spans multiple lines, it is apportioned to each variant
-  pro-rata by line subtotal, so per-variant revenue sums to the order's discounted total.
+  customer paid. Where a whole-order discount spans multiple lines, the order-level
+  <code>DiscountTotal</code> is apportioned to the lines <strong>pro-rata by line <code>AmountIn</code></strong>,
+  each share rounded to <strong>4&nbsp;dp away-from-zero with the rounding remainder assigned to the
+  largest-weight row</strong> (ties → first) — so per-variant revenue sums to the order's discounted total
+  <em>exactly</em>, never off by a rounding tail. A <code>Complete</code> order with no charge summary
+  (created outside Commerce checkout) contributes its line amounts undiscounted — there is no discount
+  record to apportion.
 </div>
 <p>
   Tax is excluded from margin revenue (tax is a pass-through liability, not the maker's income). The read
@@ -416,17 +458,24 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
   <a href="#guardrails">§5</a>.
 </p>
 <div class="callout">
-  <span class="callout-label">Decision</span>
+  <span class="callout-label">Decision — bundle expansion (grounded)</span>
   <strong>Bundle lines must be detected, not silently mis-joined.</strong> Per Spec&nbsp;042 §12 (Option A), a
   build-your-own-box sale stores <code>OrderItem.ProductId</code> = the <strong>bundle <code>Product</code> id</strong>
   (<code>Kind = Bundle</code>), not a variant, with the chosen contents in <code>OrderBundleSelection</code> rows —
-  so the report's <code>ProductId → ProductVariant → Recipe</code> join will not resolve for a bundle line. When a
-  line's <code>ProductId</code> resolves to a <code>Product</code> with <code>Kind = Bundle</code> (or fails variant
-  resolution), the service <strong>expands its <code>OrderBundleSelection</code> component rows</strong> — attributing
-  the line's discounted revenue across components pro-rata by component value and valuing each at its Spec&nbsp;051
-  rollup — so bundle revenue/COGS group by real recipe rather than dropping or mis-joining. v1-minimum fallback:
-  if component expansion is not yet wired, a bundle line is <strong>excluded and flagged</strong>
-  (<code>CogsKnown = false</code>), never silently attributed to the bundle id. Component-level attribution detail is
+  so the report's <code>ProductId → ProductVariant → Recipe</code> join will not resolve for a bundle line. Detection
+  mirrors the landed Spec&nbsp;055 sheet rule: a line <em>with</em> <code>OrderBundleSelection</code> rows (keyed
+  <code>OrderId</code>&nbsp;+&nbsp;<code>OrderItemIndex</code>; selection <code>Quantity</code> is already the line
+  total, selection&nbsp;×&nbsp;boxes) is <strong>expanded into its components</strong>, attributing the line's
+  discounted revenue across them and valuing each at its Spec&nbsp;051 rollup — so bundle revenue/COGS group by real
+  recipe rather than dropping or mis-joining. <strong>v1 split key (grounded):</strong>
+  <code>OrderBundleSelection</code> persists <em>no price snapshot</em>, so the line's revenue is split pro-rata by
+  <strong>relative standalone selling price</strong> — each component's <em>current active list price</em> in the
+  report currency (<code>IProductPricingService.ResolvePriceAsync</code>) × selection quantity — falling back to
+  pro-rata by quantity when any component price is unresolvable; the same 4&nbsp;dp/remainder rounding as the
+  discount apportionment, so component revenue still sums to the line's revenue exactly. v1-minimum fallback: a
+  bundle line <em>without</em> selection rows keys a row on the bundle product id that is <strong>flagged</strong>
+  (<code>IsBundle = true</code>, <code>CogsKnown = false</code>, excluded from the aggregate margin) — never
+  silently attributed. Refining the split key (checkout-time price snapshot, explicit weighting) stays
   <a href="#open">Open</a>.
 </div>
 
@@ -435,36 +484,48 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
   Cost of goods sold is <strong>standard cost</strong>: for each variant sold in the window, the service
   calls the Spec&nbsp;051 rollup and multiplies by the quantity sold.
 </p>
-<div class="ascii-diagram">for each ProductVariant sold in [FromUtc, ToUtc):
-  qty     = Σ OrderItem.Quantity   (ProductPurchase lines, fulfilment in window)
-  unitCogs = IProductCostingService.RollupStandardCostAsync(variantId, currency, atUtc)
-           = Σ (RecipeComponent.Quantity × active IngredientCost.UnitCost)   // Spec 051
-  Cogs        = unitCogs unknown ? null : unitCogs × qty        // no recipe / no component cost ⇒ CogsKnown = false
+<div class="ascii-diagram">for each ProductVariant sold in [FromUtc, ToUtc):        // Complete (payment-completed) orders only, §8
+  qty     = Σ OrderItem.Quantity (+ bundle-selection quantities)   // ProductPurchase lines created in window
+  unitCogs = IProductCostingService.RollupStandardCostAsync(variantId, currency, atUtc: now)
+           = Σ (RecipeComponent.Quantity × active IngredientCost.UnitCost)   // Spec 051; live standard cost
+  Cogs        = unitCogs unknown ? null : round4(unitCogs × qty)   // no recipe / no component cost ⇒ CogsKnown = false
   GrossMargin = Cogs is null ? null : Revenue − Cogs
-  MarginPct   = (Revenue = 0 || Cogs is null) ? null : GrossMargin / Revenue
-  BelowTarget = TargetMarginPct is set  &amp;&amp;  MarginPct is set  &amp;&amp;  MarginPct &lt; TargetMarginPct
-  // rows with CogsKnown = false are surfaced but EXCLUDED from TotalCogs / AggregateMarginPct</div>
+  MarginPct   = (Revenue = 0 || Cogs is null) ? null : round2(GrossMargin / Revenue × 100)   // 0–100 scale
+  BelowTarget = (MarginPct is set &amp;&amp; TargetMarginPct is set) ? MarginPct &lt; TargetMarginPct : null
+  // rows with CogsKnown = false are surfaced but EXCLUDED from Aggregate.Cogs / Aggregate.MarginPct;
+  // their revenue is Aggregate.UnknownCogsRevenue (= Revenue − KnownCogsRevenue)</div>
 <p>
   If a variant has <strong>no active recipe</strong> (or a recipe component with no active cost — reusing the
   Spec&nbsp;050/051 "no recipe / no cost" diagnostic), the rollup yields no cost. The row then sets
   <code>CogsKnown = false</code> with <code>Cogs</code> left <strong>null (not zero)</strong> and is surfaced as
-  "COGS unknown", so the operator sees "cost unknown — define a recipe" rather than a phantom 100% margin. Such a
-  row is <strong>excluded from the aggregate</strong> — its revenue is reported under
-  <code>UnknownCogsRevenue</code> so coverage gaps are visible — and never folded into <code>TotalCogs</code> or
-  <code>AggregateMarginPct</code> as zero cost, which would inflate reported profit. To keep revenue and cost
-  on the same footing, COGS values the <strong>quantity sold in the window</strong> at standard cost (a
-  documented choice; see <a href="#risks">Risks</a> for the timing nuance vs. actual receipt cost).
+  "COGS unknown" — the report's <code>VariantsWithoutRecipe</code> / <code>VariantsWithUnknownCost</code> lists
+  say which of the two diagnoses applies — so the operator sees "cost unknown — define a recipe" rather than a
+  phantom 100% margin. Such a row is <strong>excluded from the aggregate</strong> — its revenue is reported under
+  <code>Aggregate.UnknownCogsRevenue</code> so coverage gaps are visible — and never folded into
+  <code>Aggregate.Cogs</code> or <code>Aggregate.MarginPct</code> as zero cost, which would inflate reported
+  profit (the aggregate margin's denominator is <code>KnownCogsRevenue</code>, not all revenue). Rolling up in
+  the report currency also gives the "one currency" rule for free: an ingredient costed only in another currency
+  makes <code>CostComplete = false</code> — the row is skipped-and-flagged, never FX-converted. To keep revenue
+  and cost on the same footing, COGS values the <strong>quantity sold in the window</strong> at the
+  <strong>live</strong> standard cost (a documented choice; see <a href="#risks">Risks</a> for the timing nuance
+  vs. actual receipt cost).
 </p>
 
 <h2 id="target">10. Target margin &amp; variance</h2>
 <p>
-  A <code>Product</code> may carry a target gross-margin percentage (<code>TargetMarginPct</code>, nullable).
-  The report resolves it onto each variant row and sets <code>BelowTarget = true</code> when the achieved
-  <code>MarginPct</code> falls below it — the single signal the operator scans to decide what next week's plan
-  must change. A null target means "no target set": the row still reports achieved margin but is never flagged.
-  Setting the target is the only write in this spec (<code>commerce_set_target_margin</code>, medium; §11),
-  recorded as an <code>AiRun</code>. A separate <code>ProductMarginTarget</code> entity — with effective dates
-  or per-channel targets — is deferred (<a href="#open">Open</a>); v1 keeps one current target on the product.
+  A <code>Product</code> may carry a target gross-margin percentage (<code>TargetMarginPct</code>, nullable,
+  0–100 on the same percentage scale as <code>MarginPct</code>). The report resolves it onto each variant row
+  and sets <code>BelowTarget = true</code> when the achieved <code>MarginPct</code> falls below it — the single
+  signal the operator scans to decide what next week's plan must change. <code>BelowTarget</code> is
+  <strong>null</strong> — "cannot judge", never a reassuring <code>false</code> — when the target is unset
+  <em>or</em> the achieved margin is unknown (zero revenue / unknown COGS). Setting the target is the only
+  write in this spec: <code>IMarginReportService.SetTargetMarginAsync(productId, pct?)</code> — the margin
+  feature service owns its commercial write, mirroring how <code>SetPriceAsync</code> lives on the pricing
+  service — validating the 0–100 range and storing at 2&nbsp;dp (the column's (5,2) precision, enforced in the
+  service because InMemory tests cannot prove DB precision); null clears. Exposed as a PUT admin endpoint and
+  the <code>commerce_set_target_margin</code> medium tool (§12), recorded as an <code>AiRun</code>. A separate
+  <code>ProductMarginTarget</code> entity — with effective dates or per-channel targets — is deferred
+  (<a href="#open">Open</a>); v1 keeps one current target on the product.
 </p>
 
 <h2 id="projection">11. The profit-report projection</h2>
@@ -472,13 +533,18 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
   The whole spec is one projection over data AONIK already holds — revenue from the spine, cost from the
   rollup, target from the product — assembled per variant and summed:
 </p>
-<div class="ascii-diagram">IMarginReportService.GetMarginReportAsync(fromUtc, toUtc, currency)
-  → gather ProductPurchase lines fulfilled in the window            (Ordering spine + OrderChargeSummary)
-  → detect bundle lines (ProductId → Product.Kind = Bundle) → expand OrderBundleSelection components
-  → per ProductVariant:  QuantitySold, Revenue (discounted, apportioned)
+<div class="ascii-diagram">IMarginReportService.GetMarginReportAsync(window, currency)      // ProductionWindow: [FromUtc, ToUtc)
+  → gather payment-completed (Status = Complete) ProductPurchase orders created in the window   (§8)
+  → join each order's OrderChargeSummary → apportion DiscountTotal pro-rata by line AmountIn    (§8)
+  → expand bundle lines through their OrderBundleSelection rows (split by component list value) (§8)
+  → per ProductVariant:  QuantitySold, Revenue (discounted, apportioned, reconciling exactly)
   → value each at RollupStandardCostAsync → Cogs, GrossMargin, MarginPct   (CogsKnown = false ⇒ excluded)
-  → resolve Product.TargetMarginPct → BelowTarget flag
-  → MarginReport { Rows[], TotalRevenue, TotalCogs, TotalGrossMargin, AggregateMarginPct, UnknownCogsRevenue }
+  → resolve Product.TargetMarginPct → BelowTarget flag (null when either side unknown)
+  → MarginReportDto { Window, Currency, Rows[], Aggregate { Revenue, KnownCogsRevenue, Cogs, GrossMargin,
+                      MarginPct, UnknownCogsRevenue }, VariantsWithoutRecipe[], VariantsWithUnknownCost[],
+                      OrdersExcludedByCurrency }
+
+IMarginReportService.SetTargetMarginAsync(productId, pct?)       // the spec's ONE write; null clears
 
   "Last week: jollof sold 40 @ discounted revenue, food cost from recipe → 68% margin (target 70% ⇒ below);
    steak 30 → 55% margin (target 50% ⇒ ok); aggregate 62%."</div>
@@ -524,7 +590,7 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
   <h4>Phase 2 — Margin report service + endpoint</h4>
   <div class="phase-summary">Revenue vs. COGS vs. target, per variant and aggregate.</div>
   <ul>
-    <li><code>IMarginReportService.GetMarginReportAsync(window, currency)</code> joining <code>ProductPurchase</code> revenue (<code>OrderChargeSummary</code> discounted total) to the Spec&nbsp;051 rollup and the target; <code>MarginReportRow</code>/<code>MarginReport</code> DTOs; detecting and component-expanding bundle lines (<code>Product.Kind = Bundle</code>); the get-margin-report admin endpoint; unit tests for revenue aggregation, COGS valuation, margin/variance, the no-target and unknown-COGS (excluded-from-aggregate) edges, and a bundle line.</li>
+    <li><code>IMarginReportService.GetMarginReportAsync(window, currency)</code> joining payment-completed <code>ProductPurchase</code> revenue (<code>OrderChargeSummary</code> discounted total, apportioned per §8) to the Spec&nbsp;051 rollup and the target, plus <code>SetTargetMarginAsync</code> (range-validated; null clears); <code>MarginReportRowDto</code>/<code>MarginReportDto</code> DTOs; detecting and component-expanding bundle lines through their <code>OrderBundleSelection</code> rows; the get-margin-report (GET) and set-target-margin (PUT) admin endpoints; unit tests over the real composed services (checkout-created paid orders) for revenue inclusion + aggregation, discount apportionment reconciliation, COGS valuation, margin/variance, the no-target and unknown-COGS (excluded-from-aggregate) edges, and a bundle line.</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -540,11 +606,11 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td>For a date window, <code>IMarginReportService</code> returns per-<code>ProductVariant</code> and aggregate revenue, COGS, gross margin, and margin&nbsp;%, tenant-scoped.</td></tr>
-    <tr><td>R2</td><td>Revenue is the <strong>discounted</strong> total from the Spec&nbsp;042 <code>OrderChargeSummary</code> for <code>ProductPurchase</code> lines fulfilled in the window (whole-order discount apportioned pro-rata); tax excluded.</td></tr>
+    <tr><td>R2</td><td>Revenue is the <strong>discounted</strong> total from the Spec&nbsp;042 <code>OrderChargeSummary</code> for <strong>payment-completed</strong> (<code>Status = Complete</code>, §8) <code>ProductPurchase</code> orders created in the half-open UTC window; Draft / Pending / Cancelled orders never count (unpaid or failed — deliberately narrower than Spec&nbsp;055's demand set); tax excluded; the whole-order discount is apportioned pro-rata by line amount (4&nbsp;dp away-from-zero, remainder to the largest row) so per-variant revenue sums to the discounted total <strong>exactly</strong>; other-currency orders are skipped and surfaced (<code>OrdersExcludedByCurrency</code>).</td></tr>
     <tr><td>R3</td><td>COGS is the Spec&nbsp;051 <code>RollupStandardCostAsync</code> × quantity sold in the window (standard food cost).</td></tr>
-    <tr><td>R4</td><td>A <code>Product</code> may carry a nullable <code>TargetMarginPct</code>; a variant whose achieved margin is below its product's target is flagged <code>BelowTarget</code>; a null target is never flagged.</td></tr>
-    <tr><td>R5</td><td>A variant sold with no computable COGS (no active recipe, or a component with no active cost — Spec&nbsp;050/051 diagnostic) reports <code>CogsKnown = false</code> with <code>Cogs</code> null (never zero), is <strong>excluded from</strong> <code>TotalCogs</code>/<code>AggregateMarginPct</code> (its revenue reported under <code>UnknownCogsRevenue</code>), and is surfaced as "COGS unknown" — never a phantom 100% margin or inflated aggregate; a zero-revenue variant reports null <code>MarginPct</code>.</td></tr>
-    <tr><td>R6</td><td>A bundle order line — <code>OrderItem.ProductId</code> resolving to a <code>Product</code> with <code>Kind = Bundle</code> (Spec&nbsp;042 §12), or failing variant resolution — is detected and its <code>OrderBundleSelection</code> components expanded for per-component revenue/COGS; it is never silently mis-joined to the bundle id. v1-minimum: an unexpanded bundle line is excluded and flagged (<code>CogsKnown = false</code>).</td></tr>
+    <tr><td>R4</td><td>A <code>Product</code> may carry a nullable <code>TargetMarginPct</code> (0–100, range-validated on write, stored at 2&nbsp;dp; null clears); a variant whose achieved margin is below its product's target is flagged <code>BelowTarget = true</code>; when the target is unset <em>or</em> the achieved margin is unknown the flag is <strong>null</strong> ("cannot judge"), never a false-negative <code>false</code>.</td></tr>
+    <tr><td>R5</td><td>A variant sold with no computable COGS (no active recipe, or a component with no active cost — the Spec&nbsp;050/051 diagnostics, surfaced as <code>VariantsWithoutRecipe</code> / <code>VariantsWithUnknownCost</code>) reports <code>CogsKnown = false</code> with <code>Cogs</code> null (never zero), is <strong>excluded from</strong> <code>Aggregate.Cogs</code>/<code>Aggregate.MarginPct</code> (its revenue reported under <code>Aggregate.UnknownCogsRevenue</code>; the aggregate margin's denominator is <code>KnownCogsRevenue</code>), and is surfaced as "COGS unknown" — never a phantom 100% margin or inflated aggregate; a zero-revenue variant reports null <code>MarginPct</code>.</td></tr>
+    <tr><td>R6</td><td>A bundle order line (Spec&nbsp;042 §12 — <code>OrderItem.ProductId</code> is the bundle product id) is detected by its <code>OrderBundleSelection</code> rows (the landed Spec&nbsp;055 rule) and its components expanded for per-component revenue/COGS — revenue split pro-rata by component list value (current active price × quantity; quantity fallback), reconciling exactly; it is never silently mis-joined to the bundle id. v1-minimum: a bundle line without selection rows is surfaced as a flagged row (<code>IsBundle = true</code>, <code>CogsKnown = false</code>, excluded from the aggregate margin).</td></tr>
     <tr><td>R7</td><td>Revenue is read via the <a href="041.unified-order-spine-ordering-layer.html">Ordering</a>/charge data, never from the ledger; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R8</td><td>The only schema change is one additive nullable column (<code>TargetMarginPct</code> on <code>AnkProducts</code>), EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix.</td></tr>
     <tr><td>R9</td><td>Agent tools are classified (<code>commerce_get_margin_report</code> read; <code>commerce_set_target_margin</code> medium); every invocation records an <code>AiRun</code>.</td></tr>
@@ -554,17 +620,18 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
 <h2 id="tasks">16. Tasks</h2>
 <ol>
   <li>Add <code>TargetMarginPct</code> to <code>Product</code> + map in <code>ProductConfiguration</code>; the <code>CommerceTargetMargin</code> migration against <code>AonikDbContext</code>; review the diff (one column).</li>
-  <li><code>IMarginReportService</code> + <code>MarginReportRow</code>/<code>MarginReport</code> DTOs: gather <code>ProductPurchase</code> revenue from <code>OrderChargeSummary</code> (discounted, apportioned), value at <code>RollupStandardCostAsync</code>, compute margin/variance; the get-margin-report admin endpoint.</li>
+  <li><code>IMarginReportService</code> (+ <code>SetTargetMarginAsync</code>) + <code>MarginReportRowDto</code>/<code>MarginAggregateDto</code>/<code>MarginReportDto</code>/<code>TargetMarginDto</code>: gather payment-completed <code>ProductPurchase</code> revenue from <code>OrderChargeSummary</code> (discounted, apportioned, reconciling exactly), expand bundle selections, value at <code>RollupStandardCostAsync</code>, compute margin/variance; the get-margin-report (GET) and set-target-margin (PUT) admin endpoints.</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with <code>commerce_get_margin_report</code> (read) and <code>commerce_set_target_margin</code> (medium); route through the gate.</li>
-  <li>Tests: unit (revenue aggregation + discount apportionment, COGS valuation, margin/variance flag, no-target and no-recipe/no-cost diagnostics with the unknown-COGS row excluded from the aggregate, a bundle line component-expanded or excluded-and-flagged, aggregate roll-up) + an architecture test still asserting no Commerce↔Finance reference.</li>
+  <li>Tests: unit over the real composed services — checkout-created paid orders (revenue inclusion: Draft/Pending/Cancelled/out-of-window/other-currency excluded; aggregation + discount apportionment reconciling exactly; COGS valuation on the Spec&nbsp;051 jollof economics; margin/variance flag incl. null semantics; no-recipe/no-cost diagnostics with the unknown-COGS row excluded from the aggregate, asserted against the zero-cost counterfactual; a bundle line component-expanded; set-target range/rounding/clear validation) + an architecture test still asserting no Commerce↔Finance reference.</li>
 </ol>
 
 <h2 id="verification">17. Verification</h2>
 <ul>
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
-  <li><strong>Margin:</strong> a variant sold 40 units, discounted revenue R, standard cost C per unit ⇒ row reports Revenue&nbsp;=&nbsp;R, Cogs&nbsp;=&nbsp;40C, GrossMargin&nbsp;=&nbsp;R−40C, MarginPct&nbsp;=&nbsp;(R−40C)/R; a product target above that margin sets <code>BelowTarget = true</code>.</li>
-  <li><strong>Revenue source:</strong> an order with a coupon reports the <em>discounted</em> total (not list price); a whole-order discount is apportioned so per-variant revenue sums to <code>OrderChargeSummary</code>'s discounted total.</li>
-  <li><strong>Edges:</strong> a variant with sales but no active recipe reports <code>CogsKnown = false</code> with null <code>Cogs</code> and is excluded from <code>TotalCogs</code>/<code>AggregateMarginPct</code> (its revenue in <code>UnknownCogsRevenue</code>) so the aggregate is not inflated; a bundle line resolves to <code>Product.Kind = Bundle</code> and is component-expanded (or excluded and flagged); a zero-revenue variant reports null <code>MarginPct</code>; a product with no target is never flagged.</li>
+  <li><strong>Margin:</strong> a variant sold 40 units, discounted revenue R, standard cost C per unit ⇒ row reports Revenue&nbsp;=&nbsp;R, Cogs&nbsp;=&nbsp;40C, GrossMargin&nbsp;=&nbsp;R−40C, MarginPct&nbsp;=&nbsp;(R−40C)/R&nbsp;×&nbsp;100 (the Spec&nbsp;051 jollof economics: 40 portions at ₦2,000 on a ₦400/portion cost ⇒ 80%); a product target above that margin sets <code>BelowTarget = true</code>.</li>
+  <li><strong>Revenue inclusion:</strong> only payment-completed (<code>Complete</code>) orders count — an unconfirmed checkout (Draft), a Pending (committed-but-unpaid) order, a Cancelled order, an order created on the exclusive window bound, and an other-currency order (skipped + surfaced) all contribute nothing.</li>
+  <li><strong>Revenue source:</strong> an order with a coupon reports the <em>discounted</em> total (not list price); a whole-order discount is apportioned pro-rata so per-variant revenue sums to <code>OrderChargeSummary</code>'s discounted total <em>exactly</em>, including the 4&nbsp;dp rounding remainder.</li>
+  <li><strong>Edges:</strong> a variant with sales but no active recipe (or a costless component) reports <code>CogsKnown = false</code> with null <code>Cogs</code> and is excluded from <code>Aggregate.Cogs</code>/<code>Aggregate.MarginPct</code> (its revenue in <code>UnknownCogsRevenue</code>) so the aggregate is not inflated — asserted against the zero-cost counterfactual; a bundle line is component-expanded through its selections with revenue split by component list value (bundle id never a row); a zero-revenue variant reports null <code>MarginPct</code>; a product with no target (or unknown margin) reports <code>BelowTarget = null</code>, never flagged.</li>
   <li><strong>Agent:</strong> <code>commerce_get_margin_report</code> executes directly; <code>commerce_set_target_margin</code> surfaces a medium approval; each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -576,8 +643,8 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
     <tr><td>Revenue/COGS timing mismatch (cost changed after the sale)</td><td>Medium</td><td>COGS values the <strong>quantity sold in the window × standard cost</strong> — a single documented basis (§9); actual-cost-at-sale valuation is <a href="#open">Open</a>.</td></tr>
     <tr><td>Gross vs. discounted revenue ambiguity</td><td>Medium</td><td>Revenue is fixed to the <code>OrderChargeSummary</code> <strong>discounted</strong> total (§8); tax excluded; whole-order discount apportioned pro-rata; a test asserts the coupon case.</td></tr>
     <tr><td>Standard vs. actual COGS drift (standard cost stale vs. real receipts)</td><td>Medium</td><td>v1 is explicitly standard-cost margin; actual/receipt-based (Spec&nbsp;054 lots) is <a href="#open">Open</a> and stated as such so the number is not over-read.</td></tr>
-    <tr><td>Unknown COGS counted as zero inflates aggregate profit (variant sold with no recipe / no component cost)</td><td>Medium</td><td><code>CogsKnown = false</code> with <code>Cogs</code> null (never zero); the row is <strong>excluded from</strong> <code>TotalCogs</code>/<code>AggregateMarginPct</code>, its revenue reported under <code>UnknownCogsRevenue</code>, and surfaced as "COGS unknown"; covered by a test asserting the aggregate ignores it.</td></tr>
-    <tr><td>Bundle (BYOB) line mis-joins: <code>ProductId</code> is the bundle product, not a variant (Spec&nbsp;042 §12), so the variant→recipe join drops or mis-groups it</td><td>Medium</td><td>Detect <code>Product.Kind = Bundle</code> (or failed variant resolution) and expand <code>OrderBundleSelection</code> components for per-component revenue/COGS; v1-minimum excludes and flags the line (<code>CogsKnown = false</code>) rather than silently attributing it; attribution detail is <a href="#open">Open</a>; covered by a bundle-line test.</td></tr>
+    <tr><td>Unknown COGS counted as zero inflates aggregate profit (variant sold with no recipe / no component cost)</td><td>Medium</td><td><code>CogsKnown = false</code> with <code>Cogs</code> null (never zero); the row is <strong>excluded from</strong> <code>Aggregate.Cogs</code>/<code>Aggregate.MarginPct</code> (denominator = <code>KnownCogsRevenue</code>), its revenue reported under <code>UnknownCogsRevenue</code>, and surfaced as "COGS unknown"; covered by a test asserting the aggregate ignores it — including the zero-cost counterfactual value it must NOT equal.</td></tr>
+    <tr><td>Bundle (BYOB) line mis-joins: <code>ProductId</code> is the bundle product, not a variant (Spec&nbsp;042 §12), so the variant→recipe join drops or mis-groups it</td><td>Medium</td><td>Detect the line's <code>OrderBundleSelection</code> rows (the landed Spec&nbsp;055 rule) and expand components for per-component revenue/COGS, splitting revenue by component list value (§8); a selection-less bundle line is surfaced flagged (<code>IsBundle = true</code>, <code>CogsKnown = false</code>) rather than silently attributed; the split key's refinement is <a href="#open">Open</a>; covered by a bundle-line test.</td></tr>
     <tr><td>Schema drift from the new column</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review confirms a single nullable column on <code>AnkProducts</code>; <code>Ank</code> prefix.</td></tr>
   </tbody>
 </table>
@@ -585,9 +652,11 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
 <h2 id="decisions">19. Decisions baked in</h2>
 <ul>
   <li><strong>Margin report is a live read projection</strong> over data AONIK already holds — no ledger, no new money movement, no snapshot.</li>
-  <li><strong>Revenue = discounted total</strong> from <code>OrderChargeSummary</code> (Spec&nbsp;042), read via the Ordering spine — never a Finance ledger query.</li>
-  <li><strong>COGS = standard cost</strong> (Spec&nbsp;051 rollup) × quantity sold; actual receipt-cost valuation is deferred.</li>
-  <li><strong>Target margin is a nullable column on <code>Product</code></strong>, not a new entity; variance is a single <code>BelowTarget</code> flag.</li>
+  <li><strong>Revenue counts payment-completed orders only</strong> (<code>Status = Complete</code>, the transition <code>ConfirmPaymentAsync</code> applies on <code>PaymentCompletedEvent</code>), created in the half-open <code>CreatedAt</code> window — deliberately narrower than Spec&nbsp;055's demand set (§8). <code>OrderChargeSummary.PaymentStatus</code> is a checkout-time snapshot, never updated, and is NOT the completion signal.</li>
+  <li><strong>Revenue = discounted total</strong> from <code>OrderChargeSummary</code> (Spec&nbsp;042), read via the Ordering spine — never a Finance ledger query; the order-level discount is apportioned pro-rata by line amount (4&nbsp;dp away-from-zero, remainder to the largest row) so rows reconcile to the funded total exactly; tax excluded.</li>
+  <li><strong>COGS = standard cost</strong> (Spec&nbsp;051 rollup, live, in the report currency) × quantity sold; unknown COGS is null and excluded from the aggregate, never zero; actual receipt-cost valuation is deferred.</li>
+  <li><strong>Bundle revenue splits by relative standalone selling price</strong> (current active list price × selection quantity; quantity fallback) across <code>OrderBundleSelection</code> components — the selections persist no price snapshot (§8).</li>
+  <li><strong>Target margin is a nullable column on <code>Product</code></strong>, not a new entity; variance is a single nullable <code>BelowTarget</code> flag (null = cannot judge); the set-target write lives on <code>IMarginReportService</code>, mirroring SetPrice-on-the-pricing-service.</li>
   <li><strong>Grow in place in <code>Aonik.Commerce</code></strong>; no Finance reference; the one migration stays with <code>AonikDbContext</code>.</li>
   <li><strong>Read tool direct; set-target medium</strong>; every AI action records an <code>AiRun</code>.</li>
 </ul>
@@ -613,11 +682,13 @@ record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>
-  <strong>Bundle-component margin attribution.</strong> How a build-your-own-box line's discounted revenue is
-  split across its <code>OrderBundleSelection</code> components — pro-rata by component standard cost, by component
-  list price, or by an explicit bundle-tier weighting — and whether the bundle itself is also reported as a rolled-up
-  row alongside its components. v1 expands components (or, at minimum, excludes and flags the line, §8); the exact
-  split key and whether to surface the parent bundle row land here.
+  <strong>Bundle-component margin attribution.</strong> v1 landed on pro-rata by <em>current</em> component list
+  price × quantity (relative standalone selling price, with a quantity fallback — §8), because
+  <code>OrderBundleSelection</code> persists no checkout-time price. Refinements land here: snapshotting component
+  prices onto the selections at checkout (so a later reprice cannot shift historical attribution), splitting by
+  component standard cost or an explicit bundle-tier weighting, and whether the parent bundle is also reported as a
+  rolled-up row alongside its components. Completion-<em>time</em> windowing (vs. the v1 <code>CreatedAt</code>
+  window, §8) would also land here, via a status-history read.
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>
