@@ -579,3 +579,574 @@ const FLEET = (() => {
 
 window.JOBS = JOBS;
 window.FLEET = FLEET;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Commerce · Make — maker-operations mock data (Spec 058, landed Specs 050–057)
+// ═══════════════════════════════════════════════════════════════════════════
+// Continuous with the wellness-food CM_PRODUCTS catalog (screens/commerce-
+// catalog.jsx): recipes attach to EXISTING variant SKUs (GRN-ALM-500,
+// SHOT-GIN-1, DRK-CB-250, DRK-SMO-GIN, …) plus two food-service dishes in
+// CM_MAKE_PRODUCTS below. Pinned family economics (Spec 058 R9) reproduced
+// exactly: jollof ₦400/portion cost · 80% margin row; rice alert "2 kg
+// available, reorder at 5 kg"; 25 kg rice sack @ ₦28,000 ⇒ ₦1,120/kg; prep
+// netting 10 on hand − 8 reserved = 2 available vs 5 required ⇒ shortfall 3.
+// Walk-through id chains (§14):
+//   rice:   al-0458 (Ordered) → po_0112 (Pending, 15/25 received)
+//           → rcpt_0141 (posted short, alert KEPT) → rice cost row ₦1,120
+//   tomato: al-0431 (Resolved) → po_0104 (Complete)
+//           → rcpt_0138 (posted full) → tomato cost row ₦800
+// All timestamps are fixed strings (deterministic; "today" = Fri 3 Jul 2026,
+// "this week" = half-open [2026-06-29, 2026-07-06) UTC).
+
+// ─── Make-side products (existing CM_PRODUCTS shape) ────────────────────────
+// The two plated dishes the 050–057 family's canonical examples need. They are
+// NOT injected into CM_PRODUCTS (screens/*.jsx are untouched); make-side
+// screens read them from here, or use cmAllProducts() for the merged set.
+// cat 'meals' is intentionally outside CM_CATEGORIES (food-service dishes,
+// not the retail rail) — cmCatName('meals') safely renders '—'.
+const CM_MAKE_PRODUCTS = [
+  { id: 'p-jollof', name: 'Jollof Rice (portion)', slug: 'jollof-rice-portion', cat: 'meals', kind: 'simple', status: 'active', emoji: '🍛', color: '#c2410c', tags: ['food-service'], media: 2,
+    variants: [{ sku: 'JLF-RICE-1', opt: 'Single portion', weight: 350, active: true, ngn: 2000, gbp: 3.20, onHand: 38, reserved: 6 }] },
+  { id: 'p-beefsrd', name: 'Seared Beef (portion)', slug: 'seared-beef-portion', cat: 'meals', kind: 'simple', status: 'active', emoji: '🥩', color: '#7f1d1d', tags: ['food-service'], media: 1,
+    variants: [{ sku: 'BEEF-SRD-1', opt: 'Single portion', weight: 200, active: true, ngn: 1500, gbp: 2.40, onHand: 12, reserved: 2 }] },
+];
+
+// ─── Ingredients (Specs 050/051/052) ────────────────────────────────────────
+// cost: effective-dated; history windows are contiguous half-open [from, to)
+// with EXACTLY ONE open window (051). Rice carries the rich history + the one
+// SCHEDULED future cost (its open window starts 2026-07-14 > today).
+// unitLocked: the 050/051 guard — unit is immutable once recipes or cost rows
+// reference the ingredient. Oat milk is the UNCOSTED ingredient (cost: null).
+const CM_INGREDIENTS = [
+  { id: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', unit: 'kg', cat: 'Grains & staples',
+    cost: { current: 1120, ccy: 'NGN', since: '2026-06-26', scheduled: { cost: 1180, from: '2026-07-14', source: 'manual reprice — supplier notified an increase' } },
+    history: [
+      { from: '2026-04-01', to: '2026-05-10', cost: 1000, source: 'manual' },
+      { from: '2026-05-10', to: '2026-06-26', cost: 1080, source: 'manual' },
+      { from: '2026-06-26', to: '2026-07-14', cost: 1120, source: 'goods receipt RCPT-2026-0141' },
+      { from: '2026-07-14', to: null, cost: 1180, scheduled: true, source: 'manual reprice' },
+    ],
+    onHand: 10, reserved: 8, reorderPoint: 5, reorderQty: 25, active: true, unitLocked: true },
+  { id: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', unit: 'kg', cat: 'Fresh produce',
+    cost: { current: 800, ccy: 'NGN', since: '2026-06-15' },
+    history: [
+      { from: '2026-05-01', to: '2026-06-15', cost: 700, source: 'manual' },
+      { from: '2026-06-15', to: null, cost: 800, source: 'goods receipt RCPT-2026-0138' },
+    ],
+    onHand: 18, reserved: 4, reorderPoint: 10, reorderQty: 20, active: true, unitLocked: true },
+  { id: 'ing-beef', name: 'Beef (boneless)', emoji: '🥩', unit: 'kg', cat: 'Proteins',
+    cost: { current: 3000, ccy: 'NGN', since: '2026-06-01' },
+    history: [
+      { from: '2026-05-12', to: '2026-06-01', cost: 2800, source: 'manual' },
+      { from: '2026-06-01', to: null, cost: 3000, source: 'manual' },
+    ],
+    onHand: 12, reserved: 2, reorderPoint: 8, reorderQty: 10, active: true, unitLocked: true },
+  { id: 'ing-onion', name: 'Red onions', emoji: '🧅', unit: 'kg', cat: 'Fresh produce',
+    cost: { current: 400, ccy: 'NGN', since: '2026-05-20' },
+    history: [{ from: '2026-05-20', to: null, cost: 400, source: 'manual' }],
+    onHand: 9, reserved: 1.5, reorderPoint: 4, reorderQty: 10, active: true, unitLocked: true },
+  { id: 'ing-pepper', name: 'Scotch bonnet peppers', emoji: '🌶️', unit: 'kg', cat: 'Fresh produce',
+    cost: { current: 900, ccy: 'NGN', since: '2026-06-10' },
+    history: [{ from: '2026-06-10', to: null, cost: 900, source: 'manual' }],
+    onHand: 3, reserved: 0.5, reorderPoint: 2, reorderQty: 5, active: true, unitLocked: true },
+  { id: 'ing-oats', name: 'Rolled oats', emoji: '🌾', unit: 'kg', cat: 'Grains & staples',
+    cost: { current: 1250, ccy: 'NGN', since: '2026-05-05' },
+    history: [{ from: '2026-05-05', to: null, cost: 1250, source: 'manual' }],
+    onHand: 40, reserved: 6, reorderPoint: 15, reorderQty: 20, active: true, unitLocked: true },
+  { id: 'ing-honey', name: 'Wildflower honey', emoji: '🍯', unit: 'L', cat: 'Sweeteners & syrups',
+    cost: { current: 5000, ccy: 'NGN', since: '2026-04-18' },
+    history: [{ from: '2026-04-18', to: null, cost: 5000, source: 'manual' }],
+    onHand: 10, reserved: 1, reorderPoint: null, reorderQty: null, active: true, unitLocked: true },
+  { id: 'ing-ginger', name: 'Fresh ginger', emoji: '🫚', unit: 'kg', cat: 'Fresh produce',
+    cost: { current: 2500, ccy: 'NGN', since: '2026-06-05' },
+    history: [{ from: '2026-06-05', to: null, cost: 2500, source: 'manual' }],
+    onHand: 4, reserved: 1.5, reorderPoint: 3, reorderQty: 5, active: true, unitLocked: true },
+  { id: 'ing-coffee', name: 'Coffee beans (arabica)', emoji: '☕', unit: 'kg', cat: 'Beverages',
+    cost: { current: 9000, ccy: 'NGN', since: '2026-05-25' },
+    history: [{ from: '2026-05-25', to: null, cost: 9000, source: 'manual' }],
+    onHand: 2, reserved: 0.8, reorderPoint: 2, reorderQty: 5, active: true, unitLocked: true },
+  { id: 'ing-oatmilk', name: 'Oat milk', emoji: '🥛', unit: 'L', cat: 'Beverages',
+    cost: null,   // UNCOSTED — referenced by the smoothie recipe, so its standard cost is null (051 diagnostics)
+    history: [],
+    onHand: 6, reserved: 0, reorderPoint: null, reorderQty: null, active: true, unitLocked: true },
+  { id: 'ing-gnut', name: 'Groundnut oil', emoji: '🛢️', unit: 'L', cat: 'Oils & fats',
+    cost: { current: 3500, ccy: 'NGN', since: '2026-03-01' },
+    history: [{ from: '2026-03-01', to: null, cost: 3500, source: 'manual' }],
+    onHand: 0, reserved: 0, reorderPoint: null, reorderQty: null, active: false, unitLocked: true,
+    note: 'Deactivated 2026-05-30 — menu moved to coconut oil.' },
+];
+
+// ─── Recipes (Spec 050 BOM + 051 rollup) ────────────────────────────────────
+// components[].qty is per YIELD batch, in the ingredient's base unit.
+// Per-portion component cost = qty × ingredient cost.current ÷ yield —
+// jollof: rice 1×1,120/4 = 280 · tomato 0.5×800/4 = 100 · onion 0.2×400/4 = 20
+// ⇒ perPortionCost 400 (the pinned 050/051/057 example, exact).
+// perPortionCost is null when any component is uncosted (smoothie / oat milk).
+// GRN-BER-500 and SHOT-TUR-1 deliberately have NO recipe → the "no recipe —
+// excluded from prep & costing" diagnostic rows.
+const CM_RECIPES = [
+  { id: 'rcp-jollof', variantSku: 'JLF-RICE-1', product: 'Jollof Rice (portion)', emoji: '🍛',
+    name: 'Signature jollof (party batch)', yield: 4, unit: 'portion',
+    components: [
+      { ing: 'ing-rice', qty: 1 },
+      { ing: 'ing-tomato', qty: 0.5 },
+      { ing: 'ing-onion', qty: 0.2 },
+    ],
+    perPortionCost: 400, ccy: 'NGN', updatedAt: '2026-06-28',
+    note: 'Retuned 2026-06-28: rice 1.2 → 1.0 kg per batch. Runs created before then hold the old snapshot (see RUN-2026-0209).' },
+  { id: 'rcp-beefsrd', variantSku: 'BEEF-SRD-1', product: 'Seared Beef (portion)', emoji: '🥩',
+    name: 'Seared beef (pan batch)', yield: 4, unit: 'portion',
+    components: [
+      { ing: 'ing-beef', qty: 0.7 },
+      { ing: 'ing-pepper', qty: 0.2 },
+      { ing: 'ing-onion', qty: 0.3 },
+    ],
+    perPortionCost: 600, ccy: 'NGN', updatedAt: '2026-06-14' },
+  { id: 'rcp-granola', variantSku: 'GRN-ALM-500', product: 'Almond & Honey Granola (500 g)', emoji: '🥣',
+    name: 'Almond-honey granola (oven tray)', yield: 10, unit: 'portion',
+    components: [
+      { ing: 'ing-oats', qty: 4 },
+      { ing: 'ing-honey', qty: 1 },
+    ],
+    perPortionCost: 1000, ccy: 'NGN', updatedAt: '2026-05-30' },
+  { id: 'rcp-shot', variantSku: 'SHOT-GIN-1', product: 'Ginger Wellness Shot (Single)', emoji: '🫚',
+    name: 'Ginger shot (press batch)', yield: 20, unit: 'portion',
+    components: [
+      { ing: 'ing-ginger', qty: 1 },
+      { ing: 'ing-honey', qty: 0.5 },
+    ],
+    perPortionCost: 250, ccy: 'NGN', updatedAt: '2026-06-08' },
+  { id: 'rcp-coldbrew', variantSku: 'DRK-CB-250', product: 'Cold-Brew Coffee (250 ml)', emoji: '☕',
+    name: 'Cold-brew (steep batch)', yield: 8, unit: 'portion',
+    components: [{ ing: 'ing-coffee', qty: 0.5 }],
+    perPortionCost: 562.5, ccy: 'NGN', updatedAt: '2026-06-02' },   // 4dp-honest, not rounded to 563
+  { id: 'rcp-smoothie', variantSku: 'DRK-SMO-GIN', product: 'Green Smoothie (Ginger)', emoji: '🥤',
+    name: 'Green smoothie — ginger (blend batch)', yield: 6, unit: 'portion',
+    components: [
+      { ing: 'ing-oatmilk', qty: 1.5 },
+      { ing: 'ing-ginger', qty: 0.3 },
+    ],
+    perPortionCost: null, ccy: 'NGN', updatedAt: '2026-06-20',
+    uncosted: ['ing-oatmilk'] },   // rollup incomplete → "—", never a fake number (051)
+];
+
+// ─── Suppliers (Spec 053) ───────────────────────────────────────────────────
+// party: linked ⇒ POs carry a Supplier party role; null ⇒ provenance-only
+// (053 §11). Albion is GBP — its rows cannot price an NGN PO (053 honesty
+// guard) and are excluded from NGN pack suggestions.
+// Derived unit price = packPrice ÷ packSize (rice: 28,000 ÷ 25 = ₦1,120/kg).
+const CM_SUPPLIERS = [
+  { id: 'sup-lagosgrains', name: 'Lagos Grains Co', ccy: 'NGN', lead: 3, terms: 'Net 14',
+    party: { id: 'pty_88a2', name: 'Lagos Grains Co Ltd' }, active: true,
+    catalog: [
+      { ing: 'ing-rice', sku: 'LG-RICE-25', packSize: 25, unit: 'kg', packLabel: '25 kg sack', packPrice: 28000, ccy: 'NGN', lead: 3 },
+      { ing: 'ing-oats', sku: 'LG-OAT-10', packSize: 10, unit: 'kg', packLabel: '10 kg bag', packPrice: 12000, ccy: 'NGN', lead: 3 },
+      { ing: 'ing-coffee', sku: 'LG-COF-5', packSize: 5, unit: 'kg', packLabel: '5 kg bag', packPrice: 44000, ccy: 'NGN', lead: 5 },
+    ] },
+  { id: 'sup-freshfarm', name: 'FreshFarm NG', ccy: 'NGN', lead: 2, terms: 'On delivery',
+    party: null, active: true,
+    linkNote: 'Not party-linked — purchase orders record this supplier as provenance only; no Supplier role is attached to the Order (053 §11).',
+    catalog: [
+      { ing: 'ing-tomato', sku: 'FF-TOM-10', packSize: 10, unit: 'kg', packLabel: '10 kg crate', packPrice: 7500, ccy: 'NGN', lead: 2 },
+      { ing: 'ing-onion', sku: 'FF-ONI-10', packSize: 10, unit: 'kg', packLabel: '10 kg sack', packPrice: 3800, ccy: 'NGN', lead: 2 },
+      { ing: 'ing-pepper', sku: 'FF-PEP-5', packSize: 5, unit: 'kg', packLabel: '5 kg crate', packPrice: 4200, ccy: 'NGN', lead: 2 },
+      { ing: 'ing-ginger', sku: 'FF-GIN-5', packSize: 5, unit: 'kg', packLabel: '5 kg bag', packPrice: 11500, ccy: 'NGN', lead: 2 },
+      { ing: 'ing-beef', sku: 'FF-BEF-10', packSize: 10, unit: 'kg', packLabel: '10 kg box', packPrice: 29000, ccy: 'NGN', lead: 1 },
+    ] },
+  { id: 'sup-albion', name: 'Albion Foods', ccy: 'GBP', lead: 10, terms: 'Net 30',
+    party: null, active: true,
+    mismatchNote: 'GBP catalog — rows cannot price an NGN purchase order and are excluded from NGN suggestions (053 currency honesty guard).',
+    catalog: [
+      { ing: 'ing-oats', sku: 'AL-OAT-20', packSize: 20, unit: 'kg', packLabel: '20 kg sack', packPrice: 26.00, ccy: 'GBP', lead: 10 },
+      { ing: 'ing-honey', sku: 'AL-HON-5', packSize: 5, unit: 'L', packLabel: '5 L pail', packPrice: 38.50, ccy: 'GBP', lead: 10 },
+      { ing: 'ing-coffee', sku: 'AL-COF-10', packSize: 10, unit: 'kg', packLabel: '10 kg sack', packPrice: 92.00, ccy: 'GBP', lead: 10 },
+    ] },
+];
+
+// ─── Low-stock alerts (Spec 052) ────────────────────────────────────────────
+// Landed vocabulary ONLY: Open | Acknowledged | Ordered | Resolved.
+// Open + Acknowledged form the one ACTIVE set (nav badge 3 = al-0491 +
+// al-0489 + al-0476). Ordered/Resolved have left the active set — which is
+// why a SECOND rice alert (al-0491) may legally open while al-0458 (Ordered)
+// still has 10 kg outstanding on PO-2026-0112.
+// A re-scan REFRESHES an active alert's snapshot in place (al-0476) — it
+// never re-opens it and never opens a duplicate.
+const CM_ALERTS = [
+  { id: 'al-0491', ref: 'AL-0491', ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', unit: 'kg',
+    status: 'open', availableAtRaise: 2, reorderPoint: 5, raisedAt: 'Today 07:12',
+    message: '2 kg available, reorder at 5 kg',
+    note: 'Raised while PO-2026-0112 still has 10 kg outstanding — Ordered alerts are not active, so the scan opened a fresh one.' },
+  { id: 'al-0489', ref: 'AL-0489', ing: 'ing-ginger', name: 'Fresh ginger', emoji: '🫚', unit: 'kg',
+    status: 'open', availableAtRaise: 2.5, reorderPoint: 3, raisedAt: 'Today 06:45',
+    message: '2.5 kg available, reorder at 3 kg' },
+  { id: 'al-0476', ref: 'AL-0476', ing: 'ing-coffee', name: 'Coffee beans (arabica)', emoji: '☕', unit: 'kg',
+    status: 'acknowledged', availableAtRaise: 1.5, reorderPoint: 2, raisedAt: 'Yesterday 18:40',
+    message: '1.5 kg available, reorder at 2 kg',
+    acknowledgedAt: 'Yesterday 19:05', acknowledgedBy: 'Oliver Chen',
+    refreshedAt: 'Today 06:00', refreshedAvailable: 1.2,
+    refreshNote: 'Nightly re-scan refreshed the snapshot (1.5 → 1.2 kg available); status unchanged — an acknowledged alert is never re-opened by a refresh.' },
+  { id: 'al-0458', ref: 'AL-0458', ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', unit: 'kg',
+    status: 'ordered', availableAtRaise: 4, reorderPoint: 5, raisedAt: 'Mon 22 Jun',
+    message: '4 kg available, reorder at 5 kg',
+    orderedAt: 'Tue 23 Jun', po: 'po_0112', poRef: 'PO-2026-0112' },
+  { id: 'al-0431', ref: 'AL-0431', ing: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', unit: 'kg',
+    status: 'resolved', availableAtRaise: 6, reorderPoint: 10, raisedAt: '12 Jun',
+    message: '6 kg available, reorder at 10 kg',
+    orderedAt: '12 Jun', po: 'po_0104', poRef: 'PO-2026-0104',
+    resolvedAt: '15 Jun', receipt: 'rcpt_0138', receiptRef: 'RCPT-2026-0138' },
+];
+
+// ─── Purchase orders (Spec 053) ─────────────────────────────────────────────
+// Landed codes ONLY: Draft | Pending | Complete | Cancelled. Submit lands on
+// Pending ("submitted to supplier"); there is NO Submitted/Received status —
+// partial receipt is the DERIVED received-vs-ordered progress (ProgressCells),
+// never a status. lines[].received is cumulative across non-voided receipts.
+const CM_POS = [
+  { id: 'po_0117', ref: 'PO-2026-0117', status: 'draft', supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', ccy: 'NGN',
+    createdAt: 'Today 08:05', createdBy: 'Oliver Chen', provenance: 'manual',
+    lines: [
+      { ing: 'ing-ginger', name: 'Fresh ginger', emoji: '🫚', qty: 5, unit: 'kg', unitPrice: 2300, lineTotal: 11500, received: 0 },
+      { ing: 'ing-pepper', name: 'Scotch bonnet peppers', emoji: '🌶️', qty: 5, unit: 'kg', unitPrice: 840, lineTotal: 4200, received: 0 },
+    ],
+    total: 15700, receipts: [], alerts: [] },
+  { id: 'po_0112', ref: 'PO-2026-0112', status: 'pending', supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', ccy: 'NGN',
+    createdAt: 'Tue 23 Jun', createdBy: 'Oliver Chen', submittedAt: 'Tue 23 Jun', expectedBy: 'Fri 26 Jun',
+    provenance: 'from-shortfall', provenanceNote: 'Seeded from low-stock alerts · AL-0458 (pack-rounded to 1 × 25 kg sack, min one pack)',
+    lines: [
+      { ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', qty: 25, unit: 'kg', unitPrice: 1120, lineTotal: 28000, received: 15 },
+    ],
+    total: 28000, receipts: ['rcpt_0141'], alerts: ['al-0458'] },
+  { id: 'po_0119', ref: 'PO-2026-0119', status: 'pending', supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', ccy: 'NGN',
+    createdAt: 'Today 08:40', createdBy: 'Oliver Chen', submittedAt: 'Today 08:44', expectedBy: 'Mon 6 Jul',
+    provenance: 'manual',
+    lines: [
+      { ing: 'ing-oats', name: 'Rolled oats', emoji: '🌾', qty: 20, unit: 'kg', unitPrice: 1200, lineTotal: 24000, received: 0 },
+    ],
+    total: 24000, receipts: [], alerts: [] },
+  { id: 'po_0104', ref: 'PO-2026-0104', status: 'complete', supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', ccy: 'NGN',
+    createdAt: '12 Jun', createdBy: 'Oliver Chen', submittedAt: '13 Jun', completedAt: '15 Jun',
+    provenance: 'from-shortfall', provenanceNote: 'Seeded from low-stock alerts · AL-0431',
+    lines: [
+      { ing: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', qty: 20, unit: 'kg', unitPrice: 800, lineTotal: 16000, received: 20 },
+    ],
+    total: 16000, receipts: ['rcpt_0138'], alerts: ['al-0431'] },
+  { id: 'po_0109', ref: 'PO-2026-0109', status: 'cancelled', supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', ccy: 'NGN',
+    createdAt: '18 Jun', createdBy: 'Oliver Chen', submittedAt: '18 Jun',
+    cancelledAt: '20 Jun', cancelledBy: 'Oliver Chen',
+    cancelReason: 'Supplier confirmed a two-week beef stockout — cancelled and resourcing locally.',
+    provenance: 'manual',
+    staleSubmit: { message: 'Stale submit rejected — this PO changed since it was loaded (compare-and-set guard). Reload to see the cancellation.' },
+    lines: [
+      { ing: 'ing-beef', name: 'Beef (boneless)', emoji: '🥩', qty: 10, unit: 'kg', unitPrice: 2900, lineTotal: 29000, received: 0 },
+    ],
+    total: 29000, receipts: [], alerts: [] },
+];
+
+// ─── Goods receipts (Spec 054) ──────────────────────────────────────────────
+// Claim-first + idempotent: a keyed retry returns the SAME receipt, applied
+// once. Posting outcomes: stock applied, effective-dated cost rows written
+// (when an actual unit cost is given), alerts resolved — or KEPT when still
+// below the reorder point (the short-receipt honesty rule) — and PO
+// completion. Over-receipt is rejected outright (cumulative received may
+// never exceed ordered; v1 tolerance: none) — see the kind:'rejected' sample.
+const CM_RECEIPTS = [
+  { id: 'rcpt_0138', ref: 'RCPT-2026-0138', kind: 'posted', po: 'po_0104', poRef: 'PO-2026-0104',
+    supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG',
+    receivedAt: '15 Jun 11:20', postedBy: 'Oliver Chen', idempotencyKey: 'rcv-7f21c4',
+    lines: [
+      { ing: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', qty: 20, unit: 'kg', ordered: 20, previouslyReceived: 0, actualUnitCost: 800 },
+    ],
+    outcomes: {
+      stockApplied: [{ ing: 'ing-tomato', name: 'Plum tomatoes', qty: 20, unit: 'kg', onHandAfter: 26, availableAfter: 21 }],
+      costRowsWritten: [{ ing: 'ing-tomato', name: 'Plum tomatoes', cost: 800, ccy: 'NGN', effectiveFrom: '2026-06-15' }],
+      alertsResolved: ['al-0431'],
+      alertsKept: [],
+      poStatus: 'complete',
+      remaining: [],
+    },
+    retryNote: 'Keyed retry returns this same receipt — applied once (claim-first).' },
+  { id: 'rcpt_0141', ref: 'RCPT-2026-0141', kind: 'posted', po: 'po_0112', poRef: 'PO-2026-0112',
+    supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co',
+    receivedAt: 'Fri 26 Jun 09:40', postedBy: 'Oliver Chen', idempotencyKey: 'rcv-2ab9e7',
+    lines: [
+      { ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', qty: 15, unit: 'kg', ordered: 25, previouslyReceived: 0, actualUnitCost: 1120 },
+    ],
+    outcomes: {
+      stockApplied: [{ ing: 'ing-rice', name: 'Long-grain rice', qty: 15, unit: 'kg', onHandAfter: 19, availableAfter: 4 }],
+      costRowsWritten: [{ ing: 'ing-rice', name: 'Long-grain rice', cost: 1120, ccy: 'NGN', effectiveFrom: '2026-06-26' }],
+      alertsResolved: [],
+      alertsKept: [{ alert: 'al-0458', reason: 'Available 4 kg still below reorder point 5 kg — alert kept, not resolved.' }],
+      poStatus: 'pending',
+      remaining: [{ ing: 'ing-rice', name: 'Long-grain rice', qty: 10, unit: 'kg' }],
+    },
+    retryNote: 'Keyed retry returns this same receipt — applied once (claim-first).' },
+  // Error-state sample — NOT a posted receipt. Cumulative 15 + attempted 12 > ordered 25.
+  { id: 'rcpt_rej01', kind: 'rejected', po: 'po_0112', poRef: 'PO-2026-0112', attemptedAt: 'Today 09:02',
+    error: {
+      code: 'OverReceipt',
+      ing: 'ing-rice', name: 'Long-grain rice', unit: 'kg',
+      ordered: 25, alreadyReceived: 15, attempted: 12,
+      message: 'Over-receipt rejected: Long-grain rice — 15 kg of 25 kg already received; receiving 12 kg would exceed the ordered quantity (v1 tolerance: none).',
+    } },
+];
+
+// ─── Production sheet — windowed demand (Spec 055) ──────────────────────────
+// Demand predicate: paid-or-committed order statuses only; Draft checkouts are
+// excluded. Bundle lines explode into component variants (bundleExpanded).
+// rows[].orders counts contributing orders per variant; sheet.orders is the
+// DISTINCT order count for the window (orders contribute multiple variants).
+const CM_PROD_SHEET = {
+  window: { label: 'This week', from: '2026-06-29', to: '2026-07-06' },
+  orders: 18, portions: 168,
+  demandRule: 'Paid-or-committed orders only — Draft checkouts are excluded.',
+  rows: [
+    { variantSku: 'JLF-RICE-1', name: 'Jollof Rice (portion)', emoji: '🍛', portions: 20, orders: 6, bundleExpanded: false, hasRecipe: true },
+    { variantSku: 'BEEF-SRD-1', name: 'Seared Beef (portion)', emoji: '🥩', portions: 12, orders: 4, bundleExpanded: false, hasRecipe: true },
+    { variantSku: 'GRN-ALM-500', name: 'Almond & Honey Granola (500 g)', emoji: '🥣', portions: 30, orders: 7, bundleExpanded: true, hasRecipe: true },
+    { variantSku: 'SHOT-GIN-1', name: 'Ginger Wellness Shot (Single)', emoji: '🫚', portions: 60, orders: 9, bundleExpanded: false, hasRecipe: true },
+    { variantSku: 'DRK-CB-250', name: 'Cold-Brew Coffee (250 ml)', emoji: '☕', portions: 16, orders: 3, bundleExpanded: false, hasRecipe: true },
+    { variantSku: 'GRN-BER-500', name: 'Berry Bliss Granola (500 g)', emoji: '🍓', portions: 18, orders: 2, bundleExpanded: false, hasRecipe: false },
+    { variantSku: 'SHOT-TUR-1', name: 'Turmeric Shot (Single)', emoji: '🟡', portions: 12, orders: 2, bundleExpanded: false, hasRecipe: false },
+  ],
+};
+
+// ─── Production orders (Spec 056) ───────────────────────────────────────────
+// Landed lifecycle: Planned | Released | InProgress | Completed | Cancelled.
+// lines[].snapshot is the PER-PORTION bill FROZEN AT CREATION — release and
+// the kitchen sheet replay it; a later recipe edit changes nothing here
+// (RUN-2026-0209 deliberately shows rice 0.30/portion vs the live 0.25).
+// Release is all-or-nothing: RUN-2026-0221 is blocked by rice (needs 5 kg,
+// 2 kg available — nothing applied). Cancelling a released run does NOT
+// restock (RUN-2026-0203).
+const CM_PROD_ORDERS = [
+  { id: 'run_0221', ref: 'RUN-2026-0221', status: 'planned', plannedFor: 'Sat 4 Jul',
+    createdAt: 'Today 07:45', createdBy: 'Oliver Chen', fromSheet: true,
+    note: 'Created from the production sheet [2026-06-29, 2026-07-06). Recipe snapshots frozen at creation.',
+    lines: [
+      { variantSku: 'JLF-RICE-1', name: 'Jollof Rice (portion)', emoji: '🍛', plannedPortions: 20,
+        snapshot: [
+          { ing: 'ing-rice', name: 'Long-grain rice', perPortion: 0.25, unit: 'kg' },
+          { ing: 'ing-tomato', name: 'Plum tomatoes', perPortion: 0.125, unit: 'kg' },
+          { ing: 'ing-onion', name: 'Red onions', perPortion: 0.05, unit: 'kg' },
+        ] },
+      { variantSku: 'BEEF-SRD-1', name: 'Seared Beef (portion)', emoji: '🥩', plannedPortions: 12,
+        snapshot: [
+          { ing: 'ing-beef', name: 'Beef (boneless)', perPortion: 0.175, unit: 'kg' },
+          { ing: 'ing-pepper', name: 'Scotch bonnet peppers', perPortion: 0.05, unit: 'kg' },
+          { ing: 'ing-onion', name: 'Red onions', perPortion: 0.075, unit: 'kg' },
+        ] },
+    ],
+    releasePreview: [
+      { ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', required: 5, available: 2, unit: 'kg', ok: false },
+      { ing: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', required: 2.5, available: 14, unit: 'kg', ok: true },
+      { ing: 'ing-beef', name: 'Beef (boneless)', emoji: '🥩', required: 2.1, available: 10, unit: 'kg', ok: true },
+      { ing: 'ing-onion', name: 'Red onions', emoji: '🧅', required: 1.9, available: 7.5, unit: 'kg', ok: true },
+      { ing: 'ing-pepper', name: 'Scotch bonnet peppers', emoji: '🌶️', required: 0.6, available: 2.5, unit: 'kg', ok: true },
+    ],
+    releaseBlocked: {
+      ing: 'ing-rice', name: 'Long-grain rice', required: 5, available: 2, unit: 'kg',
+      message: 'Insufficient stock: Long-grain rice — required 5 kg, available 2 kg. Release applies nothing (all-or-nothing).',
+    } },
+  { id: 'run_0218', ref: 'RUN-2026-0218', status: 'released', plannedFor: 'Today',
+    createdAt: 'Yesterday 17:20', createdBy: 'Oliver Chen', releasedAt: 'Today 06:10',
+    note: 'Release drew 12 kg oats + 3 L honey down in one all-or-nothing application.',
+    lines: [
+      { variantSku: 'GRN-ALM-500', name: 'Almond & Honey Granola (500 g)', emoji: '🥣', plannedPortions: 30,
+        snapshot: [
+          { ing: 'ing-oats', name: 'Rolled oats', perPortion: 0.4, unit: 'kg' },
+          { ing: 'ing-honey', name: 'Wildflower honey', perPortion: 0.1, unit: 'L' },
+        ] },
+    ] },
+  { id: 'run_0215', ref: 'RUN-2026-0215', status: 'inprogress', plannedFor: 'Today',
+    createdAt: 'Yesterday 17:15', createdBy: 'Oliver Chen', releasedAt: 'Today 06:15', startedAt: 'Today 08:30',
+    lines: [
+      { variantSku: 'SHOT-GIN-1', name: 'Ginger Wellness Shot (Single)', emoji: '🫚', plannedPortions: 60,
+        snapshot: [
+          { ing: 'ing-ginger', name: 'Fresh ginger', perPortion: 0.05, unit: 'kg' },
+          { ing: 'ing-honey', name: 'Wildflower honey', perPortion: 0.025, unit: 'L' },
+        ] },
+    ] },
+  { id: 'run_0209', ref: 'RUN-2026-0209', status: 'completed', plannedFor: 'Yesterday',
+    createdAt: '27 Jun', createdBy: 'Oliver Chen', releasedAt: 'Yesterday 06:05', startedAt: 'Yesterday 07:00', completedAt: 'Yesterday 13:40',
+    snapshotNote: 'Snapshot shows rice 0.30 kg/portion — the live recipe was retuned to 0.25 on 28 Jun, AFTER this run was created. The run consumed its frozen snapshot, never the live recipe.',
+    lines: [
+      { variantSku: 'JLF-RICE-1', name: 'Jollof Rice (portion)', emoji: '🍛', plannedPortions: 40, producedPortions: 38,
+        snapshot: [
+          { ing: 'ing-rice', name: 'Long-grain rice', perPortion: 0.30, unit: 'kg' },   // ≠ live 0.25 — frozen at creation
+          { ing: 'ing-tomato', name: 'Plum tomatoes', perPortion: 0.125, unit: 'kg' },
+          { ing: 'ing-onion', name: 'Red onions', perPortion: 0.05, unit: 'kg' },
+        ] },
+    ],
+    yieldedFinishedGoods: true,
+    yielded: [{ variantSku: 'JLF-RICE-1', name: 'Jollof Rice (portion)', qty: 38 }],
+    yieldNote: 'Completion yielded 38 finished portions into sellable stock (JLF-RICE-1 on-hand).' },
+  { id: 'run_0203', ref: 'RUN-2026-0203', status: 'cancelled', plannedFor: '28 Jun',
+    createdAt: '27 Jun', createdBy: 'Oliver Chen', releasedAt: '28 Jun 06:00', cancelledAt: '28 Jun 10:15', cancelledBy: 'Oliver Chen',
+    cancelReason: 'Chiller failure — batch scrapped.',
+    note: 'Cancelled after release — released runs do not restock; the drawn ingredients stay consumed.',
+    lines: [
+      { variantSku: 'DRK-CB-250', name: 'Cold-Brew Coffee (250 ml)', emoji: '☕', plannedPortions: 24,
+        snapshot: [{ ing: 'ing-coffee', name: 'Coffee beans (arabica)', perPortion: 0.0625, unit: 'kg' }] },
+    ] },
+];
+
+// ─── Margin report (Spec 057) ───────────────────────────────────────────────
+// Revenue is discount-allocated; COGS = qty × per-portion standard cost.
+// Unknown COGS ⇒ cogs/margin are NULL ("—"), NEVER zero, and the row's
+// revenue is EXCLUDED from the aggregate denominator (surfaced in its own
+// unknownCogsRevenue tile). All derived figures (grossMargin, marginPct, row
+// status, totals) are COMPUTED from the base rows below, so the §14 figures
+// audit reconciles by construction. Jollof pins the family economics:
+// ₦400/portion COGS, ₦2,000 price ⇒ 80% margin vs target 65.
+const CM_MARGIN = (() => {
+  const base = [
+    { product: 'p-jollof', variantSku: 'JLF-RICE-1', name: 'Jollof Rice (portion)', emoji: '🍛',
+      qty: 62, revenue: 124000, cogsPerUnit: 400, cogs: 24800, targetPct: 65, bundleExpanded: false },
+    { product: 'p-alm', variantSku: 'GRN-ALM-500', name: 'Almond & Honey Granola (500 g)', emoji: '🥣',
+      qty: 24, revenue: 96000, cogsPerUnit: 1000, cogs: 24000, targetPct: 60, bundleExpanded: true },   // includes box-expanded units at the standalone-price split
+    { product: 'p-ginger', variantSku: 'SHOT-GIN-1', name: 'Ginger Wellness Shot (Single)', emoji: '🫚',
+      qty: 85, revenue: 76500, cogsPerUnit: 250, cogs: 21250, targetPct: 70, bundleExpanded: false },
+    { product: 'p-cb', variantSku: 'DRK-CB-250', name: 'Cold-Brew Coffee (250 ml)', emoji: '☕',
+      qty: 40, revenue: 72000, cogsPerUnit: 562.5, cogs: 22500, targetPct: null, bundleExpanded: false },   // no target · cannot judge
+    { product: 'p-beefsrd', variantSku: 'BEEF-SRD-1', name: 'Seared Beef (portion)', emoji: '🥩',
+      qty: 40, revenue: 60000, cogsPerUnit: 600, cogs: 24000, targetPct: 65, bundleExpanded: false },   // 60% < 65 ⇒ BelowTarget
+    { product: 'p-ber', variantSku: 'GRN-BER-500', name: 'Berry Bliss Granola (500 g)', emoji: '🍓',
+      qty: 18, revenue: 93600, cogsPerUnit: null, cogs: null, targetPct: 55, bundleExpanded: false,
+      unknownReason: 'no recipe' },   // unknown COGS — null, never zero
+  ];
+  const rows = base.map(r => {
+    if (r.cogs == null) return { ...r, grossMargin: null, marginPct: null, status: 'unknown' };
+    const grossMargin = r.revenue - r.cogs;
+    const marginPct = +((grossMargin / r.revenue) * 100).toFixed(1);
+    const status = r.targetPct == null ? 'notarget' : (marginPct >= r.targetPct ? 'above' : 'below');
+    return { ...r, grossMargin, marginPct, status };
+  });
+  const known = rows.filter(r => r.cogs != null);
+  const revenue = rows.reduce((a, r) => a + r.revenue, 0);
+  const knownCogsRevenue = known.reduce((a, r) => a + r.revenue, 0);
+  const cogs = known.reduce((a, r) => a + r.cogs, 0);
+  const grossMargin = knownCogsRevenue - cogs;
+  const marginPct = +((grossMargin / knownCogsRevenue) * 100).toFixed(1);
+  const unknownCogsRevenue = revenue - knownCogsRevenue;
+  // What a dishonest zero-cost treatment WOULD claim — for the tile caption only.
+  const zeroedCounterfactualPct = +(((revenue - cogs) / revenue) * 100).toFixed(1);
+  return {
+    window: { label: 'This week', from: '2026-06-29', to: '2026-07-06' },
+    currency: 'NGN',
+    rows,
+    totals: { revenue, knownCogsRevenue, cogs, grossMargin, marginPct, unknownCogsRevenue, zeroedCounterfactualPct },
+  };
+})();
+
+// ─── Status-tone lookups (landed vocabularies ONLY) ─────────────────────────
+const CM_ALERT_STATUS = {
+  open:         { tone: 'danger',  label: 'Open' },
+  acknowledged: { tone: 'warning', label: 'Acknowledged' },
+  ordered:      { tone: 'pending', label: 'Ordered' },
+  resolved:     { tone: 'success', label: 'Resolved' },
+};
+const CM_PO_STATUS = {
+  draft:     { tone: 'muted',   label: 'Draft' },
+  pending:   { tone: 'warning', label: 'Pending', hint: 'submitted to supplier' },
+  complete:  { tone: 'success', label: 'Complete' },
+  cancelled: { tone: 'danger',  label: 'Cancelled' },
+};
+const CM_RUN_STATUS = {
+  planned:    { tone: 'muted',   label: 'Planned' },
+  released:   { tone: 'pending', label: 'Released' },
+  inprogress: { tone: 'warning', label: 'In progress' },
+  completed:  { tone: 'success', label: 'Completed' },
+  cancelled:  { tone: 'danger',  label: 'Cancelled' },
+};
+const CM_MARGIN_STATUS = {
+  above:    { tone: 'success', label: 'Above target' },
+  below:    { tone: 'danger',  label: 'Below target' },
+  notarget: { tone: 'muted',   label: 'No target' },
+  unknown:  { tone: 'warning', label: 'Unknown COGS' },
+};
+
+// ─── Helpers (deterministic — no Date.now, no randomness) ───────────────────
+// cmUnit(10, 'kg') → "10 kg" · cmUnit(4.5, 'L') → "4.5 L" ·
+// cmUnit(2, '25 kg sack') → "2 × 25 kg sack" (any non-base unit is a pack label).
+const cmUnit = (qty, unit) => {
+  if (qty == null) return '—';
+  const n = typeof qty === 'number' ? qty.toLocaleString('en-NG', { maximumFractionDigits: 4 }) : String(qty);
+  if (unit === 'kg' || unit === 'L' || unit === 'each') return n + ' ' + unit;
+  return n + ' × ' + unit;
+};
+
+// Available = OnHand − Reserved (the 052/055 netting quantity).
+const cmIngAvail = (ing) => ing.onHand - ing.reserved;
+
+// Sell-side catalog + the make-side dishes. CM_PRODUCTS is declared by
+// screens/commerce-catalog.jsx (a sibling Babel script) — resolved at CALL
+// time, so load order never matters.
+const cmAllProducts = () =>
+  (typeof CM_PRODUCTS !== 'undefined' ? CM_PRODUCTS : (window.CM_PRODUCTS || [])).concat(CM_MAKE_PRODUCTS);
+
+// Prep list for the CM_PROD_SHEET window (Spec 055): requirements exploded
+// from recipes, netted against Available (OnHand − Reserved).
+// Shortfall = max(required − available, 0); suggested order = whole packs of
+// the cheapest same-currency supplier (min one pack), null when shortfall = 0.
+// Static + deterministic — the `window` arg is accepted for API shape only.
+// Includes the pinned Codex netting row: rice 10 on hand / 8 reserved /
+// 5 required ⇒ shortfall 3, suggested "1 × 25 kg sack".
+// NOTE coffee: available 1.2 is below its reorder point (active alert) yet
+// shortfall is 0 — alerts and prep netting are different lenses.
+const CM_PREP_ROWS = [
+  { ing: 'ing-rice', name: 'Long-grain rice', emoji: '🍚', unit: 'kg',
+    required: 5, onHand: 10, reserved: 8, available: 2, shortfall: 3,
+    suggested: { packs: 1, packLabel: '25 kg sack', label: '1 × 25 kg sack', supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', est: 28000, ccy: 'NGN' },
+    cheapest: { supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', unitPrice: 1120, packLabel: '25 kg sack' } },
+  { ing: 'ing-ginger', name: 'Fresh ginger', emoji: '🫚', unit: 'kg',
+    required: 3, onHand: 4, reserved: 1.5, available: 2.5, shortfall: 0.5,
+    suggested: { packs: 1, packLabel: '5 kg bag', label: '1 × 5 kg bag', supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', est: 11500, ccy: 'NGN' },
+    cheapest: { supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', unitPrice: 2300, packLabel: '5 kg bag' } },
+  { ing: 'ing-tomato', name: 'Plum tomatoes', emoji: '🍅', unit: 'kg',
+    required: 2.5, onHand: 18, reserved: 4, available: 14, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', unitPrice: 750, packLabel: '10 kg crate' } },
+  { ing: 'ing-onion', name: 'Red onions', emoji: '🧅', unit: 'kg',
+    required: 1.9, onHand: 9, reserved: 1.5, available: 7.5, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', unitPrice: 380, packLabel: '10 kg sack' } },
+  { ing: 'ing-beef', name: 'Beef (boneless)', emoji: '🥩', unit: 'kg',
+    required: 2.1, onHand: 12, reserved: 2, available: 10, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', unitPrice: 2900, packLabel: '10 kg box' } },
+  { ing: 'ing-pepper', name: 'Scotch bonnet peppers', emoji: '🌶️', unit: 'kg',
+    required: 0.6, onHand: 3, reserved: 0.5, available: 2.5, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-freshfarm', supplierName: 'FreshFarm NG', unitPrice: 840, packLabel: '5 kg crate' } },
+  { ing: 'ing-oats', name: 'Rolled oats', emoji: '🌾', unit: 'kg',
+    required: 12, onHand: 40, reserved: 6, available: 34, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', unitPrice: 1200, packLabel: '10 kg bag' } },
+  { ing: 'ing-honey', name: 'Wildflower honey', emoji: '🍯', unit: 'L',
+    required: 4.5, onHand: 10, reserved: 1, available: 9, shortfall: 0, suggested: null,
+    cheapest: null, cheapestNote: 'No NGN supplier — the only catalog row is GBP (Albion Foods), excluded by the 053 currency guard.' },
+  { ing: 'ing-coffee', name: 'Coffee beans (arabica)', emoji: '☕', unit: 'kg',
+    required: 1, onHand: 2, reserved: 0.8, available: 1.2, shortfall: 0, suggested: null,
+    cheapest: { supplier: 'sup-lagosgrains', supplierName: 'Lagos Grains Co', unitPrice: 8800, packLabel: '5 kg bag' } },
+];
+const cmPrepRows = (window) => CM_PREP_ROWS;
+
+// Margin rows + the honest aggregate (known-COGS denominator).
+const cmMarginRows = (window) => CM_MARGIN;
+
+// ─── Window exports (Spec 058) ──────────────────────────────────────────────
+window.CM_MAKE_PRODUCTS = CM_MAKE_PRODUCTS;
+window.CM_INGREDIENTS = CM_INGREDIENTS;
+window.CM_RECIPES = CM_RECIPES;
+window.CM_SUPPLIERS = CM_SUPPLIERS;
+window.CM_ALERTS = CM_ALERTS;
+window.CM_POS = CM_POS;
+window.CM_RECEIPTS = CM_RECEIPTS;
+window.CM_PROD_SHEET = CM_PROD_SHEET;
+window.CM_PROD_ORDERS = CM_PROD_ORDERS;
+window.CM_MARGIN = CM_MARGIN;
+window.CM_ALERT_STATUS = CM_ALERT_STATUS;
+window.CM_PO_STATUS = CM_PO_STATUS;
+window.CM_RUN_STATUS = CM_RUN_STATUS;
+window.CM_MARGIN_STATUS = CM_MARGIN_STATUS;
+window.CM_PREP_ROWS = CM_PREP_ROWS;
+window.cmUnit = cmUnit;
+window.cmIngAvail = cmIngAvail;
+window.cmAllProducts = cmAllProducts;
+window.cmPrepRows = cmPrepRows;
+window.cmMarginRows = cmMarginRows;

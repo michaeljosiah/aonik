@@ -187,6 +187,18 @@ function ScreenCommerceOverview() {
     { icon: 'store',  tone: 'var(--text-secondary)', label: abandoned + ' abandoned carts', sub: 'recoverable with a reminder', to: 'Carts' },
     { icon: 'invoice', tone: 'var(--warning)', label: pendingPay + ' order awaiting payment', sub: 'draft intent not yet captured', to: 'Orders' },
   ];
+  // Maker operations (Spec 058 Phase 4) — the make-side pulse on the overview.
+  // Active alerts = Open + Acknowledged (the one active set, per landed 052).
+  const activeAlerts = CM_ALERTS.filter(a => a.status === 'open' || a.status === 'acknowledged');
+  const worstAlert = activeAlerts.slice().sort((a, b) =>
+    ((a.refreshedAvailable != null ? a.refreshedAvailable : a.availableAtRaise) / a.reorderPoint) -
+    ((b.refreshedAvailable != null ? b.refreshedAvailable : b.availableAtRaise) / b.reorderPoint))[0];
+  const pendingPos = CM_POS.filter(p => p.status === 'pending');
+  const makerTiles = [
+    { l: 'Low stock (ingredients)', v: activeAlerts.length, s: worstAlert ? worstAlert.name + ': ' + cmUnit(worstAlert.availableAtRaise, worstAlert.unit) + ' available' : 'no active alerts', danger: true },
+    { l: 'POs awaiting receipt', v: pendingPos.length, s: cmMoney(pendingPos.reduce((a, p) => a + p.total, 0)) + ' committed' },
+    { l: 'This-week margin', v: CM_MARGIN.totals.marginPct.toFixed(1) + '%', s: cmMoney(CM_MARGIN.totals.unknownCogsRevenue) + ' unknown-COGS excluded' },
+  ];
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -204,6 +216,17 @@ function ScreenCommerceOverview() {
             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{k.l}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{k.v}</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>{k.d}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Maker operations (Spec 058 Phase 4) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {makerTiles.map(k => (
+          <div key={k.l} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{k.l}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: k.danger && k.v > 0 ? 'var(--danger)' : 'var(--text-primary)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{k.v}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>{k.s}</div>
           </div>
         ))}
       </div>

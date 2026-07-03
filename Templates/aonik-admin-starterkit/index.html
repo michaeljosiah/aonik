@@ -92,6 +92,15 @@
 <script type="text/babel" src="screens/commerce-inventory.jsx?v=2"></script>
 <script type="text/babel" src="screens/commerce-orders.jsx?v=2"></script>
 <script type="text/babel" src="screens/commerce-overview.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-ingredients.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-recipes.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-low-stock.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-suppliers.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-purchase-orders.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-goods-receipt.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-planning.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-production.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-margin.jsx?v=1"></script>
 <script type="text/babel" src="screens/remittances.jsx"></script>
 <script type="text/babel" src="screens/approvals.jsx"></script>
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
@@ -601,25 +610,61 @@ function App() {
 
         <DCSection id="commerce" title="Commerce · Spec 042" subtitle="Aonik.Commerce retail module — catalog, build-your-own boxes, inventory, carts, orders, discounts">
           <DCArtboard id="commerce-products" label="Commerce · Products · catalog (rail + KPIs + Kind/status filters + grid/list) + product editor drawer (variants · pricing · media · BYO-box builder)" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Catalog', 'Products'], ScreenCommerceProducts)}
+            {mkShell('cm-catalog', ['Commerce', 'Catalog', 'Products'], ScreenCommerceProducts)}
           </DCArtboard>
           <DCArtboard id="commerce-categories" label="Commerce · Categories · parent/child product category tree" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Catalog', 'Categories'], ScreenCommerceCategories)}
+            {mkShell('cm-catalog', ['Commerce', 'Catalog', 'Categories'], ScreenCommerceCategories)}
           </DCArtboard>
           <DCArtboard id="commerce-inventory" label="Commerce · Inventory · stock by variant + location · set-on-hand · reservations/holds + TTL sweep · bundle buildability" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Inventory'], ScreenCommerceInventory)}
+            {mkShell('cm-inventory', ['Commerce', 'Inventory'], ScreenCommerceInventory)}
           </DCArtboard>
           <DCArtboard id="commerce-carts" label="Commerce · Carts · open/abandoned/guest carts + box selections + recovery" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Carts'], ScreenCommerceCarts)}
+            {mkShell('cm-orders', ['Commerce', 'Carts'], ScreenCommerceCarts)}
           </DCArtboard>
           <DCArtboard id="commerce-orders" label="Commerce · Orders · ProductPurchase orders + lifecycle stepper + charge summary (subtotal/discount/tax/total)" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Orders'], ScreenCommerceOrders)}
+            {mkShell('cm-orders', ['Commerce', 'Orders'], ScreenCommerceOrders)}
           </DCArtboard>
           <DCArtboard id="commerce-discounts" label="Commerce · Discounts · coupons (percentage/fixed, expiry, redemption limits) + tax-calculator seam" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Discounts'], ScreenCommerceDiscounts)}
+            {mkShell('cm-discounts', ['Commerce', 'Discounts'], ScreenCommerceDiscounts)}
           </DCArtboard>
-          <DCArtboard id="commerce-overview" label="Commerce · Overview · KPIs + revenue trend + recent orders + top products + needs-attention" width={W} height={H}>
-            {mkShell('commerce', ['Commerce', 'Overview'], ScreenCommerceOverview)}
+          <DCArtboard id="commerce-overview" label="Commerce · Overview · KPIs + revenue trend + recent orders + top products + needs-attention + maker-ops tiles" width={W} height={H}>
+            {mkShell('cm-overview', ['Commerce', 'Overview'], ScreenCommerceOverview)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="commerce-make" title="Commerce · Make · Specs 050–057" subtitle="The operations manager's day: plan, source, receive, produce, price — every status and rule mirrors the landed maker-operations services">
+          <DCArtboard id="cm-ingredients" label="Ingredients · raw-material master · effective-dated cost history + scheduled reprice · stock & reorder points" width={W} height={H}>
+            {mkShell('cm-ingredients', ['Commerce', 'Make', 'Ingredients'], ScreenCommerceIngredients)}
+          </DCArtboard>
+          <DCArtboard id="cm-recipes" label="Recipes · components per yield + per-portion standard cost · 40-portion explosion preview · no-recipe diagnostics" width={W} height={H}>
+            {mkShell('cm-recipes', ['Commerce', 'Make', 'Recipes'], ScreenCommerceRecipes)}
+          </DCArtboard>
+          <DCArtboard id="cm-lowstock" label="Low stock · active alerts (Open+Acknowledged = one set) · Ordered/Resolved links · order-from-shortfall" width={W} height={H}>
+            {mkShell('cm-lowstock', ['Commerce', 'Make', 'Low stock'], ScreenCommerceLowStock)}
+          </DCArtboard>
+          <DCArtboard id="cm-suppliers" label="Suppliers · pack economics (₦28,000 / 25 kg ⇒ ₦1,120/kg) · cheapest-per-ingredient · GBP currency guard" width={W} height={H}>
+            {mkShell('cm-suppliers', ['Commerce', 'Make', 'Suppliers'], ScreenCommerceSuppliers)}
+          </DCArtboard>
+          <DCArtboard id="cm-pos" label="Purchase orders · Draft→Pending→Complete/Cancelled · partial receipt = progress bar, never a status · from-shortfall create" width={W} height={H}>
+            {mkShell('cm-pos', ['Commerce', 'Make', 'Purchase orders'], ScreenCommercePurchaseOrders)}
+          </DCArtboard>
+          <DCArtboard id="cm-receipt" label="Goods receipt · claim-first receive · short-receipt keeps the alert · over-receipt rejection · idempotent retry" width={W} height={H}>
+            {mkShell('cm-pos', ['Commerce', 'Make', 'Purchase orders', 'Receive'], ScreenCommerceGoodsReceipt)}
+          </DCArtboard>
+          <DCArtboard id="cm-prod-sheet" label="Production sheet · windowed ProductPurchase demand · bundle-expanded · no-recipe surfaced" width={W} height={H}>
+            {mkShell('cm-planning', ['Commerce', 'Make', 'Planning', 'Production sheet'], ScreenCommerceProductionSheet)}
+          </DCArtboard>
+          <DCArtboard id="cm-prep-list" label="Prep list · required vs available (OnHand − Reserved) vs shortfall (10/8/5 ⇒ 3) · pack-rounded suggestions" width={W} height={H}>
+            {mkShell('cm-planning', ['Commerce', 'Make', 'Planning', 'Prep list'], ScreenCommercePrepList)}
+          </DCArtboard>
+          <DCArtboard id="cm-prod-orders" label="Production orders · Planned→Released→InProgress→Completed · release = all-or-nothing snapshot consumption" width={W} height={H}>
+            {mkShell('cm-production', ['Commerce', 'Make', 'Production'], ScreenCommerceProductionOrders)}
+          </DCArtboard>
+          <DCArtboard id="cm-kitchen-sheet" label="Kitchen sheet · printable · per-dish prep + merged totals · frozen at creation, matches Release exactly" width={W} height={H}>
+            {mkShell('cm-production', ['Commerce', 'Make', 'Production', 'Kitchen sheet'], ScreenCommerceKitchenSheet)}
+          </DCArtboard>
+          <DCArtboard id="cm-margin" label="Margin report · honest aggregate (unknown-COGS surfaced & excluded, never zeroed) · inline target editing" width={W} height={H}>
+            {mkShell('cm-margin', ['Commerce', 'Make', 'Margin'], ScreenCommerceMargin)}
           </DCArtboard>
         </DCSection>
 

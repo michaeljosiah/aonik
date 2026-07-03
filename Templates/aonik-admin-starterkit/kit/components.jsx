@@ -210,7 +210,82 @@ function Card({ title, subtitle, action, children, padding = 20, style }) {
   );
 }
 
+// ─── WindowPicker (Spec 058) ─────────────────────────────────────────────
+// Presentational date-range chip row for the Planning + Margin screens.
+// Segmented presets + the resolved range caption + the half-open [from, to)
+// UTC microcaption (the landed 055/057 window semantics). Screens hold the
+// state and pass { from, to, onChange }; the active preset is derived from
+// the props, so this stays pure mock-interactive theatre.
+function WindowPicker({ from, to, onChange, label }) {
+  const presets = [
+    { id: 'this-week',  label: 'This week',  from: '2026-06-29', to: '2026-07-06' },
+    { id: 'last-week',  label: 'Last week',  from: '2026-06-22', to: '2026-06-29' },
+    { id: 'this-month', label: 'This month', from: '2026-07-01', to: '2026-08-01' },
+  ];
+  const activeId = (presets.find(p => p.from === from && p.to === to) || {}).id;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {label && (
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
+      )}
+      <div style={{ display: 'inline-flex', padding: 4, gap: 2, background: 'var(--surface-inset)', borderRadius: 10 }}>
+        {presets.map(p => {
+          const on = p.id === activeId;
+          return (
+            <button key={p.id}
+              onClick={() => onChange && onChange({ from: p.from, to: p.to, label: p.label })}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, height: 28, padding: '0 12px',
+                borderRadius: 8, cursor: 'pointer', border: 'none',
+                fontSize: 12, fontWeight: on ? 600 : 500, fontFamily: 'var(--font-sans)',
+                background: on ? 'var(--surface)' : 'transparent',
+                color: on ? 'var(--text-primary)' : 'var(--text-secondary)',
+                boxShadow: on ? '0 1px 3px rgba(20,25,30,0.10)' : 'none',
+              }}>
+              <Icon name="calendar" size={11} color={on ? 'var(--brand-primary)' : 'var(--text-tertiary)'}/>
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-primary)' }}>
+          {from} → {to}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>half-open [from, to) UTC</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── ProgressCells (Spec 058) ────────────────────────────────────────────
+// Compact in-table progress bar: received-vs-ordered on POs, margin-vs-target
+// on the margin report. Partial receipt is DERIVED progress, never a status
+// (landed 053/054 rule), so this renders a bar + a tiny right-aligned caption
+// ("15 / 25 kg"). Tones: success | warning | danger. Tokens only.
+function ProgressCells({ value, max, tone = 'success', caption }) {
+  const toneColor = {
+    success: 'var(--success)',
+    warning: 'var(--warning)',
+    danger:  'var(--danger)',
+  }[tone] || 'var(--brand-primary)';
+  const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 90 }}>
+      <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--surface-inset)', border: '1px solid var(--border-light)', overflow: 'hidden' }}>
+        <div style={{ width: pct + '%', height: '100%', borderRadius: 999, background: toneColor }}/>
+      </div>
+      {caption != null && (
+        <span style={{ flex: 'none', fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-secondary)', textAlign: 'right' }}>
+          {caption}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Export ──────────────────────────────────────────────────────────────
 Object.assign(window, {
   Icon, ICONS, AonikMark, AonikWordmark, Avatar, Pill, KPI, Card,
+  WindowPicker, ProgressCells,
 });

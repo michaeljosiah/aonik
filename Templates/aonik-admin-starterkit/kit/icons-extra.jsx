@@ -106,6 +106,15 @@ const EXTRA_ICONS = {
   book:       '<path d="M4 4a2 2 0 0 1 2-2h13v18H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 1 2-2h13"/>',
   sidebar:    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   hourglass:  '<path d="M6 3h12M6 21h12"/><path d="M7 3c0 4 5 5 5 9s-5 5-5 9M17 3c0 4-5 5-5 9s5 5 5 9"/>',
+  // Commerce · Make (Spec 058) — sell-side + maker-ops navigation
+  cart:       '<circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/><path d="M3 4h2l2.4 12h10.2L21 8H6"/>',
+  box:        '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  chef:       '<path d="M6 13.9A4 4 0 0 1 7.4 6.1a5 5 0 0 1 9.2 0 4 4 0 0 1 1.4 7.8V21H6z"/><path d="M6 17.5h12"/>',
+  wheat:      '<path d="M12 22V8"/><path d="M12 12.5c0-2.6 1.9-4.2 4.2-4.2 0 2.6-1.9 4.2-4.2 4.2z"/><path d="M12 12.5c0-2.6-1.9-4.2-4.2-4.2 0 2.6 1.9 4.2 4.2 4.2z"/><path d="M12 17.5c0-2.6 1.9-4.2 4.2-4.2 0 2.6-1.9 4.2-4.2 4.2z"/><path d="M12 17.5c0-2.6-1.9-4.2-4.2-4.2 0 2.6 1.9 4.2 4.2 4.2z"/><path d="M12 8a4 4 0 0 0 2.8-3.8A4 4 0 0 0 12 8a4 4 0 0 0-2.8-3.8A4 4 0 0 0 12 8z"/>',
+  flame:      '<path d="M12 3c2.2 3.6 5.5 5.6 5.5 9.5a5.5 5.5 0 0 1-11 0C6.5 8.6 9.8 6.6 12 3z"/><path d="M12 21a3 3 0 0 1-3-3c0-1.6 1.4-2.6 3-4.2 1.6 1.6 3 2.6 3 4.2a3 3 0 0 1-3 3z"/>',
+  alert:      '<path d="M12 3 2 21h20z"/><path d="M12 10v4M12 18v.01"/>',
+  truck:      '<path d="M2 7h12v9H2z"/><path d="M14 10h4l3 3v3h-2.2"/><circle cx="7.5" cy="18" r="1.8"/><circle cx="16.5" cy="18" r="1.8"/><path d="M9.3 18h5.4"/>',
+  clipboard:  '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/>',
 };
 
 // Merge into ICONS map at boot time
