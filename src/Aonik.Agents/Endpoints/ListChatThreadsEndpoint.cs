@@ -21,7 +21,8 @@ internal sealed class ListChatThreadsEndpoint
     public override void Configure()
     {
         Get("/ai/threads");
-        AllowAnonymous(); // Auth handled by tenant/user providers
+        // H15: require authentication; ChatThreadService enforces owner-only access on top.
+        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "List chat threads";

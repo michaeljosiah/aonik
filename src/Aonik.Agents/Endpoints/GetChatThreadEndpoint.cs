@@ -21,7 +21,8 @@ internal sealed class GetChatThreadEndpoint
     public override void Configure()
     {
         Get("/ai/threads/{ThreadId}");
-        AllowAnonymous(); // Auth handled by tenant/user providers
+        // H15: require authentication; ChatThreadService enforces owner-only access on top.
+        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "Get chat thread with messages";

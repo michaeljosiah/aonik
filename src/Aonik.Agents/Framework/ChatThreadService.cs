@@ -156,10 +156,15 @@ internal sealed class ChatThreadService : IChatThreadService
         Guid threadId,
         CancellationToken cancellationToken = default)
     {
+        // Owner-only (H15): a thread is reachable only by the authenticated user who owns it.
+        // Fail closed if no user is resolved — the tenant query filter alone is not ownership.
+        if (!_currentUserProvider.TryGetCurrentUserId(out var userId) || userId == Guid.Empty)
+            return null;
+
         var thread = await _dbContext.ChatThreads
             .AsNoTracking()
             .Include(t => t.Messages.OrderBy(m => m.SortOrder))
-            .FirstOrDefaultAsync(t => t.Id == threadId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == threadId && t.UserId == userId, cancellationToken);
 
         if (thread is null)
             return null;
@@ -172,17 +177,14 @@ internal sealed class ChatThreadService : IChatThreadService
         int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        _currentUserProvider.TryGetCurrentUserId(out var userId);
+        // Owner-only (H15): always scope to the authenticated user. Previously the user filter
+        // was skipped when no user resolved, so an unauthenticated caller saw the whole tenant.
+        if (!_currentUserProvider.TryGetCurrentUserId(out var userId) || userId == Guid.Empty)
+            return [];
 
-        var query = _dbContext.ChatThreads
+        var threads = await _dbContext.ChatThreads
             .AsNoTracking()
-            .Where(t => t.Status == ChatThreadStatus.Active);
-
-        // Filter by user if available
-        if (userId != Guid.Empty)
-            query = query.Where(t => t.UserId == userId);
-
-        var threads = await query
+            .Where(t => t.Status == ChatThreadStatus.Active && t.UserId == userId)
             .OrderByDescending(t => t.LastMessageAt ?? t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -195,8 +197,12 @@ internal sealed class ChatThreadService : IChatThreadService
         Guid threadId,
         CancellationToken cancellationToken = default)
     {
+        // Owner-only (H15): only the owning user may archive their thread.
+        if (!_currentUserProvider.TryGetCurrentUserId(out var userId) || userId == Guid.Empty)
+            return false;
+
         var thread = await _dbContext.ChatThreads
-            .FirstOrDefaultAsync(t => t.Id == threadId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == threadId && t.UserId == userId, cancellationToken);
 
         if (thread is null)
             return false;
