@@ -164,6 +164,11 @@ public sealed class AgentsModule : IModule
         // stdio connections to MCP server processes.
         services.AddSingleton<IMcpToolProvider, McpToolProvider>();
 
+        // Orchestrator session store — process-wide, bounded, evictable L1 cache of MAF
+        // AgentSession instances (issue H7). Singleton so the memory bound is global while
+        // the orchestrator itself stays request-scoped.
+        services.AddSingleton<IOrchestratorSessionStore, InMemoryOrchestratorSessionStore>();
+
         // Master orchestrator — routes user messages to domain agents via agent-as-tool pattern.
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
