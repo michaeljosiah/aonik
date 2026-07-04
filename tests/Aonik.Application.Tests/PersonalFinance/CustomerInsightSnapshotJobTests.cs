@@ -211,6 +211,54 @@ public class CustomerInsightSnapshotJobTests
     }
 
     [Fact]
+    public async Task UserEnumerator_ShouldReturnEachUserOnce_WhenPresentInMultipleTables()
+    {
+        // Arrange — one user that shows up in three of the union'd tables. The enumerator
+        // must collapse it to a single target (dedup happens in SQL now, issue H11); it must
+        // not emit the user once per table.
+        var tenantContext = new TestTenantContext { TenantId = Guid.NewGuid(), ResolutionSource = "test" };
+        var tenantProvider = new ContextTenantProvider(tenantContext);
+        using var dbContext = CreateDbContext(tenantProvider);
+
+        var tenant = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+        var user = Guid.Parse("10000000-0000-0000-0000-0000000000aa");
+
+        dbContext.PersonalProfiles.Add(new PersonalProfile { TenantId = tenant, UserId = user });
+        dbContext.Budgets.Add(new Budget
+        {
+            TenantId = tenant,
+            UserId = user,
+            PeriodType = "Monthly",
+            PeriodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            BudgetCreatedBy = "User",
+            Status = "Active"
+        });
+        dbContext.PersonalTransactions.Add(new PersonalTransaction
+        {
+            TenantId = tenant,
+            UserId = user,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -5m,
+            Currency = "USD",
+            TransactionType = TransactionCategoryReference.TypeExpense,
+            Category = TransactionCategoryReference.Groceries,
+            TagsJson = "[]"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var enumerator = new CustomerInsightSnapshotJobUserEnumerator(dbContext);
+
+        // Act
+        var batch = await enumerator.GetNextBatchAsync(null, 10);
+
+        // Assert
+        batch.Should().ContainSingle()
+            .Which.Should().Be(new CustomerInsightSnapshotJobUserTarget(tenant, user));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ShouldContinueWhenOneUserTimesOut()
     {
         // Arrange
