@@ -3,6 +3,7 @@ using System.Text.Json;
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.Voice.Frames;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -95,6 +96,11 @@ public static class AonikVoiceAgent
         ChatThreadContext? lastTurnThreadCtx = null;
         string? lastTurnUserText = null;
 
+        // This voice loop persists its own AiRun per turn (PostStreamPersistenceCoordinator via
+        // OnTurnCompleted), so mark the run options so AuditMiddleware skips its streaming audit
+        // and doesn't write a duplicate row (H14).
+        runOptions = MarkStreamAuditHandledDownstream(runOptions);
+
         return MicrosoftAgentVoice.CreateProcessor(voiceAgent, options =>
         {
             options.IsFrontendTool = name =>
@@ -154,8 +160,8 @@ public static class AonikVoiceAgent
                 if (lastTurnThreadCtx is { } captured)
                 {
                     // Per-turn audit. Mirrors AguiStreamingEndpoint's PostStreamPersistenceContext
-                    // call (line 479-491). AuditMiddleware doesn't write AiRun rows for streaming
-                    // responses; the row comes from this coordinator.
+                    // call. This coordinator owns the AiRun row for the turn; AuditMiddleware skips
+                    // its streaming audit because the run options were marked handled-downstream (H14).
                     postStreamCoordinator.Enqueue(new PostStreamPersistenceContext(
                         PersistedThreadId: persistedThreadId,
                         TenantId: tenantId,
@@ -415,4 +421,24 @@ public static class AonikVoiceAgent
         string Tool,
         string Tier,
         string ActionKind);
+
+    // Marks the streaming call so AuditMiddleware skips its own AiRun for it (this loop persists
+    // one per turn). Marks the existing ChatOptions in place where present so no other run-option
+    // settings are lost; only synthesises a fresh options object when there is nothing to mark.
+    private static ChatClientAgentRunOptions MarkStreamAuditHandledDownstream(ChatClientAgentRunOptions? runOptions)
+    {
+        if (runOptions?.ChatOptions is { } chatOptions)
+        {
+            (chatOptions.AdditionalProperties ??= [])[AiTelemetry.StreamAuditHandledDownstreamAttribute] = true;
+            return runOptions;
+        }
+
+        return new ChatClientAgentRunOptions(new ChatOptions
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [AiTelemetry.StreamAuditHandledDownstreamAttribute] = true,
+            },
+        });
+    }
 }
