@@ -94,6 +94,22 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddFusionCache();
 
+        // Plaid webhook signature verification (H13). Bound to the same config section as the
+        // Plaid account-link gateway so it shares credentials + environment; the key provider
+        // gets its own HttpClient pointed at the Plaid base URL.
+        services.Configure<ExternalServices.Plaid.PlaidWebhookVerificationOptions>(
+            configuration.GetSection("Finance:PersonalFinance:Plaid"));
+        services.AddHttpClient<ExternalServices.Plaid.IPlaidWebhookKeyProvider, ExternalServices.Plaid.PlaidWebhookKeyProvider>(
+            (sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<ExternalServices.Plaid.PlaidWebhookVerificationOptions>>().Value;
+                if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+                {
+                    client.BaseAddress = baseUri;
+                }
+            });
+        services.AddScoped<ExternalServices.Plaid.IPlaidWebhookVerifier, ExternalServices.Plaid.PlaidWebhookVerifier>();
+
         services.AddSingleton<CachePolicyProvider>();
         services.AddSingleton<CacheSetRegistry>();
         services.AddSingleton<ICacheInvalidationPublisher, CacheInvalidationPublisher>();

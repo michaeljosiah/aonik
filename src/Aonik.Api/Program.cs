@@ -1,6 +1,7 @@
 using Aonik.Agents;
 using Aonik.Agents.Endpoints;
 using Aonik.Ai;
+using Aonik.Infrastructure.ExternalServices.Plaid;
 using Aonik.Api.Configuration;
 using Aonik.Api.Middleware;
 using Aonik.Application;
@@ -138,6 +139,10 @@ app.UseAonikLogScopeEnrichment();
 app.UseAuthorization();
 // 5. Tenant validation (validates tenant status only)
 app.UseTenantValidation();
+
+// Verify Plaid webhook signatures before FastEndpoints binds/handles the anonymous
+// webhook endpoints (H13). No-op for every other path and in Plaid-simulation mode.
+app.UsePlaidWebhookVerification();
 
 // 5. FastEndpoints — global CORS policy applied to all endpoints, validator
 //    failures surface as 422 (not 400) to match the service-layer convention
