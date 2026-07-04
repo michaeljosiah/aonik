@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
@@ -39,16 +38,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IChatThreadService _chatThreadService;
     private readonly IChatThreadTitleGenerator _titleGenerator;
+    private readonly IOrchestratorSessionStore _sessionStore;
     private readonly ILogger<MasterOrchestratorService> _logger;
     private readonly bool _enableSensitiveData;
-
-    /// <summary>
-    /// In-memory session store: sessionId -> MAF session.
-    /// <see cref="AgentSession"/> tracks conversation history natively,
-    /// eliminating the need for manual message list management.
-    /// A durable session store (e.g., backed by AgentsDbContext) can replace this later.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, AgentSession> Sessions = new();
 
     /// <summary>
     /// Cached orchestrator agent (OTel-instrumented). Built once (lazily) and reused
@@ -178,6 +170,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         ICurrentUserProvider currentUserProvider,
         IChatThreadService chatThreadService,
         IChatThreadTitleGenerator titleGenerator,
+        IOrchestratorSessionStore sessionStore,
         IConfiguration configuration,
         ILogger<MasterOrchestratorService> logger)
     {
@@ -190,6 +183,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         _currentUserProvider = currentUserProvider;
         _chatThreadService = chatThreadService;
         _titleGenerator = titleGenerator;
+        _sessionStore = sessionStore;
         _logger = logger;
         _enableSensitiveData = configuration.GetValue<bool>(AiTelemetry.EnableSensitiveDataKey);
     }
@@ -341,7 +335,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         string sessionId,
         CancellationToken cancellationToken)
     {
-        if (Sessions.TryGetValue(sessionId, out var existing))
+        if (_sessionStore.TryGet(sessionId, out var existing))
             return existing;
 
         // Create a new session via the raw ChatClientAgent (which exposes
@@ -350,8 +344,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         var session = await _rawOrchestrator!.CreateSessionAsync(
             sessionId, cancellationToken);
 
-        // Cache it. If another thread raced us, use the winner's session.
-        return Sessions.GetOrAdd(sessionId, session);
+        // Cache it in the bounded, evictable store. If another thread raced us,
+        // GetOrAdd returns the winner's session and ours is dropped for GC.
+        return _sessionStore.GetOrAdd(sessionId, session);
     }
 
     /// <summary>
