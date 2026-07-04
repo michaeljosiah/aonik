@@ -23,7 +23,13 @@ public record AddJournalEntryRequest(
 
 public record ListLedgerAccountsRequest(Guid? LedgerId);
 
-public record ListJournalEntriesRequest(Guid? LedgerId);
+// Note: FastEndpoints binds this positional record via its constructor, passing
+// default(int) (0) for any paging query param the client omits — the `= 1/= 200`
+// initializers are not applied at the binding boundary. That is safe because the
+// service runs every value through FinancePaging.Normalize, which maps 0 -> page 1 /
+// default page size. The initializers are kept only so the OpenAPI schema advertises
+// the effective defaults.
+public record ListJournalEntriesRequest(Guid? LedgerId, int PageNumber = 1, int PageSize = 200);
 
 public record LedgerResponse(
     Guid Id,

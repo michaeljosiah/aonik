@@ -258,20 +258,33 @@ internal class BillingService : FinanceServiceBase, IBillingService
         invoice.Total = invoice.Subtotal + invoice.TaxTotal - invoice.DiscountTotal;
     }
 
-    public async Task<IReadOnlyList<InvoiceResponse>> ListInvoicesAsync(string? statusFilter = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<InvoiceResponse>> ListInvoicesAsync(
+        string? statusFilter = null,
+        int pageNumber = 1,
+        int pageSize = FinancePaging.DefaultPageSize,
+        CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        var (page, size) = FinancePaging.Normalize(pageNumber, pageSize);
+
         var query = _dbContext.Invoices
+            .AsNoTracking()
             .Include(i => i.Lines)
             .Where(i => i.TenantId == tenantId);
 
         if (!string.IsNullOrEmpty(statusFilter))
             query = query.Where(i => i.Status == statusFilter);
 
+        // Bounded, deterministic page: (IssueDate DESC, Id) is a total order so a
+        // tie on IssueDate can't shuffle rows across page boundaries. AsNoTracking
+        // because this is a pure read.
         var invoices = await query
             .OrderByDescending(i => i.IssueDate)
+            .ThenBy(i => i.Id)
+            .Skip(FinancePaging.Offset(page, size))
+            .Take(size)
             .ToListAsync(cancellationToken);
 
         if (invoices.Count == 0)

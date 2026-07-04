@@ -33,7 +33,7 @@ internal sealed class LedgerTools
         return await _ledgerService.ListAccountsAsync(request, cancellationToken);
     }
 
-    [Description("Lists journal entries, optionally filtered by a specific ledger. Returns entry dates, statuses, references, and debit/credit lines.")]
+    [Description("Lists journal entries, optionally filtered by a specific ledger. Returns the most recent entries (up to a server-side page limit) with dates, statuses, references, and debit/credit lines — not necessarily every entry.")]
     public async Task<IReadOnlyList<JournalEntryResponse>> ListJournalEntries(
         [Description("Optional ledger ID to filter journal entries. Pass null to list entries across all ledgers.")] Guid? ledgerId,
         CancellationToken cancellationToken = default)

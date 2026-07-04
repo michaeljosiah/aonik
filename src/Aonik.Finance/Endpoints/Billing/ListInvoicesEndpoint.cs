@@ -9,6 +9,14 @@ public class ListInvoicesRequest
 {
     [QueryParam]
     public string? Status { get; set; }
+
+    /// <summary>1-based page number (defaults to the first page).</summary>
+    [QueryParam]
+    public int PageNumber { get; set; } = 1;
+
+    /// <summary>Page size; server-capped so a single call can't return an unbounded set (issue H10).</summary>
+    [QueryParam]
+    public int PageSize { get; set; } = 200;
 }
 
 public class ListInvoicesEndpoint : Endpoint<ListInvoicesRequest, List<InvoiceResponse>>
@@ -36,7 +44,7 @@ public class ListInvoicesEndpoint : Endpoint<ListInvoicesRequest, List<InvoiceRe
 
     public override async Task HandleAsync(ListInvoicesRequest req, CancellationToken ct)
     {
-        var result = await _billingService.ListInvoicesAsync(req.Status, ct);
+        var result = await _billingService.ListInvoicesAsync(req.Status, req.PageNumber, req.PageSize, ct);
 
         var response = result.Select(r => new InvoiceResponse(
             r.Id,

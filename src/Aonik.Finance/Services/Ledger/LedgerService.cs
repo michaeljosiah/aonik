@@ -384,7 +384,10 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
         await EnsurePermissionAsync("Ledger.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        var (page, size) = FinancePaging.Normalize(request.PageNumber, request.PageSize);
+
         var query = _dbContext.JournalEntries
+            .AsNoTracking()
             .Where(entry => entry.TenantId == tenantId);
 
         if (request.LedgerId.HasValue)
@@ -392,9 +395,15 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             query = query.Where(entry => entry.LedgerId == request.LedgerId.Value);
         }
 
+        // Bounded, deterministic page: (Timestamp DESC, Id) is a total order so a
+        // tie on Timestamp can't shuffle rows across page boundaries. AsNoTracking
+        // because this is a pure read.
         var entries = await query
             .Include(entry => entry.Lines)
             .OrderByDescending(entry => entry.Timestamp)
+            .ThenBy(entry => entry.Id)
+            .Skip(FinancePaging.Offset(page, size))
+            .Take(size)
             .ToListAsync(cancellationToken);
 
         return entries.Select(entry => MapJournalEntryResponse(entry, null, null)).ToList();

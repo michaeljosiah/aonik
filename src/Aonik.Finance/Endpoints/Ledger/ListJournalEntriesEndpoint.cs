@@ -21,7 +21,7 @@ public class ListJournalEntriesEndpoint : Endpoint<ListJournalEntriesRequest, Li
         Summary(s =>
         {
             s.Summary = "List journal entries";
-            s.Description = "Returns all journal entries for a given ledger, including their debit and credit lines.";
+            s.Description = "Returns a page of journal entries for a given ledger (most recent first), including their debit and credit lines. Use pageNumber/pageSize to page; a single call is server-capped.";
             s.Response(200, "Journal entries retrieved successfully");
             s.Response(401, "Not authenticated");
         });
@@ -30,7 +30,7 @@ public class ListJournalEntriesEndpoint : Endpoint<ListJournalEntriesRequest, Li
 
     public override async Task HandleAsync(ListJournalEntriesRequest req, CancellationToken ct)
     {
-        var appRequest = new Contracts.Models.Ledger.ListJournalEntriesRequest(req.LedgerId);
+        var appRequest = new Contracts.Models.Ledger.ListJournalEntriesRequest(req.LedgerId, req.PageNumber, req.PageSize);
         var result = await _ledgerService.ListJournalEntriesAsync(appRequest, ct);
 
         var response = result.Select(entry => new JournalEntryResponse(

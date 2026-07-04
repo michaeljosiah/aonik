@@ -13,5 +13,9 @@ public interface IBillingService
     Task CancelInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default);
     Task UpdateLineQuantityAsync(Guid invoiceLineId, decimal quantity, CancellationToken cancellationToken = default);
     Task UpdateLineUnitPriceAsync(Guid invoiceLineId, decimal unitPrice, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<InvoiceResponse>> ListInvoicesAsync(string? statusFilter = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InvoiceResponse>> ListInvoicesAsync(
+        string? statusFilter = null,
+        int pageNumber = 1,
+        int pageSize = 200,
+        CancellationToken cancellationToken = default);
 }

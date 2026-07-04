@@ -66,12 +66,12 @@ internal sealed class InvoiceTools
         return $"Invoice {invoiceId} has been marked as paid.";
     }
 
-    [Description("Lists invoices, optionally filtered by status. Returns all matching invoices with line items, totals, and dates.")]
+    [Description("Lists invoices, optionally filtered by status. Returns the most recent invoices (up to a server-side page limit), each with line items, totals, and dates — not necessarily every invoice.")]
     public async Task<IReadOnlyList<InvoiceResponse>> ListInvoices(
         [Description("Optional status filter: Draft, Issued, Paid, or Cancelled. Leave empty for all.")] string? statusFilter = null,
         CancellationToken cancellationToken = default)
     {
-        return await _billingService.ListInvoicesAsync(statusFilter, cancellationToken);
+        return await _billingService.ListInvoicesAsync(statusFilter, cancellationToken: cancellationToken);
     }
 
     [Description("Adds a new line item to an existing invoice and recalculates totals.")]
