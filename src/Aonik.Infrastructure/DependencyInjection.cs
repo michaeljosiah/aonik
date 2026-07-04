@@ -414,6 +414,19 @@ public static class DependencyInjection
                     ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations"],
                     Array.Empty<string>())));
 
+            // Admin-only write policy: staff roles that operate the platform, MINUS the
+            // self-service B2C role (PersonalUser) and the read-only role (ReadOnly). Use this
+            // for platform-configuration mutations — agent/workflow config, AI model/provider/
+            // task/prompt/route-policy management — that a Payabo end user or a read-only
+            // operator must never perform (H12). It is deliberately broader than AdminPolicy
+            // (which is PlatformAdmin/TenantAdmin only) because Operations legitimately runs
+            // this configuration, but narrower than AdminUserWritePolicy, which still admits
+            // PersonalUser for self-service writes.
+            options.AddPolicy("AdminWritePolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin", "Operations"],
+                    Array.Empty<string>())));
+
             // Mobile voice policy — Payabo end users + admin smoke testers. Originally
             // PersonalUser-only (spec 022 Phase 1); spec 024 Phase E* added an in-admin "Live
             // voice test" card on the Voice Mode tab that needs admin tokens to connect. The

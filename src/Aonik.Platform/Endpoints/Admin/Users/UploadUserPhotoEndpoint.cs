@@ -23,7 +23,7 @@ internal class UploadUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoUpl
     public override void Configure()
     {
         Post("/admin/users/{userId}/photo");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         AllowFileUploads();
         Summary(s =>
         {

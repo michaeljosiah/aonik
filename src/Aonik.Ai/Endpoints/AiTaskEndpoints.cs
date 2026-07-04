@@ -92,7 +92,7 @@ internal sealed class CreateAiTaskEndpoint : Endpoint<CreateAiTaskRequest, AiTas
     public override void Configure()
     {
         Post("/ai/tasks");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create an AI task";
@@ -125,7 +125,7 @@ internal sealed class UpdateAiTaskEndpoint : Endpoint<UpdateAiTaskEndpointReques
     public override void Configure()
     {
         Put("/ai/tasks/{TaskId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update an AI task";
@@ -193,7 +193,7 @@ internal sealed class DeleteAiTaskEndpoint : Endpoint<DeleteAiTaskRequest>
     public override void Configure()
     {
         Delete("/ai/tasks/{TaskId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete an AI task";
@@ -228,7 +228,7 @@ internal sealed class ResetAiTaskPromptEndpoint : Endpoint<ResetAiTaskPromptRequ
     public override void Configure()
     {
         Post("/ai/tasks/{TaskId}/reset-prompt");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Reset AI task prompt to hard-coded default";

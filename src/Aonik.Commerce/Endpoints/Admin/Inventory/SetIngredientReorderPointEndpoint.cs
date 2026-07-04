@@ -15,7 +15,7 @@ public class SetIngredientReorderPointEndpoint : Endpoint<SetReorderPointRequest
     public override void Configure()
     {
         Put("/commerce/admin/ingredients/{ingredientId:guid}/reorder-point");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Set an ingredient's reorder point (low-stock alert threshold on available stock) and optional suggested reorder quantity. Null reorderPoint clears alerting.");
     }
 

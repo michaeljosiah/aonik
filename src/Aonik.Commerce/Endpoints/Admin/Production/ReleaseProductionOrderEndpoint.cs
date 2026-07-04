@@ -14,7 +14,7 @@ public class ReleaseProductionOrderEndpoint : EndpointWithoutRequest<ProductionO
     public override void Configure()
     {
         Post("/commerce/admin/production-orders/{id:guid}/release");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Release a Planned production run (Spec 056 §9): CONSUMES ingredient stock — the frozen per-line " +
             "recipe snapshots merged into one bill and drawn down all-or-nothing in a single commit. " +

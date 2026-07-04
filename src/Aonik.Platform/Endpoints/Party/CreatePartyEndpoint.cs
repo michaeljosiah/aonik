@@ -20,7 +20,7 @@ public class CreatePartyEndpoint : Endpoint<ApiCreatePartyRequest, ApiPartyRespo
     public override void Configure()
     {
         Post("/parties");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a new party";

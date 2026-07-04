@@ -15,7 +15,7 @@ public class CreateDiscountEndpoint : Endpoint<CreateDiscountRequest, DiscountDt
     public override void Configure()
     {
         Post("/commerce/admin/discounts");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Create a discount/coupon (Percentage or FixedAmount).");
     }
 

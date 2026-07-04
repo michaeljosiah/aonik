@@ -30,7 +30,7 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
     public override void Configure()
     {
         Post("/ai/workflows/run");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Execute a named workflow";

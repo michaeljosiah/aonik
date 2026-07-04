@@ -17,7 +17,7 @@ public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, Docume
     public override void Configure()
     {
         Post("/compliance/documents/{id}/usages");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Add usage record to a document";

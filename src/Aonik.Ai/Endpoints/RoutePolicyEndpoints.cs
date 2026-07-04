@@ -92,7 +92,7 @@ internal sealed class CreateRoutePolicyEndpoint : Endpoint<CreateRoutePolicyRequ
     public override void Configure()
     {
         Post("/ai/route-policies");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a route policy";
@@ -125,7 +125,7 @@ internal sealed class UpdateRoutePolicyEndpoint : Endpoint<UpdateRoutePolicyEndp
     public override void Configure()
     {
         Put("/ai/route-policies/{PolicyId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a route policy";
@@ -177,7 +177,7 @@ internal sealed class DeleteRoutePolicyEndpoint : Endpoint<DeleteRoutePolicyRequ
     public override void Configure()
     {
         Delete("/ai/route-policies/{PolicyId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete a route policy";

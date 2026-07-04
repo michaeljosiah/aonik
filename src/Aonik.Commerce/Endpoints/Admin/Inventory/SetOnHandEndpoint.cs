@@ -14,7 +14,7 @@ public class SetOnHandEndpoint : Endpoint<SetOnHandRequest, InventoryAvailabilit
     public override void Configure()
     {
         Post("/commerce/admin/variants/{variantId:guid}/inventory");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Set the on-hand stock for a variant.");
     }
 

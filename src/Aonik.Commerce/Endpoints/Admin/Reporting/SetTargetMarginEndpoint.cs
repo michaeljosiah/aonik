@@ -15,7 +15,7 @@ public class SetTargetMarginEndpoint : Endpoint<SetTargetMarginRequest, TargetMa
     public override void Configure()
     {
         Put("/commerce/admin/products/{productId:guid}/target-margin");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Set (or clear, with a null percentage) the product's target gross-margin percentage " +
             "(0–100) that the margin report flags achieved margin against.");

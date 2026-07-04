@@ -16,7 +16,7 @@ public class CreatePurchaseOrderEndpoint : Endpoint<CreatePurchaseOrderRequest, 
     public override void Configure()
     {
         Post("/commerce/admin/purchase-orders");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Create a Draft purchase order on the shared Order spine (OrderType PurchaseOrder). Line quantities are in the ingredient's base unit; omit a unit price to default from the supplier catalog (PackPrice / PackSize).");
     }
 

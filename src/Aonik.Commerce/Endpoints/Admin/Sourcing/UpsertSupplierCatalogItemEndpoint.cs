@@ -15,7 +15,7 @@ public class UpsertSupplierCatalogItemEndpoint : Endpoint<UpsertSupplierIngredie
     public override void Configure()
     {
         Put("/commerce/admin/suppliers/{supplierId:guid}/catalog");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Upsert one supplier price-list row (supplier x ingredient): the pack we buy in (PackSize, in the ingredient's base unit), the pack price, and the supplier's SKU.");
     }
 

@@ -15,7 +15,7 @@ public class CancelProductionOrderEndpoint : Endpoint<CancelProductionOrderReque
     public override void Configure()
     {
         Post("/commerce/admin/production-orders/{id:guid}/cancel");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Cancel a Planned, Released, or InProgress production run (Spec 056 §8). Cancelling after " +
             "release does NOT auto-restore the consumed ingredient stock — reconcile via an explicit " +

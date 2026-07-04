@@ -18,7 +18,7 @@ internal sealed class CreateWorkflowEndpoint
     public override void Configure()
     {
         Post("/ai/workflows");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a workflow";

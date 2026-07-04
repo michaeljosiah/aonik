@@ -15,7 +15,7 @@ public class CreateProductEndpoint : Endpoint<CreateProductRequest, ProductDto>
     public override void Configure()
     {
         Post("/commerce/admin/products");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Create a catalog product (Simple, Variant, or Bundle).");
     }
 

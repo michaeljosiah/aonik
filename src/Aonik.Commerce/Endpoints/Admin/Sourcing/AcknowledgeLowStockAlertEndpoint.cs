@@ -14,7 +14,7 @@ public class AcknowledgeLowStockAlertEndpoint : EndpointWithoutRequest<LowStockA
     public override void Configure()
     {
         Post("/commerce/admin/low-stock-alerts/{alertId:guid}/acknowledge");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Acknowledge an open low-stock alert (an operator is handling it). The alert stays active — the scan refreshes it rather than raising a second.");
     }
 

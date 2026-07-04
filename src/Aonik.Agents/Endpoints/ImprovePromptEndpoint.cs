@@ -22,7 +22,7 @@ internal sealed class ImprovePromptEndpoint
     public override void Configure()
     {
         Post("/ai/agents/improve-prompt");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Improve an agent system prompt";

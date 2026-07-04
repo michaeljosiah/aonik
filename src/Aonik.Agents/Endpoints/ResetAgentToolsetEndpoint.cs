@@ -37,7 +37,7 @@ internal sealed class ResetAgentToolsetEndpoint
     public override void Configure()
     {
         Post("/ai/agents/configurations/{Name}/reset-toolset");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Reset agent toolset to descriptor default";

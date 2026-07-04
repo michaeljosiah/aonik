@@ -19,7 +19,7 @@ internal sealed class DeleteWorkflowEndpoint
     public override void Configure()
     {
         Delete("/ai/workflows/{Slug}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete a workflow";

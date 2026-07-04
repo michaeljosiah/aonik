@@ -14,7 +14,7 @@ public class StartProductionOrderEndpoint : EndpointWithoutRequest<ProductionOrd
     public override void Configure()
     {
         Post("/commerce/admin/production-orders/{id:guid}/start");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Mark a Released production run as InProgress (the kitchen is cooking) — an optional " +
             "operational sub-state with no stock effect (Spec 056 §8).");

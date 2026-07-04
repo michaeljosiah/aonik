@@ -15,7 +15,7 @@ public class ReceiveGoodsEndpoint : Endpoint<ReceiveGoodsRequest, GoodsReceiptDt
     public override void Configure()
     {
         Post("/commerce/admin/purchase-orders/{orderId:guid}/receipts");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Receive goods against a submitted purchase order (full or partial): increments ingredient on-hand, optionally refreshes the actual unit cost, resolves recovered low-stock alerts, and completes the order when fully received. Idempotent by the required IdempotencyKey — a retried key returns the existing receipt without double-counting.");
     }
 

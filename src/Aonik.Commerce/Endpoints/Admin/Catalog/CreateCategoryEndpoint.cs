@@ -15,7 +15,7 @@ public class CreateCategoryEndpoint : Endpoint<CreateCategoryRequest, ProductCat
     public override void Configure()
     {
         Post("/commerce/admin/categories");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Create a catalog category.");
     }
 
