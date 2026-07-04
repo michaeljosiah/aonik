@@ -30,7 +30,7 @@ public static class LedgerMcpTools
         return await ledgerService.ListAccountsAsync(request, cancellationToken);
     }
 
-    [McpServerTool(Name = "finance_list_journal_entries"), Description("Lists journal entries, optionally filtered by ledger ID.")]
+    [McpServerTool(Name = "finance_list_journal_entries"), Description("Lists journal entries, optionally filtered by ledger ID. Returns the most recent entries up to a server-side page limit — not necessarily every entry.")]
     public static async Task<IReadOnlyList<JournalEntryResponse>> ListJournalEntries(
         ILedgerService ledgerService,
         [Description("Optional ledger ID to filter entries by")] Guid? ledgerId = null,

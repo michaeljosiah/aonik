@@ -65,13 +65,13 @@ public static class InvoiceMcpTools
         return $"Invoice {invoiceId} has been marked as paid.";
     }
 
-    [McpServerTool(Name = "finance_list_invoices"), Description("Lists invoices, optionally filtered by status. Returns all matching invoices with line items, totals, and dates.")]
+    [McpServerTool(Name = "finance_list_invoices"), Description("Lists invoices, optionally filtered by status. Returns the most recent invoices (up to a server-side page limit), each with line items, totals, and dates — not necessarily every invoice.")]
     public static async Task<IReadOnlyList<InvoiceResponse>> ListInvoices(
         IBillingService billingService,
         [Description("Optional status filter: Draft, Issued, Paid, or Cancelled. Leave empty for all.")] string? statusFilter = null,
         CancellationToken cancellationToken = default)
     {
-        return await billingService.ListInvoicesAsync(statusFilter, cancellationToken);
+        return await billingService.ListInvoicesAsync(statusFilter, cancellationToken: cancellationToken);
     }
 
     [McpServerTool(Name = "finance_add_invoice_line"), Description("Adds a new line item to an existing invoice and recalculates totals.")]

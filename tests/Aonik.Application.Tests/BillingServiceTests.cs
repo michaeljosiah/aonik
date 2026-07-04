@@ -159,4 +159,75 @@ public class BillingServiceTests
         // Assert
         result.Should().BeNull();
     }
+
+    private static BillingService CreateBillingService(FinanceDbContext context, Guid tenantId) =>
+        new(
+            context,
+            new TestTenantProvider(tenantId),
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
+
+    private static async Task SeedInvoicesAsync(BillingService service, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            await service.CreateInvoiceAsync(
+                new CreateInvoiceRequest(
+                    CustomerId: Guid.NewGuid(),
+                    InvoiceNumber: $"INV-{i:D3}",
+                    Currency: "USD",
+                    DueUtc: DateTime.UtcNow.AddDays(30),
+                    LineItems: new List<CreateInvoiceLineItemRequest> { new("Item", 1, 10.00m) }),
+                CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task ListInvoicesAsync_Should_CapAndPage_When_MoreInvoicesThanPageSize()
+    {
+        // Arrange — five invoices, page size two (issue H10: the list must be bounded).
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        var service = CreateBillingService(context, tenantId);
+        await SeedInvoicesAsync(service, 5);
+
+        // Act
+        var page1 = await service.ListInvoicesAsync(pageNumber: 1, pageSize: 2);
+        var page2 = await service.ListInvoicesAsync(pageNumber: 2, pageSize: 2);
+        var page3 = await service.ListInvoicesAsync(pageNumber: 3, pageSize: 2);
+
+        // Assert — each page is bounded, and the pages tile the full set with no overlap.
+        page1.Should().HaveCount(2);
+        page2.Should().HaveCount(2);
+        page3.Should().HaveCount(1);
+
+        var allIds = page1.Concat(page2).Concat(page3).Select(i => i.Id).ToList();
+        allIds.Should().OnlyHaveUniqueItems("deterministic paging must not repeat a row across pages");
+        allIds.Should().HaveCount(5, "every invoice must be reachable across the pages");
+    }
+
+    [Fact]
+    public async Task ListInvoicesAsync_Should_UseDefaultPageSize_When_PageSizeIsZeroOrNegative()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        var service = CreateBillingService(context, tenantId);
+        await SeedInvoicesAsync(service, 3);
+
+        // Act — pageSize 0 means "unspecified": it must fall back to the default (which
+        // comfortably holds three), not return zero rows.
+        var result = await service.ListInvoicesAsync(pageSize: 0);
+
+        // Assert
+        result.Should().HaveCount(3);
+    }
 }

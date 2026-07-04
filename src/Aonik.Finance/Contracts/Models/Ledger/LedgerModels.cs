@@ -36,7 +36,7 @@ public record AddJournalEntryRequest(
 
 public record ListLedgerAccountsRequest(Guid? LedgerId);
 
-public record ListJournalEntriesRequest(Guid? LedgerId);
+public record ListJournalEntriesRequest(Guid? LedgerId, int PageNumber = 1, int PageSize = 200);
 
 public record LedgerResponse(
     Guid Id,
