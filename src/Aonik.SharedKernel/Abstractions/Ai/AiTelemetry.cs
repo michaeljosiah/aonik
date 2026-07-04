@@ -44,6 +44,14 @@ public static class AiTelemetry
 
     public const string AiRunIdAttribute = "aonik.ai_run_id";
 
+    /// <summary>
+    /// Marker set on a streaming call's <c>ChatOptions.AdditionalProperties</c> by a caller that
+    /// already persists its own AiRun for the stream (AG-UI / voice, via
+    /// <c>PostStreamPersistenceCoordinator</c>). The audit middleware skips its own streaming
+    /// audit when this is present, so a streaming turn produces exactly one AiRun row (H14).
+    /// </summary>
+    public const string StreamAuditHandledDownstreamAttribute = "aonik.stream_audit_handled_downstream";
+
     public const string TraceObservationLogName = "AiTraceObservation";
 
     public const string ObservationIdAttribute = "aonik.observation.id";

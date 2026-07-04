@@ -78,8 +78,12 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                 ["message_count"] = input.ChatMessages.Count,
             }));
 
+        // This pipeline persists its own AiRun for the turn (PostStreamPersistenceCoordinator),
+        // so tell AuditMiddleware to skip its streaming audit and not write a duplicate row (H14).
+        var runOptions = MarkStreamAuditHandledDownstream(input.RunOptions);
+
         await foreach (var update in input.Agent.RunStreamingAsync(
-            input.ChatMessages, session: null, options: input.RunOptions, cancellationToken: cancellationToken))
+            input.ChatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
         {
             if (cancellationToken.IsCancellationRequested) break;
 
@@ -393,5 +397,25 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
         // text deltas downstream.
         voiceCoordinator?.StartChunkSynthesis(messageId, chunkIndex, chunkText, threadId, cancellationToken);
         return true;
+    }
+
+    // Marks the streaming call so AuditMiddleware skips its own AiRun for it (this pipeline persists
+    // one itself). Marks the existing ChatOptions in place where present so no other run-option
+    // settings are lost; only synthesises a fresh options object when there is nothing to mark.
+    private static ChatClientAgentRunOptions MarkStreamAuditHandledDownstream(ChatClientAgentRunOptions? runOptions)
+    {
+        if (runOptions?.ChatOptions is { } chatOptions)
+        {
+            (chatOptions.AdditionalProperties ??= [])[AiTelemetry.StreamAuditHandledDownstreamAttribute] = true;
+            return runOptions;
+        }
+
+        return new ChatClientAgentRunOptions(new ChatOptions
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [AiTelemetry.StreamAuditHandledDownstreamAttribute] = true,
+            },
+        });
     }
 }
