@@ -32,6 +32,16 @@ internal sealed class CustomerInsightAiSummaryJobSnapshotEnumerator : ICustomerI
         int batchSize,
         CancellationToken cancellationToken = default)
     {
+        // This scan is bounded by the number of *current* snapshots — one per active user
+        // (Status == Current), i.e. O(active users), not the transaction-proportional blowup
+        // the sibling user-enumerator had. It deliberately materialises the full current set
+        // rather than SQL-paging it: the "already summarised" exclusion below is the runaway
+        // guard, and it lives in a different module/DbContext (Aonik.Ai summaries), so it can
+        // be neither a SQL anti-join nor a bounded page here. Capping the candidate scan would
+        // risk returning empty while unprocessed snapshots still exist beyond the cap — which
+        // would silently stall summary generation. So the candidate set is scanned in full and
+        // the batch is taken after exclusion. Only the minimal (TenantId, UserId, Id) projection
+        // crosses the wire.
         var snapshots = await _financeDbContext.CustomerInsightSnapshots
             .AcrossTenants()
             .AsNoTracking()
