@@ -23,7 +23,7 @@ namespace Aonik.Finance.Agents;
 /// descriptor will swap to a <c>HyperlightCodeActProvider</c> wiring in
 /// Spec 025 Phase 1 once the WASM guest is sourced.
 /// </remarks>
-public sealed class PfForecastAgentDescriptor : IDomainAgentDescriptor
+public sealed class PfForecastAgentDescriptor : IDomainAgentDescriptor, ISubAgentDescriptor
 {
     public string Name => "pf-forecast";
 
@@ -170,13 +170,29 @@ public sealed class PfForecastAgentDescriptor : IDomainAgentDescriptor
         """;
 
     public AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
-        => Build(chatClient, serviceProvider, instructionsOverride: null, allowedToolNames: null);
+        => BuildInternal(chatClient, serviceProvider, instructionsOverride: null, allowedToolNames: null, snapshot: null);
 
     public AIAgent Build(
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         string? instructionsOverride,
         IReadOnlySet<string>? allowedToolNames)
+        => BuildInternal(chatClient, serviceProvider, instructionsOverride, allowedToolNames, snapshot: null);
+
+    AIAgent ISubAgentDescriptor.BuildWithImpersonation(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames,
+        SubAgentImpersonationSnapshot snapshot)
+        => BuildInternal(chatClient, serviceProvider, instructionsOverride, allowedToolNames, snapshot);
+
+    private AIAgent BuildInternal(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames,
+        SubAgentImpersonationSnapshot? snapshot)
     {
         var instructions = instructionsOverride ?? InstructionsText;
 
@@ -187,10 +203,11 @@ public sealed class PfForecastAgentDescriptor : IDomainAgentDescriptor
         var hostTools = PersonalFinanceTools.CreateForForecastSubAgent(serviceProvider)
             .OfType<AIFunction>()
             .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .Select(t => WrapForImpersonation(t, serviceProvider, snapshot))
             .ToList();
 
         var sandbox = serviceProvider.GetRequiredService<ICodeActSandboxProvider>();
-        var sandboxCtx = CodeActSandboxContextFactory.Resolve(serviceProvider, subAgentName: Name);
+        var sandboxCtx = CodeActSandboxContextFactory.Resolve(serviceProvider, subAgentName: Name, snapshot);
         var executeCode = sandbox.TryBuildExecuteCodeTool(sandboxCtx, hostTools);
 
         if (executeCode is not null)
@@ -207,6 +224,25 @@ public sealed class PfForecastAgentDescriptor : IDomainAgentDescriptor
             name: Name,
             instructions: instructions,
             tools: hostTools.Cast<AITool>().ToList());
+    }
+
+    /// <summary>
+    /// Wraps a host tool with <see cref="ContextRestoringAIFunction"/> when an
+    /// impersonation override is active, so the tool-loop fallback path
+    /// re-applies the parent's snapshot on every invocation rather than just
+    /// once at build time. No-ops (returns <paramref name="inner"/> unchanged)
+    /// on the ordinary non-impersonated path.
+    /// </summary>
+    private static AIFunction WrapForImpersonation(
+        AIFunction inner,
+        IServiceProvider serviceProvider,
+        SubAgentImpersonationSnapshot? snapshot)
+    {
+        if (snapshot is null || !snapshot.HasOverride)
+        {
+            return inner;
+        }
+        return new ContextRestoringAIFunction(inner, serviceProvider, snapshot);
     }
 
     public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
