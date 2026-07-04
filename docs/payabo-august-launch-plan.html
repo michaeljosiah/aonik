@@ -283,17 +283,18 @@
 <main class="page">
 
 <header class="cover">
-  <div class="eyebrow">Strategic Plan · Internal</div>
+  <div class="eyebrow" style="color:var(--danger);">Strategic Plan · Internal · <strong>Superseded 4 Jul 2026 — see below</strong></div>
   <h1>Payabo — A Technical Launch in August, a Hard Launch in October</h1>
-  <p class="lede">An honest, capacity-realistic plan split across two milestones: a code-complete, sandbox-validated technical launch by end-August 2026, and a real-money public launch to fifty Nigerian-diaspora professionals once the company, partner, and permissions are in place — targeted for end-October. Written from the code rather than from the slides.</p>
+  <p class="lede">An honest, capacity-realistic plan split across two milestones: a code-complete, sandbox-validated technical launch by end-August 2026, and a real-money public launch to fifty Nigerian-diaspora professionals once the company, partner, and permissions are in place — targeted for end-October. Written from the code rather than from the slides. <strong style="color:var(--danger);">These dates are no longer the operative plan — see the 4 July supersession note.</strong></p>
   <div class="meta">
-    Written 24 May 2026 (commit <code>e2d0bdca</code>) · <strong>Revised 6 June 2026</strong> (commit <code>d34c7ab9</code>) · <strong>Revised again 7 June 2026</strong> (commit <code>3d058602</code>, branch <code>master</code>) · M1 Technical Launch ~31 Aug 2026 · M2 Hard Launch ~31 Oct 2026 · ~22 weeks · Author: planning collaborator for Michael Josiah, founder
+    Written 24 May 2026 (commit <code>e2d0bdca</code>) · <strong>Revised 6 June 2026</strong> (commit <code>d34c7ab9</code>) · <strong>Revised again 7 June 2026</strong> (commit <code>3d058602</code>, branch <code>master</code>) · <strong style="color:var(--danger);">Superseded 4 July 2026</strong> (commit <code>71f0d140</code>) · M1 Technical Launch ~31 Aug 2026 <span class="struck" style="text-decoration:line-through;">(no longer live)</span> · M2 Hard Launch ~31 Oct 2026 <span class="struck" style="text-decoration:line-through;">(no longer live)</span> · Author: planning collaborator for Michael Josiah, founder
   </div>
 </header>
 
 <nav class="toc">
   <strong>Contents</strong>
-  <p style="margin:8px 0 4px;"><a href="#reframe" style="color:var(--info);border-bottom-color:var(--info);font-weight:700;">◆ The Two-Milestone Plan — 7 June reframe</a> <span style="color:var(--muted);">(Aug technical launch · Oct hard launch — the current spine)</span></p>
+  <p style="margin:8px 0 4px;"><a href="#superseded" style="color:var(--danger);border-bottom-color:var(--danger);font-weight:700;">■ Superseded — 4 July 2026</a> <span style="color:var(--muted);">(read this first — Payabo is now gated to Q2 2027+ by the Simi-first pivot)</span></p>
+  <p style="margin:0 0 4px;"><a href="#reframe" style="color:var(--info);border-bottom-color:var(--info);font-weight:700;">◆ The Two-Milestone Plan — 7 June reframe</a> <span style="color:var(--muted);">(Aug technical launch · Oct hard launch — historical; see above)</span></p>
   <p style="margin:0 0 4px;"><a href="#update7" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 7 June 2026</a> <span style="color:var(--muted);">(state audit; the wedge backend landed)</span></p>
   <p style="margin:0 0 4px;"><a href="#update" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 6 June 2026</a> <span style="color:var(--muted);">(revision layer; original plan numbering unchanged below)</span></p>
   <ol>
@@ -328,6 +329,46 @@
 
 <h4>Honest verdict — and the 7 June reframe</h4>
 <p>The single August date has since been split in two, because the engineering and the paperwork are on different clocks. <strong>The technology can be ready by August; the company, the partner contract, and the regulatory permission cannot.</strong> There is no registered company yet, and tier-1 partners (Flutterwave) signal they will not onboard a pre-revenue business. So the plan now runs to two milestones: a <strong>technical launch by ~31 August</strong> — code-complete, validated in the partner sandbox, exercised by a closed alpha with <em>no real money</em> — and a <strong>hard launch by ~31 October</strong>, the real-money public go-live this document originally described, moved to the date the commercial track can actually support. The discipline is unchanged (one corridor, manual compliance for the first fifty, a ruthless freeze on Compass / voice / platform breadth); what changed is the honest admission that the binding constraint is paperwork, not code. <strong>See <a href="#reframe">The Two-Milestone Plan</a> for the full structure.</strong></p>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="superseded">
+<h2 style="border-bottom:2px solid var(--danger);">Superseded <span style="font-size:14px;color:var(--muted);font-weight:400;">· 4 July 2026 — the Aug/Oct milestones below are no longer the operative plan</span></h2>
+
+<div class="callout danger">
+  <div class="label">The one-sentence verdict</div>
+  <strong>This document's M1 (~31 Aug) and M2 (~31 Oct) dates are no longer live.</strong> A formal strategic pivot — Simi Rev 4, June 2026 — resequenced the roadmap: a licence-free "keeper" product ships first, and Payabo now gates to <strong>Phase 4, "realistically Q2 2027+."</strong> This is not schedule slip; it is confirmed by the fact that nothing on the remittance critical path has moved in the four weeks since this document's last revision (7 June) — because nobody has been working on it. What follows below is preserved as a reference, not a countdown: the gap analysis is still accurate and will matter again whenever Phase 4 actually starts.
+</div>
+
+<h3>Why: the strategy moved, not just the calendar</h3>
+<p>A sibling repository (<code>Simi</code>, a fork of the Payabo mobile app) holds <code>docs/simi-launch-plan.html</code> Rev 4 (June 2026), titled <em>"Simi first. Payabo when the paperwork is ready."</em> Its reasoning mirrors this document's own two-track insight: <strong>Track B (company, partner, FCA permission) is gated by parties outside the founder's control and will not move faster for more engineering effort</strong> — so rather than let engineering capacity idle while Track B crawls, ship a different product on the same AONIK platform that needs no money-movement licence at all. Simi is "the keeper of cross-border lives" — commitments, capture, proof — with Payabo arriving later as an additive "Send money" surface inside the app Simi's users already trust: same SSO, same circle, same commitments, one new button. Its phase plan: Phase 1 (build the keeper) mid-Jun → early Aug, Phase 2 (learn, instrumented) Aug → Oct, Phase 3 (the decision) ~Dec 2026 / Jan 2027, and only then <strong>Phase 4 — Add Payabo, gated, "realistically Q2 2027+."</strong></p>
+
+<h3>The critical path did not move — reverified fresh against commit <code>71f0d140</code></h3>
+<p>Every item the 7 June layer flagged as open is <em>still exactly where it was</em>:</p>
+<ul>
+  <li><strong>Fund-collection (IN leg):</strong> <code>StripeSimulatedPaymentProviderGateway</code> is still the only <code>IPaymentProviderGateway</code> — fake <code>pi_..._secret_...</code>, hardcoded <code>"Pending"</code>, no real charge.</li>
+  <li><strong>Live FX:</strong> <code>CrossBorderPricingSeedPhase.cs</code> still seeds <code>"DemoRate"</code> (GBP→NGN 1985.25); <code>FxRateService.GetRateAsync</code> still reads the seeded table, not Flutterwave's <code>/transfers/rates</code>.</li>
+  <li><strong>Transmission processor:</strong> still no background job — <code>RemittanceOrderService</code> creates a <code>Transmission</code> row inline and nothing polls or retries it.</li>
+  <li><strong>Compliance:</strong> <code>ComplianceService.ScreenPartyAsync</code> still hardcodes <code>"Passed"</code>, <code>RequiresComplianceReviewAsync</code> still hardcodes <code>false</code>, and no IDV vendor (Onfido/Veriff/Persona/Sumsub/ComplyAdvantage/Refinitiv) exists anywhere in the codebase.</li>
+  <li><strong>Biller catalog:</strong> still missing all four MVP billers (DSTV, GoTV, MTN airtime, PHCN); Kenya (Kenya Power) and South Africa (City Power) are still in seed data alongside Nigeria.</li>
+  <li><strong>Mobile</strong> (<code>apps/payabo_mobile</code>): <strong>45 days</strong> since its last commit (20 May). <strong>Web</strong> (<code>apps/Payabo</code>): <strong>117 days</strong> (9 March).</li>
+</ul>
+<p>None of this is a surprise once Track B's constraint is taken seriously — it is the expected shape of "the money-moving half is on ice while the keeper half ships."</p>
+
+<h3>Two things shipped that this plan explicitly said not to</h3>
+<p>Since 7 June, two features landed that were this document's most emphatic, most-repeated cuts:</p>
+<ul>
+  <li><strong>AONIK Compass</strong> (Spec 021, commit <code>71ae4a85</code>, 20 Jun) — the full goal → plan → guidance → proposal loop, built and tested. This document named Compass as a cut <strong>at least five separate times</strong> (§1, §2.6, §2.7, §3.4, §8) — "zero code today... defer to Q1 2027," "park entirely." It is no longer zero code.</li>
+  <li><strong>Card vault</strong> (Spec 007, commit <code>6b829f4d</code>, 20 Jun) — tokenised payment methods, thoroughly reviewed (several fix rounds for PCI-guard and concurrency correctness). §8 named this a cut too: "let the partner own PCI."</li>
+</ul>
+<p>Both are solid engineering, but neither commit references this plan, so it isn't clear whether this was a deliberate reprioritisation or the spec backlog being worked through without this document in view. Worth a founder call either way — both now sit in the codebase unused by any shipping product.</p>
+
+<h3>A third, unplanned direction</h3>
+<p>The four days immediately before this update (1–4 Jul) went entirely into <strong>Commerce maker-ops</strong> (specs 050–059) — ingredients, recipes, suppliers, purchase orders, production orders, margin reporting, and an admin nav restructure for a B2B/retail vertical. This was explicit, direct founder direction, not agent drift — but it is, by definition, <strong>a new AONIK module</strong>, which is the one thing both this document (§7, "sunk-cost gravity from AONIK platform breadth") <em>and</em> the Simi Rev 4 plan ("no new AONIK modules... the 27k-LOC drift happened once; it can't happen on a part-time budget") independently rule out. Neither document accounts for a third product line. If Commerce is a deliberate bet, it deserves its own plan with its own guardrails on the same honest terms as this one and Simi's, rather than sitting as an implicit fourth thing competing for the same finite engineering attention.</p>
+
+<h3>What this means going forward</h3>
+<p>This document's §2–§8 (state assessment, MVP definition, gap analysis, the sprint plan, risks, cuts) remain <strong>accurate as a snapshot and useful as a backlog</strong> — the moment Track B clears and Phase 4 starts, this is still the right gap analysis to resume from. What it is no longer is a live countdown: nobody should read "~31 Aug 2026" below and expect it to happen. The operative plan today is Simi Rev 4's phased sequence, with this document's content waiting at the end of it.</p>
 
 </section>
 
@@ -1470,7 +1511,7 @@
 </section>
 
 <p class="footnote">
-  This document was written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026, and <strong>revised 6 June 2026 against commit <code>d34c7ab9</code></strong> (branch <code>feat/spec-033-tenant-agent-extensibility</code>), and <strong>revised again 7 June 2026 against commit <code>3d058602</code></strong> (branch <code>master</code>). The 24 May baseline and the 6 June layer are both preserved; the 7 June revision adds the "Progress Update — 7 June 2026" state audit and inline <span class="upd">▲ 7 Jun</span> notes on the §2.4 rows the wedge backend made stale, and restructures the forward plan around two milestones — adding "The Two-Milestone Plan" section (M1 technical launch ~31 Aug / M2 hard launch ~31 Oct) and reworking §3, §5, §6.3 and §7 to match. The 6 June revision adds the "Progress Update — 6 June 2026" section and inline <span class="upd">▲ 6 Jun</span> notes, each re-verified against current code (parallel file-level audit of the Finance, PersonalFinance, Platform/Compliance, Agents/AI/Voice, mobile, and web surfaces). Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
+  <strong>Marked superseded 4 July 2026 against commit <code>71f0d140</code></strong> (branch <code>master</code>) — the "Superseded" section adds the reason (the Simi Rev 4 launch plan, in the sibling <code>Simi</code> repo, resequences Payabo to Phase 4, "realistically Q2 2027+"), reverifies the remittance critical path found unchanged since 7 June, and flags two plan-contradicting builds (Compass, Card vault) plus a third unplanned direction (Commerce maker-ops). This document was written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026, and <strong>revised 6 June 2026 against commit <code>d34c7ab9</code></strong> (branch <code>feat/spec-033-tenant-agent-extensibility</code>), and <strong>revised again 7 June 2026 against commit <code>3d058602</code></strong> (branch <code>master</code>). The 24 May baseline and the 6 June layer are both preserved; the 7 June revision adds the "Progress Update — 7 June 2026" state audit and inline <span class="upd">▲ 7 Jun</span> notes on the §2.4 rows the wedge backend made stale, and restructures the forward plan around two milestones — adding "The Two-Milestone Plan" section (M1 technical launch ~31 Aug / M2 hard launch ~31 Oct) and reworking §3, §5, §6.3 and §7 to match. The 6 June revision adds the "Progress Update — 6 June 2026" section and inline <span class="upd">▲ 6 Jun</span> notes, each re-verified against current code (parallel file-level audit of the Finance, PersonalFinance, Platform/Compliance, Agents/AI/Voice, mobile, and web surfaces). Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
 </p>
 
 </main>
