@@ -21,7 +21,7 @@ internal sealed class DeleteAgentConfigurationEndpoint
     public override void Configure()
     {
         Delete("/ai/agents/configurations/{Name}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete agent configuration override";

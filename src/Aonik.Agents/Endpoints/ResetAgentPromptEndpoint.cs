@@ -24,7 +24,7 @@ internal sealed class ResetAgentPromptEndpoint
     public override void Configure()
     {
         Post("/ai/agents/configurations/{Name}/reset-prompt");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Reset agent prompt to hard-coded default";

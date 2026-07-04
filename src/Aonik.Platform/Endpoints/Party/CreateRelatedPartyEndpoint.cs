@@ -18,7 +18,7 @@ public class CreateRelatedPartyEndpoint : Endpoint<ApiContracts.CreateRelatedPar
     public override void Configure()
     {
         Post("/parties/{partyId:guid}/relationships");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a related party";

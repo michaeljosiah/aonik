@@ -15,7 +15,7 @@ public class CancelPurchaseOrderEndpoint : Endpoint<CancelPurchaseOrderRequest, 
     public override void Configure()
     {
         Post("/commerce/admin/purchase-orders/{orderId:guid}/cancel");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Cancel a purchase order before receipt (allowed from Draft or Pending only).");
     }
 

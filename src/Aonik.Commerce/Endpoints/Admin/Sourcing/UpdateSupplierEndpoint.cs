@@ -15,7 +15,7 @@ public class UpdateSupplierEndpoint : Endpoint<UpdateSupplierRequest, SupplierDt
     public override void Configure()
     {
         Put("/commerce/admin/suppliers/{supplierId:guid}");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Update a supplier's master data. Omit isActive to leave the stored active state unchanged.");
     }
 

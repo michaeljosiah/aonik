@@ -15,7 +15,7 @@ public class CreateProductionOrderEndpoint : Endpoint<CreateProductionOrderReque
     public override void Configure()
     {
         Post("/commerce/admin/production-orders");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Create a Planned production run (Spec 056): the dishes (variants) and portions to make. " +
             "Each line's recipe is exploded once and frozen onto the line as its per-portion snapshot — " +

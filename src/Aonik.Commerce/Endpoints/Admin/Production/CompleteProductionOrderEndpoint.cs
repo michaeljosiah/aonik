@@ -15,7 +15,7 @@ public class CompleteProductionOrderEndpoint : Endpoint<CompleteProductionOrderR
     public override void Configure()
     {
         Post("/commerce/admin/production-orders/{id:guid}/complete");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Complete a Released/InProgress production run (Spec 056 §10): records each line's produced " +
             "portions (explicit actuals, else the planned quantity) and — when yieldFinishedGoods is true, " +

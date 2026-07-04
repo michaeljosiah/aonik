@@ -97,4 +97,85 @@ public class AuthorizationPolicyTests : IClassFixture<CustomWebApplicationFactor
         // Assert — ReadOnly retains read access: authorized-but-absent (404), never 403.
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    // ── H12: admin platform-configuration mutations (AdminWritePolicy) ────────────
+    // These endpoints have no service-level permission gate, so the endpoint policy is
+    // the only authorization layer — a 403 here is unambiguously a role (policy) denial.
+    // The empty body means a role that PASSES the policy reaches the validator and gets
+    // a 400, so "not 403" cleanly proves the auth layer let the principal through.
+
+    [Fact]
+    public async Task MutatingAdminConfigEndpoint_Should_ReturnForbidden_When_RoleIsPersonalUser()
+    {
+        // A Payabo (B2C) end user must never reconfigure AI routing.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var response = await client.PostAsJsonAsync("/ai/route-policies", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task MutatingAdminConfigEndpoint_Should_ReturnForbidden_When_RoleIsReadOnly()
+    {
+        // A read-only operator must never mutate platform configuration.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("ReadOnly"));
+
+        var response = await client.PostAsJsonAsync("/ai/route-policies", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task MutatingAdminConfigEndpoint_Should_NotReturnForbidden_When_RoleIsOperations()
+    {
+        // Operations legitimately administers platform configuration and must retain access.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("Operations"));
+
+        var response = await client.PostAsJsonAsync("/ai/route-policies", new { });
+
+        response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ReadAdminConfigEndpoint_Should_NotReturnForbidden_When_RoleIsReadOnly()
+    {
+        // The matching READ endpoint stays on AdminUserPolicy, so ReadOnly keeps view access
+        // — this guards against the write-policy split over-reaching onto reads.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("ReadOnly"));
+
+        var response = await client.GetAsync("/ai/route-policies");
+
+        response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task MutatingCommerceAdminEndpoint_Should_ReturnForbidden_When_RoleIsPersonalUser()
+    {
+        // A Payabo/Simi (B2C) end user must never reach back-office /commerce/admin writes.
+        // These moved from AdminUserWritePolicy (which admitted PersonalUser) to AdminWritePolicy.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var response = await client.PostAsJsonAsync("/commerce/admin/products", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task MutatingComplianceEndpoint_Should_ReturnForbidden_When_RoleIsReadOnly()
+    {
+        // A read-only operator must never record a compliance approve/reject decision.
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("ReadOnly"));
+
+        var response = await client.PostAsJsonAsync(
+            $"/compliance/document-usages/{Guid.NewGuid()}/verifications", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

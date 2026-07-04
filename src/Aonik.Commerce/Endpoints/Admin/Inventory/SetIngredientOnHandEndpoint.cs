@@ -15,7 +15,7 @@ public class SetIngredientOnHandEndpoint : Endpoint<SetOnHandRequest, StockLevel
     public override void Configure()
     {
         Post("/commerce/admin/ingredients/{ingredientId:guid}/inventory");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Set the on-hand stock for an ingredient (raw material), in its base unit.");
     }
 

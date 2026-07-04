@@ -15,7 +15,7 @@ public class CreateSupplierEndpoint : Endpoint<CreateSupplierRequest, SupplierDt
     public override void Configure()
     {
         Post("/commerce/admin/suppliers");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Register a supplier (a counterparty we buy raw materials from).");
     }
 

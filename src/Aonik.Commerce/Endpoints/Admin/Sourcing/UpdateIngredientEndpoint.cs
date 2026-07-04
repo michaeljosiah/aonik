@@ -15,7 +15,7 @@ public class UpdateIngredientEndpoint : Endpoint<UpdateIngredientRequest, Ingred
     public override void Configure()
     {
         Put("/commerce/admin/ingredients/{ingredientId:guid}");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Update an ingredient's master data (name, base unit, sku, category, notes, active flag). Omit isActive to leave the stored active state unchanged.");
     }
 

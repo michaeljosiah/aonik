@@ -21,7 +21,7 @@ internal sealed class UpsertAgentConfigurationEndpoint
     public override void Configure()
     {
         Put("/ai/agents/configurations/{Name}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create or update agent configuration";

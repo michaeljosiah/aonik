@@ -14,7 +14,7 @@ public class SubmitPurchaseOrderEndpoint : EndpointWithoutRequest<OrderDto>
     public override void Configure()
     {
         Post("/commerce/admin/purchase-orders/{orderId:guid}/submit");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Submit a Draft purchase order to the supplier (Draft -> Pending on the spine's existing status codes).");
     }
 

@@ -16,7 +16,7 @@ public class AddBundleSlotEndpoint : Endpoint<AddBundleSlotRequest, BundleSlotDt
     public override void Configure()
     {
         Post("/commerce/admin/products/{productId:guid}/bundle-slots");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Add a build-your-own-box selection slot to a bundle product.");
     }
 

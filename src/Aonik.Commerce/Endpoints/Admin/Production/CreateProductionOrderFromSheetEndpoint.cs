@@ -15,7 +15,7 @@ public class CreateProductionOrderFromSheetEndpoint : Endpoint<CreateProductionO
     public override void Configure()
     {
         Post("/commerce/admin/production-orders/from-sheet");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Seed a Planned production run from the Spec 055 production sheet for a UTC window " +
             "(half-open [fromUtc, toUtc)): one line per demanded variant with an active recipe. " +

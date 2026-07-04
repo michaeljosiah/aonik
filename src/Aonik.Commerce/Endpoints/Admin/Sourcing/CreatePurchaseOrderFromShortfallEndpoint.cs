@@ -16,7 +16,7 @@ public class CreatePurchaseOrderFromShortfallEndpoint : Endpoint<CreatePurchaseO
     public override void Configure()
     {
         Post("/commerce/admin/purchase-orders/from-shortfall");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Seed a Draft purchase order from low-stock alerts: named alert ids, or (omitted) every Open/Acknowledged alert this supplier can supply. Quantities are pack-rounded from the shortfall (or the level's reorder quantity); the source alerts flip to Ordered.");
     }
 

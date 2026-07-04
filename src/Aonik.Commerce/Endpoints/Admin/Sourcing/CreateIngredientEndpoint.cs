@@ -15,7 +15,7 @@ public class CreateIngredientEndpoint : Endpoint<CreateIngredientRequest, Ingred
     public override void Configure()
     {
         Post("/commerce/admin/ingredients");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Create an ingredient (raw material) with a base unit of measure.");
     }
 

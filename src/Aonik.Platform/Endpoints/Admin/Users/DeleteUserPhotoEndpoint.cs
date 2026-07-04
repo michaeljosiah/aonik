@@ -18,7 +18,7 @@ internal class DeleteUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoDel
     public override void Configure()
     {
         Delete("/admin/users/{userId}/photo");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete user profile photo";

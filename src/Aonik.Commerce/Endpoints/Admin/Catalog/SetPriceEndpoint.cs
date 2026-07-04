@@ -15,7 +15,7 @@ public class SetPriceEndpoint : Endpoint<SetPriceRequest, ProductPriceDto>
     public override void Configure()
     {
         Post("/commerce/admin/variants/{variantId:guid}/prices");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Set the active price for a variant in a currency.");
     }
 

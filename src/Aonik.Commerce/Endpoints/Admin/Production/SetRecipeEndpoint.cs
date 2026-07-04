@@ -15,7 +15,7 @@ public class SetRecipeEndpoint : Endpoint<SetRecipeRequest, RecipeDto>
     public override void Configure()
     {
         Put("/commerce/admin/variants/{variantId:guid}/recipe");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Define (or replace, in place) the active recipe / bill of materials for a variant.");
     }
 

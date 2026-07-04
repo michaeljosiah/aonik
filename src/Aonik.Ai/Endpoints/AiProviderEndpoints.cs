@@ -91,7 +91,7 @@ internal sealed class CreateAiProviderEndpoint : Endpoint<CreateAiProviderReques
     public override void Configure()
     {
         Post("/ai/providers");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create an AI provider";
@@ -124,7 +124,7 @@ internal sealed class UpdateAiProviderEndpoint : Endpoint<UpdateAiProviderEndpoi
     public override void Configure()
     {
         Put("/ai/providers/{ProviderId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update an AI provider";
@@ -172,7 +172,7 @@ internal sealed class DeleteAiProviderEndpoint : Endpoint<DeleteAiProviderReques
     public override void Configure()
     {
         Delete("/ai/providers/{ProviderId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete an AI provider";

@@ -15,7 +15,7 @@ public class SetIngredientCostEndpoint : Endpoint<SetIngredientCostRequest, Ingr
     public override void Configure()
     {
         Put("/commerce/admin/ingredients/{ingredientId:guid}/cost");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Set a new effective-dated unit cost for an ingredient (per its base unit, in one currency). Closes the prior cost and preserves it as history; omit effectiveFrom for now, or pass a future date to schedule the cost.");
     }
 

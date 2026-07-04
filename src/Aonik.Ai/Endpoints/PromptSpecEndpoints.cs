@@ -92,7 +92,7 @@ internal sealed class CreatePromptSpecEndpoint : Endpoint<CreatePromptSpecReques
     public override void Configure()
     {
         Post("/ai/prompts");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a prompt specification";
@@ -125,7 +125,7 @@ internal sealed class UpdatePromptSpecEndpoint : Endpoint<UpdatePromptSpecEndpoi
     public override void Configure()
     {
         Put("/ai/prompts/{PromptId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a prompt specification";
@@ -179,7 +179,7 @@ internal sealed class DeletePromptSpecEndpoint : Endpoint<DeletePromptSpecReques
     public override void Configure()
     {
         Delete("/ai/prompts/{PromptId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete a prompt specification";

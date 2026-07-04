@@ -17,7 +17,7 @@ public class AddDocumentVerificationEndpoint : Endpoint<AddDocumentVerificationR
     public override void Configure()
     {
         Post("/compliance/document-usages/{id}/verifications");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Add verification to a document usage";

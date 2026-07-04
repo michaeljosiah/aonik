@@ -18,7 +18,7 @@ internal sealed class UpdateWorkflowEndpoint
     public override void Configure()
     {
         Put("/ai/workflows/{Slug}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a workflow's graph";

@@ -15,7 +15,7 @@ public class AddVariantEndpoint : Endpoint<AddVariantRequest, ProductVariantDto>
     public override void Configure()
     {
         Post("/commerce/admin/products/{productId:guid}/variants");
-        Policies("AdminUserWritePolicy");
+        Policies("AdminWritePolicy");
         Summary(s => s.Summary = "Add a variant to a product.");
     }
 

@@ -97,7 +97,7 @@ internal sealed class CreateAiModelEndpoint : Endpoint<CreateAiModelRequest, AiM
     public override void Configure()
     {
         Post("/ai/models");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create an AI model";
@@ -130,7 +130,7 @@ internal sealed class UpdateAiModelEndpoint : Endpoint<UpdateAiModelEndpointRequ
     public override void Configure()
     {
         Put("/ai/models/{ModelId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update an AI model";
@@ -182,7 +182,7 @@ internal sealed class DeleteAiModelEndpoint : Endpoint<DeleteAiModelRequest>
     public override void Configure()
     {
         Delete("/ai/models/{ModelId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete an AI model";

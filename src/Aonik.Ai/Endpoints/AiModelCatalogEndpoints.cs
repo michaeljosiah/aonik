@@ -98,7 +98,7 @@ internal sealed class ImportAiCatalogModelProviderEndpoint : Endpoint<ImportAiCa
     public override void Configure()
     {
         Post("/ai/model-catalog/model-providers/{ModelProviderKey}/import");
-        Policies("AdminUserPolicy");
+        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Import a catalog model provider";
