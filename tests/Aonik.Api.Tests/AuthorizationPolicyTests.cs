@@ -178,4 +178,16 @@ public class AuthorizationPolicyTests : IClassFixture<CustomWebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
+
+    [Fact]
+    public async Task ChatThreadListEndpoint_Should_ReturnUnauthorized_When_Unauthenticated()
+    {
+        // H15: the chat-thread endpoints were AllowAnonymous; they now require authentication
+        // (owner-only scoping is additionally enforced in ChatThreadService).
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/ai/threads");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

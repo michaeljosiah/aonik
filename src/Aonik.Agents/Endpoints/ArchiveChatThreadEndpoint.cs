@@ -21,7 +21,9 @@ internal sealed class ArchiveChatThreadEndpoint
     public override void Configure()
     {
         Delete("/ai/threads/{ThreadId}");
-        AllowAnonymous(); // Auth handled by tenant/user providers
+        // H15: require authentication (write policy excludes ReadOnly); ChatThreadService
+        // enforces owner-only access on top.
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Archive a chat thread";
