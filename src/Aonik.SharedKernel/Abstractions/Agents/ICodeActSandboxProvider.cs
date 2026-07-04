@@ -65,3 +65,58 @@ public sealed record CodeActSandboxContext(
     string RunId,
     Guid TenantId,
     Guid? CurrentUserId);
+
+/// <summary>
+/// User + tenant snapshot captured by a parent agent's tool (e.g.
+/// <c>PersonalFinanceTools.RunInsights</c>) immediately before it resolves and
+/// builds a Spec 025 sub-agent descriptor — synchronously, before any awaits.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Lives on SharedKernel (alongside <see cref="CodeActSandboxContext"/>)
+/// rather than in <c>Aonik.Finance.Agents</c> because
+/// <c>CodeActSandboxContextFactory</c> — which needs to accept this snapshot
+/// to prefer it over the ambient scope when baking an ACA Sessions nonce —
+/// now lives in the <c>Aonik.PersonalFinance</c> assembly (Spec 027 Phase 5,
+/// in progress). <c>Aonik.PersonalFinance</c> deliberately has no
+/// <c>ProjectReference</c> back to <c>Aonik.Finance</c> (siblings, not
+/// parent/child — see ADR-006), so a type this factory accepts as a parameter
+/// cannot itself live in <c>Aonik.Finance</c>. Both modules already reference
+/// SharedKernel, so this is the one place both sides of that call can see it.
+/// </para>
+/// <para>
+/// Both <c>ICurrentUserContext</c> and <c>ITenantContext</c> are ordinary
+/// DI-scoped services with settable properties (not immutable, not
+/// AsyncLocal-backed) — nothing stops another consumer sharing the same scope
+/// from mutating them between the parent's read and the sub-agent's tool
+/// actually executing. Passing this snapshot through explicitly, rather than
+/// trusting a second resolve of the same scoped services later, is what makes
+/// the sub-agent's view of "current user" immune to that class of drift.
+/// </para>
+/// </remarks>
+/// <param name="UserId">
+/// The impersonated end-user id the parent saw at the moment it decided to
+/// invoke the sub-agent. Null when no impersonation override is active and
+/// the caller is themselves the end user (the ordinary Payabo/production
+/// case) — in that case the sub-agent should behave exactly as before this
+/// fix, relying on whatever the scope resolves.
+/// </param>
+/// <param name="TenantId">
+/// The tenant id the parent ran under. Captured alongside <c>UserId</c>
+/// because both must be re-applied together before any tenant-filtered query
+/// runs — re-applying one without the other could scope a query to the right
+/// user in the wrong tenant.
+/// </param>
+public sealed record SubAgentImpersonationSnapshot(Guid? UserId, Guid? TenantId)
+{
+    public static SubAgentImpersonationSnapshot Empty { get; } = new(UserId: null, TenantId: null);
+
+    /// <summary>
+    /// True when this snapshot carries an explicit override worth re-applying.
+    /// Both <see cref="CodeActSandboxContext"/> callers (via
+    /// <c>CodeActSandboxContextFactory</c>) and <c>ContextRestoringAIFunction</c>
+    /// use this to no-op cheaply on the ordinary (non-impersonated) path
+    /// instead of touching the scoped contexts on every call.
+    /// </summary>
+    public bool HasOverride => UserId.HasValue || TenantId.HasValue;
+}

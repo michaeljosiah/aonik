@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using Aonik.Finance.Agents;
 using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.Finance.Contracts.Models.Orders;
@@ -272,6 +273,13 @@ internal sealed class PersonalFinanceTools
         var request = new InsightsRequest(userQuestion, kind, periodStart, periodEnd, personalAccountId);
         var message = JsonSerializer.Serialize(request, InsightsStructuredOutputContract.SerializerOptions);
 
+        // Snapshot the parent's user + tenant BEFORE any awaits so the
+        // sub-agent's tools observe exactly the impersonated identity the
+        // parent saw at the moment it decided to delegate — even if some
+        // continuation downstream resets the scoped context. See
+        // SubAgentImpersonation.cs for the full rationale.
+        var snapshot = CaptureImpersonationSnapshot();
+
         try
         {
             // Agent construction is inside the try because the descriptor's
@@ -279,7 +287,7 @@ internal sealed class PersonalFinanceTools
             // tenant/user contexts) and any failure there used to escape as the
             // unactionable MAF "Error: Function failed." wrapper.
             var descriptor = ResolveSubAgentDescriptor("pf-insights");
-            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+            var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
             var response = await agent.RunAsync<InsightsResult>(
                 message,
@@ -308,10 +316,12 @@ internal sealed class PersonalFinanceTools
         var request = new ForecastRequest(userQuestion, asOfDate, horizonDays);
         var message = JsonSerializer.Serialize(request, ForecastStructuredOutputContract.SerializerOptions);
 
+        var snapshot = CaptureImpersonationSnapshot();
+
         try
         {
             var descriptor = ResolveSubAgentDescriptor("pf-forecast");
-            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+            var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
             var response = await agent.RunAsync<ForecastResult>(
                 message,
@@ -341,11 +351,13 @@ internal sealed class PersonalFinanceTools
         var request = new ClassifyRequest(userQuestion, maxItems, personalAccountId);
         var message = JsonSerializer.Serialize(request, ClassifyStructuredOutputContract.SerializerOptions);
 
+        var snapshot = CaptureImpersonationSnapshot();
+
         ClassifyResult analysis;
         try
         {
             var descriptor = ResolveSubAgentDescriptor("pf-classify");
-            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+            var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
             var response = await agent.RunAsync<ClassifyResult>(
                 message,
@@ -465,6 +477,26 @@ internal sealed class PersonalFinanceTools
         return descriptor
             ?? throw new InvalidOperationException(
                 $"The '{name}' sub-agent descriptor is not registered in DI. Check FinanceModule.ConfigureServices.");
+    }
+
+    /// <summary>
+    /// Captures the parent's current user + tenant synchronously, before any
+    /// awaits, so a Spec 025 sub-agent invoked via <c>RunInsights</c> /
+    /// <c>RunForecast</c> / <c>RunClassifyReview</c> sees exactly the
+    /// impersonated identity the parent saw at the moment it decided to
+    /// delegate — see SubAgentImpersonation.cs for the full rationale. Either
+    /// value can be null (e.g. background fixtures with no tenant/user
+    /// resolved); the sub-agent falls back to the scoped resolution in that
+    /// case, which is the ordinary non-impersonated behaviour and unchanged
+    /// by this fix.
+    /// </summary>
+    private SubAgentImpersonationSnapshot CaptureImpersonationSnapshot()
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        var tenantId = _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId)
+            ? (Guid?)resolvedTenantId
+            : null;
+        return new SubAgentImpersonationSnapshot(userId, tenantId);
     }
 
     // ── Account Mutating Tools ────────────────────────────────────
@@ -1164,7 +1196,12 @@ internal sealed class PersonalFinanceTools
         try
         {
             var descriptor = ResolveSubAgentDescriptor("pf-compass-planner");
-            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+            // pf-compass-planner does not implement ISubAgentDescriptor — it takes
+            // its financial context as a request payload (Context above) and never
+            // itself resolves the scoped user/tenant, so there is no impersonation
+            // hazard to guard against here. Empty snapshot preserves its exact
+            // pre-existing Build() path unchanged.
+            var agent = await BuildStructuredSubAgentAsync(descriptor, SubAgentImpersonationSnapshot.Empty, cancellationToken);
 
             var response = await agent.RunAsync<CompassPlanResult>(
                 message,
@@ -1482,6 +1519,7 @@ internal sealed class PersonalFinanceTools
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
         IDomainAgentDescriptor descriptor,
+        SubAgentImpersonationSnapshot snapshot,
         CancellationToken cancellationToken)
     {
         var config = await _agentConfigurationService.GetResolvedAsync(descriptor.Name, cancellationToken);
@@ -1512,9 +1550,24 @@ internal sealed class PersonalFinanceTools
             }
         }
 
-        var builtAgent = config is null
-            ? descriptor.Build(_chatClient, _serviceProvider)
-            : descriptor.Build(_chatClient, _serviceProvider, instructionsOverride, allowedToolNames);
+        // Spec 025 sub-agents (pf-insights / pf-forecast / pf-classify) implement
+        // ISubAgentDescriptor so the captured snapshot flows into
+        // CodeActSandboxContextFactory (ACA Sessions nonce) and wraps every host
+        // tool with ContextRestoringAIFunction (tool-loop fallback). Any other
+        // IDomainAgentDescriptor (e.g. pf-compass-planner, which takes its
+        // financial context as a request payload and never resolves the scoped
+        // user/tenant itself) keeps its original, unmodified Build path.
+        var builtAgent = descriptor switch
+        {
+            ISubAgentDescriptor subAgent => subAgent.BuildWithImpersonation(
+                _chatClient,
+                _serviceProvider,
+                instructionsOverride,
+                allowedToolNames,
+                snapshot),
+            _ when config is null => descriptor.Build(_chatClient, _serviceProvider),
+            _ => descriptor.Build(_chatClient, _serviceProvider, instructionsOverride, allowedToolNames),
+        };
 
         return builtAgent as ChatClientAgent
             ?? throw new InvalidOperationException($"The agent '{descriptor.Name}' must be a ChatClientAgent.");
