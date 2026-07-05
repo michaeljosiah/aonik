@@ -159,47 +159,6 @@ export interface AgentRunSummary {
   updatedAt?: string | null;
 }
 
-// ── Prompt Spec types ──────────────────────────────────────────────
-
-export interface PromptSpecResponse {
-  id: string;
-  tenantId?: string | null;
-  name: string;
-  version: string;
-  systemTemplate: string;
-  userTemplate: string;
-  developerTemplate: string;
-  variablesSchemaJson: string;
-  outputSchemaJson: string;
-  safetyPolicyRef?: string | null;
-  isPublished: boolean;
-  isOverride: boolean;
-  createdAt: string;
-  updatedAt?: string | null;
-}
-
-export interface CreatePromptSpecRequest {
-  name: string;
-  version: string;
-  systemTemplate: string;
-  userTemplate?: string | null;
-  developerTemplate?: string | null;
-  variablesSchemaJson?: string | null;
-  outputSchemaJson?: string | null;
-  safetyPolicyRef?: string | null;
-  isPublished: boolean;
-}
-
-export interface UpdatePromptSpecRequest {
-  systemTemplate?: string | null;
-  userTemplate?: string | null;
-  developerTemplate?: string | null;
-  variablesSchemaJson?: string | null;
-  outputSchemaJson?: string | null;
-  safetyPolicyRef?: string | null;
-  isPublished?: boolean | null;
-}
-
 // ── Route Policy types ────────────────────────────────────────────
 
 export interface RoutePolicyResponse {
@@ -358,10 +317,6 @@ export interface ListAiCatalogModelsResponse {
 
 export interface ListAgentsResponse {
   agents: AgentInfo[];
-}
-
-export interface ListPromptSpecsResponse {
-  prompts: PromptSpecResponse[];
 }
 
 export interface ListRoutePoliciesResponse {

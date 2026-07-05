@@ -7,9 +7,6 @@ using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Finance.Services.Seeding;
 using Aonik.Ai;
-using Aonik.Ai.Persistence;
-using Aonik.Ai.Services;
-using Aonik.Ai.Services.Seeding;
 using Aonik.Agents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -125,12 +122,6 @@ try
         var notificationTemplateLogger = loggerFactory.CreateLogger<NotificationTemplateSeedService>();
         var notificationTemplateSeed = new NotificationTemplateSeedService(platformDbContext, notificationTemplateLogger);
         await notificationTemplateSeed.SeedAsync();
-
-        var aiDbContext = scope.ServiceProvider.GetRequiredService<AiDbContext>();
-        var fileBasedPromptStore = scope.ServiceProvider.GetRequiredService<FileBasedPromptStore>();
-        var promptSeedLogger = loggerFactory.CreateLogger<PromptSpecSeedService>();
-        var promptSeedService = new PromptSpecSeedService(aiDbContext, fileBasedPromptStore, promptSeedLogger);
-        await promptSeedService.SeedAsync();
 
         var financePricingSeed = scope.ServiceProvider.GetRequiredService<FinancePricingSeedContributor>();
         var operations = await financePricingSeed.SeedAsync();

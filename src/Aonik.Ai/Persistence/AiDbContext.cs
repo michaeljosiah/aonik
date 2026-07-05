@@ -8,7 +8,7 @@ namespace Aonik.Ai.Persistence;
 
 /// <summary>
 /// Module-scoped DbContext for the AI platform domain.
-/// Owns AiProvider, AiModel, AiRoutePolicy, PromptSpec, ToolSpec, AiPolicy,
+/// Owns AiProvider, AiModel, AiRoutePolicy, ToolSpec, AiPolicy,
 /// AiRun, AiTrace, AiFeedback, EvalSuite, EvalRun, Insight, Signal entities.
 /// Inherits multi-tenancy enforcement and audit stamping from <see cref="AonikDbContextBase"/>.
 ///
@@ -23,7 +23,6 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<AiRoutePolicy> AiRoutePolicies { get; set; } = null!;
 
     // ── Prompts & Tools ────────────────────────────────────────────
-    public DbSet<PromptSpec> PromptSpecs { get; set; } = null!;
     public DbSet<ToolSpec> ToolSpecs { get; set; } = null!;
 
     // ── LLM Tasks ─────────────────────────────────────────────────
@@ -80,9 +79,6 @@ internal class AiDbContext : AonikDbContextBase
         // AiRoutePolicy has nullable TenantId (global + tenant-specific policies)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
 
-        // PromptSpec has nullable TenantId (global defaults + tenant-specific overrides)
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
-
         // AiTask has nullable TenantId (global defaults + tenant-specific overrides)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiTask));
     }
@@ -92,7 +88,6 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<AiProvider>(modelBuilder, "AiProviders");
         MapTable<AiModel>(modelBuilder, "AiModels");
         MapTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
-        MapTable<PromptSpec>(modelBuilder, "PromptSpecs");
         MapTable<AiTask>(modelBuilder, "AiTasks");
         MapTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapTable<AiPolicy>(modelBuilder, "AiPolicies");

@@ -56,16 +56,6 @@ public sealed class AiModule : IModule
         services.Configure<Aonik.Ai.Services.TextToSpeechOptions>(configuration.GetSection("AI:TextToSpeech"));
         services.Configure<AiTraceExplorerOptions>(configuration.GetSection("AI:TraceExplorer"));
 
-        // File-based prompt store (loads .md templates from disk) — used as fallback
-        services.AddSingleton<FileBasedPromptStore>(sp =>
-        {
-            var promptPath = configuration["AI:PromptTemplatesPath"];
-            return new FileBasedPromptStore(promptPath);
-        });
-
-        // Tenant-aware prompt store: DB overrides (tenant → global) → file-based fallback
-        services.AddScoped<IPromptStore, TenantAwarePromptStore>();
-
         // Public ISpeechTextNormalizer facade — exposes the internal SpeechTextNormalizer
         // to non-Ai modules (notably Aonik.Voice) without leaking implementation
         // details. Singleton because the underlying static method is stateless.
@@ -194,9 +184,6 @@ public sealed class AiModule : IModule
         // Cross-module AI task reader (used by Agents playground endpoint)
         services.AddScoped<IAiTaskReader, AiTaskReader>();
 
-        // Prompt spec CRUD — manages versioned prompt templates
-        services.AddScoped<Contracts.Services.IPromptSpecService, PromptSpecService>();
-
         // Route policy CRUD — manages AI model routing policies
         services.AddScoped<Contracts.Services.IRoutePolicyService, RoutePolicyService>();
 
@@ -263,7 +250,6 @@ public sealed class AiModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();
 
         // Global seed contributors (on-demand via admin endpoint)
-        services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.PromptSpecSeedContributor>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.AiTaskSeedContributor>();
 
         // Pre-warm the chat client on startup to avoid the TLS handshake cost

@@ -6,12 +6,10 @@ import { AgentConfigPage } from '@/pages/ai/AgentConfigPage';
 import { AgentDetailPage } from '@/pages/ai/AgentDetailPage';
 import { AiModelsPanel } from '@/workspace/apps/AiModelsPanel';
 import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
-import { PromptTemplatesPage } from '@/pages/ai/PromptTemplatesPage';
 import { RoutePoliciesPage } from '@/pages/ai/RoutePoliciesPage';
 import { AiTasksPage } from '@/pages/ai/AiTasksPage';
 import { AiTracesPage } from '@/pages/ai/AiTracesPage';
 import { AiTraceDetailPage } from '@/pages/ai/AiTraceDetailPage';
-import { PromptTemplatesPanel } from '@/workspace/apps/PromptTemplatesPanel';
 import { RoutePoliciesPanel } from '@/workspace/apps/RoutePoliciesPanel';
 import { AiTasksPanel } from '@/workspace/apps/AiTasksPanel';
 import { AiPlaygroundPage } from '@/pages/ai/AiPlaygroundPage';
@@ -54,7 +52,6 @@ const routes = [
   { path: '/ai/tasks', element: AiTasksPage },
   { path: '/ai/traces', element: AiTracesPage },
   { path: '/ai/traces/:runId', element: AiTraceDetailPage },
-  { path: '/ai/prompts', element: PromptTemplatesPage },
   { path: '/ai/routing', element: RoutePoliciesPage },
   { path: '/ai/playground', element: AiPlaygroundPage },
 ];
@@ -66,7 +63,6 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', category: 'page', componentKey: 'agentConfig', route: '/ai/agents' },
   { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', category: 'page', componentKey: 'aiModels', route: '/ai/models' },
   { id: 'ai-tasks', title: 'LLM Tasks', description: 'View and manage LLM task configurations, prompts, and model routing.', type: 'internal', category: 'page', componentKey: 'aiTasks', route: '/ai/tasks' },
-  { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', category: 'page', componentKey: 'promptTemplates', route: '/ai/prompts' },
   { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', category: 'page', componentKey: 'routePolicies', route: '/ai/routing' },
   { id: 'ai-playground', title: 'AI Playground', description: 'Test agents, AI tasks, prompts, and models interactively.', type: 'internal', category: 'page', componentKey: 'aiPlayground', route: '/ai/playground' },
 ];
@@ -75,7 +71,6 @@ const panelComponents = {
   aiModels: AiModelsPanel,
   agentConfig: AgentConfigPanel,
   aiTasks: AiTasksPanel,
-  promptTemplates: PromptTemplatesPanel,
   routePolicies: RoutePoliciesPanel,
   aiPlayground: AiPlaygroundPanel,
 };
@@ -88,7 +83,6 @@ const breadcrumbs = [
   { pathPrefix: '/ai/traces/', trail: [{ label: 'AI', href: '/ai' }, { label: 'AI Traces', href: '/ai/traces' }, 'Run Trace'] },
   { pathPrefix: '/ai/traces', trail: [{ label: 'AI', href: '/ai' }, 'AI Traces'] },
   { pathPrefix: '/ai/tasks', trail: [{ label: 'AI', href: '/ai' }, 'LLM Tasks'] },
-  { pathPrefix: '/ai/prompts', trail: [{ label: 'AI', href: '/ai' }, 'Prompt Templates'] },
   { pathPrefix: '/ai/playground', trail: [{ label: 'AI', href: '/ai' }, 'AI Playground'] },
   { pathPrefix: '/ai/routing', trail: [{ label: 'AI', href: '/ai' }, 'Route Policies'] },
   { pathPrefix: '/ai/agents/', trail: [{ label: 'AI', href: '/ai' }, { label: 'Agents', href: '/ai/agents' }, 'Agent Details'] },

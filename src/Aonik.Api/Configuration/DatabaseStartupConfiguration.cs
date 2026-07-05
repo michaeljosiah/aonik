@@ -1,6 +1,5 @@
 using System.Data.Common;
 using Aonik.Ai.Persistence;
-using Aonik.Ai.Services;
 using Aonik.Ai.Services.Seeding;
 using Aonik.Finance.Services.Seeding;
 using Aonik.Infrastructure.Persistence;
@@ -192,13 +191,6 @@ public static class DatabaseStartupConfiguration
             .SeedAsync();
 
         var aiDbContext = services.GetRequiredService<AiDbContext>();
-        var fileBasedPromptStore = services.GetRequiredService<FileBasedPromptStore>();
-
-        await new PromptSpecSeedService(
-                aiDbContext,
-                fileBasedPromptStore,
-                services.GetRequiredService<ILogger<PromptSpecSeedService>>())
-            .SeedAsync();
 
         await new AiTaskSeedService(
                 aiDbContext,

@@ -302,7 +302,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiTask));
         // FinancialInstitution is a global directory (nullable TenantId): tenants share the base bank
         // list and may add their own rows. Mirrors ReferenceDataItem.
@@ -318,7 +317,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
             typeof(Currency),
             typeof(NotificationTemplate),
             typeof(AiRoutePolicy),
-            typeof(PromptSpec),
             typeof(AiTask),
             typeof(FinancialInstitution));
 
@@ -540,7 +538,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<AiProvider>(modelBuilder, "AiProviders");
         MapAiTable<AiModel>(modelBuilder, "AiModels");
         MapAiTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
-        MapAiTable<PromptSpec>(modelBuilder, "PromptSpecs");
         MapAiTable<AiTask>(modelBuilder, "AiTasks");
         MapAiTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapAiTable<AiPolicy>(modelBuilder, "AiPolicies");
