@@ -83,7 +83,7 @@ namespace Aonik.Infrastructure.Migrations
                 name: "IX_AnkOutboxMessages_Dispatch",
                 schema: "dbo",
                 table: "AnkOutboxMessages",
-                columns: new[] { "NextAttemptAt", "CreatedAt" },
+                column: "CreatedAt",
                 filter: "[ProcessedAt] IS NULL AND [DeadLetteredAt] IS NULL");
 
             migrationBuilder.CreateIndex(

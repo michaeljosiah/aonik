@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260705022209_TenantLeadingAndFilteredIndexes")]
+    [Migration("20260705023438_TenantLeadingAndFilteredIndexes")]
     partial class TenantLeadingAndFilteredIndexes
     {
         /// <inheritdoc />
@@ -23095,12 +23095,12 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("IX_AnkOutboxMessages_EventId");
-
-                    b.HasIndex("NextAttemptAt", "CreatedAt")
+                    b.HasIndex("CreatedAt")
                         .HasDatabaseName("IX_AnkOutboxMessages_Dispatch")
                         .HasFilter("[ProcessedAt] IS NULL AND [DeadLetteredAt] IS NULL");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("IX_AnkOutboxMessages_EventId");
 
                     b.ToTable("AnkOutboxMessages", "dbo");
                 });

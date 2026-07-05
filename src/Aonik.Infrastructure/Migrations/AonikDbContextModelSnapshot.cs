@@ -23092,12 +23092,12 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("IX_AnkOutboxMessages_EventId");
-
-                    b.HasIndex("NextAttemptAt", "CreatedAt")
+                    b.HasIndex("CreatedAt")
                         .HasDatabaseName("IX_AnkOutboxMessages_Dispatch")
                         .HasFilter("[ProcessedAt] IS NULL AND [DeadLetteredAt] IS NULL");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("IX_AnkOutboxMessages_EventId");
 
                     b.ToTable("AnkOutboxMessages", "dbo");
                 });
