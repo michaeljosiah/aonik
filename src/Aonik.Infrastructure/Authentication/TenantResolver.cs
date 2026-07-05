@@ -31,7 +31,7 @@ public class TenantResolver : ITenantResolver
         _logger = logger;
     }
 
-    public Guid? ResolveTenantId()
+    public async Task<Guid?> ResolveTenantIdAsync(CancellationToken cancellationToken = default)
     {
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
@@ -45,13 +45,13 @@ public class TenantResolver : ITenantResolver
         return mode switch
         {
             TenantRoutingMode.Claim => ResolveFromClaim(httpContext),
-            TenantRoutingMode.Subdomain => ResolveFromSubdomainAsync(httpContext).GetAwaiter().GetResult(),
+            TenantRoutingMode.Subdomain => await ResolveFromSubdomainAsync(httpContext, cancellationToken),
             TenantRoutingMode.Header => ResolveFromHeader(httpContext),
             _ => null
         };
     }
 
-    public Guid? ResolveFromHttpContext()
+    public async Task<Guid?> ResolveFromHttpContextAsync(CancellationToken cancellationToken = default)
     {
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
@@ -64,7 +64,7 @@ public class TenantResolver : ITenantResolver
         return mode switch
         {
             TenantRoutingMode.Header => ResolveFromHeader(httpContext),
-            TenantRoutingMode.Subdomain => ResolveFromSubdomainAsync(httpContext).GetAwaiter().GetResult(),
+            TenantRoutingMode.Subdomain => await ResolveFromSubdomainAsync(httpContext, cancellationToken),
             _ => null
         };
     }
@@ -96,7 +96,7 @@ public class TenantResolver : ITenantResolver
         return tenantId;
     }
 
-    private async Task<Guid?> ResolveFromSubdomainAsync(HttpContext httpContext)
+    private async Task<Guid?> ResolveFromSubdomainAsync(HttpContext httpContext, CancellationToken cancellationToken)
     {
         var host = httpContext.Request.Host.Host;
         var parts = host.Split('.');
@@ -112,7 +112,7 @@ public class TenantResolver : ITenantResolver
         var tenant = await _dbContext.Tenants
             .Where(t => t.Subdomain == subdomain && t.Status == "Active")
             .Select(t => new { t.Id })
-            .FirstOrDefaultAsync(httpContext.RequestAborted);
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (tenant == null)
         {
