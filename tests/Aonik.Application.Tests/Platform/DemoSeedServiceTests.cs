@@ -5,6 +5,7 @@ using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Seeding;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Persistence;
@@ -95,8 +96,8 @@ public class DemoSeedServiceTests
         fixture.FinanceDb.PartnerBranches.Where(x => x.TenantId == TenantId).Should().BeEmpty();
         fixture.FinanceDb.Connectors.Where(x => x.TenantId == TenantId).Should().BeEmpty();
         fixture.FinanceDb.RoutingRules.Where(x => x.TenantId == TenantId).Should().BeEmpty();
-        fixture.FinanceDb.Households.Where(x => x.TenantId == TenantId).Should().BeEmpty();
-        fixture.FinanceDb.HouseholdMembers.Where(x => x.TenantId == TenantId).Should().BeEmpty();
+        fixture.PersonalFinanceDb.Households.Where(x => x.TenantId == TenantId).Should().BeEmpty();
+        fixture.PersonalFinanceDb.HouseholdMembers.Where(x => x.TenantId == TenantId).Should().BeEmpty();
         fixture.PlatformDb.Settings.Where(x => x.TenantId == TenantId && x.Key.StartsWith("DemoSeed.")).Should().BeEmpty();
     }
 
@@ -114,6 +115,10 @@ public class DemoSeedServiceTests
             .UseSqlServer(connectionString)
             .Options;
 
+        var personalFinanceOptions = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+
         var agentsOptions = new DbContextOptionsBuilder<AgentsDbContext>()
             .UseSqlServer(connectionString)
             .Options;
@@ -125,6 +130,7 @@ public class DemoSeedServiceTests
         var aonikDb = new AonikDbContext(aonikOptions);
         var platformDb = new PlatformDbContext(platformOptions, tenantProvider);
         var financeDb = new FinanceDbContext(financeOptions, tenantProvider);
+        var personalFinanceDb = new PersonalFinanceDbContext(personalFinanceOptions, tenantProvider);
         var agentsDb = new AgentsDbContext(agentsOptions, tenantProvider);
 
         await aonikDb.Database.EnsureDeletedAsync();
@@ -136,7 +142,7 @@ public class DemoSeedServiceTests
 
         var contributors = new IDemoSeedContributor[]
         {
-            new FinanceDemoSeedContributor(financeDb, NullLogger<FinanceDemoSeedContributor>.Instance),
+            new FinanceDemoSeedContributor(financeDb, personalFinanceDb, NullLogger<FinanceDemoSeedContributor>.Instance),
             new AgentsDemoSeedContributor(agentsDb, NullLogger<AgentsDemoSeedContributor>.Instance),
             new PlatformDemoSeedContributor(platformDb, NullLogger<PlatformDemoSeedContributor>.Instance)
         };
@@ -152,9 +158,10 @@ public class DemoSeedServiceTests
             new AllowAllPermissionService(),
             new TestTenantContext(),
             financeDb,
+            personalFinanceDb,
             new AgentDemoCleanup(agentsDb));
 
-        return new TestFixture(aonikDb, platformDb, financeDb, agentsDb, service);
+        return new TestFixture(aonikDb, platformDb, financeDb, personalFinanceDb, agentsDb, service);
     }
 
     private static async Task SeedTenantAsync(PlatformDbContext dbContext)
@@ -218,6 +225,7 @@ public class DemoSeedServiceTests
         AonikDbContext AonikDb,
         PlatformDbContext PlatformDb,
         FinanceDbContext FinanceDb,
+        PersonalFinanceDbContext PersonalFinanceDb,
         AgentsDbContext AgentsDb,
         DemoSeedService Service) : IAsyncDisposable
     {
@@ -225,6 +233,7 @@ public class DemoSeedServiceTests
         {
             await PlatformDb.DisposeAsync();
             await FinanceDb.DisposeAsync();
+            await PersonalFinanceDb.DisposeAsync();
             await AgentsDb.DisposeAsync();
             await AonikDb.Database.EnsureDeletedAsync();
             await AonikDb.DisposeAsync();

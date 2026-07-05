@@ -29,6 +29,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
+    <!--
+      TRANSITIONAL (Spec 027 S3, #126): Platform's demo-seed teardown
+      (ReverseSeedPhase) reverses PF demo data (transactions, accounts,
+      recurring bills, subscriptions, profiles, households). Those DbSets moved
+      off FinanceDbContext onto PersonalFinanceDbContext, so the reverse phase
+      needs this reference. Mirrors the existing Platform → Finance demo-seed
+      edge above; drop when the PF teardown relocates out of Platform.
+    -->
+    <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

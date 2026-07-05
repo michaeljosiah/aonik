@@ -7,6 +7,7 @@ using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -223,7 +224,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         // rules. The WHERE clause then re-applies tenant scoping for
         // Tenant- and User-scoped rules. Verify TenantB's tenant-scoped
         // rule does NOT match a TenantA transaction.
-        await using var dbContext = CreateFinanceDbContext(TenantA);
+        await using var dbContext = CreatePersonalFinanceDbContext(TenantA);
         var transactionUserId = Guid.NewGuid();
 
         var tenantBRule = new CategorisationRule
@@ -287,7 +288,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         // Inverse: System-scoped rules at TenantId=Guid.Empty are
         // intentionally cross-tenant. They MUST fire for a TenantA
         // transaction, otherwise the global classifier breaks.
-        await using var dbContext = CreateFinanceDbContext(TenantA);
+        await using var dbContext = CreatePersonalFinanceDbContext(TenantA);
 
         var systemRule = new CategorisationRule
         {
@@ -429,6 +430,15 @@ public class IgnoreQueryFiltersCrossTenantTests
             .UseInMemoryDatabase($"FinanceDb_{Guid.NewGuid()}")
             .Options;
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+    }
+
+    // Spec 027 S3 (#126): CategorisationRule is owned by PersonalFinanceDbContext.
+    private static PersonalFinanceDbContext CreatePersonalFinanceDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
+            .UseInMemoryDatabase($"PersonalFinanceDb_{Guid.NewGuid()}")
+            .Options;
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     private static AiDbContext CreateAiDbContext()

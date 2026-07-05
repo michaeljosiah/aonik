@@ -33,6 +33,17 @@
       remaining Finance-side PF call sites listed there relocate here.
     -->
     <InternalsVisibleTo Include="Aonik.Finance" />
+    <!--
+      TRANSITIONAL (Spec 027 S3, #126): paired with the
+      Aonik.Platform → Aonik.PersonalFinance ProjectReference in
+      Aonik.Platform.csproj. Platform's demo-seed teardown
+      (ReverseSeedPhase.ReversePersonalFinanceActivityAsync /
+      ReverseHouseholdsAsync) tears down PF demo rows and now needs
+      PersonalFinanceDbContext (those DbSets no longer live on FinanceDbContext).
+      This mirrors the existing Platform → Finance demo-seed coupling; drop it
+      when the PF teardown relocates out of the Platform reverse phase.
+    -->
+    <InternalsVisibleTo Include="Aonik.Platform" />
   </ItemGroup>
 
   <!--

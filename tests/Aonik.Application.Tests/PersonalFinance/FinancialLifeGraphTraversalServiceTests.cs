@@ -175,7 +175,9 @@ public class FinancialLifeGraphTraversalServiceTests
         var txnId = Guid.NewGuid();
         var txn2Id = Guid.NewGuid();
 
-        context.PersonalAccounts.AddRange(
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(tenantId);
+
+        pfSeedContext.PersonalAccounts.AddRange(
             new PersonalAccount
             {
                 Id = accountId, TenantId = tenantId, UserId = userId,
@@ -189,7 +191,7 @@ public class FinancialLifeGraphTraversalServiceTests
                 Status = "Active", CurrentBalance = 10000m, CreatedAt = DateTime.UtcNow
             });
 
-        context.Bills.Add(new Bill
+        pfSeedContext.Bills.Add(new Bill
         {
             Id = billId, TenantId = tenantId, UserId = userId,
             Payee = "Electric Co", Frequency = "Monthly",
@@ -199,7 +201,7 @@ public class FinancialLifeGraphTraversalServiceTests
             CreatedAt = DateTime.UtcNow
         });
 
-        context.Goals.Add(new Goal
+        pfSeedContext.Goals.Add(new Goal
         {
             Id = goalId, TenantId = tenantId, UserId = userId,
             Name = "Emergency Fund", TargetAmount = 10000m, Currency = "USD",
@@ -207,7 +209,7 @@ public class FinancialLifeGraphTraversalServiceTests
             FundingAccountId = account2Id, CreatedAt = DateTime.UtcNow
         });
 
-        context.PersonalTransactions.AddRange(
+        pfSeedContext.PersonalTransactions.AddRange(
             new PersonalTransaction
             {
                 Id = txnId, TenantId = tenantId, UserId = userId,
@@ -227,7 +229,7 @@ public class FinancialLifeGraphTraversalServiceTests
                 CreatedAt = DateTime.UtcNow
             });
 
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
     }
 
     [Fact]
@@ -519,13 +521,14 @@ public class FinancialLifeGraphTraversalServiceTests
         var accountId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
 
-        context.PersonalAccounts.Add(new PersonalAccount
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(tenantId);
+        pfSeedContext.PersonalAccounts.Add(new PersonalAccount
         {
             Id = accountId, TenantId = tenantId, UserId = userId,
             Name = "Checking", AccountType = "Checking", Currency = "USD",
             Status = "Active", CurrentBalance = 1000m, CreatedAt = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var service = CreateTraversalService(context, tenantId, userId);
 
@@ -598,13 +601,14 @@ public class FinancialLifeGraphTraversalServiceTests
         var accountId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
 
-        context.PersonalAccounts.Add(new PersonalAccount
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(tenantId);
+        pfSeedContext.PersonalAccounts.Add(new PersonalAccount
         {
             Id = accountId, TenantId = tenantId, UserId = userId,
             Name = "Test", AccountType = "Checking", Currency = "USD",
             Status = "Active", CurrentBalance = 0m, CreatedAt = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var service = CreateTraversalService(context, tenantId, userId);
 

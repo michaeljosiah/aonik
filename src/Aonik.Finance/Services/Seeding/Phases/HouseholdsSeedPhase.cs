@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Finance.Services.Seeding.Phases;
@@ -15,9 +15,9 @@ internal sealed class HouseholdsSeedPhase
 {
     private static readonly FinanceDemoSeedIds SeedIds = FinanceDemoSeedIds.Instance;
 
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
 
-    public HouseholdsSeedPhase(FinanceDbContext db)
+    public HouseholdsSeedPhase(PersonalFinanceDbContext db)
     {
         _db = db;
     }

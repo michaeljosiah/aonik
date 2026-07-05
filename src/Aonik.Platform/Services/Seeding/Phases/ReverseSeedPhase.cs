@@ -4,6 +4,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Persistence;
 using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 
 namespace Aonik.Platform.Services.Seeding.Phases;
 
@@ -36,15 +37,18 @@ internal sealed class ReverseSeedPhase
 
     private readonly PlatformDbContext _dbContext;
     private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _personalFinanceDbContext;
     private readonly IAgentDemoCleanup _agentDemoCleanup;
 
     public ReverseSeedPhase(
         PlatformDbContext dbContext,
         FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext personalFinanceDbContext,
         IAgentDemoCleanup agentDemoCleanup)
     {
         _dbContext = dbContext;
         _financeDbContext = financeDbContext;
+        _personalFinanceDbContext = personalFinanceDbContext;
         _agentDemoCleanup = agentDemoCleanup;
     }
 
@@ -115,27 +119,28 @@ internal sealed class ReverseSeedPhase
     {
         var userIds = PersonalFinancePersonaUserIds;
 
-        var txCount = await _financeDbContext.PersonalTransactions
+        // Spec 027 S3 (#126): PF entities are now owned by PersonalFinanceDbContext.
+        var txCount = await _personalFinanceDbContext.PersonalTransactions
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
             .ExecuteDeleteAsync(cancellationToken);
 
-        var billCount = await _financeDbContext.PersonalRecurringBills
+        var billCount = await _personalFinanceDbContext.PersonalRecurringBills
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
             .ExecuteDeleteAsync(cancellationToken);
 
-        var subCount = await _financeDbContext.Subscriptions
+        var subCount = await _personalFinanceDbContext.Subscriptions
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
             .ExecuteDeleteAsync(cancellationToken);
 
-        var accountCount = await _financeDbContext.PersonalAccounts
+        var accountCount = await _personalFinanceDbContext.PersonalAccounts
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
             .ExecuteDeleteAsync(cancellationToken);
 
-        var profileCount = await _financeDbContext.PersonalProfiles
+        var profileCount = await _personalFinanceDbContext.PersonalProfiles
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
             .ExecuteDeleteAsync(cancellationToken);
@@ -152,7 +157,8 @@ internal sealed class ReverseSeedPhase
     public async Task ReverseHouseholdsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var householdNames = SeedNames.HouseholdNames;
-        var householdIds = await _financeDbContext.Households
+        // Spec 027 S3 (#126): Households / HouseholdMembers are now owned by PersonalFinanceDbContext.
+        var householdIds = await _personalFinanceDbContext.Households
             .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && householdNames.Contains(item.Name))
             .Select(item => item.Id)
@@ -163,12 +169,12 @@ internal sealed class ReverseSeedPhase
             return;
         }
 
-        await _financeDbContext.HouseholdMembers
+        await _personalFinanceDbContext.HouseholdMembers
             .IncludeSoftDeleted()
             .Where(item => householdIds.Contains(item.HouseholdId))
             .ExecuteDeleteAsync(cancellationToken);
 
-        var householdCount = await _financeDbContext.Households
+        var householdCount = await _personalFinanceDbContext.Households
             .IncludeSoftDeleted()
             .Where(item => householdIds.Contains(item.Id))
             .ExecuteDeleteAsync(cancellationToken);

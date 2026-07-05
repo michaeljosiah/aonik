@@ -4,6 +4,7 @@ using Aonik.Finance.Entities;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -134,7 +135,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         Guid graphNodeId;
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
-            var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
             var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             tenantContext.TenantId = tenantId;
 
@@ -167,7 +168,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var verifyScope = _factory.Services.CreateAsyncScope();
-        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
         var deletedNode = await verifyContext.FinancialLifeGraphNodes
             .AsNoTracking()
             .IncludeSoftDeleted()
@@ -187,7 +188,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
 
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
-            var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
             var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             tenantContext.TenantId = tenantId;
 
@@ -262,7 +263,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
 
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
-            var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
             var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             tenantContext.TenantId = tenantId;
 
@@ -361,7 +362,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
     private async Task SeedGraphDataAsync(Guid tenantId, Guid userId, Guid partyId, Guid? householdId = null)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantContext.TenantId = tenantId;
 

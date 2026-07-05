@@ -279,20 +279,21 @@ public class FinancialLifeGraphServiceTests
         var paymentIntentId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId,
             HouseholdId = householdId
         });
-        context.Households.Add(new Household
+        pfSeedContext.Households.Add(new Household
         {
             Id = householdId,
             TenantId = tenantId,
             Name = "Home"
         });
-        context.HouseholdMembers.Add(new HouseholdMember
+        pfSeedContext.HouseholdMembers.Add(new HouseholdMember
         {
             TenantId = tenantId,
             HouseholdId = householdId,
@@ -300,7 +301,7 @@ public class FinancialLifeGraphServiceTests
             Role = "Owner",
             PermissionsJson = "[]"
         });
-        context.PersonalAccounts.Add(new PersonalAccount
+        pfSeedContext.PersonalAccounts.Add(new PersonalAccount
         {
             Id = accountId,
             TenantId = tenantId,
@@ -310,7 +311,7 @@ public class FinancialLifeGraphServiceTests
             Currency = "USD",
             Status = "Active"
         });
-        context.PersonalLinkedAccounts.Add(new PersonalLinkedAccount
+        pfSeedContext.PersonalLinkedAccounts.Add(new PersonalLinkedAccount
         {
             Id = linkedAccountId,
             TenantId = tenantId,
@@ -323,7 +324,7 @@ public class FinancialLifeGraphServiceTests
             Currency = "USD",
             Status = "Active"
         });
-        context.PersonalTransactions.Add(new PersonalTransaction
+        pfSeedContext.PersonalTransactions.Add(new PersonalTransaction
         {
             Id = transactionId,
             TenantId = tenantId,
@@ -338,7 +339,7 @@ public class FinancialLifeGraphServiceTests
             Category = "Groceries",
             ReviewStatus = "Reviewed"
         });
-        context.Bills.Add(new Bill
+        pfSeedContext.Bills.Add(new Bill
         {
             Id = billId,
             TenantId = tenantId,
@@ -353,7 +354,7 @@ public class FinancialLifeGraphServiceTests
             Currency = "USD",
             Status = "Active"
         });
-        context.Goals.Add(new Goal
+        pfSeedContext.Goals.Add(new Goal
         {
             Id = goalId,
             TenantId = tenantId,
@@ -366,7 +367,7 @@ public class FinancialLifeGraphServiceTests
             TargetDate = DateTime.UtcNow.AddDays(10),
             Status = "Active"
         });
-        context.Subscriptions.Add(new Subscription
+        pfSeedContext.Subscriptions.Add(new Subscription
         {
             Id = subscriptionId,
             TenantId = tenantId,
@@ -378,6 +379,7 @@ public class FinancialLifeGraphServiceTests
             Status = "Active",
             DetectedBy = "manual"
         });
+        await pfSeedContext.SaveChangesAsync();
         context.Parties.Add(new PartyReadModel
         {
             Id = relatedPartyId,
@@ -472,13 +474,14 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        context.PersonalTransactions.Add(new PersonalTransaction
+        pfSeedContext.PersonalTransactions.Add(new PersonalTransaction
         {
             TenantId = tenantId,
             UserId = userId,
@@ -492,7 +495,7 @@ public class FinancialLifeGraphServiceTests
             TagsJson = "[]",
             ReviewStatus = "Pending"
         });
-        context.PersonalTransactions.Add(new PersonalTransaction
+        pfSeedContext.PersonalTransactions.Add(new PersonalTransaction
         {
             TenantId = tenantId,
             UserId = userId,
@@ -506,7 +509,7 @@ public class FinancialLifeGraphServiceTests
             TagsJson = "[]",
             ReviewStatus = "Pending"
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var service = CreateGraphService(context, tenantId, userId, new TestCacheStore());
 
@@ -528,13 +531,14 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        context.PersonalAccounts.AddRange(
+        pfSeedContext.PersonalAccounts.AddRange(
             new PersonalAccount
             {
                 TenantId = tenantId,
@@ -553,6 +557,7 @@ public class FinancialLifeGraphServiceTests
                 Currency = "NGN",
                 Status = "Active"
             });
+        await pfSeedContext.SaveChangesAsync();
         context.FxQuotes.AddRange(
             new Aonik.Finance.Entities.Pricing.FxQuote
             {
@@ -610,13 +615,14 @@ public class FinancialLifeGraphServiceTests
         var userId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = Guid.NewGuid()
         });
-        context.Bills.Add(new Bill
+        pfSeedContext.Bills.Add(new Bill
         {
             TenantId = tenantId,
             UserId = userId,
@@ -627,7 +633,7 @@ public class FinancialLifeGraphServiceTests
             Currency = "USD",
             Status = "Active"
         });
-        context.Subscriptions.Add(new Subscription
+        pfSeedContext.Subscriptions.Add(new Subscription
         {
             TenantId = tenantId,
             UserId = userId,
@@ -638,7 +644,7 @@ public class FinancialLifeGraphServiceTests
             Status = "Active",
             DetectedBy = "manual"
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var cacheStore = new TestCacheStore();
         var service = CreateGraphService(context, tenantId, userId, cacheStore);
@@ -661,7 +667,8 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
@@ -678,10 +685,10 @@ public class FinancialLifeGraphServiceTests
             Status = FinancialLifeGraphEntityStatus.Active
         };
 
-        context.FinancialLifeGraphNodes.Add(nativeNode);
-        await context.SaveChangesAsync();
+        pfSeedContext.FinancialLifeGraphNodes.Add(nativeNode);
+        await pfSeedContext.SaveChangesAsync();
 
-        context.FinancialLifeGraphEdges.Add(new FinancialLifeGraphEdge
+        pfSeedContext.FinancialLifeGraphEdges.Add(new FinancialLifeGraphEdge
         {
             TenantId = tenantId,
             UserId = userId,
@@ -691,7 +698,7 @@ public class FinancialLifeGraphServiceTests
             PropertiesJson = "{}",
             Status = FinancialLifeGraphEntityStatus.Active
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var cacheStore = new TestCacheStore();
         var service = CreateGraphService(context, tenantId, userId, cacheStore);
@@ -714,13 +721,14 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         await using var agentsContext = CreateAgentsDbContext(tenantId);
         var cacheStore = new TestCacheStore();
@@ -761,8 +769,9 @@ public class FinancialLifeGraphServiceTests
         // Assert
         nodeResult.GraphNodeId.Should().NotBeEmpty();
         edgeResult.GraphEdgeId.Should().NotBeEmpty();
-        context.FinancialLifeGraphNodes.Should().HaveCount(1);
-        context.FinancialLifeGraphEdges.Should().HaveCount(1);
+        await using var pfVerifyContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfVerifyContext.FinancialLifeGraphNodes.Should().HaveCount(1);
+        pfVerifyContext.FinancialLifeGraphEdges.Should().HaveCount(1);
     }
 
     [Fact]
@@ -774,13 +783,14 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var cacheStore = new TestCacheStore();
         var invalidationPublisher = new TestCacheInvalidationPublisher();
@@ -836,7 +846,8 @@ public class FinancialLifeGraphServiceTests
         var aiRunId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
@@ -845,7 +856,7 @@ public class FinancialLifeGraphServiceTests
 
         for (var index = 0; index < 3; index++)
         {
-            context.PersonalTransactions.Add(new PersonalTransaction
+            pfSeedContext.PersonalTransactions.Add(new PersonalTransaction
             {
                 TenantId = tenantId,
                 UserId = userId,
@@ -861,7 +872,7 @@ public class FinancialLifeGraphServiceTests
             });
         }
 
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
@@ -884,8 +895,9 @@ public class FinancialLifeGraphServiceTests
         proposals[0].Status.Should().Be(FinancialLifeGraphProposalStatus.Proposed);
         proposals[0].ProposalId.Should().NotBeEmpty();
 
-        var node = await context.FinancialLifeGraphNodes.SingleAsync();
-        var edge = await context.FinancialLifeGraphEdges.SingleAsync();
+        await using var pfVerifyContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        var node = await pfVerifyContext.FinancialLifeGraphNodes.SingleAsync();
+        var edge = await pfVerifyContext.FinancialLifeGraphEdges.SingleAsync();
         var proposal = await agentsContext.Proposals.SingleAsync();
         node.Status.Should().Be(FinancialLifeGraphEntityStatus.Proposed);
         node.AiRunId.Should().Be(aiRunId);
@@ -907,13 +919,14 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        context.FinancialLifeGraphNodes.Add(new FinancialLifeGraphNode
+        pfSeedContext.FinancialLifeGraphNodes.Add(new FinancialLifeGraphNode
         {
             TenantId = tenantId,
             UserId = userId,
@@ -922,7 +935,7 @@ public class FinancialLifeGraphServiceTests
             PropertiesJson = "{}",
             Status = FinancialLifeGraphEntityStatus.Active
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
@@ -958,13 +971,14 @@ public class FinancialLifeGraphServiceTests
 
         await using var context = CreateDbContext(tenantId);
         await using var agentsContext = CreateAgentsDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId
         });
-        context.PersonalTransactions.AddRange(
+        pfSeedContext.PersonalTransactions.AddRange(
             Enumerable.Range(1, 3).Select(index => new PersonalTransaction
             {
                 TenantId = tenantId,
@@ -979,7 +993,7 @@ public class FinancialLifeGraphServiceTests
                 TagsJson = "[]",
                 ReviewStatus = "Pending"
             }));
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var cacheStore = new TestCacheStore();
         var invalidationPublisher = new TestCacheInvalidationPublisher();
@@ -1047,7 +1061,8 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
@@ -1063,10 +1078,10 @@ public class FinancialLifeGraphServiceTests
             PropertiesJson = "{}",
             Status = FinancialLifeGraphEntityStatus.Active
         };
-        context.FinancialLifeGraphNodes.Add(node);
-        await context.SaveChangesAsync();
+        pfSeedContext.FinancialLifeGraphNodes.Add(node);
+        await pfSeedContext.SaveChangesAsync();
 
-        context.FinancialLifeGraphEdges.Add(new FinancialLifeGraphEdge
+        pfSeedContext.FinancialLifeGraphEdges.Add(new FinancialLifeGraphEdge
         {
             TenantId = tenantId,
             UserId = userId,
@@ -1076,7 +1091,7 @@ public class FinancialLifeGraphServiceTests
             PropertiesJson = "{}",
             Status = FinancialLifeGraphEntityStatus.Active
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
@@ -1109,7 +1124,8 @@ public class FinancialLifeGraphServiceTests
         var partyId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
@@ -1125,8 +1141,8 @@ public class FinancialLifeGraphServiceTests
             PropertiesJson = "{}",
             Status = FinancialLifeGraphEntityStatus.Active
         };
-        context.FinancialLifeGraphNodes.Add(node);
-        await context.SaveChangesAsync();
+        pfSeedContext.FinancialLifeGraphNodes.Add(node);
+        await pfSeedContext.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
@@ -1139,7 +1155,7 @@ public class FinancialLifeGraphServiceTests
 
         // Change database state after the snapshot has been cached.
         node.Status = FinancialLifeGraphEntityStatus.Rejected;
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         var validationService = CreateValidationService(context, tenantId, userId);
         var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
@@ -1171,20 +1187,21 @@ public class FinancialLifeGraphServiceTests
         var householdId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new PersonalProfile
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.Add(new PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,
             PartyId = partyId,
             HouseholdId = householdId
         });
-        context.Households.Add(new Household
+        pfSeedContext.Households.Add(new Household
         {
             Id = householdId,
             TenantId = tenantId,
             Name = "Home"
         });
-        context.HouseholdMembers.Add(new HouseholdMember
+        pfSeedContext.HouseholdMembers.Add(new HouseholdMember
         {
             TenantId = tenantId,
             HouseholdId = householdId,
@@ -1192,6 +1209,7 @@ public class FinancialLifeGraphServiceTests
             Role = "Owner",
             PermissionsJson = "[]"
         });
+        await pfSeedContext.SaveChangesAsync();
         context.Parties.Add(new PartyReadModel
         {
             Id = relatedPartyId,
@@ -1234,7 +1252,8 @@ public class FinancialLifeGraphServiceTests
         var householdId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.AddRange(
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalProfiles.AddRange(
             new PersonalProfile
             {
                 TenantId = tenantId,
@@ -1249,13 +1268,13 @@ public class FinancialLifeGraphServiceTests
                 PartyId = otherPartyId,
                 HouseholdId = householdId
             });
-        context.Households.Add(new Household
+        pfSeedContext.Households.Add(new Household
         {
             Id = householdId,
             TenantId = tenantId,
             Name = "Home"
         });
-        context.HouseholdMembers.AddRange(
+        pfSeedContext.HouseholdMembers.AddRange(
             new HouseholdMember
             {
                 TenantId = tenantId,
@@ -1272,6 +1291,7 @@ public class FinancialLifeGraphServiceTests
                 Role = "Member",
                 PermissionsJson = "[]"
             });
+        await pfSeedContext.SaveChangesAsync();
         context.Parties.Add(new PartyReadModel
         {
             Id = otherPartyId,
