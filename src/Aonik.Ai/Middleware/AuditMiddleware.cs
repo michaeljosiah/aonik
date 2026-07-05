@@ -89,9 +89,16 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         {
             try
             {
-                await _aiRunWriter.MarkRunCompletedAsync(
+                // Route through the metrics-aware completion (H17) so the non-streaming path
+                // captures structured token/latency/cost metrics — like the streaming path — and
+                // feeds the per-tenant AI dashboards, instead of an unstructured outputRef string.
+                var totalTokens = (int)(response.Usage?.TotalTokenCount ?? 0);
+                await _aiRunWriter.MarkRunCompletedWithMetricsAsync(
                     aiRunId,
-                    outputRef: $"tokens:{response.Usage?.TotalTokenCount ?? 0},latency:{durationMs:F0}ms",
+                    tokensUsed: totalTokens,
+                    latencyMs: (int)durationMs,
+                    costEstimate: 0m,
+                    outputRef: $"tokens:{totalTokens},latency:{durationMs:F0}ms",
                     cancellationToken);
             }
             catch (Exception ex)
