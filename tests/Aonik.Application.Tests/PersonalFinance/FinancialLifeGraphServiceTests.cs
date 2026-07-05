@@ -56,6 +56,13 @@ public class FinancialLifeGraphServiceTests
                 .AnyAsync(r => r.TenantId == tenantId && r.IsActive
                     && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
                         || (r.ToPartyId == partyAId && r.FromPartyId == partyBId)), ct);
+
+        public async Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken ct = default)
+            => await _db.Parties.AsNoTracking()
+                .Where(p => p.TenantId == tenantId)
+                .OrderBy(p => p.Id)
+                .Select(p => (Guid?)p.Id)
+                .FirstOrDefaultAsync(ct);
     }
 
     private sealed class TestUserDirectoryReader : IUserDirectoryReader

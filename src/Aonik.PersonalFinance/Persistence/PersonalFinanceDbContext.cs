@@ -1,3 +1,4 @@
+using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -55,6 +56,18 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
     public DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public DbSet<StatementImport> StatementImports { get; set; } = null!;
     public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
+
+    // ── Accounts (Tenant-Scoped Bank Linking) ───────────────────────────
+    // The account-link slice (Services/Accounts/**) moved here from Finance
+    // (Spec 027 S-Acct, #126). FinanceDbContext still declares these DbSets
+    // for now (removed in a later S3 PR); both contexts map the same physical
+    // Ank-prefixed tables the canonical AonikDbContext owns.
+    public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
+    public DbSet<AccountConnectionSession> AccountConnectionSessions { get; set; } = null!;
+    public DbSet<Account> Accounts { get; set; } = null!;
+    public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
+    public DbSet<AccountTransactionAttachment> AccountTransactionAttachments { get; set; } = null!;
+    public DbSet<AccountTransactionMerchantCategory> AccountTransactionMerchantCategories { get; set; } = null!;
 
     // NOTE (Spec 027 Phase 2): The spec also lists Platform read models
     // (Parties / Users / etc) on this context. Those types currently live in
@@ -135,6 +148,15 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
         MapTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapTable<StatementImport>(modelBuilder, "StatementImports");
         MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
+
+        // Accounts (Tenant-Scoped Bank Linking) — same physical table names
+        // the canonical AonikDbContext / FinanceDbContext already produce.
+        MapTable<AccountConnection>(modelBuilder, "AccountConnections");
+        MapTable<AccountConnectionSession>(modelBuilder, "AccountConnectionSessions");
+        MapTable<Account>(modelBuilder, "Accounts");
+        MapTable<AccountTransaction>(modelBuilder, "AccountTransactions");
+        MapTable<AccountTransactionAttachment>(modelBuilder, "AccountTransactionAttachments");
+        MapTable<AccountTransactionMerchantCategory>(modelBuilder, "AccountTransactionMerchantCategories");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

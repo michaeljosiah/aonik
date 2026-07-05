@@ -1,11 +1,12 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Accounts.Linking;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -39,7 +40,7 @@ internal sealed class AccountLinkService : IAccountLinkService
     private readonly AccountTransactionCategoryManager _categoryManager;
 
     public AccountLinkService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ITenantContext tenantContext,
         ICurrentUserProvider currentUserProvider,
@@ -48,6 +49,7 @@ internal sealed class AccountLinkService : IAccountLinkService
         IAccountTransactionCategorizer categorizer,
         IChronicleCategoryMapper categoryMapper,
         IPartyAccountService partyAccountService,
+        IPartyReader partyReader,
         IFileStore fileStore,
         IOptions<AccountConnectionSyncOptions> syncOptions,
         ILogger<AccountLinkService> logger)
@@ -59,6 +61,7 @@ internal sealed class AccountLinkService : IAccountLinkService
         var syncApplicator = new AccountConnectionSyncApplicator(
             financeDbContext,
             partyAccountService,
+            partyReader,
             syncOptions);
 
         _sessionCoordinator = new AccountLinkSessionCoordinator(

@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -14,13 +14,13 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class ManualAccountManager
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IPartyAccountService _partyAccountService;
     private readonly AccountConnectionSyncApplicator _syncApplicator;
 
     public ManualAccountManager(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         IPartyAccountService partyAccountService,
         AccountConnectionSyncApplicator syncApplicator)

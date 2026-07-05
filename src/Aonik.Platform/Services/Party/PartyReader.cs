@@ -87,4 +87,18 @@ internal sealed class PartyReader : IPartyReader
                     || (r.ToPartyId == partyAId && r.FromPartyId == partyBId)),
                 cancellationToken);
     }
+
+    public async Task<Guid?> GetTenantPartyIdAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        // The tenant's own party is the earliest-created party in the tenant
+        // (ordered by Id). Returns null when the tenant has no party yet.
+        return await _dbContext.Parties
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId)
+            .OrderBy(p => p.Id)
+            .Select(p => (Guid?)p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

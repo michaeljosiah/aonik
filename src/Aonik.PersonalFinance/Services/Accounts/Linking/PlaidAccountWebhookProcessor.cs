@@ -1,6 +1,6 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,13 +15,13 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class PlaidAccountWebhookProcessor
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
     private readonly AccountConnectionSyncOptions _syncOptions;
     private readonly ILogger _logger;
 
     public PlaidAccountWebhookProcessor(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IOptions<AccountConnectionSyncOptions> syncOptions,
         ILogger logger)

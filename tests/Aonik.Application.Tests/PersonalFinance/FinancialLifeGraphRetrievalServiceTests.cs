@@ -68,6 +68,9 @@ public class FinancialLifeGraphRetrievalServiceTests
             => Task.FromResult(_relationships.Any(r => r.IsActive
                 && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
                     || (r.ToPartyId == partyAId && r.FromPartyId == partyBId))));
+
+        public Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(_parties.Keys.OrderBy(id => id).Cast<Guid?>().FirstOrDefault());
     }
 
     private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)

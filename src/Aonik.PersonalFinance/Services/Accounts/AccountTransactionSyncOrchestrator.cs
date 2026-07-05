@@ -4,7 +4,7 @@ using System.Text;
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,7 +14,7 @@ namespace Aonik.Finance.Services.Accounts;
 
 internal sealed class AccountTransactionSyncOrchestrator
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
     private readonly IAccountTransactionCategorizer _categorizer;
@@ -22,7 +22,7 @@ internal sealed class AccountTransactionSyncOrchestrator
     private readonly ILogger<AccountTransactionSyncOrchestrator> _logger;
 
     public AccountTransactionSyncOrchestrator(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         IAccountTransactionCategorizer categorizer,

@@ -225,18 +225,12 @@ public sealed class FinanceModule : IModule
         // ICustomerInsightSnapshotService, ICustomerInsightSnapshotReader, and
         // ICustomerInsightSnapshotForAi all relocated to PersonalFinanceModule
         // (Spec 027 Phase 3 + Phase 7 deferred-refactor wrap-up).
-        services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
-            configuration.GetSection("Finance:PersonalFinance:Plaid"));
+        // PlaidAccountLinkOptions config, the PlaidAccountLinkProviderGateway
+        // HttpClient, and the IPersonalAccountLinkProviderGateway factory
+        // relocated to PersonalFinanceModule alongside the account-link slice
+        // (Spec 027 S-Acct, #126).
         services.Configure<Services.PersonalFinance.FinancialConnectionSyncOptions>(
             configuration.GetSection("Finance:PersonalFinance:LinkedAccountSync"));
-        services.AddHttpClient<Services.PersonalFinance.PlaidAccountLinkProviderGateway>((sp, client) =>
-        {
-            var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
-            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
-            {
-                client.BaseAddress = baseUri;
-            }
-        });
 
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAiClassifier, Services.PersonalFinance.TransactionAiClassifier>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
@@ -250,25 +244,10 @@ public sealed class FinanceModule : IModule
         // Cross-module IPersonalProfileProvisioner and IUserBriefDataProvider
         // relocated to PersonalFinanceModule (Spec 027 Phase 3).
 
-        services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
-            if (options.IsConfigured())
-            {
-                return sp.GetRequiredService<Services.PersonalFinance.PlaidAccountLinkProviderGateway>();
-            }
-
-            return new Services.PersonalFinance.PlaidSimulatedAccountLinkProviderGateway();
-        });
-
-        // Accounts (Tenant-Scoped Bank Linking)
-        services.Configure<Services.Accounts.AccountConnectionSyncOptions>(
-            configuration.GetSection("Finance:Accounts:LinkedAccountSync"));
-        services.AddScoped<Services.Accounts.IAccountTransactionCategorizer,
-            Services.Accounts.AccountTransactionCategorizer>();
-        services.AddScoped<Services.Accounts.AccountTransactionSyncOrchestrator>();
-        services.AddScoped<Contracts.Services.Accounts.IAccountLinkService,
-            Services.Accounts.AccountLinkService>();
+        // The IPersonalAccountLinkProviderGateway factory and the entire
+        // account-link slice (AccountConnectionSyncOptions, IAccountTransactionCategorizer,
+        // AccountTransactionSyncOrchestrator, IAccountLinkService) relocated to
+        // PersonalFinanceModule (Spec 027 S-Acct, #126).
 
         // ── Finance AI Insights ──────────────────────────────────────
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();

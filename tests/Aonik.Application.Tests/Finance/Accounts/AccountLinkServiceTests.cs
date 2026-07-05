@@ -1,12 +1,12 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Accounts;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Storage;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -234,17 +234,45 @@ public class AccountLinkServiceTests
         }
     }
 
-    private static FinanceDbContext CreateDbContext(Guid tenantId)
+    private sealed class FakePartyReader : IPartyReader
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        private readonly Guid _tenantPartyId;
+
+        public FakePartyReader(Guid tenantPartyId)
+        {
+            _tenantPartyId = tenantPartyId;
+        }
+
+        public Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Guid?>(_tenantPartyId);
+
+        public Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PartyHistoryItem>>([]);
+
+        public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(
+            Guid tenantId, Guid partyId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>([]);
+
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<bool> HasActiveRelationshipBetweenAsync(
+            Guid tenantId, Guid partyAId, Guid partyBId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+    }
+
+    private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     private static AccountLinkService CreateService(
-        FinanceDbContext context,
+        PersonalFinanceDbContext context,
         Guid tenantId,
         Guid userId,
         TestTenantContext tenantContext,
@@ -279,21 +307,20 @@ public class AccountLinkServiceTests
             categorizer,
             categoryMapper,
             new FakePartyAccountService(TestPartyId),
+            new FakePartyReader(TestPartyId),
             new FakeFileStore(),
             syncOptions,
             NullLogger<AccountLinkService>.Instance);
     }
 
-    private static async Task SeedTenantParty(FinanceDbContext context, Guid tenantId)
+    private static Task SeedTenantParty(PersonalFinanceDbContext context, Guid tenantId)
     {
-        context.Parties.Add(new PartyReadModel
-        {
-            Id = TestPartyId,
-            TenantId = tenantId,
-            DisplayName = "Test Tenant",
-            Status = "Active"
-        });
-        await context.SaveChangesAsync();
+        // The tenant's own party is now resolved through IPartyReader (a Platform
+        // read model on PlatformDbContext), which the FakePartyReader supplies as
+        // TestPartyId — so no Party row needs seeding into this context.
+        _ = context;
+        _ = tenantId;
+        return Task.CompletedTask;
     }
 
     [Fact]

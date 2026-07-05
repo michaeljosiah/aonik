@@ -1,8 +1,9 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -17,17 +18,20 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class AccountConnectionSyncApplicator
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly IPartyAccountService _partyAccountService;
+    private readonly IPartyReader _partyReader;
     private readonly AccountConnectionSyncOptions _syncOptions;
 
     public AccountConnectionSyncApplicator(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         IPartyAccountService partyAccountService,
+        IPartyReader partyReader,
         IOptions<AccountConnectionSyncOptions> syncOptions)
     {
         _financeDbContext = financeDbContext;
         _partyAccountService = partyAccountService;
+        _partyReader = partyReader;
         _syncOptions = syncOptions.Value;
     }
 
@@ -112,20 +116,16 @@ internal sealed class AccountConnectionSyncApplicator
     public async Task<Guid> ResolveTenantPartyIdAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         // The tenant's own party is typically the first party in the tenant.
-        // Look up via the Parties read model.
-        var tenantParty = await _financeDbContext.Parties
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId)
-            .OrderBy(item => item.Id)
-            .Select(item => item.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        // Resolved through the SharedKernel Platform read contract so this
+        // slice no longer touches the Finance-resident Parties read model.
+        var tenantParty = await _partyReader.GetTenantPartyIdAsync(tenantId, cancellationToken);
 
-        if (tenantParty == Guid.Empty)
+        if (tenantParty is null || tenantParty.Value == Guid.Empty)
         {
             throw new InvalidOperationException("Could not resolve the tenant's party for external account creation.");
         }
 
-        return tenantParty;
+        return tenantParty.Value;
     }
 
     private async Task UpsertLinkedAccountAsync(

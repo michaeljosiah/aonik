@@ -68,6 +68,8 @@ public class FinancialLifeGraphSchemaTests
         public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default) => Task.FromResult(false);
         public Task<bool> HasActiveRelationshipBetweenAsync(Guid tenantId, Guid a, Guid b, CancellationToken ct = default)
             => Task.FromResult(ActiveRelationships.Contains((a, b)) || ActiveRelationships.Contains((b, a)));
+        public Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
     }
 
     private sealed class StubOrderReader : ICustomerOrderHistoryReader
