@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 /// <summary>
 /// Canonical contract constants for deterministic personal-finance customer snapshots.

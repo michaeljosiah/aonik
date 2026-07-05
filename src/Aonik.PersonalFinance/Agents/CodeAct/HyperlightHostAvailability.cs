@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using HyperlightSandbox.Api;
 using HyperlightSandbox.Guest.Python;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// One-shot probe for whether this process can host a Hyperlight Python

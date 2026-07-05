@@ -1,4 +1,4 @@
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 
 namespace Aonik.PersonalFinance.Services.PersonalFinance;

@@ -229,11 +229,11 @@ public sealed class FinanceModule : IModule
         // HttpClient, and the IPersonalAccountLinkProviderGateway factory
         // relocated to PersonalFinanceModule alongside the account-link slice
         // (Spec 027 S-Acct, #126).
-        services.Configure<Services.PersonalFinance.FinancialConnectionSyncOptions>(
+        services.Configure<Aonik.PersonalFinance.Services.FinancialConnectionSyncOptions>(
             configuration.GetSection("Finance:PersonalFinance:LinkedAccountSync"));
 
-        services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAiClassifier, Services.PersonalFinance.TransactionAiClassifier>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
+        services.AddScoped<Aonik.PersonalFinance.Contracts.Services.ITransactionAiClassifier, Aonik.PersonalFinance.Services.TransactionAiClassifier>();
+        services.AddScoped<Aonik.PersonalFinance.Contracts.Services.IPersonalFinanceNarrativeInsightsService, Aonik.PersonalFinance.Services.PersonalFinanceNarrativeInsightsService>();
         // The entire FinancialLifeGraph cluster (Schema, Loader, SnapshotMetrics,
         // HydrationService, Service, SchemaService, TraversalService,
         // CacheInvalidator, ValidationService, WriteService, InferenceService,

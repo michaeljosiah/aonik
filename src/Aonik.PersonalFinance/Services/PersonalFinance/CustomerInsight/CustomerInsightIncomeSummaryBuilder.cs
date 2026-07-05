@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
 /// Builds the <see cref="CustomerInsightIncomeSummary"/> section: total inflows

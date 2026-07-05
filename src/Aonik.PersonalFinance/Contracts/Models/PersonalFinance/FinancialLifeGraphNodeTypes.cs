@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 /// <summary>
 /// Canonical node type names used by the Financial Life Graph read model.

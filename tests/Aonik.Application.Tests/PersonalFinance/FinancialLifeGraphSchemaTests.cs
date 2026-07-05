@@ -1,5 +1,5 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Finance;
@@ -261,7 +261,7 @@ public class FinancialLifeGraphSchemaTests
         var selfPartyId = Guid.NewGuid();
         var relatedPartyId = Guid.NewGuid();
         await using var context = CreateDbContext(tenantId);
-        context.PersonalProfiles.Add(new Aonik.Finance.Entities.PersonalFinance.PersonalProfile
+        context.PersonalProfiles.Add(new Aonik.PersonalFinance.Entities.PersonalProfile
         {
             TenantId = tenantId,
             UserId = userId,

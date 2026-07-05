@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Aonik.Finance.Agents.StructuredOutputs;
+namespace Aonik.PersonalFinance.Agents.StructuredOutputs;
 
 /// <summary>
 /// Output contract for the <c>pf-compass-planner</c> sub-agent (Spec 021 §5).

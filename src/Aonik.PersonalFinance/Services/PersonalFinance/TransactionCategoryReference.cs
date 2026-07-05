@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Provides a canonical set of transaction categories and mappings from provider-specific

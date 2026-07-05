@@ -1,6 +1,6 @@
-using Aonik.Finance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Internal seam over the <c>pf-compass-planner</c> sub-agent invocation

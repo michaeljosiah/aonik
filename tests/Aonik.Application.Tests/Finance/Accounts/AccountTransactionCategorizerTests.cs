@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Services.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
+using Aonik.PersonalFinance.Services.Accounts;
 using FluentAssertions;
 
 namespace Aonik.Application.Tests.Finance.Accounts;

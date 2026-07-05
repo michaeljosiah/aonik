@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
 using FastEndpoints;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 internal sealed class DeclineHouseholdInvitationEndpoint : EndpointWithoutRequest
 {

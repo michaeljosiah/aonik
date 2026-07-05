@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>Maps the anemic <see cref="CompassPlan"/> entity to its response DTO.</summary>
 internal static class CompassPlanMapper

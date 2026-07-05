@@ -1,6 +1,6 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 /// <summary>
 /// AI-powered transaction classifier used as a fallback when deterministic rules

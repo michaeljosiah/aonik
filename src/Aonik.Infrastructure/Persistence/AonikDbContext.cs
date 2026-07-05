@@ -18,7 +18,7 @@ using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.Tasks;
 using Aonik.Finance.Entities.Billing;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;

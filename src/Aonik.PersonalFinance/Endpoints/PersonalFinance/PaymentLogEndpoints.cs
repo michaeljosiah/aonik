@@ -1,11 +1,11 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 // PaymentLog customer CRUD + corroboration + year summary (Spec 045).
 // Customer-scoped (UserPolicy), under /personal-finance/payment-logs. Internal

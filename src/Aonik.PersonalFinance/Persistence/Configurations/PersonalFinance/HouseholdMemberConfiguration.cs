@@ -1,8 +1,8 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
+namespace Aonik.PersonalFinance.Persistence.Configurations;
 
 internal sealed class HouseholdMemberConfiguration : IEntityTypeConfiguration<HouseholdMember>
 {
@@ -19,6 +19,6 @@ internal sealed class HouseholdMemberConfiguration : IEntityTypeConfiguration<Ho
         builder.Property(item => item.InvitationStatus)
             .IsRequired()
             .HasMaxLength(32)
-            .HasDefaultValue(Contracts.Models.PersonalFinance.HouseholdInvitationStatuses.Accepted);
+            .HasDefaultValue(Aonik.PersonalFinance.Contracts.Models.HouseholdInvitationStatuses.Accepted);
     }
 }

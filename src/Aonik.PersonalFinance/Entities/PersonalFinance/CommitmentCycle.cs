@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
 /// One occurrence of a commitment's rhythm (Spec 044 §6) — the only honest way

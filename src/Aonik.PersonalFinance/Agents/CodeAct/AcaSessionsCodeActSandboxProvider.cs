@@ -8,7 +8,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// CodeAct sandbox provider backed by Azure Container Apps Dynamic Sessions

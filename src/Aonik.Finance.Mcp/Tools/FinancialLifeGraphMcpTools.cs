@@ -1,6 +1,6 @@
 using System.ComponentModel;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using ModelContextProtocol.Server;
 
 namespace Aonik.Finance.Mcp.Tools;

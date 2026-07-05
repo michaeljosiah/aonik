@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Services.Accounts.Linking;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Services.Accounts.Linking;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Finance.Categorization;
@@ -11,7 +11,7 @@ using Aonik.SharedKernel.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 /// <summary>
 /// Tenant-scoped account-link orchestrator. Implements the public

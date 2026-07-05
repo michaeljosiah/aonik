@@ -7,7 +7,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// Typed <see cref="HttpClient"/> wrapper over the Azure Container Apps

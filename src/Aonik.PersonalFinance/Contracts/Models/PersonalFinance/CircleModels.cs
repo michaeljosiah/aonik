@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 // ── Circle grant / invite DTOs (Spec 048) ───────────────────────────
 // Reuses CurrencyTotal, CareEntityResponse, CareEntityPaymentLogSummary,

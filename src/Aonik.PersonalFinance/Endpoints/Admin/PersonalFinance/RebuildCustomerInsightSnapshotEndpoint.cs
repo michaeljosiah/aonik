@@ -1,9 +1,9 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints.Admin;
 
 internal sealed class RebuildCustomerInsightSnapshotRequest
 {

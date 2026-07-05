@@ -1,8 +1,8 @@
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 internal sealed class DeleteFinancialLifeGraphNodeEndpoint : EndpointWithoutRequest
 {

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 

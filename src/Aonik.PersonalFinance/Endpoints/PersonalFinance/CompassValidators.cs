@@ -1,9 +1,9 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 // ════════════════════════════════════════════════════════════════════
 // Validators for the AONIK Compass (Spec 021) request DTOs. Required by the

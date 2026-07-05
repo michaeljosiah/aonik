@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 public class AccountConnectionSyncOptions
 {

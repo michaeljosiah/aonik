@@ -1,9 +1,9 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
+namespace Aonik.PersonalFinance.Persistence.Configurations;
 
 internal sealed class CustomerInsightSnapshotConfiguration : IEntityTypeConfiguration<CustomerInsightSnapshot>
 {

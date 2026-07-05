@@ -1,4 +1,4 @@
-using Aonik.Finance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.SharedKernel.Abstractions.Agents;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;

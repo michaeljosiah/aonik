@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 public sealed class AccountLinkActionRequiredException : InvalidOperationException
 {

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.Accounts;
+namespace Aonik.PersonalFinance.Entities.Accounts;
 
 /// <summary>
 /// A file (receipt, statement, document) attached to an account transaction.

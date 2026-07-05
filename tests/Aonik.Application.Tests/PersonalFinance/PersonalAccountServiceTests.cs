@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -235,7 +235,7 @@ public class PersonalAccountServiceTests
             50m));
 
         // Add a transaction to the account.
-        context.PersonalTransactions.Add(new Aonik.Finance.Entities.PersonalFinance.PersonalTransaction
+        context.PersonalTransactions.Add(new Aonik.PersonalFinance.Entities.PersonalTransaction
         {
             TenantId = tenantId,
             UserId = userId,

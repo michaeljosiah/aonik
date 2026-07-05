@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
 /// A versioned AONIK Compass plan for a <see cref="Goal"/> (Spec 021 §2).

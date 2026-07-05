@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 /// <summary>
 /// Classifies an <see cref="AccountTransaction"/> against the Chronicle taxonomy.

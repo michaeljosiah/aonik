@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Services.Accounts;
-using Aonik.Finance.Services.Accounts.Linking;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Entities.Accounts;
+using Aonik.PersonalFinance.Services.Accounts;
+using Aonik.PersonalFinance.Services.Accounts.Linking;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;

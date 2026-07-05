@@ -1,9 +1,9 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
 /// Encapsulates every read against <see cref="PersonalFinanceDbContext"/> the snapshot

@@ -1,4 +1,4 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;

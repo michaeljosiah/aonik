@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Aonik.Finance.Contracts.Models.Accounts;
+namespace Aonik.PersonalFinance.Contracts.Models.Accounts;
 
 public record CreateAccountLinkSessionRequest(
     string Provider,

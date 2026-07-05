@@ -4,7 +4,7 @@ using System.Text;
 
 using FluentAssertions;
 
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.Platform.Contracts.Api.PersonalFinance;
 
 namespace Aonik.Api.Tests;

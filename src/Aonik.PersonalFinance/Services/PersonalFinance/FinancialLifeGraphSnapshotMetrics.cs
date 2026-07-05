@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal sealed class FinancialLifeGraphSnapshotMetrics
 {

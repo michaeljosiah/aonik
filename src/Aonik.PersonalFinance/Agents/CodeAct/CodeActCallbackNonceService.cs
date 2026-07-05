@@ -6,7 +6,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// Mints and validates the HMAC-signed nonces that authenticate

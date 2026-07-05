@@ -6,7 +6,7 @@ using HyperlightSandbox.Guest.Python;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// CodeAct sandbox provider backed by Hyperlight — the in-process Python

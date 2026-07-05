@@ -4,9 +4,9 @@ using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;

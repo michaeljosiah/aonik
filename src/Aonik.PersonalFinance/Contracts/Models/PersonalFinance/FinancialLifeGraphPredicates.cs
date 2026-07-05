@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 /// <summary>
 /// Canonical edge predicate names used by the Financial Life Graph.

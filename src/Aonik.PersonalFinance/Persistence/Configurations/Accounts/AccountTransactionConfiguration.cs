@@ -1,9 +1,9 @@
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.Accounts;
+namespace Aonik.PersonalFinance.Persistence.Configurations.Accounts;
 
 internal class AccountTransactionConfiguration : IEntityTypeConfiguration<AccountTransaction>
 {

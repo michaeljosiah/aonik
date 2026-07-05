@@ -2,7 +2,7 @@ using Aonik.Finance.Contracts.Api.Ledger;
 using Aonik.Finance.Contracts.Api.Orders;
 using Aonik.Finance.Contracts.Api.Payments;
 using Aonik.Finance.Contracts.Api.Pricing;
-using Aonik.Finance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Models.Partners;
 using Aonik.SharedKernel.Validation;

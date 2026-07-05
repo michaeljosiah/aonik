@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Finance.Contracts.Services.Accounts;
+namespace Aonik.PersonalFinance.Contracts.Services.Accounts;
 
 public interface IAccountLinkService
 {

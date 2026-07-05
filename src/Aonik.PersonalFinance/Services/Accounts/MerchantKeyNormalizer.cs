@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 /// <summary>
 /// Normalises a raw merchant name into a stable lookup key so the categorizer

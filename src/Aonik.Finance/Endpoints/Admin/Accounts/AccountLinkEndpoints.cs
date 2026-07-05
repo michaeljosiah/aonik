@@ -1,5 +1,5 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services.Accounts;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
@@ -288,7 +288,7 @@ internal sealed class ListAccountTransactionsEndpoint : Endpoint<ListAccountTran
     public override async Task HandleAsync(ListAccountTransactionsRequest req, CancellationToken ct)
     {
         var response = await _service.ListTransactionsAsync(
-            new Contracts.Models.Accounts.ListAccountTransactionsRequest(
+            new Aonik.PersonalFinance.Contracts.Models.Accounts.ListAccountTransactionsRequest(
                 req.ExternalAccountId,
                 req.ConnectionId,
                 req.ReconciliationStatus,

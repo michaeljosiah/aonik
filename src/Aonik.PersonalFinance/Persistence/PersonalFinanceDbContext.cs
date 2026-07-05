@@ -1,5 +1,5 @@
-using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities.Accounts;
+using Aonik.PersonalFinance.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;

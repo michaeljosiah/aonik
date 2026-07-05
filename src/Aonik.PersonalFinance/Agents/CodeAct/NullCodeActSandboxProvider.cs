@@ -1,7 +1,7 @@
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Extensions.AI;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// No-op CodeAct provider. Used when <c>Ai:CodeAct:Provider</c> is unset or

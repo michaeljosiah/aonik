@@ -1,4 +1,4 @@
-using Aonik.Finance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.CodeAct;
 using Azure.Core;
 using Azure.Identity;
 using FastEndpoints;

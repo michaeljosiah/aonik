@@ -1,4 +1,4 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Finance;
@@ -7,7 +7,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal sealed class FinancialLifeGraphValidationService
 {
@@ -337,7 +337,7 @@ internal sealed class FinancialLifeGraphValidationService
         Guid nodeId,
         Guid tenantId,
         Guid userId,
-        Aonik.Finance.Entities.PersonalFinance.PersonalProfile? profile,
+        Aonik.PersonalFinance.Entities.PersonalProfile? profile,
         CancellationToken cancellationToken)
     {
         switch (prefix)

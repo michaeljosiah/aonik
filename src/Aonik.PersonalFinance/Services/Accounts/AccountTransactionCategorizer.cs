@@ -1,8 +1,8 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 internal sealed class AccountTransactionCategorizer : IAccountTransactionCategorizer
 {

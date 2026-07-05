@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Aonik.Finance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;

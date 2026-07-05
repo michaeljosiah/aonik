@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Aonik.Finance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Azure.Core;
 using FluentAssertions;

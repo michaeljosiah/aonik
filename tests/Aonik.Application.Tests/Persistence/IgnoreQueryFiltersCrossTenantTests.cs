@@ -5,7 +5,7 @@ using Aonik.Agents.Services;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;

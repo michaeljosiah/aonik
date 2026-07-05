@@ -1,7 +1,7 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Caching;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 // Interface IFinancialLifeGraphCacheInvalidator moved to Aonik.PersonalFinance
 // so PersonalFinance services can reference it (Spec 027 Phase 3).
