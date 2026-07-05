@@ -2,19 +2,18 @@ using Aonik.Finance.Agents;
 using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.Finance.Agents.Tools;
 using Aonik.PersonalFinance.Contracts.Models;
-using Aonik.Finance.Contracts.Services.Orders;
 using Aonik.PersonalFinance.Contracts.Services;
-using Aonik.Finance.Contracts.Services.Pricing;
-using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -336,16 +335,19 @@ public class SubAgentImpersonationTests
         services.AddSingleton(new Mock<ICommitmentService>().Object);
         services.AddSingleton(new Mock<IPersonalFinanceInsightsService>().Object);
         services.AddSingleton(new Mock<IDashboardService>().Object);
-        services.AddSingleton(new Mock<IFxRateService>().Object);
+        services.AddSingleton(new Mock<IFxRateHistoryReader>().Object);
         services.AddSingleton(new Mock<ITransactionClassificationService>().Object);
         services.AddSingleton(new Mock<IStatementImportService>().Object);
         services.AddSingleton(new Mock<ITransactionAttachmentService>().Object);
         services.AddSingleton<ICustomerInsightSnapshotReader>(snapshotReader);
-        services.AddSingleton(new Mock<IOrderService>().Object);
+        // Orders read/cancel through the customer-facing contract and resolve the
+        // caller's party via IUserPartyResolver — the PF tools no longer touch
+        // Finance's IOrderService or FinanceDbContext (Spec 027 S-Contracts / #118).
+        services.AddSingleton(new Mock<ICustomerOrderService>().Object);
+        services.AddSingleton(new Mock<IUserPartyResolver>().Object);
         services.AddSingleton(new Mock<IGoalService>().Object);
         services.AddSingleton(new Mock<ICompassPlanService>().Object);
         services.AddSingleton(new Mock<ICompassGuidanceService>().Object);
-        services.AddSingleton(CreateFinanceDbContext());
         // Unrelated to the per-test ToolCapturingChatClient passed directly to
         // descriptor.BuildWithImpersonation(...) below — this only satisfies
         // PersonalFinanceTools.CreateAll's own IChatClient dependency, which
@@ -357,11 +359,6 @@ public class SubAgentImpersonationTests
         var sp = services.BuildServiceProvider();
         return (tenantContext, userContext, snapshotReader, sp);
     }
-
-    private static FinanceDbContext CreateFinanceDbContext() =>
-        new(new DbContextOptionsBuilder<FinanceDbContext>()
-            .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
-            .Options);
 
     /// <summary>
     /// Resolves the real <see cref="ISubAgentDescriptor"/> for the given
