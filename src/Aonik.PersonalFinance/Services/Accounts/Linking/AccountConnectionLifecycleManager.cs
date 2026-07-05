@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -14,14 +14,14 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class AccountConnectionLifecycleManager
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly AccountLinkProviderResolver _providerResolver;
     private readonly AccountConnectionSyncApplicator _syncApplicator;
 
     public AccountConnectionLifecycleManager(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         AccountLinkProviderResolver providerResolver,

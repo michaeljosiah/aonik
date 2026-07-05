@@ -1,5 +1,7 @@
 using Aonik.Finance.Agents.CodeAct;
+using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.Finance.Services.Accounts;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -80,6 +82,40 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<IPersonalAccountLinkService, PersonalAccountLinkService>();
         services.AddScoped<IPersonalFinanceInsightsService, PersonalFinanceInsightsService>();
         services.AddScoped<FinancialConnectionTransactionSyncOrchestrator>();
+
+        // ── Plaid account-link provider gateway (Spec 027 S-Acct, #126) ─
+        // Relocated from FinanceModule. Backs both the account-link slice below
+        // and the FinancialConnection sync orchestrator / PersonalAccountLinkService
+        // above. The factory returns the live Plaid gateway when configured,
+        // otherwise the simulated one.
+        services.Configure<PlaidAccountLinkOptions>(
+            configuration.GetSection("Finance:PersonalFinance:Plaid"));
+        services.AddHttpClient<PlaidAccountLinkProviderGateway>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<PlaidAccountLinkOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+        });
+        services.AddTransient<IPersonalAccountLinkProviderGateway>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<PlaidAccountLinkOptions>>().Value;
+            if (options.IsConfigured())
+            {
+                return sp.GetRequiredService<PlaidAccountLinkProviderGateway>();
+            }
+
+            return new PlaidSimulatedAccountLinkProviderGateway();
+        });
+
+        // ── Accounts (Tenant-Scoped Bank Linking) slice (Spec 027 S-Acct, #126) ─
+        // Relocated from FinanceModule alongside the Services/Accounts subtree.
+        services.Configure<AccountConnectionSyncOptions>(
+            configuration.GetSection("Finance:Accounts:LinkedAccountSync"));
+        services.AddScoped<IAccountTransactionCategorizer, AccountTransactionCategorizer>();
+        services.AddScoped<AccountTransactionSyncOrchestrator>();
+        services.AddScoped<IAccountLinkService, AccountLinkService>();
 
         // ── FinancialLifeGraph cluster (Spec 027 Phase 3 continued) ─
         services.AddSingleton<FinancialLifeGraphSchema>();

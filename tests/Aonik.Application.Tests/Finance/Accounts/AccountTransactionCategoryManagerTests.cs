@@ -1,8 +1,8 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Accounts;
 using Aonik.Finance.Services.Accounts.Linking;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using FluentAssertions;
@@ -28,15 +28,15 @@ public class AccountTransactionCategoryManagerTests
         public bool TryGetCurrentUserId(out Guid result) { result = userId; return true; }
     }
 
-    private static FinanceDbContext NewContext()
+    private static PersonalFinanceDbContext NewContext()
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"CategoryMgrTests_{Guid.NewGuid()}")
             .Options;
-        return new FinanceDbContext(options, new TestTenantProvider(TenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(TenantId));
     }
 
-    private static AccountTransactionCategoryManager NewManager(FinanceDbContext context)
+    private static AccountTransactionCategoryManager NewManager(PersonalFinanceDbContext context)
     {
         var mapper = new Aonik.PersonalFinance.Services.PersonalFinance.ChronicleCategoryMapper();
         return new AccountTransactionCategoryManager(
@@ -48,7 +48,7 @@ public class AccountTransactionCategoryManagerTests
     }
 
     private static AccountTransaction Seed(
-        FinanceDbContext context,
+        PersonalFinanceDbContext context,
         string? category = null,
         string? counterparty = "Some Merchant",
         Guid? connectionId = null,

@@ -131,6 +131,8 @@ public class HouseholdServiceTests
             => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>([]);
         public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default) => Task.FromResult(Parties.ContainsKey(partyId));
         public Task<bool> HasActiveRelationshipBetweenAsync(Guid tenantId, Guid a, Guid b, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(Parties.Keys.OrderBy(id => id).Cast<Guid?>().FirstOrDefault());
     }
 
     private sealed class StubUserDirectoryReader : IUserDirectoryReader

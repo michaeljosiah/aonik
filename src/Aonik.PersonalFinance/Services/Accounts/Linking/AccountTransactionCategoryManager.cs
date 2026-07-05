@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -15,14 +15,14 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class AccountTransactionCategoryManager
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IAccountTransactionCategorizer _categorizer;
     private readonly IChronicleCategoryMapper _categoryMapper;
 
     public AccountTransactionCategoryManager(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IAccountTransactionCategorizer categorizer,

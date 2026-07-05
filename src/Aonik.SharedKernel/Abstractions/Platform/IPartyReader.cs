@@ -46,6 +46,15 @@ public interface IPartyReader
         Guid partyAId,
         Guid partyBId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the tenant's own party — the earliest-created party in the tenant;
+    /// null if none. Used by the account-link slice when it must attribute an
+    /// externally-linked account to the tenant's party.
+    /// </summary>
+    Task<Guid?> GetTenantPartyIdAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

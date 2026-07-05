@@ -1,6 +1,6 @@
 using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Entities.Accounts;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -14,12 +14,12 @@ namespace Aonik.Finance.Services.Accounts.Linking;
 /// </summary>
 internal sealed class TransactionAttachmentHandler
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IFileStore _fileStore;
 
     public TransactionAttachmentHandler(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         IFileStore fileStore)
     {

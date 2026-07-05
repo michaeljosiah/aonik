@@ -52,6 +52,7 @@ public class DashboardServiceSafeToSpendTests
         public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(Guid t, Guid p, CancellationToken c = default) => throw new InvalidOperationException("not used");
         public Task<bool> ExistsAsync(Guid t, Guid p, CancellationToken c = default) => throw new InvalidOperationException("not used");
         public Task<bool> HasActiveRelationshipBetweenAsync(Guid t, Guid a, Guid b, CancellationToken c = default) => throw new InvalidOperationException("not used");
+        public Task<Guid?> GetTenantPartyIdAsync(Guid t, CancellationToken c = default) => throw new InvalidOperationException("not used");
     }
 
     private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
