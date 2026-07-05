@@ -105,6 +105,11 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerInvoiceHistoryReader, Services.Finance.Readers.CustomerInvoiceHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerPaymentHistoryReader, Services.Finance.Readers.CustomerPaymentHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.IFxQuoteReader, Services.Finance.Readers.FxQuoteReader>();
+        // Customer-facing order projection + cancel (the remittance-rich shape the Simi order
+        // tools surface) and FX rate history — the read/command contracts that let the PF agent
+        // surface relocate off Aonik.Finance.Contracts (Spec 027 S-Contracts / #118).
+        services.AddScoped<SharedKernel.Abstractions.Ordering.ICustomerOrderService, Services.Finance.Readers.CustomerOrderService>();
+        services.AddScoped<SharedKernel.Abstractions.Finance.IFxRateHistoryReader, Services.Finance.Readers.FxRateHistoryReader>();
 
         // ICustomerDataExportProvider and ICustomerDataImportConsumer
         // relocated to PersonalFinanceModule (Spec 027 Phase 3).

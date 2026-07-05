@@ -1,10 +1,10 @@
-using Aonik.Finance.Contracts.Services.Orders;
 using Aonik.PersonalFinance.Contracts.Services;
-using Aonik.Finance.Contracts.Services.Pricing;
-using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -60,7 +60,7 @@ internal static class PersonalFinanceTools
 
         var dashboard = new PersonalFinanceDashboardTools(
             serviceProvider.GetRequiredService<IDashboardService>(),
-            serviceProvider.GetRequiredService<IFxRateService>());
+            serviceProvider.GetRequiredService<IFxRateHistoryReader>());
 
         var commitments = new PersonalFinanceCommitmentTools(
             serviceProvider.GetRequiredService<ICommitmentService>());
@@ -83,11 +83,11 @@ internal static class PersonalFinanceTools
             serviceProvider.GetRequiredService<ICustomerInsightSnapshotReader>(),
             chatClient, serviceProvider, agentConfigurationService, tenantProvider, currentUserProvider);
 
-        // Orders resolve the current party from the DB, so this group takes the
-        // order service plus tenant/user/DbContext (ResolveCurrentPartyIdAsync).
+        // Orders read/cancel through the customer-facing order contract and resolve
+        // the caller's party via IUserPartyResolver — no dependency on Finance internals.
         var orders = new PersonalFinanceOrderTools(
-            serviceProvider.GetRequiredService<IOrderService>(),
-            serviceProvider.GetRequiredService<FinanceDbContext>(),
+            serviceProvider.GetRequiredService<ICustomerOrderService>(),
+            serviceProvider.GetRequiredService<IUserPartyResolver>(),
             tenantProvider, currentUserProvider);
 
         // Read-only — safe for autonomous use
