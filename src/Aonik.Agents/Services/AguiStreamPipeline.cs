@@ -105,24 +105,14 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                                 {
                                     ["elapsed_ms"] = timeToFirstTokenMs.Value,
                                 }));
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TEXT_MESSAGE_START",
-                                messageId,
-                                role = "assistant",
-                            }, cancellationToken);
+                            await WriteSseEventAsync(writer, AguiStreamEvents.TextMessageStart(messageId), cancellationToken);
                             messageStarted = true;
                         }
 
                         assistantTextBuilder.Append(textContent.Text);
                         speechBuffer.Append(textContent.Text);
 
-                        await WriteSseEventAsync(writer, new
-                        {
-                            type = "TEXT_MESSAGE_CONTENT",
-                            messageId,
-                            delta = textContent.Text,
-                        }, cancellationToken);
+                        await WriteSseEventAsync(writer, AguiStreamEvents.TextMessageContent(messageId, textContent.Text), cancellationToken);
                         requestToFirstTokenSseMs ??= stopwatch.ElapsedMilliseconds;
 
                         // Voice mode: skip per-sentence chunk emission. We emit
@@ -156,42 +146,20 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                         // not-yet-gated flow that still calls confirmAction keeps its guidance speech.
                         requiresApproval |= _classifier.RequiresApproval(toolName);
 
-                        await WriteSseEventAsync(writer, new
-                        {
-                            type = "TOOL_CALL_START",
-                            toolCallId,
-                            toolCallName = functionCall.Name,
-                            parentMessageId = messageId,
-                        }, cancellationToken);
+                        await WriteSseEventAsync(writer, AguiStreamEvents.ToolCallStart(toolCallId, functionCall.Name, messageId), cancellationToken);
 
                         if (functionCall.Arguments is { Count: > 0 })
                         {
                             var argsJson = JsonSerializer.Serialize(
                                 functionCall.Arguments, JsonOptions);
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TOOL_CALL_ARGS",
-                                toolCallId,
-                                delta = argsJson,
-                            }, cancellationToken);
+                            await WriteSseEventAsync(writer, AguiStreamEvents.ToolCallArgs(toolCallId, argsJson), cancellationToken);
                         }
 
-                        await WriteSseEventAsync(writer, new
-                        {
-                            type = "TOOL_CALL_END",
-                            toolCallId,
-                        }, cancellationToken);
+                        await WriteSseEventAsync(writer, AguiStreamEvents.ToolCallEnd(toolCallId), cancellationToken);
                         break;
 
                     case FunctionResultContent functionResult:
-                        await WriteSseEventAsync(writer, new
-                        {
-                            type = "TOOL_CALL_RESULT",
-                            messageId = Guid.NewGuid().ToString("N"),
-                            toolCallId = functionResult.CallId,
-                            content = functionResult.Result?.ToString(),
-                            role = "tool",
-                        }, cancellationToken);
+                        await WriteSseEventAsync(writer, AguiStreamEvents.ToolCallResult(functionResult.CallId, functionResult.Result?.ToString()), cancellationToken);
 
                         // Spec 032: a gated Medium/High mutation returns a structured approval result
                         // instead of running in-band. Surface it as a machine-parseable CUSTOM event
@@ -216,12 +184,7 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                     case TextReasoningContent reasoningContent
                         when !string.IsNullOrEmpty(reasoningContent.Text):
 
-                        await WriteSseEventAsync(writer, new
-                        {
-                            type = "REASONING_MESSAGE_CONTENT",
-                            messageId,
-                            delta = reasoningContent.Text,
-                        }, cancellationToken);
+                        await WriteSseEventAsync(writer, AguiStreamEvents.ReasoningMessageContent(messageId, reasoningContent.Text), cancellationToken);
                         break;
 
                     case UsageContent usageContent:
@@ -234,11 +197,7 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
 
         if (messageStarted)
         {
-            await WriteSseEventAsync(writer, new
-            {
-                type = "TEXT_MESSAGE_END",
-                messageId,
-            }, cancellationToken);
+            await WriteSseEventAsync(writer, AguiStreamEvents.TextMessageEnd(messageId), cancellationToken);
         }
 
         // Spec 032: drain approvals raised by gated tools that ran NESTED inside a sub-agent

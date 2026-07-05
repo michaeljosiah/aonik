@@ -237,24 +237,14 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                         case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
                             if (!messageStarted)
                             {
-                                await WriteSseEventAsync(response, new
-                                {
-                                    type = "TEXT_MESSAGE_START",
-                                    messageId,
-                                    role = "assistant",
-                                }, cancellationToken);
+                                await WriteSseEventAsync(response, AguiStreamEvents.TextMessageStart(messageId), cancellationToken);
                                 messageStarted = true;
                             }
 
                             assistantText.Append(textContent.Text);
                             speechBuffer.Append(textContent.Text);
 
-                            await WriteSseEventAsync(response, new
-                            {
-                                type = "TEXT_MESSAGE_CONTENT",
-                                messageId,
-                                delta = textContent.Text,
-                            }, cancellationToken);
+                            await WriteSseEventAsync(response, AguiStreamEvents.TextMessageContent(messageId, textContent.Text), cancellationToken);
 
                             while (speechBuffer.TryPopSentence(out var rawChunk))
                             {
@@ -275,42 +265,20 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                             // this line is retained only for not-yet-gated confirmAction flows.
                             requiresApproval |= _toolClassifier.RequiresApproval(toolName);
 
-                            await WriteSseEventAsync(response, new
-                            {
-                                type = "TOOL_CALL_START",
-                                toolCallId,
-                                toolCallName = functionCall.Name,
-                                parentMessageId = messageId,
-                            }, cancellationToken);
+                            await WriteSseEventAsync(response, AguiStreamEvents.ToolCallStart(toolCallId, functionCall.Name, messageId), cancellationToken);
 
                             if (functionCall.Arguments is { Count: > 0 })
                             {
                                 var argsJson = JsonSerializer.Serialize(
                                     functionCall.Arguments, JsonOptions);
-                                await WriteSseEventAsync(response, new
-                                {
-                                    type = "TOOL_CALL_ARGS",
-                                    toolCallId,
-                                    delta = argsJson,
-                                }, cancellationToken);
+                                await WriteSseEventAsync(response, AguiStreamEvents.ToolCallArgs(toolCallId, argsJson), cancellationToken);
                             }
 
-                            await WriteSseEventAsync(response, new
-                            {
-                                type = "TOOL_CALL_END",
-                                toolCallId,
-                            }, cancellationToken);
+                            await WriteSseEventAsync(response, AguiStreamEvents.ToolCallEnd(toolCallId), cancellationToken);
                             break;
 
                         case FunctionResultContent functionResult:
-                            await WriteSseEventAsync(response, new
-                            {
-                                type = "TOOL_CALL_RESULT",
-                                messageId = Guid.NewGuid().ToString("N"),
-                                toolCallId = functionResult.CallId,
-                                content = functionResult.Result?.ToString(),
-                                role = "tool",
-                            }, cancellationToken);
+                            await WriteSseEventAsync(response, AguiStreamEvents.ToolCallResult(functionResult.CallId, functionResult.Result?.ToString()), cancellationToken);
 
                             // Spec 032: surface a gated Medium/High approval result as a
                             // machine-parseable CUSTOM event (see ToolApprovalStreamEvents) so the
@@ -331,12 +299,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                         case TextReasoningContent reasoningContent
                             when !string.IsNullOrEmpty(reasoningContent.Text):
 
-                            await WriteSseEventAsync(response, new
-                            {
-                                type = "REASONING_MESSAGE_CONTENT",
-                                messageId,
-                                delta = reasoningContent.Text,
-                            }, cancellationToken);
+                            await WriteSseEventAsync(response, AguiStreamEvents.ReasoningMessageContent(messageId, reasoningContent.Text), cancellationToken);
                             break;
 
                         case UsageContent usageContent:
@@ -349,11 +312,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
 
             if (messageStarted)
             {
-                await WriteSseEventAsync(response, new
-                {
-                    type = "TEXT_MESSAGE_END",
-                    messageId,
-                }, cancellationToken);
+                await WriteSseEventAsync(response, AguiStreamEvents.TextMessageEnd(messageId), cancellationToken);
             }
 
             var tailChunk = speechBuffer.FlushRemaining();
