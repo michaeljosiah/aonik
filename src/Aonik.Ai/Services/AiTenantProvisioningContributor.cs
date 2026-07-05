@@ -44,9 +44,7 @@ internal class AiTenantProvisioningContributor : ITenantProvisioningContributor
                 UseCase = "Default",
                 RiskTier = "Low",
                 DataSensitivity = "Public",
-                CostCeiling = 1000.00m,
                 PrimaryModelId = Guid.Empty,
-                FallbackModelIdsJson = "[]",
                 IsActive = true,
                 CreatedAt = context.Now,
                 CreatedBy = context.UserId

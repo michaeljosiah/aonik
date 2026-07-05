@@ -161,9 +161,7 @@ internal sealed class CreateRoutePolicyRequestValidator : Validator<CreateRouteP
             .NotEmpty().WithMessage("DataSensitivity is required.")
             .Must(s => AiValidatorConstants.AllowedDataSensitivities.Contains(s))
             .WithMessage($"DataSensitivity must be one of: {string.Join(", ", AiValidatorConstants.AllowedDataSensitivities)}.");
-        RuleFor(x => x.CostCeiling).NonNegativeMoney();
         RuleFor(x => x.PrimaryModelId).RequiredId();
-        RuleFor(x => x.FallbackModelIdsJson).MaximumLength(16_000);
     }
 }
 
@@ -178,11 +176,7 @@ internal sealed class UpdateRoutePolicyEndpointRequestValidator : Validator<Upda
         RuleFor(x => x.DataSensitivity)
             .Must(s => s == null || AiValidatorConstants.AllowedDataSensitivities.Contains(s))
             .WithMessage($"DataSensitivity must be one of: {string.Join(", ", AiValidatorConstants.AllowedDataSensitivities)}.");
-        RuleFor(x => x.CostCeiling)
-            .NonNegativeMoney()
-            .When(x => x.CostCeiling.HasValue);
         RuleFor(x => x.PrimaryModelId).ValidIdWhenSupplied();
-        RuleFor(x => x.FallbackModelIdsJson).MaximumLength(16_000);
     }
 }
 

@@ -104,7 +104,6 @@ export function RoutePoliciesPage() {
   const [formUseCase, setFormUseCase] = useState('');
   const [formRiskTier, setFormRiskTier] = useState('Standard');
   const [formDataSensitivity, setFormDataSensitivity] = useState('Internal');
-  const [formCostCeiling, setFormCostCeiling] = useState(0);
   const [formPrimaryModelId, setFormPrimaryModelId] = useState('');
   const [formIsActive, setFormIsActive] = useState(true);
 
@@ -167,7 +166,6 @@ export function RoutePoliciesPage() {
     setFormUseCase('');
     setFormRiskTier('Standard');
     setFormDataSensitivity('Internal');
-    setFormCostCeiling(0);
     setFormPrimaryModelId('');
     setFormIsActive(true);
   };
@@ -183,7 +181,6 @@ export function RoutePoliciesPage() {
     setFormUseCase(policy.useCase);
     setFormRiskTier(policy.riskTier);
     setFormDataSensitivity(policy.dataSensitivity);
-    setFormCostCeiling(policy.costCeiling);
     setFormPrimaryModelId(policy.primaryModelId ?? '');
     setFormIsActive(policy.isActive);
     setEditingPolicy(policy);
@@ -208,7 +205,6 @@ export function RoutePoliciesPage() {
         const request: UpdateRoutePolicyRequest = {
           riskTier: formRiskTier,
           dataSensitivity: formDataSensitivity,
-          costCeiling: formCostCeiling,
           primaryModelId: formPrimaryModelId || null,
           isActive: formIsActive,
         };
@@ -218,7 +214,6 @@ export function RoutePoliciesPage() {
           useCase: formUseCase,
           riskTier: formRiskTier,
           dataSensitivity: formDataSensitivity,
-          costCeiling: formCostCeiling,
           primaryModelId: formPrimaryModelId,
           isActive: formIsActive,
         };
@@ -510,10 +505,6 @@ export function RoutePoliciesPage() {
                     <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Data Sensitivity</p>
                     <p className="text-sm font-medium">{detailPolicy.dataSensitivity}</p>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Cost Ceiling</p>
-                    <p className="text-sm font-medium">${detailPolicy.costCeiling.toFixed(2)}</p>
-                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {detailPolicy.isActive ? (
@@ -622,21 +613,6 @@ export function RoutePoliciesPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="cost-ceiling">Cost Ceiling ($ per run)</label>
-              <Input
-                id="cost-ceiling"
-                type="number"
-                value={formCostCeiling}
-                onChange={(e) => setFormCostCeiling(Number(e.target.value))}
-                min={0}
-                step={0.001}
-              />
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                Set to 0 to disable cost limiting.
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">

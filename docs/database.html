@@ -1046,17 +1046,12 @@
           <tr>
             <td><code>AiRoutePolicies</code><span class="sub">AiRoutePolicy</span></td>
             <td>Routing policies that select which model to use based on use case, risk tier and sensitivity.<span class="sub">e.g. low-risk tasks use a cheaper model; sensitive tasks a stricter policy.</span></td>
-            <td><code>Id</code> <code>TenantId</code> <code>UseCase</code> <code>RiskTier</code> <code>FallbackModelIdsJson</code> <code>IsActive</code> <code>PrimaryModelId</code> <code>CostCeiling</code> <code>DataSensitivity</code></td>
+            <td><code>Id</code> <code>TenantId</code> <code>UseCase</code> <code>RiskTier</code> <code>IsActive</code> <code>PrimaryModelId</code> <code>DataSensitivity</code></td>
           </tr>
           <tr>
             <td><code>AiPolicies</code><span class="sub">AiPolicy</span></td>
             <td>Safety/governance policies for AI runs (allowed data fields, redaction, escalation rules).<span class="sub">e.g. forbid raw PII in prompts for a specific use case.</span></td>
             <td><code>Id</code> <code>Name</code> <code>AllowedDataFieldsJson</code> <code>BannedActionsJson</code> <code>EscalationRulesJson</code> <code>IsActive</code> <code>RedactionRulesJson</code></td>
-          </tr>
-          <tr>
-            <td><code>PromptSpecs</code><span class="sub">PromptSpec</span></td>
-            <td>Versioned prompt definitions (templates + schemas) to keep AI behaviour reproducible over time.<span class="sub">e.g. a new version when improving a prompt but keeping old runs reproducible.</span></td>
-            <td><code>Id</code> <code>Name</code> <code>OutputSchemaJson</code> <code>VariablesSchemaJson</code> <code>DeveloperTemplate</code> <code>IsPublished</code> <code>SafetyPolicyRef</code> <code>SystemTemplate</code> <code>Version</code></td>
           </tr>
           <tr>
             <td><code>ToolSpecs</code><span class="sub">ToolSpec</span></td>
