@@ -415,14 +415,6 @@ PURPOSE: dict[str, tuple[str, str]] = {
         "Routing policies that select which AI model to use based on use case, risk tier, and sensitivity.",
         "Create an AiRoutePolicy so low-risk tasks use a cheaper model and sensitive tasks use a stricter policy.",
     ),
-    "PromptSpecs": (
-        "Versioned prompt definitions (templates + schemas) to keep AI behavior reproducible over time.",
-        "Create a new PromptSpec version when improving a prompt but keeping old runs reproducible.",
-    ),
-    "ToolSpecs": (
-        "Versioned tool contracts exposed to agents/LLMs (what tools exist and how to call them safely).",
-        "Add a ToolSpec when exposing a read-only domain tool like `GetInvoiceById` to the AI platform.",
-    ),
     "AiRuns": (
         "Audit record of an AI execution: inputs/outputs by reference, tokens, cost, latency, and outcome.",
         "Create an AiRun whenever the system calls an LLM to classify, summarize, or draft content.",

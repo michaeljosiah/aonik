@@ -8,7 +8,7 @@ namespace Aonik.Ai.Persistence;
 
 /// <summary>
 /// Module-scoped DbContext for the AI platform domain.
-/// Owns AiProvider, AiModel, AiRoutePolicy, ToolSpec, AiPolicy,
+/// Owns AiProvider, AiModel, AiRoutePolicy, AiPolicy,
 /// AiRun, AiTrace, AiFeedback, EvalSuite, EvalRun, Insight, Signal entities.
 /// Inherits multi-tenancy enforcement and audit stamping from <see cref="AonikDbContextBase"/>.
 ///
@@ -21,9 +21,6 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<AiProvider> AiProviders { get; set; } = null!;
     public DbSet<AiModel> AiModels { get; set; } = null!;
     public DbSet<AiRoutePolicy> AiRoutePolicies { get; set; } = null!;
-
-    // ── Prompts & Tools ────────────────────────────────────────────
-    public DbSet<ToolSpec> ToolSpecs { get; set; } = null!;
 
     // ── LLM Tasks ─────────────────────────────────────────────────
     public DbSet<AiTask> AiTasks { get; set; } = null!;
@@ -89,7 +86,6 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<AiModel>(modelBuilder, "AiModels");
         MapTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
         MapTable<AiTask>(modelBuilder, "AiTasks");
-        MapTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapTable<AiRun>(modelBuilder, "AiRuns");
         MapTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");

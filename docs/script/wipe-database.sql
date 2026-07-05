@@ -33,8 +33,6 @@ INSERT INTO @Tables (TableName) VALUES
 (N'AiRoutePolicies'),
 (N'AiModels'),
 (N'AiProviders'),
-(N'PromptSpecs'),
-(N'ToolSpecs'),
 (N'AiPolicies'),
 (N'Insights'),
 (N'Signals');
