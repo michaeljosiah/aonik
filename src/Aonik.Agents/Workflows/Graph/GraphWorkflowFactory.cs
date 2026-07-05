@@ -35,10 +35,12 @@ namespace Aonik.Agents.Workflows.Graph;
 ///   <item><c>notify</c>, <c>emit</c>, <c>end</c> — wired through their
 ///   respective executor classes.</item>
 ///   <item><c>tool</c>, <c>decision</c>, <c>loop</c>, <c>human</c>, <c>wait</c>
-///   — translated to <see cref="UnsupportedKindExecutor"/> which throws
-///   <see cref="NotSupportedException"/> when the workflow runs. Deferred
-///   to follow-up PRs (NCalc decisions, Quartz-backed waits, HITL via
-///   MAF's <c>RequestInfoExecutor</c> + checkpointing).</item>
+///   — valid editor vocabulary with deferred executors (NCalc decisions,
+///   Quartz-backed waits, HITL via MAF's <c>RequestInfoExecutor</c> +
+///   checkpointing). <see cref="Build"/> rejects a graph containing any of
+///   these up front — see <c>WorkflowNodeKinds.RuntimeSupported</c> — so an
+///   unrunnable workflow fails fast with a clear message instead of executing
+///   partway (firing real notify/emit side effects) and throwing mid-run.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -72,6 +74,22 @@ internal static class GraphWorkflowBuilder
         {
             throw new InvalidOperationException(
                 $"Workflow '{slug}' has no nodes — nothing to run.");
+        }
+
+        // Gate (M2): the graph runtime implements only a subset of the editor's
+        // node vocabulary (WorkflowNodeKinds.RuntimeSupported). Reject a graph
+        // that uses any not-yet-implemented kind here — BEFORE building or running
+        // any executor — so an unrunnable workflow fails fast with a clear message
+        // instead of executing partway (firing real notify/emit side effects) and
+        // then throwing at the first unsupported node deep in the run.
+        var unrunnable = FindUnrunnableKinds(graph);
+        if (unrunnable.Count > 0)
+        {
+            throw new NotSupportedException(
+                $"Workflow '{slug}' cannot run: it uses node kind(s) the graph runtime does not " +
+                $"implement yet — {string.Join(", ", unrunnable)}. Runnable kinds: trigger, agent, " +
+                "notify, emit, end. The remaining editor kinds (tool, decision, loop, human, wait) are " +
+                "design-time only until their executors land.");
         }
 
         var run = new WorkflowRunRecorder();
@@ -110,11 +128,10 @@ internal static class GraphWorkflowBuilder
                 continue;
             }
 
-            // Conditional routing for decision / loop nodes is deferred
-            // along with those executors. Until then every edge is
-            // unconditional, which is correct for trigger / agent /
-            // notify / emit chains. The UnsupportedKindExecutor throws
-            // before any branching choice would be needed.
+            // Conditional routing for decision / loop nodes is deferred along
+            // with those executors; Build rejects graphs that use them (see the
+            // gate above), so every edge here is unconditional — correct for
+            // trigger / agent / notify / emit / end chains.
             builder.AddEdge(from, to);
         }
 
@@ -181,24 +198,30 @@ internal static class GraphWorkflowBuilder
             case "end":
                 return new EndExecutor(node.Id, recorder, loggerFactory.CreateLogger<EndExecutor>());
 
-            // Deferred kinds — see GraphWorkflowBuilder class doc.
-            case "tool":
-            case "decision":
-            case "loop":
-            case "human":
-            case "wait":
-                return new UnsupportedKindExecutor(
-                    node.Id,
-                    kind,
-                    recorder,
-                    loggerFactory.CreateLogger<UnsupportedKindExecutor>());
-
             default:
-                return new UnsupportedKindExecutor(
-                    node.Id,
-                    kind,
-                    recorder,
-                    loggerFactory.CreateLogger<UnsupportedKindExecutor>());
+                // Unreachable: Build() validates every node kind against
+                // WorkflowNodeKinds.RuntimeSupported before any executor is
+                // constructed, so only agent / notify / emit / end (and the
+                // virtual trigger, filtered out earlier) reach here. A kind
+                // arriving here means the gate and this switch drifted apart.
+                throw new InvalidOperationException(
+                    $"Unexpected workflow node kind '{kind}' reached executor construction after " +
+                    "runtime-support validation — this is a bug in GraphWorkflowBuilder.");
         }
     }
+
+    /// <summary>
+    /// Returns the distinct node kinds in <paramref name="graph"/> the runtime
+    /// cannot execute — i.e. not in <see cref="WorkflowNodeKinds.RuntimeSupported"/> —
+    /// normalised and sorted for a stable, readable error message. Empty when
+    /// every node is runnable. Used by <see cref="Build"/> to gate the run path.
+    /// </summary>
+    internal static IReadOnlyList<string> FindUnrunnableKinds(WorkflowGraphResponse graph)
+        => graph.Nodes
+            .Where(n => !WorkflowNodeKinds.IsRuntimeSupported(n.Kind))
+            .Select(n => (n.Kind ?? string.Empty).Trim())
+            .Where(k => k.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 }

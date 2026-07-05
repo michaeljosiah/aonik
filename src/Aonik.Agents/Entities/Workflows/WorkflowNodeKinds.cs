@@ -17,4 +17,34 @@ public static class WorkflowNodeKinds
     public const string Emit = "Emit";
     public const string Loop = "Loop";
     public const string End = "End";
+
+    /// <summary>
+    /// The subset of kinds the graph runtime (<c>GraphWorkflowBuilder</c>) can
+    /// actually execute today. The remaining editor kinds (<see cref="Tool"/>,
+    /// <see cref="Decision"/>, <see cref="Loop"/>, <see cref="Human"/>,
+    /// <see cref="Wait"/>) are valid catalogue/editor vocabulary with deferred
+    /// executors — a graph using them saves and renders in the editor fine, but
+    /// cannot be run via <c>POST /ai/workflows/run</c> until its executor lands.
+    /// The run path gates on this set so an unrunnable graph fails fast with a
+    /// clear message rather than executing partway (firing real notify/emit side
+    /// effects) and then throwing at the first unsupported node.
+    /// <para><see cref="Trigger"/> is included because it is a legal, runnable
+    /// node — it is virtual (no executor) but its presence never blocks a run.</para>
+    /// </summary>
+    public static readonly IReadOnlySet<string> RuntimeSupported =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Trigger,
+            Agent,
+            Notify,
+            Emit,
+            End,
+        };
+
+    /// <summary>
+    /// True when <paramref name="kind"/> is a kind the graph runtime can execute
+    /// (see <see cref="RuntimeSupported"/>). Case-insensitive; null or blank is false.
+    /// </summary>
+    public static bool IsRuntimeSupported(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) && RuntimeSupported.Contains(kind);
 }
