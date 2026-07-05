@@ -100,6 +100,40 @@ public class AuditMiddlewareStreamingAuditTests
         writer.CompletedTokens.Should().BeNull("a failed stream must not also be marked completed");
     }
 
+    [Fact]
+    public async Task GetResponseAsync_Should_CompleteWithStructuredTokenMetrics()
+    {
+        // H17: the non-streaming path must record structured token metrics (via
+        // MarkRunCompletedWithMetricsAsync), not an unstructured outputRef string.
+        var response = new ChatResponse([new ChatMessage(ChatRole.Assistant, "ok")])
+        {
+            Usage = new UsageDetails { TotalTokenCount = 30 },
+        };
+        var inner = new RespondingChatClient(response);
+        var writer = new RecordingAiRunWriter();
+        var sut = new AuditMiddleware(inner, writer, NullLogger<AuditMiddleware>.Instance);
+
+        await sut.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        writer.StartCount.Should().Be(1);
+        writer.CompletedTokens.Should().Be(30, "the non-streaming completion must record the token count");
+    }
+
+    private sealed class RespondingChatClient(ChatResponse response) : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(response);
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
+
     private sealed class StreamingStubChatClient(IReadOnlyList<ChatResponseUpdate> updates, Exception? throwAt) : IChatClient
     {
         public Task<ChatResponse> GetResponseAsync(

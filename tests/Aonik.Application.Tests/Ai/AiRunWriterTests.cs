@@ -281,13 +281,43 @@ public class AiRunWriterTests
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
+    [Fact]
+    public async Task MarkRunCompletedWithMetricsAsync_Should_UseDatabaseFallback_When_RunStartedInDifferentScope()
+    {
+        // Two contexts sharing one InMemory database: start the run in one, complete it in a fresh
+        // one whose change tracker is empty — proving LoadRunAsync's DB fallback FINDS the run
+        // (not just the not-found/throw path).
+        var databaseName = $"AiRunWriter_Shared_{Guid.NewGuid()}";
+        Guid runId;
+        await using (var startContext = CreateDbContext(databaseName))
+        {
+            runId = await NewWriter(startContext).StartRunAsync("noop", "{}");
+        }
+
+        await using (var completeContext = CreateDbContext(databaseName))
+        {
+            completeContext.AiRuns.Local.Should().BeEmpty(
+                "the completion context tracks nothing, so the fallback must query the database");
+
+            await NewWriter(completeContext).MarkRunCompletedWithMetricsAsync(
+                runId, tokensUsed: 55, latencyMs: 10, costEstimate: 0m);
+        }
+
+        await using var verifyContext = CreateDbContext(databaseName);
+        var stored = await verifyContext.AiRuns.FirstAsync(r => r.Id == runId);
+        stored.Outcome.Should().Be("Completed");
+        stored.TokensUsed.Should().Be(55);
+    }
+
     private AiRunWriter NewWriter(AiDbContext dbContext)
         => new(dbContext, _tenantProvider.Object, _currentUserProvider.Object, _cache, new AiRunMetrics());
 
-    private AiDbContext CreateDbContext()
+    private AiDbContext CreateDbContext() => CreateDbContext($"AiRunWriter_{Guid.NewGuid()}");
+
+    private AiDbContext CreateDbContext(string databaseName)
     {
         var options = new DbContextOptionsBuilder<AiDbContext>()
-            .UseInMemoryDatabase($"AiRunWriter_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(databaseName)
             .Options;
         return new AiDbContext(options, _tenantProvider.Object);
     }

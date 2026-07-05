@@ -157,9 +157,7 @@ internal sealed class AiRunWriter : IAiRunWriter
         string? outputRef = null,
         CancellationToken cancellationToken = default)
     {
-        var run = await _dbContext.AiRuns
-            .FirstOrDefaultAsync(item => item.Id == aiRunId, cancellationToken)
-            ?? throw new InvalidOperationException($"AiRun {aiRunId} not found.");
+        var run = await LoadRunAsync(aiRunId, cancellationToken);
 
         run.Outcome = "Completed";
         run.TokensUsed = tokensUsed;
@@ -211,15 +209,30 @@ internal sealed class AiRunWriter : IAiRunWriter
         await UpdateRunOutcomeAsync(aiRunId, "Failed", normalizedReason, cancellationToken);
     }
 
+    // Prefer the instance StartRunAsync already added to this scope's change tracker over a
+    // re-query: the terminal write follows the insert in the same request scope, so the row is
+    // almost always tracked locally and the re-fetch is a pure wasted round-trip (H17). Fall
+    // back to the DB only when completion runs in a fresh scope with nothing tracked.
+    private async Task<AiRun> LoadRunAsync(Guid aiRunId, CancellationToken cancellationToken)
+    {
+        var tracked = _dbContext.AiRuns.Local.FirstOrDefault(item => item.Id == aiRunId);
+        if (tracked is not null)
+        {
+            return tracked;
+        }
+
+        return await _dbContext.AiRuns
+            .FirstOrDefaultAsync(item => item.Id == aiRunId, cancellationToken)
+            ?? throw new InvalidOperationException($"AiRun {aiRunId} not found.");
+    }
+
     private async Task UpdateRunOutcomeAsync(
         Guid aiRunId,
         string outcome,
         string? outputRef,
         CancellationToken cancellationToken)
     {
-        var run = await _dbContext.AiRuns
-            .FirstOrDefaultAsync(item => item.Id == aiRunId, cancellationToken)
-            ?? throw new InvalidOperationException($"AiRun {aiRunId} not found.");
+        var run = await LoadRunAsync(aiRunId, cancellationToken);
 
         run.Outcome = outcome;
         run.OutputRef = string.IsNullOrWhiteSpace(outputRef) ? null : outputRef.Trim();
