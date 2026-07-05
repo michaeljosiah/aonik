@@ -13,7 +13,7 @@ public static class SchemaNames
     /// <summary>Ledger, Billing, Payments, Orders, Pricing, Partners, PersonalFinance</summary>
     public const string Finance = "finance";
 
-    /// <summary>AiProvider, AiModel, AiRoutePolicy, ToolSpec, AiPolicy, AiRun, AiTrace, AiFeedback, EvalSuite, EvalRun, Insight, Signal</summary>
+    /// <summary>AiProvider, AiModel, AiRoutePolicy, AiPolicy, AiRun, AiTrace, AiFeedback, EvalSuite, EvalRun, Insight, Signal</summary>
     public const string Ai = "ai";
 
     /// <summary>Agent, AgentRun, OrchestratorPolicy, Proposal</summary>
