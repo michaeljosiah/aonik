@@ -27,12 +27,11 @@
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
     <!--
-      TRANSITIONAL (Spec 027): paired with the
-      Aonik.Finance → Aonik.PersonalFinance ProjectReference in
-      Aonik.Finance.csproj. Drop alongside that ProjectReference once the
-      remaining Finance-side PF call sites listed there relocate here.
+      Spec 027 S5 (#118/#126): the transitional InternalsVisibleTo for
+      Aonik.Finance was DROPPED here, paired with removing the
+      Aonik.Finance -> Aonik.PersonalFinance ProjectReference. Finance and
+      PersonalFinance are now true ADR-006 siblings.
     -->
-    <InternalsVisibleTo Include="Aonik.Finance" />
   </ItemGroup>
 
   <!--

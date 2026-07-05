@@ -71,6 +71,11 @@ public class FinancialLifeGraphTraversalServiceTests
                     .Where(u => u.TenantId == tenantId && userIds.Contains(u.Id))
                     .Select(u => new UserDirectoryItem(u.Id, u.Email, u.Status))
                     .ToListAsync(ct);
+
+        public async Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(CancellationToken ct = default)
+            => await _db.Users.AsNoTracking()
+                .Select(u => new UserDirectoryKey(u.Id, u.TenantId))
+                .ToListAsync(ct);
     }
 
     private sealed class TestCacheStore : ICacheStore

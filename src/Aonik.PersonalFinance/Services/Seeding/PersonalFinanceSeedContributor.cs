@@ -2,38 +2,38 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 using Aonik.PersonalFinance.Entities;
-using Aonik.Finance.Persistence;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Platform;
 
-namespace Aonik.Finance.Services.Seeding;
+namespace Aonik.PersonalFinance.Services.Seeding;
 
 /// <summary>
 /// Ensures every User in the platform has a corresponding PersonalProfile. This
 /// is a stopgap until the Payabo onboarding flow creates profiles automatically.
 ///
-/// Spec 027 S3 (#126): PersonalProfile is now owned solely by
-/// <see cref="PersonalFinanceDbContext"/>, while the <c>Users</c> read model
-/// stays on <see cref="FinanceDbContext"/>. The old single-context anti-join
-/// (<c>Users.Where(u =&gt; !PersonalProfiles.Any(...))</c>) can no longer be
-/// expressed in one query because the two sets live on different contexts, so
-/// the difference is computed in memory: load all user keys from Finance, load
-/// existing profile keys from PersonalFinance, and add the missing profiles via
-/// PersonalFinance. Both contexts target the same physical database, so the
-/// result is identical to the previous behaviour.
+/// Spec 027 S5 (#118/#126): the contributor now lives in PersonalFinance and no
+/// longer references <c>FinanceDbContext</c>. The <c>Users</c> read model is
+/// read through the SharedKernel <see cref="IUserDirectoryReader"/> port
+/// (implemented over Platform's Users), which returns every user across ALL
+/// tenants — matching the previous cross-tenant read. PersonalProfile is owned
+/// solely by <see cref="PersonalFinanceDbContext"/>, so the anti-join can't be
+/// expressed in one query; the difference is computed in memory: load all user
+/// keys via the reader, load existing profile keys from PersonalFinance, and add
+/// the missing profiles via PersonalFinance.
 /// </summary>
 internal sealed class PersonalFinanceSeedContributor : IGlobalSeedContributor
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly IUserDirectoryReader _userDirectoryReader;
     private readonly PersonalFinanceDbContext _personalFinanceDbContext;
     private readonly ILogger<PersonalFinanceSeedContributor> _logger;
 
     public PersonalFinanceSeedContributor(
-        FinanceDbContext financeDbContext,
+        IUserDirectoryReader userDirectoryReader,
         PersonalFinanceDbContext personalFinanceDbContext,
         ILogger<PersonalFinanceSeedContributor> logger)
     {
-        _financeDbContext = financeDbContext;
+        _userDirectoryReader = userDirectoryReader;
         _personalFinanceDbContext = personalFinanceDbContext;
         _logger = logger;
     }
@@ -47,12 +47,10 @@ internal sealed class PersonalFinanceSeedContributor : IGlobalSeedContributor
     {
         var operations = new List<string>();
 
-        // Users read model stays on FinanceDbContext.
-        var users = await _financeDbContext.Users
-            .Select(u => new { u.Id, u.TenantId })
-            .ToListAsync(cancellationToken);
+        // Users read model read through the SharedKernel port (cross-tenant).
+        var users = await _userDirectoryReader.GetAllUserKeysAsync(cancellationToken);
 
-        // PersonalProfiles are now owned by PersonalFinanceDbContext.
+        // PersonalProfiles are owned by PersonalFinanceDbContext.
         var existingProfileKeys = await _personalFinanceDbContext.PersonalProfiles
             .Select(p => new { p.UserId, p.TenantId })
             .ToListAsync(cancellationToken);
@@ -62,7 +60,7 @@ internal sealed class PersonalFinanceSeedContributor : IGlobalSeedContributor
             .ToHashSet();
 
         var usersWithoutProfile = users
-            .Where(u => !existingKeySet.Contains((u.Id, u.TenantId)))
+            .Where(u => !existingKeySet.Contains((u.UserId, u.TenantId)))
             .ToList();
 
         if (usersWithoutProfile.Count == 0)
@@ -76,15 +74,15 @@ internal sealed class PersonalFinanceSeedContributor : IGlobalSeedContributor
             _personalFinanceDbContext.PersonalProfiles.Add(new PersonalProfile
             {
                 TenantId = user.TenantId,
-                UserId = user.Id,
+                UserId = user.UserId,
                 PartyId = Guid.Empty
             });
 
             _logger.LogInformation(
                 "Created PersonalProfile for User {UserId} in Tenant {TenantId}",
-                user.Id, user.TenantId);
+                user.UserId, user.TenantId);
 
-            operations.Add($"Created PersonalProfile for user {user.Id}");
+            operations.Add($"Created PersonalProfile for user {user.UserId}");
         }
 
         await _personalFinanceDbContext.SaveChangesAsync(cancellationToken);

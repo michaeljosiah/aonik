@@ -16,6 +16,16 @@ public interface IUserDirectoryReader
         Guid tenantId,
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the (UserId, TenantId) key for every user across ALL tenants.
+    /// Deliberately cross-tenant: the PersonalFinance profile seed contributor
+    /// (Spec 027 S5, #126) ensures every platform user has a PersonalProfile,
+    /// so it must see users regardless of the ambient tenant context. The
+    /// implementation opts into the sanctioned cross-tenant read explicitly.
+    /// </summary>
+    Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -26,3 +36,12 @@ public sealed record UserDirectoryItem(
     Guid UserId,
     string? Email,
     string Status);
+
+/// <summary>
+/// Cross-module identity key for a User: the (UserId, TenantId) pair that
+/// scopes every tenant-owned entity. Returned by
+/// <see cref="IUserDirectoryReader.GetAllUserKeysAsync"/> across all tenants.
+/// </summary>
+public sealed record UserDirectoryKey(
+    Guid UserId,
+    Guid TenantId);

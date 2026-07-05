@@ -2,9 +2,10 @@ using Aonik.Finance.Contracts.Api.Ledger;
 using Aonik.Finance.Contracts.Api.Orders;
 using Aonik.Finance.Contracts.Api.Payments;
 using Aonik.Finance.Contracts.Api.Pricing;
-using Aonik.PersonalFinance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Models.Partners;
+using Aonik.Finance.Endpoints.Billing;
+using Aonik.Finance.Endpoints.Insights;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
@@ -13,8 +14,9 @@ namespace Aonik.Finance.Endpoints;
 
 // ────────────────────────────────────────────────────────────────────
 // Validators for the Finance module's core feature DTOs (Ledger,
-// Orders, Payments, Pricing, Accounts, Catalog, Partners). Personal
-// Finance is large enough that its validators live in a sibling file.
+// Orders, Payments, Pricing, Catalog, Partners, Billing, Insights).
+// The Accounts / bank-linking + PersonalFinance validators live in
+// Aonik.PersonalFinance (Spec 027 S5, #118/#126).
 // ────────────────────────────────────────────────────────────────────
 
 // ── Ledger ──────────────────────────────────────────────────────────
@@ -281,80 +283,22 @@ public sealed class UpdateFxQuoteRequestValidator : Validator<UpdateFxQuoteReque
     }
 }
 
-// ── Accounts ────────────────────────────────────────────────────────
+// ── Billing list ────────────────────────────────────────────────────
 
-public sealed class CreateAccountLinkSessionRequestValidator : Validator<CreateAccountLinkSessionRequest>
+internal sealed class ListInvoicesRequestValidator : Validator<ListInvoicesRequest>
 {
-    public CreateAccountLinkSessionRequestValidator()
-    {
-        RuleFor(x => x.Provider).RequiredText(64);
-        RuleFor(x => x.Mode)
-            .NotEmpty()
-            .Must(m => m is "connect" or "update" or "reauth")
-            .WithMessage("Mode must be one of: connect, update, reauth.");
-        RuleFor(x => x.ConnectionId).ValidIdWhenSupplied();
-        RuleFor(x => x.CountryCode)
-            .Length(2).Matches("^[A-Z]{2}$")
-            .When(x => !string.IsNullOrEmpty(x.CountryCode));
-        RuleFor(x => x.ClientName).MaximumLength(128);
-    }
+    public ListInvoicesRequestValidator() => RuleFor(x => x.Status).MaximumLength(64);
 }
 
-public sealed class ExchangeAccountLinkSessionRequestValidator : Validator<ExchangeAccountLinkSessionRequest>
-{
-    public ExchangeAccountLinkSessionRequestValidator()
-    {
-        RuleFor(x => x.SessionId).RequiredId();
-        RuleFor(x => x.TemporaryCode).RequiredText(2048);
-    }
-}
+// ── Insights ────────────────────────────────────────────────────────
 
-public sealed class CreateAccountRequestValidator : Validator<CreateAccountRequest>
+public sealed class GetMySpaceSummaryRequestValidator : Validator<GetMySpaceSummaryRequest>
 {
-    public CreateAccountRequestValidator()
+    public GetMySpaceSummaryRequestValidator()
     {
-        RuleFor(x => x.Name).RequiredText(256);
-        RuleFor(x => x.AccountType).RequiredText(64);
-        RuleFor(x => x.Currency).CurrencyCode();
-        RuleFor(x => x.Country)
-            .Length(2).Matches("^[A-Z]{2}$")
-            .When(x => !string.IsNullOrEmpty(x.Country));
-        RuleFor(x => x.InstitutionName).MaximumLength(256);
-        RuleFor(x => x.Last4)
-            .Length(4).Matches("^[0-9]{4}$").WithMessage("Last4 must be 4 digits.")
-            .When(x => !string.IsNullOrEmpty(x.Last4));
-        RuleFor(x => x.Notes).MaximumLength(2048);
-    }
-}
-
-public sealed class CreateAccountTransactionRequestValidator : Validator<CreateAccountTransactionRequest>
-{
-    public CreateAccountTransactionRequestValidator()
-    {
-        RuleFor(x => x.AccountId).RequiredId();
-        RuleFor(x => x.OccurredAt)
-            .GreaterThan(DateTime.UtcNow.AddYears(-50))
-            .LessThan(DateTime.UtcNow.AddYears(1));
-        RuleFor(x => x.Amount)
-            .Must(a => a != 0).WithMessage("Amount must be non-zero.")
-            .Must(a => Math.Abs(a) <= 1_000_000_000m).WithMessage("Amount exceeds maximum supported value.");
-        RuleFor(x => x.Currency).CurrencyCode();
-        RuleFor(x => x.Counterparty).MaximumLength(256);
-        RuleFor(x => x.Description).MaximumLength(1024);
-        RuleFor(x => x.Reference).MaximumLength(256);
-        RuleFor(x => x.Category).MaximumLength(64);
-        RuleFor(x => x.Notes).MaximumLength(2048);
-    }
-}
-
-public sealed class PlaidAccountWebhookRequestValidator : Validator<PlaidAccountWebhookRequest>
-{
-    public PlaidAccountWebhookRequestValidator()
-    {
-        RuleFor(x => x.WebhookType).RequiredText(64);
-        RuleFor(x => x.WebhookCode).RequiredText(64);
-        RuleFor(x => x.ItemId).MaximumLength(256);
-        RuleFor(x => x.Environment).MaximumLength(64);
+        RuleFor(x => x.Currency)
+            .Length(3).Matches("^[A-Z]{3}$").WithMessage("Currency must be 3 uppercase letters (ISO-4217).")
+            .When(x => !string.IsNullOrEmpty(x.Currency));
     }
 }
 

@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Aonik.SharedKernel.Seeding;
+
 namespace Aonik.Finance.Services.Seeding;
 
 /// <summary>

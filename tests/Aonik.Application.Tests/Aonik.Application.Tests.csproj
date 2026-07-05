@@ -33,6 +33,9 @@
     <ProjectReference Include="..\..\src\Aonik.Application\Aonik.Application.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Cli\Aonik.Cli.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Finance\Aonik.Finance.csproj" />
+    <!-- Direct reference (Spec 027 S5): the Finance -> PersonalFinance edge was
+         dropped, so PersonalFinance types no longer resolve transitively. -->
+    <ProjectReference Include="..\..\src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Ordering\Aonik.Ordering.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Commerce\Aonik.Commerce.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />

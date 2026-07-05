@@ -10,8 +10,9 @@ using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
+using Aonik.SharedKernel.Seeding;
 
-namespace Aonik.Finance.Services.Seeding.Phases;
+namespace Aonik.PersonalFinance.Services.Seeding.Phases;
 
 /// <summary>
 /// Seeds one year of personal-finance data (accounts, transactions, recurring

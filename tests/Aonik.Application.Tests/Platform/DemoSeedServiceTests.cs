@@ -142,7 +142,12 @@ public class DemoSeedServiceTests
 
         var contributors = new IDemoSeedContributor[]
         {
-            new FinanceDemoSeedContributor(financeDb, personalFinanceDb, NullLogger<FinanceDemoSeedContributor>.Instance),
+            new FinanceDemoSeedContributor(financeDb, NullLogger<FinanceDemoSeedContributor>.Instance),
+            // Spec 027 S5: the PF phases (Households + PersonalFinance activity)
+            // moved to their own contributor. DemoSeedService runs every
+            // contributor for every phase, so adding it here preserves the PF
+            // seeding the assertions below depend on.
+            new Aonik.PersonalFinance.Services.Seeding.PersonalFinanceDemoSeedContributor(personalFinanceDb),
             new AgentsDemoSeedContributor(agentsDb, NullLogger<AgentsDemoSeedContributor>.Instance),
             new PlatformDemoSeedContributor(platformDb, NullLogger<PlatformDemoSeedContributor>.Instance)
         };

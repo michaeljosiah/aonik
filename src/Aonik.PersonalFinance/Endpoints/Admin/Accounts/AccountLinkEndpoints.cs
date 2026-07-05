@@ -4,7 +4,7 @@ using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.Accounts;
+namespace Aonik.PersonalFinance.Endpoints.Admin.Accounts;
 
 internal sealed class ListAccountConnectionsRequest
 {
