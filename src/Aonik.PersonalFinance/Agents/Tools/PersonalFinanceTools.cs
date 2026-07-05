@@ -8,7 +8,7 @@ using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Static composition surface for the AI agent tools that back personal finance

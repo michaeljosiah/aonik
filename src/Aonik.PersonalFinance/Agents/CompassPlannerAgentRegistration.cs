@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace Aonik.Finance.Agents;
+namespace Aonik.PersonalFinance.Agents;
 
 /// <summary>
 /// AONIK Compass planning sub-agent (Spec 021 §5: <c>pf-compass-planner</c>).

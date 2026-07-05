@@ -1,3 +1,4 @@
+using Aonik.PersonalFinance.Agents;
 using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.PersonalFinance.Contracts.Services.Accounts;
 using Aonik.PersonalFinance.Contracts.Services;
@@ -167,7 +168,7 @@ public sealed class PersonalFinanceModule : IModule
         // ── AONIK Compass (Spec 021) — goal programmes, plan lifecycle,
         //    deterministic safe-to-spend guidance, and Compass proposals.
         //    The CompassPlannerAgentDescriptor sub-agent itself is registered
-        //    in FinanceModule alongside the other IDomainAgentDescriptors.
+        //    below alongside the other PersonalFinance IDomainAgentDescriptors.
         services.AddScoped<IGoalService, GoalService>();
         services.AddScoped<ICompassPlanService, CompassPlanService>();
         services.AddScoped<ICompassGuidanceService, CompassGuidanceService>();
@@ -222,6 +223,23 @@ public sealed class PersonalFinanceModule : IModule
                 _             => sp.GetRequiredService<NullCodeActSandboxProvider>(),
             };
         });
+
+        // ── PersonalFinance Domain Agents (Spec 027 S1c2, #118) ──────
+        // The "Simi" agent surface, relocated from FinanceModule with the Agents/
+        // tool tree. Registered as IDomainAgentDescriptor for the orchestrator to
+        // discover; the tool-approval manifest plugs into the same central
+        // IToolApprovalGate (AgentsModule) as every other module's.
+        services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
+        // Spec 025 — three analytical sub-agents Simi invokes via
+        // pf_run_insights / pf_run_forecast / pf_run_classify_review.
+        services.AddSingleton<IDomainAgentDescriptor, PfInsightsAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
+        // Spec 021 — AONIK Compass planning specialist (pf_run_compass_planner). Never user-facing.
+        services.AddSingleton<IDomainAgentDescriptor, CompassPlannerAgentDescriptor>();
+        // Spec 032 — Simi's tool-approval classification (all Medium/Low; PersonalFinance moves no money).
+        services.AddSingleton<IToolApprovalManifest, PersonalFinanceToolApprovalManifest>();
 
         return services;
     }

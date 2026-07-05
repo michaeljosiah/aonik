@@ -1,12 +1,12 @@
 using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.PersonalFinance.Agents.StructuredOutputs;
-using Aonik.Finance.Agents.Tools;
+using Aonik.PersonalFinance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents;
+namespace Aonik.PersonalFinance.Agents;
 
 /// <summary>
 /// Personal finance Forecast sub-agent (Spec 025 §5.2). Phase 2 skeleton —

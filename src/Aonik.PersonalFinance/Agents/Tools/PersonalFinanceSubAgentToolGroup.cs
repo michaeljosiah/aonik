@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Aonik.Finance.Agents;
+using Aonik.PersonalFinance.Agents;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Shared base for the two personal-finance ("Simi") tool groups that delegate

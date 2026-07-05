@@ -4,7 +4,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Platform;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Personal-finance order tools — the current user's payment orders (bill

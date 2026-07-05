@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Agents;
 
-namespace Aonik.Finance.Agents;
+namespace Aonik.PersonalFinance.Agents;
 
 /// <summary>
 /// PersonalFinance ("Simi") tool-approval classification (Spec 032). Declares which of the

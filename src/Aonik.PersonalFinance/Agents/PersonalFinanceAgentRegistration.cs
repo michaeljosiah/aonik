@@ -1,11 +1,11 @@
-using Aonik.Finance.Agents.Tools;
+using Aonik.PersonalFinance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents;
+namespace Aonik.PersonalFinance.Agents;
 
 /// <summary>
 /// Personal finance domain agent descriptor. Builds the personal finance

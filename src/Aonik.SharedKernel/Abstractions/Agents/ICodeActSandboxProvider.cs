@@ -74,7 +74,7 @@ public sealed record CodeActSandboxContext(
 /// <remarks>
 /// <para>
 /// Lives on SharedKernel (alongside <see cref="CodeActSandboxContext"/>)
-/// rather than in <c>Aonik.Finance.Agents</c> because
+/// rather than in a domain module such as <c>Aonik.PersonalFinance.Agents</c> because
 /// <c>CodeActSandboxContextFactory</c> — which needs to accept this snapshot
 /// to prefer it over the ambient scope when baking an ACA Sessions nonce —
 /// now lives in the <c>Aonik.PersonalFinance</c> assembly (Spec 027 Phase 5,

@@ -8,7 +8,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.AI;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Personal-finance insight tools — the Spec 025 analytical sub-agent triggers

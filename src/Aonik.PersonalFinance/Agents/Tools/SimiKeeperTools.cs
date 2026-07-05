@@ -5,7 +5,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// The Keeper read toolset (Spec 047 §9): describe-only reads over the Simi
