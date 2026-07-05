@@ -83,6 +83,13 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<IPersonalFinanceInsightsService, PersonalFinanceInsightsService>();
         services.AddScoped<FinancialConnectionTransactionSyncOrchestrator>();
 
+        // Spec 027 S3 (#126): the PersonalFinance-side demo-data teardown port.
+        // Platform's ReverseSeedPhase invokes this instead of touching the PF
+        // DbSets directly (they now live solely on PersonalFinanceDbContext),
+        // which keeps Platform free of a Platform -> PersonalFinance reference.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.PersonalFinance.IPersonalFinanceDemoDataReverser,
+            Services.Seeding.PersonalFinanceDemoDataReverser>();
+
         // ── Plaid account-link provider gateway (Spec 027 S-Acct, #126) ─
         // Relocated from FinanceModule. Backs both the account-link slice below
         // and the FinancialConnection sync orchestrator / PersonalAccountLinkService

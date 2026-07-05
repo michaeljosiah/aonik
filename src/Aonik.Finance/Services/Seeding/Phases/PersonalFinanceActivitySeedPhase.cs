@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 
@@ -36,10 +36,10 @@ internal sealed class PersonalFinanceActivitySeedPhase
 {
     private static readonly FinanceDemoSeedIds SeedIds = FinanceDemoSeedIds.Instance;
 
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ICustomerInsightSnapshotService? _snapshotService;
 
-    public PersonalFinanceActivitySeedPhase(FinanceDbContext db)
+    public PersonalFinanceActivitySeedPhase(PersonalFinanceDbContext db)
     {
         _db = db;
         _snapshotService = null;
@@ -54,7 +54,7 @@ internal sealed class PersonalFinanceActivitySeedPhase
     /// playground demo can't surface the seeded car-repair / takeaway
     /// anomalies.
     /// </summary>
-    public PersonalFinanceActivitySeedPhase(FinanceDbContext db, ICustomerInsightSnapshotService snapshotService)
+    public PersonalFinanceActivitySeedPhase(PersonalFinanceDbContext db, ICustomerInsightSnapshotService snapshotService)
     {
         _db = db;
         _snapshotService = snapshotService;

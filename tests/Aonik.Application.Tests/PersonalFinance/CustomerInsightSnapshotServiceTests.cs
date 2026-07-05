@@ -169,8 +169,9 @@ public class CustomerInsightSnapshotServiceTests
         // Assert
         second.Id.Should().Be(first.Id);
         second.Version.Should().Be(1);
-        (await context.CustomerInsightSnapshots.CountAsync()).Should().Be(1);
-        (await context.CustomerInsightSnapshots.SingleAsync()).Status.Should().Be(CustomerInsightSnapshotContract.StatusCurrent);
+        await using var pfVerifyContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        (await pfVerifyContext.CustomerInsightSnapshots.CountAsync()).Should().Be(1);
+        (await pfVerifyContext.CustomerInsightSnapshots.SingleAsync()).Status.Should().Be(CustomerInsightSnapshotContract.StatusCurrent);
     }
 
     [Fact]
@@ -187,7 +188,8 @@ public class CustomerInsightSnapshotServiceTests
 
         var first = await service.GenerateCurrentSnapshotAsync(userId);
 
-        context.PersonalTransactions.Add(new PersonalTransaction
+        await using var pfSeedContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        pfSeedContext.PersonalTransactions.Add(new PersonalTransaction
         {
             Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
             TenantId = tenantId,
@@ -203,7 +205,7 @@ public class CustomerInsightSnapshotServiceTests
             Category = TransactionCategoryReference.Groceries,
             TagsJson = "[]"
         });
-        await context.SaveChangesAsync();
+        await pfSeedContext.SaveChangesAsync();
 
         // Act
         var second = await service.GenerateCurrentSnapshotAsync(userId);
@@ -212,7 +214,8 @@ public class CustomerInsightSnapshotServiceTests
         second.Id.Should().NotBe(first.Id);
         second.Version.Should().Be(2);
 
-        var snapshots = await context.CustomerInsightSnapshots
+        await using var pfVerifyContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        var snapshots = await pfVerifyContext.CustomerInsightSnapshots
             .IncludeSoftDeleted()
             .OrderBy(x => x.Version)
             .ToListAsync();
@@ -232,7 +235,9 @@ public class CustomerInsightSnapshotServiceTests
         var entertainmentBudgetLineId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
         var groceriesBudgetLineId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
-        context.PersonalAccounts.AddRange(
+        var pf = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+
+        pf.PersonalAccounts.AddRange(
             new PersonalAccount
             {
                 Id = mainAccountId,
@@ -258,7 +263,7 @@ public class CustomerInsightSnapshotServiceTests
                 BalanceAsOf = new DateTime(2026, 3, 31, 9, 0, 0, DateTimeKind.Utc)
             });
 
-        context.Bills.AddRange(
+        pf.Bills.AddRange(
             new Bill
             {
                 Id = Guid.Parse("f1111111-1111-1111-1111-111111111111"),
@@ -285,7 +290,7 @@ public class CustomerInsightSnapshotServiceTests
                 Status = "Active"
             });
 
-        context.Subscriptions.AddRange(
+        pf.Subscriptions.AddRange(
             new Subscription
             {
                 Id = Guid.Parse("f4444444-4444-4444-4444-444444444444"),
@@ -311,7 +316,7 @@ public class CustomerInsightSnapshotServiceTests
                 DetectedBy = "Seed"
             });
 
-        context.Budgets.Add(new Budget
+        pf.Budgets.Add(new Budget
         {
             Id = budgetId,
             TenantId = tenantId,
@@ -343,7 +348,7 @@ public class CustomerInsightSnapshotServiceTests
             ]
         });
 
-        context.Goals.Add(new Goal
+        pf.Goals.Add(new Goal
         {
             Id = Guid.Parse("f6666666-6666-6666-6666-666666666666"),
             TenantId = tenantId,
@@ -385,8 +390,8 @@ public class CustomerInsightSnapshotServiceTests
             transactions.Reverse();
         }
 
-        context.PersonalTransactions.AddRange(transactions);
-        context.SaveChanges();
+        pf.PersonalTransactions.AddRange(transactions);
+        pf.SaveChanges();
     }
 
     private static PersonalTransaction BuildTransaction(

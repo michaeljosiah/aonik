@@ -1,12 +1,10 @@
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Catalog;
-using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
-using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Entities.ReferenceData;
 using Aonik.SharedKernel.Abstractions;
@@ -18,10 +16,12 @@ namespace Aonik.Finance.Persistence;
 
 /// <summary>
 /// Module-scoped DbContext for the Finance domain.
-/// Owns Ledger, Payments, Billing, Orders, Pricing, Partners, and PersonalFinance entities.
+/// Owns Ledger, Payments, Billing, Orders, Pricing, Partners, and Catalog entities,
+/// plus the Platform read models Finance joins against (Parties / Users / Countries / …).
+/// PersonalFinance entities are owned solely by <c>PersonalFinanceDbContext</c>
+/// (Spec 027 S3, #126) — they are no longer part of this context's model.
 /// Inherits multi-tenancy enforcement and audit stamping from <see cref="AonikDbContextBase"/>.
 ///
-/// During migration, entities are progressively moved here from AonikDbContext.
 /// Both contexts share the same physical SQL Server database.
 /// </summary>
 internal class FinanceDbContext : AonikDbContextBase
@@ -120,42 +120,12 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<CurrencyReadModel> Currencies { get; set; } = null!;
     public DbSet<CountryCurrencyReadModel> CountryCurrencies { get; set; } = null!;
 
-    // ── Accounts (Tenant-Scoped Bank Linking) ──────────────
-    public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
-    public DbSet<AccountConnectionSession> AccountConnectionSessions { get; set; } = null!;
-    public DbSet<Account> Accounts { get; set; } = null!;
-    public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
-    public DbSet<AccountTransactionAttachment> AccountTransactionAttachments { get; set; } = null!;
-    public DbSet<AccountTransactionMerchantCategory> AccountTransactionMerchantCategories { get; set; } = null!;
-
-    // ── PersonalFinance ─────────────────────────────────────────────
-    public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
-    public DbSet<Household> Households { get; set; } = null!;
-    public DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
-    public DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
-    public DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
-    public DbSet<PersonalLinkedAccount> PersonalLinkedAccounts { get; set; } = null!;
-    public DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
-    public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
-    public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
-    public DbSet<TransactionCategory> TransactionCategories { get; set; } = null!;
-    public DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
-    public DbSet<BudgetLine> BudgetLines { get; set; } = null!;
-    public DbSet<Bill> Bills { get; set; } = null!;
-    public DbSet<Subscription> Subscriptions { get; set; } = null!;
-    public DbSet<PersonalRecurringBill> PersonalRecurringBills { get; set; } = null!;
-    public DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
-    public DbSet<Goal> Goals { get; set; } = null!;
-    public DbSet<CompassPlan> CompassPlans { get; set; } = null!;
-    public DbSet<Budget> Budgets { get; set; } = null!;
-    public DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
-    public DbSet<StatementImport> StatementImports { get; set; } = null!;
-    public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
-    public DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
-    public DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
-    public DbSet<TransactionAttachment> TransactionAttachments { get; set; } = null!;
-    public DbSet<FinancialContext> FinancialContexts { get; set; } = null!;
-    public DbSet<FinancialContextFundingSource> FinancialContextFundingSources { get; set; } = null!;
+    // ── PersonalFinance entities: owned solely by PersonalFinanceDbContext ──
+    // Spec 027 S3 (#126): the Account* + PersonalFinance DbSets, their table
+    // mappings, and the PersonalFinance-assembly config scan were removed from
+    // this context. PersonalFinanceDbContext (Aonik.PersonalFinance) is now the
+    // sole owner of those entities. No schema change — AonikDbContext (the
+    // canonical migration stream) still owns the physical tables.
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -180,11 +150,12 @@ internal class FinanceDbContext : AonikDbContextBase
         // applies the Order configs from the Ordering assembly too.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Order).Assembly);
 
-        // Apply PersonalFinance configurations from the sibling assembly.
-        // Spec 027 Phase 2: PF entity types and their configs moved out, but
-        // FinanceDbContext still owns PF DbSets (transitionally) so PF services
-        // can continue to query through it until Phase 3 migrates them.
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.PersonalFinance.PersonalFinanceModule).Assembly);
+        // Spec 027 S3 (#126): the PersonalFinance-assembly config scan was
+        // removed. Those configs (and their entity types) now belong solely to
+        // PersonalFinanceDbContext, so scanning them here would re-admit the PF
+        // entities into this context's model. The Platform read models this
+        // context keeps (Parties / Users / Countries / …) are configured in the
+        // Finance assembly scan above, so dropping the PF scan is safe.
 
         ApplyDboPrefixedTableNames(modelBuilder);
 
@@ -254,31 +225,10 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<CatalogBiller>(modelBuilder, "CatalogBillers");
         MapTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
 
-        MapTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
-        MapTable<Household>(modelBuilder, "Households");
-        MapTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
-        MapTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
-        MapTable<FinancialConnection>(modelBuilder, "FinancialConnections");
-        MapTable<PersonalLinkedAccount>(modelBuilder, "PersonalLinkedAccounts");
-        MapTable<FinancialWebhookEvent>(modelBuilder, "FinancialWebhookEvents");
-        MapTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
-        MapTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");
-        MapTable<CategorisationRule>(modelBuilder, "CategorisationRules");
-        MapTable<BudgetLine>(modelBuilder, "BudgetLines");
-        MapTable<Bill>(modelBuilder, "Bills");
-        MapTable<Subscription>(modelBuilder, "Subscriptions");
-        MapTable<PersonalRecurringBill>(modelBuilder, "PersonalRecurringBills");
-        MapTable<DebtRepayment>(modelBuilder, "DebtRepayments");
-        MapTable<Goal>(modelBuilder, "Goals");
-        MapTable<CompassPlan>(modelBuilder, "CompassPlans");
-        MapTable<Budget>(modelBuilder, "Budgets");
-        MapTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
-        MapTable<StatementImport>(modelBuilder, "StatementImports");
-        MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
-        MapTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");
-        MapTable<FinancialLifeGraphEdge>(modelBuilder, "FinancialLifeGraphEdges");
-        MapTable<FinancialContext>(modelBuilder, "FinancialContexts");
-        MapTable<FinancialContextFundingSource>(modelBuilder, "FinancialContextFundingSources");
+        // Spec 027 S3 (#126): PersonalFinance table mappings removed — those
+        // entities are no longer part of this context's model. They are mapped
+        // by PersonalFinanceDbContext, which produces the same Ank-prefixed
+        // physical table names the canonical AonikDbContext owns.
 
         MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
         MapPlatformTable<PartyRelationshipReadModel>(modelBuilder, "PartyRelationships");
@@ -301,20 +251,6 @@ internal class FinanceDbContext : AonikDbContextBase
     {
         modelBuilder.Entity<TEntity>()
             .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
-    }
-
-    /// <summary>
-    /// Recognises Finance-domain entities that legitimately have TenantId == Guid.Empty
-    /// and should NOT be stamped with the current tenant on write.
-    /// Currently: CategorisationRule entities with Scope == "System".
-    /// </summary>
-    protected override bool IsGlobalEntity(object entity)
-    {
-        if (base.IsGlobalEntity(entity))
-            return true;
-
-        return entity is CategorisationRule rule
-            && string.Equals(rule.Scope, "System", StringComparison.OrdinalIgnoreCase);
     }
 
     protected override void OnBeforeSave()

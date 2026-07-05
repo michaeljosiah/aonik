@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Seeding.Phases;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Finance.Services.Seeding;
@@ -66,9 +67,15 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
 
     // Legacy constructor — used by tests that construct FinanceDemoSeedContributor
     // directly without DI. Builds phase helpers inline from the provided
-    // FinanceDbContext + logger. Mirrors the legacy ctor on DemoSeedService.
+    // contexts + logger. Mirrors the legacy ctor on DemoSeedService.
+    //
+    // Spec 027 S3 (#126): the PersonalFinance-owning phases (Households,
+    // PersonalFinanceActivity) now take PersonalFinanceDbContext, so callers of
+    // this ctor supply both contexts. The two contexts share the same physical
+    // database, so a PF-owning phase and a Finance-owning phase see the same data.
     public FinanceDemoSeedContributor(
         FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext personalFinanceDbContext,
         ILogger<FinanceDemoSeedContributor> logger)
         : this(
             financeDbContext,
@@ -79,10 +86,10 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             new PricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
             new CrossBorderPartnerNetworkSeedPhase(financeDbContext, new PartnerPrefundSeedHelper(financeDbContext)),
             new CrossBorderCatalogSeedPhase(financeDbContext, new CatalogUpsertHelper(financeDbContext)),
-            new HouseholdsSeedPhase(financeDbContext),
+            new HouseholdsSeedPhase(personalFinanceDbContext),
             new CrossBorderPricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
             new OrderActivitySeedPhase(financeDbContext),
-            new PersonalFinanceActivitySeedPhase(financeDbContext))
+            new PersonalFinanceActivitySeedPhase(personalFinanceDbContext))
     {
     }
 

@@ -1,5 +1,5 @@
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -19,7 +19,8 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
 {
     public static readonly JobKey Key = new("FinancialConnectionRecurringSyncJob", ScheduledJobGroups.ScheduledJobs);
 
-    private readonly FinanceDbContext _financeDbContext;
+    // Spec 027 S3 (#126): FinancialConnection is owned by PersonalFinanceDbContext.
+    private readonly PersonalFinanceDbContext _personalFinanceDbContext;
     private readonly FinancialConnectionTransactionSyncOrchestrator _orchestrator;
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _jobOptions;
@@ -27,14 +28,14 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
     private readonly ILogger<FinancialConnectionRecurringSyncJob> _logger;
 
     public FinancialConnectionRecurringSyncJob(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext personalFinanceDbContext,
         FinancialConnectionTransactionSyncOrchestrator orchestrator,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> jobOptions,
         IOptions<FinancialConnectionSyncOptions> syncOptions,
         ILogger<FinancialConnectionRecurringSyncJob> logger)
     {
-        _financeDbContext = financeDbContext;
+        _personalFinanceDbContext = personalFinanceDbContext;
         _orchestrator = orchestrator;
         _tenantContext = tenantContext;
         _jobOptions = jobOptions.Value;
@@ -65,7 +66,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         var batchSize = Math.Max(_jobOptions.FinancialConnectionSync.BatchSize, 1);
         var utcNow = DateTime.UtcNow;
 
-        var dueConnections = await _financeDbContext.FinancialConnections
+        var dueConnections = await _personalFinanceDbContext.FinancialConnections
             .AcrossTenants()
             .AsNoTracking()
             .Where(c => c.AutoSyncEnabled

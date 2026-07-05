@@ -7,6 +7,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Persistence;
@@ -183,7 +184,7 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         tenantContext.TenantId = tenantId;
         tenantContext.ResolutionSource = "test";
 
-        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
         var current = await financeDbContext.CustomerInsightSnapshots.FindAsync(currentId);
         current.Should().BeNull();
 
@@ -219,7 +220,7 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         tenantContext.TenantId = tenantId;
         tenantContext.ResolutionSource = "test";
 
-        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
         var snapshotId = Guid.NewGuid();
 
         financeDbContext.CustomerInsightSnapshots.Add(new CustomerInsightSnapshot
@@ -308,7 +309,7 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         tenantContext.TenantId = tenantId;
         tenantContext.ResolutionSource = "test";
 
-        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
         var accountId = Guid.Parse("89898989-8989-8989-8989-898989898989");
 
         financeDbContext.PersonalAccounts.Add(new PersonalAccount

@@ -10,6 +10,7 @@ using Aonik.Platform.Contracts.Models.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Seeding;
 using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Abstractions.Agents;
 using System.Collections.Concurrent;
 
@@ -76,6 +77,12 @@ internal class DemoSeedService : IDemoSeedService
 
     // Legacy constructor — used by tests that construct DemoSeedService directly
     // without DI. Builds phase helpers inline from the provided dependencies.
+    //
+    // Spec 027 S3 (#126): ReverseSeedPhase's PF teardown goes through the
+    // IPersonalFinanceDemoDataReverser SharedKernel port (the PF DbSets moved to
+    // PersonalFinance), so Platform needs no PersonalFinanceDbContext / PF
+    // reference. Tests pass a PersonalFinanceDemoDataReverser built over an
+    // InMemory PersonalFinanceDbContext.
     public DemoSeedService(
         PlatformDbContext dbContext,
         IEnumerable<IDemoSeedContributor> contributors,
@@ -87,6 +94,7 @@ internal class DemoSeedService : IDemoSeedService
         IPermissionService permissionService,
         ITenantContext tenantContext,
         FinanceDbContext financeDbContext,
+        IPersonalFinanceDemoDataReverser personalFinanceDemoDataReverser,
         IAgentDemoCleanup agentDemoCleanup)
         : this(
             dbContext,
@@ -104,7 +112,7 @@ internal class DemoSeedService : IDemoSeedService
             new PartySeedPhase(dbContext, clock, currentUserProvider),
             new CrossBorderTenantSeedPhase(dbContext, clock, currentUserProvider),
             new SeedMarkerPhase(dbContext, clock, currentUserProvider, contributors),
-            new ReverseSeedPhase(dbContext, financeDbContext, agentDemoCleanup))
+            new ReverseSeedPhase(dbContext, financeDbContext, personalFinanceDemoDataReverser, agentDemoCleanup))
     {
     }
 

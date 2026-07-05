@@ -103,7 +103,8 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
 
     /// <summary>
     /// CategorisationRule with <c>Scope == "System"</c> is global (tenant-less).
-    /// Mirrors the same carve-out in <c>FinanceDbContext.IsGlobalEntity</c>.
+    /// PersonalFinanceDbContext is the sole owner of this carve-out — the
+    /// transitional <c>FinanceDbContext</c> copy was removed in S3 (#126).
     /// </summary>
     protected override bool IsGlobalEntity(object entity)
     {

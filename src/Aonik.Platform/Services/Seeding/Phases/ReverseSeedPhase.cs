@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Persistence;
 using Aonik.Finance.Persistence;
@@ -36,15 +37,18 @@ internal sealed class ReverseSeedPhase
 
     private readonly PlatformDbContext _dbContext;
     private readonly FinanceDbContext _financeDbContext;
+    private readonly IPersonalFinanceDemoDataReverser _pfReverser;
     private readonly IAgentDemoCleanup _agentDemoCleanup;
 
     public ReverseSeedPhase(
         PlatformDbContext dbContext,
         FinanceDbContext financeDbContext,
+        IPersonalFinanceDemoDataReverser pfReverser,
         IAgentDemoCleanup agentDemoCleanup)
     {
         _dbContext = dbContext;
         _financeDbContext = financeDbContext;
+        _pfReverser = pfReverser;
         _agentDemoCleanup = agentDemoCleanup;
     }
 
@@ -115,65 +119,30 @@ internal sealed class ReverseSeedPhase
     {
         var userIds = PersonalFinancePersonaUserIds;
 
-        var txCount = await _financeDbContext.PersonalTransactions
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
-            .ExecuteDeleteAsync(cancellationToken);
+        // Spec 027 S3 (#126): PF DbSets are owned by PersonalFinance; tear them
+        // down through the SharedKernel port so Platform needs no PF reference.
+        var counts = await _pfReverser.ReversePersonaActivityAsync(tenantId, userIds, cancellationToken);
 
-        var billCount = await _financeDbContext.PersonalRecurringBills
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var subCount = await _financeDbContext.Subscriptions
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var accountCount = await _financeDbContext.PersonalAccounts
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var profileCount = await _financeDbContext.PersonalProfiles
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        if (txCount + billCount + subCount + accountCount + profileCount > 0)
+        if (counts.Total > 0)
         {
             operations.Add(
-                $"Removed personal-finance demo data: {txCount} transactions, " +
-                $"{accountCount} accounts, {billCount} recurring bills, " +
-                $"{subCount} subscriptions, {profileCount} profiles");
+                $"Removed personal-finance demo data: {counts.Transactions} transactions, " +
+                $"{counts.Accounts} accounts, {counts.RecurringBills} recurring bills, " +
+                $"{counts.Subscriptions} subscriptions, {counts.Profiles} profiles");
         }
     }
 
     public async Task ReverseHouseholdsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var householdNames = SeedNames.HouseholdNames;
-        var householdIds = await _financeDbContext.Households
-            .IncludeSoftDeleted()
-            .Where(item => item.TenantId == tenantId && householdNames.Contains(item.Name))
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken);
+        // Spec 027 S3 (#126): Households are owned by PersonalFinance; tear them
+        // down through the SharedKernel port so Platform needs no PF reference.
+        var householdCount = await _pfReverser.ReverseHouseholdsAsync(tenantId, householdNames, cancellationToken);
 
-        if (householdIds.Count == 0)
+        if (householdCount > 0)
         {
-            return;
+            operations.Add($"Removed {householdCount} demo households");
         }
-
-        await _financeDbContext.HouseholdMembers
-            .IncludeSoftDeleted()
-            .Where(item => householdIds.Contains(item.HouseholdId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var householdCount = await _financeDbContext.Households
-            .IncludeSoftDeleted()
-            .Where(item => householdIds.Contains(item.Id))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        operations.Add($"Removed {householdCount} demo households");
     }
 
     public async Task ReverseWorkflowRegistryAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
