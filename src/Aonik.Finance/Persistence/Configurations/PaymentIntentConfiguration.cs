@@ -53,10 +53,12 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         builder.Property(x => x.Fee).HasPrecision(19, 4);
         builder.Property(x => x.FxRate).HasPrecision(19, 8);
 
-        builder.HasIndex(x => x.Status);
-        builder.HasIndex(x => x.PayerPartyId);
-        builder.HasIndex(x => x.OrderId);
-        builder.HasIndex(x => x.InvoiceId);
+        // Tenant-leading composites (M8) — match the implicit WHERE TenantId = @t filter
+        // (the partner-reference indexes below are already tenant-leading).
+        builder.HasIndex(x => new { x.TenantId, x.Status });
+        builder.HasIndex(x => new { x.TenantId, x.PayerPartyId });
+        builder.HasIndex(x => new { x.TenantId, x.OrderId });
+        builder.HasIndex(x => new { x.TenantId, x.InvoiceId });
         builder.HasIndex(x => new { x.TenantId, x.ClientReference });
         builder.HasIndex(x => new { x.TenantId, x.ProviderReference });
         builder.HasIndex(x => new { x.TenantId, x.ConnectorId });
