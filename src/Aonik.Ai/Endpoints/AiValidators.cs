@@ -146,49 +146,6 @@ internal sealed class ResetAiTaskPromptRequestValidator : Validator<ResetAiTaskP
     public ResetAiTaskPromptRequestValidator() => RuleFor(x => x.TaskId).RequiredId();
 }
 
-// ── Prompt Specs ────────────────────────────────────────────────────
-
-internal sealed class CreatePromptSpecRequestValidator : Validator<CreatePromptSpecRequest>
-{
-    public CreatePromptSpecRequestValidator()
-    {
-        RuleFor(x => x.Name).RequiredText(128);
-        RuleFor(x => x.Version).RequiredText(64);
-        RuleFor(x => x.SystemTemplate)
-            .NotEmpty().WithMessage("System template is required.")
-            .MaximumLength(64_000);
-        RuleFor(x => x.UserTemplate).MaximumLength(64_000);
-        RuleFor(x => x.DeveloperTemplate).MaximumLength(64_000);
-        RuleFor(x => x.VariablesSchemaJson).MaximumLength(64_000);
-        RuleFor(x => x.OutputSchemaJson).MaximumLength(64_000);
-        RuleFor(x => x.SafetyPolicyRef).MaximumLength(256);
-    }
-}
-
-internal sealed class UpdatePromptSpecEndpointRequestValidator : Validator<UpdatePromptSpecEndpointRequest>
-{
-    public UpdatePromptSpecEndpointRequestValidator()
-    {
-        RuleFor(x => x.PromptId).RequiredId();
-        RuleFor(x => x.SystemTemplate).MaximumLength(64_000);
-        RuleFor(x => x.UserTemplate).MaximumLength(64_000);
-        RuleFor(x => x.DeveloperTemplate).MaximumLength(64_000);
-        RuleFor(x => x.VariablesSchemaJson).MaximumLength(64_000);
-        RuleFor(x => x.OutputSchemaJson).MaximumLength(64_000);
-        RuleFor(x => x.SafetyPolicyRef).MaximumLength(256);
-    }
-}
-
-internal sealed class GetPromptSpecRequestValidator : Validator<GetPromptSpecRequest>
-{
-    public GetPromptSpecRequestValidator() => RuleFor(x => x.PromptId).RequiredId();
-}
-
-internal sealed class DeletePromptSpecRequestValidator : Validator<DeletePromptSpecRequest>
-{
-    public DeletePromptSpecRequestValidator() => RuleFor(x => x.PromptId).RequiredId();
-}
-
 // ── Route Policies ──────────────────────────────────────────────────
 
 internal sealed class CreateRoutePolicyRequestValidator : Validator<CreateRoutePolicyRequest>

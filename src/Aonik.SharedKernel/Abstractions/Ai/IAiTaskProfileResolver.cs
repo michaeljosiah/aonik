@@ -2,8 +2,8 @@ namespace Aonik.SharedKernel.Abstractions.Ai;
 
 /// <summary>
 /// Resolves the complete AI task profile (model + prompts) for a given use-case.
-/// Composes <see cref="IAiModelResolver"/> and <see cref="IPromptStore"/> into a
-/// single call, applying tenant-level overrides where configured.
+/// Composes <see cref="IAiModelResolver"/> with prompt templates read from the
+/// AiTask table into a single call, applying tenant-level overrides where configured.
 /// </summary>
 public interface IAiTaskProfileResolver
 {

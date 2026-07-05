@@ -47,7 +47,6 @@ const navigation: NavigationSection[] = [
               { id: 'ai-agents-item', label: 'Agents', icon: 'Bot', href: '/ai/agents' },
               { id: 'ai-models-item', label: 'AI Models', icon: 'Brain', href: '/ai/models' },
               { id: 'ai-tasks-item', label: 'LLM Tasks', icon: 'ListChecks', href: '/ai/tasks' },
-              { id: 'ai-prompts-item', label: 'Prompt Templates', icon: 'FileText', href: '/ai/prompts' },
               { id: 'ai-routing-item', label: 'Route Policies', icon: 'Route', href: '/ai/routing' },
             ],
           },

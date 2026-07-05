@@ -58,9 +58,8 @@ namespace Aonik.Application.Tests.Persistence;
 ///     → B (CustomerInsightSnapshotId list comes from a tenant-scoped caller; the read
 ///     itself ignores tenant). The reader is a private helper used by AI summary services
 ///     that pre-filter by tenant; verified by <see cref="CustomerInsightAiSummaryReader_GetMissing_Should_NotReturn_OtherTenantSummaries"/>.</item>
-///   <item><c>Aonik.Ai/Services/Seeding/AiTaskSeedService.cs:35</c>,
-///     <c>Aonik.Ai/Services/Seeding/PromptSpecSeedService.cs:39</c>
-///     → D — both filter <c>TenantId == null</c> for global reference data only. Documented, no test.</item>
+///   <item><c>Aonik.Ai/Services/Seeding/AiTaskSeedService.cs:35</c>
+///     → D — filters <c>TenantId == null</c> for global reference data only. Documented, no test.</item>
 ///   <item><c>Aonik.Finance/Services/PersonalFinance/TransactionClassificationService.cs:347</c>
 ///     → A (Scope-aware: System rules at Guid.Empty, Tenant rules at this tenant, User rules at this tenant+user)
 ///     → <see cref="TransactionClassification_GetActiveRules_Should_NotPick_OtherTenantTenantScopedRules"/> +
@@ -407,9 +406,9 @@ public class IgnoreQueryFiltersCrossTenantTests
 
     // ── Seeders writing global (TenantId = null) rows are Pattern D ───
     //
-    // AiTaskSeedService and PromptSpecSeedService both filter
-    // `TenantId == null`. They never touch tenant-scoped rows; they
-    // upsert global reference data. Documented in the audit map above —
+    // AiTaskSeedService filters `TenantId == null`. It never touches
+    // tenant-scoped rows; it upserts global reference data. Documented
+    // in the audit map above —
     // no negative test required (a "leak" would imply tenant-bound data
     // being read through a TenantId == null filter, which isn't
     // expressible in EF without rewriting the WHERE).
