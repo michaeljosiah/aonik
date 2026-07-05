@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Aonik.Finance.Agents;
+using Aonik.PersonalFinance.Agents;
 using Aonik.PersonalFinance.Agents.StructuredOutputs;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;

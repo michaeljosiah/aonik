@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Aonik.PersonalFinance.Agents.CodeAct;
-using Aonik.Finance.Agents.Tools;
+using Aonik.PersonalFinance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -11,7 +11,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Finance.Endpoints.Agents;
+namespace Aonik.PersonalFinance.Endpoints.Agents;
 
 /// <summary>
 /// Receives <c>call_tool(name, **kwargs)</c> requests from Python running

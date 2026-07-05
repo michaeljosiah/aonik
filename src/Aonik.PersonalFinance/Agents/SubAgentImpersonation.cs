@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Finance.Agents;
+namespace Aonik.PersonalFinance.Agents;
 
 /// <summary>
 /// Optional contract implemented by the Spec 025 sub-agent descriptors

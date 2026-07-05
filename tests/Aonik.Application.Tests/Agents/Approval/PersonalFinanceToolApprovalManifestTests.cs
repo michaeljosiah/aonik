@@ -1,4 +1,4 @@
-using Aonik.Finance.Agents;
+using Aonik.PersonalFinance.Agents;
 using Aonik.SharedKernel.Abstractions.Agents;
 
 using FluentAssertions;

@@ -4,7 +4,7 @@ using Aonik.PersonalFinance.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// AI agent tools for account linking operations (Plaid and similar aggregators).

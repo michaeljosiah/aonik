@@ -2,7 +2,7 @@ using System.ComponentModel;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Contracts.Services;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Personal-finance commitment tools — recurring bills, subscriptions, and debt

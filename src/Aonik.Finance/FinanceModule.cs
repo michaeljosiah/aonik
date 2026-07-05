@@ -258,23 +258,19 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();
         services.AddScoped<Contracts.Services.Ai.IFinanceInsightsService, Services.Ai.FinanceInsightsService>();
 
-        // ── Finance Domain Agents ────────────────────────────────────
+        // ── Finance Domain Agent ─────────────────────────────────────
         // Registered as IDomainAgentDescriptor for the orchestrator to discover.
-        // Finance is split into two sub-agents for better LLM tool selection (R7).
         services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
 
         // Spec 032 (finding C3) — Finance's tool-approval classification. The central
         // IToolApprovalGate (registered in AgentsModule) discovers every module manifest and
         // uses this one to wrap the finance agent's mutating tools before they reach the model.
         services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
 
-        // Spec 032 — PersonalFinance ("Simi") tool-approval classification. Same gate, second
-        // manifest: gates the personal-finance agent's mutating pf_* / user_memory_save tools (all
-        // Medium/Low — PersonalFinance moves no money) so they no longer rely on the legacy
-        // confirmAction frontend tool.
-        services.AddSingleton<IToolApprovalManifest, PersonalFinanceToolApprovalManifest>();
+        // Spec 027 S1c2 (#118): the PersonalFinance ("Simi") agent surface — the
+        // personal-finance / financial-life-graph / Compass / Spec-025 sub-agent
+        // descriptors and the PersonalFinanceToolApprovalManifest — relocated to
+        // PersonalFinanceModule alongside the Agents/ tool tree.
 
         // Spec 032 §7.4 — durable-execution handlers for the High-tier money tools. The approval
         // gate marshals finance_capture_payment / finance_cancel_payment / finance_create_payment_intent
@@ -288,23 +284,6 @@ public sealed class FinanceModule : IModule
             Agents.Proposals.CreatePaymentIntentProposalHandler.ProposalTypeKey);
         services.AddKeyedScoped<IProposalHandler, Agents.Proposals.MarkInvoicePaidProposalHandler>(
             Agents.Proposals.MarkInvoicePaidProposalHandler.ProposalTypeKey);
-
-        // Spec 025 — three analytical sub-agents Simi invokes via the
-        // pf_run_insights / pf_run_forecast / pf_run_classify_review tools.
-        // Replaced the legacy pf-spending-intelligence + pf-obligation-planning
-        // sub-agents in Phase 6 (their descriptor / tool / structured-output
-        // files were deleted at the same time as this DI list shrunk).
-        services.AddSingleton<IDomainAgentDescriptor, PfInsightsAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
-
-        // Spec 021 — AONIK Compass planning specialist. Structured-output
-        // sub-agent Simi invokes via pf_run_compass_planner and the Compass
-        // plan service drives during pf_generate_goal_plan. Never user-facing.
-        services.AddSingleton<IDomainAgentDescriptor, CompassPlannerAgentDescriptor>();
-
-        // CodeAct sandbox providers and selector relocated to PersonalFinanceModule
-        // (Spec 027 Phase 5) along with the CodeAct/* file tree.
 
         // ── Global Seed Contributors ────────────────────────────────────
         services.AddScoped<Services.Seeding.FinancePricingSeedContributor>();

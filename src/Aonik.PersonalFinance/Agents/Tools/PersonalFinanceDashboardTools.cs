@@ -3,7 +3,7 @@ using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Finance;
 
-namespace Aonik.Finance.Agents.Tools;
+namespace Aonik.PersonalFinance.Agents.Tools;
 
 /// <summary>
 /// Personal-finance dashboard + FX-rate read tools. FX history is read through the
