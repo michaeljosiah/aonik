@@ -83,7 +83,12 @@ internal class DemoSeedService : IDemoSeedService
     // PersonalFinance), so Platform needs no PersonalFinanceDbContext / PF
     // reference. Tests pass a PersonalFinanceDemoDataReverser built over an
     // InMemory PersonalFinanceDbContext.
-    public DemoSeedService(
+    //
+    // NOTE: internal (not public) so the DI container's greediest-resolvable
+    // constructor selection sees only the primary ctor above — two resolvable
+    // public ctors with neither a superset of the other throws "ambiguous
+    // constructors" at activation. Tests reach this via InternalsVisibleTo.
+    internal DemoSeedService(
         PlatformDbContext dbContext,
         IEnumerable<IDemoSeedContributor> contributors,
         IClock clock,
