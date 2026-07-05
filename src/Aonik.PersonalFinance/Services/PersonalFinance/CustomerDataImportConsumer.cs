@@ -1,10 +1,10 @@
 using System.Text.Json;
 
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Finance-module implementation of <see cref="ICustomerDataImportConsumer"/>.

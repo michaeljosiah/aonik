@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Spec 030 — generic-dispatcher handler that applies an approved

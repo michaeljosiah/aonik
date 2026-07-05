@@ -1,4 +1,4 @@
-using Aonik.Finance.Services.Accounts;
+using Aonik.PersonalFinance.Services.Accounts;
 using FluentAssertions;
 
 namespace Aonik.Application.Tests.Finance.Accounts;

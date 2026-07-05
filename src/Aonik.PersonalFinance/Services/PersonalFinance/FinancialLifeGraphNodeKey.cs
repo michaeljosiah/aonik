@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal readonly record struct FinancialLifeGraphNodeKey(string Prefix, Guid Id)
 {

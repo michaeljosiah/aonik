@@ -1,5 +1,5 @@
-using Aonik.Finance.Agents.CodeAct;
-using Aonik.Finance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
 using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;

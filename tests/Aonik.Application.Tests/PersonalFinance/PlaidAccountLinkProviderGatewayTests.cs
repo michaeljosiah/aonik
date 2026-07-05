@@ -2,8 +2,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;

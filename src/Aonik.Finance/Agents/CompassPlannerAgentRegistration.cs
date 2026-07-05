@@ -1,4 +1,4 @@
-using Aonik.Finance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;

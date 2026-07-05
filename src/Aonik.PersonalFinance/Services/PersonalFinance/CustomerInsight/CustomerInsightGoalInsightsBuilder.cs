@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
 /// Builds the <see cref="CustomerInsightGoalInsights"/> section: per-goal

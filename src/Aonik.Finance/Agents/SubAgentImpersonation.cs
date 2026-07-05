@@ -18,7 +18,7 @@ namespace Aonik.Finance.Agents;
 /// captured before the sub-agent's own async build work runs. Descriptors that
 /// implement this MUST:
 /// <list type="bullet">
-///   <item>Forward the snapshot to <see cref="CodeAct.CodeActSandboxContextFactory"/>
+///   <item>Forward the snapshot to <see cref="Aonik.PersonalFinance.Agents.CodeAct.CodeActSandboxContextFactory"/>
 ///   so the ACA Sessions nonce bakes in the snapshot's <c>UserId</c>/<c>TenantId</c>
 ///   — not whatever <see cref="ICurrentUserContext"/>/<see cref="ITenantContext"/>
 ///   happen to resolve to at the moment <c>Build</c> runs.</item>

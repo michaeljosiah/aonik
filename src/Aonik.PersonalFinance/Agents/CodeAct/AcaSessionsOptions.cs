@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// Bound from <c>Ai:CodeAct:AcaSessions</c>. The deploy workflow forwards

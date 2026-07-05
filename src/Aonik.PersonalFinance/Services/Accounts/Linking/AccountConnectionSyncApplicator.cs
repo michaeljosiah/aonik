@@ -1,13 +1,13 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Services.Accounts.Linking;
+namespace Aonik.PersonalFinance.Services.Accounts.Linking;
 
 /// <summary>
 /// Applies a provider exchange/refresh result to the local account-link

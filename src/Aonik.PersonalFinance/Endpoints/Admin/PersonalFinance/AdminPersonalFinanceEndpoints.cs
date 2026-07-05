@@ -1,5 +1,5 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints.Admin;
 
 // ── List Accounts for User ─────────────────────────────────────────────
 

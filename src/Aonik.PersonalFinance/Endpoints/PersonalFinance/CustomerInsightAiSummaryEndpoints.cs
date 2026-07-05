@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 internal sealed class GetCustomerInsightAiSummaryRequest
 {

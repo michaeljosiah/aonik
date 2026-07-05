@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 /// <summary>
 /// The Circle (Spec 048): entity-scoped sharing grants, link invites, and the

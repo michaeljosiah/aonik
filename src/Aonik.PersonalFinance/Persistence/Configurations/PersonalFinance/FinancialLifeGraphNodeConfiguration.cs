@@ -1,10 +1,10 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
+namespace Aonik.PersonalFinance.Persistence.Configurations;
 
 internal sealed class FinancialLifeGraphNodeConfiguration : IEntityTypeConfiguration<FinancialLifeGraphNode>
 {

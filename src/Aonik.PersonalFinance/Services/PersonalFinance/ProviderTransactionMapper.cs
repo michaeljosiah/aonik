@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Shared static helpers for mapping provider transaction data onto

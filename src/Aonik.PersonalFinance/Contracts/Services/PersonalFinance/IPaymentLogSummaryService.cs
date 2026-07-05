@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 /// <summary>
 /// Per-currency rollups over the current user's payment logs (Spec 045 §7) —

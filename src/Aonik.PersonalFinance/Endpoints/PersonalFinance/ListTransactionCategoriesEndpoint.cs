@@ -1,9 +1,9 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Services;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 /// <summary>
 /// Returns the canonical transaction category taxonomy. This is the single source of truth

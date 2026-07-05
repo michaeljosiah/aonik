@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Finance-module implementation of <see cref="ICustomerDataExportProvider"/>.

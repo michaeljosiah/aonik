@@ -1,10 +1,10 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints.Admin;
 
 internal sealed class EnsurePersonalProfileRequest
 {

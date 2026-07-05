@@ -1,16 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
-using Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+using Aonik.PersonalFinance.Services.CustomerInsight;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Orchestrates generation of a customer insight snapshot. Loads source data

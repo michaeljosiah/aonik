@@ -1,7 +1,7 @@
 using Aonik.SharedKernel.Primitives;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 public class FinancialLifeGraphNode : AuditableEntity, ITenantScoped
 {

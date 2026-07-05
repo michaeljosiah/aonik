@@ -1,11 +1,11 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 // CareEntity customer CRUD + profile (Spec 043). Customer-scoped
 // (UserPolicy), under /personal-finance/care-entities. Internal route-binding

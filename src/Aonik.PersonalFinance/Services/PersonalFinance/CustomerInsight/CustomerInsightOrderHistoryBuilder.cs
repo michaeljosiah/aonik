@@ -1,7 +1,7 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
 /// Builds the optional <see cref="CustomerInsightOrderHistory"/> section: order

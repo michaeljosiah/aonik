@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
 /// A person ("Mum") or an asset (a property, land, a vehicle, a business

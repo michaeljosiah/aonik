@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 // ── CareEntity CRUD DTOs (Spec 043 §7) ──────────────────────────────
 

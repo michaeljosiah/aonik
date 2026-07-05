@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// PersonalFinance graph-cache invalidator. Defined in <c>Aonik.PersonalFinance</c>

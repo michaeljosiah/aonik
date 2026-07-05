@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Persistence;

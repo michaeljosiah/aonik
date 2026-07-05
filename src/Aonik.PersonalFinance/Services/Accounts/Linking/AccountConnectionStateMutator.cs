@@ -1,8 +1,8 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 
-namespace Aonik.Finance.Services.Accounts.Linking;
+namespace Aonik.PersonalFinance.Services.Accounts.Linking;
 
 /// <summary>
 /// Pure entity mutators for account-connection lifecycle state transitions.

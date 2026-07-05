@@ -1,11 +1,11 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal sealed class FinancialLifeGraphLoader
 {
@@ -166,13 +166,13 @@ internal sealed class FinancialLifeGraphLoader
 
         var nativeNodes = await _financeDbContext.FinancialLifeGraphNodes
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == Contracts.Models.PersonalFinance.FinancialLifeGraphEntityStatus.Active)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == Aonik.PersonalFinance.Contracts.Models.FinancialLifeGraphEntityStatus.Active)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var nativeEdges = await _financeDbContext.FinancialLifeGraphEdges
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == Contracts.Models.PersonalFinance.FinancialLifeGraphEntityStatus.Active)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == Aonik.PersonalFinance.Contracts.Models.FinancialLifeGraphEntityStatus.Active)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 

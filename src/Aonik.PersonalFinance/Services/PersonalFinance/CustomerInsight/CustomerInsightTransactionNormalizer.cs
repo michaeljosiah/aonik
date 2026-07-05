@@ -1,6 +1,6 @@
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
 /// Converts raw <see cref="PersonalTransaction"/> rows into the denormalised

@@ -3,10 +3,10 @@ using System.Net.Http.Json;
 
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;

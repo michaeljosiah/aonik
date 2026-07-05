@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 /// <summary>
 /// Customer-scoped CRUD over <c>CareEntity</c> (Spec 043). Every operation is

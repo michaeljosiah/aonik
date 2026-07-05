@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 // ── PaymentLog DTOs (Spec 045 §4/§9) ────────────────────────────────
 // Note: CurrencyTotal and CareEntityPaymentLogSummary are defined in

@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>Lifecycle status values for a <c>CompassPlan</c> (Spec 021 §2).</summary>
 internal static class CompassPlanStatus

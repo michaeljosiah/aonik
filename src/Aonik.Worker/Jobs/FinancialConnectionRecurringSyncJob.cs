@@ -1,4 +1,4 @@
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;

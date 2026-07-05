@@ -1,4 +1,4 @@
-using Aonik.Finance.Agents.CodeAct;
+using Aonik.PersonalFinance.Agents.CodeAct;
 using FastEndpoints;
 
 namespace Aonik.Finance.Endpoints.Agents;

@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 
-namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Services;
 
 /// <summary>
 /// Owns the AONIK Compass plan lifecycle (Spec 021 §3): generating a grounded,

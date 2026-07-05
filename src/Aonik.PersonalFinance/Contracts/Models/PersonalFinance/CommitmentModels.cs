@@ -1,4 +1,4 @@
-namespace Aonik.Finance.Contracts.Models.PersonalFinance;
+namespace Aonik.PersonalFinance.Contracts.Models;
 
 // ── Commitment read model (unified projection over Bill, Subscription, DebtRepayment) ──
 

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
 /// What a circle member may see of an owner's records (Spec 048). Authoritative

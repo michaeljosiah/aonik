@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Aonik.Finance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Default <see cref="ICompassPlanGenerator"/> — invokes the registered

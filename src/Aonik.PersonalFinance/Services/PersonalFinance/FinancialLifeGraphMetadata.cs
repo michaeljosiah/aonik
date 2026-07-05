@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal readonly record struct FinancialLifeGraphMetadata(string? Json)
 {

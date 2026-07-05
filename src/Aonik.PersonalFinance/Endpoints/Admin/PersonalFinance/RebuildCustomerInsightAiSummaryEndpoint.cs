@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints.Admin;
 
 internal sealed class RebuildCustomerInsightAiSummaryRequest
 {

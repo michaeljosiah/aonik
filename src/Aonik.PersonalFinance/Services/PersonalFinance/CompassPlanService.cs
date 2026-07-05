@@ -1,15 +1,15 @@
 using System.Text.Json;
-using Aonik.Finance.Agents.StructuredOutputs;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Owns the AONIK Compass plan lifecycle (Spec 021 §3). Generates a grounded,

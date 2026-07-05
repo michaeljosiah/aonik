@@ -1,6 +1,6 @@
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
 
-namespace Aonik.Finance.Services.Accounts.Linking;
+namespace Aonik.PersonalFinance.Services.Accounts.Linking;
 
 /// <summary>
 /// Resolves an <see cref="IPersonalAccountLinkProviderGateway"/> by provider

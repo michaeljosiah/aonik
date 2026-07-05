@@ -1,8 +1,8 @@
 using Aonik.Finance.Endpoints.Admin.Accounts;
-using Aonik.Finance.Endpoints.Admin.PersonalFinance;
+using Aonik.PersonalFinance.Endpoints.Admin;
 using Aonik.Finance.Endpoints.Billing;
 using Aonik.Finance.Endpoints.Insights;
-using Aonik.Finance.Endpoints.PersonalFinance;
+using Aonik.PersonalFinance.Endpoints;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;

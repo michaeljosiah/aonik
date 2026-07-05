@@ -1,10 +1,10 @@
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Services;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints.Admin;
 
 internal sealed class AdminGetFinancialLifeGraphRequest
 {

@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Aonik.Finance.Agents;
-using Aonik.Finance.Agents.StructuredOutputs;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Agents.StructuredOutputs;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.TestSupport.Identity;

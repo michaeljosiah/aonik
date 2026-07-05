@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.PersonalFinance;
+namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
 /// A user-tracked recurring bill obligation (e.g. council tax, electricity, internet).

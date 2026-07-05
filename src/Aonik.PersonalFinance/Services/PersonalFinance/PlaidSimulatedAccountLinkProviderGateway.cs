@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Services;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 internal sealed class PlaidSimulatedAccountLinkProviderGateway : IPersonalAccountLinkProviderGateway
 {

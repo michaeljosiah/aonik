@@ -1,12 +1,12 @@
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Finance.Services.Accounts.Linking;
+namespace Aonik.PersonalFinance.Services.Accounts.Linking;
 
 /// <summary>
 /// Manual (non-provider) account and transaction CRUD: lets users record

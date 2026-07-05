@@ -1,8 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using Aonik.Finance.Entities;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Persistence;

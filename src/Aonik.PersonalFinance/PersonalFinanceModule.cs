@@ -1,8 +1,8 @@
-using Aonik.Finance.Agents.CodeAct;
-using Aonik.Finance.Contracts.Services.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Services.Accounts;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Agents.CodeAct;
+using Aonik.PersonalFinance.Contracts.Services.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Services.Accounts;
+using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;

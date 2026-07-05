@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Finance.Agents.CodeAct;
+namespace Aonik.PersonalFinance.Agents.CodeAct;
 
 /// <summary>
 /// Builds a fresh <see cref="CodeActSandboxContext"/> from the current

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.Accounts;
+namespace Aonik.PersonalFinance.Entities.Accounts;
 
 public class AccountConnection : AuditableEntity, ITenantScoped
 {

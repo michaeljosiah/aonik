@@ -1,16 +1,16 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Services.Accounts;
+namespace Aonik.PersonalFinance.Services.Accounts;
 
 internal sealed class AccountTransactionSyncOrchestrator
 {

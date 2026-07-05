@@ -1,12 +1,12 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 internal record InviteHouseholdMemberEndpointRequest(
     Guid UserId,

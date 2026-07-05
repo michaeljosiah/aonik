@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 
-namespace Aonik.Finance.Services.PersonalFinance;
+namespace Aonik.PersonalFinance.Services;
 
 /// <summary>
 /// Finance-side fallback resolver for the playground User Brief picker:

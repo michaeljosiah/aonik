@@ -1,10 +1,10 @@
 using Aonik.Finance.Entities;
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
-using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Services;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Services;
-using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
@@ -745,7 +745,7 @@ public class FinancialLifeGraphServiceTests
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
         // Act
-        var nodeResult = await writeService.CreateNodeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphNodeRequest(
+        var nodeResult = await writeService.CreateNodeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphNodeRequest(
             "NativeAnnotation",
             "Regular support",
             "{\"category\":\"family\"}",
@@ -756,7 +756,7 @@ public class FinancialLifeGraphServiceTests
             false,
             null));
 
-        var edgeResult = await writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
+        var edgeResult = await writeService.CreateEdgeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphEdgeRequest(
             $"user:{userId:D}",
             "ANNOTATED_AS",
             nodeResult.NodeKey,
@@ -819,7 +819,7 @@ public class FinancialLifeGraphServiceTests
         initialGraph.Nodes.Should().NotContain(item => item.DisplayName == "Fresh annotation");
 
         // Act
-        await writeService.CreateNodeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphNodeRequest(
+        await writeService.CreateNodeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphNodeRequest(
             "NativeAnnotation",
             "Fresh annotation",
             "{}",
@@ -888,7 +888,7 @@ public class FinancialLifeGraphServiceTests
 
         // Act
         var proposals = await service.ProposeRecurringMerchantAnnotationsAsync(
-            new Aonik.Finance.Contracts.Models.PersonalFinance.ProposeRecurringMerchantGraphAnnotationsRequest(aiRunId, 3, 30));
+            new Aonik.PersonalFinance.Contracts.Models.ProposeRecurringMerchantGraphAnnotationsRequest(aiRunId, 3, 30));
 
         // Assert
         proposals.Should().ContainSingle();
@@ -944,7 +944,7 @@ public class FinancialLifeGraphServiceTests
         var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
-        Func<Task> action = () => writeService.CreateNodeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphNodeRequest(
+        Func<Task> action = () => writeService.CreateNodeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphNodeRequest(
             "NativeAnnotation",
             "Support note",
             "{}",
@@ -1018,7 +1018,7 @@ public class FinancialLifeGraphServiceTests
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
         var proposals = await inferenceService.ProposeRecurringMerchantAnnotationsAsync(
-            new Aonik.Finance.Contracts.Models.PersonalFinance.ProposeRecurringMerchantGraphAnnotationsRequest(aiRunId, 3, 30));
+            new Aonik.PersonalFinance.Contracts.Models.ProposeRecurringMerchantGraphAnnotationsRequest(aiRunId, 3, 30));
 
         var graphBeforeApproval = await graphService.GetGraphAsync();
 
@@ -1100,7 +1100,7 @@ public class FinancialLifeGraphServiceTests
         var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
-        Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
+        Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphEdgeRequest(
             $"user:{userId:D}",
             "ANNOTATED_AS",
             $"native-node:{node.Id:D}",
@@ -1161,7 +1161,7 @@ public class FinancialLifeGraphServiceTests
         var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
-        Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
+        Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.PersonalFinance.Contracts.Models.CreateFinancialLifeGraphEdgeRequest(
             $"user:{userId:D}",
             "ANNOTATED_AS",
             $"native-node:{node.Id:D}",

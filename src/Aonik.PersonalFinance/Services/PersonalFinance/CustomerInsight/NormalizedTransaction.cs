@@ -1,7 +1,7 @@
-namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
+namespace Aonik.PersonalFinance.Services.CustomerInsight;
 
 /// <summary>
-/// Internal projection of <see cref="Aonik.Finance.Entities.PersonalFinance.PersonalTransaction"/>
+/// Internal projection of <see cref="Aonik.PersonalFinance.Entities.PersonalTransaction"/>
 /// used by every customer-insight builder. The shape is denormalised so all builders
 /// can work without re-resolving merchant/account/category every time.
 /// </summary>

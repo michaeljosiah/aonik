@@ -1,9 +1,9 @@
 using System.Text.Json;
 
-using Aonik.Finance.Contracts.Models.Accounts;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
+using Aonik.PersonalFinance.Contracts.Services;
 
-namespace Aonik.Finance.Services.Accounts.Linking;
+namespace Aonik.PersonalFinance.Services.Accounts.Linking;
 
 /// <summary>
 /// Pure static helpers shared across the account-linking pipeline:

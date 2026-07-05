@@ -73,7 +73,11 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     // PersonalFinanceActivity) now take PersonalFinanceDbContext, so callers of
     // this ctor supply both contexts. The two contexts share the same physical
     // database, so a PF-owning phase and a Finance-owning phase see the same data.
-    public FinanceDemoSeedContributor(
+    // internal (not public) so the DI container sees only the primary ctor
+    // above — two resolvable public ctors, neither a superset of the other,
+    // throws "ambiguous constructors" at activation. Tests reach this via
+    // InternalsVisibleTo.
+    internal FinanceDemoSeedContributor(
         FinanceDbContext financeDbContext,
         PersonalFinanceDbContext personalFinanceDbContext,
         ILogger<FinanceDemoSeedContributor> logger)

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.Options;

@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Http;
 
-using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.PersonalFinance.Contracts.Services;
 using FastEndpoints;
 
-namespace Aonik.Finance.Endpoints.PersonalFinance;
+namespace Aonik.PersonalFinance.Endpoints;
 
 internal sealed class UploadStatementImportEndpoint : EndpointWithoutRequest<StatementImportResponse>
 {
