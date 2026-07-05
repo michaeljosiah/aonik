@@ -15,8 +15,9 @@ namespace Aonik.PersonalFinance.Services.Seeding;
 /// Spec 027 S5 (#118/#126): the contributor now lives in PersonalFinance and no
 /// longer references <c>FinanceDbContext</c>. The <c>Users</c> read model is
 /// read through the SharedKernel <see cref="IUserDirectoryReader"/> port
-/// (implemented over Platform's Users), which returns every user across ALL
-/// tenants — matching the previous cross-tenant read. PersonalProfile is owned
+/// (implemented over Platform's Users) with the ambient tenant filter applied —
+/// a behaviour-preserving port of the previous direct FinanceDbContext.Users
+/// read. PersonalProfile is owned
 /// solely by <see cref="PersonalFinanceDbContext"/>, so the anti-join can't be
 /// expressed in one query; the difference is computed in memory: load all user
 /// keys via the reader, load existing profile keys from PersonalFinance, and add
@@ -47,7 +48,7 @@ internal sealed class PersonalFinanceSeedContributor : IGlobalSeedContributor
     {
         var operations = new List<string>();
 
-        // Users read model read through the SharedKernel port (cross-tenant).
+        // Users read model read through the SharedKernel port.
         var users = await _userDirectoryReader.GetAllUserKeysAsync(cancellationToken);
 
         // PersonalProfiles are owned by PersonalFinanceDbContext.

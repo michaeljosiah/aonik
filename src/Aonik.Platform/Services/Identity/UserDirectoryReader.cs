@@ -1,6 +1,5 @@
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions.Platform;
-using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Services.Identity;
@@ -38,15 +37,14 @@ internal sealed class UserDirectoryReader : IUserDirectoryReader
     public async Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(
         CancellationToken cancellationToken = default)
     {
-        // Deliberately cross-tenant (Spec 027 S5, #126): the PersonalFinance
-        // profile seed ensures EVERY platform user has a PersonalProfile, so it
-        // must span tenants regardless of the ambient tenant context. User is
-        // ITenantScoped, so AonikDbContextBase applies a tenant query filter;
-        // AcrossTenants() is the sanctioned escape hatch (bare IgnoreQueryFilters
-        // is banned by BannedSymbols.txt).
+        // Plain read of the Users read model with the context's ambient tenant
+        // filter applied — a direct, behaviour-preserving port of the prior
+        // PersonalFinanceSeedContributor read of FinanceDbContext.Users
+        // (Spec 027 S5, #126). It deliberately does NOT add a cross-tenant
+        // bypass the original read lacked; a genuinely global profile seed would
+        // be a separate, deliberate change.
         return await _dbContext.Users
             .AsNoTracking()
-            .AcrossTenants()
             .Select(u => new UserDirectoryKey(u.Id, u.TenantId))
             .ToListAsync(cancellationToken);
     }

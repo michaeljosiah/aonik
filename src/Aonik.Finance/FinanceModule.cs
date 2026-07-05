@@ -13,7 +13,8 @@ namespace Aonik.Finance;
 
 /// <summary>
 /// Finance module registration. Owns Ledger, Payments, Billing, Orders,
-/// Pricing, Partners, and PersonalFinance domains.
+/// Pricing, and Partners. PersonalFinance is a separate sibling module
+/// (ADR-006 / Spec 027) with its own registration.
 /// </summary>
 public sealed class FinanceModule : IModule
 {
