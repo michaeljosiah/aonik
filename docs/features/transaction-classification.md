@@ -116,7 +116,7 @@ System rules use `TenantId = Guid.Empty`. To prevent the `AonikDbContextBase.Enf
 When rules produce no match, the AI classifier (`TransactionAiClassifier`) calls an LLM:
 
 1. Builds a `TransactionInput` DTO (Id, Merchant, Description, Amount, Currency, TransactionType — no PII)
-2. Loads prompts from `IPromptStore` (`transaction_classification.v1.system` + `transaction_classification.v1.user`)
+2. Resolves the system + user prompt via `IAiTaskProfileResolver.ResolveAsync` for use-case `personal_finance_transaction_classification` (prompt `transaction_classification`), reading the seeded, tenant-overridable `AiTask` row
 3. Records an `AiRun` via `IAiRunWriter`
 4. Sends messages to `IChatClient.GetResponseAsync()`
 5. Parses JSON response, validates category/subcategory against `TransactionCategoryReference`
