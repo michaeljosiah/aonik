@@ -8,8 +8,6 @@ public class AiRoutePolicy : AuditableEntity
     public string UseCase { get; set; } = string.Empty;
     public string RiskTier { get; set; } = string.Empty;
     public string DataSensitivity { get; set; } = string.Empty;
-    public decimal CostCeiling { get; set; }
     public Guid PrimaryModelId { get; set; }
-    public string FallbackModelIdsJson { get; set; } = string.Empty;
     public bool IsActive { get; set; }
 }

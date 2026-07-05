@@ -83,9 +83,7 @@ internal sealed class RoutePolicyService : IRoutePolicyService
             UseCase = request.UseCase,
             RiskTier = request.RiskTier,
             DataSensitivity = request.DataSensitivity,
-            CostCeiling = request.CostCeiling,
             PrimaryModelId = request.PrimaryModelId,
-            FallbackModelIdsJson = request.FallbackModelIdsJson ?? "[]",
             IsActive = request.IsActive,
         };
 
@@ -164,9 +162,7 @@ internal sealed class RoutePolicyService : IRoutePolicyService
     {
         if (request.RiskTier is not null) policy.RiskTier = request.RiskTier;
         if (request.DataSensitivity is not null) policy.DataSensitivity = request.DataSensitivity;
-        if (request.CostCeiling.HasValue) policy.CostCeiling = request.CostCeiling.Value;
         if (request.PrimaryModelId.HasValue) policy.PrimaryModelId = request.PrimaryModelId.Value;
-        if (request.FallbackModelIdsJson is not null) policy.FallbackModelIdsJson = request.FallbackModelIdsJson;
         if (request.IsActive.HasValue) policy.IsActive = request.IsActive.Value;
     }
 
@@ -176,9 +172,7 @@ internal sealed class RoutePolicyService : IRoutePolicyService
         UseCase = source.UseCase,
         RiskTier = source.RiskTier,
         DataSensitivity = source.DataSensitivity,
-        CostCeiling = source.CostCeiling,
         PrimaryModelId = source.PrimaryModelId,
-        FallbackModelIdsJson = source.FallbackModelIdsJson,
         IsActive = source.IsActive,
     };
 
@@ -206,10 +200,8 @@ internal sealed class RoutePolicyService : IRoutePolicyService
         UseCase = policy.UseCase,
         RiskTier = policy.RiskTier,
         DataSensitivity = policy.DataSensitivity,
-        CostCeiling = policy.CostCeiling,
         PrimaryModelId = policy.PrimaryModelId,
         PrimaryModelName = modelName,
-        FallbackModelIdsJson = policy.FallbackModelIdsJson,
         IsActive = policy.IsActive,
         CreatedAt = policy.CreatedAt,
         UpdatedAt = policy.UpdatedAt,

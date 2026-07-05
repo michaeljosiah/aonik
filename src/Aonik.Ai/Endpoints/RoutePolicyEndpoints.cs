@@ -96,7 +96,7 @@ internal sealed class CreateRoutePolicyEndpoint : Endpoint<CreateRoutePolicyRequ
         Summary(s =>
         {
             s.Summary = "Create a route policy";
-            s.Description = "Creates a new AI model routing policy with risk tier, data sensitivity, cost ceiling, and model assignments.";
+            s.Description = "Creates a new AI model routing policy with risk tier, data sensitivity, and model assignment.";
             s.Response(201, "Policy created");
             s.Response(400, "Invalid request");
             s.Response(401, "Not authenticated");
@@ -144,9 +144,7 @@ internal sealed class UpdateRoutePolicyEndpoint : Endpoint<UpdateRoutePolicyEndp
         {
             RiskTier = req.RiskTier,
             DataSensitivity = req.DataSensitivity,
-            CostCeiling = req.CostCeiling,
             PrimaryModelId = req.PrimaryModelId,
-            FallbackModelIdsJson = req.FallbackModelIdsJson,
             IsActive = req.IsActive,
         };
 
@@ -160,9 +158,7 @@ public sealed record UpdateRoutePolicyEndpointRequest
     public Guid PolicyId { get; init; }
     public string? RiskTier { get; init; }
     public string? DataSensitivity { get; init; }
-    public decimal? CostCeiling { get; init; }
     public Guid? PrimaryModelId { get; init; }
-    public string? FallbackModelIdsJson { get; init; }
     public bool? IsActive { get; init; }
 }
 

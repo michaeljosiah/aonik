@@ -167,10 +167,8 @@ export interface RoutePolicyResponse {
   useCase: string;
   riskTier: string;
   dataSensitivity: string;
-  costCeiling: number;
   primaryModelId: string;
   primaryModelName?: string | null;
-  fallbackModelIdsJson: string;
   isActive: boolean;
   isOverride: boolean;
   createdAt: string;
@@ -181,18 +179,14 @@ export interface CreateRoutePolicyRequest {
   useCase: string;
   riskTier: string;
   dataSensitivity: string;
-  costCeiling: number;
   primaryModelId: string;
-  fallbackModelIdsJson?: string | null;
   isActive: boolean;
 }
 
 export interface UpdateRoutePolicyRequest {
   riskTier?: string | null;
   dataSensitivity?: string | null;
-  costCeiling?: number | null;
   primaryModelId?: string | null;
-  fallbackModelIdsJson?: string | null;
   isActive?: boolean | null;
 }
 

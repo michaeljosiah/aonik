@@ -258,8 +258,6 @@ internal sealed class AiTaskService : IAiTaskService
                 PrimaryModelId = primaryModelId,
                 RiskTier = "Standard",
                 DataSensitivity = "Internal",
-                CostCeiling = 0,
-                FallbackModelIdsJson = "[]",
                 IsActive = true,
             });
         }
