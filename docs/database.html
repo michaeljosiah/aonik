@@ -1054,11 +1054,6 @@
             <td><code>Id</code> <code>Name</code> <code>AllowedDataFieldsJson</code> <code>BannedActionsJson</code> <code>EscalationRulesJson</code> <code>IsActive</code> <code>RedactionRulesJson</code></td>
           </tr>
           <tr>
-            <td><code>ToolSpecs</code><span class="sub">ToolSpec</span></td>
-            <td>Versioned tool contracts exposed to agents/LLMs (what tools exist and how to call them safely).<span class="sub">e.g. expose a read-only tool like <code>GetInvoiceById</code> to the AI platform.</span></td>
-            <td><code>Id</code> <code>Name</code> <code>ContractJson</code> <code>IsActive</code> <code>RateLimitsJson</code> <code>AuthScope</code> <code>Domain</code></td>
-          </tr>
-          <tr>
             <td><code>AiRuns</code><span class="sub">AiRun</span></td>
             <td>Audit record of an AI execution: inputs/outputs by reference, tokens, cost, latency, outcome.<span class="sub">e.g. whenever the system calls an LLM to classify, summarize or draft.</span></td>
             <td><code>Id</code> <code>TenantId</code> <code>UseCase</code> <code>UserId</code> <code>AiModelId</code> <code>AiPolicyId</code> <code>InputRefsJson</code> <code>PromptSpecId</code> <code>CostEstimate</code> <code>LatencyMs</code> <code>Outcome</code> <code>OutputRef</code></td>
