@@ -409,6 +409,14 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
             }
             {
+              // This environment is the default backend for the packaged Aonik Admin
+              // desktop (Electron), whose file:// renderer sends `Origin: null`. The
+              // API keeps null-origin OFF by default (M12 / #124) as a hardening; a
+              // deployment that serves the desktop opts back in explicitly here.
+              name: 'Cors__AllowDesktopNullOrigin'
+              value: 'true'
+            }
+            {
               name: 'Qdrant__Endpoint'
               value: 'http://${qdrantApp.name}'
             }

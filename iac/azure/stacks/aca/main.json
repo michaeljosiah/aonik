@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9076663311351815749"
+      "templateHash": "13698085498901260636"
     }
   },
   "parameters": {
@@ -72,6 +72,13 @@
       "defaultValue": "",
       "metadata": {
         "description": "HMAC hash key for the verification service. Passed to Key Vault via the data module."
+      }
+    },
+    "codeActNonceSigningKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "HMAC signing key for CodeAct callback nonces. Stored in Key Vault and surfaced to the API container as AI__CODEACT__NONCESIGNINGKEY. Leave empty in environments that disable the AcaSessions provider."
       }
     },
     "bootstrapSetupSecret": {
@@ -188,7 +195,9 @@
     "logAnalyticsWorkspaceName": "[format('{0}-log', variables('namePrefix'))]",
     "keyVaultName": "[format('{0}-kv', variables('namePrefix'))]",
     "apiAppName": "[format('{0}-api', variables('namePrefix'))]",
-    "adminUiAppName": "[format('{0}-adminui', variables('namePrefix'))]"
+    "adminUiAppName": "[format('{0}-adminui', variables('namePrefix'))]",
+    "codeActSessionPoolName": "[format('{0}-sessions', variables('namePrefix'))]",
+    "codeActPoolManagementEndpoint": "[format('https://{0}.dynamicsessions.io/subscriptions/{1}/resourceGroups/{2}/sessionPools/{3}', parameters('location'), subscription().subscriptionId, resourceGroup().name, variables('codeActSessionPoolName'))]"
   },
   "resources": [
     {
@@ -300,14 +309,14 @@
               "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName')))]"
             }
           ],
-          "secrets": "[concat(if(parameters('enableOptionalSecrets'), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.acsConnectionStringSecretUri.value, 'identity', 'system'), createObject('name', 'verification-hash-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.verificationHashKeySecretUri.value, 'identity', 'system')), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'value', 'placeholder'), createObject('name', 'verification-hash-key', 'value', 'placeholder'))), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'bootstrap-setup-secret', 'value', parameters('bootstrapSetupSecret')))), createArray(createObject('name', 'operations-alerts-azure-monitor-shared-secret', 'value', if(empty(parameters('alertsSharedSecret')), 'placeholder', parameters('alertsSharedSecret')))), createArray(createObject('name', 'qdrant-api-key', 'value', parameters('qdrantApiKey'))), createArray(createObject('name', 'blob-storage-account-name', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountNameSecretUri.value, 'identity', 'system'), createObject('name', 'blob-storage-account-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountKeySecretUri.value, 'identity', 'system')))]"
+          "secrets": "[concat(if(parameters('enableOptionalSecrets'), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.acsConnectionStringSecretUri.value, 'identity', 'system'), createObject('name', 'verification-hash-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.verificationHashKeySecretUri.value, 'identity', 'system')), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'value', 'placeholder'), createObject('name', 'verification-hash-key', 'value', 'placeholder'))), createArray(createObject('name', 'code-act-nonce-signing-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.codeActNonceSigningKeySecretUri.value, 'identity', 'system')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'bootstrap-setup-secret', 'value', parameters('bootstrapSetupSecret')))), createArray(createObject('name', 'operations-alerts-azure-monitor-shared-secret', 'value', if(empty(parameters('alertsSharedSecret')), 'placeholder', parameters('alertsSharedSecret')))), createArray(createObject('name', 'qdrant-api-key', 'value', parameters('qdrantApiKey'))), createArray(createObject('name', 'blob-storage-account-name', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountNameSecretUri.value, 'identity', 'system'), createObject('name', 'blob-storage-account-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountKeySecretUri.value, 'identity', 'system')))]"
         },
         "template": {
           "containers": [
             {
               "name": "api",
               "image": "[parameters('apiImage')]",
-              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Runtime__AzureContainerApps__Enabled', 'value', 'true'), createObject('name', 'Runtime__AzureContainerApps__EnvironmentName', 'value', parameters('environmentName')), createObject('name', 'Runtime__AzureContainerApps__WorkloadName', 'value', parameters('workloadName')), createObject('name', 'Runtime__AzureContainerApps__SubscriptionId', 'value', subscription().subscriptionId), createObject('name', 'Runtime__AzureContainerApps__ResourceGroupName', 'value', resourceGroup().name), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), createArray(createObject('name', 'BlobStorage__Provider', 'value', 'Azure'), createObject('name', 'BlobStorage__Azure__AccountName', 'secretRef', 'blob-storage-account-name'), createObject('name', 'BlobStorage__Azure__AccountKey', 'secretRef', 'blob-storage-account-key'), createObject('name', 'BlobStorage__ProfilePhotos__PublicBaseUrl', 'value', format('{0}profiles', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value)), createObject('name', 'BlobStorage__ContentMedia__PublicBaseUrl', 'value', format('{0}content-media', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value))), variables('apiAdditionalEnvVars'))]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Runtime__AzureContainerApps__Enabled', 'value', 'true'), createObject('name', 'Runtime__AzureContainerApps__EnvironmentName', 'value', parameters('environmentName')), createObject('name', 'Runtime__AzureContainerApps__WorkloadName', 'value', parameters('workloadName')), createObject('name', 'Runtime__AzureContainerApps__SubscriptionId', 'value', subscription().subscriptionId), createObject('name', 'Runtime__AzureContainerApps__ResourceGroupName', 'value', resourceGroup().name), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'Cors__AllowDesktopNullOrigin', 'value', 'true'), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), createArray(createObject('name', 'BlobStorage__Provider', 'value', 'Azure'), createObject('name', 'BlobStorage__Azure__AccountName', 'secretRef', 'blob-storage-account-name'), createObject('name', 'BlobStorage__Azure__AccountKey', 'secretRef', 'blob-storage-account-key'), createObject('name', 'BlobStorage__ProfilePhotos__PublicBaseUrl', 'value', format('{0}profiles', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value)), createObject('name', 'BlobStorage__ContentMedia__PublicBaseUrl', 'value', format('{0}content-media', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value))), createArray(createObject('name', 'AI__CODEACT__ACASESSIONS__POOLMANAGEMENTENDPOINT', 'value', variables('codeActPoolManagementEndpoint')), createObject('name', 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL', 'value', format('https://{0}.{1}', variables('apiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID', 'value', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName'))), '2023-01-31').clientId), createObject('name', 'AI__CODEACT__NONCESIGNINGKEY', 'secretRef', 'code-act-nonce-signing-key')), variables('apiAdditionalEnvVars'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -905,6 +914,9 @@
           "verificationHashKey": {
             "value": "[parameters('verificationHashKey')]"
           },
+          "codeActNonceSigningKey": {
+            "value": "[parameters('codeActNonceSigningKey')]"
+          },
           "enableResourceLocks": {
             "value": "[parameters('enableResourceLocks')]"
           },
@@ -920,7 +932,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2395368098044684198"
+              "templateHash": "17037465369566115020"
             }
           },
           "parameters": {
@@ -967,6 +979,13 @@
               "defaultValue": "",
               "metadata": {
                 "description": "HMAC hash key used by the verification service. Stored in Key Vault even if empty so ACA secretRef entries always resolve."
+              }
+            },
+            "codeActNonceSigningKey": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "HMAC signing key for CodeAct callback nonces (32+ bytes hex or base64). Issued by AcaSessionsCodeActSandboxProvider; validated by CodeActCallbackEndpoint. Stored in Key Vault even if empty so ACA secretRef entries always resolve."
               }
             },
             "sqlAdminLogin": {
@@ -1108,6 +1127,17 @@
               "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'Verification--HashKey')]",
               "properties": {
                 "value": "[parameters('verificationHashKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'Ai--CodeAct--NonceSigningKey')]",
+              "properties": {
+                "value": "[parameters('codeActNonceSigningKey')]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
@@ -1467,6 +1497,10 @@
             "verificationHashKeySecretUri": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'Verification--HashKey'), '2023-07-01').secretUri]"
+            },
+            "codeActNonceSigningKeySecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'Ai--CodeAct--NonceSigningKey'), '2023-07-01').secretUri]"
             }
           }
         }
@@ -1776,6 +1810,223 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('sessions-{0}', parameters('environmentName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "workloadName": {
+            "value": "[parameters('workloadName')]"
+          },
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "apiPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.App/containerApps', variables('apiAppName')), '2024-03-01', 'full').identity.principalId]"
+          },
+          "apiUserAssignedPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName'))), '2023-01-31').principalId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "12866839718404819397"
+            }
+          },
+          "parameters": {
+            "workloadName": {
+              "type": "string",
+              "metadata": {
+                "description": "Short workload name used in resource naming."
+              }
+            },
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment name (dev/staging/prod)."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the session pool."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags applied to the session pool."
+              }
+            },
+            "apiPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "System-assigned principal id (apiApp.identity.principalId). Granted Session Executor + Contributor on the pool so DefaultAzureCredential still works if it ever picks the system-assigned identity."
+              }
+            },
+            "apiUserAssignedPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "User-assigned principal id (apiPullIdentity.properties.principalId). This is the identity AcaSessionsClient is pinned to via AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID — it must hold the Session Executor + Contributor roles on the pool."
+              }
+            },
+            "maxConcurrentSessions": {
+              "type": "int",
+              "defaultValue": 50,
+              "metadata": {
+                "description": "Maximum concurrent sessions the pool can host. Each session is one Hyper-V Python sandbox."
+              }
+            },
+            "cooldownSeconds": {
+              "type": "int",
+              "defaultValue": 300,
+              "metadata": {
+                "description": "Idle cooldown in seconds before a session is stopped. Lower = lower bill; higher = more warm reuse."
+              }
+            },
+            "sessionPoolApiVersion": {
+              "type": "string",
+              "defaultValue": "2024-08-02-preview",
+              "metadata": {
+                "description": "ARM API version for Microsoft.App/sessionPools. Pinned here so we can bump without code changes when Microsoft GAs a new version. Verify via the az provider show command before bumping."
+              }
+            }
+          },
+          "variables": {
+            "namePrefix": "[toLower(format('{0}-{1}', parameters('workloadName'), parameters('environmentName')))]",
+            "sessionPoolName": "[format('{0}-sessions', variables('namePrefix'))]",
+            "sessionExecutorRoleDefinitionId": "0fb8eba5-a2bb-4abe-b1c1-49dfad359bb0",
+            "contributorRoleDefinitionId": "b24988ac-6180-42a0-ab88-20f7382dd24c"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/sessionPools",
+              "apiVersion": "2024-08-02-preview",
+              "name": "[variables('sessionPoolName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "poolManagementType": "Dynamic",
+                "containerType": "PythonLTS",
+                "scaleConfiguration": {
+                  "maxConcurrentSessions": "[parameters('maxConcurrentSessions')]"
+                },
+                "dynamicPoolConfiguration": {
+                  "executionType": "Timed",
+                  "cooldownPeriodInSeconds": "[parameters('cooldownSeconds')]"
+                },
+                "sessionNetworkConfiguration": {
+                  "status": "EgressEnabled"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]",
+              "name": "[guid(resourceId('Microsoft.App/sessionPools', variables('sessionPoolName')), parameters('apiPrincipalId'), variables('sessionExecutorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('sessionExecutorRoleDefinitionId'))]",
+                "principalId": "[parameters('apiPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]",
+              "name": "[guid(resourceId('Microsoft.App/sessionPools', variables('sessionPoolName')), parameters('apiPrincipalId'), variables('contributorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('contributorRoleDefinitionId'))]",
+                "principalId": "[parameters('apiPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('apiUserAssignedPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]",
+              "name": "[guid(resourceId('Microsoft.App/sessionPools', variables('sessionPoolName')), parameters('apiUserAssignedPrincipalId'), variables('sessionExecutorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('sessionExecutorRoleDefinitionId'))]",
+                "principalId": "[parameters('apiUserAssignedPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('apiUserAssignedPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]",
+              "name": "[guid(resourceId('Microsoft.App/sessionPools', variables('sessionPoolName')), parameters('apiUserAssignedPrincipalId'), variables('contributorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('contributorRoleDefinitionId'))]",
+                "principalId": "[parameters('apiUserAssignedPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "poolManagementEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Pool management endpoint, e.g. https://<region>.dynamicsessions.io/subscriptions/<sub>/resourceGroups/<rg>/sessionPools/<name>. Pass into AI__CODEACT__ACASESSIONS__POOLMANAGEMENTENDPOINT."
+              },
+              "value": "[reference(resourceId('Microsoft.App/sessionPools', variables('sessionPoolName')), '2024-08-02-preview').poolManagementEndpoint]"
+            },
+            "sessionPoolId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource id, useful for diagnostics / role assignment scoping."
+              },
+              "value": "[resourceId('Microsoft.App/sessionPools', variables('sessionPoolName'))]"
+            },
+            "apiVersion": {
+              "type": "string",
+              "metadata": {
+                "description": "Echo of the resolved API version so consumers can stamp it on requests if desired."
+              },
+              "value": "[parameters('sessionPoolApiVersion')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/containerApps', variables('apiAppName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName')))]"
       ]
     },
     {
@@ -2400,6 +2651,14 @@
     "apiUrl": {
       "type": "string",
       "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', variables('apiAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+    },
+    "codeActSessionPoolEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('sessions-{0}', parameters('environmentName'))), '2025-04-01').outputs.poolManagementEndpoint.value]"
+    },
+    "codeActSessionPoolId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('sessions-{0}', parameters('environmentName'))), '2025-04-01').outputs.sessionPoolId.value]"
     },
     "adminUiUrl": {
       "type": "string",

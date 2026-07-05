@@ -111,6 +111,11 @@ if (knownProxies.Length > 0 || knownNetworks.Length > 0)
         {
             forwardedHeadersOptions.KnownProxies.Add(ip);
         }
+        else
+        {
+            app.Logger.LogWarning(
+                "ForwardedHeaders:KnownProxies entry '{Proxy}' is not a valid IP address and was ignored.", proxy);
+        }
     }
 
     foreach (var network in knownNetworks)
@@ -119,6 +124,26 @@ if (knownProxies.Length > 0 || knownNetworks.Length > 0)
         {
             forwardedHeadersOptions.KnownIPNetworks.Add(net);
         }
+        else
+        {
+            app.Logger.LogWarning(
+                "ForwardedHeaders:KnownNetworks entry '{Network}' is not a valid CIDR network and was ignored.", network);
+        }
+    }
+
+    // An empty-after-clear trust list means the ingress is trusted for nothing, so
+    // X-Forwarded-* (scheme, client IP) are silently dropped — surface it loudly.
+    if (forwardedHeadersOptions.KnownProxies.Count == 0 && forwardedHeadersOptions.KnownIPNetworks.Count == 0)
+    {
+        app.Logger.LogWarning(
+            "ForwardedHeaders proxy/network config was provided but produced an EMPTY trust list; " +
+            "X-Forwarded-* headers will be ignored. Check ForwardedHeaders:KnownProxies / KnownNetworks.");
+    }
+    else
+    {
+        app.Logger.LogInformation(
+            "ForwardedHeaders trusting {ProxyCount} proxy address(es) and {NetworkCount} network(s).",
+            forwardedHeadersOptions.KnownProxies.Count, forwardedHeadersOptions.KnownIPNetworks.Count);
     }
 }
 
