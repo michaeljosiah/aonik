@@ -23,6 +23,7 @@ public class ModuleDependencyDirectionTests
     private const string Agents = "Aonik.Agents";
     private const string Platform = "Aonik.Platform";
     private const string Finance = "Aonik.Finance";
+    private const string PersonalFinance = "Aonik.PersonalFinance";
 
     [Fact]
     public void SharedKernel_Should_NotDependOn_AnyOtherAonikModule()
@@ -89,6 +90,27 @@ public class ModuleDependencyDirectionTests
             .GetResult();
 
         AssertNoFailures(result, "Aonik.Finance must register agent descriptors via SharedKernel.Abstractions.Agents only.");
+    }
+
+    [Fact]
+    public void Aonik_Finance_Should_NotDependOn_PersonalFinance()
+    {
+        // Spec 027 S5 (#118/#126): the transitional Finance -> PersonalFinance
+        // ProjectReference was dropped, making them ADR-006 siblings. Finance
+        // reads PersonalFinance data (where it needs to) only through
+        // SharedKernel abstractions. This locks that invariant so a future
+        // transitive/direct reference can't silently re-introduce the edge.
+        // NetArchTest matches dependency namespaces by prefix; "Aonik.Finance"
+        // is not a prefix of "Aonik.PersonalFinance", so Finance's own types
+        // don't false-positive here.
+        var assembly = Assembly.Load(Finance);
+
+        var result = Types.InAssembly(assembly)
+            .Should()
+            .NotHaveDependencyOn(PersonalFinance)
+            .GetResult();
+
+        AssertNoFailures(result, "Aonik.Finance must not depend on Aonik.PersonalFinance (Spec 027 / ADR-006 siblings).");
     }
 
     [Fact]

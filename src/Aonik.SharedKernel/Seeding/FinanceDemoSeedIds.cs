@@ -1,16 +1,20 @@
 using System.Text.Json;
 
-namespace Aonik.Finance.Services.Seeding;
+namespace Aonik.SharedKernel.Seeding;
 
 /// <summary>
-/// Strongly-typed accessor for the deterministic GUIDs used by
-/// <see cref="FinanceDemoSeedContributor"/>. Loaded once at first access
-/// from the embedded resource <c>finance-demo-ids.json</c> so the demo
-/// seed file isn't littered with 80+ <c>Guid.Parse</c> calls.
+/// Strongly-typed accessor for the deterministic GUIDs used by the demo-seed
+/// contributors. Loaded once at first access from the embedded resource
+/// <c>finance-demo-ids.json</c> so the demo seed files aren't littered with
+/// 80+ <c>Guid.Parse</c> calls.
+///
+/// Lives in SharedKernel (Spec 027 S5, #118/#126) so both the Finance seed
+/// contributor and the PersonalFinance seed phases can share the same ids
+/// without either module taking a project reference on the other.
 /// </summary>
-internal sealed class FinanceDemoSeedIds
+public sealed class FinanceDemoSeedIds
 {
-    private const string ResourceName = "Aonik.Finance.Services.Seeding.Data.finance-demo-ids.json";
+    private const string ResourceName = "Aonik.SharedKernel.Seeding.Data.finance-demo-ids.json";
 
     // Lazy ensures the JSON is read+parsed exactly once per process, on
     // first reference, regardless of which contributor instance triggers it.
@@ -42,7 +46,7 @@ internal sealed class FinanceDemoSeedIds
         var assembly = typeof(FinanceDemoSeedIds).Assembly;
         using var stream = assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException(
-                $"Embedded resource '{ResourceName}' not found. Ensure it is included as <EmbeddedResource> in Aonik.Finance.csproj.");
+                $"Embedded resource '{ResourceName}' not found. Ensure it is included as <EmbeddedResource> in Aonik.SharedKernel.csproj.");
 
         var options = new JsonSerializerOptions
         {
@@ -59,7 +63,7 @@ internal sealed class FinanceDemoSeedIds
     // ── Domain groupings ────────────────────────────────────────────────
     // Each record mirrors a top-level object in finance-demo-ids.json.
 
-    internal sealed record CatalogIds(
+    public sealed record CatalogIds(
         Guid UtilitiesCategoryId,
         Guid EcgBillerId,
         Guid GhanaWaterBillerId,
@@ -68,23 +72,23 @@ internal sealed class FinanceDemoSeedIds
         Guid EcgPostpaidServiceId,
         Guid GhanaWaterPrepaidServiceId);
 
-    internal sealed record PricingIds(
+    public sealed record PricingIds(
         Guid DemoFxQuoteId,
         Guid DemoFeePolicyId,
         Guid DemoLimitsPolicyId);
 
-    internal sealed record CrossBorderCategoryIds(
+    public sealed record CrossBorderCategoryIds(
         Guid NigeriaUtilitiesCategoryId,
         Guid KenyaUtilitiesCategoryId,
         Guid SouthAfricaUtilitiesCategoryId);
 
-    internal sealed record CrossBorderBillerIds(
+    public sealed record CrossBorderBillerIds(
         Guid IkejaElectricBillerId,
         Guid LagosWaterBillerId,
         Guid KenyaPowerBillerId,
         Guid CityPowerBillerId);
 
-    internal sealed record CrossBorderServiceIds(
+    public sealed record CrossBorderServiceIds(
         Guid IkejaPrepaidServiceId,
         Guid IkejaPostpaidServiceId,
         Guid LagosWaterServiceId,
@@ -94,37 +98,37 @@ internal sealed class FinanceDemoSeedIds
         Guid CityPowerServiceId,
         Guid CityPowerPostpaidServiceId);
 
-    internal sealed record PartnerIds(
+    public sealed record PartnerIds(
         Guid NigeriaPartnerId,
         Guid GhanaPartnerId,
         Guid KenyaPartnerId,
         Guid SouthAfricaPartnerId);
 
-    internal sealed record BranchIds(
+    public sealed record BranchIds(
         Guid NigeriaBranchId,
         Guid GhanaBranchId,
         Guid KenyaBranchId,
         Guid SouthAfricaBranchId);
 
-    internal sealed record ConnectorIds(
+    public sealed record ConnectorIds(
         Guid NigeriaConnectorId,
         Guid GhanaConnectorId,
         Guid KenyaConnectorId,
         Guid SouthAfricaConnectorId);
 
-    internal sealed record RoutingRuleIds(
+    public sealed record RoutingRuleIds(
         Guid NigeriaRoutingRuleId,
         Guid GhanaRoutingRuleId,
         Guid KenyaRoutingRuleId,
         Guid SouthAfricaRoutingRuleId);
 
-    internal sealed record HouseholdIds(
+    public sealed record HouseholdIds(
         Guid FamilyHouseholdId,
         Guid ProfessionalsHouseholdId,
         Guid FamilyHouseholdMemberId,
         Guid ProfessionalsHouseholdMemberId);
 
-    internal sealed record CrossBorderFxQuoteIds(
+    public sealed record CrossBorderFxQuoteIds(
         Guid NgnKesFxQuoteId,
         Guid NgnZarFxQuoteId,
         Guid UsdGhsFxQuoteId,
@@ -135,18 +139,18 @@ internal sealed class FinanceDemoSeedIds
         Guid GbpKesFxQuoteId,
         Guid GbpZarFxQuoteId);
 
-    internal sealed record CrossBorderFeePolicyIds(
+    public sealed record CrossBorderFeePolicyIds(
         Guid CrossBorderBand1FeePolicyId,
         Guid CrossBorderBand2FeePolicyId,
         Guid CrossBorderBand3FeePolicyId,
         Guid CrossBorderKesFeePolicyId,
         Guid CrossBorderZarFeePolicyId);
 
-    internal sealed record CrossBorderLimitsPolicyIds(
+    public sealed record CrossBorderLimitsPolicyIds(
         Guid KenyaLimitsPolicyId,
         Guid SouthAfricaLimitsPolicyId);
 
-    internal sealed record GlobalCategoryIds(
+    public sealed record GlobalCategoryIds(
         Guid GlobalUtilitiesCategoryId,
         Guid GlobalTelecomCategoryId,
         Guid GlobalInternetCategoryId,
@@ -154,7 +158,7 @@ internal sealed class FinanceDemoSeedIds
         Guid GlobalGovernmentCategoryId,
         Guid GlobalCableCategoryId);
 
-    internal sealed record OrderActivityIds(
+    public sealed record OrderActivityIds(
         Guid OrderKwameEcg,
         Guid OrderKwameWater,
         Guid OrderTundeIkeja,
@@ -166,7 +170,7 @@ internal sealed class FinanceDemoSeedIds
         Guid OrderKofiAmaTransfer,
         Guid OrderPeterKenyaPower);
 
-    internal sealed record PartyReferenceIds(
+    public sealed record PartyReferenceIds(
         Guid DemoPayerPartyId,
         Guid DemoReceiverPartyId,
         Guid TundePartyId,
@@ -183,7 +187,7 @@ internal sealed class FinanceDemoSeedIds
     /// Mirrors the entries in <c>platform-demo-ids.json#personalFinancePersonas</c> plus
     /// the Finance-side PersonalProfile and PersonalAccount ids.
     /// </summary>
-    internal sealed record PersonalFinancePersonaIds(
+    public sealed record PersonalFinancePersonaIds(
         Guid SeamusKeanePartyId,
         Guid MarkKeanePartyId,
         Guid SeamusKeaneUserId,

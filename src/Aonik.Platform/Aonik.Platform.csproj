@@ -29,6 +29,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
+    <!-- Direct reference (Spec 027 S5): ListCustomerInsightsEndpoint consumes
+         PersonalFinance's ICustomerInsightSnapshotReader, which previously
+         resolved transitively through the Finance -> PersonalFinance edge that
+         was dropped here. Making the (already-compiled) dependency explicit
+         keeps the build green. Re-pointing this endpoint at a SharedKernel
+         reader contract remains the tracked Platform-side side-cleanup. -->
+    <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -16,6 +16,16 @@ public interface IUserDirectoryReader
         Guid tenantId,
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the (UserId, TenantId) keys for the users visible in the current
+    /// scope. The implementation reads Platform's Users read model with the
+    /// ambient tenant filter applied — a behaviour-preserving port of the read
+    /// the PersonalFinance profile seed contributor previously did directly
+    /// against FinanceDbContext.Users (Spec 027 S5, #126).
+    /// </summary>
+    Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -26,3 +36,12 @@ public sealed record UserDirectoryItem(
     Guid UserId,
     string? Email,
     string Status);
+
+/// <summary>
+/// Cross-module identity key for a User: the (UserId, TenantId) pair that
+/// scopes every tenant-owned entity. Returned by
+/// <see cref="IUserDirectoryReader.GetAllUserKeysAsync"/>.
+/// </summary>
+public sealed record UserDirectoryKey(
+    Guid UserId,
+    Guid TenantId);

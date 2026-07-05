@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 
-namespace Aonik.Finance.Endpoints.Admin.Accounts;
+namespace Aonik.PersonalFinance.Endpoints.Admin.Accounts;
 
 // ────────────────────────────────────────────────────────────────────
 // Spec 028 — validators for the manual-categorize / re-categorize

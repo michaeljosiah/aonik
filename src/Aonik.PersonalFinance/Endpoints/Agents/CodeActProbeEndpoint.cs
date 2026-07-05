@@ -4,7 +4,7 @@ using Azure.Identity;
 using FastEndpoints;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Endpoints.Agents;
+namespace Aonik.PersonalFinance.Endpoints.Agents;
 
 /// <summary>
 /// Self-contained probe of the AcaSessions stack. First runs the production

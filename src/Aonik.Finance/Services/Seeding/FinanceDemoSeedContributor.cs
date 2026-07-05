@@ -3,18 +3,21 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Seeding.Phases;
-using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Finance.Services.Seeding;
 
 /// <summary>
 /// Finance module's demo-seed contributor. Handles all Finance-domain seeding
-/// (partners, catalog, pricing, households) that was previously embedded in
+/// (partners, catalog, pricing) that was previously embedded in
 /// <c>DemoSeedService</c> and <c>CatalogSeedService</c> in the Platform module.
 ///
 /// Per-phase logic lives in focused helpers under the <c>Phases/</c> folder.
 /// This class is a thin dispatch orchestrator — one call per phase case.
+///
+/// Spec 027 S5 (#118/#126): the PersonalFinance phases (Households,
+/// PersonalFinanceActivity) moved to <c>PersonalFinanceDemoSeedContributor</c>,
+/// so Finance no longer owns them and takes no PersonalFinance reference.
 /// </summary>
 internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
 {
@@ -31,10 +34,8 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     private readonly PricingSeedPhase _pricing;
     private readonly CrossBorderPartnerNetworkSeedPhase _crossBorderPartnerNetwork;
     private readonly CrossBorderCatalogSeedPhase _crossBorderCatalog;
-    private readonly HouseholdsSeedPhase _households;
     private readonly CrossBorderPricingSeedPhase _crossBorderPricing;
     private readonly OrderActivitySeedPhase _orderActivity;
-    private readonly PersonalFinanceActivitySeedPhase _personalFinanceActivity;
 
     // Primary constructor — used by DI (all phase helpers injected).
     public FinanceDemoSeedContributor(
@@ -46,10 +47,8 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
         PricingSeedPhase pricing,
         CrossBorderPartnerNetworkSeedPhase crossBorderPartnerNetwork,
         CrossBorderCatalogSeedPhase crossBorderCatalog,
-        HouseholdsSeedPhase households,
         CrossBorderPricingSeedPhase crossBorderPricing,
-        OrderActivitySeedPhase orderActivity,
-        PersonalFinanceActivitySeedPhase personalFinanceActivity)
+        OrderActivitySeedPhase orderActivity)
     {
         _financeDbContext = financeDbContext;
         _logger = logger;
@@ -59,27 +58,23 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
         _pricing = pricing;
         _crossBorderPartnerNetwork = crossBorderPartnerNetwork;
         _crossBorderCatalog = crossBorderCatalog;
-        _households = households;
         _crossBorderPricing = crossBorderPricing;
         _orderActivity = orderActivity;
-        _personalFinanceActivity = personalFinanceActivity;
     }
 
     // Legacy constructor — used by tests that construct FinanceDemoSeedContributor
     // directly without DI. Builds phase helpers inline from the provided
-    // contexts + logger. Mirrors the legacy ctor on DemoSeedService.
+    // context + logger. Mirrors the legacy ctor on DemoSeedService.
     //
-    // Spec 027 S3 (#126): the PersonalFinance-owning phases (Households,
-    // PersonalFinanceActivity) now take PersonalFinanceDbContext, so callers of
-    // this ctor supply both contexts. The two contexts share the same physical
-    // database, so a PF-owning phase and a Finance-owning phase see the same data.
+    // Spec 027 S5 (#118/#126): the PersonalFinance-owning phases (Households,
+    // PersonalFinanceActivity) moved to PersonalFinanceDemoSeedContributor, so
+    // this ctor no longer takes a PersonalFinanceDbContext.
     // internal (not public) so the DI container sees only the primary ctor
     // above — two resolvable public ctors, neither a superset of the other,
     // throws "ambiguous constructors" at activation. Tests reach this via
     // InternalsVisibleTo.
     internal FinanceDemoSeedContributor(
         FinanceDbContext financeDbContext,
-        PersonalFinanceDbContext personalFinanceDbContext,
         ILogger<FinanceDemoSeedContributor> logger)
         : this(
             financeDbContext,
@@ -90,10 +85,8 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             new PricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
             new CrossBorderPartnerNetworkSeedPhase(financeDbContext, new PartnerPrefundSeedHelper(financeDbContext)),
             new CrossBorderCatalogSeedPhase(financeDbContext, new CatalogUpsertHelper(financeDbContext)),
-            new HouseholdsSeedPhase(personalFinanceDbContext),
             new CrossBorderPricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
-            new OrderActivitySeedPhase(financeDbContext),
-            new PersonalFinanceActivitySeedPhase(personalFinanceDbContext))
+            new OrderActivitySeedPhase(financeDbContext))
     {
     }
 
@@ -112,21 +105,13 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             DemoSeedPhase.Pricing                  => await _pricing.SeedAsync(context, _results, cancellationToken),
             DemoSeedPhase.CrossBorderPartnerNetwork => await _crossBorderPartnerNetwork.SeedAsync(context, _results, cancellationToken),
             DemoSeedPhase.CrossBorderCatalog       => await _crossBorderCatalog.SeedAsync(context, _results, cancellationToken),
-            DemoSeedPhase.Households               => await _households.SeedAsync(context, _results, cancellationToken),
+            // Households moved to PersonalFinanceDemoSeedContributor (Spec 027 S5).
             DemoSeedPhase.CrossBorderPricing       => await _crossBorderPricing.SeedAsync(context, _results, cancellationToken),
-            DemoSeedPhase.Activity                 => await SeedActivityAsync(context, cancellationToken),
+            // Activity: Finance seeds only OrderActivity now; the PersonalFinance
+            // persona activity is seeded by PersonalFinanceDemoSeedContributor.
+            DemoSeedPhase.Activity                 => await _orderActivity.SeedAsync(context, _results, cancellationToken),
             _                                      => Array.Empty<string>()
         };
-    }
-
-    private async Task<IReadOnlyList<string>> SeedActivityAsync(
-        DemoSeedContext context,
-        CancellationToken cancellationToken)
-    {
-        var combined = new List<string>();
-        combined.AddRange(await _orderActivity.SeedAsync(context, _results, cancellationToken));
-        combined.AddRange(await _personalFinanceActivity.SeedAsync(context, _results, cancellationToken));
-        return combined;
     }
 
     public void ClearTracking()

@@ -33,4 +33,19 @@ internal sealed class UserDirectoryReader : IUserDirectoryReader
             .Select(u => new UserDirectoryItem(u.Id, u.Email, u.Status))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Plain read of the Users read model with the context's ambient tenant
+        // filter applied — a direct, behaviour-preserving port of the prior
+        // PersonalFinanceSeedContributor read of FinanceDbContext.Users
+        // (Spec 027 S5, #126). It deliberately does NOT add a cross-tenant
+        // bypass the original read lacked; a genuinely global profile seed would
+        // be a separate, deliberate change.
+        return await _dbContext.Users
+            .AsNoTracking()
+            .Select(u => new UserDirectoryKey(u.Id, u.TenantId))
+            .ToListAsync(cancellationToken);
+    }
 }

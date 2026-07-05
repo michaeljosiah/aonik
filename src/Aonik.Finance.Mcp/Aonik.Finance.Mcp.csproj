@@ -14,6 +14,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
+    <!-- Direct reference (Spec 027 S5): the FinancialLifeGraph MCP tools consume
+         PersonalFinance's IFinancialLifeGraphService + FLG response models, which
+         previously resolved transitively through Aonik.Finance. That edge was
+         dropped, so the (already-compiled) dependency is now made explicit. -->
+    <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
     <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
     <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />

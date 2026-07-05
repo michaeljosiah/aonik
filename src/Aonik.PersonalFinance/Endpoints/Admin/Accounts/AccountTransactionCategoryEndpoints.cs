@@ -4,7 +4,7 @@ using FastEndpoints;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.Accounts;
+namespace Aonik.PersonalFinance.Endpoints.Admin.Accounts;
 
 /// <summary>
 /// Spec 028 — manual category override, lock release, merchant-rule CRUD,

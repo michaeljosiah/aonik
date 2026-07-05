@@ -32,19 +32,14 @@
          composes for bill-payment / remittance creation. -->
     <ProjectReference Include="..\Aonik.Ordering\Aonik.Ordering.csproj" />
     <!--
-      TRANSITIONAL (Spec 027): Several Finance-side files still reach into
-      PersonalFinance — agent tools (Agents/Tools/PersonalFinance*, FLG*),
-      sub-agent registrations (Agents/Pf*AgentRegistration, PersonalFinanceAgentRegistration),
-      CodeAct endpoint shims (Endpoints/Agents/CodeAct*), seed contributors
-      (Services/Seeding/PersonalFinance*), the AccountLinking subtree, and the
-      legacy PersonalFinance DbSets on FinanceDbContext.
-
-      Spec 027 Phase 7 deferred-refactor wrap-up moved the 9 services + 15
-      endpoints out of Finance, but these remaining call sites are out of
-      scope here and tracked separately. Drop this ProjectReference once
-      they relocate.
+      Spec 027 S5 (#118/#126): the transitional Finance -> PersonalFinance
+      ProjectReference was DROPPED here. Every Finance-side call site that
+      reached into PersonalFinance (agent tools, sub-agent registrations,
+      CodeAct endpoint shims, seed contributors, the AccountLinking subtree,
+      the PF DbSets) has been relocated. Finance and PersonalFinance are now
+      true ADR-006 siblings; PersonalFinance reads Finance data only through
+      the SharedKernel.Abstractions.Finance read contracts.
     -->
-    <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

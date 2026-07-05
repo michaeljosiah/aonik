@@ -1,7 +1,7 @@
 using Aonik.PersonalFinance.Agents.CodeAct;
 using FastEndpoints;
 
-namespace Aonik.Finance.Endpoints.Agents;
+namespace Aonik.PersonalFinance.Endpoints.Agents;
 
 /// <summary>
 /// Returns the last <c>execute_code</c> response captured by the AcaSessions

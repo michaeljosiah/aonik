@@ -5,6 +5,8 @@ using Aonik.Finance.Entities.Catalog;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
+using Aonik.SharedKernel.Seeding;
+
 namespace Aonik.Finance.Services.Seeding.Phases;
 
 /// <summary>

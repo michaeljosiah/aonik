@@ -1,18 +1,16 @@
-using Aonik.Finance.Endpoints.Admin.Accounts;
+using Aonik.PersonalFinance.Contracts.Models.Accounts;
 using Aonik.PersonalFinance.Endpoints.Admin;
-using Aonik.Finance.Endpoints.Billing;
-using Aonik.Finance.Endpoints.Insights;
-using Aonik.PersonalFinance.Endpoints;
+using Aonik.PersonalFinance.Endpoints.Admin.Accounts;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 
-namespace Aonik.Finance.Endpoints;
+namespace Aonik.PersonalFinance.Endpoints;
 
 // ────────────────────────────────────────────────────────────────────
 // Validators for internal-visibility endpoint-level request DTOs that
 // live next to their endpoint files (Endpoints/PersonalFinance/*,
-// Endpoints/Admin/*, etc.). Same assembly = visibility OK.
+// Endpoints/Admin/*, Endpoints/Admin/Accounts/*). Same assembly = visibility OK.
 // ────────────────────────────────────────────────────────────────────
 
 // ── Admin / PersonalFinance ─────────────────────────────────────────
@@ -93,7 +91,8 @@ internal sealed class ListAccountConnectionsRequestValidator : Validator<ListAcc
     public ListAccountConnectionsRequestValidator() { /* boolean only */ }
 }
 
-internal sealed class AdminListAccountTransactionsRequestValidator : Validator<ListAccountTransactionsRequest>
+internal sealed class AdminListAccountTransactionsRequestValidator
+    : Validator<Admin.Accounts.ListAccountTransactionsRequest>
 {
     public AdminListAccountTransactionsRequestValidator()
     {
@@ -105,24 +104,8 @@ internal sealed class AdminListAccountTransactionsRequestValidator : Validator<L
     }
 }
 
-// ── Billing list ────────────────────────────────────────────────────
-
-internal sealed class ListInvoicesRequestValidator : Validator<ListInvoicesRequest>
-{
-    public ListInvoicesRequestValidator() => RuleFor(x => x.Status).MaximumLength(64);
-}
-
-// ── Insights ────────────────────────────────────────────────────────
-
-public sealed class GetMySpaceSummaryRequestValidator : Validator<GetMySpaceSummaryRequest>
-{
-    public GetMySpaceSummaryRequestValidator()
-    {
-        RuleFor(x => x.Currency)
-            .Length(3).Matches("^[A-Z]{3}$").WithMessage("Currency must be 3 uppercase letters (ISO-4217).")
-            .When(x => !string.IsNullOrEmpty(x.Currency));
-    }
-}
+// ── Billing list + Insights validators relocated to FinanceValidators.cs
+//    (ListInvoicesRequest / GetMySpaceSummaryRequest stay in Aonik.Finance).
 
 // ── PersonalFinance endpoint DTOs ───────────────────────────────────
 
@@ -268,4 +251,84 @@ internal sealed class UpcomingObligationsRequestValidator : Validator<UpcomingOb
 {
     public UpcomingObligationsRequestValidator()
         => RuleFor(x => x.WithinDays).InclusiveBetween(1, 3650);
+}
+
+// ── Accounts (Tenant-Scoped Bank Linking) ───────────────────────────
+// Relocated from Aonik.Finance's FinanceValidators.cs (Spec 027 S5, #118/#126)
+// to co-locate with the moved AccountLink endpoints. Validate the PF Accounts
+// contract DTOs (Aonik.PersonalFinance.Contracts.Models.Accounts).
+
+public sealed class CreateAccountLinkSessionRequestValidator : Validator<CreateAccountLinkSessionRequest>
+{
+    public CreateAccountLinkSessionRequestValidator()
+    {
+        RuleFor(x => x.Provider).RequiredText(64);
+        RuleFor(x => x.Mode)
+            .NotEmpty()
+            .Must(m => m is "connect" or "update" or "reauth")
+            .WithMessage("Mode must be one of: connect, update, reauth.");
+        RuleFor(x => x.ConnectionId).ValidIdWhenSupplied();
+        RuleFor(x => x.CountryCode)
+            .Length(2).Matches("^[A-Z]{2}$")
+            .When(x => !string.IsNullOrEmpty(x.CountryCode));
+        RuleFor(x => x.ClientName).MaximumLength(128);
+    }
+}
+
+public sealed class ExchangeAccountLinkSessionRequestValidator : Validator<ExchangeAccountLinkSessionRequest>
+{
+    public ExchangeAccountLinkSessionRequestValidator()
+    {
+        RuleFor(x => x.SessionId).RequiredId();
+        RuleFor(x => x.TemporaryCode).RequiredText(2048);
+    }
+}
+
+public sealed class CreateAccountRequestValidator : Validator<CreateAccountRequest>
+{
+    public CreateAccountRequestValidator()
+    {
+        RuleFor(x => x.Name).RequiredText(256);
+        RuleFor(x => x.AccountType).RequiredText(64);
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.Country)
+            .Length(2).Matches("^[A-Z]{2}$")
+            .When(x => !string.IsNullOrEmpty(x.Country));
+        RuleFor(x => x.InstitutionName).MaximumLength(256);
+        RuleFor(x => x.Last4)
+            .Length(4).Matches("^[0-9]{4}$").WithMessage("Last4 must be 4 digits.")
+            .When(x => !string.IsNullOrEmpty(x.Last4));
+        RuleFor(x => x.Notes).MaximumLength(2048);
+    }
+}
+
+public sealed class CreateAccountTransactionRequestValidator : Validator<CreateAccountTransactionRequest>
+{
+    public CreateAccountTransactionRequestValidator()
+    {
+        RuleFor(x => x.AccountId).RequiredId();
+        RuleFor(x => x.OccurredAt)
+            .GreaterThan(DateTime.UtcNow.AddYears(-50))
+            .LessThan(DateTime.UtcNow.AddYears(1));
+        RuleFor(x => x.Amount)
+            .Must(a => a != 0).WithMessage("Amount must be non-zero.")
+            .Must(a => Math.Abs(a) <= 1_000_000_000m).WithMessage("Amount exceeds maximum supported value.");
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.Counterparty).MaximumLength(256);
+        RuleFor(x => x.Description).MaximumLength(1024);
+        RuleFor(x => x.Reference).MaximumLength(256);
+        RuleFor(x => x.Category).MaximumLength(64);
+        RuleFor(x => x.Notes).MaximumLength(2048);
+    }
+}
+
+public sealed class PlaidAccountWebhookRequestValidator : Validator<PlaidAccountWebhookRequest>
+{
+    public PlaidAccountWebhookRequestValidator()
+    {
+        RuleFor(x => x.WebhookType).RequiredText(64);
+        RuleFor(x => x.WebhookCode).RequiredText(64);
+        RuleFor(x => x.ItemId).MaximumLength(256);
+        RuleFor(x => x.Environment).MaximumLength(64);
+    }
 }

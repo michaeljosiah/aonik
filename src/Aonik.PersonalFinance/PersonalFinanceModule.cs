@@ -84,6 +84,15 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<IPersonalFinanceInsightsService, PersonalFinanceInsightsService>();
         services.AddScoped<FinancialConnectionTransactionSyncOrchestrator>();
 
+        // Relocated from FinanceModule (Spec 027 S5, #118/#126): the linked-account
+        // sync options + the two AI-backed PF services. These were the last PF
+        // registrations still sitting in FinanceModule ahead of dropping the
+        // Finance -> PersonalFinance project reference.
+        services.Configure<FinancialConnectionSyncOptions>(
+            configuration.GetSection("Finance:PersonalFinance:LinkedAccountSync"));
+        services.AddScoped<ITransactionAiClassifier, TransactionAiClassifier>();
+        services.AddScoped<IPersonalFinanceNarrativeInsightsService, PersonalFinanceNarrativeInsightsService>();
+
         // Spec 027 S3 (#126): the PersonalFinance-side demo-data teardown port.
         // Platform's ReverseSeedPhase invokes this instead of touching the PF
         // DbSets directly (they now live solely on PersonalFinanceDbContext),
@@ -173,6 +182,22 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<ICompassPlanService, CompassPlanService>();
         services.AddScoped<ICompassGuidanceService, CompassGuidanceService>();
         services.AddScoped<ICompassPlanGenerator, CompassPlanGenerator>();
+
+        // ── Demo-seed phases + contributors (Spec 027 S5, #118/#126) ─
+        // Relocated from FinanceModule. DemoSeedService invokes every
+        // IDemoSeedContributor for every phase; PersonalFinanceDemoSeedContributor
+        // owns the Households + PersonalFinance-persona Activity phases and
+        // returns empty for the rest. PersonalFinanceActivitySeedPhase's DI ctor
+        // additionally takes ICustomerInsightSnapshotService (registered above)
+        // so it can generate a baseline snapshot per persona.
+        services.AddScoped<Services.Seeding.Phases.HouseholdsSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.PersonalFinanceActivitySeedPhase>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.IDemoSeedContributor,
+            Services.Seeding.PersonalFinanceDemoSeedContributor>();
+        // PersonalProfile backfill for every user (cross-tenant via
+        // IUserDirectoryReader). Relocated from FinanceModule.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor,
+            Services.Seeding.PersonalFinanceSeedContributor>();
 
         // ── Cross-module adapter implementations (relocated) ────────
         services.AddScoped<IPersonalProfileProvisioner, PersonalProfileProvisioner>();

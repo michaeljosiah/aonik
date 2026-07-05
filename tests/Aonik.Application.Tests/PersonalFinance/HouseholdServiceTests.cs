@@ -140,6 +140,9 @@ public class HouseholdServiceTests
         public Dictionary<Guid, UserDirectoryItem> Users { get; } = [];
         public Task<IReadOnlyList<UserDirectoryItem>> GetByIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<UserDirectoryItem>>(userIds.Where(Users.ContainsKey).Select(id => Users[id]).ToList());
+
+        public Task<IReadOnlyList<UserDirectoryKey>> GetAllUserKeysAsync(CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<UserDirectoryKey>>([]);
     }
 
     private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)

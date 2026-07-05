@@ -13,7 +13,8 @@ namespace Aonik.Finance;
 
 /// <summary>
 /// Finance module registration. Owns Ledger, Payments, Billing, Orders,
-/// Pricing, Partners, and PersonalFinance domains.
+/// Pricing, and Partners. PersonalFinance is a separate sibling module
+/// (ADR-006 / Spec 027) with its own registration.
 /// </summary>
 public sealed class FinanceModule : IModule
 {
@@ -127,10 +128,10 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Seeding.Phases.PricingSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.CrossBorderPartnerNetworkSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.CrossBorderCatalogSeedPhase>();
-        services.AddScoped<Services.Seeding.Phases.HouseholdsSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.CrossBorderPricingSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.OrderActivitySeedPhase>();
-        services.AddScoped<Services.Seeding.Phases.PersonalFinanceActivitySeedPhase>();
+        // HouseholdsSeedPhase + PersonalFinanceActivitySeedPhase relocated to
+        // PersonalFinanceModule with PersonalFinanceDemoSeedContributor (Spec 027 S5).
 
         // IPersonalFinancePartyResolver relocated to PersonalFinanceModule (Spec 027 Phase 3).
         services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
@@ -234,11 +235,10 @@ public sealed class FinanceModule : IModule
         // HttpClient, and the IPersonalAccountLinkProviderGateway factory
         // relocated to PersonalFinanceModule alongside the account-link slice
         // (Spec 027 S-Acct, #126).
-        services.Configure<Aonik.PersonalFinance.Services.FinancialConnectionSyncOptions>(
-            configuration.GetSection("Finance:PersonalFinance:LinkedAccountSync"));
-
-        services.AddScoped<Aonik.PersonalFinance.Contracts.Services.ITransactionAiClassifier, Aonik.PersonalFinance.Services.TransactionAiClassifier>();
-        services.AddScoped<Aonik.PersonalFinance.Contracts.Services.IPersonalFinanceNarrativeInsightsService, Aonik.PersonalFinance.Services.PersonalFinanceNarrativeInsightsService>();
+        // FinancialConnectionSyncOptions config, ITransactionAiClassifier, and
+        // IPersonalFinanceNarrativeInsightsService relocated to
+        // PersonalFinanceModule (Spec 027 S5, #118/#126) — the last PF service
+        // registrations to move off Finance ahead of dropping the reference.
         // The entire FinancialLifeGraph cluster (Schema, Loader, SnapshotMetrics,
         // HydrationService, Service, SchemaService, TraversalService,
         // CacheInvalidator, ValidationService, WriteService, InferenceService,
@@ -289,7 +289,8 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Seeding.FinancePricingSeedContributor>();
         services.AddScoped<IGlobalSeedContributor>(sp =>
             sp.GetRequiredService<Services.Seeding.FinancePricingSeedContributor>());
-        services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();
+        // PersonalFinanceSeedContributor (PersonalProfile backfill) relocated to
+        // PersonalFinanceModule (Spec 027 S5, #118/#126).
 
         return services;
     }

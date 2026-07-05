@@ -5,8 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Seeding;
 
-namespace Aonik.Finance.Services.Seeding.Phases;
+namespace Aonik.PersonalFinance.Services.Seeding.Phases;
 
 /// <summary>
 /// Seeds household groups and membership records for personal-finance demos.
