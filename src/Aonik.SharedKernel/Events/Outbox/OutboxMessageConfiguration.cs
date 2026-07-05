@@ -19,9 +19,16 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
         builder.Property(x => x.Error).HasMaxLength(4000);
         builder.Property(x => x.ClaimedBy).HasMaxLength(128);
 
-        // Hot path: the processor polls for unprocessed, non-dead-lettered, due rows oldest-first.
-        builder.HasIndex(x => new { x.ProcessedAt, x.DeadLetteredAt, x.NextAttemptAt, x.CreatedAt })
-            .HasDatabaseName($"IX_{ModuleTablePrefixes.Default}OutboxMessages_Dispatch");
+        // Hot path (M8): the processor drains unprocessed, non-dead-lettered, due rows
+        // oldest-first — `ProcessedAt == null && DeadLetteredAt == null && (NextAttemptAt
+        // == null || NextAttemptAt <= now), ORDER BY CreatedAt` TOP(batch) (OutboxProcessor).
+        // A FILTERED index over just the pending set keeps the poll on the small hot set,
+        // and leading with CreatedAt lets `ORDER BY CreatedAt … TOP` be an ordered scan that
+        // short-circuits — rather than materialising + sorting the whole set. The
+        // NextAttemptAt / ClaimExpiresAt due-checks are residual predicates on that scan.
+        builder.HasIndex(x => x.CreatedAt)
+            .HasDatabaseName($"IX_{ModuleTablePrefixes.Default}OutboxMessages_Dispatch")
+            .HasFilter("[ProcessedAt] IS NULL AND [DeadLetteredAt] IS NULL");
 
         builder.HasIndex(x => x.EventId)
             .HasDatabaseName($"IX_{ModuleTablePrefixes.Default}OutboxMessages_EventId");

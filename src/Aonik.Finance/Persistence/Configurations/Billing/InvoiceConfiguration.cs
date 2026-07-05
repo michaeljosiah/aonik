@@ -48,9 +48,12 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasForeignKey(x => x.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(x => x.CustomerAccountId);
-        builder.HasIndex(x => x.OrderId);
-        builder.HasIndex(x => x.Status);
-        builder.HasIndex(x => x.DueDate);
+        // Tenant-leading composites (M8): every read is implicitly WHERE TenantId = @t
+        // (the global query filter), so lead each index with TenantId to match the real
+        // predicate instead of forcing the DB to isolate the tenant's slice separately.
+        builder.HasIndex(x => new { x.TenantId, x.CustomerAccountId });
+        builder.HasIndex(x => new { x.TenantId, x.OrderId });
+        builder.HasIndex(x => new { x.TenantId, x.Status });
+        builder.HasIndex(x => new { x.TenantId, x.DueDate });
     }
 }
