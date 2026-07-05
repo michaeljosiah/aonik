@@ -85,12 +85,69 @@ await app.InitializeUserMemoryBackendAsync();
 
 app.MapDefaultEndpoints();
 
-// Forward headers so ASP.NET Core recognises the original HTTPS scheme
-// behind ACA's TLS-terminating ingress.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Forward headers so ASP.NET Core recognises the original HTTPS scheme + client
+// IP behind a TLS-terminating ingress (e.g. ACA). Trust only a single proxy hop,
+// and — when the deployment's ingress is configured via ForwardedHeaders:KnownProxies
+// / KnownNetworks — trust exactly those addresses so an external client can't spoof
+// X-Forwarded-For / X-Forwarded-Proto (M12). With nothing configured, the
+// middleware's safe loopback-only defaults remain in force.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1,
+};
+
+var knownProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+var knownNetworks = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [];
+if (knownProxies.Length > 0 || knownNetworks.Length > 0)
+{
+    // Replace the default loopback-only trust list with the configured ingress.
+    forwardedHeadersOptions.KnownProxies.Clear();
+    forwardedHeadersOptions.KnownIPNetworks.Clear();
+
+    foreach (var proxy in knownProxies)
+    {
+        if (System.Net.IPAddress.TryParse(proxy, out var ip))
+        {
+            forwardedHeadersOptions.KnownProxies.Add(ip);
+        }
+        else
+        {
+            app.Logger.LogWarning(
+                "ForwardedHeaders:KnownProxies entry '{Proxy}' is not a valid IP address and was ignored.", proxy);
+        }
+    }
+
+    foreach (var network in knownNetworks)
+    {
+        if (System.Net.IPNetwork.TryParse(network, out var net))
+        {
+            forwardedHeadersOptions.KnownIPNetworks.Add(net);
+        }
+        else
+        {
+            app.Logger.LogWarning(
+                "ForwardedHeaders:KnownNetworks entry '{Network}' is not a valid CIDR network and was ignored.", network);
+        }
+    }
+
+    // An empty-after-clear trust list means the ingress is trusted for nothing, so
+    // X-Forwarded-* (scheme, client IP) are silently dropped — surface it loudly.
+    if (forwardedHeadersOptions.KnownProxies.Count == 0 && forwardedHeadersOptions.KnownIPNetworks.Count == 0)
+    {
+        app.Logger.LogWarning(
+            "ForwardedHeaders proxy/network config was provided but produced an EMPTY trust list; " +
+            "X-Forwarded-* headers will be ignored. Check ForwardedHeaders:KnownProxies / KnownNetworks.");
+    }
+    else
+    {
+        app.Logger.LogInformation(
+            "ForwardedHeaders trusting {ProxyCount} proxy address(es) and {NetworkCount} network(s).",
+            forwardedHeadersOptions.KnownProxies.Count, forwardedHeadersOptions.KnownIPNetworks.Count);
+    }
+}
+
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 // Exception handler must wrap the rest of the pipeline. CORS' OnStarting
 // callback runs even on error responses, so headers will still attach.

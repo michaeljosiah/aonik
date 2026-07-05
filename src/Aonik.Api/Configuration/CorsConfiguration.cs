@@ -48,25 +48,33 @@ public static class CorsConfiguration
     ];
 
     /// <summary>
-    /// Origins that must always be allowed regardless of environment.
+    /// The literal <c>"null"</c> origin, opt-in via <c>Cors:AllowDesktopNullOrigin</c>.
     /// <para>
-    /// The Aonik Admin desktop (Electron) renderer loads from <c>file://</c>.
-    /// Chromium sends <c>Origin: null</c> for cross-origin fetches from that
-    /// scheme, so the API has to explicitly allowlist the literal string
-    /// <c>"null"</c> — otherwise every authenticated call (post-login
-    /// tenant lookup, every <c>/api/*</c> after that) trips the CORS
-    /// preflight check and the renderer silently drops the response.
+    /// The Aonik Admin desktop (Electron) renderer loads from <c>file://</c>, and
+    /// Chromium sends <c>Origin: null</c> for its cross-origin fetches, so serving
+    /// that client requires allowlisting the literal string <c>"null"</c>.
+    /// </para>
+    /// <para>
+    /// But <c>Origin: null</c> is ALSO produced by sandboxed iframes and some
+    /// redirects, so allowing it together with <see cref="CorsPolicyBuilder.AllowCredentials"/>
+    /// lets credentialed cross-origin requests come from contexts we don't trust —
+    /// the same-origin protection CORS exists to provide is weakened (M12). It is
+    /// therefore <b>off by default</b> and only enabled for deployments that ship
+    /// the desktop, via <c>Cors:AllowDesktopNullOrigin=true</c>. The proper
+    /// long-term fix is to load the desktop from a real origin (a custom
+    /// <c>app://</c> protocol or a loopback server) and allowlist that instead.
     /// </para>
     /// </summary>
-    private static readonly string[] AlwaysAllowedOrigins =
+    private static readonly string[] DesktopNullOrigin =
     [
         "null",
     ];
 
     /// <summary>
-    /// Registers the <c>AonikCors</c> policy in DI. The configured origins
-    /// are merged with <see cref="LocalDevOrigins"/> and
-    /// <see cref="AlwaysAllowedOrigins"/> and de-duplicated.
+    /// Registers the <c>AonikCors</c> policy in DI. The configured origins are
+    /// merged with <see cref="LocalDevOrigins"/> (and, only when
+    /// <c>Cors:AllowDesktopNullOrigin</c> is set, <see cref="DesktopNullOrigin"/>)
+    /// and de-duplicated.
     /// </summary>
     public static IServiceCollection AddAonikCors(
         this IServiceCollection services,
@@ -76,9 +84,14 @@ public static class CorsConfiguration
             .GetSection("Cors:AllowedOrigins")
             .Get<string[]>() ?? [];
 
+        // Off by default: allowing "null" alongside credentials is a spoofing
+        // avenue (see DesktopNullOrigin). Deployments that ship the Electron
+        // desktop opt in explicitly.
+        var allowDesktopNullOrigin = configuration.GetValue("Cors:AllowDesktopNullOrigin", false);
+
         var allOrigins = configuredOrigins
             .Concat(LocalDevOrigins)
-            .Concat(AlwaysAllowedOrigins)
+            .Concat(allowDesktopNullOrigin ? DesktopNullOrigin : [])
             .Where(o => !string.IsNullOrWhiteSpace(o))
             .Distinct()
             .ToArray();
