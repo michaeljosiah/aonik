@@ -158,7 +158,7 @@ public class DemoSeedServiceTests
             new AllowAllPermissionService(),
             new TestTenantContext(),
             financeDb,
-            personalFinanceDb,
+            new Aonik.PersonalFinance.Services.Seeding.PersonalFinanceDemoDataReverser(personalFinanceDb),
             new AgentDemoCleanup(agentsDb));
 
         return new TestFixture(aonikDb, platformDb, financeDb, personalFinanceDb, agentsDb, service);
