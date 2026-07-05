@@ -600,8 +600,8 @@ financial operations within the AONIK platform.
         memory extraction, prompt-improvement, playground review — are <strong>not</strong> hard-coded.
         They live as seeded, tenant-overridable <code>AiTask</code> rows in the Ai module and are
         resolved per use-case (model + system prompt + user template) by
-        <code>IAiTaskProfileResolver</code>. A legacy <code>PromptSpec</code> entity plus on-disk
-        <code>.md</code> templates remain as a fallback chain (tenant&nbsp;→&nbsp;global&nbsp;→&nbsp;file).
+        <code>IAiTaskProfileResolver</code>, which resolves the tenant-specific override first,
+        then the global <code>AiTask</code> row.
       </p>
 
       <h3>Configuring an agent without a deploy</h3>

@@ -76,7 +76,7 @@ Workflows are resolved via `IServiceProvider.GetKeyedService<IWorkflowFactory>(n
 
 ### AI Module (`Aonik.Ai`)
 
-- Entities: `src/Aonik.Ai/Entities/` (AiProvider, AiModel, AiRoutePolicy, PromptSpec, ToolSpec, AiRun, etc.)
+- Entities: `src/Aonik.Ai/Entities/` (AiProvider, AiModel, AiRoutePolicy, AiTask, AiRun, etc.)
 - Middleware: `src/Aonik.Ai/Middleware/AuditMiddleware.cs`
 - Persistence: `src/Aonik.Ai/Persistence/`
 - Services: `src/Aonik.Ai/Services/`

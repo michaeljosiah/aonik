@@ -63,7 +63,7 @@ All tables live in the `dbo` schema and use the `Ank` prefix (via `ModuleTablePr
 |-------|--------|---------|
 | `AnkAiRoutePolicies` | AI | Model routing per use-case (tenant-specific or global) |
 | `AnkAiModels` | AI | Registered AI models |
-| `AnkPromptSpecs` | AI | Tenant-overridable prompt templates (DB-first, file-fallback) |
+| `AnkAiTasks` | AI | Tenant-overridable AI task profiles — model routing + system/user prompt templates per use-case |
 
 ### Quartz scheduler tables
 
@@ -284,8 +284,7 @@ CustomerInsightSnapshotDocument
 - Entity: `src/Aonik.Ai/Entities/CustomerInsightAiSummary.cs`
 - Models: `src/Aonik.SharedKernel/Abstractions/Ai/CustomerInsightAiSummaryModels.cs`
 - Configuration: `src/Aonik.Ai/Persistence/Configurations/CustomerInsightAiSummaryConfiguration.cs`
-- Profile resolver: `src/Aonik.Ai/Services/AiTaskProfileResolver.cs`
-- Prompt store: `src/Aonik.Ai/Services/TenantAwarePromptStore.cs` (DB-first, file-fallback)
+- Profile resolver: `src/Aonik.Ai/Services/AiTaskProfileResolver.cs` (resolves model + system/user prompt from the matched `AnkAiTasks` row per use-case)
 
 ### Batch processing and checkpoints
 
@@ -344,7 +343,7 @@ flowchart TD
 The `AiTaskProfileResolver` composes model selection and prompt loading:
 
 1. **Model resolution**: Queries `AnkAiRoutePolicies` for a use-case match (tenant-specific first, then global). Falls back to a default model if no policy exists.
-2. **Prompt loading** (via `TenantAwarePromptStore`): Checks `AnkPromptSpecs` for tenant-overridden prompts (DB-first). Falls back to file-based prompts at `prompts/{name}.v1.{role}.md`.
+2. **Prompt loading**: Reads the system + user prompt templates from the matched `AnkAiTasks` row (tenant-specific first, then global), seeded per use-case.
 3. Returns `AiTaskProfile(ModelId, SystemPrompt, UserPromptTemplate)`.
 
 **Use-case**: `personal_finance_customer_insight_summary`
@@ -680,6 +679,6 @@ flowchart TB
 
 7. **Batch processing with checkpoints** — Jobs process users/snapshots in configurable batches with persistent cursor checkpoints (stored in Quartz `JobDataMap`), so they can resume across runs without reprocessing.
 
-8. **Tenant-overridable prompts** — The `TenantAwarePromptStore` checks `AnkPromptSpecs` for tenant-specific prompt overrides before falling back to file-based prompts, allowing per-tenant customisation of the AI narrative.
+8. **Tenant-overridable prompts** — Prompts are seeded as `AnkAiTasks` rows and resolved per use-case by `AiTaskProfileResolver` (tenant-specific override first, then global), allowing per-tenant customisation of the AI narrative.
 
 9. **Memory confidence decay** — Inferred user memory entries lose confidence over time (0.1 per 30 days), ensuring stale inferences are eventually dropped from the brief.
