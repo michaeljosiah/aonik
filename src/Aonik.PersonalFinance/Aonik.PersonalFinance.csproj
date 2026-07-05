@@ -5,9 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.PersonalFinance</RootNamespace>
-    <!-- TODO(#119): ratchet opt-out — 4 pre-existing banned-IgnoreQueryFilters
-         warnings. Justify/suppress them, then delete this line so the
-         TreatWarningsAsErrors=true default (Directory.Build.props) applies. -->
+    <!-- TODO(#119): ratchet opt-out — 4 pre-existing warnings (banned
+         IgnoreQueryFilters + nullability). Justify/fix them, then delete this
+         line so the TreatWarningsAsErrors=true default (Directory.Build.props) applies. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 

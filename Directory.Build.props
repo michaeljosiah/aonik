@@ -22,12 +22,14 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!--
       NuGet restore/audit warnings are about dependencies, not code quality, so
-      they stay warnings (visible for remediation) rather than build-breaking
-      errors: NU1901-NU1904 = transitive-package CVE audit (low→critical; only
-      fixable by an upstream bump — e.g. MessagePack via Aspire); NU1510 =
-      redundant package reference.
+      most stay warnings (visible for remediation) rather than build-breaking
+      errors: NU1901/NU1902/NU1903 = low/moderate/high transitive-package CVE
+      audit (fixable only by an upstream bump — e.g. MessagePack via Aspire);
+      NU1510 = redundant package reference. NU1904 (CRITICAL CVE) is deliberately
+      NOT suppressed — a critical advisory on a dependency should stop the line
+      and force an immediate pin/bump, even if the fix is upstream.
     -->
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;NU1510</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1510</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">

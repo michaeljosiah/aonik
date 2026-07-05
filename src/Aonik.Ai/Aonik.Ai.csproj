@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Ai</RootNamespace>
-    <!-- TODO(#119): ratchet opt-out — 4 pre-existing CS8604 nullability warnings.
-         Fix them, then delete this line so the TreatWarningsAsErrors=true
+    <!-- TODO(#119): ratchet opt-out — 4 pre-existing nullability warnings
+         (CS86xx). Fix them, then delete this line so the TreatWarningsAsErrors=true
          default (Directory.Build.props) applies. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
