@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Platform</RootNamespace>
+    <!-- TODO(#119): ratchet opt-out — 16 pre-existing warnings (mostly banned
+         IgnoreQueryFilters + nullability). Clear the backlog, then delete this
+         line so the TreatWarningsAsErrors=true default (Directory.Build.props) applies. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <!-- Boundary enforcement: only Api, Worker, Migrator, and test projects may access internals -->

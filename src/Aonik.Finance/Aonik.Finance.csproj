@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Finance</RootNamespace>
+    <!-- TODO(#119): ratchet opt-out — 26 pre-existing warnings (mostly banned
+         IgnoreQueryFilters + nullability). Clear the backlog, then delete this
+         line so the TreatWarningsAsErrors=true default (Directory.Build.props) applies. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <!-- Boundary enforcement: only Api, Platform, and test projects may access internals -->

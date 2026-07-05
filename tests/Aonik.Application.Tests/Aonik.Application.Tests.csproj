@@ -7,6 +7,11 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- TODO(#119): ratchet opt-out — 2 pre-existing banned-IgnoreQueryFilters
+         warnings (tests deliberately set up cross-tenant scenarios). Justify/
+         suppress them, then delete this line so the TreatWarningsAsErrors=true
+         default (Directory.Build.props) applies. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
