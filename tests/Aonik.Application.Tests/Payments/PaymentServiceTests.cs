@@ -141,6 +141,31 @@ public class PaymentServiceTests
     }
 
     [Fact]
+    public async Task GetPaymentIntentAsync_Should_NotReturn_OtherTenantsIntent_EvenWhenQueryFilterWouldAllowIt()
+    {
+        // M7 defense-in-depth: the explicit `&& TenantId == tenantId` predicate on
+        // sensitive payment lookups must isolate the row independently of the global
+        // query filter. We seed the intent under tenant A (so the DbContext's filter —
+        // bound to A — WOULD allow the row), then read it back through a service whose
+        // current tenant is B. Without the explicit predicate this leaks tenant A's
+        // intent whenever the filter tenant != the request tenant; with it, the lookup
+        // is empty. (This fails if the predicate is removed and only the filter guards.)
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        using var context = CreateDbContext(tenantA); // global filter bound to tenant A
+
+        var order = await SeedOrderAsync(context, tenantA);
+        var intent = await CreateService(context, tenantA)
+            .CreatePaymentIntentAsync(new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", order.Id, null));
+
+        // Same context (filter still A), but the service now acts as tenant B.
+        var result = await CreateService(context, tenantB).GetPaymentIntentAsync(intent.Id);
+
+        result.Should().BeNull(
+            "the explicit TenantId predicate must exclude another tenant's intent even when the global query filter would allow it");
+    }
+
+    [Fact]
     public async Task GetPaymentIntentAsync_ShouldReturnPaymentIntent_WhenExists()
     {
         // Arrange
