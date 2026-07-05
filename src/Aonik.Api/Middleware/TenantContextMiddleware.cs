@@ -42,7 +42,7 @@ public class TenantContextMiddleware
             {
                 if (!tenantContext.IsResolved)
                 {
-                    var resolvedTenantId = ResolveAnonymousTenantId(context, tenantResolver);
+                    var resolvedTenantId = await ResolveAnonymousTenantIdAsync(context, tenantResolver);
                     if (resolvedTenantId != null)
                     {
                         tenantContext.TenantId = resolvedTenantId;
@@ -56,7 +56,8 @@ public class TenantContextMiddleware
 
             if (!tenantContext.IsResolved)
             {
-                var resolvedTenantId = tenantResolver.ResolveTenantId() ?? tenantResolver.ResolveFromHttpContext();
+                var resolvedTenantId = await tenantResolver.ResolveTenantIdAsync(context.RequestAborted)
+                    ?? await tenantResolver.ResolveFromHttpContextAsync(context.RequestAborted);
                 if (resolvedTenantId != null)
                 {
                     tenantContext.TenantId = resolvedTenantId;
@@ -87,7 +88,7 @@ public class TenantContextMiddleware
         }
     }
 
-    private static Guid? ResolveAnonymousTenantId(HttpContext context, ITenantResolver tenantResolver)
+    private static async Task<Guid?> ResolveAnonymousTenantIdAsync(HttpContext context, ITenantResolver tenantResolver)
     {
         var headerValue = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
         if (Guid.TryParse(headerValue, out var tenantId))
@@ -95,7 +96,7 @@ public class TenantContextMiddleware
             return tenantId;
         }
 
-        return tenantResolver.ResolveFromHttpContext();
+        return await tenantResolver.ResolveFromHttpContextAsync(context.RequestAborted);
     }
 }
 

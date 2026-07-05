@@ -257,10 +257,10 @@ public static class AonikAuthenticationSetup
 
         Guid? tenantId = null;
 
-        tenantId = tenantResolver.ResolveTenantId();
+        tenantId = await tenantResolver.ResolveTenantIdAsync(context.HttpContext.RequestAborted);
         if (tenantId == null)
         {
-            tenantId = tenantResolver.ResolveFromHttpContext();
+            tenantId = await tenantResolver.ResolveFromHttpContextAsync(context.HttpContext.RequestAborted);
         }
         if (tenantId == null)
         {
