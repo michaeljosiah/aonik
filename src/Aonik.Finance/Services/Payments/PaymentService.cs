@@ -49,7 +49,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         // of persisting a placeholder; loading the order also stops dangling intents that
         // reference a non-existent order.
         var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken);
+            .FirstOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId, cancellationToken);
 
         if (order == null)
         {
@@ -94,8 +94,11 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
     public async Task<PaymentIntentResponse?> GetPaymentIntentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Payment.Read", cancellationToken);
+        // Defense-in-depth (M7): pin the lookup to the current tenant explicitly
+        // rather than relying solely on the global query filter being present.
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var paymentIntent = await _dbContext.PaymentIntents
-            .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken);
 
         return paymentIntent == null ? null : MapToResponse(paymentIntent);
     }
@@ -105,8 +108,9 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         // Authorize is the first leg of the capture flow, so it is gated by the
         // same Payment.Capture permission rather than a separate (unseeded) one.
         await EnsurePermissionAsync("Payment.Capture", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var paymentIntent = await _dbContext.PaymentIntents
-            .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken);
 
         if (paymentIntent == null)
         {
@@ -152,8 +156,9 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         try
         {
             await EnsurePermissionAsync("Payment.Capture", cancellationToken);
+            var tenantId = _tenantProvider.GetCurrentTenantId();
             var paymentIntent = await _dbContext.PaymentIntents
-                .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken);
 
             if (paymentIntent == null)
             {
@@ -237,8 +242,9 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
     public async Task<PaymentIntentResponse> CancelPaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Payment.Cancel", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var paymentIntent = await _dbContext.PaymentIntents
-            .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken);
 
         if (paymentIntent == null)
         {
