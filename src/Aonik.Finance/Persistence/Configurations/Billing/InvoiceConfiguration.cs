@@ -55,5 +55,10 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.HasIndex(x => new { x.TenantId, x.OrderId });
         builder.HasIndex(x => new { x.TenantId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.DueDate });
+
+        // #223: covers the list endpoint's sort key — BillingService.ListInvoicesAsync
+        // does OrderByDescending(IssueDate).ThenBy(Id) under the tenant query filter, so
+        // (TenantId, IssueDate, Id) lets the DB serve the page order directly.
+        builder.HasIndex(x => new { x.TenantId, x.IssueDate, x.Id });
     }
 }

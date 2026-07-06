@@ -34,7 +34,11 @@ public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
 
         builder.HasIndex(x => x.LedgerId);
         builder.HasIndex(x => x.SourceId);
-        builder.HasIndex(x => x.Timestamp);
+
+        // #223: Timestamp is a hot ordering/range column that is always tenant-co-filtered
+        // (MySpaceSummaryService period rollups; LedgerService OrderBy(Timestamp)). Lead with
+        // TenantId so the composite matches the real predicate instead of a standalone scan.
+        builder.HasIndex(x => new { x.TenantId, x.Timestamp });
 
         // One journal entry per originating business event. Manual entries all
         // share SourceId = Guid.Empty, so they are excluded from the constraint;
