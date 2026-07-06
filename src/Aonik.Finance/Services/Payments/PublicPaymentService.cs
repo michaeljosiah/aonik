@@ -29,8 +29,14 @@ internal class PublicPaymentService : IPublicPaymentService
         CreateGuestPaymentIntentRequest request,
         CancellationToken cancellationToken = default)
     {
+        // M7-style defense-in-depth (#221): the guest/checkout surface still relies on an
+        // ambient tenant (TenantContextMiddleware resolves it from X-Tenant-Id for anonymous
+        // requests before the endpoint's own header guard runs), so the explicit predicate
+        // isolates the row independently of the global query filter, not instead of it.
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId && entity.TenantId == tenantId, cancellationToken);
 
         if (order == null)
         {
@@ -54,7 +60,6 @@ internal class PublicPaymentService : IPublicPaymentService
         }
 
         var provider = ResolveProvider(request.Provider);
-        var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var reference = $"ORD-{order.Id:N}";
         var providerResult = await provider.CreateIntentAsync(
@@ -113,8 +118,11 @@ internal class PublicPaymentService : IPublicPaymentService
         CreateCommerceGuestPaymentIntentRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Defense-in-depth (#221) — see CreateGuestPaymentIntentAsync.
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId, cancellationToken)
+            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId && entity.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Order {request.OrderId} not found.");
 
         if (!string.Equals(order.OrderType, "ProductPurchase", StringComparison.OrdinalIgnoreCase))
@@ -136,7 +144,6 @@ internal class PublicPaymentService : IPublicPaymentService
         // Fund the explicit checkout total (after discount/tax), not the order's goods subtotal —
         // Order, Payment and Ledger stay distinct (Spec 042 §5/§11).
         var provider = ResolveProvider(request.Provider);
-        var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var reference = $"ORD-{order.Id:N}";
         var providerResult = await provider.CreateIntentAsync(
@@ -198,8 +205,11 @@ internal class PublicPaymentService : IPublicPaymentService
             throw new InvalidStateException("Either paymentIntentId or providerReference is required.");
         }
 
+        // Defense-in-depth (#221) — see CreateGuestPaymentIntentAsync.
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId && entity.TenantId == tenantId, cancellationToken);
 
         if (order == null)
         {
@@ -207,7 +217,7 @@ internal class PublicPaymentService : IPublicPaymentService
         }
 
         var query = _dbContext.PaymentIntents
-            .Where(entity => entity.OrderId == request.OrderId);
+            .Where(entity => entity.OrderId == request.OrderId && entity.TenantId == tenantId);
 
         if (request.PaymentIntentId != null)
         {
