@@ -1,3 +1,4 @@
+using Aonik.Infrastructure.Authentication;
 using Aonik.Platform.Contracts.Services.Authentication;
 
 namespace Aonik.Infrastructure.Authentication.Provisioning;
@@ -19,13 +20,5 @@ public class IdpUserProvisionerFactory : IIdpUserProvisionerFactory
     }
 
     public IIdpUserProvisioner GetProvisioner(string provider)
-    {
-        return provider switch
-        {
-            "Auth0" => _auth0Provisioner,
-            "AzureAd" => _azureAdProvisioner,
-            "Keycloak" => _keycloakProvisioner,
-            _ => throw new InvalidOperationException($"Unsupported provider: {provider}")
-        };
-    }
+        => AuthProviderDispatch.ResolveByProvider<IIdpUserProvisioner>(provider, _auth0Provisioner, _azureAdProvisioner, _keycloakProvisioner);
 }

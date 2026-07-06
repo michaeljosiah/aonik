@@ -1,3 +1,4 @@
+using Aonik.Infrastructure.Authentication;
 using Aonik.Platform.Contracts.Services.Authentication;
 
 namespace Aonik.Infrastructure.Authentication.TokenExchange;
@@ -19,13 +20,5 @@ public class AuthTokenServiceFactory : IAuthTokenServiceFactory
     }
 
     public IAuthTokenService GetService(string provider)
-    {
-        return provider switch
-        {
-            "Auth0" => _auth0Service,
-            "AzureAd" => _azureAdService,
-            "Keycloak" => _keycloakService,
-            _ => throw new InvalidOperationException($"Unsupported provider: {provider}")
-        };
-    }
+        => AuthProviderDispatch.ResolveByProvider<IAuthTokenService>(provider, _auth0Service, _azureAdService, _keycloakService);
 }

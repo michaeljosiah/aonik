@@ -90,56 +90,24 @@ public static class AonikAuthenticationSetup
 
     private static void ConfigureJwtBearerOptions(JwtBearerOptions options, AuthOptions authOptions, string provider)
     {
-        if (provider == "AzureAd")
-        {
-            options.Authority = authOptions.AzureAd.Authority;
-            options.Audience = authOptions.AzureAd.Audience;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = authOptions.AzureAd.ValidateIssuer,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ClockSkew = TimeSpan.FromSeconds(authOptions.AzureAd.ClockSkewSeconds),
-                RequireExpirationTime = true,
-                RequireSignedTokens = true
-            };
-        }
-        else if (provider == "Auth0")
-        {
-            options.Authority = authOptions.Auth0.Authority;
-            options.Audience = authOptions.Auth0.Audience;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = authOptions.Auth0.ValidateIssuer,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ClockSkew = TimeSpan.FromSeconds(authOptions.Auth0.ClockSkewSeconds),
-                RequireExpirationTime = true,
-                RequireSignedTokens = true
-            };
-        }
-        else if (provider == "Keycloak")
-        {
-            options.Authority = authOptions.Keycloak.Authority;
-            options.Audience = authOptions.Keycloak.Audience;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = authOptions.Keycloak.ValidateIssuer,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ClockSkew = TimeSpan.FromSeconds(authOptions.Keycloak.ClockSkewSeconds),
-                RequireExpirationTime = true,
-                RequireSignedTokens = true
-            };
-        }
-        else
-        {
-            throw new InvalidOperationException($"Unsupported auth provider: {provider}");
-        }
+        var (authority, audience, validateIssuer, clockSkewSeconds) = AuthProviderDispatch.ResolveByProvider(
+            provider,
+            (authOptions.Auth0.Authority, authOptions.Auth0.Audience, authOptions.Auth0.ValidateIssuer, authOptions.Auth0.ClockSkewSeconds),
+            (authOptions.AzureAd.Authority, authOptions.AzureAd.Audience, authOptions.AzureAd.ValidateIssuer, authOptions.AzureAd.ClockSkewSeconds),
+            (authOptions.Keycloak.Authority, authOptions.Keycloak.Audience, authOptions.Keycloak.ValidateIssuer, authOptions.Keycloak.ClockSkewSeconds));
 
+        options.Authority = authority;
+        options.Audience = audience;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = validateIssuer,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.FromSeconds(clockSkewSeconds),
+            RequireExpirationTime = true,
+            RequireSignedTokens = true
+        };
         options.RequireHttpsMetadata = true;
     }
 

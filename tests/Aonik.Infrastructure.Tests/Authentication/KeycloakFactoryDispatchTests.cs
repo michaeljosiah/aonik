@@ -104,7 +104,10 @@ public class KeycloakFactoryDispatchTests
 
         var act = () => factory.GetProvisioner("UnknownProvider");
 
+        // #226 unified the five factories' throw wording via AuthProviderDispatch
+        // (this factory previously said "Unsupported provider", others said
+        // "Unsupported auth provider" — an arbitrary, undocumented split).
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Unsupported provider: UnknownProvider*");
+            .WithMessage("*Unsupported auth provider: UnknownProvider*");
     }
 }
