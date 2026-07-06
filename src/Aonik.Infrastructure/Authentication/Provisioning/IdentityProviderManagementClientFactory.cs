@@ -1,3 +1,4 @@
+using Aonik.Infrastructure.Authentication;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Services.Settings;
@@ -39,12 +40,6 @@ public sealed class IdentityProviderManagementClientFactory : IIdentityProviderM
             return null;
         }
 
-        return provider switch
-        {
-            "Auth0" => _auth0Client,
-            "AzureAd" => _azureAdClient,
-            "Keycloak" => _keycloakClient,
-            _ => null,
-        };
+        return AuthProviderDispatch.TryResolveByProvider<IIdentityProviderManagementClient>(provider, _auth0Client, _azureAdClient, _keycloakClient);
     }
 }
