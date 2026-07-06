@@ -22,6 +22,7 @@ internal sealed class ImprovePromptEndpoint
     private readonly IAiTaskProfileResolver _profileResolver;
     private const string DefaultModelId = "gpt-5-mini";
     private const string PromptImprovementUseCase = "prompt-improvement";
+    private const string PromptName = "prompt_improvement";
 
     public ImprovePromptEndpoint(IChatClient chatClient, IAiTaskProfileResolver profileResolver)
     {
@@ -64,7 +65,7 @@ internal sealed class ImprovePromptEndpoint
             """;
 
         var profile = await _profileResolver.ResolveAsync(
-            PromptImprovementUseCase, defaultModelId: DefaultModelId, cancellationToken: ct);
+            PromptImprovementUseCase, PromptName, DefaultModelId, ct);
 
         var systemMessage = string.IsNullOrEmpty(profile.SystemPrompt)
             ? defaultSystemMessage
