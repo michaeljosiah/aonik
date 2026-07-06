@@ -221,10 +221,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Platform, tableName);
 
     private static void ConfigureScheduledJobProjection(ModelBuilder modelBuilder)
     {

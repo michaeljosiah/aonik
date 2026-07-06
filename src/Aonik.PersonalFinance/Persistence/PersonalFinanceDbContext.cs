@@ -162,6 +162,5 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-        => modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Finance}{tableName}", SchemaNames.Default);
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Finance, tableName);
 }
