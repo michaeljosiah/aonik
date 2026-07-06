@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 060 · AI route-policy cost governance &amp; model fallback</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e0f0ff; color: #144d7a; }
+    .meta-tag.priority-p2 { background: #fce8e2; color: #9b3815; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.drilldown { background: #fff0d6; color: #8a5510; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 060</span>
+  <span class="meta-tag status-draft">Status: Draft (design only)</span>
+  <span class="meta-tag size-medium">Size: Large</span>
+  <span class="meta-tag priority-p2">Priority: P2</span>
+  <span class="meta-tag">Domain: Ai</span>
+  <h1>AI route-policy cost governance &amp; model fallback</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Defines the enforcement semantics for two governance controls that <a href="https://github.com/michaeljosiah/aonik/issues/116">#116</a>
+    removed from <code>AiRoutePolicy</code> because they were displayed but never applied — a per-tenant AI
+    <strong>spend ceiling</strong> and a <strong>model fallback chain</strong>. This is a <strong>design-only</strong>
+    spec: it settles the unit / scope / window / action / trigger questions that blocked implementation, and lays out a
+    phased build, but nothing here ships until there is a concrete need. Companion to
+    <a href="../decisions/012-ai-route-policy-cost-governance.md">ADR-012</a>, which records the load-bearing decisions.
+  </p>
+</header>
+
+<div class="callout open">
+  <div class="callout-label">Why design-first, not build-now</div>
+  There is no consumer today, no spend-accounting subsystem, and — until ADR-012 — no agreed semantics. Building now
+  would re-create the &ldquo;bolted on with guessed semantics&rdquo; failure the split from #116 set out to avoid. Closing the
+  issue would discard real analysis. This spec is the middle path: the design is complete and reviewable, so a future
+  implementer resumes from a contract rather than a blank page.
+</div>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#background">1 &middot; Background — what #116 removed and why</a></li>
+    <li><a href="#ceiling">2 &middot; Cost ceiling semantics</a></li>
+    <li><a href="#fallback">3 &middot; Model fallback semantics</a></li>
+    <li><a href="#data">4 &middot; Data model &amp; contract changes</a></li>
+    <li><a href="#phasing">5 &middot; Phased build (when the need lands)</a></li>
+    <li><a href="#scope">6 &middot; Explicitly out of scope</a></li>
+    <li><a href="#acceptance">7 &middot; Acceptance</a></li>
+  </ol>
+</nav>
+
+<h2 id="background">1 &middot; Background — what #116 removed and why</h2>
+<p>
+  <code>AiRoutePolicy</code> carried <code>CostCeiling</code> and <code>FallbackModelIdsJson</code> columns that the admin
+  UI rendered and persisted but that <strong>no code path ever read</strong>. An operator could set a ceiling, believe
+  spend was capped, and be wrong — a control that is worse than its own absence because it manufactures false
+  confidence. #116 (M3) removed both columns; the removal was behaviour-preserving precisely <em>because</em> nothing
+  consumed them. The enforcement ambition moved here.
+</p>
+<p>
+  Two capabilities are genuinely missing — this is why enforcement is a feature, not a wiring fix:
+</p>
+<ul>
+  <li><strong>Spend accounting.</strong> A budget is meaningless without a running tally. Today <code>AiRun.CostEstimate</code>
+    records cost <em>after</em> a call; there is no <em>pre-flight</em> estimate and no per-scope accumulator to compare
+    against a ceiling.</li>
+  <li><strong>An ordered resolution contract.</strong> <code>IAiModelResolver.ResolveModelNameAsync</code> returns a
+    single model name. Fallback needs a chain, runtime-failure detection, and bounded retry — which ripples to every
+    call site that resolves a model.</li>
+</ul>
+
+<h2 id="ceiling">2 &middot; Cost ceiling semantics</h2>
+<p>The five questions #215 flagged, answered. These are binding on any implementation.</p>
+
+<h3>2.1 Unit — a monetary budget, never tokens or per-request</h3>
+<p>
+  The ceiling is a <strong>USD amount over a window</strong> (e.g. <code>$250 / month</code>). A token count would not
+  compose across models with different per-token pricing, and a per-request cap governs the wrong thing (a thousand
+  cheap calls can cost more than one expensive one). Cost is the unit operators reason about, so cost is the unit.
+</p>
+
+<h3>2.2 Scope — per-tenant primary, per-policy optional</h3>
+<p>
+  The <strong>tenant</strong> is the enforcement boundary: it is the billing and isolation boundary, and AI spend is a
+  tenant-level cost. A route policy MAY additionally carry its own sub-ceiling (e.g. &ldquo;the summarisation policy may not
+  exceed $50/mo even if the tenant budget has room&rdquo;), checked <em>in addition to</em> the tenant budget — the stricter
+  of the two wins. There is no separate per-use-case scope; use-cases are already expressed as route policies.
+</p>
+
+<h3>2.3 Window &amp; reset — rolling calendar month, UTC</h3>
+<p>
+  The tally is a persisted counter keyed <code>(tenantId, "yyyy-MM")</code> — and <code>(routePolicyId, "yyyy-MM")</code>
+  for policy sub-ceilings — incremented <strong>atomically</strong> (a DB-level <code>UPDATE &hellip; SET spent = spent + @est</code>,
+  not read-modify-write, so concurrent AI calls cannot under-count). A new month key is a fresh $0 bucket; no cron reset
+  job is needed. Calendar month (not rolling-30-day) aligns with how operators and billing think about budgets.
+</p>
+
+<h3>2.4 Estimation — conservative pre-flight, reconciled post-hoc</h3>
+<div class="callout ok">
+  <div class="callout-label">Charge before, correct after</div>
+  <strong>Pre-flight:</strong> <code>estimate = max(estimatedInputTokens &times; modelInputPrice, floor)</code>, drawn from the
+  existing <code>AiCostCatalog</code> pricing table. This is a deliberate <em>upper bound</em> reserved against the tally
+  <em>before</em> the call, so an in-flight burst cannot blow the budget.
+  <strong>Reconciliation:</strong> when the call completes, the true <code>AiRun.CostEstimate</code> replaces the reserved
+  estimate, so the tally self-corrects (over- and under-estimates wash out). Output-token cost is only known after
+  completion, hence the reserve-then-true-up shape.
+</div>
+
+<h3>2.5 Action at ceiling — configurable, defaults to fail-open</h3>
+<p>Each policy declares one of three actions for &ldquo;budget exhausted&rdquo;:</p>
+<ul>
+  <li><span class="tag reuse">AlertOnly</span> — emit a <code>MoneyActionLog</code> entry + a metric, and <strong>proceed</strong>.
+    Observability without blocking. <strong>This is the default.</strong></li>
+  <li><span class="tag drilldown">Downgrade</span> — drop to the next model in the fallback chain (&sect;3) if one exists;
+    otherwise degrade to <code>AlertOnly</code>. Spend control without an outright outage.</li>
+  <li><span class="tag new">Reject</span> — fail the call with a typed <code>AiBudgetExceededException</code> (surfaced as a
+    <code>402</code>/<code>429</code>-class error to the caller). A hard cap.</li>
+</ul>
+<div class="callout open">
+  <div class="callout-label">Why default to AlertOnly</div>
+  Blocking a tenant&rsquo;s AI because a spend threshold was crossed is a decision with real user-facing consequences. It must
+  be an <strong>opt-in operator choice</strong>, not a platform default — the safe default is to stay available and make
+  the overage <em>visible</em>. This mirrors the platform&rsquo;s general fail-open-but-audited posture for non-money-movement
+  actions.
+</div>
+
+<h2 id="fallback">3 &middot; Model fallback semantics</h2>
+
+<h3>3.1 Contract — an ordered chain, additively</h3>
+<p>
+  Add <code>IAiModelResolver.ResolveModelChainAsync(useCase, ct) &rarr; IReadOnlyList&lt;string&gt;</code> — primary first,
+  then the policy&rsquo;s fallbacks. The existing <code>ResolveModelNameAsync</code> becomes a thin wrapper returning
+  <code>chain[0]</code>, so every current call site is unchanged and only failover-aware callers opt into the chain.
+  The chain is sourced from the re-introduced <code>FallbackModelIdsJson</code> on the matched route policy.
+</p>
+
+<h3>3.2 Triggers — advance only on transient/config failures</h3>
+<table>
+  <thead><tr><th>Advance to next model</th><th>Terminal (surface the error)</th></tr></thead>
+  <tbody>
+    <tr><td>Model inactive / unknown id (config error)</td><td>Content-policy / safety rejection</td></tr>
+    <tr><td>Provider rate-limit (HTTP 429)</td><td>Authentication / authorization failure</td></tr>
+    <tr><td>Timeout (per-attempt deadline)</td><td>Malformed-request / 400-class</td></tr>
+    <tr><td>Transient overload / 5xx</td><td>A valid response the caller simply did not want</td></tr>
+  </tbody>
+</table>
+<p>
+  The distinction is <em>&ldquo;would a different model plausibly succeed?&rdquo;</em>. A 429 or timeout: yes. A content rejection or
+  an auth failure: no — retrying elsewhere just wastes latency and hides the real cause.
+</p>
+
+<h3>3.3 Retries — bounded, ordered, capped</h3>
+<p>
+  Each model in the chain is tried <strong>once, in order</strong>, under a per-attempt timeout. Total attempts are
+  <strong>capped (default 3)</strong> even if the chain is longer, to bound tail latency — a request should not walk a
+  ten-model chain. A short backoff applies to <code>429</code> only (not to config/timeout, which will not self-heal in
+  milliseconds).
+</p>
+
+<h3>3.4 Audit — record the model that actually served</h3>
+<p>
+  <code>AiRun</code> gains <code>ResolvedModelId</code> (the model that produced the response) alongside the requested
+  id, plus a <code>FallbackReason</code> when they differ. Every downgrade is then visible in the AI trace explorer. The
+  trace <em>name</em> is unaffected — it is still driven by the <code>aonik.use_case</code> stamp, per the existing
+  dedupe convention, so a fallback never leaks a model id as the trace name.
+</p>
+
+<h2 id="data">4 &middot; Data model &amp; contract changes</h2>
+<p>Re-introduced on <code>AiRoutePolicy</code> (via a <strong>tool-generated migration</strong>, only when Phase&nbsp;1 lands):</p>
+<ul>
+  <li><code>CostCeiling</code> — <code>decimal?</code> (USD; null = no ceiling)</li>
+  <li><code>CostCeilingAction</code> — <code>string</code> enum (<code>AlertOnly | Downgrade | Reject</code>)</li>
+  <li><code>FallbackModelIdsJson</code> — <code>string</code> (ordered JSON array of model ids)</li>
+</ul>
+<p>New:</p>
+<ul>
+  <li><code>AiSpendCounter</code> — <code>(TenantId, RoutePolicyId?, PeriodKey "yyyy-MM", SpentUsd, UpdatedAt)</code>, unique on
+    <code>(TenantId, RoutePolicyId, PeriodKey)</code>, atomic increment. Per-tenant by default; a platform-wide budget
+    would make it a global/system entity per the tenancy rules.</li>
+  <li><code>AiRun.ResolvedModelId</code> + <code>AiRun.FallbackReason</code> (both nullable).</li>
+  <li><code>IAiBudgetService</code> — <code>TryReserveAsync(scope, estimate)</code> / <code>ReconcileAsync(runId, trueCost)</code>.</li>
+  <li><code>AiBudgetExceededException</code> (SharedKernel abstractions), mapped to a typed HTTP problem.</li>
+</ul>
+<div class="callout open">
+  <div class="callout-label">Admin UI re-exposure gate</div>
+  The three policy columns are re-shown in the admin UI <strong>only after</strong> they are enforced (Phase 1+). &ldquo;Displayed
+  but inert&rdquo; — the exact defect #116 removed — must never recur.
+</div>
+
+<h2 id="phasing">5 &middot; Phased build (when the need lands)</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Cost ceiling, AlertOnly</h4>
+  <div class="phase-summary">The whole accounting spine with zero user-facing risk.</div>
+  Re-add the columns; add <code>AiSpendCounter</code> + <code>IAiBudgetService</code>; wire pre-flight reserve +
+  post-hoc reconcile into the AI middleware; emit <code>MoneyActionLog</code> on breach. Ship with <code>AlertOnly</code>
+  only — nothing blocks, but spend is now tracked and overages are visible. Re-expose <code>CostCeiling</code> in the UI.
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Fallback chain</h4>
+  <div class="phase-summary">Additive contract; independent of cost accounting.</div>
+  Add <code>ResolveModelChainAsync</code> + the retry/trigger loop; add <code>AiRun.ResolvedModelId</code>/<code>FallbackReason</code>;
+  re-expose <code>FallbackModelIdsJson</code>. Can land before or after Phase 1.
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Enforcing actions</h4>
+  <div class="phase-summary">Turn on the teeth, deliberately.</div>
+  Enable <code>Downgrade</code> (depends on Phase 2&rsquo;s chain) and <code>Reject</code> (typed exception + caller contract).
+  Per-policy opt-in; the platform default stays <code>AlertOnly</code>.
+</div>
+
+<h2 id="scope">6 &middot; Explicitly out of scope</h2>
+<ul>
+  <li><strong>Any implementation.</strong> This spec ships no code, no migration, no columns. It is a contract.</li>
+  <li>Cross-provider price arbitrage / automatic cheapest-model selection — a different, larger problem.</li>
+  <li>Streaming mid-response fallback (once tokens are streaming, we do not switch models mid-flight).</li>
+  <li>Budget alerting UI / email — Phase 1 emits metrics + <code>MoneyActionLog</code>; dashboards are downstream.</li>
+</ul>
+
+<h2 id="acceptance">7 &middot; Acceptance</h2>
+<p>This design-only deliverable is complete when:</p>
+<ul>
+  <li>ADR-012 + this spec define unit, scope, window, estimation, ceiling action, fallback triggers, retry bound, and the
+    audit fields — <strong>done</strong>.</li>
+  <li>#215 is updated to reference them and moved to &ldquo;design-complete, implementation-pending&rdquo; (kept open, not closed).</li>
+</ul>
+<p>A <em>future</em> implementation PR (not this one) is accepted when it enforces a ceiling with a real spend tally and
+  executes the fallback chain, with tests, honouring the semantics above — re-introducing the columns via a
+  tool-generated migration at that point.</p>
+
+<footer>
+  Spec 060 &middot; AI route-policy cost governance &amp; model fallback &middot; design-only &middot;
+  see <a href="../decisions/012-ai-route-policy-cost-governance.md">ADR-012</a> &middot;
+  <a href="https://github.com/michaeljosiah/aonik/issues/215">#215</a>
+</footer>
+
+</body>
+</html>
