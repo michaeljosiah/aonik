@@ -144,9 +144,17 @@ public class PlaidWebhookVerifierTests
         var (verifier, key) = CreateVerifier();
         var jws = CreateJws(key, "ES256", Kid, Iat(Now), BodySha256(Body));
 
-        // Flip the last character of the signature segment.
-        var lastChar = jws[^1];
-        var tampered = jws[..^1] + (lastChar == 'A' ? 'B' : 'A');
+        // Tamper the signature at the BYTE level, not the base64 character level. A 64-byte
+        // ES256 signature base64url-encodes to 86 chars whose final char carries only 2
+        // significant bits plus 4 padding bits the decoder discards — so flipping the last
+        // char is a no-op whenever it decodes to the same byte (~25% of random keys, when the
+        // last char is 'A'), which made the previous char-flip an intermittently-green forged
+        // signature. Decoding, flipping a real signature byte, and re-encoding guarantees the
+        // signature genuinely differs, so the test is deterministic regardless of the key.
+        var parts = jws.Split('.');
+        var signatureBytes = Base64UrlEncoder.DecodeBytes(parts[2]);
+        signatureBytes[0] ^= 0xFF;
+        var tampered = $"{parts[0]}.{parts[1]}.{Base64UrlEncoder.Encode(signatureBytes)}";
 
         (await verifier.VerifyAsync(tampered, Body, CancellationToken.None)).Should().BeFalse();
     }
