@@ -8,6 +8,15 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.1" />
     <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.2.1" />
+    <!--
+      Direct pin to override the vulnerable MessagePack 2.5.192 that Aspire pulls in
+      transitively (#219). 2.5.301 patches both HIGH advisories on the 2.5.x line —
+      GHSA-hv8m-jj95-wg3x (CVE-2026-48109, LZ4 OOB read) and GHSA-vh6j-jc39-fggf
+      (CVE-2026-48506, MessagePackReader.Skip unbounded recursion) — plus the related
+      moderates, while staying in the 2.5.x line to avoid the 3.x breaking changes.
+      Remove once an Aspire bump references a patched MessagePack itself.
+    -->
+    <PackageReference Include="MessagePack" Version="2.5.301" />
   </ItemGroup>
 
   <PropertyGroup>
