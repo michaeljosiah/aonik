@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.AI;
@@ -8,15 +9,24 @@ namespace Aonik.Agents.Endpoints;
 /// Uses AI to refine an agent's system prompt based on user instructions.
 /// The AI preserves the core theme and intent of the existing prompt while
 /// incorporating the requested changes.
+///
+/// The model is resolved via <see cref="IAiTaskProfileResolver"/> using the
+/// "prompt-improvement" use-case key, following the pattern established by
+/// <see cref="Aonik.Agents.Framework.ChatThreadTitleGenerator"/>. Falls back to
+/// <see cref="DefaultModelId"/> when no route policy is configured.
 /// </summary>
 internal sealed class ImprovePromptEndpoint
     : Endpoint<ImprovePromptRequest, ImprovePromptResponse>
 {
     private readonly IChatClient _chatClient;
+    private readonly IAiTaskProfileResolver _profileResolver;
+    private const string DefaultModelId = "gpt-5-mini";
+    private const string PromptImprovementUseCase = "prompt-improvement";
 
-    public ImprovePromptEndpoint(IChatClient chatClient)
+    public ImprovePromptEndpoint(IChatClient chatClient, IAiTaskProfileResolver profileResolver)
     {
         _chatClient = chatClient;
+        _profileResolver = profileResolver;
     }
 
     public override void Configure()
@@ -41,7 +51,7 @@ internal sealed class ImprovePromptEndpoint
             ThrowError("At least one of CurrentPrompt or UserIntent must be provided.");
         }
 
-        var systemMessage = """
+        var defaultSystemMessage = """
             You are an expert prompt engineer. Your job is to improve system prompts for AI agents.
 
             Rules:
@@ -53,6 +63,13 @@ internal sealed class ImprovePromptEndpoint
             - Output ONLY the improved prompt text — no explanations, no markdown fences, no preamble.
             """;
 
+        var profile = await _profileResolver.ResolveAsync(
+            PromptImprovementUseCase, defaultModelId: DefaultModelId, cancellationToken: ct);
+
+        var systemMessage = string.IsNullOrEmpty(profile.SystemPrompt)
+            ? defaultSystemMessage
+            : profile.SystemPrompt;
+
         var userMessage = string.IsNullOrWhiteSpace(req.CurrentPrompt)
             ? $"Create a system prompt for an AI agent based on this intent:\n\n{req.UserIntent}"
             : $"Here is the current system prompt:\n\n---\n{req.CurrentPrompt}\n---\n\nPlease improve it based on this guidance: {req.UserIntent}";
@@ -63,9 +80,16 @@ internal sealed class ImprovePromptEndpoint
             new(ChatRole.User, userMessage),
         };
 
+        // Stamp the use_case so the AiTraceObservation row carries a semantic
+        // trace name ("prompt-improvement") instead of leaking the model id
+        // (mirrors ChatThreadTitleGenerator's telemetry convention).
+        var options = new ChatOptions { ModelId = profile.ModelId ?? DefaultModelId };
+        options.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        options.AdditionalProperties[AiTelemetry.UseCaseAttribute] = PromptImprovementUseCase;
+
         var response = await _chatClient.GetResponseAsync(
             messages,
-            options: new ChatOptions { ModelId = "gpt-5-mini" },
+            options: options,
             cancellationToken: ct);
 
         var improvedPrompt = response.Text?.Trim() ?? req.CurrentPrompt ?? string.Empty;
