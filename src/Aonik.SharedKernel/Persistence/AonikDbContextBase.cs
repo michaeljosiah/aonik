@@ -118,6 +118,21 @@ public abstract class AonikDbContextBase : DbContext
     }
 
     /// <summary>
+    /// Maps an entity onto its module-prefixed physical table name
+    /// (<c>{prefix}{tableName}</c>, e.g. <c>AnkInvoices</c>). Every derived context
+    /// reimplemented this identically as its own <c>MapTable</c>/<c>MapXTable</c>
+    /// helper (one per module it touches); centralizing it here means the module
+    /// prefix from <see cref="ModuleTablePrefixes"/> is applied exactly one way, so
+    /// two contexts mapping the same physical table can't silently diverge.
+    /// </summary>
+    protected static void MapModuleTable<TEntity>(ModelBuilder modelBuilder, string prefix, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{prefix}{tableName}", SchemaNames.Default);
+    }
+
+    /// <summary>
     /// Configures <see cref="AuditableEntity.RowVersion"/> as an optimistic concurrency token
     /// on every entity inheriting from <see cref="AuditableEntity"/>.
     /// On SQL Server the column is mapped to the native <c>rowversion</c> type (8-byte,

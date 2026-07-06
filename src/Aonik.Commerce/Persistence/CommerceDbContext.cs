@@ -101,6 +101,5 @@ internal sealed class CommerceDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-        => modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Default}{tableName}", SchemaNames.Default);
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Default, tableName);
 }

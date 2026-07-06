@@ -103,8 +103,5 @@ internal class AgentsDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Agents}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Agents, tableName);
 }

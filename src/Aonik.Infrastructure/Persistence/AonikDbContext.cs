@@ -580,38 +580,23 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Platform, tableName);
 
     private static void MapFinanceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Finance}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Finance, tableName);
 
     private static void MapCommerceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Commerce}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Commerce, tableName);
 
     private static void MapAiTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Ai}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Ai, tableName);
 
     private static void MapAgentsTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Agents}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Agents, tableName);
 
     private static void ConfigureScheduledJobProjection(ModelBuilder modelBuilder)
     {

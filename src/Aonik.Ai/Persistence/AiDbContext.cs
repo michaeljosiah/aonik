@@ -102,8 +102,5 @@ internal class AiDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-    {
-        modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Ai}{tableName}", SchemaNames.Default);
-    }
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Ai, tableName);
 }

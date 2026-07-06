@@ -63,6 +63,5 @@ internal sealed class DocumentsDbContext : AonikDbContextBase
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
-        => modelBuilder.Entity<TEntity>()
-            .ToTable($"{ModuleTablePrefixes.Default}{tableName}", SchemaNames.Default);
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Default, tableName);
 }
