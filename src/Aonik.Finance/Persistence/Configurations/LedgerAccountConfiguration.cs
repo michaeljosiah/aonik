@@ -22,8 +22,11 @@ public class LedgerAccountConfiguration : IEntityTypeConfiguration<LedgerAccount
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.HasIndex(x => x.Name);
-        builder.HasIndex(x => x.Code);
+        // #223: Code/Name are resolved on every ledger post, always with TenantId ==
+        // (LedgerPostingService.ResolveRequiredAccountIdAsync). Lead each with TenantId so the
+        // per-tenant chart-of-accounts lookup is a seek, not a filtered scan of a global index.
+        builder.HasIndex(x => new { x.TenantId, x.Name });
+        builder.HasIndex(x => new { x.TenantId, x.Code });
         builder.HasIndex(x => x.LedgerId);
     }
 }
