@@ -5,8 +5,10 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -45,14 +47,57 @@ public class CircleServiceTests
             => Task.FromResult<IReadOnlyDictionary<Guid, int>>(new Dictionary<Guid, int>());
     }
 
+    private sealed class TestTenantContext : ITenantContext
+    {
+        public Guid? TenantId { get; set; }
+        public string? ResolutionSource { get; set; }
+        public bool IsResolved => TenantId.HasValue;
+    }
+
+    private sealed class FakePartyReader : IPartyReader
+    {
+        public Dictionary<Guid, string> Names { get; } = new();
+
+        public Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyHistoryItem>>(
+                partyIds.Where(Names.ContainsKey).Select(id => new PartyHistoryItem(id, Names[id], "Active", null)).ToList());
+
+        public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>([]);
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<bool> HasActiveRelationshipBetweenAsync(Guid tenantId, Guid a, Guid b, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<Guid?> GetTenantPartyIdAsync(Guid tenantId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+    }
+
     private readonly Guid _tenantId = Guid.NewGuid();
+    private readonly FakePartyReader _partyReader = new();
 
     private PersonalFinanceDbContext CreateContext()
         => new(new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"Circle_{Guid.NewGuid()}").Options, new TestTenantProvider(_tenantId));
 
-    private CircleService Circle(PersonalFinanceDbContext ctx, Guid userId, IDocumentLinkReader? documentLinkReader = null)
-        => new(ctx, new TestTenantProvider(_tenantId), new TestCurrentUserProvider(userId), documentLinkReader ?? new FakeDocumentLinkReader());
+    private CircleService Circle(
+        PersonalFinanceDbContext ctx,
+        Guid userId,
+        IDocumentLinkReader? documentLinkReader = null,
+        InvitePreviewDisclosure disclosure = InvitePreviewDisclosure.Names)
+        => new(
+            ctx,
+            new TestTenantProvider(_tenantId),
+            new TestTenantContext(),
+            new TestCurrentUserProvider(userId),
+            documentLinkReader ?? new FakeDocumentLinkReader(),
+            _partyReader,
+            Microsoft.Extensions.Options.Options.Create(new CircleInviteOptions { PreviewDisclosure = disclosure }));
+
+    /// <summary>Seeds the owner's PersonalProfile (UserId → PartyId) and registers the party display name for preview.</summary>
+    private async Task SeedOwnerProfileAsync(PersonalFinanceDbContext ctx, Guid ownerUserId, string displayName)
+    {
+        var partyId = Guid.NewGuid();
+        ctx.PersonalProfiles.Add(new PersonalProfile { Id = Guid.NewGuid(), TenantId = _tenantId, UserId = ownerUserId, PartyId = partyId });
+        await ctx.SaveChangesAsync();
+        _partyReader.Names[partyId] = displayName;
+    }
 
     private SupportStatementService Statement(PersonalFinanceDbContext ctx, Guid userId)
         => new(ctx, new TestTenantProvider(_tenantId), new TestCurrentUserProvider(userId), new FakeDocumentLinkReader());
@@ -204,7 +249,35 @@ public class CircleServiceTests
     }
 
     [Fact]
-    public async Task AcceptInvite_ConsumesToken_AndIsNotReusable()
+    public async Task AcceptInvite_IsIdempotentForSameUser_ButSingleUseAcrossUsers()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        var first = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        first.Status.Should().Be(AcceptInviteStatus.Accepted);
+
+        // Idempotent (Spec 061 §7): the SAME user replaying the parked token gets the SAME grant back
+        // (200), never a 404, and no second grant is minted — the resume can fire more than once.
+        var replay = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        replay.Status.Should().Be(AcceptInviteStatus.Accepted);
+        replay.Grant!.Id.Should().Be(first.Grant!.Id);
+        (await ctx.CircleGrants.CountAsync(g => g.MemberUserId == member)).Should().Be(1);
+
+        // Single-use across users: a DIFFERENT user reaching the consumed token is fail-closed (404).
+        var stranger = await Circle(ctx, other).AcceptInviteAsync(invite.Token);
+        stranger.Status.Should().Be(AcceptInviteStatus.Invalid);
+        stranger.Grant.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AcceptInvite_ReplayAfterRevoke_IsFailClosed_NotAStaleGrant()
     {
         using var ctx = CreateContext();
         var owner = Guid.NewGuid();
@@ -214,12 +287,36 @@ public class CircleServiceTests
         var invite = await Circle(ctx, owner).CreateInviteAsync(
             new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
 
-        var grant = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
-        grant.Should().NotBeNull();
+        var accepted = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        accepted.Status.Should().Be(AcceptInviteStatus.Accepted);
 
-        // The token is consumed atomically with grant creation, so a replay is rejected.
-        var second = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
-        second.Should().BeNull();
+        // The owner revokes the member's grant.
+        await Circle(ctx, owner).RevokeGrantAsync(accepted.Grant!.Id);
+
+        // Replaying the (still-consumed) token must NOT resurface the now-revoked grant as a 200 "you're in".
+        // A revoked grant confers nothing, so the honest, fail-closed answer is Invalid (404).
+        var replay = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        replay.Status.Should().Be(AcceptInviteStatus.Invalid);
+        replay.Grant.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AcceptInvite_ByOwner_IsSelfAcceptConflict()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        // The owner tapping their own link: a state conflict (409), not a bad token (404).
+        var result = await Circle(ctx, owner).AcceptInviteAsync(invite.Token);
+
+        result.Status.Should().Be(AcceptInviteStatus.SelfAccept);
+        result.Grant.Should().BeNull();
+        // The invite is untouched — no grant minted, still pending for a real member.
+        (await ctx.CircleGrants.CountAsync()).Should().Be(0);
+        (await ctx.CircleInvites.FirstAsync()).Status.Should().Be("pending");
     }
 
     [Fact]
@@ -294,14 +391,12 @@ public class CircleServiceTests
         var entityId = await SeedEntityAsync(ctx, owner);
         var invite = await Circle(ctx, owner).CreateInviteAsync(new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
 
-        var grant = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        var result = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
 
-        grant.Should().NotBeNull();
-        grant!.MemberUserId.Should().Be(member);
-        grant.Status.Should().Be("active");
+        result.Status.Should().Be(AcceptInviteStatus.Accepted);
+        result.Grant!.MemberUserId.Should().Be(member);
+        result.Grant.Status.Should().Be("active");
         (await Circle(ctx, member).ResolveAsync(owner)).Should().NotBeNull();
-        // single-use: a second accept fails
-        (await Circle(ctx, member).AcceptInviteAsync(invite.Token)).Should().BeNull();
     }
 
     [Fact]
@@ -424,5 +519,115 @@ public class CircleServiceTests
 
         (await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, privateEntity, 1, 20)).Should().BeNull(); // out of scope
         (await Circle(ctx, stranger).GetSharedPaymentLogsAsync(owner, shared, 1, 20)).Should().BeNull();       // no grant
+    }
+
+    // ── Spec 061: anonymous invite preview ──────────────────────────────
+
+    [Fact]
+    public async Task Preview_ValidPendingInvite_ReturnsOwnerNameScopeAndEntityNames_WithNoAmounts()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        await SeedOwnerProfileAsync(ctx, owner, "Ama O.");
+        var mum = await SeedEntityAsync(ctx, owner, "Mum");
+        var flat = await SeedEntityAsync(ctx, owner, "Surulere flat");
+        // Amounts on the shared entities — they must never surface in a preview.
+        await SeedLogAsync(ctx, owner, mum, 200m, "GBP", new DateTime(2026, 5, 28));
+
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { mum, flat }, false, "link"));
+
+        // No current user (anonymous): resolved purely from the token.
+        var preview = await Circle(ctx, Guid.NewGuid()).PreviewInviteAsync(invite.Token);
+
+        preview.Should().NotBeNull();
+        preview!.OwnerDisplayName.Should().Be("Ama O.");
+        preview.Scope.Should().Be("entities");
+        preview.ScopeLabel.Should().Be("Selected people & places");
+        preview.EntityNames.Should().BeEquivalentTo(new[] { "Mum", "Surulere flat" });
+        preview.EntityCount.Should().Be(2);
+        preview.ExpiresAt.Should().Be(invite.ExpiresAt);
+        // No-amounts property: InvitePreviewResponse structurally has no amount / balance / corroboration /
+        // member / document field, so there is nothing to leak — the only disclosure is plain entity names.
+        typeof(InvitePreviewResponse).GetProperties().Select(p => p.Name)
+            .Should().BeEquivalentTo(new[]
+            {
+                nameof(InvitePreviewResponse.OwnerDisplayName), nameof(InvitePreviewResponse.Scope),
+                nameof(InvitePreviewResponse.ScopeLabel), nameof(InvitePreviewResponse.EntityNames),
+                nameof(InvitePreviewResponse.EntityCount), nameof(InvitePreviewResponse.NoAmounts),
+                nameof(InvitePreviewResponse.ExpiresAt),
+            });
+    }
+
+    [Fact]
+    public async Task Preview_ScopeAll_OmitsEntityNames_AndLabelsEverything()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        await SeedOwnerProfileAsync(ctx, owner, "Ama O.");
+        await SeedEntityAsync(ctx, owner, "Mum");
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("all", null, false, "link"));
+
+        var preview = await Circle(ctx, Guid.NewGuid()).PreviewInviteAsync(invite.Token);
+
+        preview!.Scope.Should().Be("all");
+        preview.ScopeLabel.Should().Be("Everything they look after");
+        preview.EntityNames.Should().BeEmpty(); // share-all has no specific list to name
+        preview.EntityCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Preview_CountsDisclosure_HidesNames_KeepsCount()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        await SeedOwnerProfileAsync(ctx, owner, "Ama O.");
+        var mum = await SeedEntityAsync(ctx, owner, "Mum");
+        var flat = await SeedEntityAsync(ctx, owner, "Surulere flat");
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { mum, flat }, false, "link"));
+
+        var preview = await Circle(ctx, Guid.NewGuid(), disclosure: InvitePreviewDisclosure.Counts)
+            .PreviewInviteAsync(invite.Token);
+
+        preview!.EntityNames.Should().BeEmpty();  // dialled back to counts
+        preview.EntityCount.Should().Be(2);        // the count still renders "2 people & places"
+    }
+
+    [Theory]
+    [InlineData("expired")]
+    [InlineData("consumed")]
+    [InlineData("revoked")]
+    [InlineData("unknown")]
+    public async Task Preview_FailClosed_IsIndistinguishableNull_ForEveryNonPendingToken(string kind)
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        await SeedOwnerProfileAsync(ctx, owner, "Ama O.");
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        var token = invite.Token;
+        if (kind == "unknown")
+        {
+            token = "this-token-does-not-exist";
+        }
+        else
+        {
+            var row = await ctx.CircleInvites.FirstAsync(i => i.Token == token);
+            switch (kind)
+            {
+                case "expired": row.ExpiresAt = DateTime.UtcNow.AddDays(-1); break;
+                case "consumed": row.Status = "accepted"; break;
+                case "revoked": row.Status = "revoked"; break;
+            }
+            await ctx.SaveChangesAsync();
+        }
+
+        var preview = await Circle(ctx, Guid.NewGuid()).PreviewInviteAsync(token);
+
+        preview.Should().BeNull(); // one indistinguishable null → one 404 for every case (no oracle)
     }
 }

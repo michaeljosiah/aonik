@@ -3,7 +3,8 @@ using Aonik.SharedKernel.Primitives;
 namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
-/// A signed, single-use, expiring invite to join an owner's circle (Spec 048 §7).
+/// An opaque, single-use, expiring invite to join an owner's circle (Spec 048 §7). The token is a
+/// 256-bit cryptographically-random bearer capability (no signature/MAC — the DB row is the record of truth).
 /// Carries the grant terms; on accept it materialises a <see cref="CircleGrant"/>.
 /// The link rides the OS share sheet (WhatsApp-first); email/phone are delivery hints.
 /// </summary>

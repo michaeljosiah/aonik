@@ -219,4 +219,143 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    // ── Spec 061: anonymous invite preview + accept hardening ───────────
+
+    private static async Task<string> CreateInviteAsync(HttpClient ownerClient, string scope, Guid entityId, bool noAmounts)
+    {
+        var invite = await (await ownerClient.PostAsJsonAsync(
+            "/personal-finance/circle/invites",
+            new CreateCircleInviteRequest(scope, new[] { entityId }, noAmounts, "link")))
+            .Content.ReadFromJsonAsync<CircleInviteResponse>();
+        return invite!.Token;
+    }
+
+    [Fact]
+    public async Task Preview_Anonymous_ValidInvite_Returns200_WithScopeAndEntityNames_NoMoney()
+    {
+        // The whole point of Spec 061: a SIGNED-OUT recipient (no JWT, no tenant header) can
+        // preview an invite. This exercises the TenantValidationMiddleware whitelist + the
+        // tenant-from-token resolution end-to-end through the real pipeline.
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient, "Surulere flat");
+        var token = await CreateInviteAsync(ownerClient, "docsOnly", entityId, noAmounts: true);
+
+        var anon = _factory.CreateClient(); // no Authorization header, no X-Tenant-Id
+        var response = await anon.GetAsync($"/personal-finance/circle/invites/{token}/preview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // No amount-bearing field may appear in an anonymous preview payload (§5).
+        var rawJson = (await response.Content.ReadAsStringAsync()).ToLowerInvariant();
+        rawJson.Should().NotContain("total");
+        rawJson.Should().NotContain("balance");
+        rawJson.Should().NotContain("currency");
+        rawJson.Should().NotContain("recentlogs");
+
+        var preview = await response.Content.ReadFromJsonAsync<InvitePreviewResponse>();
+        preview!.Scope.Should().Be("docsOnly");
+        preview.ScopeLabel.Should().Be("Documents only");
+        preview.EntityNames.Should().ContainSingle().Which.Should().Be("Surulere flat");
+        preview.EntityCount.Should().Be(1);
+        preview.NoAmounts.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Preview_ScopeAll_OmitsEntityNames_AndLabelsEverything()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var token = await CreateInviteAsync(ownerClient, "all", entityId, noAmounts: false);
+
+        var preview = await (await _factory.CreateClient().GetAsync($"/personal-finance/circle/invites/{token}/preview"))
+            .Content.ReadFromJsonAsync<InvitePreviewResponse>();
+
+        preview!.Scope.Should().Be("all");
+        preview.ScopeLabel.Should().Be("Everything they look after");
+        preview.EntityNames.Should().BeEmpty(); // scope=all shares everything — no specific list to name
+    }
+
+    [Fact]
+    public async Task Preview_UnknownToken_Returns404_FailClosed()
+    {
+        var anon = _factory.CreateClient();
+
+        var response = await anon.GetAsync("/personal-finance/circle/invites/this-is-not-a-real-token/preview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Preview_OverLengthToken_Returns404_FailClosed()
+    {
+        // A real token is ~43 chars; anything over the 128 cap is not one we issued and is rejected
+        // as an indistinguishable 404 before it can become a per-token rate-limiter cache key.
+        var anon = _factory.CreateClient();
+        var overLong = new string('A', 200);
+
+        var response = await anon.GetAsync($"/personal-finance/circle/invites/{overLong}/preview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Preview_ConsumedToken_Returns404_FailClosed()
+    {
+        // Fail-closed indistinguishability: once accepted, the same token previews as a plain 404 — no oracle.
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var (memberClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var token = await CreateInviteAsync(ownerClient, "entities", entityId, noAmounts: false);
+
+        var accept = await memberClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
+        accept.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var preview = await _factory.CreateClient().GetAsync($"/personal-finance/circle/invites/{token}/preview");
+        preview.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Accept_ByOwner_Returns409_SelfAccept()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var token = await CreateInviteAsync(ownerClient, "entities", entityId, noAmounts: false);
+
+        // The owner taps their own link: a conflict (409), never their own grant and never a silent 404.
+        var response = await ownerClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Accept_IsIdempotentForSameUser_ButSingleUseAcrossUsers()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var (memberClient, memberId) = await CreateUserAsync(tenant);
+        var (otherClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var token = await CreateInviteAsync(ownerClient, "entities", entityId, noAmounts: false);
+
+        // First accept by the member → their active grant.
+        var first = await memberClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var firstGrant = await first.Content.ReadFromJsonAsync<CircleGrantResponse>();
+
+        // Same member replays the token (Simi cold-start / warm-link) → the SAME grant, not a second one.
+        var replay = await memberClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
+        replay.StatusCode.Should().Be(HttpStatusCode.OK);
+        var replayGrant = await replay.Content.ReadFromJsonAsync<CircleGrantResponse>();
+        replayGrant!.Id.Should().Be(firstGrant!.Id);
+        replayGrant.MemberUserId.Should().Be(memberId);
+
+        // A DIFFERENT user reaching the spent token is fail-closed (single-use) → 404.
+        var other = await otherClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
+        other.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
 }

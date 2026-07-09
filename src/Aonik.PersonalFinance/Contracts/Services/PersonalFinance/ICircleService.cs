@@ -24,12 +24,25 @@ public interface ICircleService
     Task<CircleInviteResponse> CreateInviteAsync(CreateCircleInviteRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The current (authenticated) user accepts an invite token, becoming the
-    /// member of a newly materialised active grant. Returns null if the token is
-    /// invalid, expired, or already consumed. (Unregistered-invitee registration +
-    /// OTP provisioning is a Spec 001 follow-up; accept requires an authenticated user.)
+    /// The anonymous, amount-free headline of an invite (Spec 061 §5) — resolved from the token
+    /// alone (no current user; the tenant is derived from the token's own scoping). Returns null,
+    /// mapped to a single fail-closed 404, when the token is invalid, expired, consumed, or revoked
+    /// — the four cases are indistinguishable, so the endpoint is no enumeration oracle. Never
+    /// carries an amount, member list, or document content.
     /// </summary>
-    Task<CircleGrantResponse?> AcceptInviteAsync(string token, CancellationToken cancellationToken = default);
+    Task<InvitePreviewResponse?> PreviewInviteAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The current (authenticated) user accepts an invite token, becoming the member of a newly
+    /// materialised active grant (Spec 061 §7). Idempotent — a repeat accept by the user who already
+    /// consumed the token returns the existing grant, not a 404. An owner accepting their own invite
+    /// is a <see cref="AcceptInviteStatus.SelfAccept"/> conflict; an invalid/expired/spent token is
+    /// <see cref="AcceptInviteStatus.Invalid"/> (fail-closed). Binding the member, consuming the
+    /// token, and creating the grant commit atomically. Provisioning of an unregistered invitee is
+    /// the standard Spec 001 register + OTP flow, which leaves the platform User resolvable before
+    /// this call — no separate registration step here.
+    /// </summary>
+    Task<AcceptInviteResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default);
 
     /// <summary>The entities the current member may see of an owner, per the grant. Null if no active grant.</summary>
     Task<IReadOnlyList<CareEntityRef>?> ListSharedEntitiesAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
