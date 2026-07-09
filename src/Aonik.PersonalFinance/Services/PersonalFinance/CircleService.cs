@@ -258,8 +258,10 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     /// <summary>
     /// The idempotent / single-use resolution for an already-consumed invite: the grant is returned
-    /// (200) only if it is bound to THIS member; a grant bound to someone else means the token is spent
-    /// for this caller → Invalid (404, fail-closed). A missing grant id is likewise Invalid.
+    /// (200) only if it is bound to THIS member AND still active; a grant bound to someone else, or one
+    /// that has since been revoked, means the token confers nothing for this caller → Invalid (404,
+    /// fail-closed). A missing grant id is likewise Invalid. Returning a revoked grant as a 200 would
+    /// falsely read as "you're in", so the active filter keeps the replay answer honest.
     /// </summary>
     private async Task<AcceptInviteResult> ResolveIdempotentAsync(
         Guid tenantId, Guid memberUserId, Guid? grantId, CancellationToken cancellationToken)
@@ -270,7 +272,9 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         }
 
         var grant = await _dbContext.CircleGrants.AsNoTracking()
-            .FirstOrDefaultAsync(g => g.Id == id && g.TenantId == tenantId && g.MemberUserId == memberUserId, cancellationToken);
+            .FirstOrDefaultAsync(
+                g => g.Id == id && g.TenantId == tenantId && g.MemberUserId == memberUserId && g.Status == "active",
+                cancellationToken);
         return grant is null ? AcceptInviteResult.Invalid : AcceptInviteResult.FromGrant(MapGrant(grant));
     }
 

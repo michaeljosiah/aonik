@@ -147,7 +147,7 @@ internal sealed class CreateCircleInviteEndpoint : Endpoint<CreateCircleInviteRe
         Summary(s =>
         {
             s.Summary = "Create a circle invite link";
-            s.Description = "Mints a signed, single-use, 7-day invite token carrying the grant terms.";
+            s.Description = "Mints an opaque, single-use, 7-day invite token (256-bit random) carrying the grant terms.";
             s.Response(201, "Invite created");
             s.Response(401, "Not authenticated");
             s.Response(422, "Validation error");
@@ -229,6 +229,10 @@ internal sealed class AcceptCircleInviteEndpoint : Endpoint<AcceptCircleInviteRe
 
 internal sealed class GetInvitePreviewEndpoint : EndpointWithoutRequest<InvitePreviewResponse>
 {
+    // A real invite token is 32 random bytes → 43 base64url chars; the accept path caps requests at 128.
+    // Anything longer is not a token we issued: reject it before it can become a rate-limiter cache key.
+    private const int MaxTokenLength = 128;
+
     private readonly ICircleService _service;
     private readonly IInvitePreviewRateLimiter _rateLimiter;
     private readonly ILogger<GetInvitePreviewEndpoint> _logger;
@@ -265,6 +269,16 @@ internal sealed class GetInvitePreviewEndpoint : EndpointWithoutRequest<InvitePr
         var token = Route<string>("token") ?? string.Empty;
         var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var tokenRef = TokenRef(token);
+
+        // Bound the token before it can key the per-token limiter cache: an over-length value is not a
+        // token we issued, so fail it closed as a plain 404 (indistinguishable, no oracle) without letting
+        // over-length spray grow the cache. The per-IP limit still governs valid-length enumeration below.
+        if (token.Length > MaxTokenLength)
+        {
+            _logger.LogInformation("Circle invite preview: outcome=not_found tokenRef={TokenRef} ip={Ip}", tokenRef, clientIp);
+            await Send.NotFoundAsync(ct);
+            return;
+        }
 
         if (!_rateLimiter.ShouldAllow(clientIp, token))
         {

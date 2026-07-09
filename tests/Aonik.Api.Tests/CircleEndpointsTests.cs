@@ -289,6 +289,19 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Preview_OverLengthToken_Returns404_FailClosed()
+    {
+        // A real token is ~43 chars; anything over the 128 cap is not one we issued and is rejected
+        // as an indistinguishable 404 before it can become a per-token rate-limiter cache key.
+        var anon = _factory.CreateClient();
+        var overLong = new string('A', 200);
+
+        var response = await anon.GetAsync($"/personal-finance/circle/invites/{overLong}/preview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Preview_ConsumedToken_Returns404_FailClosed()
     {
         // Fail-closed indistinguishability: once accepted, the same token previews as a plain 404 — no oracle.

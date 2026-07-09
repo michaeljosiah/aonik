@@ -277,6 +277,30 @@ public class CircleServiceTests
     }
 
     [Fact]
+    public async Task AcceptInvite_ReplayAfterRevoke_IsFailClosed_NotAStaleGrant()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        var accepted = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        accepted.Status.Should().Be(AcceptInviteStatus.Accepted);
+
+        // The owner revokes the member's grant.
+        await Circle(ctx, owner).RevokeGrantAsync(accepted.Grant!.Id);
+
+        // Replaying the (still-consumed) token must NOT resurface the now-revoked grant as a 200 "you're in".
+        // A revoked grant confers nothing, so the honest, fail-closed answer is Invalid (404).
+        var replay = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        replay.Status.Should().Be(AcceptInviteStatus.Invalid);
+        replay.Grant.Should().BeNull();
+    }
+
+    [Fact]
     public async Task AcceptInvite_ByOwner_IsSelfAcceptConflict()
     {
         using var ctx = CreateContext();
