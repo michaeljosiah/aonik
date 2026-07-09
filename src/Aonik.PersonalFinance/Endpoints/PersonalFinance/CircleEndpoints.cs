@@ -1,9 +1,13 @@
+using System.Security.Cryptography;
+using System.Text;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Contracts.Services;
+using Aonik.PersonalFinance.Services;
 using Aonik.SharedKernel.Validation;
 using FastEndpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.PersonalFinance.Endpoints;
 
@@ -189,24 +193,113 @@ internal sealed class AcceptCircleInviteEndpoint : Endpoint<AcceptCircleInviteRe
         Summary(s =>
         {
             s.Summary = "Accept a circle invite";
-            s.Description = "The authenticated user accepts a token, becoming the member of an active grant.";
-            s.Response(200, "Invite accepted; grant returned");
+            s.Description = "The authenticated user accepts a token, becoming the member of an active grant. "
+                + "Idempotent — a repeat accept by the same user returns their existing grant (200).";
+            s.Response(200, "Invite accepted (or already accepted by this user); grant returned");
             s.Response(401, "Not authenticated");
-            s.Response(404, "Invite invalid, expired, or already used");
+            s.Response(404, "Invite invalid, expired, or already used by another member");
+            s.Response(409, "You cannot accept your own invite");
         });
         Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(AcceptCircleInviteRequest req, CancellationToken ct)
     {
-        var grant = await _service.AcceptInviteAsync(req.Token, ct);
-        if (grant is null)
+        var result = await _service.AcceptInviteAsync(req.Token, ct);
+        switch (result.Status)
+        {
+            case AcceptInviteStatus.Accepted:
+                await Send.OkAsync(result.Grant!, ct);
+                return;
+
+            case AcceptInviteStatus.SelfAccept:
+                // A state conflict, distinct from an invalid token (404) — you cannot join your own circle.
+                HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+                await HttpContext.Response.WriteAsJsonAsync(new { error = "You cannot accept your own invite." }, ct);
+                return;
+
+            default: // Invalid — fail-closed 404 for invalid / expired / consumed-by-another
+                await Send.NotFoundAsync(ct);
+                return;
+        }
+    }
+}
+
+// ── Preview invite (anonymous, Spec 061 §5) ─────────────────────────
+
+internal sealed class GetInvitePreviewEndpoint : EndpointWithoutRequest<InvitePreviewResponse>
+{
+    private readonly ICircleService _service;
+    private readonly IInvitePreviewRateLimiter _rateLimiter;
+    private readonly ILogger<GetInvitePreviewEndpoint> _logger;
+
+    public GetInvitePreviewEndpoint(
+        ICircleService service,
+        IInvitePreviewRateLimiter rateLimiter,
+        ILogger<GetInvitePreviewEndpoint> logger)
+    {
+        _service = service;
+        _rateLimiter = rateLimiter;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/personal-finance/circle/invites/{token}/preview");
+        AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Preview a circle invite (anonymous)";
+            s.Description = "Fail-closed, rate-limited, amount-free headline of an invite — owner name, scope, "
+                + "shared entity names, expiry — so a signed-out recipient sees what they're joining before "
+                + "signing up. One 404 for any invalid / expired / consumed / revoked token (no oracle).";
+            s.Response(200, "Preview returned");
+            s.Response(404, "Invite invalid, expired, consumed, or revoked");
+            s.Response(429, "Too many preview requests");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var token = Route<string>("token") ?? string.Empty;
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var tokenRef = TokenRef(token);
+
+        if (!_rateLimiter.ShouldAllow(clientIp, token))
+        {
+            _logger.LogWarning("Circle invite preview rate-limited: tokenRef={TokenRef} ip={Ip}", tokenRef, clientIp);
+            HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Too many requests." }, ct);
+            return;
+        }
+
+        var preview = await _service.PreviewInviteAsync(token, ct);
+
+        // Audit the read by a non-reversible token reference (never the raw token) + outcome (§10).
+        _logger.LogInformation(
+            "Circle invite preview: outcome={Outcome} tokenRef={TokenRef} ip={Ip}",
+            preview is null ? "not_found" : "ok", tokenRef, clientIp);
+
+        if (preview is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        await Send.OkAsync(grant, ct);
+        await Send.OkAsync(preview, ct);
+    }
+
+    /// <summary>A short, non-reversible reference to the token for audit correlation — never the raw secret.</summary>
+    private static string TokenRef(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return "empty";
+        }
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexStringLower(hash)[..12];
     }
 }
 

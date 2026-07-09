@@ -77,6 +77,21 @@ public class TenantValidationMiddleware
                 return;
             }
 
+            // Skip the anonymous circle-invite PREVIEW (Spec 061). Like /auth/token
+            // above, this is a pre-tenant endpoint: the invitee holds only the invite
+            // link, so the tenant is resolved from the 256-bit token INSIDE the handler,
+            // not from a JWT or subdomain. Only the .../{token}/preview sub-path is
+            // un-gated — the sibling POST invites (create) and .../accept are
+            // authenticated, tenant-scoped, and must stay validated.
+            // See src/Aonik.PersonalFinance/Endpoints/PersonalFinance/CircleEndpoints.cs.
+            if (context.Request.Path.StartsWithSegments("/personal-finance/circle/invites", out var circleInviteRest) &&
+                circleInviteRest.HasValue &&
+                circleInviteRest.Value.EndsWith("/preview", StringComparison.Ordinal))
+            {
+                await _next(context);
+                return;
+            }
+
             // Tenant should already be resolved by TenantContextMiddleware
             if (!tenantContext.IsResolved || tenantContext.TenantId is null)
             {

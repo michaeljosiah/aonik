@@ -36,6 +36,48 @@ public record CircleInviteResponse(
     DateTime ExpiresAt,
     string Status);
 
+/// <summary>
+/// The anonymous, amount-free headline of an invite (Spec 061 §5) — enough to render
+/// "someone shared X with you" before sign-up, nothing more. It carries NO amount,
+/// balance, corroboration, member list, or document content: the preview is a headline,
+/// not a view. <see cref="EntityNames"/> is the one deliberate disclosure (governed by the
+/// <c>InvitePreviewDisclosure</c> switch); it is empty for scope=all and in Counts mode,
+/// and never carries amounts.
+/// </summary>
+public record InvitePreviewResponse(
+    string OwnerDisplayName,
+    string Scope,
+    string ScopeLabel,
+    IReadOnlyList<string> EntityNames,
+    int EntityCount,
+    bool NoAmounts,
+    DateTime ExpiresAt);
+
+/// <summary>
+/// The outcome of an invite accept (Spec 061 §7). The endpoint maps it to a status code so the
+/// three cases stay distinct: a bound grant is 200, an invalid/spent token is a fail-closed 404,
+/// and an owner accepting their own invite is a 409 (a state conflict, not a bad token).
+/// </summary>
+public enum AcceptInviteStatus
+{
+    /// <summary>Bound, or already bound by this same user (idempotent) — <see cref="AcceptInviteResult.Grant"/> is set. → 200.</summary>
+    Accepted,
+
+    /// <summary>Token invalid, expired, or already consumed by a different user (fail-closed, no oracle). → 404.</summary>
+    Invalid,
+
+    /// <summary>The caller is the invite's owner — you cannot be a member of your own circle. → 409.</summary>
+    SelfAccept,
+}
+
+/// <summary>Discriminated accept result — <see cref="Grant"/> is non-null iff <see cref="Status"/> is Accepted.</summary>
+public record AcceptInviteResult(AcceptInviteStatus Status, CircleGrantResponse? Grant)
+{
+    public static AcceptInviteResult FromGrant(CircleGrantResponse grant) => new(AcceptInviteStatus.Accepted, grant);
+    public static readonly AcceptInviteResult Invalid = new(AcceptInviteStatus.Invalid, null);
+    public static readonly AcceptInviteResult SelfAccept = new(AcceptInviteStatus.SelfAccept, null);
+}
+
 /// <summary>The resolved grant for (member → owner) — the input to the visibility filter.</summary>
 public record CircleGrantView(
     Guid OwnerUserId,

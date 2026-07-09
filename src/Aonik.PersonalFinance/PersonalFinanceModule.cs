@@ -72,6 +72,10 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<CircleService>();
         services.AddScoped<ICircleService>(sp => sp.GetRequiredService<CircleService>());
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());
+        // Spec 061: anonymous invite preview — the disclosure/rate-limit switches and the
+        // per-IP + per-token limiter (in-memory, singleton so its counters persist across requests).
+        services.AddOptions<CircleInviteOptions>().BindConfiguration(CircleInviteOptions.SectionName);
+        services.AddSingleton<IInvitePreviewRateLimiter, InvitePreviewRateLimiter>();
         services.AddScoped<ISupportStatementService, SupportStatementService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<ICommitmentService, CommitmentService>();
