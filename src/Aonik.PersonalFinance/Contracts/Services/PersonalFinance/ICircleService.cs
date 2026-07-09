@@ -18,10 +18,22 @@ public interface ICircleService
     /// <summary>Grants where the current user is the member — "Can see".</summary>
     Task<IReadOnlyList<CircleGrantResponse>> ListGrantsForMemberAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Revokes a grant the current user owns (effective immediately). False if not owned.</summary>
+    /// <summary>
+    /// Revokes a grant the current user owns (effective immediately). Also revokes the originating
+    /// invite so its (consumed) token is unambiguously dead. False if not owned.
+    /// </summary>
     Task<bool> RevokeGrantAsync(Guid grantId, CancellationToken cancellationToken = default);
 
     Task<CircleInviteResponse> CreateInviteAsync(CreateCircleInviteRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rescinds a still-pending invite the current user owns, marking its token dead
+    /// (<c>Status = "revoked"</c>) so preview and accept both fail closed. Idempotent for an
+    /// already-revoked invite. False if not found / not owned (→ 404); throws
+    /// <see cref="Aonik.SharedKernel.Abstractions.InvalidStateException"/> (→ 422) if the invite is
+    /// already accepted or expired — an accepted share is cut by revoking the grant instead.
+    /// </summary>
+    Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The anonymous, amount-free headline of an invite (Spec 061 §5) — resolved from the token

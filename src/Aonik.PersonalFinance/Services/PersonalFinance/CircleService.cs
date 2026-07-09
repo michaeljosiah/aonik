@@ -106,6 +106,49 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         }
 
         grant.Status = "revoked";
+
+        // Revoking the grant also kills the token that minted it: flip the originating invite to
+        // "revoked" so a replay of the (consumed) token is unambiguously dead and the audit trail is
+        // coherent — one invite maps to one grant. Committed in the same save as the grant.
+        var originatingInvite = await _dbContext.CircleInvites
+            .FirstOrDefaultAsync(i => i.GrantId == grantId && i.TenantId == tenantId, cancellationToken);
+        if (originatingInvite is not null && originatingInvite.Status != "revoked")
+        {
+            originatingInvite.Status = "revoked";
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default)
+    {
+        var (tenantId, ownerUserId) = GetContext();
+        var invite = await _dbContext.CircleInvites
+            .FirstOrDefaultAsync(i => i.Id == inviteId && i.TenantId == tenantId && i.OwnerUserId == ownerUserId, cancellationToken);
+
+        // Not found / not owned / wrong tenant → false → 404 (existence not revealed to a non-owner).
+        if (invite is null)
+        {
+            return false;
+        }
+
+        // Idempotent: revoking an already-revoked invite is a no-op success (a DELETE can be retried).
+        if (invite.Status == "revoked")
+        {
+            return true;
+        }
+
+        // Only a live, pending offer can be rescinded. An accepted invite is a spent token whose access
+        // lives in the grant — the owner cuts that by revoking the GRANT (which now cascades here). An
+        // expired invite is already dead. Either way this is a state conflict (422), not a bad id (404).
+        if (invite.Status != "pending")
+        {
+            throw new InvalidStateException(
+                $"An invite that is already '{invite.Status}' cannot be revoked; revoke the grant instead.");
+        }
+
+        invite.Status = "revoked";
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
