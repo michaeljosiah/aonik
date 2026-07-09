@@ -28,10 +28,12 @@ public interface ICircleService
 
     /// <summary>
     /// Rescinds a still-pending invite the current user owns, marking its token dead
-    /// (<c>Status = "revoked"</c>) so preview and accept both fail closed. Idempotent for an
-    /// already-revoked invite. False if not found / not owned (→ 404); throws
+    /// (<c>Status = "revoked"</c>) so preview and accept both fail closed. A pending invite is
+    /// revoked even once past its expiry instant (killing a stale offer is the friendlier answer).
+    /// Idempotent for an already-revoked invite. False if not found / not owned (→ 404); throws
     /// <see cref="Aonik.SharedKernel.Abstractions.InvalidStateException"/> (→ 422) if the invite is
-    /// already accepted or expired — an accepted share is cut by revoking the grant instead.
+    /// no longer pending because it was already accepted (cut that share by revoking its grant
+    /// instead) or was previously marked expired by a failed accept.
     /// </summary>
     Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default);
 

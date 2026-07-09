@@ -148,11 +148,12 @@ internal sealed class RevokeCircleInviteEndpoint : EndpointWithoutRequest
         {
             s.Summary = "Rescind a pending circle invite";
             s.Description = "Marks the owner's still-pending invite token dead so preview and accept both fail closed. "
-                + "Idempotent. An already-accepted invite is cut by revoking its grant instead (422).";
+                + "Idempotent, and still revokes a pending invite that is past its expiry. An already-accepted "
+                + "invite is cut by revoking its grant instead (422).";
             s.Response(204, "Revoked (or already revoked)");
             s.Response(401, "Not authenticated");
             s.Response(404, "Invite not found");
-            s.Response(422, "Invite already accepted or expired — revoke the grant instead");
+            s.Response(422, "Invite already accepted — revoke the grant instead");
         });
         Options(x => x.WithTags("Personal Finance"));
     }

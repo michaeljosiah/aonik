@@ -396,4 +396,21 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         var revoke = await ownerClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
         revoke.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
+
+    [Fact]
+    public async Task RevokeInvite_CrossTenant_IsNotFound()
+    {
+        var (ownerClient, _) = await CreateUserAsync(Guid.NewGuid());
+        var (otherTenantClient, _) = await CreateUserAsync(Guid.NewGuid());
+        var entityId = await CreateEntityAsync(ownerClient);
+        var invite = await CreateInviteFullAsync(ownerClient, "entities", entityId);
+
+        // A user in a DIFFERENT tenant cannot revoke this invite — tenant isolation → 404, untouched.
+        var crossTenant = await otherTenantClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        crossTenant.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Proof it was never touched: the real owner can still revoke it (204).
+        var ownerRevoke = await ownerClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        ownerRevoke.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
 }
