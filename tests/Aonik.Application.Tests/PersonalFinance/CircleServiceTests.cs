@@ -320,6 +320,94 @@ public class CircleServiceTests
     }
 
     [Fact]
+    public async Task RevokeInvite_ByOwner_MarksTokenDead_PreviewAndAcceptFailClosed()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        var revoked = await Circle(ctx, owner).RevokeInviteAsync(invite.Id);
+        revoked.Should().BeTrue();
+        (await ctx.CircleInvites.FirstAsync()).Status.Should().Be("revoked");
+
+        // The rescinded token is now dead for BOTH the anonymous preview and an authenticated accept.
+        (await Circle(ctx, owner).PreviewInviteAsync(invite.Token)).Should().BeNull();
+        var accept = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        accept.Status.Should().Be(AcceptInviteStatus.Invalid);
+        (await ctx.CircleGrants.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RevokeInvite_ByNonOwner_IsNotFound()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var stranger = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        // A different user cannot rescind someone else's invite — not-found (existence not revealed).
+        (await Circle(ctx, stranger).RevokeInviteAsync(invite.Id)).Should().BeFalse();
+        (await ctx.CircleInvites.FirstAsync()).Status.Should().Be("pending");
+    }
+
+    [Fact]
+    public async Task RevokeInvite_IsIdempotent()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        (await Circle(ctx, owner).RevokeInviteAsync(invite.Id)).Should().BeTrue();
+        // A retried DELETE on the already-revoked invite is a no-op success, not an error.
+        (await Circle(ctx, owner).RevokeInviteAsync(invite.Id)).Should().BeTrue();
+        (await ctx.CircleInvites.FirstAsync()).Status.Should().Be("revoked");
+    }
+
+    [Fact]
+    public async Task RevokeInvite_AlreadyAccepted_ThrowsInvalidState()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+        await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+
+        // An accepted invite is a spent token; rescinding it as "pending" is a state conflict (422).
+        // The owner cuts the live share by revoking the grant instead.
+        var act = () => Circle(ctx, owner).RevokeInviteAsync(invite.Id);
+        await act.Should().ThrowAsync<InvalidStateException>();
+    }
+
+    [Fact]
+    public async Task RevokeGrant_CascadesToOriginatingInvite()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+        var accepted = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+
+        // Revoking the grant flips the originating invite to "revoked" too — one invite, one grant,
+        // one coherent audit trail; the consumed token is left unambiguously dead.
+        (await Circle(ctx, owner).RevokeGrantAsync(accepted.Grant!.Id)).Should().BeTrue();
+        (await ctx.CircleInvites.FirstAsync(i => i.Id == invite.Id)).Status.Should().Be("revoked");
+
+        var replay = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        replay.Status.Should().Be(AcceptInviteStatus.Invalid);
+    }
+
+    [Fact]
     public async Task DocsOnlyGrant_ReturnsAmountFreeView_TheSecurityProperty()
     {
         using var ctx = CreateContext();

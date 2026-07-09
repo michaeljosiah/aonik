@@ -358,4 +358,59 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         var other = await otherClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token });
         other.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    private static async Task<CircleInviteResponse> CreateInviteFullAsync(HttpClient ownerClient, string scope, Guid entityId)
+        => (await (await ownerClient.PostAsJsonAsync(
+            "/personal-finance/circle/invites",
+            new CreateCircleInviteRequest(scope, new[] { entityId }, false, "link")))
+            .Content.ReadFromJsonAsync<CircleInviteResponse>())!;
+
+    [Fact]
+    public async Task RevokeInvite_ByOwner_Returns204_AndPreviewThen404()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var invite = await CreateInviteFullAsync(ownerClient, "entities", entityId);
+
+        var revoke = await ownerClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        revoke.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // The rescinded token now previews as a plain fail-closed 404 for a signed-out recipient.
+        var preview = await _factory.CreateClient().GetAsync($"/personal-finance/circle/invites/{invite.Token}/preview");
+        preview.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RevokeInvite_AlreadyAccepted_Returns422()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, _) = await CreateUserAsync(tenant);
+        var (memberClient, _) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        var invite = await CreateInviteFullAsync(ownerClient, "entities", entityId);
+        (await memberClient.PostAsJsonAsync("/personal-finance/circle/invites/accept", new { token = invite.Token }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // An accepted invite is a spent token — rescinding it as pending is a 422; revoke the grant instead.
+        var revoke = await ownerClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        revoke.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+    }
+
+    [Fact]
+    public async Task RevokeInvite_CrossTenant_IsNotFound()
+    {
+        var (ownerClient, _) = await CreateUserAsync(Guid.NewGuid());
+        var (otherTenantClient, _) = await CreateUserAsync(Guid.NewGuid());
+        var entityId = await CreateEntityAsync(ownerClient);
+        var invite = await CreateInviteFullAsync(ownerClient, "entities", entityId);
+
+        // A user in a DIFFERENT tenant cannot revoke this invite — tenant isolation → 404, untouched.
+        var crossTenant = await otherTenantClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        crossTenant.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Proof it was never touched: the real owner can still revoke it (204).
+        var ownerRevoke = await ownerClient.DeleteAsync($"/personal-finance/circle/invites/{invite.Id}");
+        ownerRevoke.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
 }

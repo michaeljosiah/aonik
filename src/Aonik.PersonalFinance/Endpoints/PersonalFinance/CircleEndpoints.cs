@@ -133,6 +133,44 @@ internal sealed class RevokeCircleGrantEndpoint : EndpointWithoutRequest
     }
 }
 
+// ── Revoke invite ───────────────────────────────────────────────────
+
+internal sealed class RevokeCircleInviteEndpoint : EndpointWithoutRequest
+{
+    private readonly ICircleService _service;
+    public RevokeCircleInviteEndpoint(ICircleService service) => _service = service;
+
+    public override void Configure()
+    {
+        Delete("/personal-finance/circle/invites/{id}");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Rescind a pending circle invite";
+            s.Description = "Marks the owner's still-pending invite token dead so preview and accept both fail closed. "
+                + "Idempotent, and still revokes a pending invite that is past its expiry. An already-accepted "
+                + "invite is cut by revoking its grant instead (422).";
+            s.Response(204, "Revoked (or already revoked)");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Invite not found");
+            s.Response(422, "Invite already accepted — revoke the grant instead");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var revoked = await _service.RevokeInviteAsync(Route<Guid>("id"), ct);
+        if (!revoked)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.NoContentAsync(ct);
+    }
+}
+
 // ── Create invite ───────────────────────────────────────────────────
 
 internal sealed class CreateCircleInviteEndpoint : Endpoint<CreateCircleInviteRequest, CircleInviteResponse>
