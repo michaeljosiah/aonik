@@ -237,9 +237,11 @@
 </ol>
 <p>Server obligations:</p>
 <ul>
-  <li>A just-provisioned user must be resolvable by <code>ICurrentUserProvider</code> on the <em>immediately following</em>
-    accept — no window where the IdP token is valid but the platform User is not yet queryable in the tenant. If
-    provisioning is lazy (first-call), accept must trigger/await it rather than 404.</li>
+  <li>Accept resolves the member via <code>ICurrentUserContext.UserId</code> (through <code>HttpContextCurrentUserProvider</code>)
+    — the <em>platform</em> User Guid that <code>CircleGrant.MemberUserId</code> stores, not the IdP subject. So
+    provisioning must run in the auth pipeline (populating <code>ICurrentUserContext</code>) <strong>before</strong> the
+    handler: on a fresh consumer's first authenticated call <code>UserId</code> must already be set, or accept 404s on a
+    token that is in fact valid. No lazy in-handler window.</li>
   <li><strong>OTP transport (decided):</strong> follow the invite's <code>Channel</code> hint — <code>email</code> →
     email OTP (#192), <code>phone</code> → SMS OTP (#193); when the hint is <code>link</code>, fall back to the
     registration default (phone OTP). A provisioned member <strong>must</strong> hold at least one verified contact —
