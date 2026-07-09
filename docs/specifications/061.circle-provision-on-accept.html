@@ -59,7 +59,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 061</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 2 — decisions resolved)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Priority: P1 (Simi launch-gating)</span>
   <span class="meta-tag">Domain: PersonalFinance + Identity / Simi</span>
@@ -220,17 +220,39 @@
 </p>
 <h3>6.1 Parked-token registration (baseline)</h3>
 <p><span class="tag extend">extend</span>
-  The mobile client parks the token and, after the recipient registers (Auth0 sign-up + phone OTP via ACS SMS
-  <a href="../simi-launch-plan.html">#193</a>, or email <em>#192</em>), calls <code>accept</code> as the now-authenticated
-  user (Simi Spec 049 already implements the park/resume). The server obligations:</p>
+  The recipient becomes a member through the <strong>standard Simi consumer registration</strong>, with the parked token
+  replayed to accept immediately after. No new identity plumbing — the circle invite rides on what Spec&nbsp;001 already
+  provides:</p>
+<ol>
+  <li><strong>Sign up (IdP).</strong> Auth0 sign-up, then contact verification via the Identity OTP endpoints —
+    <code>StartPhoneVerification</code> / <code>ConfirmPhoneVerification</code> (SMS, #193) or the email pair (#192).</li>
+  <li><strong>Provision (platform).</strong> On the first authenticated call <code>IUserIdentityService</code> resolves
+    the principal and <code>IdpUserProvisionerFactory</code> (<code>Auth0UserProvisioner</code>) provisions the User —
+    the "provision if needed" step of Spec&nbsp;001. Every Simi consumer is a User in the <strong>single Simi tenant</strong>
+    (both clients pin one <code>SIMI_TENANT_ID</code>), so a tenant-scoped <code>CircleGrant</code> binds owner → member
+    with no cross-tenant path.</li>
+  <li><strong>Accept.</strong> The client (Simi Spec&nbsp;049) replays the parked token to
+    <code>POST /personal-finance/circle/invites/accept</code> as the now-provisioned user; §7's hardened accept binds the
+    member and returns the grant.</li>
+</ol>
+<p>Server obligations:</p>
 <ul>
-  <li>A freshly-registered user can accept <em>immediately</em> — no eventual-consistency window between
-    identity creation and <code>ICurrentUserProvider</code> resolving the new user within the tenant.</li>
+  <li>A just-provisioned user must be resolvable by <code>ICurrentUserProvider</code> on the <em>immediately following</em>
+    accept — no window where the IdP token is valid but the platform User is not yet queryable in the tenant. If
+    provisioning is lazy (first-call), accept must trigger/await it rather than 404.</li>
   <li><strong>OTP transport (decided):</strong> follow the invite's <code>Channel</code> hint — <code>email</code> →
     email OTP (#192), <code>phone</code> → SMS OTP (#193); when the hint is <code>link</code>, fall back to the
     registration default (phone OTP). A provisioned member <strong>must</strong> hold at least one verified contact —
     no unverified members.</li>
 </ul>
+<div class="callout">
+  <span class="callout-label">Precedent — Spec 026 Part 1 (identity invites)</span>
+  <code>POST /identity/invite/accept</code> already implements "IdP-authenticated but no active platform identity yet →
+  consume a one-shot token → link onto a pending <em>placeholder</em> User → active user"
+  (<code>InviteAcceptanceService</code>, <code>IPendingTenantUserProvisioner</code>). The circle <em>baseline</em> does
+  not need the placeholder — a Simi consumer self-registers their own User — but that is exactly the machinery §6.2
+  (deferred) would reuse to pre-provision a pending grant and link it on first login.
+</div>
 <h3>6.2 Pre-provisioned pending grant + claim-on-register (deferred)</h3>
 <p><span class="tag gap">deferred</span>
   A future durability option, <strong>not built in this spec</strong>: because <code>CircleGrant.MemberUserId</code> is
@@ -271,7 +293,7 @@
   <tbody>
     <tr><td><code>GET /personal-finance/circle/invites/{token}/preview</code></td><td><strong>Anonymous</strong></td><td><span class="tag new">new</span> → <code>InvitePreviewResponse</code>; <code>404</code> fail-closed; rate-limited.</td></tr>
     <tr><td><code>POST /personal-finance/circle/invites/accept</code></td><td>UserPolicy</td><td><span class="tag extend">extend</span> idempotent + self-accept guard + atomic bind. Same route/DTO.</td></tr>
-    <tr><td>Registration (Identity module, Spec 001)</td><td>Anonymous → OTP</td><td><span class="tag extend">extend</span> ensure a just-registered user can accept immediately; carry the invite context through sign-up.</td></tr>
+    <tr><td>Consumer registration (Identity, Spec 001) + accept replay</td><td>IdP sign-up → OTP</td><td><span class="tag extend">extend</span> guarantee a just-provisioned User is resolvable on the immediately-following accept (no window); client carries the parked token (Simi 049). No new register endpoint.</td></tr>
   </tbody>
 </table>
 <p>
@@ -315,7 +337,7 @@
   <li><span class="tag new">new</span> <code>GetInvitePreviewEndpoint</code> (<code>AllowAnonymous</code>, tenant-from-token, 404 fail-closed).</li>
   <li><span class="tag new">new</span> Rate-limiting policy for the anonymous preview (per-IP + per-token).</li>
   <li><span class="tag extend">extend</span> <code>AcceptInviteAsync</code>: idempotency, self-accept guard, single-use, atomic bind.</li>
-  <li><span class="tag extend">extend</span> Registration/OTP (Identity, Spec 001): invite-aware sign-up; a new user can accept immediately; prefer the invite's <code>Channel</code> transport.</li>
+  <li><span class="tag extend">extend</span> Guarantee a just-provisioned consumer (Auth0 + OTP → <code>IdpUserProvisionerFactory</code>) is resolvable by <code>ICurrentUserProvider</code> on the immediately-following accept; prefer the invite's <code>Channel</code> OTP transport. Reuses Spec 001 / Spec 026 provisioning — no new register endpoint.</li>
   <li><span class="tag gap">deferred (§6.2)</span> <code>CircleInvite.ContactValue</code> + migration + claim-on-verified-register binding — not built in this spec.</li>
   <li><span class="tag existing">existing</span> Tests (§11) + update <code>ICircleService</code> XML doc that currently defers this work.</li>
 </ol>
@@ -358,14 +380,15 @@
 <h2 id="refs">15. References</h2>
 <ul>
   <li><a href="048.circle-entity-scoped-sharing.html">Spec 048 — The Circle: entity-scoped sharing &amp; the Support Statement</a> (the model, the fail-closed filter, the no-amounts property this spec preserves).</li>
-  <li>Spec 001 — Identity &amp; Auth (registration, phone/email OTP, the <code>AcceptInvite</code> pattern this reuses).</li>
+  <li>Spec 001 — Identity &amp; Auth (Auth0/Entra sign-up, <code>StartPhone/EmailVerification</code> OTP, <code>IUserIdentityService</code> + <code>IdpUserProvisionerFactory</code> "provision if needed").</li>
+  <li>Spec 026 Part 1 — <code>POST /identity/invite/accept</code> placeholder link-on-first-login (<code>InviteAcceptanceService</code>, <code>IPendingTenantUserProvisioner</code>): the provisioning precedent §6.1 mirrors and §6.2 would reuse.</li>
   <li><strong>Simi Spec 049</strong> — circle invite deep link + parked-token resume (the mobile client half; note: distinct from aonik's own Spec 049).</li>
   <li><a href="../simi-launch-plan.html">Simi launch-readiness register</a> §8 — "the invite loop's last mile" (aonik #197 · Simi #5 · #20 · #22).</li>
   <li>aonik #197 (this spec) · aonik #191–193 (FCM/SMS/email transports it consumes) · Simi #22 (web hosting of the landing + association files).</li>
 </ul>
 
 <footer>
-  Spec 061 · Draft (Rev 2 — decisions resolved) · Domain: PersonalFinance + Identity / Simi · Refs aonik #197. Server half of the circle
+  Spec 061 · Draft (Rev 3) · Domain: PersonalFinance + Identity / Simi · Refs aonik #197. Server half of the circle
   invite last mile; pairs with Simi Spec 049 (client) and Simi #22 (web). Preserves Spec 048's fail-closed no-amounts
   property without exception.
 </footer>
