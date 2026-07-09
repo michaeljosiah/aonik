@@ -59,7 +59,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 061</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 2 — decisions resolved)</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Priority: P1 (Simi launch-gating)</span>
   <span class="meta-tag">Domain: PersonalFinance + Identity / Simi</span>
@@ -71,7 +71,7 @@
     invite loop's <strong>last mile</strong> on the server: a stranger holding a token must be able to (1) see, without
     an account, exactly what is being shared, and (2) go from token to registered member in one uninterrupted flow.
     Pairs with <strong>Simi Spec&nbsp;049</strong> (the mobile deep link + parked-token resume) and the web landing
-    (<a href="../simi-launch-plan.html">launch register</a> §8, Simi&nbsp;#22). Closes <strong>aonik&nbsp;#197</strong>.
+    (<a href="../simi-launch-plan.html">launch register</a> §8, Simi&nbsp;#22). Specifies the server half of <strong>aonik&nbsp;#197</strong>.
     The client contract already exists — this spec is the server half.
   </p>
 </header>
@@ -100,7 +100,7 @@
     <li><a href="#testing">Enforcement &amp; testing</a></li>
     <li><a href="#tasks">Tasks</a></li>
     <li><a href="#acceptance">Acceptance criteria</a></li>
-    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#decisions">Decisions</a></li>
     <li><a href="#refs">References</a></li>
   </ol>
 </nav>
@@ -157,11 +157,10 @@
   <li>Anonymous <code>GET .../invites/{token}/preview</code> — fail-closed, rate-limited, amount-free.</li>
   <li>Invite-aware registration: the parked token survives Auth0 sign-up + OTP; first accept provisions the member.</li>
   <li>Accept hardening: idempotency, self-accept guard, single-use, member binding.</li>
-  <li>Optional pre-provisioned <code>pending</code> grant + claim-on-register when the invite carries a verified
-    contact (see §6, gated by an open decision).</li>
 </ul>
 <h4>Out</h4>
 <ul>
+  <li>Pre-provisioned pending grants + claim-on-register (§6.2) — <strong>deferred</strong>; the parked-token baseline (§6.1) already meets #197's launch need.</li>
   <li>New scopes or any change to the visibility filter / no-amounts property (Spec&nbsp;048, unchanged).</li>
   <li>Deferred deep linking across a store install (token preservation through the App/Play Store is a client concern;
     a vendor like Branch is explicitly out of scope — see Simi&nbsp;#22).</li>
@@ -199,7 +198,7 @@
   ownerDisplayName : string      // e.g. "Ama O." — from the owner's profile display name
   scope            : "all" | "entities" | "docsOnly"
   scopeLabel       : string      // "Everything they look after" | "Selected people & places" | "Documents only"
-  entityNames      : string[]    // names only; [] for scope=all; never for docsOnly if names leak amounts context
+  entityNames      : string[]    // present when disclosure=Names; [] for scope=all; names only, never amounts
   entityCount      : int
   noAmounts        : bool        // always true for docsOnly; echoes the grant term
   expiresAt        : datetime
@@ -208,9 +207,10 @@
 <ul>
   <li>No amounts, balances, corroboration, member lists, or document contents — ever. The preview is a headline, not a
     view. The scoped <em>view</em> stays behind <code>UserPolicy</code> + the Spec 048 filter, unchanged.</li>
-  <li>Entity <em>names</em> are the one deliberate disclosure (they mirror the mobile accept screen's "they shared: X").
-    Whether even names are too much for a bearer token is an <a href="#open">open decision</a> — the fallback is counts
-    only ("2 people &amp; places").</li>
+  <li>Entity <em>names</em> are the one deliberate disclosure (they mirror the mobile accept screen's "they shared: X")
+    and read warmer than a bare count. Governed by a single server-side switch <code>InvitePreviewDisclosure</code> =
+    <code>Names</code> (default) | <code>Counts</code>, so a tenant can dial back to "2 people &amp; places" without a
+    code change if abuse appears. Names never carry amounts.</li>
   <li>Rate-limited per IP and per token (see §10). Reads are logged.</li>
 </ul>
 
@@ -226,16 +226,19 @@
 <ul>
   <li>A freshly-registered user can accept <em>immediately</em> — no eventual-consistency window between
     identity creation and <code>ICurrentUserProvider</code> resolving the new user within the tenant.</li>
-  <li>The invite's <code>Channel</code> hint (email|phone) informs which OTP transport the registration flow prefers,
-    so the provisioned member verifies the same contact the owner addressed.</li>
+  <li><strong>OTP transport (decided):</strong> follow the invite's <code>Channel</code> hint — <code>email</code> →
+    email OTP (#192), <code>phone</code> → SMS OTP (#193); when the hint is <code>link</code>, fall back to the
+    registration default (phone OTP). A provisioned member <strong>must</strong> hold at least one verified contact —
+    no unverified members.</li>
 </ul>
-<h3>6.2 Pre-provisioned pending grant + claim-on-register (optional, open decision)</h3>
-<p><span class="tag new">new</span>
-  Because <code>CircleGrant.MemberUserId</code> is nullable and <code>Status</code> may be <code>pending</code>, an invite
-  that carries a <em>verified</em> contact can pre-materialise a <code>pending</code> grant. When a user later registers
-  and <strong>verifies that same contact</strong> (OTP), the grant binds automatically — the share is durable and
-  claimable even if the token is mislaid. This is gated on an open decision (§13): auto-binding on contact match has
-  real privacy weight and must require a <em>verified</em> match, never a bare email string.</p>
+<h3>6.2 Pre-provisioned pending grant + claim-on-register (deferred)</h3>
+<p><span class="tag gap">deferred</span>
+  A future durability option, <strong>not built in this spec</strong>: because <code>CircleGrant.MemberUserId</code> is
+  nullable and <code>Status</code> may be <code>pending</code>, an invite carrying a verified contact could pre-materialise
+  a <code>pending</code> grant that auto-binds when that contact later registers and verifies (OTP), so a share survives a
+  mislaid token. Deferred because §6.1 already meets #197's launch-gating need, and it adds a schema field
+  (<code>ContactValue</code>) plus real privacy weight — any auto-bind must require a <em>verified</em> contact match,
+  never a bare email string. Revisit when a real "invite lands before the app" case appears.</p>
 
 <h2 id="accept">7. Hardening accept (idempotency &amp; guards)</h2>
 <p><span class="tag extend">extend</span> <code>AcceptInviteAsync</code> / <code>POST .../invites/accept</code>:</p>
@@ -244,7 +247,7 @@
     existing grant (<code>200</code>), not <code>404</code>. This is essential: the parked-token resume can fire more
     than once (cold start + warm link), and a store round-trip can replay the request.</li>
   <li><strong>Self-accept guard.</strong> If the current user is the invite's <code>OwnerUserId</code>, reject with
-    <code>409</code> (or <code>422</code>) — you cannot be a member of your own circle.</li>
+    <code>409 Conflict</code> (a state conflict, not a validation error) — you cannot be a member of your own circle.</li>
   <li><strong>Single-use across users.</strong> A <em>different</em> user accepting an already-consumed invite gets
     <code>404</code> (fail-closed; the invite is spent).</li>
   <li><strong>Atomic binding.</strong> Materialising the grant, setting the invite <code>Status = accepted</code>,
@@ -257,7 +260,7 @@
   <tbody>
     <tr><td><span class="tag existing">existing</span> <code>CircleGrant.MemberUserId</code> nullable + <code>pending</code> status</td><td>Already present (Spec 048). Reused for pre-provisioned grants; no change.</td><td>none</td></tr>
     <tr><td><span class="tag existing">existing</span> <code>CircleInvite.Status</code> / <code>ConsumedAt</code> / <code>GrantId</code></td><td>Reused for idempotency + single-use. No change.</td><td>none</td></tr>
-    <tr><td><span class="tag new">new (optional)</span> <code>CircleInvite.ContactValue</code></td><td>The actual email/phone (today only the <code>Channel</code> <em>type</em> is stored). Needed only for §6.2 claim-on-register. Normalise + store hashed if privacy demands.</td><td>additive; only if §6.2 is adopted</td></tr>
+    <tr><td><span class="tag gap">deferred</span> <code>CircleInvite.ContactValue</code></td><td>The actual email/phone (today only the <code>Channel</code> <em>type</em> is stored). Only for §6.2 claim-on-register, which is deferred — <strong>not built in this spec</strong>.</td><td>—</td></tr>
     <tr><td><span class="tag new">new</span> Preview rate-limit counter</td><td>In-memory / distributed cache, not a schema change.</td><td>none</td></tr>
   </tbody>
 </table>
@@ -287,8 +290,8 @@
     graph, no contact of other members, no document bytes.</li>
   <li><strong>No-amounts property preserved.</strong> Preview and provisioning add no amount-bearing path; the Spec 048
     filter test suite still governs every authenticated read.</li>
-  <li><strong>Claim-on-register (§6.2) requires a verified contact match</strong> — never bind a pending grant on an
-    unverified email string. Tenant isolation holds throughout.</li>
+  <li><strong>Claim-on-register (§6.2, deferred) — when built, requires a verified contact match</strong>; never bind a
+    pending grant on an unverified email string. Tenant isolation holds throughout.</li>
   <li><strong>Audit.</strong> Log preview reads, accepts, and any pending-grant binding with token id (not the raw
     token), actor, and outcome.</li>
 </ul>
@@ -304,7 +307,6 @@
   <li>Owner accepting their own invite → rejected.</li>
   <li>A second, different user accepting a consumed invite → <code>404</code>.</li>
   <li>Preview rate limit trips after the configured ceiling.</li>
-  <li>(If §6.2) claim binds only on a <em>verified</em> contact match; an unverified match does not bind.</li>
 </ul>
 
 <h2 id="tasks">12. Tasks</h2>
@@ -314,7 +316,7 @@
   <li><span class="tag new">new</span> Rate-limiting policy for the anonymous preview (per-IP + per-token).</li>
   <li><span class="tag extend">extend</span> <code>AcceptInviteAsync</code>: idempotency, self-accept guard, single-use, atomic bind.</li>
   <li><span class="tag extend">extend</span> Registration/OTP (Identity, Spec 001): invite-aware sign-up; a new user can accept immediately; prefer the invite's <code>Channel</code> transport.</li>
-  <li><span class="tag new">new (optional, §6.2)</span> <code>CircleInvite.ContactValue</code> + migration + claim-on-verified-register binding.</li>
+  <li><span class="tag gap">deferred (§6.2)</span> <code>CircleInvite.ContactValue</code> + migration + claim-on-verified-register binding — not built in this spec.</li>
   <li><span class="tag existing">existing</span> Tests (§11) + update <code>ICircleService</code> XML doc that currently defers this work.</li>
 </ol>
 
@@ -329,29 +331,28 @@
   <li>[ ] The <code>ICircleService.AcceptInviteAsync</code> "Spec 001 follow-up" deferral note is removed.</li>
 </ul>
 
-<h2 id="open">14. Open decisions</h2>
-<div class="callout open">
-  <span class="callout-label">Preview disclosure</span>
-  Entity <strong>names</strong> vs <strong>counts only</strong>? Names match the app's accept screen and read as warmer
-  ("Mum, the Accra flat"); counts leak less to a token-holder. <em>Recommendation: names, since the token is already a
-  secret capability — but make the projection a single switch so it can be dialled back.</em>
+<h2 id="decisions">14. Decisions</h2>
+<p>The Rev 1 open decisions, now resolved and propagated into the sections above:</p>
+<div class="callout ok">
+  <span class="callout-label">Preview disclosure → names (switchable)</span>
+  Preview returns entity <strong>names</strong>, behind a single <code>InvitePreviewDisclosure</code> = Names (default) |
+  Counts switch. The token is already a secret capability given by the owner, and names make the accept CTA legible; the
+  switch allows a tenant-level dial-back to counts if abuse appears. Names never carry amounts. (§5)
 </div>
-<div class="callout open">
-  <span class="callout-label">Claim-on-register (§6.2)</span>
-  Ship pre-provisioned pending grants + auto-claim now, or defer until a real "invite lands before the app" case
-  appears? <em>Recommendation: defer; ship the parked-token baseline (§6.1) for launch, keep §6.2 behind the open
-  decision. Baseline closes #197's launch-gating need.</em>
+<div class="callout ok">
+  <span class="callout-label">Claim-on-register → deferred</span>
+  Ship the parked-token baseline (§6.1) for launch; defer pre-provisioned pending grants + auto-claim (§6.2) and the
+  <code>ContactValue</code> field until a real "invite lands before the app" case appears — §6.1 alone closes #197's
+  launch-gating need. (§3, §6.2, §8)
 </div>
-<div class="callout open">
-  <span class="callout-label">Required OTP transport for a provisioned member</span>
-  Phone (ACS SMS, #193) is the registration default; is email (#192) an acceptable alternative for a circle-provisioned
-  member, or must a member verify phone? <em>Recommendation: follow the invite's <code>Channel</code> hint, require at
-  least one verified contact.</em>
+<div class="callout ok">
+  <span class="callout-label">OTP transport → follow the Channel hint; ≥1 verified contact</span>
+  email hint → email OTP (#192), phone hint → SMS OTP (#193), link → phone default. A provisioned member must hold at
+  least one verified contact. Reuses existing OTP; no new transport. (§6.1)
 </div>
-<div class="callout open">
-  <span class="callout-label">Reject code for self-accept</span>
-  <code>409 Conflict</code> vs <code>422</code>. <em>Recommendation: 409 — it is a state conflict, not a validation
-  error.</em>
+<div class="callout ok">
+  <span class="callout-label">Self-accept reject → 409 Conflict</span>
+  A state conflict, not a validation error — distinct from 422 (validation) and 404 (invalid token). (§7)
 </div>
 
 <h2 id="refs">15. References</h2>
@@ -364,7 +365,7 @@
 </ul>
 
 <footer>
-  Spec 061 · Draft (Rev 1) · Domain: PersonalFinance + Identity / Simi · Closes aonik #197. Server half of the circle
+  Spec 061 · Draft (Rev 2 — decisions resolved) · Domain: PersonalFinance + Identity / Simi · Refs aonik #197. Server half of the circle
   invite last mile; pairs with Simi Spec 049 (client) and Simi #22 (web). Preserves Spec 048's fail-closed no-amounts
   property without exception.
 </footer>
