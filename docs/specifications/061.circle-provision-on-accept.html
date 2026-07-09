@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 061 - Circle invites: anonymous preview &amp; provision-on-accept</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 061</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P1 (Simi launch-gating)</span>
+  <span class="meta-tag">Domain: PersonalFinance + Identity / Simi</span>
+  <h1>Circle invites — anonymous preview &amp; provision-on-accept</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a> shipped circle invites described as links "that
+    <strong>provision on accept</strong>" — but the code stopped short: <code>AcceptInviteAsync</code> requires an
+    <em>already-authenticated</em> user, and there is no way to see what an invite offers before committing. This is the
+    invite loop's <strong>last mile</strong> on the server: a stranger holding a token must be able to (1) see, without
+    an account, exactly what is being shared, and (2) go from token to registered member in one uninterrupted flow.
+    Pairs with <strong>Simi Spec&nbsp;049</strong> (the mobile deep link + parked-token resume) and the web landing
+    (<a href="../simi-launch-plan.html">launch register</a> §8, Simi&nbsp;#22). Specifies the server half of <strong>aonik&nbsp;#197</strong>.
+    The client contract already exists — this spec is the server half.
+  </p>
+</header>
+
+<div class="callout p0">
+  <span class="callout-label">Anonymous surface — token is the capability</span>
+  The preview endpoint is <strong>unauthenticated</strong>. The invite token is a bearer secret, so preview must be
+  <strong>fail-closed</strong> (one 404 for invalid / expired / consumed alike — no oracle), <strong>rate-limited</strong>,
+  and disclose the <strong>minimum</strong> to render "someone shared X with you." It inherits Spec&nbsp;048's
+  non-negotiable: <strong>no amounts, anywhere, ever</strong>.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#flow">The end-to-end flow</a></li>
+    <li><a href="#preview">Anonymous invite preview</a></li>
+    <li><a href="#provision">Provision-on-accept</a></li>
+    <li><a href="#accept">Hardening accept (idempotency &amp; guards)</a></li>
+    <li><a href="#data">Data model &amp; migration</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#testing">Enforcement &amp; testing</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#decisions">Decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Two server capabilities complete the growth loop's last mile:
+</p>
+<ul>
+  <li><strong>Anonymous invite preview</strong> <span class="tag new">new</span> — an unauthenticated, fail-closed,
+    rate-limited endpoint that turns a raw token into a minimal, amount-free summary (owner display name, scope label,
+    the shared entities' <em>names</em>, expiry). It backs the signed-out mobile accept screen (Simi Spec&nbsp;049) and
+    the web <code>/circle/accept</code> landing so a recipient sees what they're joining <em>before</em> signing up.</li>
+  <li><strong>Provision-on-accept</strong> <span class="tag extend">extend</span> — a continuous path from
+    <em>unregistered</em> invitee to active member: the parked token survives registration (Auth0 sign-up + phone/email
+    OTP, reusing the Identity module), and the first authenticated <code>accept</code> materialises the grant —
+    <strong>idempotently</strong>, with a self-accept guard and single-use enforcement.</li>
+</ul>
+<p>
+  No new sharing scopes, no change to the fail-closed visibility filter (Spec&nbsp;048 §5 owns that). The
+  <code>CircleGrant</code> model already supports what we need: <code>MemberUserId</code> is nullable and a grant may
+  sit in <code>pending</code> status until a member binds.
+</p>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<p>What exists today (Spec 048, merged):</p>
+<ul>
+  <li><code>POST /personal-finance/circle/invites</code> mints a signed, single-use, 7-day token
+    (<code>CircleInvite</code>: <code>Token</code>, <code>Scope</code>, <code>EntityIdsJson</code>, <code>NoAmounts</code>,
+    <code>Channel</code>, <code>ExpiresAt</code>, <code>Status</code> = pending|accepted|expired|revoked,
+    <code>ConsumedAt</code>, <code>GrantId</code>).</li>
+  <li><code>POST /personal-finance/circle/invites/accept</code> — <code>UserPolicy</code> (authenticated).
+    <code>AcceptInviteAsync(token)</code> binds the current user as member and returns the grant, or 404 if the token is
+    invalid / expired / consumed.</li>
+</ul>
+<p>The two gaps, stated in the code itself:</p>
+<div class="callout">
+  <span class="callout-label">ICircleService.AcceptInviteAsync — the deferral</span>
+  <em>"Unregistered-invitee registration + OTP provisioning is a Spec&nbsp;001 follow-up; accept requires an
+  authenticated user."</em> That follow-up is this spec.
+</div>
+<ul>
+  <li><strong>No preview.</strong> Every circle read is behind <code>UserPolicy</code>. A signed-out recipient — the
+    common case for a growth invite — can see <em>nothing</em> about the invite, so "sign up to find out what a stranger
+    shared" is the ask. That is exactly the friction that kills a share loop.</li>
+  <li><strong>No provisioning path.</strong> Accept presumes an authenticated user materialises out of nowhere. For an
+    unregistered invitee there is no defined, tested route from token → registered member, and no guarantee the token
+    survives the registration round-trip or that a double-accept is safe.</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h4>In</h4>
+<ul>
+  <li>Anonymous <code>GET .../invites/{token}/preview</code> — fail-closed, rate-limited, amount-free.</li>
+  <li>Invite-aware registration: the parked token survives Auth0 sign-up + OTP; first accept provisions the member.</li>
+  <li>Accept hardening: idempotency, self-accept guard, single-use, member binding.</li>
+</ul>
+<h4>Out</h4>
+<ul>
+  <li>Pre-provisioned pending grants + claim-on-register (§6.2) — <strong>deferred</strong>; the parked-token baseline (§6.1) already meets #197's launch need.</li>
+  <li>New scopes or any change to the visibility filter / no-amounts property (Spec&nbsp;048, unchanged).</li>
+  <li>Deferred deep linking across a store install (token preservation through the App/Play Store is a client concern;
+    a vendor like Branch is explicitly out of scope — see Simi&nbsp;#22).</li>
+  <li>The Support Statement, the member view, and revocation (Spec&nbsp;048, unchanged).</li>
+  <li>Standing up the OTP transports themselves — ACS SMS (aonik&nbsp;#193) and email (aonik&nbsp;#192) are separate
+    launch-gating items this spec <em>consumes</em>, not delivers.</li>
+</ul>
+
+<h2 id="flow">4. The end-to-end flow</h2>
+<div class="ascii-diagram">  tap  https://simi.app/circle/accept?token=T
+   │
+   ├─ app installed ─────────────► Simi Spec 049 deep link ─► accept screen
+   │                                                             │
+   └─ not installed ─► web /circle/accept landing (Simi #22)     │
+                          │                                      │
+        GET .../invites/{T}/preview   (anonymous, this spec) ◄───┤  "Ama shared 2 people
+                          │                                      │   & places with you"
+        signed in? ──yes──────────────────────────────────────► POST .../invites/accept
+                          │                                          (idempotent, this spec)
+                          └─no─► register (Auth0 + phone/email OTP) ─┘
+                                 token parked through sign-up (Simi 049) ─► auto-accept
+</div>
+<p>
+  The client (Simi Spec 049) already <strong>parks</strong> the token while signed out and resumes accept after
+  auth + setup. This spec makes the two server touchpoints that flow assumes actually exist: the anonymous
+  <em>preview</em>, and an <em>accept</em> that is safe for a brand-new user to call (possibly twice).
+</p>
+
+<h2 id="preview">5. Anonymous invite preview</h2>
+<p><span class="tag new">new</span> <code>GET /personal-finance/circle/invites/{token}/preview</code> — <code>AllowAnonymous</code>.</p>
+<p>Resolves the invite by <code>(TenantId, Token)</code>. Returns <code>200</code> only when the invite is
+  <code>pending</code> and unexpired; otherwise a single <code>404</code> (invalid, expired, and consumed are
+  indistinguishable — no oracle). Response is the minimum needed to render the accept CTA:</p>
+<pre><code>InvitePreviewResponse {
+  ownerDisplayName : string      // e.g. "Ama O." — from the owner's profile display name
+  scope            : "all" | "entities" | "docsOnly"
+  scopeLabel       : string      // "Everything they look after" | "Selected people & places" | "Documents only"
+  entityNames      : string[]    // present when disclosure=Names; [] for scope=all; names only, never amounts
+  entityCount      : int
+  noAmounts        : bool        // always true for docsOnly; echoes the grant term
+  expiresAt        : datetime
+}</code></pre>
+<p><strong>Fail-closed rules:</strong></p>
+<ul>
+  <li>No amounts, balances, corroboration, member lists, or document contents — ever. The preview is a headline, not a
+    view. The scoped <em>view</em> stays behind <code>UserPolicy</code> + the Spec 048 filter, unchanged.</li>
+  <li>Entity <em>names</em> are the one deliberate disclosure (they mirror the mobile accept screen's "they shared: X")
+    and read warmer than a bare count. Governed by a single server-side switch <code>InvitePreviewDisclosure</code> =
+    <code>Names</code> (default) | <code>Counts</code>, so a tenant can dial back to "2 people &amp; places" without a
+    code change if abuse appears. Names never carry amounts.</li>
+  <li>Rate-limited per IP and per token (see §10). Reads are logged.</li>
+</ul>
+
+<h2 id="provision">6. Provision-on-accept</h2>
+<p>
+  "Provision on accept" means an unregistered recipient becomes a member without a dead end. Two mechanisms, layered:
+</p>
+<h3>6.1 Parked-token registration (baseline)</h3>
+<p><span class="tag extend">extend</span>
+  The recipient becomes a member through the <strong>standard Simi consumer registration</strong>, with the parked token
+  replayed to accept immediately after. No new identity plumbing — the circle invite rides on what Spec&nbsp;001 already
+  provides:</p>
+<ol>
+  <li><strong>Sign up (IdP).</strong> Auth0 sign-up, then contact verification via the Identity OTP endpoints —
+    <code>StartPhoneVerification</code> / <code>ConfirmPhoneVerification</code> (SMS, #193) or the email pair (#192).</li>
+  <li><strong>Provision (platform).</strong> On the first authenticated call <code>IUserIdentityService</code> resolves
+    the principal and <code>IdpUserProvisionerFactory</code> (<code>Auth0UserProvisioner</code>) provisions the User —
+    the "provision if needed" step of Spec&nbsp;001. Every Simi consumer is a User in the <strong>single Simi tenant</strong>
+    (both clients pin one <code>SIMI_TENANT_ID</code>), so a tenant-scoped <code>CircleGrant</code> binds owner → member
+    with no cross-tenant path.</li>
+  <li><strong>Accept.</strong> The client (Simi Spec&nbsp;049) replays the parked token to
+    <code>POST /personal-finance/circle/invites/accept</code> as the now-provisioned user; §7's hardened accept binds the
+    member and returns the grant.</li>
+</ol>
+<p>Server obligations:</p>
+<ul>
+  <li>Accept resolves the member via <code>ICurrentUserContext.UserId</code> (through <code>HttpContextCurrentUserProvider</code>)
+    — the <em>platform</em> User Guid that <code>CircleGrant.MemberUserId</code> stores, not the IdP subject. So
+    provisioning must run in the auth pipeline (populating <code>ICurrentUserContext</code>) <strong>before</strong> the
+    handler: on a fresh consumer's first authenticated call <code>UserId</code> must already be set, or accept 404s on a
+    token that is in fact valid. No lazy in-handler window.</li>
+  <li><strong>OTP transport (decided):</strong> follow the invite's <code>Channel</code> hint — <code>email</code> →
+    email OTP (#192), <code>phone</code> → SMS OTP (#193); when the hint is <code>link</code>, fall back to the
+    registration default (phone OTP). A provisioned member <strong>must</strong> hold at least one verified contact —
+    no unverified members.</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">Precedent — Spec 026 Part 1 (identity invites)</span>
+  <code>POST /identity/invite/accept</code> already implements "IdP-authenticated but no active platform identity yet →
+  consume a one-shot token → link onto a pending <em>placeholder</em> User → active user"
+  (<code>InviteAcceptanceService</code>, <code>IPendingTenantUserProvisioner</code>). The circle <em>baseline</em> does
+  not need the placeholder — a Simi consumer self-registers their own User — but that is exactly the machinery §6.2
+  (deferred) would reuse to pre-provision a pending grant and link it on first login.
+</div>
+<h3>6.2 Pre-provisioned pending grant + claim-on-register (deferred)</h3>
+<p><span class="tag gap">deferred</span>
+  A future durability option, <strong>not built in this spec</strong>: because <code>CircleGrant.MemberUserId</code> is
+  nullable and <code>Status</code> may be <code>pending</code>, an invite carrying a verified contact could pre-materialise
+  a <code>pending</code> grant that auto-binds when that contact later registers and verifies (OTP), so a share survives a
+  mislaid token. Deferred because §6.1 already meets #197's launch-gating need, and it adds a schema field
+  (<code>ContactValue</code>) plus real privacy weight — any auto-bind must require a <em>verified</em> contact match,
+  never a bare email string. Revisit when a real "invite lands before the app" case appears.</p>
+
+<h2 id="accept">7. Hardening accept (idempotency &amp; guards)</h2>
+<p><span class="tag extend">extend</span> <code>AcceptInviteAsync</code> / <code>POST .../invites/accept</code>:</p>
+<ul>
+  <li><strong>Idempotent.</strong> A repeat accept of a token this <em>same</em> user already consumed returns the
+    existing grant (<code>200</code>), not <code>404</code>. This is essential: the parked-token resume can fire more
+    than once (cold start + warm link), and a store round-trip can replay the request.</li>
+  <li><strong>Self-accept guard.</strong> If the current user is the invite's <code>OwnerUserId</code>, reject with
+    <code>409 Conflict</code> (a state conflict, not a validation error) — you cannot be a member of your own circle.</li>
+  <li><strong>Single-use across users.</strong> A <em>different</em> user accepting an already-consumed invite gets
+    <code>404</code> (fail-closed; the invite is spent).</li>
+  <li><strong>Atomic binding.</strong> Materialising the grant, setting the invite <code>Status = accepted</code>,
+    <code>ConsumedAt</code>, and <code>GrantId</code> happen in one transaction.</li>
+</ul>
+
+<h2 id="data">8. Data model &amp; migration</h2>
+<table>
+  <thead><tr><th>Change</th><th>Detail</th><th>Migration</th></tr></thead>
+  <tbody>
+    <tr><td><span class="tag existing">existing</span> <code>CircleGrant.MemberUserId</code> nullable + <code>pending</code> status</td><td>Already present (Spec 048). Reused for pre-provisioned grants; no change.</td><td>none</td></tr>
+    <tr><td><span class="tag existing">existing</span> <code>CircleInvite.Status</code> / <code>ConsumedAt</code> / <code>GrantId</code></td><td>Reused for idempotency + single-use. No change.</td><td>none</td></tr>
+    <tr><td><span class="tag gap">deferred</span> <code>CircleInvite.ContactValue</code></td><td>The actual email/phone (today only the <code>Channel</code> <em>type</em> is stored). Only for §6.2 claim-on-register, which is deferred — <strong>not built in this spec</strong>.</td><td>—</td></tr>
+    <tr><td><span class="tag new">new</span> Preview rate-limit counter</td><td>In-memory / distributed cache, not a schema change.</td><td>none</td></tr>
+  </tbody>
+</table>
+
+<h2 id="api">9. API surface</h2>
+<table>
+  <thead><tr><th>Endpoint</th><th>Auth</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET /personal-finance/circle/invites/{token}/preview</code></td><td><strong>Anonymous</strong></td><td><span class="tag new">new</span> → <code>InvitePreviewResponse</code>; <code>404</code> fail-closed; rate-limited.</td></tr>
+    <tr><td><code>POST /personal-finance/circle/invites/accept</code></td><td>UserPolicy</td><td><span class="tag extend">extend</span> idempotent + self-accept guard + atomic bind. Same route/DTO.</td></tr>
+    <tr><td>Consumer registration (Identity, Spec 001) + accept replay</td><td>IdP sign-up → OTP</td><td><span class="tag extend">extend</span> guarantee a just-provisioned User is resolvable on the immediately-following accept (no window); client carries the parked token (Simi 049). No new register endpoint.</td></tr>
+  </tbody>
+</table>
+<p>
+  <code>ICircleService</code> gains <code>Task&lt;InvitePreviewResponse?&gt; PreviewInviteAsync(string token, CancellationToken)</code>
+  (tenant-resolved from the token, no current user). The preview endpoint must resolve the tenant without a
+  user principal — from the token's tenant scoping — so <code>ICurrentUserProvider</code> is not on its path.
+</p>
+
+<h2 id="security">10. Security</h2>
+<ul>
+  <li><strong>Fail-closed preview.</strong> One 404 for invalid/expired/consumed. Never confirm a token "exists but is
+    used" — that is an enumeration oracle.</li>
+  <li><strong>Rate limiting.</strong> Per-IP and per-token ceilings on the anonymous preview to blunt token farming and
+    enumeration. Tokens are already high-entropy and 7-day-scoped; the limiter is defence in depth.</li>
+  <li><strong>Minimal disclosure.</strong> Owner display name + entity names + scope + expiry. No amounts, no member
+    graph, no contact of other members, no document bytes.</li>
+  <li><strong>No-amounts property preserved.</strong> Preview and provisioning add no amount-bearing path; the Spec 048
+    filter test suite still governs every authenticated read.</li>
+  <li><strong>Claim-on-register (§6.2, deferred) — when built, requires a verified contact match</strong>; never bind a
+    pending grant on an unverified email string. Tenant isolation holds throughout.</li>
+  <li><strong>Audit.</strong> Log preview reads, accepts, and any pending-grant binding with token id (not the raw
+    token), actor, and outcome.</li>
+</ul>
+
+<h2 id="testing">11. Enforcement &amp; testing</h2>
+<ul>
+  <li>Anonymous preview of a valid <code>pending</code> invite returns owner name + scope + entity names, and — asserted
+    field-by-field — <strong>no amount-bearing field</strong> and no member list.</li>
+  <li>Preview of an expired, consumed, revoked, or unknown token → <code>404</code>, indistinguishable across all four.</li>
+  <li>Unregistered → register (mock OTP) → accept materialises exactly <strong>one</strong> active grant with
+    <code>MemberUserId</code> = the new user.</li>
+  <li>Double-accept by the same user is idempotent (same grant, <code>200</code>, no duplicate row).</li>
+  <li>Owner accepting their own invite → rejected.</li>
+  <li>A second, different user accepting a consumed invite → <code>404</code>.</li>
+  <li>Preview rate limit trips after the configured ceiling.</li>
+</ul>
+
+<h2 id="tasks">12. Tasks</h2>
+<ol>
+  <li><span class="tag new">new</span> <code>PreviewInviteAsync</code> on <code>ICircleService</code> + <code>InvitePreviewResponse</code> DTO (amount-free projection).</li>
+  <li><span class="tag new">new</span> <code>GetInvitePreviewEndpoint</code> (<code>AllowAnonymous</code>, tenant-from-token, 404 fail-closed).</li>
+  <li><span class="tag new">new</span> Rate-limiting policy for the anonymous preview (per-IP + per-token).</li>
+  <li><span class="tag extend">extend</span> <code>AcceptInviteAsync</code>: idempotency, self-accept guard, single-use, atomic bind.</li>
+  <li><span class="tag extend">extend</span> Guarantee a just-provisioned consumer (Auth0 + OTP → <code>IdpUserProvisionerFactory</code>) is resolvable by <code>ICurrentUserProvider</code> on the immediately-following accept; prefer the invite's <code>Channel</code> OTP transport. Reuses Spec 001 / Spec 026 provisioning — no new register endpoint.</li>
+  <li><span class="tag gap">deferred (§6.2)</span> <code>CircleInvite.ContactValue</code> + migration + claim-on-verified-register binding — not built in this spec.</li>
+  <li><span class="tag existing">existing</span> Tests (§11) + update <code>ICircleService</code> XML doc that currently defers this work.</li>
+</ol>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<ul>
+  <li>[ ] A signed-out client can <code>GET</code> a valid invite's preview and render "&lt;owner&gt; shared &lt;scope/entities&gt; with you" with zero authentication and zero amounts.</li>
+  <li>[ ] Invalid / expired / consumed / revoked tokens all return an indistinguishable <code>404</code> from preview.</li>
+  <li>[ ] An unregistered recipient completes register → accept and ends as the member of exactly one active grant; the token does not survive as re-consumable.</li>
+  <li>[ ] Accept is idempotent for the same user and rejects self-accept.</li>
+  <li>[ ] Preview is rate-limited and its reads are audited.</li>
+  <li>[ ] Spec 048's no-amounts test suite still passes unchanged; a new test proves the preview leaks no amounts.</li>
+  <li>[ ] The <code>ICircleService.AcceptInviteAsync</code> "Spec 001 follow-up" deferral note is removed.</li>
+</ul>
+
+<h2 id="decisions">14. Decisions</h2>
+<p>The Rev 1 open decisions, now resolved and propagated into the sections above:</p>
+<div class="callout ok">
+  <span class="callout-label">Preview disclosure → names (switchable)</span>
+  Preview returns entity <strong>names</strong>, behind a single <code>InvitePreviewDisclosure</code> = Names (default) |
+  Counts switch. The token is already a secret capability given by the owner, and names make the accept CTA legible; the
+  switch allows a tenant-level dial-back to counts if abuse appears. Names never carry amounts. (§5)
+</div>
+<div class="callout ok">
+  <span class="callout-label">Claim-on-register → deferred</span>
+  Ship the parked-token baseline (§6.1) for launch; defer pre-provisioned pending grants + auto-claim (§6.2) and the
+  <code>ContactValue</code> field until a real "invite lands before the app" case appears — §6.1 alone closes #197's
+  launch-gating need. (§3, §6.2, §8)
+</div>
+<div class="callout ok">
+  <span class="callout-label">OTP transport → follow the Channel hint; ≥1 verified contact</span>
+  email hint → email OTP (#192), phone hint → SMS OTP (#193), link → phone default. A provisioned member must hold at
+  least one verified contact. Reuses existing OTP; no new transport. (§6.1)
+</div>
+<div class="callout ok">
+  <span class="callout-label">Self-accept reject → 409 Conflict</span>
+  A state conflict, not a validation error — distinct from 422 (validation) and 404 (invalid token). (§7)
+</div>
+
+<h2 id="refs">15. References</h2>
+<ul>
+  <li><a href="048.circle-entity-scoped-sharing.html">Spec 048 — The Circle: entity-scoped sharing &amp; the Support Statement</a> (the model, the fail-closed filter, the no-amounts property this spec preserves).</li>
+  <li>Spec 001 — Identity &amp; Auth (Auth0/Entra sign-up, <code>StartPhone/EmailVerification</code> OTP, <code>IUserIdentityService</code> + <code>IdpUserProvisionerFactory</code> "provision if needed").</li>
+  <li>Spec 026 Part 1 — <code>POST /identity/invite/accept</code> placeholder link-on-first-login (<code>InviteAcceptanceService</code>, <code>IPendingTenantUserProvisioner</code>): the provisioning precedent §6.1 mirrors and §6.2 would reuse.</li>
+  <li><strong>Simi Spec 049</strong> — circle invite deep link + parked-token resume (the mobile client half; note: distinct from aonik's own Spec 049).</li>
+  <li><a href="../simi-launch-plan.html">Simi launch-readiness register</a> §8 — "the invite loop's last mile" (aonik #197 · Simi #5 · #20 · #22).</li>
+  <li>aonik #197 (this spec) · aonik #191–193 (FCM/SMS/email transports it consumes) · Simi #22 (web hosting of the landing + association files).</li>
+</ul>
+
+<footer>
+  Spec 061 · Draft (Rev 3) · Domain: PersonalFinance + Identity / Simi · Refs aonik #197. Server half of the circle
+  invite last mile; pairs with Simi Spec 049 (client) and Simi #22 (web). Preserves Spec 048's fail-closed no-amounts
+  property without exception.
+</footer>
+
+</body>
+</html>
