@@ -330,6 +330,7 @@ public static class DatabaseStartupConfiguration
             ["TenantAdmin"] =
             [
                 "Users.Read", "Users.Invite", "Users.Manage", "Users.Deactivate",
+                "Users.RevokeSessions", "Users.Delete",
                 "UserInfo.Read", "UserInfo.Update",
                 "Roles.Read", "Roles.Create", "Roles.Update", "Roles.Delete",
                 "Permissions.Read",
@@ -342,6 +343,7 @@ public static class DatabaseStartupConfiguration
             ],
             ["Operations"] =
             [
+                "Users.RevokeSessions",
                 "Ledger.Read", "Ledger.Write", "Ledger.Reconcile",
                 "Payment.Read", "Payment.Create", "Payment.Capture", "Payment.Cancel", "Payment.Refund",
                 "Invoice.Read", "Invoice.Create", "Invoice.Update", "Invoice.Delete", "Invoice.Issue",
