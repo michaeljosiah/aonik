@@ -294,9 +294,10 @@ public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, G
     Task ContributeHealthCheckAsync(Guid tenantId, List&lt;string&gt; issues, CancellationToken ct = default);
 }</code></pre>
 <ul>
-  <li><strong>Commerce gains its first contributor</strong> — <code>CommerceTenantProvisioningContributor</code> — that,
-    for <code>food-commerce</code>, seeds units of measure, ingredient/product categories, and any starter reference
-    data. For other types it no-ops. This is the forcing function ADR-014 predicted: Commerce stops provisioning bare.</li>
+  <li><strong>Commerce gains its first contributor</strong> — <code>CommerceTenantProvisioningContributor</code> — that runs <strong>only when the Commerce module is enabled for the tenant</strong> (per the manifest's
+    <code>modules[]</code>), seeding units of measure, ingredient/product categories, and starter reference data. It
+    keys off <em>module enablement</em>, <strong>not</strong> a <code>businessType == "food-commerce"</code> check, so
+    no contributor branches on a type value. This is the forcing function ADR-014 predicted: Commerce stops provisioning bare.</li>
   <li><strong>Existing contributors stay</strong> (Finance ledger/chart/policies, AI route policy) and may branch on
     type where a variant is genuinely needed — but a contributor <em>never</em> hard-codes a product persona or
     branding string (that is manifest/config, ADR-013). Most specialisation is data in the manifest, not code here.</li>
@@ -327,8 +328,11 @@ public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, G
     admin-edited values</strong> — extending <code>SettingsSeedService</code>'s existing Global-scope rule to tenant
     scope (a setting/agent-override a tenant admin changed is left alone).</li>
   <li><strong>Versioned.</strong> Each manifest has a <code>version</code>; <code>Tenant.AppliedPackVersion</code>
-    records what was last applied. Re-applying a newer pack <strong>applies-missing</strong> (new settings, new tools,
-    new reference data) without clobbering admin overrides, and bumps the recorded version.</li>
+    records what was last applied. Re-applying a newer pack is <strong>additive-only</strong>: it inserts genuinely-new settings, tools, and
+    reference data and <strong>never updates a value that already exists</strong>, so admin edits are inherently safe
+    (no per-key provenance needed &mdash; matching <code>SettingsSeedService</code>'s insert-missing behaviour), then
+    bumps the recorded version. <strong>Updating an existing pack default</strong> for live tenants (telling a pack
+    default apart from an admin edit) needs value provenance and is deferred as a later refinement.</li>
   <li><strong>Reversal</strong> stays a property of the <em>sample</em> layer only (the existing reverse machinery);
     config is not "reversed" — a tenant's type is changed deliberately, out of scope for v1 (O4).</li>
 </ul>
@@ -389,8 +393,8 @@ later (demo / trial only):
 <ul>
   <li><strong>Type-driven provision.</strong> Creating a <code>food-commerce</code> tenant yields the commerce module enabled, units/categories seeded, the commerce agent configured, and branding set — with <strong>no sample rows</strong>; a <code>simi</code> tenant yields the Simi persona, toolset, and <code>SIMI</code> prefix.</li>
   <li><strong>Config/sample split.</strong> A freshly provisioned production tenant has its configuration but <strong>zero</strong> example entities; the sample seed adds content only, and reverses cleanly.</li>
-  <li><strong>Generic platform code.</strong> No <code>if (businessType == "simi")</code> (or any product) in the applier or a contributor; a <code>grep</code> for product nouns in <code>src/</code> (per <a href="064.debrand-product-identity-from-platform-code.html">Spec&nbsp;064</a>) stays clean — identity is in manifests only.</li>
-  <li><strong>Idempotent + admin-safe.</strong> Re-applying a pack is a no-op; an admin-edited setting/agent override survives a re-apply; a version bump applies-missing without clobbering edits.</li>
+  <li><strong>Generic platform code.</strong> No brand noun and no <code>if (businessType == "&lt;type&gt;")</code> branch in the applier or a contributor &mdash; module-specific provisioning is driven by manifest-declared module enablement, never a type-equality check; a <code>grep</code> for product nouns in <code>src/</code> (per <a href="064.debrand-product-identity-from-platform-code.html">Spec&nbsp;064</a>) stays clean — identity is in manifests only.</li>
+  <li><strong>Idempotent + admin-safe.</strong> Re-applying a pack is a no-op; an admin-edited setting/agent override survives a re-apply; a version bump is <strong>additive-only</strong> — it inserts new settings/tools and never updates an existing value, so edits cannot be clobbered.</li>
   <li><strong>Base unchanged.</strong> A tenant with no/unknown type provisions exactly as today.</li>
   <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; one tool-generated migration adds the two <code>Tenant</code> columns; the full-solution DI test (Api.Tests) boots.</li>
 </ul>

@@ -160,7 +160,7 @@
   <li><span class="tag new">New</span> Member payment-log write: service method + endpoint, attributed, one-offs only (&sect;7).</li>
   <li><span class="tag new">New</span> Member document attach into the owner's Vault: a cross-module owner-scoped writer + endpoint (&sect;8).</li>
   <li><span class="tag mutate">Edit</span> <code>PaymentLog.LoggedByUserId</code> + <code>Document.UploadedByUserId</code> attribution columns (&sect;6, &sect;10).</li>
-  <li><span class="tag new">New</span> One Medium-gated AI tool, <code>pf_log_shared_payment</code> (&sect;9).</li>
+  <li><span class="tag new">New</span> One Medium-gated AI tool, <code>pf_add_shared_payment</code> (&sect;9).</li>
   <li><span class="tag extend">Edit</span> Surface the contributor's name on the owner's entity/Today projections (&sect;6).</li>
 </ul>
 <h3>3.2 Out of scope</h3>
@@ -318,18 +318,18 @@ public interface ICircleDocumentContributor
   so the AI deep-links rather than streaming a file, matching the existing "uploads happen on the frontend" rule.
 </p>
 <pre><code>// PersonalFinanceToolApprovalManifest.Classifications — add:
-["pf_log_shared_payment"] = Medium("Log a payment on a shared entity"),</code></pre>
+["pf_add_shared_payment"] = Medium("Add a payment on a shared entity"),  // verb "_add_" is in MutatingToolNameHeuristic, so an omitted/renamed manifest entry fails closed (throws), never passes ungated</code></pre>
 <pre><code>// CircleTools (Spec 062) gains the one write:
 [Description("Logs a one-off payment the current user made on an entity a circle owner shares with them "
     + "(e.g. a repair on a sibling's flat). Attributed to the current user and added to the owner's records. "
     + "Requires a full-scope share that permits amounts; refused for documents-only shares.")]
-public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amount, currency, date, channel, note */ ...)
+public Task&lt;PaymentLogResponse&gt; AddSharedPayment(Guid ownerUserId, /* amount, currency, date, channel, note */ ...)
     =&gt; _paymentLogs.CreateForSharedEntityAsync(ownerUserId, request, ct);</code></pre>
 <p>
   Being classified, the tool is wrapped by <code>ApprovalGatedAIFunction</code>: Simi describes the change ("Log
   ₦120,000 to Fola's flat?"), the member confirms, and only then does it run once. The <code>&lt;circle&gt;</code>
   prompt block (Spec&nbsp;062) gains a line: <em>"You may log a one-off payment on a shared entity with
-  <code>pf_log_shared_payment</code>; it is attributed to the user and needs their confirmation. You cannot edit or
+  <code>pf_add_shared_payment</code>; it is attributed to the user and needs their confirmation. You cannot edit or
   delete the owner's records."</em>
 </p>
 
@@ -337,9 +337,9 @@ public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amou
 <ul>
   <li><strong>Two nullable columns</strong> — <code>PaymentLog.LoggedByUserId</code> (→ <code>AnkPaymentLogs</code>)
     and <code>Document.UploadedByUserId</code> (→ <code>AnkDocuments</code>) — added to the entity classes and their
-    <code>IEntityTypeConfiguration&lt;T&gt;</code>. No new table; no new <code>DbSet</code>.</li>
+    <code>IEntityTypeConfiguration&lt;T&gt;</code>. No new table; no new <code>DbSet</code>. A third nullable column, <code>PaymentLog.AiRunId</code>, links an AI-created log (written via the tool, &sect;9) back to its <code>AiRun</code> &mdash; the same convention <code>PersonalTransaction</code> / <code>CompassPlan</code> / FLG rows already follow; it is null for manual and REST-endpoint writes.</li>
   <li><strong>Tool-generated migration only</strong>, against <code>AonikDbContext</code>, per CLAUDE.md
-    (<code>dotnet ef migrations add AddCircleContributionAttribution &hellip;</code>). Both columns are nullable with
+    (<code>dotnet ef migrations add AddCircleContributionAttribution &hellip;</code>). All three columns are nullable with
     no default, so existing rows are untouched (they read as owner-authored).</li>
   <li><strong>Index note.</strong> The self-undo query filters <code>(UserId, LoggedByUserId)</code>; add
     <code>LoggedByUserId</code> to the existing entity-scoped index if the contributor feed needs it. The idempotency
@@ -361,10 +361,10 @@ public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amou
     book, and the owner always sees who added what.</li>
   <li><strong>Ownership asymmetry.</strong> The owner may soft-delete any record on their entities (their existing
     owner-scoped delete already covers member-contributed rows, since <code>UserId = owner</code>); a member may undo
-    only rows where <code>LoggedByUserId == self</code>. Neither can edit the other's rows.</li>
+    only rows where <code>LoggedByUserId == self</code>. <strong>Member contributions are immutable</strong> apart from the member's own self-undo and the owner's delete: because a member-logged row stores <code>UserId = owner</code>, <code>PaymentLogService.UpdateAsync</code> (which gates on <code>UserId</code> alone) must additionally <strong>reject an update when <code>LoggedByUserId</code> is set</strong>, or the owner could silently edit a member's contribution. Asserted by an owner-cannot-edit-member-log test.</li>
   <li><strong>Not money movement.</strong> Re-affirmed: a log is a record; the AI write is Medium (a domain write),
     never High (High is money movement in Finance, proposal-gated). The Spec&nbsp;032 build-time check would trip if
-    <code>pf_log_shared_payment</code> were left unclassified.</li>
+    <code>pf_add_shared_payment</code> were left unclassified.</li>
   <li><strong>Audit.</strong> Member writes are audited (member id, owner id, entity id, action); the AI path is
     additionally an <code>AiRun</code> with the approval decision recorded.</li>
 </ul>
@@ -375,7 +375,7 @@ public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amou
   <li>Attribution columns <code>PaymentLog.LoggedByUserId</code> / <code>Document.UploadedByUserId</code> + configs; tool-generated migration; <code>LoggedByName</code> on the owner-facing summary projections.</li>
   <li><code>IPaymentLogService.CreateForSharedEntityAsync</code> + self-undo; the two <code>payment-logs</code> endpoints.</li>
   <li><code>ICircleDocumentContributor</code> (SharedKernel abstraction + Documents impl: owner-party Document + file + link, atomic) + the member <code>documents</code> multipart endpoint.</li>
-  <li><code>pf_log_shared_payment</code> tool (on <code>CircleTools</code>) + Medium classification + prompt line.</li>
+  <li><code>pf_add_shared_payment</code> tool (on <code>CircleTools</code>) + Medium classification + prompt line.</li>
   <li>Tests (&sect;13) — gate matrix, attribution surfacing, docsOnly denial, revoke-then-write denial, owner-vs-member delete asymmetry, index-lands-under-owner-party.</li>
 </ol>
 
@@ -395,7 +395,7 @@ public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amou
     immediately.</li>
   <li><strong>Delete asymmetry.</strong> A member can undo their own contribution and cannot delete the owner's or
     another member's; the owner can remove any record on their entity.</li>
-  <li><strong>AI path.</strong> <code>pf_log_shared_payment</code> is Medium-gated: it does not run until the member
+  <li><strong>AI path.</strong> <code>pf_add_shared_payment</code> is Medium-gated: it does not run until the member
     confirms, then runs once and is attributed; unclassified would fail the Spec&nbsp;032 build check.</li>
   <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; a single tool-generated migration adds
     only the two nullable columns.</li>
