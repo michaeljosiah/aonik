@@ -60,7 +60,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         var now = _clock.UtcNow;
 
         // Delegate to module contributors (Finance creates Ledger/Accounts/Pricing, AI creates policies)
-        var context = new TenantProvisioningContext(tenantId, tenant.DefaultCurrency, userId, now);
+        var context = new TenantProvisioningContext(tenantId, tenant.DefaultCurrency, userId, now, tenant.BusinessType);
         var ledgerCreated = false;
         var chartOfAccountsCount = 0;
         var policiesCreated = 0;

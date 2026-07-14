@@ -52,6 +52,14 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 
         builder.HasIndex(x => x.Status);
 
+        // Business-type configuration pack (Spec 065)
+        builder.Property(x => x.BusinessType)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("base");
+
+        builder.HasIndex(x => x.BusinessType);
+
         // Company Setup fields
         builder.Property(x => x.LogoUrl)
             .HasMaxLength(2000);

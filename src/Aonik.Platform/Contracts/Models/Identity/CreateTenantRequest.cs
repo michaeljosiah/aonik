@@ -28,5 +28,6 @@ public record CreateTenantRequest(
     string? OwnerDisplayName = null,
     string[]? SupportedCurrencies = null,
     string[]? AllowedOriginCountries = null,
-    string[]? AllowedDestinationCountries = null
+    string[]? AllowedDestinationCountries = null,
+    string? BusinessType = null
 );

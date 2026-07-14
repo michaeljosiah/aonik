@@ -39,7 +39,8 @@ public record TenantProvisioningContext(
     Guid TenantId,
     string DefaultCurrency,
     Guid? UserId,
-    DateTime Now
+    DateTime Now,
+    string BusinessType = BusinessTypes.Base   // Spec 065 — the tenant's business type; defaults to base for existing call sites
 );
 
 /// <summary>
