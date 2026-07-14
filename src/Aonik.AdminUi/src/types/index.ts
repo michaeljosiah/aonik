@@ -262,6 +262,8 @@ export interface CreateTenantRequest {
    * email when omitted.
    */
   ownerDisplayName?: string;
+  /** Business-type config pack to apply at provision (Spec 065). Optional; omitted normalizes to "base". */
+  businessType?: string;
   allowedOriginCountries?: string[];
   allowedDestinationCountries?: string[];
   supportedCurrencies?: string[];

@@ -131,7 +131,7 @@ public sealed class CliApplicationTests
         var documentHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
         var circleHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
-        var packsHandler = new PacksCommandHandler(new Aonik.SharedKernel.Abstractions.Packs.ConfigPackSource(), outputWriter);
+        var packsHandler = new PacksCommandHandler(outputWriter);
         return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler, packsHandler);
     }
 }

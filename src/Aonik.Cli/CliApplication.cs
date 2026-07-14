@@ -2,7 +2,6 @@ using Aonik.Cli.Commands;
 using Aonik.Cli.Infrastructure;
 using Aonik.Cli.Models;
 using System.CommandLine;
-using Aonik.SharedKernel.Abstractions.Packs;
 
 namespace Aonik.Cli;
 
@@ -72,7 +71,7 @@ public sealed class CliApplication
         var documentCommandHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
         var circleCommandHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureCommandHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
-        var packsCommandHandler = new PacksCommandHandler(new ConfigPackSource(), outputWriter);
+        var packsCommandHandler = new PacksCommandHandler(outputWriter);
 
         return new CliApplication(
             authCommandHandler,
