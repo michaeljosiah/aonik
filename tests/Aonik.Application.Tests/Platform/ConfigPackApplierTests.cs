@@ -121,6 +121,24 @@ public sealed class ConfigPackApplierTests
         (await db.Settings.CountAsync(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant)).Should().Be(0);
     }
 
+    [Fact]
+    public async Task ApplyAsync_IsAdditiveOnly_OnReapply_DoesNotDuplicateSettingsOrReferenceData()
+    {
+        var tenantId = Guid.NewGuid();
+        using var db = NewDbContext(tenantId, out _);
+        SeedTenant(db, tenantId, "food-commerce");
+        await db.SaveChangesAsync();
+
+        var referenceData = new RecordingReferenceDataService();
+        var applier = new ConfigPackApplier(new ConfigPackSource(), db, new RecordingAgentConfigurationService(), referenceData, new FakeTenantContext());
+
+        await applier.ApplyAsync(tenantId, "food-commerce"); // first apply
+        await applier.ApplyAsync(tenantId, "food-commerce"); // re-apply must not clobber or duplicate
+
+        referenceData.Upserts.Should().HaveCount(5); // inserted once; skipped on re-apply (Codex review)
+        (await db.Settings.CountAsync(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant)).Should().Be(2);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private static PlatformDbContext NewDbContext(Guid tenantId, out Guid _tenantId)
@@ -147,15 +165,19 @@ public sealed class ConfigPackApplierTests
 
     private sealed class RecordingReferenceDataService : IReferenceDataService
     {
+        private readonly List<ReferenceDataItemSnapshot> _store = new();
         public List<(string Type, string Code, Guid? TenantId)> Upserts { get; } = new();
 
+        // Stateful so a re-apply sees prior items as "existing" and the additive-only path skips them.
         public Task<IReadOnlyList<ReferenceDataItemSnapshot>> GetAsync(string type, Guid? tenantId = null, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ReferenceDataItemSnapshot>>(Array.Empty<ReferenceDataItemSnapshot>());
+            => Task.FromResult<IReadOnlyList<ReferenceDataItemSnapshot>>(_store.Where(s => s.Type == type).ToList());
 
         public Task<ReferenceDataItemSnapshot> UpsertAsync(ReferenceDataItemUpsert request, Guid? tenantId = null, CancellationToken cancellationToken = default)
         {
             Upserts.Add((request.Type, request.Code, tenantId));
-            return Task.FromResult(new ReferenceDataItemSnapshot(request.Type, request.Code, request.DisplayName, request.SortOrder, request.IsActive));
+            var snapshot = new ReferenceDataItemSnapshot(request.Type, request.Code, request.DisplayName, request.SortOrder, request.IsActive);
+            _store.Add(snapshot);
+            return Task.FromResult(snapshot);
         }
     }
 

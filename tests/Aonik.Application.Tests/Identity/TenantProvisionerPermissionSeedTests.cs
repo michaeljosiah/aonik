@@ -64,6 +64,10 @@ public class TenantProvisionerPermissionSeedTests
         configPackApplier
             .Setup(a => a.ApplyAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Aonik.Platform.Contracts.Services.Packs.ConfigPackResult.None);
+        var serviceProvider = new Mock<IServiceProvider>();
+        serviceProvider
+            .Setup(sp => sp.GetService(typeof(Aonik.Platform.Contracts.Services.Packs.IConfigPackApplier)))
+            .Returns(configPackApplier.Object);
 
         var provisioner = new TenantProvisioner(
             db,
@@ -73,7 +77,7 @@ public class TenantProvisionerPermissionSeedTests
             correlation.Object,
             permissionService.Object,
             Array.Empty<ITenantProvisioningContributor>(),
-            configPackApplier.Object);
+            serviceProvider.Object);
 
         // The bootstrap path provisions without the Tenants.Write precheck, exercising the real
         // catalogue + role-permission seeding that the endpoint path relies on.

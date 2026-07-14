@@ -107,8 +107,18 @@ internal sealed class ConfigPackApplier : IConfigPackApplier
         var count = 0;
         foreach (var group in manifest.ReferenceData)
         {
+            // Additive-only: only insert codes the tenant does not already have, so a re-apply never
+            // overwrites reference data an admin edited (display name / sort order / active flag).
+            var existing = await _referenceData.GetAsync(group.Type, tenantId, cancellationToken);
+            var existingCodes = new HashSet<string>(existing.Select(e => e.Code), StringComparer.OrdinalIgnoreCase);
+
             foreach (var item in group.Items)
             {
+                if (existingCodes.Contains(item.Code))
+                {
+                    continue;
+                }
+
                 await _referenceData.UpsertAsync(
                     new ReferenceDataItemUpsert(group.Type, item.Code, item.DisplayName, item.SortOrder, IsActive: true),
                     tenantId,
@@ -145,6 +155,15 @@ internal sealed class ConfigPackApplier : IConfigPackApplier
             foreach (var agent in manifest.Agents)
             {
                 if (string.IsNullOrWhiteSpace(agent.Name))
+                {
+                    continue;
+                }
+
+                // Additive-only: never overwrite an existing TENANT override (e.g. an admin-edited
+                // persona). The ambient tenant is pinned above, so a resolved row whose TenantId is
+                // this tenant means an override already exists — leave it untouched (Codex review).
+                var resolved = await _agentConfig.GetResolvedAsync(agent.Name, cancellationToken);
+                if (resolved?.TenantId == tenantId)
                 {
                     continue;
                 }

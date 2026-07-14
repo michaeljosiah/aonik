@@ -8,6 +8,7 @@ using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Packs;
+using Microsoft.Extensions.DependencyInjection;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
 
@@ -20,7 +21,10 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
     private readonly IClock _clock;
     private readonly ICorrelationContext _correlationContext;
     private readonly IEnumerable<ITenantProvisioningContributor> _contributors;
-    private readonly IConfigPackApplier _configPackApplier;
+    // Resolved lazily (not injected) so hosts that construct TenantProvisioner for read-only tenant
+    // tools without registering the applier's Infrastructure graph (e.g. the Platform MCP server) still
+    // resolve; the applier is only touched when provisioning actually runs (Codex review).
+    private readonly IServiceProvider _serviceProvider;
 
     public TenantProvisioner(
         PlatformDbContext dbContext,
@@ -30,7 +34,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         ICorrelationContext correlationContext,
         IPermissionService permissionService,
         IEnumerable<ITenantProvisioningContributor> contributors,
-        IConfigPackApplier configPackApplier)
+        IServiceProvider serviceProvider)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -38,7 +42,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         _clock = clock;
         _correlationContext = correlationContext;
         _contributors = contributors;
-        _configPackApplier = configPackApplier;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
@@ -82,7 +86,8 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
 
         // Spec 065 — apply the business-type config pack (settings, agent overrides, reference data),
         // keyed by the tenant's business type. Additive-only; a "base"/unknown type is a no-op.
-        var packResult = await _configPackApplier.ApplyAsync(tenantId, tenant.BusinessType, cancellationToken);
+        var packResult = await _serviceProvider.GetRequiredService<IConfigPackApplier>()
+            .ApplyAsync(tenantId, tenant.BusinessType, cancellationToken);
         actionsPerformed.AddRange(packResult.Actions);
 
         // Seed global permissions if they don't exist yet (required before role-permission assignment)

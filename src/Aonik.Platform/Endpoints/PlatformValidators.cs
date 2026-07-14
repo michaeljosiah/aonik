@@ -321,6 +321,10 @@ public sealed class CreateTenantRequestValidator : Validator<CreateTenantRequest
 
     public CreateTenantRequestValidator()
     {
+        // Spec 065 — BusinessType is persisted in a 50-char column; reject an over-length value here so
+        // it returns a clean 400, not a SaveChangesAsync truncation 500. Null/blank is fine (→ "base").
+        RuleFor(x => x.BusinessType).MaximumLength(50);
+
         RuleFor(x => x.Name).RequiredText(256);
         RuleFor(x => x.Environment)
             .NotEmpty()
