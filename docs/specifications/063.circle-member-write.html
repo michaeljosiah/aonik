@@ -350,7 +350,7 @@ public Task&lt;PaymentLogResponse&gt; LogSharedPayment(Guid ownerUserId, /* amou
 <ul>
   <li><strong>One write gate, fail-closed</strong> (&sect;5). No covering grant, a docsOnly grant, or a revoked grant
     → denial. Amount-bearing writes additionally require <code>NoAmounts=false</code>, so the no-amounts property is
-    upheld on the write side.</li>
+    upheld on the write side. And because the gate accepts <em>any</em> <code>careEntityId</code> for an <code>all</code>-scope grant, <strong>both</strong> write paths must also verify the target entity is the owner's and live &mdash; the payment path via <code>EnsureOwnedCareEntity(ownerUserId, ...)</code>, and the document path must do the same before <code>ICircleDocumentContributor.ContributeAsync</code> (else an all-scope member could file a document into the owner's Vault against an arbitrary, archived, or non-owned id).</li>
   <li><strong>Trust boundary on the owner-scoped writer.</strong> <code>ICircleDocumentContributor</code> writes into
     another party's Vault, so it is invoked <em>only</em> from the PersonalFinance member-write endpoint after the gate
     authorises — it is not exposed as its own HTTP endpoint and takes <code>ownerUserId</code>/<code>uploadedByUserId</code>

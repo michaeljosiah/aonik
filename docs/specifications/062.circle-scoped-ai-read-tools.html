@@ -255,12 +255,12 @@ public record SharedCircleRef(
     string OwnerDisplayName,   // resolved via the existing IPartyReader path
     string Scope,              // all | entities | docsOnly
     string ScopeLabel,         // the existing ScopeLabel() text, e.g. "Selected people & places"
-    int EntityCount,
+    int? EntityCount,       // named-entity count; null = "everything" for all scope (the grant's id-union is empty and would misreport 0)
     bool NoAmounts);</code></pre>
 <p>
   Implementation folds <code>ListGrantsForMemberAsync</code>'s active grants by <code>OwnerUserId</code>, resolves each
   owner's display name (batch the <code>IPartyReader.GetByIdsAsync</code> call once), and reports the most-permissive
-  scope and the distinct shared-entity count — the same merge rule <code>ResolveAsync</code> already uses. It reads
+  scope and the shared-entity count (for <code>all</code> scope, the owner's live entity count, since the grant's id-union is empty and would misreport 0) — the same merge rule <code>ResolveAsync</code> already uses. It reads
   only grants where the caller is the member; it exposes no amount and no owner data beyond a display name (the same
   disclosure Spec&nbsp;061's preview already makes).
 </p>

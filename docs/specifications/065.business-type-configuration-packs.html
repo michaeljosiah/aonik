@@ -183,15 +183,16 @@
 public static class BusinessType
 {
     public const string Base         = "base";           // generic tenant, no product specialisation
-    public const string Simi         = "simi";           // personal-finance keeper
-    public const string FoodCommerce = "food-commerce";  // maker-ops
+    // NOTE: concrete product types (simi, food-commerce, ...) are NOT constants here - that would put a
+    // product noun in a platform symbol, which Spec 064's architecture test rejects (ADR-013). Concrete
+    // types are values discovered from the installed pack manifests (data); only Base lives in code.
     // remittance, billing, … added additively
 }
 
 // Tenant gains a persisted type; provisioning threads it through.
 public class Tenant : /*…*/ { /*…*/ public string BusinessType { get; set; } = "base"; public int? AppliedPackVersion { get; set; } }
-public record CreateTenantRequest(/* name, currency… */ string BusinessType);
-public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, Guid UserId, DateTime Now, string BusinessType);</code></pre>
+public record CreateTenantRequest(/* name, currency… */ string? BusinessType = null);  // optional - existing callers omit it; missing/blank normalises to "base" server-side
+public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, Guid? UserId, DateTime Now, string BusinessType);  // BusinessType ADDED to the existing record; UserId stays nullable as today</code></pre>
 <p>
   <code>BusinessType</code> is persisted on the tenant (so the platform knows what a tenant <em>is</em> — for re-apply,
   UI, and support) and carried through <code>TenantProvisioningContext</code>. Unset defaults to <code>base</code>: the
@@ -265,6 +266,14 @@ public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, G
   <li><strong>Reuses existing writers</strong> — <code>AgentConfigurationService.UpsertOverrideAsync</code> is exactly
     the per-tenant agent override the Admin UI already uses; settings and reference data have tenant-scoped stores. The
     applier just drives them from a manifest instead of a human.</li>
+  <li><strong>Scope every write to the provisioned tenant explicitly.</strong> <code>UpsertOverrideAsync</code> and the
+    settings / reference-data writers resolve their tenant from the <em>ambient</em> <code>ITenantProvider</code>
+    (<code>GetCurrentTenantId()</code>), but <code>TenantProvisioner</code> runs in an admin / bootstrap context whose
+    ambient tenant is <strong>not</strong> the one being provisioned. The applier must therefore either take an
+    <strong>explicit-tenant writer overload</strong> or <strong>set and restore
+    <code>ITenantContext.TenantId = tenantId</code></strong> around the writes (the pattern
+    <code>CircleService.PreviewInviteAsync</code> already uses). Otherwise pack overrides land on the operator's tenant
+    or throw. This is the applier's single most important correctness rule.</li>
   <li><strong>Instruction bodies</strong> (<code>instructionsRef</code>) are packaged alongside the manifest (a
     markdown file), keeping a long persona prompt out of the JSON and versioned with the pack.</li>
   <li><strong>Feature flags are settings</strong> — they flow through the same <code>settings[]</code> section
@@ -279,8 +288,10 @@ public record TenantProvisioningContext(Guid TenantId, string DefaultCurrency, G
 </p>
 <pre><code>public interface ITenantProvisioningContributor
 {
-    // was: ProvisionAsync(TenantProvisioningContext ctx, …)  — ctx now carries BusinessType.
-    Task ProvisionAsync(TenantProvisioningContext ctx, CancellationToken ct = default);
+    string ModuleName { get; }
+    Task&lt;TenantProvisioningContribution&gt; ContributeProvisioningAsync(
+        TenantProvisioningContext context, CancellationToken ct = default);   // context.BusinessType now available
+    Task ContributeHealthCheckAsync(Guid tenantId, List&lt;string&gt; issues, CancellationToken ct = default);
 }</code></pre>
 <ul>
   <li><strong>Commerce gains its first contributor</strong> — <code>CommerceTenantProvisioningContributor</code> — that,
