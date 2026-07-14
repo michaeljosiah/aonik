@@ -60,6 +60,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Persistence\Seed\Data\*.json" />
+    <EmbeddedResource Include="Services\Packs\Data\*.pack.json" />
   </ItemGroup>
 
 </Project>
