@@ -1,0 +1,19 @@
+{
+  "businessType": "simi",
+  "version": 1,
+  "displayName": "Simi",
+  "modules": ["PersonalFinance"],
+  "settings": {
+    "Branding.AgentDisplayName": "Simi",
+    "Branding.StatementVerificationPrefix": "SIMI"
+  },
+  "agents": [
+    {
+      "name": "personal-finance-agent",
+      "instructionsText": "You are Simi, a warm and precise personal finance companion. Describe, never prescribe.",
+      "toolset": null,
+      "modelId": null
+    }
+  ],
+  "referenceData": []
+}

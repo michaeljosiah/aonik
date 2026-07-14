@@ -11,6 +11,15 @@
     <PackageReference Include="System.CommandLine" Version="2.0.5" />
   </ItemGroup>
 
+  <!-- Spec 065 — embed the config-pack manifests directly (linked from SharedKernel, the single source
+       of truth) so `packs` works offline WITHOUT referencing SharedKernel and dragging the ASP.NET
+       shared framework + EF/AI graph into this console app (Codex review). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Aonik.SharedKernel\Abstractions\Packs\Data\*.pack.json">
+      <LogicalName>Aonik.Cli.Packs.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
   </ItemGroup>

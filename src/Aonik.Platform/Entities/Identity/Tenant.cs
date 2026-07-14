@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Platform.Entities.Identity;
@@ -34,6 +35,13 @@ public class Tenant : AuditableEntity
     // Setup completion tracking
     public bool IsSetupComplete { get; set; } = false;
     public int SetupStep { get; set; } = 0;
+
+    // Business-type configuration pack (Spec 065)
+    /// <summary>The business type this tenant was provisioned as (Spec 065). Open string; default "base".</summary>
+    public string BusinessType { get; set; } = BusinessTypes.Base;
+
+    /// <summary>The config-pack version last applied to this tenant (Spec 065); null until a pack is applied.</summary>
+    public int? AppliedPackVersion { get; set; }
 }
 
 public static class TenantStatus

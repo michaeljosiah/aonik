@@ -90,7 +90,10 @@ public record DemoSeedContext(
     Guid TenantId,
     string SeedType,
     DateTime Now,
-    Guid? UserId
+    Guid? UserId,
+    // Spec 065 — the tenant's business type; sample contributors gate their content on it.
+    // Config comes from the config pack at provision, so the demo seed adds sample CONTENT only.
+    string BusinessType = BusinessTypes.Base
 );
 
 /// <summary>

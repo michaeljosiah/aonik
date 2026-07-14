@@ -41,6 +41,14 @@ const environments: { value: TenantEnvironment; label: string }[] = [
 
 const initialCurrencies: { code: string; name: string }[] = [];
 
+// Spec 065 — the business-type config packs an operator can provision a tenant as.
+// TODO: source these from the installed pack manifests via an API rather than hard-coding.
+const businessTypes: { value: string; label: string }[] = [
+  { value: 'base', label: 'Base (generic)' },
+  { value: 'simi', label: 'Simi — personal finance keeper' },
+  { value: 'food-commerce', label: 'Food commerce' },
+];
+
 export function CreateTenantPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
@@ -56,6 +64,7 @@ export function CreateTenantPage() {
     supportedCurrencies: ['USD'],
     ownerEmail: '',
     ownerDisplayName: '',
+    businessType: 'base',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CreateTenantRequest, string>>>({});
 
@@ -226,6 +235,25 @@ export function CreateTenantPage() {
                 <SelectContent>
                   {environments.map(env => (
                     <SelectItem key={env.value} value={env.value}>{env.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field label="Business type" error={errors.businessType}>
+              <Select
+                value={formData.businessType ?? 'base'}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, businessType: value }))}
+              >
+                <SelectTrigger
+                  aria-label="Business type"
+                  className={fieldInputClass(!!errors.businessType)}
+                >
+                  <SelectValue placeholder="Select business type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessTypes.map(bt => (
+                    <SelectItem key={bt.value} value={bt.value}>{bt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

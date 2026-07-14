@@ -94,6 +94,7 @@ internal class TenantService : AdminServiceBase, ITenantService
             AllowedOriginCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedOriginCountries),
             AllowedDestinationCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedDestinationCountries),
             Status = TenantStatus.Provisioning,
+            BusinessType = Aonik.SharedKernel.Abstractions.BusinessTypes.Normalize(request.BusinessType),
             CreatedAt = now,
             CreatedBy = userId
         };

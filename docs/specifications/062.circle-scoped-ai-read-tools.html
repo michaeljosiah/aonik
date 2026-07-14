@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 062 - The Circle, spoken: Simi answers over what your circle shares with you</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 062</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P2 (Simi, post-M5)</span>
+  <span class="meta-tag">Domain: PersonalFinance / Simi / Ai</span>
+  <h1>The Circle, spoken — Simi answers over what your circle shares with you</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a> made an owner's people, assets, and documents
+    <strong>shareable</strong> to a member, and <a href="061.circle-provision-on-accept.html">Spec&nbsp;061</a> let a
+    not-yet-registered person accept. But that shared slice is reachable only through the
+    <code>/personal-finance/circle/shared/&hellip;</code> REST screens: <strong>the Keeper AI cannot speak a word of
+    it.</strong> Every Simi tool is hard-scoped to the caller's own records, so "what does Mum share with me?" or
+    "which documents are on the Lagos flat she shared?" returns nothing. This spec adds a thin
+    <code>CircleTools</code> read set that lets Simi answer over the <em>already-authorised</em> shared slice — by
+    reusing <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>'s single fail-closed
+    <code>ICircleVisibility</code> filter, introducing <strong>no new projection and no new access</strong>. It closes
+    the gap between "the data is shareable" and "Simi can talk about it."
+  </p>
+</header>
+
+<div class="callout p0">
+  <span class="callout-label">Decision &amp; scope-tension (mini-ADR)</span>
+  Simi's guiding invariant to date is <em>"answer from their own records only"</em>
+  (<code>PersonalFinanceAgentRegistration</code>, the <code>&lt;keeper&gt;</code> block). This spec deliberately
+  widens it to <em>"their own records <strong>and</strong> what others explicitly share with them."</em> That is a
+  real change, so it is stated plainly here rather than buried. <strong>Why it is safe:</strong> it grants the AI
+  <em>zero</em> data it could not already fetch — the member can open the exact same slice today via the Spec&nbsp;048
+  REST endpoints; the tool is a second caller over the <em>same</em> <code>ICircleService</code> methods and the
+  <em>same</em> fail-closed <code>ICircleVisibility</code> resolver. No new projection is written, so the docs-only
+  "no amounts anywhere" property (Spec&nbsp;048 &sect;5/&sect;10) holds transitively — the model physically never
+  receives a suppressed amount. The describe-never-prescribe fence is unchanged. What changes is only that a
+  capability the product already ships stops being mute. (The tool and class names below are generic per <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> &mdash; <code>pf_list_shared_circles</code>, <code>CircleTools</code> &mdash; with "Simi" naming only the <em>configured persona</em>, never a platform symbol.)
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#tools">The CircleTools read set</a></li>
+    <li><a href="#service">The one service addition</a></li>
+    <li><a href="#failclosed">How it fails closed</a></li>
+    <li><a href="#prompt">Prompt &amp; registration wiring</a></li>
+    <li><a href="#documents">Documents: refs now, content later</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  The Circle already carries a household's load together — a sibling sees the co-owned flat, a partner sees
+  everything, a property manager sees documents only. Spec&nbsp;048 built the grants, the invites, and the fail-closed
+  visibility filter; Spec&nbsp;061 provisioned the not-yet-registered invitee. What is missing is <em>voice</em>:
+  Simi, the Keeper, can answer "what is <strong>my</strong> Lagos flat costing me?" but is silent on "what does my
+  mother share with me, and what's on the properties she shared?" — because the shared reads live only on REST screens
+  and every AI tool is caller-scoped. This spec adds five read tools (<code>pf_list_shared_circles</code>,
+  <code>pf_list_shared_entities</code>, <code>pf_get_shared_entity</code>,
+  <code>pf_list_shared_payment_logs</code>, plus the entry-point <em>who-shares-with-me</em> resolver) that call the
+  <em>existing</em> <code>ICircleService</code> shared reads, and one small service method to give the member a named
+  list of the circles they belong to. No schema change, no new authorisation surface.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Seyi asks Simi, "what has my sister shared with me?" — Simi answers, "Fola shares the Surulere flat with you."
+  He asks, "what documents are on it?" — Simi lists the tenancy agreement and the title deed by name. He asks, "what
+  has she spent on it this year?" — because his grant is a full co-owner scope, Simi answers "₦1,240,000 across 6
+  payments." Mr Bello, the property manager, asks the same question — Simi says "I can show you the flat's documents,
+  but not any amounts," because his grant is documents-only and the amount never enters the model's context at all.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<p>Confirmed against the tree:</p>
+<ul>
+  <li><strong>The shared slice exists and is fail-closed — but REST-only.</strong>
+    <code>CircleService</code> (implementing <code>ICircleService</code> + <code>ICircleVisibility</code>) exposes
+    <code>ListSharedEntitiesAsync(ownerUserId)</code>, <code>GetSharedEntityAsync(ownerUserId, careEntityId)</code>,
+    and <code>GetSharedPaymentLogsAsync(&hellip;)</code>, each gated by the per-entity covering-grant resolver
+    <code>GetActiveGrantsAsync</code>. Their only callers are the <code>*Endpoint</code> classes in
+    <code>Endpoints/PersonalFinance/CircleEndpoints.cs</code>. <strong>No agent tool references them.</strong></li>
+  <li><strong>Every Simi tool is caller-scoped.</strong> <code>CareReadTools</code> (Spec&nbsp;047) delegates to
+    <code>ICareEntityService</code>/<code>IPaymentLogService</code>, which filter on
+    <code>e.UserId == currentUser</code> — so the Keeper only ever reads the asker's own entities. The
+    orchestrator-level <code>DocumentSearchTools</code> is documented as scoping "only the current user's documents &hellip;
+    so a prompt cannot widen its own scope across parties." That invariant is correct and must be preserved; this spec
+    routes cross-member reads through the grant, not around it.</li>
+  <li><strong>The member has no named handle on their circles.</strong> <code>ListGrantsForMemberAsync</code> returns
+    <code>CircleGrantResponse</code> rows carrying a bare <code>OwnerUserId</code> Guid and no display name — unusable
+    for a conversational "your sister Fola shares&hellip;". Owner-name resolution
+    (<code>ResolveOwnerDisplayNameAsync</code> via <code>IPartyReader</code>) exists inside <code>CircleService</code>
+    but is <code>private</code> and only used by the anonymous invite preview.</li>
+</ul>
+<p>So the plumbing is done and safe; it simply has no mouth.</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>CircleTools</code>: five describe-only read tools over the existing shared reads (&sect;4).</li>
+  <li><span class="tag new">New</span> One <code>ICircleService.ListSharedCirclesAsync()</code> method returning the member's circles <em>with owner display names</em> (&sect;5).</li>
+  <li><span class="tag extend">Edit</span> A <code>&lt;circle&gt;</code> block in the Simi system prompt + registration of the tools through the existing gate (&sect;7).</li>
+  <li><span class="tag existing">Reuse</span> The Spec&nbsp;048 fail-closed <code>ICircleVisibility</code> filter and per-entity covering logic — unchanged (&sect;6).</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Any new access.</strong> The tools read exactly what a grant already authorises; no grant, no answer.</li>
+  <li><strong>Cross-member document <em>content</em> retrieval (RAG).</strong> The tools surface document <em>refs</em>
+    (title, type) for a shared entity; semantic search over another member's document <em>bytes</em> stays out — the
+    vector index is deliberately party-scoped (<code>ScopedDocumentVectorIndex</code>, <code>owner_party_id</code>
+    filter). Lifting that is a separate, security-sensitive decision (&sect;8, O1).</li>
+  <li><strong>Member-write.</strong> Logging or attaching on a shared entity is <a href="063.circle-member-write.html">Spec&nbsp;063</a>.</li>
+  <li><strong>Money movement, prescription, valuation.</strong> Unchanged Simi guardrails — describe only.</li>
+</ul>
+
+<h2 id="tools">4. The CircleTools read set <span class="tag new">new</span></h2>
+<p>
+  A sibling of <code>CareReadTools</code>: an <code>internal sealed</code> class, private constructor, DI-resolved
+  <code>ICircleService</code>, <code>[Description]</code>-annotated methods, and a static
+  <code>CreateAll(IServiceProvider)</code> that yields the named <code>AITool</code>s. Every method delegates to an
+  <em>existing</em> shared read; the tool layer adds no query of its own.
+</p>
+<pre><code>internal sealed class CircleTools
+{
+    private readonly ICircleService _circle;   // Spec 048 shared reads + the §5 addition
+
+    [Description("Lists the people (circle owners) who share records with the current user — e.g. a sibling "
+        + "or parent who shared a property. Returns each owner's display name, the scope they granted "
+        + "(everything | selected | documents only), and how many entities are shared. Call this FIRST to "
+        + "find whose data you may read, then pass the ownerUserId to the other circle tools.")]
+    public Task&lt;IReadOnlyList&lt;SharedCircleRef&gt;&gt; ListSharedCircles(CancellationToken ct = default)
+        =&gt; _circle.ListSharedCirclesAsync(ct);
+
+    [Description("Lists the people and assets one owner shares with the current user (names, kind, country). "
+        + "Returns empty if that owner shares nothing with the caller. Use ListSharedCircles first to get ownerUserId.")]
+    public Task&lt;IReadOnlyList&lt;CareEntityRef&gt;?&gt; ListSharedEntities(
+        [Description("The circle owner's id, from ListSharedCircles.")] Guid ownerUserId,
+        CancellationToken ct = default)
+        =&gt; _circle.ListSharedEntitiesAsync(ownerUserId, ct);
+
+    [Description("Gets the caller's scoped view of one entity an owner shares: the entity, its linked document "
+        + "references (title + type only), and — ONLY if the grant permits amounts — per-currency totals and recent "
+        + "payments. For a documents-only share, amounts are absent entirely. Returns null if nothing is shared.")]
+    public Task&lt;CircleSharedEntityResult?&gt; GetSharedEntity(
+        [Description("The circle owner's id.")] Guid ownerUserId,
+        [Description("The shared entity's id, from ListSharedEntities.")] Guid careEntityId,
+        CancellationToken ct = default)
+        =&gt; _circle.GetSharedEntityAsync(ownerUserId, careEntityId, ct);
+
+    [Description("Lists an owner's recorded payments for one shared entity, newest first, paginated. Returns null "
+        + "for a documents-only or no-amounts share (amounts are never revealed). Amounts keep their original "
+        + "currency and are never converted.")]
+    public Task&lt;CircleSharedPaymentLogsResult?&gt; ListSharedPaymentLogs(
+        [Description("The circle owner's id.")] Guid ownerUserId,
+        [Description("The shared entity's id.")] Guid careEntityId,
+        [Description("Page number (default 1).")] int page = 1,
+        [Description("Page size (default 20, max 100).")] int pageSize = 20,
+        CancellationToken ct = default)
+        =&gt; _circle.GetSharedPaymentLogsAsync(ownerUserId, careEntityId, page, pageSize, ct);
+
+    public static IEnumerable&lt;AITool&gt; CreateAll(IServiceProvider sp)
+    {
+        var t = new CircleTools(sp.GetRequiredService&lt;ICircleService&gt;());
+        yield return AIFunctionFactory.Create(t.ListSharedCircles,     name: "pf_list_shared_circles");
+        yield return AIFunctionFactory.Create(t.ListSharedEntities,    name: "pf_list_shared_entities");
+        yield return AIFunctionFactory.Create(t.GetSharedEntity,       name: "pf_get_shared_entity");
+        yield return AIFunctionFactory.Create(t.ListSharedPaymentLogs, name: "pf_list_shared_payment_logs");
+    }
+}</code></pre>
+<p>
+  Note the deliberate shape: the model never invents an <code>ownerUserId</code>. It calls
+  <code>pf_list_shared_circles</code> to discover the owners who share with the caller, and every subsequent id it
+  passes was minted by a prior tool return — and even a fabricated id fails closed at the service (&sect;6). Ids are
+  opaque; the Simi prompt already forbids surfacing them to the user, so answers read as "Fola's flat", never a Guid.
+</p>
+
+<h2 id="service">5. The one service addition <span class="tag new">new</span></h2>
+<p>
+  <code>ListGrantsForMemberAsync</code> returns owner <em>ids</em>; a conversational answer needs owner <em>names</em>.
+  Add a member-facing projection to <code>ICircleService</code> that folds each active grant into a named,
+  amount-free headline — reusing the private owner-name resolver <code>CircleService</code> already has:
+</p>
+<pre><code>// ICircleService
+/// &lt;summary&gt;The circles the current user is a MEMBER of, each with the owner's display name and a
+/// scope summary — the conversational entry point for the Keeper (Spec 062). Never carries an amount.&lt;/summary&gt;
+Task&lt;IReadOnlyList&lt;SharedCircleRef&gt;&gt; ListSharedCirclesAsync(CancellationToken cancellationToken = default);
+
+// CircleModels.cs — a headline, not a view: no amount, ever.
+public record SharedCircleRef(
+    Guid OwnerUserId,
+    string OwnerDisplayName,   // resolved via the existing IPartyReader path
+    string Scope,              // all | entities | docsOnly
+    string ScopeLabel,         // the existing ScopeLabel() text, e.g. "Selected people & places"
+    int? EntityCount,       // named-entity count; null = "everything" for all scope (the grant's id-union is empty and would misreport 0)
+    bool NoAmounts);</code></pre>
+<p>
+  Implementation folds <code>ListGrantsForMemberAsync</code>'s active grants by <code>OwnerUserId</code>, resolves each
+  owner's display name (batch the <code>IPartyReader.GetByIdsAsync</code> call once), and reports the most-permissive
+  scope and the shared-entity count (for <code>all</code> scope, the owner's live entity count, since the grant's id-union is empty and would misreport 0) — the same merge rule <code>ResolveAsync</code> already uses. It reads
+  only grants where the caller is the member; it exposes no amount and no owner data beyond a display name (the same
+  disclosure Spec&nbsp;061's preview already makes).
+</p>
+
+<h2 id="failclosed">6. How it fails closed <span class="tag existing">the crux is reused, not rebuilt</span></h2>
+<p>
+  The security argument is entirely inherited, which is the point. The tools call
+  <code>ICircleService</code> methods that <em>already</em> resolve the caller as member and fail closed:
+</p>
+<div class="ascii-diagram">pf_get_shared_entity(ownerUserId, careEntityId)
+   → ICircleService.GetSharedEntityAsync            (current member = GetContext() → currentUser)
+      → GetActiveGrantsAsync(ownerUserId)           active grants for (member → owner); unknown scopes dropped
+      → covering = grants covering THIS entity      none → return null → tool returns null → "nothing shared"
+      → docsOnly only?  → CircleSharedDocsView       structurally amount-free (no log/total join at all)
+      → full + amounts? → CircleSharedEntityView     amounts only if a covering grant has NoAmounts = false</div>
+<ul>
+  <li><strong>No grant → null → the model is told "nothing is shared", not an amount.</strong> A fabricated or
+    guessed <code>ownerUserId</code>/<code>careEntityId</code> resolves no covering grant and returns null. Existence
+    is not revealed (the tool cannot distinguish "no such entity" from "not shared with you").</li>
+  <li><strong>docsOnly is amount-free by construction.</strong> <code>GetSharedEntityAsync</code> returns
+    <code>CircleSharedDocsView</code>, which has <em>no</em> amount/total/log field — so there is no amount in the
+    object the tool hands the model. <code>ListSharedPaymentLogs</code> returns null for docsOnly / no-amounts. The
+    Spec&nbsp;048 "no amounts anywhere" property therefore holds for the AI path with <em>zero</em> new enforcement
+    code.</li>
+  <li><strong>Revocation is immediate.</strong> Revoked grants are excluded by <code>GetActiveGrantsAsync</code>
+    (<code>Status == "active"</code>); the next tool call after a revoke returns null. No cached visibility.</li>
+  <li><strong>Reads, so ungated and unwrapped.</strong> Like <code>pf_*</code> Keeper reads, these carry no mutating
+    capability and are omitted from <code>PersonalFinanceToolApprovalManifest</code>, so
+    <code>IToolApprovalGate.GateAll</code> passes them through (Spec&nbsp;032).</li>
+</ul>
+
+<h2 id="prompt">7. Prompt &amp; registration wiring <span class="tag extend">edit</span></h2>
+<p>
+  Register the tools exactly as the Keeper set is registered — appended inside
+  <code>PersonalFinanceAgentDescriptor.GetTools</code>'s <code>gate.GateAll(&hellip;)</code> chain:
+</p>
+<pre><code>        .Concat(CareReadTools.CreateAll(serviceProvider))
+        .Concat(CircleTools.CreateAll(serviceProvider)),   // Spec 062 — shared-circle reads (ungated)</code></pre>
+<p>Add a <code>&lt;circle&gt;</code> block to the Simi instructions, next to <code>&lt;keeper&gt;</code>:</p>
+<pre><code>&lt;circle&gt;
+Some people share a slice of their records with the user — a sibling's flat, a parent's affairs.
+When the user asks about someone else's people, assets, documents, or support, first call
+pf_list_shared_circles to see who shares with them and how much. Then read with
+pf_list_shared_entities / pf_get_shared_entity / pf_list_shared_payment_logs.
+Refer to the owner by name ("Fola's flat"), never an id. If nothing is shared, say so plainly — do
+not guess or imply access. If a share is documents-only, you can name and describe the documents but
+you have no amounts for it; never estimate or imply a figure. Describe, never prescribe — the same
+rule as the user's own records. Amounts in different currencies are never converted or summed.
+&lt;/circle&gt;</code></pre>
+<p>
+  The tools flow into <code>GetToolNames</code> automatically, so tenant tool-allow-lists and the AI Playground pick
+  them up with no extra wiring. Because <code>RequiresUserBrief</code> is already true, no brief change is needed.
+</p>
+
+<h2 id="documents">8. Documents: refs now, content later</h2>
+<p>
+  The user's question "&hellip;and any documents associated with those assets?" splits cleanly:
+</p>
+<ul>
+  <li><span class="tag new">In</span> <strong>Which documents exist</strong> — <code>pf_get_shared_entity</code>
+    returns each linked document's <code>Title</code> + <code>DocumentType</code> (from
+    <code>IDocumentLinkReader.GetForOwnerTargetAsync</code>, read by the owner's identity, refs only). Simi can answer
+    "there's a tenancy agreement and a title deed on the flat."</li>
+  <li><span class="tag gap">Deferred</span> <strong>What a document says</strong> — semantic search over another
+    member's document <em>content</em>. Today <code>documents_search</code> / <code>ScopedDocumentVectorIndex</code>
+    filter on <code>owner_party_id == caller</code> precisely so one party's agent cannot retrieve another party's
+    document text (this closed a real cross-customer leak). A circle-aware variant is possible — filter the index to
+    an owner's <code>owner_party_id</code> where the caller holds a covering, non-docsOnly grant — but it reopens the
+    most sensitive index guarantee and deserves its own spec. Tracked as O1.</li>
+</ul>
+
+<h2 id="persistence">9. Persistence &amp; migration</h2>
+<div class="callout ok">
+  <span class="callout-label">No migration</span>
+  This spec is read-only. It adds one DTO (<code>SharedCircleRef</code>), one service method, one tool class, and one
+  prompt block. No entity, no <code>DbSet</code>, no schema change — nothing to migrate.
+</div>
+
+<h2 id="security">10. Security</h2>
+<ul>
+  <li><strong>Zero new access surface.</strong> The tools are a second caller over the Spec&nbsp;048 shared reads;
+    the authorisation decision remains <code>ICircleVisibility</code> + the per-entity covering check, in one place.</li>
+  <li><strong>No-amounts property preserved transitively</strong> (&sect;6) — the docs-only projection carries no
+    amount, so none can reach the model; asserted by the tests below.</li>
+  <li><strong>No scope-widening via prompt.</strong> Owner/entity ids are resolved through grants; a model-supplied id
+    with no covering grant returns null. This mirrors the <code>DocumentSearchTools</code> guarantee that scope comes
+    from context, not model input.</li>
+  <li><strong>Tenant + membership scoping</strong> is inherited: <code>GetActiveGrantsAsync</code> pins
+    <code>TenantId</code> and <code>MemberUserId == currentUser</code>.</li>
+  <li><strong>Audit.</strong> Tool invocations are already recorded as part of the <code>AiRun</code>; no separate
+    audit is added, but the shared-read tool name + owner id make cross-member reads legible in the run log.</li>
+</ul>
+
+<h2 id="tasks">11. Tasks</h2>
+<ol>
+  <li><code>SharedCircleRef</code> DTO + <code>ICircleService.ListSharedCirclesAsync</code> + implementation in
+    <code>CircleService</code> (fold member grants by owner, batch owner-name resolve, most-permissive scope).</li>
+  <li><code>CircleTools</code> with the four <code>[Description]</code>-annotated reads + <code>CreateAll</code>.</li>
+  <li>Register via <code>.Concat(CircleTools.CreateAll(&hellip;))</code> in <code>GetTools</code>; add the
+    <code>&lt;circle&gt;</code> prompt block.</li>
+  <li>Tests (&sect;12), including the logged-in-as-docsOnly no-amounts assertion over the tool return.</li>
+</ol>
+
+<h2 id="acceptance">12. Acceptance criteria</h2>
+<ul>
+  <li><strong>Discovery.</strong> A member with an active grant sees the owner (by display name) and scope via
+    <code>pf_list_shared_circles</code>; a user with no inbound grants gets an empty list.</li>
+  <li><strong>Full scope reads.</strong> An <code>entities</code>/<code>all</code> member gets the shared entity, its
+    document refs, per-currency totals, and recent payments through the tools — the same data as the REST endpoint.</li>
+  <li><strong>Documents-only, no amounts — the security assertion.</strong> Called as a <code>docsOnly</code> member,
+    <code>pf_get_shared_entity</code> returns the docs view with document refs and <em>no</em> amount-bearing field,
+    and <code>pf_list_shared_payment_logs</code> returns null — asserted field-by-field on the tool output, not just
+    the endpoint.</li>
+  <li><strong>Fail closed.</strong> A fabricated <code>ownerUserId</code>/<code>careEntityId</code>, or an id whose
+    grant was revoked, returns null/empty on the next call.</li>
+  <li><strong>Ungated.</strong> The tools are not classified in the manifest and pass the approval gate unwrapped;
+    a mutating-looking rename would (correctly) trip the Spec&nbsp;032 build-time check — these are reads.</li>
+  <li><strong>Build.</strong> <code>dotnet build</code> green; no migration produced.</li>
+</ul>
+
+<h2 id="open">13. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Cross-member document content RAG.</strong> Whether to add a circle-aware <code>IDocumentSearch</code> that lets a full-scope member ask "what does the tenancy agreement say?" over an owner's document bytes. Recommended: a separate spec that filters the vector index by the owner's <code>owner_party_id</code> only where a covering non-docsOnly grant exists, with the same logged-in-as-member leak test. Deferred here to keep this spec zero-migration and zero-new-index-surface.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Member-side alias for the owner.</strong> The grant stores no "how the member thinks of the owner" label, so Simi says the owner's display name ("Fola"), not "your sister". A lightweight per-grant <code>MemberAlias</code> (or reuse of user memory: <code>relationship.fola = sister</code>) could let Simi say "your sister's flat". Low priority.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Owner-name disclosure surface.</strong> <code>ListSharedCirclesAsync</code> discloses the owner's display name to the member. This equals what Spec&nbsp;061's preview already reveals and what the REST "Can see" screen shows, so it is assumed acceptable; confirm no stricter tenant wants owner-name masked.</li>
+</ul>
+
+<h2 id="refs">14. References</h2>
+<p style="margin:8px 0 0"><a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> governs naming here &mdash; the tools are generic (<code>pf_*</code>) and "Simi" is the configured persona, not a platform symbol. De-branding the existing footprint is <a href="064.debrand-product-identity-from-platform-code.html">Spec&nbsp;064</a>.</p>
+<ul>
+  <li><a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048 — The Circle</a> (the grants, the fail-closed <code>ICircleVisibility</code> filter, the no-amounts property, Open decision O1 on member-write) &middot; <a href="061.circle-provision-on-accept.html">Spec&nbsp;061</a> (anonymous preview / provision-on-accept) &middot; <a href="047.ai-capture-parse-and-keeper.html">Spec&nbsp;047</a> (the Keeper read surface this mirrors) &middot; <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> (the gate that passes reads through).</li>
+  <li>Code idioms — tools &amp; agent: <code>src/Aonik.PersonalFinance/Agents/Tools/CareReadTools.cs</code> (the exact pattern to mirror), <code>src/Aonik.PersonalFinance/Agents/PersonalFinanceAgentRegistration.cs</code> (<code>GetTools</code> <code>gate.GateAll</code> chain; the <code>&lt;keeper&gt;</code> block), <code>src/Aonik.PersonalFinance/Agents/PersonalFinanceToolApprovalManifest.cs</code> (reads omitted).</li>
+  <li>Code idioms — circle service &amp; contracts (all under <code>src/Aonik.PersonalFinance</code>): <code>Services/PersonalFinance/CircleService.cs</code> (<code>ListGrantsForMemberAsync</code>, <code>GetActiveGrantsAsync</code>, <code>GetSharedEntityAsync</code>, the private <code>ResolveOwnerDisplayNameAsync</code>/<code>ScopeLabel</code>), <code>Contracts/Services/PersonalFinance/ICircleService.cs</code>, <code>Contracts/Models/PersonalFinance/CircleModels.cs</code> (<code>CareEntityRef</code>, <code>CircleSharedEntityResult</code>, <code>CircleSharedDocsView</code>, <code>CircleSharedPaymentLogsResult</code>), <code>Endpoints/PersonalFinance/CircleEndpoints.cs</code> (the REST-only callers today).</li>
+  <li>Party-scoped index (O1 context): <code>src/Aonik.SharedKernel/Agents/Tools/DocumentSearchTools.cs</code>, <code>src/Aonik.Infrastructure/VectorStore/ScopedDocumentVectorIndex.cs</code> (<code>owner_party_id</code> filter).</li>
+</ul>
+
+<footer>
+  Spec 062 &middot; Draft Rev 1 &middot; 2026-07-14 &middot; extends Spec 048 / 061 &middot; Domain: PersonalFinance / Simi / Ai
+</footer>
+
+</body>
+</html>

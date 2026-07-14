@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 063 - Member-write: contributing to a shared entity</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 063</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P2 (Simi, post-M5)</span>
+  <span class="meta-tag">Domain: PersonalFinance / Simi / Documents</span>
+  <h1>Member-write — contributing to a shared entity</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>'s own success story ends with
+    <em>"Seyi logs a ₦120,000 repair; it appears on Fola's Today with his name."</em> That sentence was never built —
+    Spec&nbsp;048 shipped the Circle as strictly <strong>read-only</strong> and left member-write as
+    <strong>Open decision&nbsp;O1</strong>. Today a member can see a shared flat but cannot add the repair receipt,
+    log the service charge they paid, or file the new tenancy agreement; every write path is hard-bound to the
+    caller's <em>own</em> records (<code>EnsureOwnedCareEntityAsync</code>, <code>OwnsDocumentAsync</code>). This spec
+    resolves O1: it lets a full-scope member <strong>log a payment</strong> and <strong>attach a document</strong> to
+    an entity an owner shares with them — each write authorised by a single fail-closed gate, stamped with the
+    member's identity, and landing in the owner's records so it surfaces on their Today. It turns the Circle from a
+    window into a shared ledger of care.
+  </p>
+</header>
+
+<div class="callout p0">
+  <span class="callout-label">Decision &amp; scope-tension (mini-ADR)</span>
+  Member-write is a genuine shift from Simi's <strong>single-keeper</strong> shape, so two guardrail checks are made
+  explicitly. <strong>(1) It is not money movement.</strong> A <code>PaymentLog</code> is, by Spec&nbsp;045's own
+  words, <em>"the capture that it happened (paid by bank / Wise / cash elsewhere)"</em> — a record, never a transfer.
+  Spec&nbsp;048 &sect;3.2's rule <em>"no member can move funds"</em> is preserved intact: no member moves a penny;
+  they record that they did, outside the app. <strong>(2) It was anticipated, not smuggled in.</strong>
+  Spec&nbsp;048's acceptance criteria and success signal already describe the member-logged act surfacing on the
+  owner's Today; O1 explicitly deferred the write matrix to "finalise in implementation." This spec is that
+  finalisation. What it deliberately withholds: a member may only <em>create</em> on a shared entity and undo their
+  own contribution — never edit or delete the owner's or another member's records, never touch a docs-only share,
+  never drive the owner's commitment cycles. The owner remains sole keeper; members may only add to the pile they can
+  already see. (Tool and class names in this spec are generic per <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a>; "Simi" names the configured persona, not a platform symbol.)
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#matrix">The write matrix (resolves O1)</a></li>
+    <li><a href="#gate">The single write gate</a></li>
+    <li><a href="#attribution">Attribution</a></li>
+    <li><a href="#paymentlog">Member payment-log write</a></li>
+    <li><a href="#document">Member document attach</a></li>
+    <li><a href="#ai">AI exposure</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  A cross-border household shares the load, so the record should be shared too. This spec adds two member-write
+  capabilities on a shared <code>CareEntity</code>: <strong>log a payment</strong> (a repair, a service charge, a top
+  of the school fees) and <strong>attach a document</strong> (a receipt, a new tenancy agreement). Both are gated by
+  one new fail-closed check — <code>ICircleWriteGuard.ResolveWriteScopeAsync</code> — that says whether the current
+  member may contribute to <em>this</em> owner's <em>this</em> entity, reusing Spec&nbsp;048's per-entity
+  covering-grant logic. A member's write lands in the <strong>owner's</strong> data space (so it flows into the
+  owner's Today, totals, and Support Statement) but is stamped with the member's id for attribution and
+  non-repudiation. A member can undo their <em>own</em> contribution; the owner can remove anything on their entities.
+  Documents-only members remain strictly read-only.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Fola shares the Surulere flat with her brother Seyi (co-owner scope). Seyi pays a plumber ₦120,000 and, from his
+  phone, logs it against the flat: it appears on Fola's Today as "Seyi &middot; ₦120,000 &middot; repair" and rolls
+  into the flat's year total and her next Support Statement. He photographs the new tenancy agreement and attaches it;
+  it files itself into Fola's Vault against the flat, tagged "added by Seyi". Mr Bello, documents-only, tries the same
+  from a script and is refused — his grant carries no write. Seyi mistypes an amount and undoes his own log; Fola's
+  earlier records are untouched.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<ul>
+  <li><strong>Every write is strictly caller-owned.</strong> <code>PaymentLogService.CreateAsync</code> calls
+    <code>EnsureOwnedCareEntityAsync(tenantId, currentUserId, careEntityId)</code>, which throws unless the entity's
+    <code>UserId</code> equals the caller — a member cannot log against an owner's entity. The document path is the
+    same: <code>DocumentLinkService.AddLinkAsync</code> gates on <code>OwnsDocumentAsync</code>
+    (<code>doc.OwnerPartyId == caller party</code>), so a member cannot link into an owner's Vault.</li>
+  <li><strong>The Circle is read-only.</strong> Spec&nbsp;048's member surface is entirely <code>GET</code>
+    (<code>ListSharedEntities</code>, <code>GetSharedEntity</code>, <code>GetSharedPaymentLogs</code>). There is no
+    member-write endpoint, and O1 is still open.</li>
+  <li><strong>No attribution field exists.</strong> <code>PaymentLog</code> has a single <code>UserId</code> (the data
+    owner) and no "who logged this" column; <code>Document</code> has <code>OwnerPartyId</code> but no "who uploaded
+    this" column. Surfacing "Seyi's name" on the owner's Today needs one small field on each.</li>
+</ul>
+<p>So the reads are safe and scoped; the writes have simply never been opened, and the entity model has no notion of a contributor.</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>ICircleWriteGuard</code> — the single fail-closed contribute check (&sect;5).</li>
+  <li><span class="tag new">New</span> Member payment-log write: service method + endpoint, attributed, one-offs only (&sect;7).</li>
+  <li><span class="tag new">New</span> Member document attach into the owner's Vault: a cross-module owner-scoped writer + endpoint (&sect;8).</li>
+  <li><span class="tag mutate">Edit</span> <code>PaymentLog.LoggedByUserId</code> + <code>Document.UploadedByUserId</code> attribution columns (&sect;6, &sect;10).</li>
+  <li><span class="tag new">New</span> One Medium-gated AI tool, <code>pf_add_shared_payment</code> (&sect;9).</li>
+  <li><span class="tag extend">Edit</span> Surface the contributor's name on the owner's entity/Today projections (&sect;6).</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Money movement.</strong> A log records an act paid elsewhere; nothing here transfers funds (Spec&nbsp;048 &sect;3.2 unchanged).</li>
+  <li><strong>Editing or deleting the owner's / another member's records.</strong> Members create + self-undo only; the owner is the sole editor of their book.</li>
+  <li><strong>Docs-only writes.</strong> A <code>docsOnly</code> grant stays read-only — no logs, no attachments.</li>
+  <li><strong>Driving the owner's commitments.</strong> A member logs one-off acts (no <code>CommitmentId</code>); marking a commitment cycle done stays the owner's ritual (Spec&nbsp;044). See O2.</li>
+  <li><strong>Raw AI file upload.</strong> Document bytes are uploaded on the frontend (as with statement import); the AI deep-links, it does not stream files.</li>
+</ul>
+
+<h2 id="matrix">4. The write matrix — resolves Spec 048 O1 <span class="tag new">the decision</span></h2>
+<table>
+  <thead><tr><th>Member grant</th><th>Log a payment</th><th>Attach a document</th><th>Edit / delete another's record</th></tr></thead>
+  <tbody>
+    <tr><td><strong>all</strong> or <strong>entities</strong> covering the entity, <code>NoAmounts=false</code></td><td>✅ attributed to the member</td><td>✅ into the owner's Vault, tagged with the member</td><td>❌ (own contribution: self-undo only)</td></tr>
+    <tr><td>full scope but <code>NoAmounts=true</code></td><td>❌ (cannot state an amount into a book they may not read)</td><td>✅ (a document carries no amount)</td><td>❌</td></tr>
+    <tr><td><strong>docsOnly</strong></td><td>❌</td><td>❌ (read-only)</td><td>❌</td></tr>
+    <tr><td>no covering grant</td><td>❌ 404</td><td>❌ 404</td><td>❌ 404</td></tr>
+  </tbody>
+</table>
+<p>
+  The rule in one line: <strong>you may contribute to what you can fully see, you own only what you contributed, and
+  the owner owns everything.</strong> Amount-bearing writes additionally require that the member is allowed amounts
+  (<code>NoAmounts=false</code>), so the no-amounts security property is never breached from the write side either.
+</p>
+
+<h2 id="gate">5. The single write gate <span class="tag new">the crux</span></h2>
+<p>
+  Mirroring Spec&nbsp;048's "one visibility filter" discipline, there is <strong>one</strong> write authority. It is
+  the same per-entity covering-grant resolution the reads use (<code>GetActiveGrantsAsync</code> +
+  <code>covering</code>), asked the write question. Implemented by <code>CircleService</code> (which already holds that
+  logic); no write path may bypass it.
+</p>
+<pre><code>// Contracts/Services/PersonalFinance — the sole contribute authority (fail-closed).
+public interface ICircleWriteGuard
+{
+    /// &lt;summary&gt;What the CURRENT member may contribute to (owner, careEntity). Fail-closed:
+    /// no covering grant, or a docsOnly grant, yields (false, false).&lt;/summary&gt;
+    Task&lt;CircleWriteScope&gt; ResolveWriteScopeAsync(Guid ownerUserId, Guid careEntityId, CancellationToken ct = default);
+}
+
+public record CircleWriteScope(bool CanAttachDocument, bool CanLogPayment)
+{
+    public static readonly CircleWriteScope None = new(false, false);
+}</code></pre>
+<pre><code>// CircleService — reuse the existing covering + full-scope resolution (same predicate as the read's hasFullScope).
+public async Task&lt;CircleWriteScope&gt; ResolveWriteScopeAsync(Guid ownerUserId, Guid careEntityId, CancellationToken ct)
+{
+    var grants   = await GetActiveGrantsAsync(ownerUserId, ct);                     // active, known-scope, member→owner
+    var covering = grants.Where(g =&gt; g.Scope == "all" || g.EntityIds.Contains(careEntityId)).ToList();
+    var fullScope = covering.Any(g =&gt; g.Scope == "all" || g.Scope == "entities");   // docsOnly-only → false
+    if (!fullScope) return CircleWriteScope.None;
+
+    var amountsAllowed = covering.Any(g =&gt; !g.NoAmounts);
+    return new CircleWriteScope(CanAttachDocument: true, CanLogPayment: amountsAllowed);
+}</code></pre>
+<div class="callout p0">
+  <span class="callout-label">Fail closed, one place</span>
+  Both write services resolve <code>ICircleWriteGuard</code> <em>before</em> touching the database and deny on
+  <code>false</code>. A revoked grant drops out of <code>GetActiveGrantsAsync</code> immediately, so a revoked member's
+  next write fails. There is no per-endpoint ad-hoc check — a new member-write surface added later must route through
+  this gate, exactly as new shared-read surfaces route through <code>ICircleVisibility</code>.
+</div>
+
+<h2 id="attribution">6. Attribution <span class="tag mutate">edit</span></h2>
+<p>
+  A member's contribution lives in the owner's data space but must never lose the member's fingerprint. Two nullable
+  columns carry it (null = the owner did it themselves — every existing row):
+</p>
+<pre><code>// PaymentLog.cs  (Spec 045)
+/// &lt;summary&gt;The member who logged this on the owner's shared entity (Spec 063); null = the owner logged it.&lt;/summary&gt;
+public Guid? LoggedByUserId { get; set; }
+
+// Document.cs  (Spec 035/046)
+/// &lt;summary&gt;The member who uploaded this into the owner's Vault via a Circle contribution (Spec 063); null = the owner.&lt;/summary&gt;
+public Guid? UploadedByUserId { get; set; }</code></pre>
+<p>
+  The owner-facing projections that already surface recent logs (<code>CareEntityPaymentLogSummary</code> and the
+  entity profile / Today feed) gain an optional <code>LoggedByName</code>, resolved once via <code>IPartyReader</code>
+  the same way owner names are resolved elsewhere. When null, the UI shows nothing extra; when set, "Seyi" appears.
+  This is a pure additive projection field — no amount semantics change.
+</p>
+
+<h2 id="paymentlog">7. Member payment-log write <span class="tag new">new</span></h2>
+<p>
+  A dedicated method keeps the owner-write path separate from the strictly-caller-owned <code>CreateAsync</code>,
+  rather than overloading it with a mode flag:
+</p>
+<pre><code>// IPaymentLogService
+/// &lt;summary&gt;A member logs a one-off act on an entity an OWNER shares with them (Spec 063). Authorised by
+/// ICircleWriteGuard; the log is written into the owner's space (UserId = ownerUserId) and stamped
+/// LoggedByUserId = current member. CommitmentId/CommitmentCycleId are rejected — members log one-offs only.&lt;/summary&gt;
+Task&lt;PaymentLogResponse&gt; CreateForSharedEntityAsync(
+    Guid ownerUserId, CreatePaymentLogRequest request, CancellationToken cancellationToken = default);</code></pre>
+<p>Behaviour, reusing the existing normalisation/idempotency machinery:</p>
+<ol>
+  <li>Resolve the member (<code>GetContext()</code> → current user) and call
+    <code>ICircleWriteGuard.ResolveWriteScopeAsync(ownerUserId, request.CareEntityId)</code>;
+    <code>!CanLogPayment</code> → deny (404 — existence not revealed, consistent with the reads).</li>
+  <li>Reject <code>CommitmentId</code>/<code>CommitmentCycleId</code> (one-offs only, O2).</li>
+  <li>Confirm the entity belongs to <em>the owner</em> and is live — the same
+    <code>EnsureOwnedCareEntityAsync</code> check, but keyed on <code>ownerUserId</code> not the caller.</li>
+  <li>Write <code>PaymentLog { UserId = ownerUserId, LoggedByUserId = memberUserId, Origin = "manual", &hellip; }</code>
+    through the existing validation, currency normalisation, and idempotency-key replay logic.</li>
+</ol>
+<p>
+  Endpoint, alongside the Spec&nbsp;048 shared routes (customer <code>UserPolicy</code>; the gate does the real work):
+</p>
+<pre><code>POST /personal-finance/circle/shared/{ownerUserId}/care-entities/{careEntityId}/payment-logs
+     → 201 Created (the attributed log)   401   404 (no grant / not allowed amounts / entity not found)
+
+// Self-undo of one's OWN contribution (soft-delete, 30-day restore window as Spec 045):
+DELETE /personal-finance/circle/shared/{ownerUserId}/care-entities/{careEntityId}/payment-logs/{id}
+     → 204   404 (not the caller's own contribution)   // gated on LoggedByUserId == member</code></pre>
+
+<h2 id="document">8. Member document attach <span class="tag new">new</span></h2>
+<p>
+  A member-attached document must land in the <strong>owner's</strong> Vault — under the owner's
+  <code>OwnerPartyId</code> — so it files against the shared entity, appears in the owner's document list, and is
+  indexed under the owner's party for the owner's own search. The caller (member) does not own that party, so the
+  normal caller-derived document write (<code>DocumentLinkService.ResolveCallerScopeAsync</code>) cannot be used. Add a
+  narrow owner-scoped contribution writer as a SharedKernel abstraction (so PersonalFinance can invoke it without a
+  Documents ProjectReference — the same direction as the existing <code>IDocumentLinkReader</code>):
+</p>
+<pre><code>// SharedKernel.Abstractions.Documents — implemented in the Documents module.
+public interface ICircleDocumentContributor
+{
+    /// &lt;summary&gt;Creates a Document under the OWNER's party from an uploaded file, stamps UploadedByUserId,
+    /// and links it to (targetType, targetId) — all in one save. NOT an HTTP endpoint of its own: it is
+    /// invoked only after ICircleWriteGuard has authorised the member (Spec 063 §11 trust boundary).&lt;/summary&gt;
+    Task&lt;DocumentRef&gt; ContributeAsync(
+        Guid ownerUserId, Guid uploadedByUserId, string targetType, Guid targetId,
+        DocumentUpload file, string title, string documentType, CancellationToken ct = default);
+}</code></pre>
+<div class="ascii-diagram">member taps "add document" on Fola's flat
+  → POST /personal-finance/circle/shared/{ownerUserId}/care-entities/{careEntityId}/documents   (multipart)
+     → ICircleWriteGuard.ResolveWriteScopeAsync → CanAttachDocument? no → 404
+     → ICircleDocumentContributor.ContributeAsync(ownerUserId, member, "careEntity", careEntityId, file, ...)
+          resolve owner party (IUserPartyResolver) → Document{ OwnerPartyId = ownerParty, UploadedByUserId = member }
+          store bytes (DocumentFileStore, tenant-scoped key, SHA-256) → DocumentLink → careEntity
+          → DocumentUploadedEvent → indexed under owner_party_id (owner's Vault + owner's RAG)</div>
+<p>
+  Consequence, stated plainly: the bytes enter the <em>owner's</em> party-scoped index, so the owner can later search
+  them; the contributing member does <strong>not</strong> thereby gain search over the owner's other documents (the
+  party-scoped index still filters on the caller). The member sees the document back only as a ref through the
+  Spec&nbsp;048 / Spec&nbsp;062 shared read — consistent with everything else in the Circle.
+</p>
+
+<h2 id="ai">9. AI exposure <span class="tag new">new</span></h2>
+<p>
+  Logging is a natural thing to ask Simi to do ("log the ₦120,000 plumber against Fola's flat"), so expose exactly one
+  mutating tool, classified <strong>Medium</strong> in <code>PersonalFinanceToolApprovalManifest</code> — an everyday
+  domain write, confirmed in-session before it runs (Spec&nbsp;032). Document upload stays on the frontend (raw bytes),
+  so the AI deep-links rather than streaming a file, matching the existing "uploads happen on the frontend" rule.
+</p>
+<pre><code>// PersonalFinanceToolApprovalManifest.Classifications — add:
+["pf_add_shared_payment"] = Medium("Add a payment on a shared entity"),  // verb "_add_" is in MutatingToolNameHeuristic, so an omitted/renamed manifest entry fails closed (throws), never passes ungated</code></pre>
+<pre><code>// CircleTools (Spec 062) gains the one write:
+[Description("Logs a one-off payment the current user made on an entity a circle owner shares with them "
+    + "(e.g. a repair on a sibling's flat). Attributed to the current user and added to the owner's records. "
+    + "Requires a full-scope share that permits amounts; refused for documents-only shares.")]
+public Task&lt;PaymentLogResponse&gt; AddSharedPayment(Guid ownerUserId, /* amount, currency, date, channel, note */ ...)
+    =&gt; _paymentLogs.CreateForSharedEntityAsync(ownerUserId, request, ct);</code></pre>
+<p>
+  Being classified, the tool is wrapped by <code>ApprovalGatedAIFunction</code>: Simi describes the change ("Log
+  ₦120,000 to Fola's flat?"), the member confirms, and only then does it run once. The <code>&lt;circle&gt;</code>
+  prompt block (Spec&nbsp;062) gains a line: <em>"You may log a one-off payment on a shared entity with
+  <code>pf_add_shared_payment</code>; it is attributed to the user and needs their confirmation. You cannot edit or
+  delete the owner's records."</em>
+</p>
+
+<h2 id="persistence">10. Persistence &amp; migration</h2>
+<ul>
+  <li><strong>Two nullable columns</strong> — <code>PaymentLog.LoggedByUserId</code> (→ <code>AnkPaymentLogs</code>)
+    and <code>Document.UploadedByUserId</code> (→ <code>AnkDocuments</code>) — added to the entity classes and their
+    <code>IEntityTypeConfiguration&lt;T&gt;</code>. No new table; no new <code>DbSet</code>. A third nullable column, <code>PaymentLog.AiRunId</code>, links an AI-created log (written via the tool, &sect;9) back to its <code>AiRun</code> &mdash; the same convention <code>PersonalTransaction</code> / <code>CompassPlan</code> / FLG rows already follow; it is null for manual and REST-endpoint writes.</li>
+  <li><strong>Tool-generated migration only</strong>, against <code>AonikDbContext</code>, per CLAUDE.md
+    (<code>dotnet ef migrations add AddCircleContributionAttribution &hellip;</code>). All three columns are nullable with
+    no default, so existing rows are untouched (they read as owner-authored).</li>
+  <li><strong>Index note.</strong> The self-undo query filters <code>(UserId, LoggedByUserId)</code>; add
+    <code>LoggedByUserId</code> to the existing entity-scoped index if the contributor feed needs it. The idempotency
+    unique index stays <code>(TenantId, UserId, IdempotencyKey)</code> — see O1.</li>
+</ul>
+
+<h2 id="security">11. Security</h2>
+<ul>
+  <li><strong>One write gate, fail-closed</strong> (&sect;5). No covering grant, a docsOnly grant, or a revoked grant
+    → denial. Amount-bearing writes additionally require <code>NoAmounts=false</code>, so the no-amounts property is
+    upheld on the write side. And because the gate accepts <em>any</em> <code>careEntityId</code> for an <code>all</code>-scope grant, <strong>both</strong> write paths must also verify the target entity is the owner's and live &mdash; the payment path via <code>EnsureOwnedCareEntity(ownerUserId, ...)</code>, and the document path must do the same before <code>ICircleDocumentContributor.ContributeAsync</code> (else an all-scope member could file a document into the owner's Vault against an arbitrary, archived, or non-owned id).</li>
+  <li><strong>Trust boundary on the owner-scoped writer.</strong> <code>ICircleDocumentContributor</code> writes into
+    another party's Vault, so it is invoked <em>only</em> from the PersonalFinance member-write endpoint after the gate
+    authorises — it is not exposed as its own HTTP endpoint and takes <code>ownerUserId</code>/<code>uploadedByUserId</code>
+    from the authenticated context + gate result, never from raw request body. An integration test asserts there is no
+    unauthorised route to it.</li>
+  <li><strong>Attribution &amp; non-repudiation.</strong> Every member write carries
+    <code>LoggedByUserId</code>/<code>UploadedByUserId</code>; a member can never write anonymously into an owner's
+    book, and the owner always sees who added what.</li>
+  <li><strong>Ownership asymmetry.</strong> The owner may soft-delete any record on their entities (their existing
+    owner-scoped delete already covers member-contributed rows, since <code>UserId = owner</code>); a member may undo
+    only rows where <code>LoggedByUserId == self</code>. <strong>Member contributions are immutable</strong> apart from the member's own self-undo and the owner's delete: because a member-logged row stores <code>UserId = owner</code>, <code>PaymentLogService.UpdateAsync</code> (which gates on <code>UserId</code> alone) must additionally <strong>reject an update when <code>LoggedByUserId</code> is set</strong>, or the owner could silently edit a member's contribution. Asserted by an owner-cannot-edit-member-log test.</li>
+  <li><strong>Not money movement.</strong> Re-affirmed: a log is a record; the AI write is Medium (a domain write),
+    never High (High is money movement in Finance, proposal-gated). The Spec&nbsp;032 build-time check would trip if
+    <code>pf_add_shared_payment</code> were left unclassified.</li>
+  <li><strong>Audit.</strong> Member writes are audited (member id, owner id, entity id, action); the AI path is
+    additionally an <code>AiRun</code> with the approval decision recorded.</li>
+</ul>
+
+<h2 id="tasks">12. Tasks</h2>
+<ol>
+  <li><code>ICircleWriteGuard</code> + <code>CircleWriteScope</code> + <code>CircleService.ResolveWriteScopeAsync</code> (reuse <code>GetActiveGrantsAsync</code>).</li>
+  <li>Attribution columns <code>PaymentLog.LoggedByUserId</code> / <code>Document.UploadedByUserId</code> + configs; tool-generated migration; <code>LoggedByName</code> on the owner-facing summary projections.</li>
+  <li><code>IPaymentLogService.CreateForSharedEntityAsync</code> + self-undo; the two <code>payment-logs</code> endpoints.</li>
+  <li><code>ICircleDocumentContributor</code> (SharedKernel abstraction + Documents impl: owner-party Document + file + link, atomic) + the member <code>documents</code> multipart endpoint.</li>
+  <li><code>pf_add_shared_payment</code> tool (on <code>CircleTools</code>) + Medium classification + prompt line.</li>
+  <li>Tests (&sect;13) — gate matrix, attribution surfacing, docsOnly denial, revoke-then-write denial, owner-vs-member delete asymmetry, index-lands-under-owner-party.</li>
+</ol>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<ul>
+  <li><strong>Full-scope log.</strong> An <code>entities</code>/<code>all</code> (amounts-allowed) member logs a one-off
+    on a shared entity; it persists with <code>UserId = owner</code>, <code>LoggedByUserId = member</code>, and
+    surfaces on the owner's entity view with the member's name and in the year total.</li>
+  <li><strong>Docs-only denial — the security assertion.</strong> A <code>docsOnly</code> member (and a
+    full-scope-but-<code>NoAmounts</code> member for logs) is refused both writes with a fail-closed 404; nothing is
+    persisted.</li>
+  <li><strong>Document attach lands in the owner's Vault.</strong> A member's uploaded document is created under the
+    owner's <code>OwnerPartyId</code>, linked to the entity, tagged <code>UploadedByUserId = member</code>, and is
+    retrievable by the owner (and indexed under the owner's party) — while the member gains no search over the owner's
+    other documents.</li>
+  <li><strong>Revocation.</strong> After the owner revokes the grant, the member's next log/attach is denied
+    immediately.</li>
+  <li><strong>Delete asymmetry.</strong> A member can undo their own contribution and cannot delete the owner's or
+    another member's; the owner can remove any record on their entity.</li>
+  <li><strong>AI path.</strong> <code>pf_add_shared_payment</code> is Medium-gated: it does not run until the member
+    confirms, then runs once and is attributed; unclassified would fail the Spec&nbsp;032 build check.</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; a single tool-generated migration adds
+    only the two nullable columns.</li>
+</ul>
+
+<h2 id="open">14. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Idempotency scope for member writes.</strong> The unique key is <code>(TenantId, UserId=owner, IdempotencyKey)</code>. Two members' offline queues colliding on a client GUID is astronomically unlikely, but if strict per-actor replay isolation is wanted, extend the index to include <code>LoggedByUserId</code>. Leaning: keep GUID keys, no index change.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Member marking a commitment cycle.</strong> v1 restricts members to one-off logs (no <code>CommitmentId</code>); should a co-owner be able to mark the owner's commitment cycle "done" (Spec&nbsp;044) — e.g. Seyi pays this month's service charge? Deferred: it mutates the owner's schedule state, a heavier shared-lifecycle question. Revisit if households ask for it.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Owner notification of contributions.</strong> Should a member's log/attach notify the owner (push/summary)? Reminder delivery is itself pre-production (FCM no-op today), so this rides the notification-readiness work; the data surfaces on Today regardless.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O4 — Contribution rate/abuse limits.</strong> A malicious accepted member could spam logs into an owner's book. Attribution + one-tap grant revoke are the v1 mitigations; a per-member contribution rate limit is a possible fast-follow.</li>
+</ul>
+
+<h2 id="refs">15. References</h2>
+<p style="margin:8px 0 0"><a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> governs naming &mdash; the tools are generic (<code>pf_*</code>); "Simi" is the configured persona. De-branding the existing footprint is <a href="064.debrand-product-identity-from-platform-code.html">Spec&nbsp;064</a>.</p>
+<ul>
+  <li><a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048 — The Circle</a> (Open decision <strong>O1 member-write</strong>, which this resolves; the success signal "Seyi logs a ₦120,000 repair"; &sect;3.2 "no member can move funds"; the per-entity covering logic) &middot; <a href="062.circle-scoped-ai-read-tools.html">Spec&nbsp;062</a> (the shared-read tools this write extends) &middot; <a href="045.payment-log.html">Spec&nbsp;045</a> (PaymentLog — "the capture that it happened") &middot; <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046</a> / <a href="035.extract-documents-module.html">Spec&nbsp;035</a> (Vault &amp; documents) &middot; <a href="044.commitment-cycle-lifecycle.html">Spec&nbsp;044</a> (commitments — O2) &middot; <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> (Medium-tier in-session approval).</li>
+  <li>Code idioms (all under <code>src/Aonik.PersonalFinance</code> unless noted): <code>Services/PersonalFinance/PaymentLogService.cs</code> (<code>CreateAsync</code>, <code>EnsureOwnedCareEntityAsync</code>, idempotency replay, soft-delete/restore), <code>Entities/PersonalFinance/PaymentLog.cs</code>, <code>Services/PersonalFinance/CircleService.cs</code> (<code>GetActiveGrantsAsync</code> + <code>covering</code> — the write gate reuses it), <code>Contracts/Services/PersonalFinance/ICircleService.cs</code>, <code>Agents/PersonalFinanceToolApprovalManifest.cs</code> (Medium classification), <code>Endpoints/PersonalFinance/CircleEndpoints.cs</code> (shared-route conventions); Documents: <code>src/Aonik.Documents/Services/DocumentLinkService.cs</code> (<code>ResolveCallerScopeAsync</code> / <code>OwnsDocumentAsync</code> — the caller-owned check the contributor writer deliberately supersedes under the owner party), <code>src/Aonik.Infrastructure/Storage/DocumentFileStore.cs</code> (tenant-scoped blob keys).</li>
+</ul>
+
+<footer>
+  Spec 063 &middot; Draft Rev 1 &middot; 2026-07-14 &middot; resolves Spec 048 O1 &middot; extends Spec 062 &middot; Domain: PersonalFinance / Simi / Documents
+</footer>
+
+</body>
+</html>

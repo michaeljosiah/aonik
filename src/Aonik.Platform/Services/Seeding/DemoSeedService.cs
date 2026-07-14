@@ -127,8 +127,13 @@ internal class DemoSeedService : IDemoSeedService
 
         var normalizedSeedType = NormalizeSeedType(seedType);
 
-        var tenantExists = await _dbContext.Tenants.AnyAsync(t => t.Id == tenantId, cancellationToken);
-        if (!tenantExists)
+        // Spec 065 — resolve the tenant's business type so the sample layer is keyed by it. The config
+        // layer is applied from the config pack at provision; the demo seed adds sample CONTENT only.
+        var tenantBusinessType = await _dbContext.Tenants
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.BusinessType)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tenantBusinessType is null)
         {
             throw new InvalidOperationException($"Tenant {tenantId} not found");
         }
@@ -142,7 +147,7 @@ internal class DemoSeedService : IDemoSeedService
             _tenantContext.ResolutionSource = "AdminTenantAction";
 
             var operations = new List<string>();
-            var seedContext = new DemoSeedContext(tenantId, normalizedSeedType, _clock.UtcNow, _currentUserProvider.GetCurrentUserId());
+            var seedContext = new DemoSeedContext(tenantId, normalizedSeedType, _clock.UtcNow, _currentUserProvider.GetCurrentUserId(), tenantBusinessType);
 
             // Phase 1: Identity seed
             var identitySeed = new IdentitySeedService(_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());

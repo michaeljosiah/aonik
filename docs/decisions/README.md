@@ -36,6 +36,10 @@ Each ADR includes:
 | [008](008-task-work-item-scheduling.md) | General-Purpose Task Primitive (WorkItem) in Platform | 2026-06-02 | Proposed |
 | [009](009-extract-documents-module.md) | Extract Documents into Its Own Sibling Module | 2026-06-02 | Proposed |
 | [010](010-partner-owned-connector-credentials.md) | Partner-Owned Connector Credentials | 2026-06-09 | Proposed |
+| [011](011-unify-order-spine-into-ordering-layer.md) | Unify the Order Spine into a Shared Ordering Layer | 2026-06-17 | Accepted |
+| [012](012-ai-route-policy-cost-governance.md) | AI Route-Policy Cost Governance & Model Fallback | 2026-07-06 | Accepted |
+| [013](013-product-identity-is-configuration.md) | Product Identity Is Configuration, Not Platform Code | 2026-07-14 | Accepted |
+| [014](014-business-type-configuration-packs.md) | Business-Type Configuration Packs | 2026-07-14 | Accepted |
 
 ### Superseded/Deprecated
 
