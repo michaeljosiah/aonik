@@ -111,6 +111,10 @@ public sealed class CommerceModule : IModule
         // discovers IDomainAgentDescriptor via DI; the central IToolApprovalGate discovers the
         // manifest and gates every classified mutating tool (Spec 032).
         services.AddSingleton<IDomainAgentDescriptor, CommerceAgentDescriptor>();
+
+        // Spec 065 — Commerce's first provisioning contribution: seed a starter category taxonomy
+        // when a tenant's config pack enables the Commerce module (gated on the manifest, not a type).
+        services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.CommerceTenantProvisioningContributor>();
         services.AddSingleton<IToolApprovalManifest, CommerceToolApprovalManifest>();
 
         return services;

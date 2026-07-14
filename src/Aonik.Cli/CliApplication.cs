@@ -2,6 +2,7 @@ using Aonik.Cli.Commands;
 using Aonik.Cli.Infrastructure;
 using Aonik.Cli.Models;
 using System.CommandLine;
+using Aonik.SharedKernel.Abstractions.Packs;
 
 namespace Aonik.Cli;
 
@@ -19,7 +20,8 @@ public sealed class CliApplication
         CommitmentCommandHandler commitmentCommandHandler,
         DocumentCommandHandler documentCommandHandler,
         CircleCommandHandler circleCommandHandler,
-        CaptureCommandHandler captureCommandHandler)
+        CaptureCommandHandler captureCommandHandler,
+        PacksCommandHandler packsCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -31,7 +33,8 @@ public sealed class CliApplication
             commitmentCommandHandler,
             documentCommandHandler,
             circleCommandHandler,
-            captureCommandHandler);
+            captureCommandHandler,
+            packsCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -69,6 +72,7 @@ public sealed class CliApplication
         var documentCommandHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
         var circleCommandHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureCommandHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
+        var packsCommandHandler = new PacksCommandHandler(new ConfigPackSource(), outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -80,7 +84,8 @@ public sealed class CliApplication
             commitmentCommandHandler,
             documentCommandHandler,
             circleCommandHandler,
-            captureCommandHandler);
+            captureCommandHandler,
+            packsCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -93,7 +98,8 @@ public sealed class CliApplication
         CommitmentCommandHandler commitmentCommandHandler,
         DocumentCommandHandler documentCommandHandler,
         CircleCommandHandler circleCommandHandler,
-        CaptureCommandHandler captureCommandHandler)
+        CaptureCommandHandler captureCommandHandler,
+        PacksCommandHandler packsCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -106,7 +112,36 @@ public sealed class CliApplication
         rootCommand.Add(BuildDocumentsCommand(documentCommandHandler));
         rootCommand.Add(BuildCircleCommand(circleCommandHandler));
         rootCommand.Add(BuildCaptureCommand(captureCommandHandler));
+        rootCommand.Add(BuildPacksCommand(packsCommandHandler));
         return rootCommand;
+    }
+
+    private static Command BuildPacksCommand(PacksCommandHandler handler)
+    {
+        var command = new Command("packs", "Inspect business-type configuration packs (Spec 065, offline).");
+
+        var listCommand = new Command("list", "List the installed config packs (business types).");
+        var listOutputOption = CreateOutputOption(includeNdjson: false);
+        listCommand.Add(listOutputOption);
+        listCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListAsync(
+                OutputModeParser.Parse(parseResult.GetValue(listOutputOption)),
+                cancellationToken));
+
+        var showCommand = new Command("show", "Show a config pack manifest by business type.");
+        var businessTypeArgument = new Argument<string>("business-type");
+        var showOutputOption = CreateOutputOption(includeNdjson: false);
+        showCommand.Add(businessTypeArgument);
+        showCommand.Add(showOutputOption);
+        showCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ShowAsync(
+                parseResult.GetRequiredValue(businessTypeArgument),
+                OutputModeParser.Parse(parseResult.GetValue(showOutputOption)),
+                cancellationToken));
+
+        command.Add(listCommand);
+        command.Add(showCommand);
+        return command;
     }
 
     private static Command BuildAuthCommand(AuthCommandHandler authCommandHandler)

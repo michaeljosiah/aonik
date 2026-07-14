@@ -60,6 +60,11 @@ public class TenantProvisionerPermissionSeedTests
         db.Tenants.Add(new Tenant { Id = TenantId, Name = "Acme", DefaultCurrency = "GBP", Status = "Active" });
         await db.SaveChangesAsync();
 
+        var configPackApplier = new Mock<Aonik.Platform.Contracts.Services.Packs.IConfigPackApplier>();
+        configPackApplier
+            .Setup(a => a.ApplyAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Aonik.Platform.Contracts.Services.Packs.ConfigPackResult.None);
+
         var provisioner = new TenantProvisioner(
             db,
             auditLog.Object,
@@ -67,7 +72,8 @@ public class TenantProvisionerPermissionSeedTests
             currentUser.Object,
             correlation.Object,
             permissionService.Object,
-            Array.Empty<ITenantProvisioningContributor>());
+            Array.Empty<ITenantProvisioningContributor>(),
+            configPackApplier.Object);
 
         // The bootstrap path provisions without the Tenants.Write precheck, exercising the real
         // catalogue + role-permission seeding that the endpoint path relies on.

@@ -84,7 +84,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
 
         // Spec 065 — business-type configuration packs
-        services.AddSingleton<Aonik.Platform.Contracts.Services.Packs.IConfigPackSource, Aonik.Platform.Services.Packs.ConfigPackSource>();
+        services.AddSingleton<Aonik.SharedKernel.Abstractions.Packs.IConfigPackSource, Aonik.SharedKernel.Abstractions.Packs.ConfigPackSource>();
         services.AddScoped<Aonik.Platform.Contracts.Services.Packs.IConfigPackApplier, Aonik.Platform.Services.Packs.ConfigPackApplier>();
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IPendingTenantUserProvisioner, PendingTenantUserProvisioner>();

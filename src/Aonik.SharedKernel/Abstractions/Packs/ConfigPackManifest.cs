@@ -1,13 +1,11 @@
-using Aonik.SharedKernel.Abstractions;
-
-namespace Aonik.Platform.Contracts.Models.Packs;
+namespace Aonik.SharedKernel.Abstractions.Packs;
 
 /// <summary>
 /// A business-type configuration pack (Spec 065) — the declarative default configuration for a
 /// business type, shipped as an embedded JSON manifest and applied at provision time. This is the
 /// <em>config</em> layer (identity + behaviour); it is data, not code, so a product name appearing
-/// here is configuration, exactly where <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a>
-/// says it belongs. The <em>sample</em> layer (example content) stays in the demo pipeline.
+/// here is configuration, exactly where ADR-013 says it belongs. Lives in SharedKernel so any module
+/// (and the CLI) can read a manifest without a back-pointing dependency on Platform.
 /// </summary>
 public sealed record ConfigPackManifest
 {
@@ -61,10 +59,4 @@ public sealed record ConfigPackReferenceDataItem
     public string Code { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
     public int SortOrder { get; init; }
-}
-
-/// <summary>The outcome of applying a config pack — the version applied (null if no pack) and a human action log.</summary>
-public sealed record ConfigPackResult(int? AppliedVersion, IReadOnlyList<string> Actions)
-{
-    public static readonly ConfigPackResult None = new(null, Array.Empty<string>());
 }

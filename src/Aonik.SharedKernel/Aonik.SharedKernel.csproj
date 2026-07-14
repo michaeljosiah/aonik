@@ -56,6 +56,8 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="Seeding\Data\*.json" />
+    <!-- Spec 065 — business-type config-pack manifests, read by ConfigPackSource (here) so any module + the CLI can load them. -->
+    <EmbeddedResource Include="Abstractions\Packs\Data\*.pack.json" />
   </ItemGroup>
 
 </Project>

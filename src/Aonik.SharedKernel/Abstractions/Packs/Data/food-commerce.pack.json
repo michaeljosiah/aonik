@@ -1,0 +1,23 @@
+{
+  "businessType": "food-commerce",
+  "version": 1,
+  "displayName": "Food Commerce",
+  "modules": ["Commerce"],
+  "settings": {
+    "Commerce.Enabled": "true",
+    "Branding.AgentDisplayName": "Kitchen"
+  },
+  "agents": [],
+  "referenceData": [
+    {
+      "type": "unit_of_measure",
+      "items": [
+        { "code": "kg", "displayName": "Kilogram", "sortOrder": 1 },
+        { "code": "g", "displayName": "Gram", "sortOrder": 2 },
+        { "code": "l", "displayName": "Litre", "sortOrder": 3 },
+        { "code": "ml", "displayName": "Millilitre", "sortOrder": 4 },
+        { "code": "each", "displayName": "Each", "sortOrder": 5 }
+      ]
+    }
+  ]
+}

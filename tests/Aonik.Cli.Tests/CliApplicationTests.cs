@@ -70,6 +70,38 @@ public sealed class CliApplicationTests
         writer.ToString().Should().Contain("paymentLog");
     }
 
+    [Fact]
+    public async Task RunAsync_ShouldListConfigPacks_Offline()
+    {
+        // Arrange — `packs` reads embedded manifests; no API/session needed (Spec 065).
+        var application = CreateApplication(out var writer);
+
+        // Act
+        var exitCode = await application.RunAsync(["packs", "list", "--output", "json"]);
+
+        // Assert
+        exitCode.Should().Be(0);
+        writer.ToString().Should().Contain("base");
+        writer.ToString().Should().Contain("food-commerce");
+        writer.ToString().Should().Contain("simi");
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldShowConfigPackManifest_ForFoodCommerce()
+    {
+        // Arrange
+        var application = CreateApplication(out var writer);
+
+        // Act
+        var exitCode = await application.RunAsync(["packs", "show", "food-commerce", "--output", "json"]);
+
+        // Assert
+        exitCode.Should().Be(0);
+        writer.ToString().Should().Contain("food-commerce");
+        writer.ToString().Should().Contain("unit_of_measure");
+        writer.ToString().Should().Contain("Commerce");
+    }
+
     private static CliApplication CreateApplication(out StringWriter writer)
     {
         var apiClient = new FakeAonikCliApiClient();
@@ -99,6 +131,7 @@ public sealed class CliApplicationTests
         var documentHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
         var circleHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler);
+        var packsHandler = new PacksCommandHandler(new Aonik.SharedKernel.Abstractions.Packs.ConfigPackSource(), outputWriter);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler, packsHandler);
     }
 }
