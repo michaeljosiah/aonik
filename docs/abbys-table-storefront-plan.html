@@ -394,8 +394,10 @@ follows house rules: anemic entities, module-scoped configuration classes, migra
         sums every chosen option before subtracting the default once. Negative adjustments are
         first-class (choosing "No side" against a £2 default side is −£2).</li>
     <li><strong>Validation service</strong>: reject any selection containing an option the product
-        does not offer (even if it exists in the catalogue), missing a required group, or violating
-        selection mode. This is the server rule behind Step 2 AC-24.</li>
+        does not offer (even if it exists in the catalogue), explicitly providing a group with no
+        valid choice, or violating selection mode. Groups the customer simply omits are filled with
+        the recommended default during normalisation (they are not an error — a default quick-add
+        sends no selection at all). This is the server rule behind Step 2 AC-24.</li>
     <li><strong>Order landing</strong>: selections + computed adjustment are snapshotted onto cart
         lines and written into <code>OrderItem.DetailsJson</code> (and alongside
         <code>OrderBundleSelection</code>) so production sheets can render them. BOM-level
@@ -434,13 +436,16 @@ PUT  /commerce/admin/products/{id}/option-groups     (narrow per product)</code>
   <ul>
     <li>Default content block per product: nutrition figures, serving label, ingredients text,
         allergens text, heating steps.</li>
-    <li><strong>Content variants</strong>: match rules over option selections
-        (<code>{"portion":"full"}</code>, <code>{"protein":"salmon"}</code>) each carrying the
-        authored figures and, where they differ, ingredients/allergens overrides.</li>
-    <li><strong>Resolution endpoint</strong>: given a selection, return the best-matching authored
-        variant, or the default flagged <code>isStandardPreparation: true</code> so the storefront
-        shows "figures are for the standard preparation". Exact-match or default — never
-        interpolated.</li>
+    <li><strong>Content variants</strong>: authored per complete selection combination (stable
+        identity even when a recommended default later changes), each carrying the authored figures
+        and, where they differ, ingredients/allergens overrides.</li>
+    <li><strong>Resolution endpoint</strong>: exact authored match or the default block — never
+        interpolated, and never "best-matching". On fallback for a non-default selection, nutrition
+        figures return flagged <code>isStandardPreparation: true</code> ("figures are for the
+        standard preparation") but <strong>ingredients &amp; allergens are withheld entirely</strong> —
+        an allergen declaration is served only when authored for exactly that combination (or the
+        true standard preparation). The storefront renders its existing "not yet published" state;
+        a substituted declaration with a footnote is still a wrong declaration.</li>
     <li>Admin authoring endpoints; content rides product create/update.</li>
   </ul>
   <h4>Sketch</h4>
@@ -617,9 +622,13 @@ GET /commerce/catalog/categories             GET /commerce/config/storefront</co
 <div class="callout done">
   <p><strong>D3 — Storefront authentication.</strong> <span class="chip exists">decided 2026-07-21</span><br/>
   Day one, the storefront sends <code>X-Tenant-Id</code> server-side — works with today's
-  middleware and everything sensitive stays anonymous-safe (carts are token-scoped, payments are
-  guest intents). <em>Decision: no API-key model.</em> Ship on <code>X-Tenant-Id</code> + CORS
-  allow-list; revisit only if real traffic ever demands per-client credentials.</p>
+  middleware; payments are guest intents. <em>Decision: no API-key model.</em> Ship on
+  <code>X-Tenant-Id</code> + CORS allow-list; revisit only if real traffic ever demands per-client
+  credentials. <strong>One hardening requirement folds into Spec C:</strong> today's cart endpoints
+  authorise by cart id alone — <code>AnonymousToken</code> is stored but never checked, so a leaked
+  cart URL (logs, history, shared link) would let any caller read, alter or check out that cart, and
+  CORS does not constrain non-browser requests. Spec C must require the guest cart token on
+  <em>every</em> cart read, write and checkout before carts can be called token-scoped.</p>
 </div>
 
 <div class="callout done">

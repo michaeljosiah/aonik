@@ -257,10 +257,15 @@ public decimal? UnitSurcharge { get; set; }</code></pre>
 
 <div class="callout">
   <p><strong>Invariants enforced in services, not the schema</strong> (anemic model, and several are
-  conditional on <code>IsActive</code>): exactly one active recommended default per active group;
-  <code>DefaultChoiceKey</code> and every entry of <code>AllowedChoiceKeysJson</code> must reference
-  an existing choice key of that group; a narrowing whose effective default would be unresolvable
-  (§6 step 4) is rejected at authoring time, never discovered at render time.</p>
+  conditional on <code>IsActive</code>): a group is <em>servable</em> when it is active, has at
+  least one active choice, and exactly one active recommended default — only servable groups appear
+  in the public catalogue or in any product's effective options, so a group may exist half-authored
+  (created, choices still being added) without violating anything. The default moves between
+  choices only through the atomic recommended-default operation (§10/§11), never by flipping flags
+  on individual choices. <code>DefaultChoiceKey</code> and every entry of
+  <code>AllowedChoiceKeysJson</code> must reference an existing choice key of that group; a
+  narrowing whose effective default would be unresolvable (§6 step 4) is rejected at authoring
+  time, never discovered at render time.</p>
 </div>
 
 <!-- ============================================================ -->
@@ -272,8 +277,8 @@ accepts:</p>
   <li>Load the product's <code>ProductOptionGroup</code> rows, ordered by <code>SortOrder</code>.
       No rows ⇒ the product is not personalisable — DTOs carry an empty list and storefronts hide
       the personalisation UI entirely (Step 2 AC-25).</li>
-  <li>For each row, load the group (skip if inactive) and its active choices ordered by
-      <code>SortOrder</code>.</li>
+  <li>For each row, load the group (skip unless <em>servable</em>, §5) and its active choices
+      ordered by <code>SortOrder</code>.</li>
   <li>Intersect with <code>AllowedChoiceKeysJson</code> when present (unknown keys were rejected at
       authoring; a key whose choice has since been deactivated simply drops out).</li>
   <li>Effective default = <code>DefaultChoiceKey</code> if set and still offered, else the group's
@@ -311,6 +316,17 @@ store only the normalised form):</p>
 effective default (storefronts render the recommended-default marker instead of listing choices,
 per Step 2 FR-5.3 state B).</p>
 
+<h3>Two validation contexts</h3>
+<p><strong>Interactive input</strong> — a storefront submitting a customer's choice — is validated
+strictly: V1–V5 and V10 reject anything malformed, not offered, or mis-denominated.
+<strong>Stored selections</strong> — a cart line written days ago, re-normalised on load — get
+drift semantics instead: a group that is no longer offered or servable is <em>dropped</em> from the
+selection; a choice that is no longer offered <em>remaps</em> to the current effective default;
+each change is reported, never thrown. Without this split, retiring an option — or deactivating a
+whole group — would turn every cart holding it into a hard 400. Spec C consumes this mode
+(<code>RenormalizeStoredAsync</code>, §10) for its catalogue-drift handling and customer-facing
+change report; only malformed JSON remains an error there.</p>
+
 <!-- ============================================================ -->
 <h2 id="pricing">8. Adjustment pricing</h2>
 
@@ -330,8 +346,11 @@ adjustment      = Σ groupAdjustment over all offered groups</code></pre>
   <li><code>Product.UnitSurcharge</code> is <em>not</em> part of the adjustment — it is returned
       alongside it (<code>unitSurcharge</code>) and applied per unit by the quote engine (Spec C).
       Independence is deliberate: both can apply to the same unit (Step 2 FR-12.2).</li>
-  <li>Currency: every group involved must share one currency; a mixed-currency resolution is an
-      authoring-time error. The priced result carries the currency explicitly.</li>
+  <li>Currency: the caller passes the target quote currency (the cart or size-plan currency).
+      Every group involved must carry exactly that currency or the request is rejected (V10) —
+      option maths never silently reinterprets amounts across currencies.
+      <code>UnitSurcharge</code> is denominated in the tenant's storefront currency and is covered
+      by the same check. The priced result echoes the currency explicitly.</li>
 </ul>
 
 <p>The pricing result exposes a per-group breakdown (group key, chosen keys, group adjustment) so
@@ -348,9 +367,10 @@ storefronts can render "+£10 Full table · −£2 No side" without re-deriving 
   <tr><td>V4</td><td>Multi-select group selected with zero choices (minimum one)</td><td>Selection</td><td>FR-11.3</td></tr>
   <tr><td>V5</td><td>Array supplied for an effective single-select group (beyond the 1-element unwrap), or non-string content</td><td>Selection</td><td>—</td></tr>
   <tr><td>V6</td><td>Group key or choice key not unique, empty, or not <code>[a-z0-9-]{1,64}</code></td><td>Authoring</td><td>—</td></tr>
-  <tr><td>V7</td><td>Zero or multiple active recommended defaults would result for an active group</td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V7</td><td>A write would leave a <em>servable</em> group with zero or multiple active recommended defaults. Direct <code>IsRecommendedDefault</code> writes are allowed only for the 0→1 transition (first default on a new group); moving the default between choices must use the atomic recommended-default operation (§10/§11)</td><td>Authoring</td><td>—</td></tr>
   <tr><td>V8</td><td>Narrowing references unknown choice keys, or leaves the effective default unresolvable (§6 step 4)</td><td>Authoring</td><td>—</td></tr>
   <tr><td>V9</td><td>Deactivating a choice that is the last resolvable default of any product's narrowing (the error names the products)</td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V10</td><td>Any involved group's currency (or the surcharge's storefront currency) differs from the requested quote currency — nothing is converted or assumed</td><td>Selection</td><td>—</td></tr>
 </table>
 
 <p class="small">Selection-time failures throw a domain validation exception surfaced as HTTP 400
@@ -371,6 +391,10 @@ All methods take <code>CancellationToken cancellationToken = default</code>.</p>
     Task&lt;OptionGroupDto&gt; UpdateGroupAsync(Guid groupId, UpdateOptionGroupCommand command, CancellationToken ct = default);
     Task&lt;OptionChoiceDto&gt; AddChoiceAsync(Guid groupId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
     Task&lt;OptionChoiceDto&gt; UpdateChoiceAsync(Guid choiceId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
+    /// <summary>Atomically move the recommended default to another choice (demote + promote in one
+    /// write). Response enumerates the products offering the group so dependent capabilities
+    /// (e.g. Spec 067 content review) can react.</summary>
+    Task&lt;OptionGroupDto&gt; SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken ct = default);
     Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken ct = default); // full replace
     // reads
     Task&lt;IReadOnlyList&lt;OptionGroupDto&gt;&gt; GetCatalogueAsync(bool includeInactive = false, CancellationToken ct = default);
@@ -380,10 +404,20 @@ All methods take <code>CancellationToken cancellationToken = default</code>.</p>
 public interface IOptionSelectionService
 {
     /// <summary>Validate against the product's effective options, fill defaults, canonicalise,
-    /// and price. Throws OptionSelectionValidationException (V1–V5) on invalid input.</summary>
+    /// and price in the requested currency. Throws OptionSelectionValidationException
+    /// (V1–V5, V10) on invalid input. Strict — for interactive storefront input.</summary>
     Task&lt;OptionSelectionResult&gt; NormalizeAndPriceAsync(
-        Guid productId, JsonDocument? selection, CancellationToken ct = default);
+        Guid productId, JsonDocument? selection, string currency, CancellationToken ct = default);
+
+    /// <summary>Re-normalise a previously stored canonical selection with drift semantics (§7):
+    /// non-servable/de-narrowed groups drop, retired choices remap to the current default, every
+    /// change reported rather than thrown. Consumed by Spec C on cart load.</summary>
+    Task&lt;StoredSelectionResult&gt; RenormalizeStoredAsync(
+        Guid productId, string canonicalSelectionJson, string currency, CancellationToken ct = default);
 }
+
+public record StoredSelectionResult(OptionSelectionResult Result, IReadOnlyList&lt;SelectionDrift&gt; Drift);
+public record SelectionDrift(string GroupKey, string? FromChoiceKey, string? ToChoiceKey, string Reason);
 
 public record OptionSelectionResult(
     string CanonicalSelectionJson,       // complete, sorted — the merge key and the stored form
@@ -410,9 +444,10 @@ public record OptionGroupAdjustment(string GroupKey, IReadOnlyList&lt;string&gt;
       <code>unitSurcharge</code>. One call renders a complete product page (Step 2 FR-11.5:
       the card sub-line names only the groups this product offers).</td></tr>
   <tr><td><code>POST /commerce/catalog/products/{slug}/selection-quote</code></td>
-      <td>Body: a selection. Returns <code>OptionSelectionResult</code> — lets the storefront show
-      authoritative deltas while the customer toggles options, before any cart exists. Read-only
-      semantics (POST for the body); no state is created.</td></tr>
+      <td>Body: a selection + the quote currency (defaults to the tenant storefront currency when
+      omitted). Returns <code>OptionSelectionResult</code> — lets the storefront show authoritative
+      deltas while the customer toggles options, before any cart exists. Read-only semantics (POST
+      for the body); no state is created.</td></tr>
 </table>
 
 <h3>Admin (Policies: AdminWritePolicy; reads AdminUserPolicy)</h3>
@@ -421,7 +456,8 @@ public record OptionGroupAdjustment(string GroupKey, IReadOnlyList&lt;string&gt;
   <tr><td><code>POST /commerce/admin/option-groups</code></td><td>Create group</td></tr>
   <tr><td><code>PUT /commerce/admin/option-groups/{groupId:guid}</code></td><td>Update label/help/mode/currency/sort/active</td></tr>
   <tr><td><code>POST /commerce/admin/option-groups/{groupId:guid}/choices</code></td><td>Add choice</td></tr>
-  <tr><td><code>PUT /commerce/admin/option-choices/{choiceId:guid}</code></td><td>Update choice (label, note, price, default flag, sort, active)</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-choices/{choiceId:guid}</code></td><td>Update choice (label, note, price, sort, active — default flag only for the 0→1 transition, per V7)</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-groups/{groupId:guid}/recommended-default</code></td><td>Atomically move the default to another choice; response enumerates products offering the group</td></tr>
   <tr><td><code>GET /commerce/admin/option-groups</code></td><td>Catalogue incl. inactive</td></tr>
   <tr><td><code>PUT /commerce/admin/products/{productId:guid}/option-groups</code></td><td>Full-replace the product's narrowing (idempotent; validates V8/V9)</td></tr>
   <tr><td><code>PUT /commerce/admin/products/{productId:guid}/surcharge</code></td><td>Set/clear <code>UnitSurcharge</code></td></tr>
@@ -435,8 +471,18 @@ match on); renames are label edits.</p>
 <!-- ============================================================ -->
 <h2 id="order">12. Order-landing contract (DetailsJson envelope)</h2>
 
-<p>Defined here, written by Spec C at checkout. <code>OrderItem.DetailsJson</code> for a line with a
-selection carries:</p>
+<p>Defined here, written by Spec C at checkout. The envelope has <strong>two landings</strong>,
+both carrying the same <code>personalisation</code> object shown below:</p>
+<ul>
+  <li><strong>Simple-product order line</strong> — the object lands in that line's own
+      <code>OrderItem.DetailsJson</code>.</li>
+  <li><strong>Bundle/box order</strong> — one <code>OrderItem</code> fanned out into per-component
+      <code>OrderBundleSelection</code> rows — the object lands <em>once per selection row</em>
+      (columns defined in Spec C). Production planning expands those rows, and a single
+      parent-level envelope could never say which copy of which component wants which options; the
+      parent item's <code>DetailsJson</code> holds only box-level aggregates.</li>
+</ul>
+<p>For one line (or one selection row) it reads:</p>
 
 <pre><code>{
   "personalisation": {
@@ -517,7 +563,9 @@ selection carries:</p>
   <li><strong>Unit — selection semantics</strong> (the highest-value surface):
       normalisation fills defaults and produces <code>isDefault</code>; multi-select sort/dedupe
       makes pick-order irrelevant; adjustment maths incl. negative deltas, multi-select
-      sum-minus-default-once, all-defaults ⇒ 0; V1–V5 each rejected with the right rule id.
+      sum-minus-default-once, all-defaults ⇒ 0; V1–V5 and V10 each rejected with the right rule id;
+      stored-selection re-normalisation drops non-servable groups and remaps retired choices with
+      drift entries instead of throwing.
       Naming: <code>NormalizeAndPriceAsync_Should_ReturnNegativeAdjustment_When_ChosenPriceBelowDefault</code>.</li>
   <li><strong>Service — authoring invariants</strong> (InMemory, unique db name,
       <code>TestTenantProvider</code>): V6–V9; default-resolution fallback order of §6 step 4;
@@ -563,6 +611,9 @@ selection carries:</p>
   <tr><td>A8</td><td>Deactivating the only resolvable default for a product's narrowing → authoring 400 naming the product (V9).</td></tr>
   <tr><td>A9</td><td><code>UnitSurcharge</code> set on a product → returned on DTO and selection-quote, excluded from <code>adjustment</code>.</td></tr>
   <tr><td>A10</td><td>All new endpoints tenant-isolated: tenant B never sees tenant A's groups regardless of ids supplied.</td></tr>
+  <tr><td>A11</td><td>A selection priced with a quote currency different from any involved group's currency → 400 naming V10; no conversion is attempted.</td></tr>
+  <tr><td>A12</td><td>Moving the recommended default between two choices via the atomic operation succeeds in one write and reports affected products; attempting the same via direct choice updates → 400 naming V7.</td></tr>
+  <tr><td>A13</td><td>A stored cart selection naming a group deactivated since → re-normalisation drops the group with a drift entry and re-prices; no error is thrown.</td></tr>
 </table>
 
 <!-- ============================================================ -->
