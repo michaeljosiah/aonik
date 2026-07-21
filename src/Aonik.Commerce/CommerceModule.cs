@@ -50,6 +50,12 @@ public sealed class CommerceModule : IModule
 
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductPricingService, ProductPricingService>();
+
+        // Spec 066 — configurable product option groups: the tenant option catalogue with its
+        // per-product narrowing, and the selection service that validates, canonicalises and
+        // difference-prices a customer's choices (negative adjustments included).
+        services.AddScoped<IProductOptionService, ProductOptionService>();
+        services.AddScoped<IOptionSelectionService, OptionSelectionService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICheckoutService, CheckoutService>();

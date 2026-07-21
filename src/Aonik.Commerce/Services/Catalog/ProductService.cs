@@ -12,11 +12,16 @@ internal sealed class ProductService : IProductService
 {
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IProductOptionService _options;
 
-    public ProductService(CommerceDbContext dbContext, ITenantProvider tenantProvider)
+    public ProductService(
+        CommerceDbContext dbContext,
+        ITenantProvider tenantProvider,
+        IProductOptionService options)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _options = options;
     }
 
     public async Task<ProductDto> CreateProductAsync(CreateProductCommand command, CancellationToken cancellationToken = default)
@@ -72,7 +77,8 @@ internal sealed class ProductService : IProductService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var product = await QueryWithGraph()
             .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
-        return product is null ? null : Map(product);
+        if (product is null) return null;
+        return Map(product, await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken));
     }
 
     public async Task<ProductDto?> GetProductBySlugAsync(string slug, CancellationToken cancellationToken = default)
@@ -80,7 +86,8 @@ internal sealed class ProductService : IProductService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var product = await QueryWithGraph()
             .FirstOrDefaultAsync(p => p.Slug == slug && p.TenantId == tenantId, cancellationToken);
-        return product is null ? null : Map(product);
+        if (product is null) return null;
+        return Map(product, await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken));
     }
 
     public async Task<PagedResult<ProductSummaryDto>> ListProductsAsync(ListProductsQuery query, CancellationToken cancellationToken = default)
@@ -211,12 +218,15 @@ internal sealed class ProductService : IProductService
             .Include(p => p.Media)
             .Include(p => p.BundleSlots).ThenInclude(s => s.Options);
 
-    private static ProductDto Map(Product p) => new(
+    private static ProductDto Map(Product p, IReadOnlyList<EffectiveOptionGroupDto> effectiveOptions) => new(
         p.Id, p.Slug, p.Name, p.Description, p.Status, p.Kind, p.CategoryId, p.TagsJson, p.AttributesJson,
         p.BundlePricingMode, p.BundleFixedAmount, p.BundlePremium, p.BundleCurrency, p.TargetMarginPct,
         p.Variants.OrderBy(v => v.Name).Select(v => MapVariant(v, v.Prices)).ToList(),
         p.Media.OrderBy(m => m.SortOrder).Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder)).ToList(),
-        p.BundleSlots.OrderBy(s => s.SortOrder).Select(MapSlot).ToList());
+        p.BundleSlots.OrderBy(s => s.SortOrder).Select(MapSlot).ToList(),
+        effectiveOptions,
+        p.UnitSurcharge,
+        p.UnitSurchargeCurrency);
 
     private static ProductVariantDto MapVariant(ProductVariant v, IEnumerable<ProductPrice> prices) => new(
         v.Id, v.ProductId, v.Sku, v.Name, v.OptionsJson, v.WeightGrams, v.IsActive,

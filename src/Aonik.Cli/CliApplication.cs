@@ -20,7 +20,8 @@ public sealed class CliApplication
         DocumentCommandHandler documentCommandHandler,
         CircleCommandHandler circleCommandHandler,
         CaptureCommandHandler captureCommandHandler,
-        PacksCommandHandler packsCommandHandler)
+        PacksCommandHandler packsCommandHandler,
+        CommerceCommandHandler commerceCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -33,7 +34,8 @@ public sealed class CliApplication
             documentCommandHandler,
             circleCommandHandler,
             captureCommandHandler,
-            packsCommandHandler);
+            packsCommandHandler,
+            commerceCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -72,6 +74,7 @@ public sealed class CliApplication
         var circleCommandHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureCommandHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
         var packsCommandHandler = new PacksCommandHandler(outputWriter);
+        var commerceCommandHandler = new CommerceCommandHandler(apiClient, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -84,7 +87,8 @@ public sealed class CliApplication
             documentCommandHandler,
             circleCommandHandler,
             captureCommandHandler,
-            packsCommandHandler);
+            packsCommandHandler,
+            commerceCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -98,7 +102,8 @@ public sealed class CliApplication
         DocumentCommandHandler documentCommandHandler,
         CircleCommandHandler circleCommandHandler,
         CaptureCommandHandler captureCommandHandler,
-        PacksCommandHandler packsCommandHandler)
+        PacksCommandHandler packsCommandHandler,
+        CommerceCommandHandler commerceCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -112,7 +117,111 @@ public sealed class CliApplication
         rootCommand.Add(BuildCircleCommand(circleCommandHandler));
         rootCommand.Add(BuildCaptureCommand(captureCommandHandler));
         rootCommand.Add(BuildPacksCommand(packsCommandHandler));
+        rootCommand.Add(BuildCommerceCommand(commerceCommandHandler));
         return rootCommand;
+    }
+
+    private static Command BuildCommerceCommand(CommerceCommandHandler handler)
+    {
+        var command = new Command("commerce", "Inspect and verify the storefront commerce surface (Spec 066).");
+
+        // The Spec 066 catalog endpoints are anonymous and resolve the tenant from a header, so
+        // these commands need a target rather than a session.
+        Option<string> BaseUrl() => new("--base-url") { Description = "AONIK API base URL.", Required = true };
+        Option<Guid> TenantId() => new("--tenant-id") { Description = "Tenant the storefront serves.", Required = true };
+
+        var optionsCommand = new Command("options", "Storefront option groups.");
+
+        var listCommand = new Command("list", "List the public option catalogue (servable groups only).");
+        var listBaseUrl = BaseUrl();
+        var listTenant = TenantId();
+        var listOutput = CreateOutputOption(includeNdjson: false);
+        listCommand.Add(listBaseUrl);
+        listCommand.Add(listTenant);
+        listCommand.Add(listOutput);
+        listCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListOptionsAsync(
+                new StorefrontTarget(parseResult.GetRequiredValue(listBaseUrl), parseResult.GetRequiredValue(listTenant)),
+                OutputModeParser.Parse(parseResult.GetValue(listOutput)),
+                cancellationToken));
+
+        var showCommand = new Command("show", "Show a product's effective option groups and surcharge.");
+        var showSlug = new Argument<string>("slug");
+        var showBaseUrl = BaseUrl();
+        var showTenant = TenantId();
+        var showOutput = CreateOutputOption(includeNdjson: false);
+        showCommand.Add(showSlug);
+        showCommand.Add(showBaseUrl);
+        showCommand.Add(showTenant);
+        showCommand.Add(showOutput);
+        showCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ShowProductAsync(
+                new StorefrontTarget(parseResult.GetRequiredValue(showBaseUrl), parseResult.GetRequiredValue(showTenant)),
+                parseResult.GetRequiredValue(showSlug),
+                OutputModeParser.Parse(parseResult.GetValue(showOutput)),
+                cancellationToken));
+
+        var quoteCommand = new Command("quote", "Price an option selection for a product.");
+        var quoteSlug = new Argument<string>("slug");
+        var quoteSelect = new Option<string[]>("--select")
+        {
+            Description = "Selection as group=choice; repeatable. Use group=a,b for a multi-select group.",
+            AllowMultipleArgumentsPerToken = true
+        };
+        var quoteCurrency = new Option<string>("--currency")
+        {
+            Description = "Quote currency (ISO 4217). The endpoint prices in exactly this currency and converts nothing.",
+            Required = true
+        };
+        var quoteBaseUrl = BaseUrl();
+        var quoteTenant = TenantId();
+        var quoteOutput = CreateOutputOption(includeNdjson: false);
+        quoteCommand.Add(quoteSlug);
+        quoteCommand.Add(quoteSelect);
+        quoteCommand.Add(quoteCurrency);
+        quoteCommand.Add(quoteBaseUrl);
+        quoteCommand.Add(quoteTenant);
+        quoteCommand.Add(quoteOutput);
+        quoteCommand.SetAction((parseResult, cancellationToken) =>
+            handler.QuoteAsync(
+                new StorefrontTarget(parseResult.GetRequiredValue(quoteBaseUrl), parseResult.GetRequiredValue(quoteTenant)),
+                parseResult.GetRequiredValue(quoteSlug),
+                parseResult.GetValue(quoteSelect) ?? [],
+                parseResult.GetRequiredValue(quoteCurrency),
+                OutputModeParser.Parse(parseResult.GetValue(quoteOutput)),
+                cancellationToken));
+
+        var verifyCommand = new Command(
+            "verify",
+            "Run the Spec 066 acceptance behaviours against a live API. Exits non-zero if any check fails.");
+        var verifySlug = new Argument<string>("slug");
+        var verifyCurrency = new Option<string>("--currency")
+        {
+            Description = "Quote currency (ISO 4217) to verify against.",
+            Required = true
+        };
+        var verifyBaseUrl = BaseUrl();
+        var verifyTenant = TenantId();
+        var verifyOutput = CreateOutputOption(includeNdjson: false);
+        verifyCommand.Add(verifySlug);
+        verifyCommand.Add(verifyCurrency);
+        verifyCommand.Add(verifyBaseUrl);
+        verifyCommand.Add(verifyTenant);
+        verifyCommand.Add(verifyOutput);
+        verifyCommand.SetAction((parseResult, cancellationToken) =>
+            handler.VerifyAsync(
+                new StorefrontTarget(parseResult.GetRequiredValue(verifyBaseUrl), parseResult.GetRequiredValue(verifyTenant)),
+                parseResult.GetRequiredValue(verifySlug),
+                parseResult.GetRequiredValue(verifyCurrency),
+                OutputModeParser.Parse(parseResult.GetValue(verifyOutput)),
+                cancellationToken));
+
+        optionsCommand.Add(listCommand);
+        optionsCommand.Add(showCommand);
+        optionsCommand.Add(quoteCommand);
+        optionsCommand.Add(verifyCommand);
+        command.Add(optionsCommand);
+        return command;
     }
 
     private static Command BuildPacksCommand(PacksCommandHandler handler)

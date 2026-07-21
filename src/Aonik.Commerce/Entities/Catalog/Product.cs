@@ -32,6 +32,16 @@ public class Product : AuditableEntity, ITenantScoped
     /// achieved margin against. Null = no target set (the report never flags the product).</summary>
     public decimal? TargetMarginPct { get; set; }
 
+    /// <summary>Spec 066 §5 — per-unit surcharge added on top of container/box pricing (a
+    /// "signature"-style upgrade). Null = none. Independent of any personalisation adjustment:
+    /// both can apply to the same unit. Display labelling is tenant configuration, not platform.</summary>
+    public decimal? UnitSurcharge { get; set; }
+
+    /// <summary>ISO currency of <see cref="UnitSurcharge"/>; required whenever the surcharge is
+    /// set. A bare amount would be silently reinterpreted if the storefront currency changed, so
+    /// rule V10 checks this against the requested quote currency like any option group.</summary>
+    public string? UnitSurchargeCurrency { get; set; }
+
     public List<ProductVariant> Variants { get; set; } = new();
     public List<ProductMedia> Media { get; set; } = new();
     public List<BundleSlot> BundleSlots { get; set; } = new();

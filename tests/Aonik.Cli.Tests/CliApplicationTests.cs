@@ -132,6 +132,7 @@ public sealed class CliApplicationTests
         var circleHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
         var captureHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
         var packsHandler = new PacksCommandHandler(outputWriter);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler, packsHandler);
+        var commerceHandler = new CommerceCommandHandler(apiClient, outputWriter);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler, packsHandler, commerceHandler);
     }
 }

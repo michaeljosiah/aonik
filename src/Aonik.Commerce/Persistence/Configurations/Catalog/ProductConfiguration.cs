@@ -27,6 +27,11 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         // MarginReportService.SetTargetMarginAsync (InMemory tests cannot prove DB precision).
         builder.Property(x => x.TargetMarginPct).HasPrecision(5, 2);
 
+        // Spec 066 — per-unit surcharge, carried with its own denomination so it can never be
+        // silently re-labelled by a storefront currency change.
+        builder.Property(x => x.UnitSurcharge).HasPrecision(19, 4);
+        builder.Property(x => x.UnitSurchargeCurrency).HasMaxLength(3);
+
         builder.HasMany(x => x.Variants)
             .WithOne()
             .HasForeignKey(x => x.ProductId)

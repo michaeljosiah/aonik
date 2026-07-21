@@ -115,6 +115,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ProductPrice> ProductPrices { get; set; } = null!;
     public virtual DbSet<BundleSlot> BundleSlots { get; set; } = null!;
     public virtual DbSet<BundleSlotOption> BundleSlotOptions { get; set; } = null!;
+
+    // Commerce (Spec 066) — configurable product option groups.
+    public virtual DbSet<OptionGroup> OptionGroups { get; set; } = null!;
+    public virtual DbSet<OptionChoice> OptionChoices { get; set; } = null!;
+    public virtual DbSet<ProductOptionGroup> ProductOptionGroups { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -400,6 +405,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<ProductPrice>(modelBuilder, "ProductPrices");
         MapCommerceTable<BundleSlot>(modelBuilder, "BundleSlots");
         MapCommerceTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
+
+        // Commerce (Spec 066)
+        MapCommerceTable<OptionGroup>(modelBuilder, "OptionGroups");
+        MapCommerceTable<OptionChoice>(modelBuilder, "OptionChoices");
+        MapCommerceTable<ProductOptionGroup>(modelBuilder, "ProductOptionGroups");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");
