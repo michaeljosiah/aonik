@@ -479,9 +479,14 @@ GET /commerce/catalog/products/{slug}/content?selection=portion:full,protein:sal
         formula (base price, base size, per-added-space price, min, max). Presets always win over
         the formula at their size. Min/max are configuration, never constants.</li>
     <li><strong>Cart as box session</strong>: cart gains the bundle reference + chosen size; lines
-        gain personalisation selections, the computed adjustment snapshot, and the per-unit
-        surcharge snapshot. Identical dish + identical selection merges into one line
-        (multi-select compared order-insensitively).</li>
+        gain a <code>LineKind</code> discriminator, personalisation selections, the computed
+        adjustment snapshot, and the per-unit surcharge snapshot. Identical kind + dish + selection
+        merges into one line (multi-select compared order-insensitively).</li>
+    <li><strong>Add-on readiness</strong> (not the feature): <code>LineKind</code> ships with only
+        <code>BoxDish</code> legal, every capacity/merge/quote rule states the kind it counts, and
+        the quote total becomes a sum of named components. Buying items alongside the box is then
+        additive — new routes, one more component, ordinary retail order lines — rather than a
+        re-audit of every rule. See the D1 amendment.</li>
     <li><strong>Hard capacity ceiling</strong>: any write that would push total units past the size
         is rejected — growing the box first is the only overflow path. No silent drops when
         shrinking: a resize below current units is rejected with the count to remove.</li>
@@ -609,13 +614,25 @@ GET /commerce/catalog/categories             GET /commerce/config/storefront</co
 
 <div class="callout done">
   <p><strong>D1 — Is the box a product or a cart?</strong> <span class="chip exists">decided 2026-07-21</span><br/>
-  <em>Options:</em> (a) model every box size as its own bundle product; (b) make the cart itself the
-  box, with the bundle product as its definition/anchor.<br/>
-  <em>Decision: (b) — the cart is the box.</em> A 6–30 formula-priced size range collapses into 25 near-identical
+  <em>Options:</em> (a) model every box size as its own bundle product; (b) make the cart the box's
+  home, with the bundle product as its definition/anchor.<br/>
+  <em>Decision: (b) — the cart carries the box.</em> A 6–30 formula-priced size range collapses into 25 near-identical
   products under (a), and the "grow the box" flow becomes a product swap. Under (b) the bundle
   product stays the catalog anchor (homepage box offers, kitchen integration, order recording) while
   size and lines live on the cart — matching the Step 2 contract exactly. Checkout still materialises
   the standard bundle/order shape, so nothing downstream changes.</p>
+  <p><strong>Amended 2026-07-21 — the cart <em>carries</em> the box, it is not <em>identical</em> to
+  it.</strong> The client confirmed that a future revision lets customers buy items alongside the box
+  (a jar of sauce, a cookbook) — priced individually, consuming no box space — and that an order
+  carries <strong>at most one box</strong>. Neither fact disturbs what D1 actually rejected
+  (box-as-product-per-size); both narrow how the cart is described. Spec 068 therefore ships a
+  <code>LineKind</code> discriminator now (<code>BoxDish</code> only legal at launch) so every
+  capacity, merge and quote rule states which lines it counts, and the quote total became a sum of
+  <em>named components</em> rather than a fixed formula — making add-ons an additive change instead
+  of an audit of every rule. The add-on routes, quote component and retail order lines are a later
+  spec. Because there is only ever one box, its identity stays on the <code>Cart</code> row and no
+  box-container entity is built; multiple boxes per order is the only change that would outgrow that
+  shape, and it is recorded as the trigger in Spec 068 O3.</p>
 </div>
 
 <div class="callout done">
@@ -718,6 +735,10 @@ entry starts, but curl/CLI-driven seeding covers M1–M3.</p>
 <ul>
   <li><strong>Subscriptions / repeat orders</strong> — explicitly out of the Step 2 spec; revisit
       post-launch.</li>
+  <li><strong>Add-on items sold alongside the box</strong> — a confirmed future revision. Only the
+      structural readiness for it is in scope (the D1 amendment): the routes, the
+      <code>addOns</code> quote component, retail order lines, and the add-on price display a
+      dish-priced storefront deliberately lacks (a Spec E summary-DTO change) are a later spec.</li>
   <li><strong>Gifting and the curated-box journey</strong> — distinct flows the templates reserve;
       nothing here precludes them (a curated box is just a bundle with fixed selections).</li>
   <li><strong>Delivery slot <em>booking</em> v2</strong> — capacity-aware customer slot selection
