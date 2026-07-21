@@ -1078,6 +1078,63 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         }
     }
 
+    // ── Commerce storefront options (Spec 066, anonymous) ───────────────
+
+    public Task<IReadOnlyList<CliOptionGroup>> GetOptionCatalogueAsync(
+        StorefrontTarget target,
+        CancellationToken cancellationToken = default)
+        => SendAnonymousAsync<IReadOnlyList<CliOptionGroup>>(
+            target, HttpMethod.Get, "/commerce/catalog/options", body: null, cancellationToken);
+
+    public Task<CliStorefrontProduct> GetStorefrontProductAsync(
+        StorefrontTarget target,
+        string slug,
+        CancellationToken cancellationToken = default)
+        => SendAnonymousAsync<CliStorefrontProduct>(
+            target, HttpMethod.Get, $"/commerce/catalog/products/{Uri.EscapeDataString(slug)}", body: null, cancellationToken);
+
+    public Task<CliSelectionQuote> GetSelectionQuoteAsync(
+        StorefrontTarget target,
+        string slug,
+        IReadOnlyDictionary<string, object> selection,
+        string? currency,
+        CancellationToken cancellationToken = default)
+        => SendAnonymousAsync<CliSelectionQuote>(
+            target,
+            HttpMethod.Post,
+            $"/commerce/catalog/products/{Uri.EscapeDataString(slug)}/selection-quote",
+            new { selection, currency },
+            cancellationToken);
+
+    /// <summary>
+    /// Issues a tenant-scoped request with no bearer token. The Spec 066 storefront endpoints are
+    /// anonymous by design, so this deliberately does not require (or create) a CLI session.
+    /// </summary>
+    private async Task<T> SendAnonymousAsync<T>(
+        StorefrontTarget target,
+        HttpMethod method,
+        string path,
+        object? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, BuildUri(target.BaseUrl, path));
+        request.Headers.TryAddWithoutValidation("X-Tenant-Id", target.TenantId.ToString("D"));
+
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body, options: JsonOptions);
+        }
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new AonikCliException(await BuildErrorAsync(response, cancellationToken));
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
+        return result ?? throw new AonikCliException($"AONIK API returned an empty body for {path}.");
+    }
+
     private static void ApplySessionHeaders(HttpRequestMessage request, CliSession? session)
     {
         if (session is null)

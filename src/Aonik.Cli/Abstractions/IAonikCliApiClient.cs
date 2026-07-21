@@ -379,6 +379,24 @@ public interface IAonikCliApiClient
         string? preparedFor,
         CancellationToken cancellationToken = default);
 
+    // ── Commerce storefront options (Spec 066, anonymous) ───────────────
+
+    Task<IReadOnlyList<CliOptionGroup>> GetOptionCatalogueAsync(
+        StorefrontTarget target,
+        CancellationToken cancellationToken = default);
+
+    Task<CliStorefrontProduct> GetStorefrontProductAsync(
+        StorefrontTarget target,
+        string slug,
+        CancellationToken cancellationToken = default);
+
+    Task<CliSelectionQuote> GetSelectionQuoteAsync(
+        StorefrontTarget target,
+        string slug,
+        IReadOnlyDictionary<string, object> selection,
+        string? currency,
+        CancellationToken cancellationToken = default);
+
     // ── AI capture-parse (Spec 047) ─────────────────────────────────────
 
     Task<CaptureParseResponse> ParseCaptureAsync(
