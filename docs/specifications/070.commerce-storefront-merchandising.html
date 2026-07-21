@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 070 - Commerce storefront merchandising &amp; configuration</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 070</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">Independent</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Commerce storefront merchandising &amp; configuration</h1>
+  <p class="small">Everything the browse experience needs beyond raw catalog rows: curated
+  collections, configurable filter facets, hidden search keywords, a menu-grid-ready list DTO, a
+  public category tree, and one public storefront-config document. Build area E of the
+  <a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a>;
+  implements plan decision D4 (one primary category + facet tags + collections).</p>
+</header>
+
+<h2>Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#motivation">Motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#taxonomy">The taxonomy (decision D4)</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#facets">Facet semantics &amp; browse filtering</a></li>
+    <li><a href="#search">Search &amp; hidden keywords</a></li>
+    <li><a href="#dto">List DTO enrichment</a></li>
+    <li><a href="#config">The storefront config document</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; tenancy</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="summary">1. Summary</h2>
+
+<p>The public catalog can list Active products and fetch one by slug — and nothing else a storefront
+front page needs. There is no featured construct, no curated grouping, no way to filter by tag or
+attribute, no way for search to match anything but name and description, and the list DTO
+(<code>ProductSummaryDto</code>) carries neither image nor tags, so a menu grid would need one
+detail call per card. This spec adds the merchandising layer as data: <code>Collection</code>s with
+ranked members, <code>FacetGroup</code> definitions with declared match semantics, per-product
+hidden search keywords, an enriched summary DTO, a public category endpoint, and
+<code>GET /commerce/config/storefront</code> — the single document of tunables the frontend must
+never hard-code.</p>
+
+<!-- ============================================================ -->
+<h2 id="motivation">2. Motivation</h2>
+
+<ul>
+  <li>The client homepage shows a curated "featured dishes" rail and <em>grouped</em> featured rails
+      ("Carb-conscious") — chosen in the back office, reordered seasonally, no release.</li>
+  <li>The menu page filters on six facets (protein, spice, wellness goal, meal type, dietary,
+      calorie bands) and the client's Step&nbsp;2 spec goes further: the <em>groups themselves</em>
+      are configuration — "adding a fifth group, renaming a group, reordering options or retiring a
+      group must need no front-end change" (FR-3.1), and range filters are defined server-side
+      (FR-3.5).</li>
+  <li>Search must catch spellings, regional names and cravings the copy doesn't contain — "goat",
+      "shaki", "party" — via per-product keywords that are matched but never displayed (FR-2.1,
+      AC-28).</li>
+  <li>Step&nbsp;2 §6.5 enumerates the config the frontend reads instead of hard-coding: page size,
+      back-to-top trigger, delivery display amounts, box bounds. That document needs a home and an
+      endpoint.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<table>
+  <tr><th style="width:50%">In</th><th>Out (and where it goes)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><code>Collection</code> + <code>CollectionItem</code> (+ public and admin endpoints)</li>
+        <li><code>FacetGroup</code> definitions + browse-endpoint filtering + public facet endpoint</li>
+        <li><code>Product.SearchKeywordsJson</code> + search extension (never serialized out)</li>
+        <li><code>ProductSummaryDto</code> enrichment (hero image, tags, attributes, surcharge)</li>
+        <li>Public category-tree endpoint</li>
+        <li><code>GET /commerce/config/storefront</code> + the settings keys behind it</li>
+        <li>Admin: product update endpoint (the catalog has create-only today), media
+            list/reorder</li>
+        <li>Migration (tool-generated, canonical stream)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li>Media <strong>upload</strong> (blob wiring) — storefront-readiness wiring item; this
+            spec orders/removes existing <code>ProductMedia</code> rows only</li>
+        <li>Option groups / content / box pricing — Specs 066/067/068 (the config document
+            <em>references</em> 068's box plan, see §9)</li>
+        <li>Earliest delivery — Spec 069's endpoint; deliberately not duplicated into the config
+            document (one source of truth, different cache cadence)</li>
+        <li>Full-text search infrastructure — filtering stays LIKE-based over name, description and
+            keywords at this catalogue scale (tens of products); a search index is a different spec
+            when a tenant has thousands</li>
+        <li>Personalised/AI-ranked merchandising — Collections are human-curated; agent-proposed
+            curation would arrive as proposals per the platform's agent rules, not silent
+            writes</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="taxonomy">4. The taxonomy (decision D4)</h2>
+
+<p>One product, three axes — ending the two-overlapping-groupings ambiguity the client's design
+templates carried:</p>
+
+<table>
+  <tr><th>Axis</th><th>Construct</th><th>Cardinality</th><th>Answers</th></tr>
+  <tr><td>Category</td><td><code>ProductCategory</code> (existing, nested)</td><td>at most one
+      (platform); "exactly one" is tenant editorial policy — <code>Product.CategoryId</code> stays
+      nullable, no backfill, nothing platform-enforced</td>
+      <td>"What is it?" — Mains, Soups &amp; Stews, Sides</td></tr>
+  <tr><td>Tags</td><td><code>Product.TagsJson</code> (existing) + attributes</td><td>any number</td>
+      <td>"What is it like?" — wellness goals, dietary suitability, badges ("New"), spice level
+      (attribute)</td></tr>
+  <tr><td>Collections</td><td><code>Collection</code> (new)</td><td>any number</td>
+      <td>"Where do we show it?" — featured rail, "Carb-conscious" group, seasonal edit</td></tr>
+</table>
+
+<p class="small">"Carb-conscious" the <em>merchandising rail</em> is a collection; "carb-conscious"
+the <em>filterable property</em> is a tag surfaced through a facet. They can coexist and usually
+will — the rail is curated and ranked, the tag is exhaustive.</p>
+
+<!-- ============================================================ -->
+<h2 id="model">5. Domain model</h2>
+
+<p>Anemic, tenant-scoped, in <code>src/Aonik.Commerce/Entities/Catalog/</code>.</p>
+
+<pre><code>/// <summary>A curated, ordered, named set of products for storefront display.</summary>
+public class Collection : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;      // display: "Carb-conscious"
+    public string? Subtitle { get; set; }                  // optional supporting line
+    /// <summary>Featured | Curated | Custom — see CollectionKinds. Presentation hint only;
+    /// behaviour is identical.</summary>
+    public string Kind { get; set; } = CollectionKinds.Curated;
+    public int SortOrder { get; set; }                     // order among collections
+    public bool IsActive { get; set; } = true;
+    public List&lt;CollectionItem&gt; Items { get; set; } = new();
+}
+
+public class CollectionItem : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid CollectionId { get; set; }
+    public Guid ProductId { get; set; }
+    public int Rank { get; set; }                          // order within the collection
+}
+
+/// <summary>A storefront filter group with declared match semantics. The front end renders
+/// whatever this returns; adding/renaming/retiring groups is data, not code.</summary>
+public class FacetGroup : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public string Key { get; set; } = string.Empty;        // "wellness", "calories"
+    public string Label { get; set; } = string.Empty;      // "Wellness goal"
+    /// <summary>Category | Tag | Attribute | Range — see FacetMatchKinds (§6).</summary>
+    public string MatchKind { get; set; } = FacetMatchKinds.Tag;
+    /// <summary>For Attribute/Range: the AttributesJson property read, e.g. "spice" or
+    /// "nutrition.kcal". Null for Category and Tag.</summary>
+    public string? SourcePath { get; set; }
+    /// <summary>Ordered options. Every option — all four kinds, ranges included — carries a
+    /// stable "value" token (the request key, never renamed) plus a mutable display "label".
+    /// Category/Tag/Attribute: [{ "value": "...", "label": "..." }].
+    /// Range: [{ "value": "under-500", "label": "Under 500 kcal", "min": null, "max": 500 }] -
+    /// half-open bands, min inclusive, max exclusive. Clients submit values; labels are free to
+    /// change without breaking requests.</summary>
+    public string OptionsJson { get; set; } = "[]";
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}</code></pre>
+
+<p><code>Product</code> gains one column:</p>
+<pre><code>/// <summary>Spec 070 - JSON array of hidden search keywords. Matched by catalog search,
+/// serialized into NO public DTO, ever. Editable per product without a release.</summary>
+public string SearchKeywordsJson { get; set; } = "[]";</code></pre>
+
+<table>
+  <tr><th>Entity</th><th>Table</th><th>Unique index</th><th>Other</th></tr>
+  <tr><td><code>Collection</code></td><td><code>AnkCollections</code></td><td>(TenantId, Slug)</td><td>—</td></tr>
+  <tr><td><code>CollectionItem</code></td><td><code>AnkCollectionItems</code></td><td>(TenantId, CollectionId, ProductId) and (TenantId, CollectionId, Rank) — <strong>both filtered <code>WHERE IsDeleted = 0</code></strong>: <code>AonikDbContextBase</code> converts deletes into soft-deleted rows, so an unfiltered unique index would keep a removed product's row occupying the key and make re-adding it (or a delete/reinsert reorder) fail. The full-replace operation revives a soft-deleted row instead of inserting a duplicate. Duplicate <em>active</em> ranks stay impossible — curated order stays deterministic</td><td>(TenantId, CollectionId)</td></tr>
+  <tr><td><code>FacetGroup</code></td><td><code>AnkFacetGroups</code></td><td>(TenantId, Key)</td><td>—</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="facets">6. Facet semantics &amp; browse filtering</h2>
+
+<p>Each group declares how it matches — the four kinds cover every filter in the client designs and
+the obvious future ones (Step&nbsp;2 FR-3.1/FR-3.5):</p>
+
+<table>
+  <tr><th>MatchKind</th><th>Matches a product when…</th><th>Example</th></tr>
+  <tr><td><code>Category</code></td><td>its category (or an ancestor) is one of the selected option values (category slugs)</td><td>Mains, Soups &amp; Stews</td></tr>
+  <tr><td><code>Tag</code></td><td><code>TagsJson</code> contains any selected value</td><td>Vegan, Gluten-free, New</td></tr>
+  <tr><td><code>Attribute</code></td><td>the <code>AttributesJson</code> value at <code>SourcePath</code> equals any selected value (string compare)</td><td>spice = "medium"</td></tr>
+  <tr><td><code>Range</code></td><td>the numeric <code>AttributesJson</code> value at <code>SourcePath</code> falls in any selected band [min, max); a product missing the value matches no band</td><td>kcal under 500</td></tr>
+</table>
+
+<p><strong>Combination semantics</strong> (Step&nbsp;2 FR-3.2, enforced server-side): within one
+group, selected options combine with OR; across groups, AND; free-text search ANDs with all of it.
+An unselected group restricts nothing. Unknown facet keys or option values in a request are
+rejected (400), not silently ignored — a storefront bug should be loud.</p>
+
+<p>The browse endpoint (<code>GET /commerce/catalog/products</code>) gains repeatable facet
+parameters (<code>facet.&lt;key&gt;=value1,value2</code> — option <em>values</em>, never labels)
+and a <code>collection=slug</code> parameter (membership filter). Existing parameters (kind,
+categoryId, search, paging) are unchanged; a new <code>sort</code> accepts <code>name</code> |
+<code>newest</code> | <code>rank</code>. <strong>Sort precedence is explicit:</strong> when
+<code>collection=</code> is present and <code>sort</code> is absent, curated <code>rank</code>
+order is the default; an explicit <code>sort</code> overrides it; <code>sort=rank</code> without a
+collection filter is rejected (rank has no meaning outside one). Without a collection filter the
+default remains <code>name</code>.</p>
+
+<!-- ============================================================ -->
+<h2 id="search">7. Search &amp; hidden keywords</h2>
+
+<ul>
+  <li>Search matches case-insensitively, anywhere in the text, across: product name,
+      <strong>slug</strong> (the existing browse already matches it — dropping it would regress
+      slug-based discovery), description, and every entry of <code>SearchKeywordsJson</code>
+      (Step&nbsp;2 FR-2.1).</li>
+  <li><strong>Keywords are matched as logical array entries, not serialized text.</strong> A LIKE
+      over the raw JSON column would miss escaped characters (a serializer may persist
+      <code>café</code> as <code>caf&#92;u00E9</code>) and could match JSON syntax instead of
+      values.
+      Matching uses the database's JSON functions (<code>OPENJSON</code> via the EF-translated
+      collection query) — or an equivalently normalized searchable projection — so the value the
+      author typed is the value that matches.</li>
+  <li><strong>Keywords appear in no public response.</strong> Not on <code>ProductDto</code>, not
+      on <code>ProductSummaryDto</code>, not indirectly via <code>AttributesJson</code> (they are a
+      dedicated column precisely so they cannot leak through the attributes pass-through). Because
+      the existing admin product read returns the same <code>ProductDto</code> as the public
+      endpoint, this spec introduces a distinct <code>AdminProductDetailDto</code>
+      (<code>ProductDto</code> + <code>searchKeywords</code>) and switches
+      <code>GET /commerce/admin/products/{id}</code> to it — an editor must see current keywords or
+      a full update would silently erase them, and adding the field to the shared DTO would
+      disclose them publicly. A dedicated test asserts the public serialization contract (AC-28:
+      the customer who searches "party" finds the dish and never sees the word).</li>
+  <li>Implementation stays translated-LIKE over the JSON text at this scale (§3 out-scope note);
+      the keyword column is 1024 chars — an authoring bound, not a search-engine substitute.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="dto">8. List DTO enrichment</h2>
+
+<p><code>ProductSummaryDto</code> (public browse row) gains what a grid card renders — and nothing
+that violates the pricing posture:</p>
+
+<pre><code>public record ProductSummaryDto(
+    Guid Id, string Slug, string Name, string Status, string Kind, Guid? CategoryId,
+    int VariantCount,
+    string? HeroImageUrl,          // first ProductMedia image by SortOrder; null when none
+    IReadOnlyList&lt;string&gt; Tags,    // from TagsJson
+    string AttributesJson,         // pass-through for card badges (spice, etc.)
+    decimal? UnitSurcharge);       // Spec 066 column; cards may show "+£4"</code></pre>
+
+<div class="callout p0">
+  <p><strong>No retail price on the summary row — deliberately.</strong> The client's brand rule
+  ("dishes never show a standalone price") is only <em>possible</em> if the API doesn't force
+  prices into every list payload. Variant prices stay internal (costing, margin — spec 057);
+  <code>UnitSurcharge</code> is the one price-like field a card may carry because it is an
+  on-top-of-the-box delta, not a dish price. Tenants that <em>do</em> show prices read them from
+  the product detail. Revisit only with a real second storefront's needs on the table.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="config">9. The storefront config document</h2>
+
+<p><code>GET /commerce/config/storefront</code> — one anonymous, cacheable read serving every
+tunable the frontend must not hard-code:</p>
+
+<pre><code>{
+  "currency": "GBP",                                // Tenant.DefaultCurrency - the canonical tenant currency, not a new setting
+  "recommendedChoiceLabel": "Abby's choice",        // Commerce.Storefront.RecommendedChoiceLabel (Spec 066 §15)
+  "resultsPageSize": 8,                             // Commerce.Storefront.ResultsPageSize
+  "backToTopTrigger": { "type": "cardIndex", "value": 10 },   // Commerce.Storefront.BackToTopTriggerJson
+  "delivery": { "listAmount": 10.00, "chargedAmount": 0.00 }, // settings consumed by Spec 068 quotes
+  "defaultBoxSlug": "abbys-box",                    // Commerce.Storefront.DefaultBoxProductSlug
+  "box": {                                          // embedded 068 size plan of that bundle;
+    "minSize": 6, "maxSize": 30,                    //   null when unset or 068 not yet live
+    "currency": "GBP",                              // the plan's own currency - box amounts use THIS
+    "perSpacePrice": 15.00,
+    "presets": [ { "size": 6, "price": 95.00, "badge": "Minimum order", "blurb": "…", "saving": null } ]
+  }
+}</code></pre>
+
+<ul>
+  <li>Backed by tenant settings (keys above, under <code>Commerce.Storefront.*</code>) — the
+      settings <em>store</em> is the existing
+      mechanism config packs already write, but authoring goes through a Commerce-owned endpoint
+      (<code>PUT /commerce/admin/storefront-config</code>, <code>AdminWritePolicy</code>, §10):
+      the platform tenant-settings endpoint sits behind <code>AdminPolicy</code>
+      (PlatformAdmin/TenantAdmin only), which would lock Operations users out of storefront
+      settings while they can edit every product — same store, Commerce-appropriate policy.</li>
+  <li><strong>Currency semantics</strong>: the top-level <code>currency</code> is read from
+      <code>Tenant.DefaultCurrency</code> through a shared tenant-currency reader — the platform
+      already holds the validated canonical tenant currency, and a parallel
+      <code>Commerce.Storefront.*</code> setting would be an unsynchronized duplicate that goes
+      stale the day the tenant's currency changes. It labels the settings-derived amounts
+      (delivery display values); <code>"GBP"</code> only as the last-resort fallback when the
+      tenant record carries none. The <code>box</code> section carries the size plan's
+      <em>own</em> currency, and box amounts are always labelled with it; when the two differ, the
+      document serves both verbatim — surfacing the misconfiguration to the operator rather than
+      silently re-labelling either side.</li>
+  <li>Unset values return sensible defaults (page size 8, label "Recommended", delivery 0/0,
+      currency from the tenant record, <code>box: null</code>). The endpoint never 404s — an
+      unconfigured storefront gets a valid minimal document.</li>
+  <li><strong>Caching is tenant-partitioned</strong>: the document is tenant-specific on a
+      tenant-less path, so the cache key must include the resolved tenant — header-routed
+      deployments emit <code>Vary: X-Tenant-Id</code>; subdomain routing partitions by host. A
+      shared cache must never serve tenant A's labels, pricing or box plan to tenant B.</li>
+  <li>Earliest delivery is <em>not</em> here — Spec 069's endpoint owns it (different cache
+      cadence, single source of truth).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="api">10. API surface</h2>
+
+<h3>Public (AllowAnonymous)</h3>
+<table>
+  <tr><th>Route</th><th>Returns</th></tr>
+  <tr><td><code>GET /commerce/catalog/collections</code></td><td>Active collections ordered, each with ranked member product summaries (§8 shape); <code>?kind=</code> filter matched case-insensitively and validated against <code>CollectionKinds</code> (unknown → 400; an exact-compare would silently return nothing under case-sensitive collations)</td></tr>
+  <tr><td><code>GET /commerce/catalog/collections/{slug}</code></td><td>One collection with members</td></tr>
+  <tr><td><code>GET /commerce/catalog/facets</code></td><td>Active facet groups, ordered, with options/bands — the menu filter UI renders this verbatim</td></tr>
+  <tr><td><code>GET /commerce/catalog/categories</code></td><td>Active category tree (slug, name, children), sorted</td></tr>
+  <tr><td><code>GET /commerce/catalog/products</code> <em>(extended)</em></td><td>Enriched rows (§8), facet/collection/sort parameters (§6)</td></tr>
+  <tr><td><code>GET /commerce/config/storefront</code></td><td>The §9 document</td></tr>
+</table>
+
+<h3>Admin (writes AdminWritePolicy, reads AdminUserPolicy)</h3>
+<table>
+  <tr><th>Route</th><th>Purpose</th></tr>
+  <tr><td><code>GET /commerce/admin/collections</code> · <code>GET /commerce/admin/collections/{id:guid}</code></td><td>List/detail <strong>including inactive</strong> collections and draft members — the back office must be able to load what the public read hides (reactivation, staging; A9)</td></tr>
+  <tr><td><code>POST /commerce/admin/collections</code> · <code>PUT /commerce/admin/collections/{id:guid}</code></td><td>Create / update (title, kind, sort, active)</td></tr>
+  <tr><td><code>PUT /commerce/admin/collections/{id:guid}/items</code></td><td>Full-replace ranked membership (idempotent reorder; validates ranks unique — §11)</td></tr>
+  <tr><td><code>GET /commerce/admin/facet-groups</code></td><td>List including inactive groups (reactivation needs to see them)</td></tr>
+  <tr><td><code>POST /commerce/admin/facet-groups</code> · <code>PUT /commerce/admin/facet-groups/{id:guid}</code></td><td>Author facet definitions (validates §11 A-rules)</td></tr>
+  <tr><td><code>GET /commerce/admin/products/{productId:guid}</code> <em>(contract change)</em></td><td>Switches from the shared <code>ProductDto</code> to <code>AdminProductDetailDto</code> (+<code>searchKeywords</code>) — see §7</td></tr>
+  <tr><td><code>PATCH /commerce/admin/products/{productId:guid}</code></td><td><strong>The missing product update</strong>: name, description, status, category, tags, attributes, search keywords (create-only until now). JSON fields validated on write (§11)</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId:guid}/media</code></td><td>Full-replace ordered media URLs (list/reorder/remove; upload itself is the wiring item)</td></tr>
+  <tr><td><code>PUT /commerce/admin/categories/{categoryId:guid}</code></td><td>Update name/parent/sort/<code>IsActive</code> — categories retire, never delete (§11 adds the lifecycle column)</td></tr>
+  <tr><td><code>PUT /commerce/admin/storefront-config</code></td><td>Writes the <code>Commerce.Storefront.*</code> settings under <code>AdminWritePolicy</code> — the platform tenant-settings endpoint requires <code>AdminPolicy</code>, which would let Operations edit every product yet not the storefront settings (§9)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+<ol>
+  <li>Configurations in <code>Persistence/Configurations/Catalog/</code>; indexes per §5;
+      <code>Slug</code>/<code>Key</code> 64, <code>Title</code>/<code>Label</code> 128,
+      <code>OptionsJson</code> 4096, <code>SearchKeywordsJson</code> 1024.</li>
+  <li>Authoring validations: facet <code>SourcePath</code> required for Attribute/Range and
+      forbidden otherwise; Range bands numeric, non-overlapping, ordered; option <code>value</code>
+      tokens non-empty and unique within a group; collection items must reference existing
+      products of the tenant (Active enforced at read time, not membership time — a draft product
+      may be staged into a collection); collection full-replace validates <strong>unique
+      ranks</strong> (backed by the §5 unique index; ties would make curated order
+      nondeterministic).</li>
+  <li><strong>JSON hygiene</strong>: product create and PATCH validate <code>TagsJson</code> and
+      <code>SearchKeywordsJson</code> as JSON arrays of strings and <code>AttributesJson</code> as
+      a JSON object (the existing create path stores arbitrary strings unvalidated). Reads are
+      defensive regardless: a malformed legacy row renders with empty tags, is excluded from facet
+      matching, and logs a warning — one bad row must never 500 the public browse. A one-off
+      cleanup listing malformed rows is part of the tasks.</li>
+  <li><code>ProductCategory</code> gains <code>IsActive</code> (default true) — the lifecycle
+      column the public active-only category tree and retire-don't-delete authoring require.</li>
+  <li><code>DbSet</code>s + <code>MapTable</code> entries in both contexts
+      (<code>Collections</code>, <code>CollectionItems</code>, <code>FacetGroups</code>).</li>
+  <li>One tool-generated migration:
+      <pre><code>dotnet ef migrations add AddCommerceStorefrontMerchandising --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+      Expect three new tables + one column on <code>AnkProducts</code>
+      (<code>SearchKeywordsJson</code>) + one column on <code>AnkProductCategories</code>
+      (<code>IsActive</code>), nothing else. Review, apply locally, and commit all three generated
+      artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>, and the updated
+      <code>AonikDbContextModelSnapshot.cs</code>. Hand-written
+      migrations are prohibited (CLAUDE.md).</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="security">12. Security &amp; tenancy</h2>
+<ul>
+  <li>Tenant-scoped entities behind the global filters; public endpoints serve Active data only and
+      resolve tenant via the existing anonymous middleware (decision D3).</li>
+  <li>Search keywords are the one sensitive-ish surface (they may encode merchandising strategy):
+      admin-read only, asserted absent from public serialization by test.</li>
+  <li>Admin policy split identical to the rest of Commerce.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="testing">13. Testing</h2>
+<ul>
+  <li><strong>Unit — facet matching</strong>: each MatchKind; OR-within/AND-across; range bands
+      half-open incl. boundary values; product missing the ranged value matches nothing; unknown
+      key/value → 400.</li>
+  <li><strong>Unit — search</strong>: keyword hit with no name/description occurrence;
+      case-insensitivity; substring position independence.</li>
+  <li><strong>Serialization contract</strong>: <code>SearchKeywordsJson</code> absent from every
+      public DTO (walk the actual serialized JSON, not the type).</li>
+  <li><strong>Service</strong> (InMemory, <code>TestTenantProvider</code>): collection full-replace
+      reorder idempotency; draft product staged in a collection is excluded from the public read;
+      facet authoring validations; product PATCH partial-update semantics.</li>
+  <li><strong>API</strong> (<code>CustomWebApplicationFactory</code>): collections/facets/categories
+      /config round-trips; enriched browse row carries hero image + tags and no price field;
+      config document defaults when unconfigured; admin authz; tenant isolation.</li>
+  <li>Full-solution <code>dotnet test Aonik.sln</code> before PR.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tasks">14. Phasing &amp; tasks</h2>
+<ol>
+  <li>Entities + <code>Product.SearchKeywordsJson</code> + configurations + DbSets/MapTable;
+      migration; local apply.</li>
+  <li>Facet matching + browse-endpoint extension + search extension.</li>
+  <li>Collections service + public/admin endpoints.</li>
+  <li>Facet + category + config-document endpoints; settings keys.</li>
+  <li>Summary DTO enrichment; serialization contract test first.</li>
+  <li>Product PATCH + media list/reorder endpoints.</li>
+  <li>DI registration; optional pack seed (a "featured" collection shell + launch facet set for
+      <code>food-commerce</code>); tests per §13; full-solution run.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="acceptance">15. Acceptance criteria</h2>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>A1</td><td>A "featured" collection with ranked members → homepage endpoint returns them in rank order; reordering in admin changes the next read with no release.</td></tr>
+  <tr><td>A2</td><td>Facets Vegan + Mains selected → only vegan mains return (AND across groups); Vegan + Vegetarian → either (OR within a group). [Step 2 AC-13/14]</td></tr>
+  <tr><td>A3</td><td>A range facet "Under 500" [null, 500) → a 499-kcal product matches, a 500-kcal product does not; a product with no kcal attribute matches no band.</td></tr>
+  <tr><td>A4</td><td>Adding a fifth facet group in admin → public facet endpoint includes it and browse filters on it — zero frontend change. [Step 2 FR-3.1, AC-29 analogue]</td></tr>
+  <tr><td>A5</td><td>Product keyword "party", word absent from name/description → search "party" returns it; the string "party" appears nowhere in any public response. [Step 2 AC-28]</td></tr>
+  <tr><td>A6</td><td>Browse row for a product with media and tags → hero image URL + tags + attributes present; no variant price field exists on the row.</td></tr>
+  <tr><td>A7</td><td>Unconfigured tenant → config document returns defaults (page size 8, label "Recommended", box null); never 404.</td></tr>
+  <tr><td>A8</td><td>Configured tenant with a default box bundle carrying a size plan → config document embeds min/max/presets/per-space matching the 068 plan read.</td></tr>
+  <tr><td>A9</td><td>Draft product staged into a collection → visible in admin collection read, absent from the public one; activating the product surfaces it without touching the collection.</td></tr>
+  <tr><td>A10</td><td>PATCH product updating tags and keywords → browse reflects tags immediately; keyword change affects search only.</td></tr>
+  <tr><td>A11</td><td><code>GET /commerce/admin/products/{id}</code> returns <code>searchKeywords</code>; the public product and summary DTOs never do — asserted against the serialized JSON of both endpoints.</td></tr>
+  <tr><td>A12</td><td>A collection full-replace with duplicate ranks → 400; persisted membership always has unique ranks and repeated public reads return an identical order.</td></tr>
+  <tr><td>A13</td><td>A product with malformed legacy <code>AttributesJson</code> → browse succeeds (empty tags, excluded from facet matches, warning logged); create/PATCH with malformed JSON → 400.</td></tr>
+  <tr><td>A14</td><td>The config document and all catalog reads carry tenant-partitioned cache semantics (<code>Vary: X-Tenant-Id</code> under header routing); two tenants never cross-serve.</td></tr>
+  <tr><td>A15</td><td>A range facet renamed ("Under 500 kcal" → "Light") keeps working with the same <code>facet.calories=under-500</code> request value; submitting a label instead of a value → 400.</td></tr>
+  <tr><td>A16</td><td><code>collection=slug</code> without <code>sort</code> returns rank order; <code>sort=name</code> overrides it; <code>sort=rank</code> without a collection → 400.</td></tr>
+  <tr><td>A17</td><td>Deactivating a category hides it (and its products' category facet match) from the public tree while the admin read still lists it; reactivation restores with no other write.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">16. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Facet option counts.</strong> The client UI shows "Show N dishes" live counts;
+  N is computable client-side from the filtered result. Server-side per-option counts (SQL
+  aggregation per facet) are a nice-to-have deferred until a catalogue is big enough that the
+  client can't hold the filtered set.</p>
+</div>
+<div class="callout open">
+  <p><strong>O2 — Scheduled merchandising.</strong> Collections have no start/end dates; a seasonal
+  edit is activated by hand. Add <code>ActiveFromUtc/ActiveToUtc</code> when a real scheduling need
+  appears.</p>
+</div>
+<div class="callout open">
+  <p><strong>O3 — Money representation.</strong> The config document and summary DTO serve decimals,
+  consistent with the rest of Commerce; the storefront converts to minor units in its client class.
+  Follows the plan's "money at the API edge" wiring decision if that lands differently.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="refs">17. References</h2>
+<ul>
+  <li><a href="../abbys-table-storefront-plan.html">Storefront capability plan</a> — build area E, decision D4</li>
+  <li>AbbysTable repo: Step 2 spec FR-2.1/AC-28 (keywords), FR-3.1/3.5 (configurable facets), §6.5 (config document); menu facet model in <code>web/src/lib/menu/filters.ts</code></li>
+  <li><a href="066.commerce-product-option-groups.html">Spec 066</a> — <code>UnitSurcharge</code>, <code>RecommendedChoiceLabel</code> setting</li>
+  <li>Spec 068 — box-builder carts (PR #254, in review; not in this tree) — size plan embedded in the config document</li>
+  <li>Spec 069 — fulfilment promise (PR #255, in review; not in this tree) — delivery promise (deliberately not duplicated here)</li>
+  <li><a href="042.commerce-retail-module.html">Spec 042</a> — catalog browse this extends</li>
+</ul>
+
+</body>
+</html>
