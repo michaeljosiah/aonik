@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 069 - Commerce fulfilment promise</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 069</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-medium">Size: Medium (phase 1)</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">Independent</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Commerce fulfilment promise — delivery calendar &amp; earliest-delivery date</h1>
+  <p class="small">A per-tenant fulfilment calendar and the computed "earliest delivery" promise —
+  the single most-repeated data point in the Abby's Table storefront (five surfaces) and currently
+  unrepresentable anywhere in Aonik. Build area D of the
+  <a href="../abbys-table-storefront-plan.html">storefront capability plan</a>. Phase 1 (this
+  spec's build) is the promise; phase 2 (delivery capture at checkout) is scoped here and built
+  with the Steps 3–5 checkout work.</p>
+</header>
+
+<h2>Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#motivation">Motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#algorithm">The computation</a></li>
+    <li><a href="#services">Service &amp; API surface</a></li>
+    <li><a href="#phase2">Phase 2 — delivery at checkout (scoped, not built)</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; tenancy</a></li>
+    <li><a href="#packs">Config-pack seeding</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="summary">1. Summary</h2>
+
+<p>Commerce has no concept of customer delivery: no dates, slots, cutoffs, lead times, addresses or
+fees — checkout carries payment fields only, and the kitchen's production "windows" (specs 055/056)
+filter on <em>order-creation</em> time. This spec introduces the smallest honest model that makes a
+delivery promise possible: a per-tenant <code>FulfilmentCalendar</code> (delivery days, order
+cutoff, preparation lead, blackout dates, timezone) and a deterministic computation of the earliest
+delivery date, served on a public endpoint the storefront shows everywhere the promise appears.</p>
+
+<!-- ============================================================ -->
+<h2 id="motivation">2. Motivation</h2>
+
+<ul>
+  <li>"Earliest delivery: Wednesday 6 August" appears on the client's homepage (twice), menu page,
+      dish detail pages, Step 1 and Step 2 — and per the client's notes it "will be pulled from the
+      backend, based on the earliest delivery calculated". A hard-coded date is explicitly ruled out
+      (Step 2 FR-7.6).</li>
+  <li>A batch-cook meal business genuinely computes this: orders placed before Tuesday's cutoff go
+      into Wednesday's production and deliver Thursday; after cutoff, next cycle. The inputs are
+      operational configuration, changing seasonally — data, not code.</li>
+  <li>Deliberately generic (ADR-013): any make-to-order tenant — florist, baker, meal kitchen —
+      has the same shape: which days we deliver, when the order book closes, how long preparation
+      takes.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<table>
+  <tr><th style="width:50%">In (phase 1 — built now)</th><th>Out / deferred</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><code>FulfilmentCalendar</code> entity + admin upsert/read</li>
+        <li><code>IFulfilmentPromiseService</code> — earliest-delivery computation</li>
+        <li>Public <code>GET /commerce/config/delivery</code></li>
+        <li>Config-pack seeding hook</li>
+        <li>Migration (tool-generated, canonical stream)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li><strong>Phase 2 (§7, scoped here, built with the checkout build-out):</strong> delivery
+            address capture, customer-chosen delivery date validated against the calendar, delivery
+            recorded on the order, kitchen planning windowed by delivery date, zone fees</li>
+        <li>Per-day capacity limits — <em>moved to phase 2</em>, deviating from the plan's phase-1
+            sketch: capacity throttling needs bookings-per-delivery-date, and delivery dates only
+            exist on orders in phase 2. A phase-1 capacity column would be dead config pretending
+            to work.</li>
+        <li>Slot-of-day selection (am/pm/hour windows) — phase 2+ if the business ever needs it</li>
+        <li>Carrier/shipping-rate integration — not a platform concern at this scale</li>
+        <li>Delivery display amounts on the box quote (list £10 / charged free) — tenant settings
+            consumed by Spec 068's quote; the authoring surface is Spec 070's config document</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="model">4. Domain model</h2>
+
+<pre><code>/// <summary>Per-tenant fulfilment configuration. At most one per tenant (phase 1).</summary>
+public class FulfilmentCalendar : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    /// <summary>IANA timezone id, e.g. "Europe/London". All cutoff/date maths happens in it.</summary>
+    public string Timezone { get; set; } = "Europe/London";
+    /// <summary>JSON array of delivery weekdays, lower-case English day names,
+    /// e.g. ["wednesday","thursday"]. Must be non-empty for the calendar to be active.</summary>
+    public string DeliveryDaysJson { get; set; } = "[]";
+    /// <summary>Local time of day after which an order joins the next cycle, e.g. 12:00.</summary>
+    public TimeOnly CutoffLocalTime { get; set; }
+    /// <summary>Whole days between the effective order date and the earliest dispatch-eligible
+    /// date. 0 = same-day eligible.</summary>
+    public int LeadDays { get; set; }
+    /// <summary>JSON array of ISO dates ("2026-12-25") on which no delivery happens, whatever
+    /// the weekday says. Bounded list; expired entries are pruned on save.</summary>
+    public string BlackoutDatesJson { get; set; } = "[]";
+    public bool IsActive { get; set; } = true;
+}</code></pre>
+
+<table>
+  <tr><th>Entity</th><th>Table</th><th>Unique index</th></tr>
+  <tr><td><code>FulfilmentCalendar</code></td><td><code>AnkFulfilmentCalendars</code></td><td>(TenantId)</td></tr>
+</table>
+
+<p class="small">One calendar per tenant in phase 1 — multi-zone/multi-kitchen calendars would key
+this by zone and belong to the same change as zone fees (phase 2+, O2).</p>
+
+<!-- ============================================================ -->
+<h2 id="algorithm">5. The computation</h2>
+
+<p>Deterministic, side-effect-free, clock-injected (<code>IClock</code> — never
+<code>DateTime.Now</code>):</p>
+
+<pre><code>nowLocal        = clock.UtcNow converted to calendar.Timezone
+effectiveDate   = date(nowLocal)                    // the order-book day this order would join
+                  + 1 day  when time(nowLocal) &gt; CutoffLocalTime
+readyDate       = effectiveDate + LeadDays          // earliest dispatch-eligible date
+earliestDelivery = first date d ≥ readyDate where
+                     weekday(d) ∈ DeliveryDays  and  d ∉ BlackoutDates
+search bound    = readyDate + 62 days; none found ⇒ calendar is misconfigured (treated as inactive)</code></pre>
+
+<ul>
+  <li>Timezone conversion uses IANA ids via <code>TimeZoneInfo</code> (cross-platform on .NET 10).
+      DST transitions fall out of the conversion — the cutoff is a local wall-clock time by
+      definition.</li>
+  <li>The result is a <em>date</em>, not a timestamp. The storefront formats it
+      ("Wednesday 6 August"); the API never pre-formats.</li>
+  <li>Worked example (launch config: cutoff 12:00, lead 14, delivery Wednesdays): computed from
+      Tuesday 2026-07-21 10:00 London → effective 21 Jul → ready 4 Aug → first Wednesday ≥ 4 Aug =
+      <strong>6 Aug 2026</strong> — matching the client's design fixture exactly.</li>
+</ul>
+
+<div class="callout">
+  <p><strong>Unconfigured is a state, not an error.</strong> No calendar row, <code>IsActive =
+  false</code>, empty delivery days, or an exhausted search all resolve to "no promise available":
+  the public endpoint returns 404 and the storefront hides the promise line. A wrong date is worse
+  than no date — the endpoint never guesses.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="services">6. Service &amp; API surface</h2>
+
+<pre><code>public interface IFulfilmentPromiseService
+{
+    /// <summary>Earliest delivery date for the current tenant, or null when no active,
+    /// resolvable calendar exists.</summary>
+    Task&lt;FulfilmentPromiseDto?&gt; GetEarliestDeliveryAsync(CancellationToken ct = default);
+
+    Task&lt;FulfilmentCalendarDto?&gt; GetCalendarAsync(CancellationToken ct = default);
+    Task&lt;FulfilmentCalendarDto&gt; UpsertCalendarAsync(UpsertFulfilmentCalendarCommand command, CancellationToken ct = default);
+}
+
+public record FulfilmentPromiseDto(DateOnly EarliestDeliveryDate, string Timezone);</code></pre>
+
+<h3>Endpoints</h3>
+<table>
+  <tr><th>Route</th><th>Auth</th><th>Behaviour</th></tr>
+  <tr><td><code>GET /commerce/config/delivery</code></td><td>AllowAnonymous</td>
+      <td><code>{ "earliestDeliveryDate": "2026-08-06", "timezone": "Europe/London" }</code>;
+      404 when unconfigured. Response is cacheable for minutes — the value only moves at cutoff
+      or midnight, and a short-TTL stale promise on the storefront is acceptable (ISR revalidation
+      handles it).</td></tr>
+  <tr><td><code>GET /commerce/admin/fulfilment-calendar</code></td><td>AdminUserPolicy</td><td>Current calendar incl. inactive</td></tr>
+  <tr><td><code>PUT /commerce/admin/fulfilment-calendar</code></td><td>AdminWritePolicy</td>
+      <td>Upsert. Validates: known IANA timezone; day names valid; <code>LeadDays</code> 0–60;
+      blackout entries parse as dates (expired ones pruned); active calendar must have ≥ 1 delivery
+      day. Response echoes the computed current promise so the operator sees the effect
+      immediately.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="phase2">7. Phase 2 — delivery at checkout (scoped, not built)</h2>
+
+<p>Authored now so phase 1 doesn't paint the schema into a corner; implemented with the storefront's
+Steps 3–5 build-out. Requirements at contract level:</p>
+
+<ol>
+  <li><strong>Delivery address</strong> on the checkout command and persisted with the order
+      (recipient name, lines, postcode, country, contact phone). Storefront journeys are
+      guest-first; the address lives on the order, not a party profile.</li>
+  <li><strong>Chosen delivery date</strong>: the customer picks from dates the calendar admits
+      (same §5 rules, offered as a forward list); the server re-validates on checkout — a date that
+      became invalid between page and submission is rejected with the next valid alternatives.</li>
+  <li><strong>Order linkage</strong>: delivery date + address recorded against the
+      <code>ProductPurchase</code> order (new fulfilment-details record referencing
+      <code>OrderId</code> — additive; the spine's <code>OrderFulfilmentRef</code> stays the
+      financial-fulfilment link it is today).</li>
+  <li><strong>Kitchen planning by delivery date</strong>: specs 055/056 gain the option to window
+      production on delivery date rather than order-creation date — the operationally meaningful
+      axis once dates exist.</li>
+  <li><strong>Per-day capacity</strong>: with bookings-per-date now countable, the calendar gains
+      <code>CapacityPerDeliveryDay?</code>; full days drop out of offered dates and, transitively,
+      out of the §5 promise.</li>
+  <li><strong>Zone fees</strong> (if ever needed): delivery zones keyed by postcode prefix with a
+      fee feeding the quote's <code>deliveryCharged</code>; explicitly not designed further
+      here.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="persistence">8. Persistence &amp; migration</h2>
+<ol>
+  <li>Configuration in <code>src/Aonik.Commerce/Persistence/Configurations/Fulfilment/</code>;
+      <code>Timezone</code> 64, <code>DeliveryDaysJson</code> 256,
+      <code>BlackoutDatesJson</code> 2048.</li>
+  <li><code>DbSet</code> in <code>AonikDbContext</code> + <code>CommerceDbContext</code> with a
+      <code>MapTable</code> entry (<code>FulfilmentCalendars</code>).</li>
+  <li>One tool-generated migration:
+      <pre><code>dotnet ef migrations add AddCommerceFulfilmentCalendar --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+      Expect one new table, nothing else. Review, apply locally, commit both files. Hand-written
+      migrations are prohibited (CLAUDE.md).</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="security">9. Security &amp; tenancy</h2>
+<ul>
+  <li>Tenant-scoped entity behind the global filters; anonymous read resolves tenant via the
+      existing header/subdomain middleware (plan decision D3).</li>
+  <li>The public endpoint discloses operational cadence (delivery days derivable by probing) —
+      accepted: the storefront publishes the promise anyway; that is its purpose.</li>
+  <li>No PII in phase 1. Phase 2's address capture will carry the platform's standard PII
+      handling on the order record.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="packs">10. Config-pack seeding</h2>
+<ul>
+  <li>The <code>food-commerce</code> pack MAY seed a default calendar (inactive, Europe/London,
+      empty days) so the admin screen has a row to edit rather than a create-from-nothing flow.
+      Seeding rides <code>CommerceTenantProvisioningContributor</code>, idempotent, gated on the
+      Commerce module — never on business type (ADR-014). Optional task.</li>
+  <li>The Abby's Table tenant's real values (cutoff, lead, Wednesdays) are operator data entered in
+      admin, not pack content.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="testing">11. Testing</h2>
+<ul>
+  <li><strong>Unit — computation</strong> (fixed <code>IClock</code>): before/at/after cutoff
+      (boundary: exactly cutoff is <em>before</em> — "&gt;" flips the day); lead-day arithmetic;
+      weekday advance across week boundaries; blackout skip incl. consecutive blackouts; DST
+      transition weeks (March/October, Europe/London); 62-day exhaustion → null; the §5 worked
+      example verbatim.</li>
+  <li><strong>Service</strong> (InMemory, <code>TestTenantProvider</code>): unconfigured/inactive
+      → null; upsert validations (bad timezone, empty days on active, LeadDays bounds, expired
+      blackout pruning); upsert response echoes the recomputed promise.</li>
+  <li><strong>API</strong> (<code>CustomWebApplicationFactory</code>): anonymous read 200/404
+      paths; admin authz; tenant isolation (tenant B's calendar invisible to tenant A's
+      promise).</li>
+  <li>Full-solution <code>dotnet test Aonik.sln</code> before PR.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tasks">12. Phasing &amp; tasks</h2>
+<ol>
+  <li>Entity + configuration + DbSets/MapTable; migration; local apply.</li>
+  <li>Promise computation (pure function over calendar + clock) + service.</li>
+  <li>Public endpoint + admin endpoints with validations.</li>
+  <li>DI registration; optional pack seed.</li>
+  <li>Tests per §11; full-solution run.</li>
+  <li>Phase 2 items tracked as their own issue set when the checkout build-out is scheduled —
+      not silently begun here.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>A1</td><td>Cutoff 12:00, lead 14, Wednesdays, London; clock Tue 2026-07-21 10:00 local → <code>2026-08-06</code>.</td></tr>
+  <tr><td>A2</td><td>Same calendar; clock Tue 2026-07-21 13:00 (past cutoff) → effective date advances one day; result unchanged (<code>2026-08-06</code>) because the ready date still precedes that Wednesday — and a clock late enough to push ready past it rolls the promise a full week.</td></tr>
+  <tr><td>A3</td><td><code>2026-08-06</code> added to blackouts → promise becomes <code>2026-08-13</code> (next Wednesday).</td></tr>
+  <tr><td>A4</td><td>No calendar / inactive / empty delivery days → public endpoint 404; nothing is guessed.</td></tr>
+  <tr><td>A5</td><td>Admin changes cutoff or lead → next read reflects it with no other write; upsert response already shows the new promise.</td></tr>
+  <tr><td>A6</td><td>Calendar timezone respected: a UTC clock either side of the London cutoff (incl. a BST date) flips the effective date correctly.</td></tr>
+  <tr><td>A7</td><td>Tenant isolation: two tenants with different calendars each see only their own promise on the anonymous endpoint.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">14. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Promise granularity.</strong> Phase 1 promises a date. If the business later
+  promises "order in the next 3h 12m for the 6 Aug delivery", the countdown derives entirely from
+  this calendar client-side — no schema change; noted so nobody adds a countdown field.</p>
+</div>
+<div class="callout open">
+  <p><strong>O2 — Multi-zone calendars.</strong> One calendar per tenant assumes one dispatch
+  cadence. Zone-dependent cadence (e.g. national vs local delivery days) keys the calendar by zone
+  and belongs with phase 2's zone work.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="refs">15. References</h2>
+<ul>
+  <li><a href="../abbys-table-storefront-plan.html">Storefront capability plan</a> — build area D</li>
+  <li>AbbysTable repo: Step 2 spec FR-7.6 (promise from the back end), §6.5 (<code>earliestDelivery</code> config); client notes (promise on five surfaces)</li>
+  <li><a href="068.commerce-box-builder-carts.html">Spec 068</a> — quote's delivery display values (settings stopgap this spec supersedes in phase 2)</li>
+  <li><a href="055.production-planning-sheet-prep-list.html">Spec 055</a> / <a href="056.production-orders-kitchen-sheet.html">Spec 056</a> — planning windows that phase 2 re-keys by delivery date</li>
+  <li><a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> / <a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a></li>
+</ul>
+
+</body>
+</html>
