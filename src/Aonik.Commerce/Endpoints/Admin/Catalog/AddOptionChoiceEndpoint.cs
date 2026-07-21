@@ -23,7 +23,10 @@ public class AddOptionChoiceEndpoint : Endpoint<AddOptionChoiceRequest, OptionCh
     {
         var result = await _options.AddChoiceAsync(
             Route<Guid>("groupId"),
-            new AddOptionChoiceCommand(req.Key, req.Label, req.Note, req.Price, req.IsRecommendedDefault, req.SortOrder, req.IsActive),
+            // A minimal create payload must produce a USABLE choice: an omitted isActive means
+            // "active", never the CLR default false — which would create an invisible choice, and
+            // a permanently non-servable group if it was also the first recommended default.
+            new AddOptionChoiceCommand(req.Key, req.Label, req.Note, req.Price, req.IsRecommendedDefault, req.SortOrder, req.IsActive ?? true),
             ct);
 
         await Send.OkAsync(result, ct);

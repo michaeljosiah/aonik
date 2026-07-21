@@ -23,6 +23,8 @@ public class UpdateOptionChoiceEndpoint : Endpoint<UpdateOptionChoiceRequest, Op
     {
         var result = await _options.UpdateChoiceAsync(
             Route<Guid>("choiceId"),
+            // Omitted value-typed members pass through as null — "leave unchanged". Coalescing any
+            // of them would let a rename silently reprice a choice to zero or deactivate it.
             new UpdateOptionChoiceCommand(req.Label, req.Note, req.Price, req.SortOrder, req.IsActive),
             ct);
 

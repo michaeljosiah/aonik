@@ -227,6 +227,70 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
+    public async Task AddOptionChoice_Should_CreateAnActiveChoice_When_IsActiveIsOmitted()
+    {
+        // The defect lived in binding, so it is pinned at the endpoint: an omitted isActive bound
+        // to the CLR default false, and a normal minimal payload created a choice that was simply
+        // absent from the public catalogue — with no error anywhere to say why.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var groupId = await SeedCatalogueAsync(tenantId);
+        var client = await AdminClient(tenantId);
+
+        var response = await client.PostAsJsonAsync(
+            $"/commerce/admin/option-groups/{groupId}/choices",
+            new { key = "half", label = "Half table", price = 5m });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadFromJsonAsync<ChoiceResponse>())!.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateOptionChoice_Should_PreservePriceAndActivation_When_TheUpdateOmitsThem()
+    {
+        // A rename must not reprice to zero or deactivate — the omitted members' CLR defaults did
+        // exactly that before update requests went nullable.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCatalogueAsync(tenantId);
+        var choiceId = await ChoiceIdAsync(tenantId, "full");
+        var client = await AdminClient(tenantId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/commerce/admin/option-choices/{choiceId}",
+            new { label = "Full table (renamed)" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ChoiceResponse>();
+        payload!.Label.Should().Be("Full table (renamed)");
+        payload.Price.Should().Be(10m);
+        payload.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateOptionGroup_Should_PreserveActivationAndOrder_When_TheUpdateOmitsThem()
+    {
+        // Same rule for the group's own flags: omitting isActive must not deactivate the group —
+        // which would silently pull it from the storefront — and omitting sortOrder must not
+        // reorder the menu.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var groupId = await SeedUsdMultiGroupAsync(tenantId);
+        var client = await AdminClient(tenantId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/commerce/admin/option-groups/{groupId}",
+            new { label = "Extras (renamed)" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<UpdatedGroupResponse>();
+        payload!.IsActive.Should().BeTrue();
+        payload.SortOrder.Should().Be(1);
+    }
+
+    [Fact]
     public async Task UpdateOptionGroup_Should_PreserveCurrencyAndMode_When_TheUpdateOmitsThem()
     {
         // Currency denominates the group's ABSOLUTE choice prices. An update that says nothing about
@@ -318,8 +382,9 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
         await db.SaveChangesAsync();
     }
 
-    /// <summary>portion: light* (0) / full (+10), in GBP. * = recommended default.</summary>
-    private async Task SeedCatalogueAsync(Guid tenantId)
+    /// <summary>portion: light* (0) / full (+10), in GBP. * = recommended default.
+    /// Returns the group id so admin-endpoint tests can address it.</summary>
+    private async Task<Guid> SeedCatalogueAsync(Guid tenantId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
@@ -349,6 +414,15 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
         });
 
         await db.SaveChangesAsync();
+        return groupId;
+    }
+
+    private async Task<Guid> ChoiceIdAsync(Guid tenantId, string choiceKey)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        return (await db.OptionChoices.SingleAsync(c => c.TenantId == tenantId && c.Key == choiceKey)).Id;
     }
 
     private async Task<Guid> SeedProductAsync(
@@ -392,7 +466,10 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
 
     private sealed record OptionGroupResponse(string Key, string Label, List<OptionChoiceResponse> Choices);
 
-    private sealed record UpdatedGroupResponse(string Key, string Label, string SelectionMode, string Currency);
+    private sealed record UpdatedGroupResponse(
+        string Key, string Label, string SelectionMode, string Currency, int SortOrder, bool IsActive);
+
+    private sealed record ChoiceResponse(string Key, string Label, decimal Price, int SortOrder, bool IsActive);
 
     private sealed record OptionChoiceResponse(string Key, string Label, decimal Price, bool IsRecommendedDefault);
 

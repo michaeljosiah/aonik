@@ -735,6 +735,10 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
 
     public IReadOnlyDictionary<string, object>? LastSelection { get; private set; }
 
+    /// <summary>Every selection submitted to the quote endpoint, in call order — <c>verify</c>
+    /// makes several quote calls per run and shape assertions need all of them.</summary>
+    public List<IReadOnlyDictionary<string, object>> QuoteSelections { get; } = [];
+
     public Task<IReadOnlyList<CliOptionGroup>> GetOptionCatalogueAsync(
         StorefrontTarget target, CancellationToken cancellationToken = default)
     {
@@ -758,6 +762,7 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
     {
         LastTarget = target;
         LastSelection = selection;
+        QuoteSelections.Add(selection);
         return Task.FromResult(SelectionQuote);
     }
 }

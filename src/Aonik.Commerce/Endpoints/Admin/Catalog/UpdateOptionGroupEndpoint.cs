@@ -23,9 +23,10 @@ public class UpdateOptionGroupEndpoint : Endpoint<UpdateOptionGroupRequest, Opti
     {
         var result = await _options.UpdateGroupAsync(
             Route<Guid>("groupId"),
-            // Selection mode and currency pass through as null when omitted, which the service reads
-            // as "leave it alone". Applying the creation defaults here would let a label-only edit
-            // silently re-shape the group, or redenominate every stored choice price as GBP.
+            // Every optional member passes through as null when omitted, which the service reads as
+            // "leave it alone". Applying creation defaults here would let a label-only edit silently
+            // re-shape the group, redenominate every stored choice price as GBP, deactivate the
+            // group, or reset its ordering.
             new UpdateOptionGroupCommand(
                 req.Label,
                 req.HelpText,

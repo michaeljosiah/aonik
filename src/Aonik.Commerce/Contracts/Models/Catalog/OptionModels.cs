@@ -122,18 +122,17 @@ public record CreateOptionGroupCommand(
 
 /// <summary>Group update. <see cref="OptionGroup.Key"/> is absent by design — keys are the stable
 /// contract carts and content variants match on, so they are immutable; renames are label edits.</summary>
+/// <summary>Null-valued members preserve the stored value — see the request-side rationale on
+/// <c>UpdateOptionGroupRequest</c>. Currency in particular denominates the group's <em>absolute</em>
+/// choice prices, so defaulting it would reinterpret USD or EUR amounts as GBP without touching a
+/// single number, and defaulting the mode would silently tighten a multi-select group.</summary>
 public record UpdateOptionGroupCommand(
     string Label,
     string? HelpText = null,
-    /// Null preserves the stored mode. There is no safe default here: applying <c>One</c> would
-    /// silently tighten a multi-select group on any update that did not mention the mode.
     string? SelectionMode = null,
-    /// Null preserves the stored currency. It denominates the group's <em>absolute</em> choice
-    /// prices, so defaulting it would reinterpret USD or EUR amounts as GBP without touching a
-    /// single number.
     string? Currency = null,
-    int SortOrder = 0,
-    bool IsActive = true);
+    int? SortOrder = null,
+    bool? IsActive = null);
 
 public record AddOptionChoiceCommand(
     string Key,
@@ -148,12 +147,15 @@ public record AddOptionChoiceCommand(
 
 /// <summary>Choice update. Key is immutable; the default flag moves only via the atomic
 /// recommended-default operation (rule V7).</summary>
+/// <summary>Null-valued members preserve the stored value. The old non-null defaults were traps:
+/// an update that only renamed a choice would also have repriced it to zero and — via the CLR
+/// default on the request — deactivated it.</summary>
 public record UpdateOptionChoiceCommand(
     string Label,
     string? Note = null,
-    decimal Price = 0m,
-    int SortOrder = 0,
-    bool IsActive = true);
+    decimal? Price = null,
+    int? SortOrder = null,
+    bool? IsActive = null);
 
 /// <summary>One group in a product's narrowing.</summary>
 public record ProductOptionGroupLine(

@@ -45,7 +45,18 @@ public sealed class CommerceCommandHandler
         OutputMode outputMode,
         CancellationToken cancellationToken = default)
     {
-        var selection = ParseSelections(selections);
+        var parsed = ParseSelections(selections);
+
+        // The quote endpoint is strict about shape: a multi-select group takes an array, even for
+        // one choice, and a bare string is rejected (V5). The user should not have to know the wire
+        // shape, so the CLI reads the product's effective groups and shapes each value by its mode.
+        var selection = new Dictionary<string, object>(StringComparer.Ordinal);
+        if (parsed.Count > 0)
+        {
+            var product = await _apiClient.GetStorefrontProductAsync(target, slug, cancellationToken);
+            selection = ShapeSelections(parsed, product.EffectiveOptionGroups);
+        }
+
         var quote = await _apiClient.GetSelectionQuoteAsync(target, slug, selection, currency, cancellationToken);
         await _outputWriter.WriteObjectAsync(quote, outputMode, cancellationToken);
         return 0;
@@ -138,13 +149,13 @@ public sealed class CommerceCommandHandler
                 var forward = new Dictionary<string, object>();
                 foreach (var group in groups)
                 {
-                    forward[group.Key] = group.DefaultChoiceKey;
+                    forward[group.Key] = ShapeValue(group, group.DefaultChoiceKey);
                 }
 
                 var reversed = new Dictionary<string, object>();
                 foreach (var group in groups.Reverse())
                 {
-                    reversed[group.Key] = group.DefaultChoiceKey;
+                    reversed[group.Key] = ShapeValue(group, group.DefaultChoiceKey);
                 }
 
                 var a = await _apiClient.GetSelectionQuoteAsync(target, slug, forward, currency, cancellationToken);
@@ -188,7 +199,7 @@ public sealed class CommerceCommandHandler
                 var expected = priced.Alternative!.Price - priced.Default!.Price;
                 var quote = await _apiClient.GetSelectionQuoteAsync(
                     target, slug,
-                    new Dictionary<string, object> { [priced.Group.Key] = priced.Alternative.Key },
+                    new Dictionary<string, object> { [priced.Group.Key] = ShapeValue(priced.Group, priced.Alternative.Key) },
                     currency, cancellationToken);
 
                 checks.Add(quote.Adjustment == expected
@@ -207,14 +218,16 @@ public sealed class CommerceCommandHandler
         }
 
         // 6 — a choice this product does not offer must be rejected, even if it exists elsewhere
-        // in the tenant catalogue.
+        // in the tenant catalogue. Shaped by the group's mode so a multi-select group[0] fails on
+        // MEMBERSHIP (the V2 this check asserts), not on shape.
         checks.Add(await ExpectRejectionAsync(
             "unknown-choice-rejected",
             target, slug,
-            new Dictionary<string, object> { [groups[0].Key] = "__not-a-real-choice__" },
+            new Dictionary<string, object> { [groups[0].Key] = ShapeValue(groups[0], "__not-a-real-choice__") },
             currency, "V2", cancellationToken));
 
-        // 7 — a group this product does not offer must be rejected.
+        // 7 — a group this product does not offer must be rejected. No mode exists to shape by; a
+        // scalar is fine because the server checks group membership (V1) before value shape.
         checks.Add(await ExpectRejectionAsync(
             "unoffered-group-rejected",
             target, slug,
@@ -278,12 +291,14 @@ public sealed class CommerceCommandHandler
     }
 
     /// <summary>
-    /// Parses <c>--select group=choice</c> pairs. A comma-separated value becomes an array, which
-    /// is how a multi-select group is expressed: <c>--select protein=salmon,prawns</c>.
+    /// Parses <c>--select group=choice</c> pairs into raw values, shape undecided. The wire shape
+    /// (string vs array) depends on the group's selection mode, which the parser cannot know —
+    /// collapsing a single value to a scalar here is exactly how the CLI once became unable to
+    /// express a valid one-choice multi-selection.
     /// </summary>
-    internal static Dictionary<string, object> ParseSelections(IReadOnlyList<string> selections)
+    internal static Dictionary<string, string[]> ParseSelections(IReadOnlyList<string> selections)
     {
-        var result = new Dictionary<string, object>(StringComparer.Ordinal);
+        var result = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
         foreach (var entry in selections)
         {
@@ -296,12 +311,40 @@ public sealed class CommerceCommandHandler
             var key = entry[..separator].Trim();
             var raw = entry[(separator + 1)..].Trim();
 
-            var values = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            result[key] = values.Length > 1 ? values : values.FirstOrDefault() ?? string.Empty;
+            result[key] = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
 
         return result;
     }
+
+    /// <summary>
+    /// Shapes parsed values to the API's strict contract: an array for a multi-select group — even
+    /// with one choice — and a bare string for single-select. A group the product does not offer
+    /// keeps its raw shape; the server then names the actual problem (V1) rather than the CLI
+    /// masking it with a guess.
+    /// </summary>
+    internal static Dictionary<string, object> ShapeSelections(
+        IReadOnlyDictionary<string, string[]> parsed, IReadOnlyList<CliEffectiveOptionGroup> groups)
+    {
+        var result = new Dictionary<string, object>(StringComparer.Ordinal);
+
+        foreach (var (key, values) in parsed)
+        {
+            var group = groups.FirstOrDefault(g => g.Key == key);
+            result[key] = group is not null && IsMulti(group)
+                ? values
+                : values.Length == 1 ? values[0] : values;
+        }
+
+        return result;
+    }
+
+    private static bool IsMulti(CliEffectiveOptionGroup group)
+        => string.Equals(group.SelectionMode, "Multi", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>One value for <paramref name="group"/>, in the shape its mode requires.</summary>
+    private static object ShapeValue(CliEffectiveOptionGroup group, string choiceKey)
+        => IsMulti(group) ? new[] { choiceKey } : choiceKey;
 
     /// <summary>Pretty-prints a canonical selection for humans without losing its exact form.</summary>
     internal static string DescribeCanonical(string canonicalJson)

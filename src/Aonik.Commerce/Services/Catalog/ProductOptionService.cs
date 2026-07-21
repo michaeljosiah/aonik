@@ -72,12 +72,21 @@ internal sealed partial class ProductOptionService : IProductOptionService
 
         group.Label = RequireLabel(command.Label);
         group.HelpText = command.HelpText;
-        group.SortOrder = command.SortOrder;
-        group.IsActive = command.IsActive;
 
-        // Omitted means unchanged. Currency in particular denominates the group's absolute choice
-        // prices, so silently defaulting it would reinterpret every one of them without editing a
-        // single amount — a label edit must never be able to redenominate money.
+        // Omitted means unchanged, for every value-typed member. Currency in particular denominates
+        // the group's absolute choice prices, so silently defaulting it would reinterpret every one
+        // of them without editing a single amount; defaulting IsActive would deactivate the group on
+        // a rename. A label edit must never be able to redenominate money or hide a group.
+        if (command.SortOrder is { } sortOrder)
+        {
+            group.SortOrder = sortOrder;
+        }
+
+        if (command.IsActive is { } isActive)
+        {
+            group.IsActive = isActive;
+        }
+
         if (command.SelectionMode is not null)
         {
             group.SelectionMode = NormalizeSelectionMode(command.SelectionMode);
@@ -158,7 +167,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // product's effective options. The V9 check below cannot catch this: products carrying
         // their own resolvable default each look safe in isolation, yet they lose the group along
         // with everyone else. Move the group default first.
-        if (choice.IsActive && !command.IsActive && choice.IsRecommendedDefault && group.IsActive && !group.IsDeleted)
+        if (choice.IsActive && command.IsActive == false && choice.IsRecommendedDefault && group.IsActive && !group.IsDeleted)
         {
             throw new OptionValidationException(
                 "V7",
@@ -169,7 +178,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // V9 — deactivating the last resolvable default for some product's narrowing would leave
         // that product with an unresolvable effective default, and §6's fail-safe would silently
         // drop the whole group from its storefront. Name the products instead.
-        if (choice.IsActive && !command.IsActive)
+        if (choice.IsActive && command.IsActive == false)
         {
             var blocked = await ProductsLosingTheirDefaultAsync(tenantId, choice, cancellationToken);
             if (blocked.Count > 0)
@@ -184,7 +193,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // V7 (inverse transition) — a deactivated choice keeps its IsRecommendedDefault flag, so
         // reactivating it after another choice took over would leave two active defaults: a raw
         // unique-index error on SQL Server, and a silently non-servable group on InMemory.
-        if (!choice.IsActive && command.IsActive && choice.IsRecommendedDefault)
+        if (!choice.IsActive && command.IsActive == true && choice.IsRecommendedDefault)
         {
             var hasOtherDefault = await _dbContext.OptionChoices.AnyAsync(
                 c => c.TenantId == tenantId
@@ -207,16 +216,30 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // concurrent narrowing must contend on the group's token rather than validating against
         // state this write is about to remove. A pure label or price edit carries no invariant and
         // deliberately does not contend.
-        if (choice.IsActive != command.IsActive)
+        if (command.IsActive is { } newActive && choice.IsActive != newActive)
         {
             TouchGroups([group]);
         }
 
         choice.Label = RequireLabel(command.Label);
         choice.Note = command.Note;
-        choice.Price = command.Price;
-        choice.SortOrder = command.SortOrder;
-        choice.IsActive = command.IsActive;
+
+        // Omitted means unchanged — the same rule as the group update, and for the same reason:
+        // the old defaults let a rename silently reprice a choice to zero or deactivate it.
+        if (command.Price is { } price)
+        {
+            choice.Price = price;
+        }
+
+        if (command.SortOrder is { } sortOrder)
+        {
+            choice.SortOrder = sortOrder;
+        }
+
+        if (command.IsActive is { } isActive)
+        {
+            choice.IsActive = isActive;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return MapChoice(choice);
@@ -231,38 +254,6 @@ internal sealed partial class ProductOptionService : IProductOptionService
             ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
 
         var key = NormalizeKey(choiceKey, "choice");
-        var target = group.Choices.FirstOrDefault(c => c.Key == key && !c.IsDeleted)
-            ?? throw new OptionValidationException("V8", $"Group '{group.Key}' has no choice with key '{key}'.");
-
-        if (!target.IsActive)
-        {
-            throw new OptionValidationException("V7", $"Choice '{key}' is inactive and cannot be the recommended default.");
-        }
-
-        // Already the default: nothing moves, so nothing downstream should be told it did. Reporting
-        // affected products here would have Spec 067 re-review content that did not change.
-        if (target.IsRecommendedDefault)
-        {
-            return new RecommendedDefaultChangeResult(Map(group, group.Choices), []);
-        }
-
-        // V11 — a product that excludes the incoming default and has no override of its own would
-        // be left with an unresolvable effective default. Reject naming those products rather than
-        // committing and letting §6 drop the group from their storefront.
-        var blocked = await ProductsExcludingChoiceWithoutOverrideAsync(tenantId, group, key, cancellationToken);
-        if (blocked.Count > 0)
-        {
-            throw new OptionValidationException(
-                "V11",
-                $"Product(s) {string.Join(", ", blocked)} do not offer choice '{key}' and have no default of their own; " +
-                "give them an explicit default or widen their allowed choices before moving the group default.");
-        }
-
-        // Captured BEFORE the move, while the outgoing default is still the resolvable one, and
-        // narrowed to products that actually inherit it — a product pinned to a still-valid explicit
-        // default keeps exactly the preparation it had, so reporting it as changed would send Spec
-        // 067 content review chasing products nothing happened to.
-        var affectedProducts = await ProductsInheritingGroupDefaultAsync(tenantId, group, cancellationToken);
 
         // Demote FIRST, in its own round trip, then promote. A single SaveChanges is transactional
         // but does not guarantee EF emits the demote before the promote — and the filtered unique
@@ -275,8 +266,60 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // retrying strategy unless the whole delegate is replayable. Without this the method throws
         // on every SQL Server call while passing every InMemory test, which opens no transaction.
         var strategy = _dbContext.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async ct =>
+        return await strategy.ExecuteAsync(async ct =>
         {
+            // Validation and commit must share ONE snapshot, and the reload defines it — so
+            // everything from target resolution to the V11 check runs after it, inside the attempt.
+            // Validating before the reload opened a window: a narrowing could commit in between,
+            // the reload would refresh the group's concurrency token to the narrowing writer's new
+            // one, and the touch below would then COMMIT rather than conflict — moving the default
+            // to a choice that narrowing excludes, exactly what V11 exists to prevent. A narrowing
+            // that commits after the reload instead trips the token and surfaces as a conflict.
+            //
+            // The reload also serves retries: a replayed attempt must not trust flags a failed
+            // attempt already mutated in memory — it would find nothing to demote, stage no writes,
+            // and report success against a database the rollback left on the OLD default. If an
+            // ambiguous commit in fact landed, the replay finds the move already done and succeeds
+            // idempotently.
+            await _dbContext.Entry(group).ReloadAsync(ct);
+            foreach (var choice in group.Choices)
+            {
+                await _dbContext.Entry(choice).ReloadAsync(ct);
+            }
+
+            var target = group.Choices.FirstOrDefault(c => c.Key == key && !c.IsDeleted)
+                ?? throw new OptionValidationException("V8", $"Group '{group.Key}' has no choice with key '{key}'.");
+
+            if (!target.IsActive)
+            {
+                throw new OptionValidationException("V7", $"Choice '{key}' is inactive and cannot be the recommended default.");
+            }
+
+            // Already the default: nothing moves, so nothing downstream should be told it did.
+            // Reporting affected products here would have Spec 067 re-review unchanged content.
+            if (target.IsRecommendedDefault)
+            {
+                return new RecommendedDefaultChangeResult(Map(group, group.Choices), []);
+            }
+
+            // V11 — a product that excludes the incoming default and has no override of its own
+            // would be left with an unresolvable effective default. Reject naming those products
+            // rather than committing and letting §6 drop the group from their storefront.
+            var blocked = await ProductsExcludingChoiceWithoutOverrideAsync(tenantId, group, key, ct);
+            if (blocked.Count > 0)
+            {
+                throw new OptionValidationException(
+                    "V11",
+                    $"Product(s) {string.Join(", ", blocked)} do not offer choice '{key}' and have no default of their own; " +
+                    "give them an explicit default or widen their allowed choices before moving the group default.");
+            }
+
+            // Captured BEFORE the move, while the outgoing default is still the resolvable one, and
+            // narrowed to products that actually inherit it — a product pinned to a still-valid
+            // explicit default keeps exactly the preparation it had, so reporting it as changed
+            // would send Spec 067 content review chasing products nothing happened to.
+            var affectedProducts = await ProductsInheritingGroupDefaultAsync(tenantId, group, ct);
+
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
                 : null;
@@ -300,21 +343,20 @@ internal sealed partial class ProductOptionService : IProductOptionService
             {
                 await transaction.CommitAsync(ct);
             }
-        }, cancellationToken);
 
-        return new RecommendedDefaultChangeResult(Map(group, group.Choices), affectedProducts);
+            return new RecommendedDefaultChangeResult(Map(group, group.Choices), affectedProducts);
+        }, cancellationToken);
     }
 
     public async Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var productExists = await _dbContext.Products
-            .AnyAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
-        if (!productExists)
-        {
-            throw new NotFoundException($"Product '{productId}' was not found.");
-        }
+        // Fetched tracked, not existence-checked: the full replacement below must contend on this
+        // row (see the touch before SaveChanges), so the entity itself is needed.
+        var product = await _dbContext.Products
+            .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException($"Product '{productId}' was not found.");
 
         var groups = await _dbContext.OptionGroups
             .Include(g => g.Choices)
@@ -435,8 +477,15 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // other is about to change — narrowing a product to {A} while the group default moves
         // A→B passes both checks independently and commits a product with no resolvable default.
         // Touching the shared group rows makes the two writes contend on the group's concurrency
-        // token, so the loser retries against fresh state instead of silently disagreeing.
+        // token, so the loser fails with a concurrency conflict instead of silently disagreeing.
         TouchGroups(groups.Where(g => replacements.Any(r => r.OptionGroupId == g.Id)));
+
+        // Serialize against a concurrent FULL REPLACE of the same product. The group rows cannot
+        // do this: two replaces with disjoint group sets — or a replace racing an explicit clear —
+        // share no group row, so both would commit and the survivors would merge into a union that
+        // is neither caller's "full" replacement. The product row is the one thing every full
+        // replacement of this product has in common, so every replacement contends on it.
+        _dbContext.Entry(product).State = EntityState.Modified;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

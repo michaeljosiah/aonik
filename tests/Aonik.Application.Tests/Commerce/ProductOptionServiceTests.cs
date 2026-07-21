@@ -216,6 +216,61 @@ public class ProductOptionServiceTests
     }
 
     [Fact]
+    public async Task UpdateChoiceAsync_Should_PreservePriceOrderAndActivation_When_TheUpdateOmitsThem()
+    {
+        // The same omitted-means-unchanged rule as the group update, and with the same stakes: the
+        // old defaults meant a bare rename repriced the choice to zero and deactivated it.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
+        var updated = await service.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon (renamed)"));
+
+        updated.Label.Should().Be("Salmon (renamed)");
+        updated.Price.Should().Be(3m);
+        updated.SortOrder.Should().Be(1);
+        updated.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateChoiceAsync_Should_ApplyPriceOrderAndActivation_When_TheUpdateSuppliesThem()
+    {
+        // Preserving on omission must not become "ignoring" — explicit values still apply.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
+        var updated = await service.UpdateChoiceAsync(
+            salmonId, new UpdateOptionChoiceCommand("Salmon", Price: 5m, SortOrder: 9, IsActive: false));
+
+        updated.Price.Should().Be(5m);
+        updated.SortOrder.Should().Be(9);
+        updated.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateGroupAsync_Should_PreserveActivationAndOrder_When_TheUpdateOmitsThem()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var groupId = await builder.GroupIdAsync("protein");
+        var updated = await service.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Protein (renamed)"));
+
+        updated.IsActive.Should().BeTrue();
+        updated.SortOrder.Should().Be(2);
+    }
+
+    [Fact]
     public async Task UpdateGroupAsync_Should_ApplyCurrencyAndMode_When_TheUpdateSuppliesThem()
     {
         // Preserving on omission must not become "ignoring" — an explicit value still applies.
