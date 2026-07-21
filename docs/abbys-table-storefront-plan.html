@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Abby's Table on Aonik — Storefront capability plan</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --accent-10: #055a601f; --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878;
+      --open-bg: #eef5fa; --open-border: #88b8d4; --warn-bg: #fbe9e7; --warn-border: #d97a6c;
+      --ok-bg: #ecf6ee; --ok-border: #6db77f; --coral: #eb5c37;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 940px; }
+    header.doc-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.client { background: var(--accent-10); color: var(--accent); }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    .subtitle { color: var(--muted); margin: 0; max-width: 72ch; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.decision { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.risk { border-left-color: var(--warn-border); background: var(--warn-bg); }
+    .callout.done { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .chip { display: inline-block; font: 11px/1.5 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .chip.exists  { background: var(--ok-bg); color: #2c6b46; border: 1px solid var(--ok-border); }
+    .chip.partial { background: var(--note-bg); color: #7a5a10; border: 1px solid var(--note-border); }
+    .chip.missing { background: var(--warn-bg); color: #a13c2e; border: 1px solid var(--warn-border); }
+    .chip.spec    { background: var(--accent-10); color: var(--accent); border: 1px solid var(--accent); }
+    .chip.size    { background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 18px 24px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .spec-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin: 0 0 18px; }
+    .spec-card h3 { margin-top: 0; }
+    .spec-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+    .small { font-size: 13px; color: var(--muted); }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+    .flow .node { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+    .flow .node b { color: var(--accent); }
+    .flow .arrow { color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="doc-meta">
+  <span class="meta-tag">Plan</span>
+  <span class="meta-tag status">Active — D1–D4 decided</span>
+  <span class="meta-tag client">Client: Abby's Table</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Abby's Table on Aonik — storefront capability plan</h1>
+  <p class="subtitle">What the Abby's Table storefront needs from Aonik, what the Commerce module
+  already provides, the gaps, and a proposed spec-by-spec build plan. Written for joint review:
+  product decisions are flagged separately from engineering ones.</p>
+</header>
+
+<h2 id="toc">Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Executive summary</a></li>
+    <li><a href="#inputs">Inputs reviewed</a></li>
+    <li><a href="#storefront">The storefront and how it connects</a></li>
+    <li><a href="#supply">What Commerce provides today</a></li>
+    <li><a href="#gaps">Gap map</a></li>
+    <li><a href="#build">Build plan — proposed specs</a></li>
+    <li><a href="#decisions">Decisions to settle</a></li>
+    <li><a href="#sequence">Sequencing &amp; milestones</a></li>
+    <li><a href="#scope">Out of scope</a></li>
+  </ol>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="summary">1. Executive summary</h2>
+
+<p><strong>Abby's Table does not need a new Aonik module.</strong> Spec 042 already built the
+storefront skeleton: anonymous catalog browse, guest carts, build-your-own-box bundles, checkout
+onto the shared <code>ProductPurchase</code> order spine, stock reservation, guest payment intents,
+discounts and tax. The maker-ops series (specs 050–058) covers the kitchen side: recipes,
+ingredient costing, production sheets and prep lists. Abby's Table is the first storefront
+<em>client</em> of this machinery, and it exposes five capability gaps — all of them generic
+commerce features, none of them Abby's-Table-specific code.</p>
+
+<table>
+  <tr><th style="width:34%">Build area</th><th>Why the storefront needs it</th><th style="width:12%">Status</th></tr>
+  <tr><td><strong>1. Product option groups</strong> (personalisation)</td>
+      <td>Portion / protein / side / heat per dish, per-dish narrowing, a recommended default
+          ("Abby's choice"), multi-select, price deltas including <em>negative</em> ones</td>
+      <td><span class="chip missing">missing</span></td></tr>
+  <tr><td><strong>2. Option-dependent content</strong></td>
+      <td>Nutrition, ingredients, allergens and heating <em>authored per combination</em> — never
+          calculated (a protein swap changes the allergen list)</td>
+      <td><span class="chip missing">missing</span></td></tr>
+  <tr><td><strong>3. Box-builder carts</strong></td>
+      <td>Size-priced boxes (presets + formula), line editing with merge, a hard capacity ceiling,
+          an authoritative server quote on every write</td>
+      <td><span class="chip partial">partial</span></td></tr>
+  <tr><td><strong>4. Fulfilment promise</strong></td>
+      <td>"Earliest delivery: 6 August" appears on five pages and must be computed from cutoffs and
+          lead times; delivery address/slots/fees follow at checkout</td>
+      <td><span class="chip missing">missing</span></td></tr>
+  <tr><td><strong>5. Merchandising &amp; storefront config</strong></td>
+      <td>Featured dishes and curated groups, configurable filter facets, hidden search keywords,
+          a public storefront-config document</td>
+      <td><span class="chip missing">missing</span></td></tr>
+</table>
+
+<div class="callout done">
+  <p><strong>The frontend is ready to receive.</strong> Every AbbysTable page resolves data through
+  one seam (<code>web/src/lib/aonik/client.ts</code>): an <code>AonikClient</code> interface with a
+  fixtures implementation and an HTTP implementation whose routes are explicitly labelled "first
+  guess — reconcile with Aonik's actual routes". Swapping to real Aonik is an environment variable
+  plus one class. The Step 2 functional spec (v1.1) additionally defines the server-side box
+  contract — data model, quote shape and the validation rules the backend must enforce.</p>
+</div>
+
+<div class="callout">
+  <p><strong>Platform principle (ADR-013 / ADR-014): everything lands generic.</strong> Abby's Table
+  is a tenant with a config pack, not a product baked into platform code. "Dish" is a
+  <code>Product</code>; "Abby's choice" is a <em>recommended default</em> whose display label is
+  tenant configuration; "Signature" is a product surcharge attribute; heat pips are a facet over
+  product attributes. Nothing in this plan introduces an Abby's-Table concept into Aonik source —
+  the same features must serve any curated-retail tenant out of the box.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="inputs">2. Inputs reviewed</h2>
+
+<table>
+  <tr><th>Input</th><th>What it contributed</th></tr>
+  <tr><td>AbbysTable repo — <code>web/</code> (Next.js App Router)</td>
+      <td>Page inventory, the <code>AonikClient</code> contract (<code>types.ts</code>,
+      <code>client.ts</code>, <code>fixtures.ts</code>), client-side cart model
+      (<code>CartProvider.tsx</code>), menu faceting (<code>lib/menu/filters.ts</code>)</td></tr>
+  <tr><td>Abby's page-by-page notes</td>
+      <td>Product intent: featured groups, per-dish personalisation with varying options,
+      Abby's-choice defaults, price deltas up <em>and down</em>, signature surcharges, delivery-date
+      promise, Step 1 behaviour</td></tr>
+  <tr><td><code>docs/specifications/Step2_Add_Dishes_Spec.html</code> (v1.1, AbbysTable repo)</td>
+      <td>The authoritative Step 2 contract: data model (§6), API surface (§7), server-enforced
+      rules, 30 acceptance criteria. Notably: box size is a hard ceiling (no "extras" overflow);
+      nutrition is authored, never computed; option groups are configuration, not code</td></tr>
+  <tr><td>Aonik Commerce inventory (this repo)</td>
+      <td>Entity/service/endpoint census of <code>src/Aonik.Commerce</code>,
+      <code>src/Aonik.Ordering</code>, tenancy middleware, config packs, blob storage — the supply
+      side of the gap map in §5</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="storefront">3. The storefront and how it connects</h2>
+
+<h3>3.1 Pages and their data needs</h3>
+<table>
+  <tr><th>Page</th><th>Reads</th><th>Writes</th></tr>
+  <tr><td>Homepage</td>
+      <td>Featured dishes + curated featured groups; box offers; earliest delivery date</td>
+      <td>—</td></tr>
+  <tr><td>Menu</td>
+      <td>Full catalogue with facets (protein, spice, wellness, meal type, dietary, calorie bands),
+      search incl. hidden keywords; earliest delivery date</td>
+      <td>—</td></tr>
+  <tr><td>Dish detail (standard / signature)</td>
+      <td>Dish by slug; its personalisation groups + options + recommended defaults; nutrition /
+      ingredients / allergens / heating <em>resolved for the current selection</em>; related dishes;
+      signature surcharge; earliest delivery date</td>
+      <td>—</td></tr>
+  <tr><td>Step 1 — choose box</td>
+      <td>Box pricing (presets + custom range + formula); earliest delivery date</td>
+      <td>Create/resize the box</td></tr>
+  <tr><td>Step 2 — add dishes</td>
+      <td>Catalogue + facet config + option catalogue; earliest delivery date</td>
+      <td>Box line CRUD with personalisation; re-quote on every write; continue gate</td></tr>
+  <tr><td>Steps 3–5 (extras, review, checkout)</td>
+      <td>Quote; delivery promise</td>
+      <td>Checkout → order + payment (Commerce path exists); address + delivery selection (missing)</td></tr>
+  <tr><td>Help</td><td>FAQ (searchable)</td><td>Enquiry (send + record)</td></tr>
+</table>
+
+<h3>3.2 Integration architecture</h3>
+<div class="flow">
+  <span class="node"><b>Next.js Server Components</b><br/><span class="small">AbbysTable web/</span></span>
+  <span class="arrow">→</span>
+  <span class="node"><b>AonikClient (HTTP)</b><br/><span class="small">server-only, ISR-cached reads</span></span>
+  <span class="arrow">→</span>
+  <span class="node"><b>Aonik public endpoints</b><br/><span class="small">/commerce/catalog/* · /commerce/carts/*</span></span>
+  <span class="arrow">→</span>
+  <span class="node"><b>Commerce module</b><br/><span class="small">catalog · cart · checkout · inventory</span></span>
+</div>
+<ul>
+  <li><strong>All calls are server-side.</strong> The Next.js app calls Aonik from Server Components
+      and route handlers; nothing Aonik-shaped is bundled into browser JavaScript. Public reads are
+      cached (ISR, ~300&nbsp;s) so the menu survives an Aonik blip.</li>
+  <li><strong>Tenant resolution.</strong> Aonik's anonymous endpoints resolve the tenant from the
+      <code>X-Tenant-Id</code> header or subdomain (<code>Auth:TenantRouting</code>). Day one: the
+      storefront sends <code>X-Tenant-Id</code> from server config. See decision D3 for whether a
+      storefront API-key model is needed before launch.</li>
+  <li><strong>Route reconciliation is contained by design.</strong> The frontend's guessed paths
+      (<code>/dishes</code>, <code>/box-pricing</code>, …) live in one class; they will be re-pointed
+      at the real <code>/commerce/*</code> routes with no component changes.</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2 id="supply">4. What Commerce provides today</h2>
+
+<p class="small">Census as of 2026-07-21, master branch. Public = <code>AllowAnonymous</code>.</p>
+
+<table>
+  <tr><th>Capability</th><th>What exists</th></tr>
+  <tr><td>Catalog</td>
+      <td><code>Product</code> (slug, status, kind Simple/Variant/Bundle, <code>TagsJson</code>,
+      <code>AttributesJson</code>) · <code>ProductVariant</code> (SKU, <code>OptionsJson</code>) ·
+      <code>ProductPrice</code> (per-variant, per-currency, time-boxed) · <code>ProductMedia</code>
+      (URL + sort) · nested <code>ProductCategory</code>. Public browse + product-by-slug; admin
+      create product / add variant / set price / create category.</td></tr>
+  <tr><td>Build-a-box bundles</td>
+      <td><code>Product.Kind=Bundle</code> with <code>BundleSlot</code> (min/max items,
+      category-sourced or curated options, allow-duplicates) and per-option
+      <code>PriceDelta</code>; pricing modes Fixed / SumOfComponents / SumPlusPremium; validated
+      <code>BundleSelectionLine</code>s added to a cart as one line.</td></tr>
+  <tr><td>Cart &amp; checkout</td>
+      <td><code>Cart</code> with <code>AnonymousToken</code> for guests; items with price/name
+      snapshots; bundle selections snapshotted per line. Checkout orchestration: reserve stock →
+      create <code>ProductPurchase</code> order (idempotent per cart) → record
+      <code>OrderBundleSelection</code> → discount + tax → optional invoice → guest
+      <code>PaymentIntent</code> → link funding. Public: create/get cart, add item, add bundle,
+      checkout.</td></tr>
+  <tr><td>Order spine</td>
+      <td><code>Order</code>/<code>OrderItem</code> with the retail shape (Quantity, UnitPrice,
+      ProductId, Sku) and a per-line <code>DetailsJson</code> (currently unpopulated by Commerce
+      checkout). Order ≠ Payment ≠ Ledger preserved.</td></tr>
+  <tr><td>Inventory</td>
+      <td>On-hand/reserved per variant or ingredient; all-or-nothing reservation with TTL;
+      commit/release; public per-variant availability endpoint; low-stock alerts.</td></tr>
+  <tr><td>Kitchen (maker-ops)</td>
+      <td>Recipes/BOM, ingredient costing, purchase orders, goods receipt, production sheets and
+      prep lists over order windows, work orders, margin report (specs 050–058).</td></tr>
+  <tr><td>Provisioning</td>
+      <td><code>food-commerce</code> config pack seeds category taxonomy + units; Commerce
+      provisioning contributor is business-type-agnostic (gates on modules, never on business
+      type).</td></tr>
+  <tr><td>Platform plumbing</td>
+      <td><code>IFileStore</code> blob storage (docs even name a "ProductImages" instance — not yet
+      wired); anonymous tenant middleware; guest payment-status pattern in Finance; CMS image
+      generation precedent.</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="gaps">5. Gap map</h2>
+
+<p>Frontend demand × Commerce supply. "Planned home" points into §6.</p>
+
+<table>
+  <tr><th>Storefront need</th><th style="width:11%">Status</th><th>Detail</th><th style="width:14%">Planned home</th></tr>
+  <tr><td>Anonymous menu browse + dish by slug</td>
+      <td><span class="chip exists">exists</span></td>
+      <td>Public catalog endpoints live; Active-only filtering correct for a storefront</td>
+      <td>—</td></tr>
+  <tr><td>List DTO usable for a menu grid</td>
+      <td><span class="chip partial">partial</span></td>
+      <td><code>ProductSummaryDto</code> has no image, tags or attributes — a dish card needs photo,
+      spice, badges, signature surcharge</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Categories + sub-tags ("New", "Under 500 kcal")</td>
+      <td><span class="chip partial">partial</span></td>
+      <td><code>TagsJson</code> exists but is not queryable; no public category list endpoint</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Featured dishes + curated groups ("Carb-conscious")</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>No featured flag, no collection construct, no product-level display ordering</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Per-dish personalisation (groups, narrowing, defaults, multi-select, ± deltas)</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>Variants are discrete SKUs — enumerating combinations explodes (2×4×4×4 = 128 per dish)
+      and cannot express multi-select proteins; bundle slots solve the box, not dish options</td>
+      <td><span class="chip spec">Spec A</span></td></tr>
+  <tr><td>Nutrition / ingredients / allergens / heating per combination</td>
+      <td><span class="chip missing">missing</span></td>
+      <td><code>AttributesJson</code> could store it, but there is no authoring model and no
+      resolution endpoint; safety rule is "authored or default-with-note, never derived"</td>
+      <td><span class="chip spec">Spec B</span></td></tr>
+  <tr><td>Signature surcharge (+£4/unit on top of box price)</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>Only curated <code>BundleSlotOption.PriceDelta</code> comes close; needs to be a product
+      property that the quote engine reads</td>
+      <td><span class="chip spec">Spec A/C</span></td></tr>
+  <tr><td>Box: presets 6/12/18 + formula-priced custom size 6–30</td>
+      <td><span class="chip partial">partial</span></td>
+      <td>Bundle machinery is the right anchor but has no size-parameterised pricing</td>
+      <td><span class="chip spec">Spec C</span></td></tr>
+  <tr><td>Server-side box session: line CRUD, merge, capacity ceiling, quote, continue gate</td>
+      <td><span class="chip partial">partial</span></td>
+      <td>Cart create/get/add exists; no update/resize/remove routes, no quote breakdown, no
+      ceiling, no continue gate, no retired-option remap</td>
+      <td><span class="chip spec">Spec C</span></td></tr>
+  <tr><td>Earliest delivery date (computed; shown on 5 surfaces)</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>No delivery dates, slots, cutoffs, lead times, zones or fees anywhere; checkout carries no
+      address; kitchen windows filter on order-creation time, not delivery date</td>
+      <td><span class="chip spec">Spec D</span></td></tr>
+  <tr><td>Configurable filter facets (field / exact / numeric-range)</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>Browse supports kind/category/search only; no facet definitions, no attribute filtering</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Hidden search keywords (searchable, never displayed)</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>Search covers name/description; keywords must match but never appear in any DTO</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Public storefront config (box sizes, delivery display, page size…)</td>
+      <td><span class="chip partial">partial</span></td>
+      <td>Tenant settings infrastructure exists (config packs); no public config endpoint/schema</td>
+      <td><span class="chip spec">Spec E</span></td></tr>
+  <tr><td>Dish photography upload &amp; serving</td>
+      <td><span class="chip partial">partial</span></td>
+      <td><code>IFileStore</code> ready and names "ProductImages"; nothing wired — media is
+      external-URL-only with no endpoints at all</td>
+      <td><span class="chip spec">Wiring</span></td></tr>
+  <tr><td>Personalisation lands on the order for the kitchen</td>
+      <td><span class="chip partial">partial</span></td>
+      <td><code>OrderItem.DetailsJson</code> exists but checkout leaves it empty; production sheets
+      must eventually read "Jollof — Full table · salmon ×2"</td>
+      <td><span class="chip spec">Spec A/C</span></td></tr>
+  <tr><td>Guest order confirmation / status</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>No public order read for <code>ProductPurchase</code>; needed for Steps 4–5</td>
+      <td><span class="chip spec">Wiring</span></td></tr>
+  <tr><td>FAQ + enquiry</td>
+      <td><span class="chip missing">missing</span></td>
+      <td>Small; content + a send-and-record endpoint (notification plumbing exists)</td>
+      <td><span class="chip spec">Wiring</span></td></tr>
+  <tr><td>Headless storefront auth</td>
+      <td><span class="chip partial">partial</span></td>
+      <td>Anonymous + <code>X-Tenant-Id</code>/subdomain works today; no API-key model</td>
+      <td><span class="chip spec">D3</span></td></tr>
+  <tr><td>Checkout → order → guest payment → stock commit</td>
+      <td><span class="chip exists">exists</span></td>
+      <td>Whole path present incl. idempotency and charge summary; needs address + delivery once
+      Spec D lands</td>
+      <td>—</td></tr>
+</table>
+
+<div class="callout risk">
+  <p><strong>Brand rule with an API consequence.</strong> Individual dishes never display a
+  standalone price — only the box, personalisation deltas and signature upgrades carry prices.
+  Dish <em>variants still need internal prices</em> for costing, margin reporting (spec 057) and any
+  sum-of-components maths; the storefront DTOs simply must not be forced to expose them. Keep
+  "price exists" and "price is displayed" independent.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="build">6. Build plan — proposed specs</h2>
+
+<p class="small">Working letters A–E here; final numbers assigned at authoring time (065 is the
+highest today, but the register has duplicate numbers at 041/042 — confirm free slots). Every spec
+follows house rules: anemic entities, module-scoped configuration classes, migrations via
+<code>AonikDbContext</code> only, generic naming per ADR-013.</p>
+
+<div class="spec-card">
+  <div class="spec-head">
+    <span class="chip spec">Spec A</span>
+    <span class="chip size">size: L</span>
+    <span class="chip size">keystone — C and B depend on it</span>
+  </div>
+  <h3>Commerce product option groups (configurable personalisation)</h3>
+  <p>A first-class option model for configurable products, distinct from variants (discrete SKUs)
+  and bundle slots (box composition).</p>
+  <h4>Scope</h4>
+  <ul>
+    <li>Tenant-level <strong>option catalogue</strong>: ordered groups (key, label, help text,
+        selection mode one/multi, sort) each holding options (key, label, note e.g. "225g",
+        price, recommended-default flag, active).</li>
+    <li><strong>Per-product narrowing</strong>: which groups apply to a product, which options
+        within each group, an optional per-product recommended-default override, and per-product
+        multi-select enablement. A product with no groups simply isn't personalisable.</li>
+    <li><strong>Delta pricing</strong>: the adjustment for a selection is
+        <code>Σ(chosen option price) − (recommended default price)</code> per group — multi-select
+        sums every chosen option before subtracting the default once. Negative adjustments are
+        first-class (choosing "No side" against a £2 default side is −£2).</li>
+    <li><strong>Validation service</strong>: reject any selection containing an option the product
+        does not offer (even if it exists in the catalogue), explicitly providing a group with no
+        valid choice, or violating selection mode. Groups the customer simply omits are filled with
+        the recommended default during normalisation (they are not an error — a default quick-add
+        sends no selection at all). This is the server rule behind Step 2 AC-24.</li>
+    <li><strong>Order landing</strong>: selections + computed adjustment are snapshotted onto cart
+        lines and written into <code>OrderItem.DetailsJson</code> (and alongside
+        <code>OrderBundleSelection</code>) so production sheets can render them. BOM-level
+        consumption deltas (a protein swap changing ingredient demand) are explicitly phase 2 —
+        flagged, not built here.</li>
+    <li>Signature-style <strong>per-unit product surcharge</strong> — a priced product attribute the
+        quote engine reads (modelled here because it prices identically to an option delta).</li>
+  </ul>
+  <h4>Sketch</h4>
+  <pre><code>OptionGroup      TenantId, Key, Label, HelpText?, SelectionMode(one|multi), SortOrder
+OptionChoice     OptionGroupId, Key, Label, Note?, Price, IsRecommendedDefault, SortOrder, IsActive
+ProductOptionGroup  ProductId, OptionGroupId, AllowedOptionKeysJson, DefaultOptionKey?,
+                    AllowMultiSelect?, SortOrder
+
+GET  /commerce/catalog/options                       (public — full catalogue, ordered)
+GET  /commerce/catalog/products/{slug}               (extended: effective option groups + defaults)
+POST /commerce/admin/option-groups | /options        (author the catalogue)
+PUT  /commerce/admin/products/{id}/option-groups     (narrow per product)</code></pre>
+  <p class="small">"Abby's choice" is presentation: the storefront renders the recommended-default
+  marker with a tenant-configured label (config pack setting), the way
+  <code>Branding.AgentDisplayName</code> already works.</p>
+</div>
+
+<div class="spec-card">
+  <div class="spec-head">
+    <span class="chip spec">Spec B</span>
+    <span class="chip size">size: M</span>
+    <span class="chip size">depends on A</span>
+  </div>
+  <h3>Option-dependent product content (nutrition, ingredients, allergens, heating)</h3>
+  <p>Authored content that changes with the customer's selection. The Step 2 spec is emphatic and
+  right: <em>the platform never computes nutrition</em>. Swapping chicken for salmon changes protein,
+  fat <em>and the allergen declaration</em> — no multiplier can produce that, and a wrong allergen
+  line is a safety incident, not a display bug.</p>
+  <h4>Scope</h4>
+  <ul>
+    <li>Default content block per product: nutrition figures, serving label, ingredients text,
+        allergens text, heating steps.</li>
+    <li><strong>Content variants</strong>: authored per complete selection combination (stable
+        identity even when a recommended default later changes), each carrying the authored figures
+        and, where they differ, ingredients/allergens overrides.</li>
+    <li><strong>Resolution endpoint</strong>: exact authored match or the default block — never
+        interpolated, and never "best-matching". On fallback for a non-default selection, nutrition
+        figures return flagged <code>isStandardPreparation: true</code> ("figures are for the
+        standard preparation") but <strong>ingredients &amp; allergens are withheld entirely</strong> —
+        an allergen declaration is served only when authored for exactly that combination (or the
+        true standard preparation). The storefront renders its existing "not yet published" state;
+        a substituted declaration with a footnote is still a wrong declaration.</li>
+    <li>Admin authoring endpoints; content rides product create/update.</li>
+  </ul>
+  <h4>Sketch</h4>
+  <pre><code>ProductContent         ProductId, NutritionJson, ServingLabel, Ingredients?, Allergens?, HeatingJson
+ProductContentVariant  ProductId, MatchJson, NutritionJson, ServingLabel, Ingredients?, Allergens?
+
+GET /commerce/catalog/products/{slug}/content?selection=portion:full,protein:salmon</code></pre>
+  <p class="small">Structured columns over free-form <code>AttributesJson</code> is deliberate — see
+  decision D2.</p>
+</div>
+
+<div class="spec-card">
+  <div class="spec-head">
+    <span class="chip spec">Spec C</span>
+    <span class="chip size">size: L</span>
+    <span class="chip size">depends on A · implements the Step 2 server contract</span>
+  </div>
+  <h3>Box-builder carts — size pricing, line editing, authoritative quotes</h3>
+  <p>Evolves the Commerce cart into the mutable "box" the Step 2 spec defines, keeping the bundle
+  product as the catalog anchor (see decision D1).</p>
+  <h4>Scope</h4>
+  <ul>
+    <li><strong>Size-parameterised bundle pricing</strong>: a price schedule on the bundle product —
+        preset rows (6→£95, 12→£170, 18→£240, each with badge/blurb merchandising copy) plus a
+        formula (base price, base size, per-added-space price, min, max). Presets always win over
+        the formula at their size. Min/max are configuration, never constants.</li>
+    <li><strong>Cart as box session</strong>: cart gains the bundle reference + chosen size; lines
+        gain personalisation selections, the computed adjustment snapshot, and the per-unit
+        surcharge snapshot. Identical dish + identical selection merges into one line
+        (multi-select compared order-insensitively).</li>
+    <li><strong>Hard capacity ceiling</strong>: any write that would push total units past the size
+        is rejected — growing the box first is the only overflow path. No silent drops when
+        shrinking: a resize below current units is rejected with the count to remove.</li>
+    <li><strong>Authoritative quote</strong>: every write returns the full box + a breakdown —
+        box price, personalisation total, per-unit surcharges ("signature upgrades"), delivery
+        list-vs-charged, total, units, spaces left, is-full. Client-supplied prices are ignored
+        (Step 2 AC-22).</li>
+    <li><strong>Continue gate</strong>: an endpoint that validates units == size and advances the
+        cart; rejects otherwise (AC-20).</li>
+    <li><strong>Drift handling</strong>: an option retired while sitting in a cart remaps to the
+        product's current recommended default on load, reprices, and reports what changed.</li>
+    <li><strong>Checkout materialisation</strong>: unchanged spine — one <code>ProductPurchase</code>
+        order; selections land in <code>OrderBundleSelection</code> + <code>DetailsJson</code> so
+        specs 055/056 production sheets keep working, now with personalisation detail.</li>
+    <li>Public routes to complete the set: update line, remove line (service exists, route
+        doesn't), resize, quote, continue.</li>
+  </ul>
+  <h4>Sketch</h4>
+  <pre><code>BundleSizePrice   BundleProductId, Size?, Price, Badge?, Blurb?, SortOrder   (presets)
+                  + on bundle: BaseSize, BasePrice, PerSpacePrice, MinSize, MaxSize
+CartLine (+)      SelectionsJson, PersonalisationAdjustment, UnitSurcharge
+
+PATCH  /commerce/carts/{id}/size
+POST   /commerce/carts/{id}/lines        PATCH/DELETE /commerce/carts/{id}/lines/{lineId}
+POST   /commerce/carts/{id}/quote        POST /commerce/carts/{id}/continue</code></pre>
+</div>
+
+<div class="spec-card">
+  <div class="spec-head">
+    <span class="chip spec">Spec D</span>
+    <span class="chip size">size: M (phase 1) · phase 2 at checkout build-out</span>
+    <span class="chip size">independent — can start immediately</span>
+  </div>
+  <h3>Fulfilment promise — delivery calendar &amp; earliest-delivery date</h3>
+  <p>The most-repeated single data point in the storefront ("Earliest delivery: Wednesday 6 August"
+  appears on five surfaces) and currently unrepresentable in Aonik.</p>
+  <h4>Phase 1 — the promise</h4>
+  <ul>
+    <li>Per-tenant <strong>fulfilment calendar</strong>: dispatch/delivery days of week, order
+        cutoff time, preparation lead days, optional per-day capacity, optional blackout dates.</li>
+    <li>A computation service: now + cutoff + lead + next eligible delivery day (+ capacity check)
+        → earliest delivery date. Public endpoint returns it; storefront caches briefly.</li>
+    <li>Admin CRUD for the calendar; seedable via config pack.</li>
+  </ul>
+  <h4>Phase 2 — delivery at checkout (scoped here, built with Steps 3–5)</h4>
+  <ul>
+    <li>Delivery address capture on checkout (cart/checkout command has none today).</li>
+    <li>Customer-chosen delivery date/slot validated against the calendar; recorded on the order so
+        kitchen planning can window on <em>delivery date</em> rather than order-creation time.</li>
+    <li>Delivery fee display semantics (list price struck through vs charged — launch: £10 → Free)
+        feeding the quote breakdown.</li>
+  </ul>
+  <pre><code>FulfilmentCalendar  TenantId, DeliveryDaysMask, CutoffLocalTime, LeadDays, Timezone, CapacityPerDay?
+GET /commerce/config/delivery   →  { earliestDeliveryDate: "2026-08-06" }</code></pre>
+</div>
+
+<div class="spec-card">
+  <div class="spec-head">
+    <span class="chip spec">Spec E</span>
+    <span class="chip size">size: M</span>
+    <span class="chip size">independent — read-side; unlocks the FE swap earliest</span>
+  </div>
+  <h3>Storefront merchandising &amp; configuration</h3>
+  <p>Everything the browse experience needs beyond raw catalog rows.</p>
+  <h4>Scope</h4>
+  <ul>
+    <li><strong>Collections</strong>: named, ordered, curated product groups with a kind
+        (<code>featured</code> rail, curated group like "Carb-conscious") and per-item rank. This is
+        the generic construct behind "featured dishes" and "featured groups" — and later, seasonal
+        edits.</li>
+    <li><strong>Facet configuration</strong>: per-tenant ordered facet groups, each declaring its
+        match semantics — by category, by tag, by attribute equality, or by numeric range over an
+        attribute (calorie bands; a future protein or salt band with zero frontend change). Public
+        endpoint serves the definitions; browse endpoint accepts them as filters.</li>
+    <li><strong>Search hardening</strong>: per-product hidden keywords — matched by search, present
+        in no DTO (Step 2 AC-28: a customer searching "party" finds the dish; the word never
+        renders).</li>
+    <li><strong>List DTO enrichment</strong>: hero image, tags, selected attributes (spice, badges,
+        surcharge) on the browse row so a menu grid renders without N detail calls. Explicitly
+        <em>not</em> a retail price field — see the brand-rule callout in §5.</li>
+    <li><strong>Public config document</strong>: one endpoint serving the storefront's tunables —
+        box size bounds and presets (from Spec C data), delivery display values, results page size,
+        UI trigger points — so the frontend hard-codes nothing.</li>
+    <li>Public category list endpoint; product update + media list/reorder admin endpoints as
+        supporting cast.</li>
+  </ul>
+  <pre><code>Collection      TenantId, Slug, Title, Kind, SortOrder, IsActive
+CollectionItem  CollectionId, ProductId, Rank
+FacetGroup      TenantId, Key, Label, MatchKind(category|tag|attribute|range), SourcePath,
+                OptionsJson | BandsJson, SortOrder
+
+GET /commerce/catalog/collections            GET /commerce/catalog/facets
+GET /commerce/catalog/categories             GET /commerce/config/storefront</code></pre>
+</div>
+
+<h3 id="wiring">6.6 Small wiring items (no spec each — ride along or batch as one "storefront readiness" spec)</h3>
+<table>
+  <tr><th>Item</th><th>Note</th></tr>
+  <tr><td>Product image upload</td>
+      <td>Wire the <code>IFileStore</code> "ProductImages" instance + admin media upload/delete
+      endpoints; <code>ProductMedia.Url</code> then serves store-hosted URLs. Precedent:
+      Documents module upload endpoint.</td></tr>
+  <tr><td>Guest order status</td>
+      <td>Public order-confirmation read keyed by an opaque token issued at checkout — follow the
+      Circle Spec 061 anonymous-token pattern (single 404, rate-limited, no oracle).</td></tr>
+  <tr><td>FAQ + enquiry</td>
+      <td>Content-managed FAQ list + an enquiry endpoint that records and emails (notification
+      plumbing exists). Decide Platform-CMS vs Commerce ownership at authoring.</td></tr>
+  <tr><td>Money at the API edge</td>
+      <td>The frontend works in integer minor units (pence); Commerce stores decimals. Pick one
+      representation for public DTOs (recommendation: minor units + currency, matching the FE and
+      avoiding float drift) and state it in the contract.</td></tr>
+  <tr><td>Availability in browse</td>
+      <td>Surface out-of-stock on list/detail rows so cards can grey out without per-variant
+      availability calls.</td></tr>
+  <tr><td>Config pack seeds</td>
+      <td>Extend <code>food-commerce</code> pack: sample option groups, a demo box with size
+      pricing, fulfilment calendar defaults — so a fresh tenant demos the whole journey.</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="decisions">7. Decisions to settle</h2>
+
+<div class="callout done">
+  <p><strong>D1 — Is the box a product or a cart?</strong> <span class="chip exists">decided 2026-07-21</span><br/>
+  <em>Options:</em> (a) model every box size as its own bundle product; (b) make the cart itself the
+  box, with the bundle product as its definition/anchor.<br/>
+  <em>Decision: (b) — the cart is the box.</em> A 6–30 formula-priced size range collapses into 25 near-identical
+  products under (a), and the "grow the box" flow becomes a product swap. Under (b) the bundle
+  product stays the catalog anchor (homepage box offers, kitchen integration, order recording) while
+  size and lines live on the cart — matching the Step 2 contract exactly. Checkout still materialises
+  the standard bundle/order shape, so nothing downstream changes.</p>
+</div>
+
+<div class="callout done">
+  <p><strong>D2 — Nutrition storage: structured entities or <code>AttributesJson</code>?</strong>
+  <span class="chip exists">decided 2026-07-21</span><br/>
+  <em>Decision: structured</em> (<code>ProductContent</code>/<code>ProductContentVariant</code>).
+  Allergen declarations are a safety surface — they deserve schema, validation and admin screens,
+  not a JSON blob convention. General display attributes (spice level, badges) stay in
+  <code>AttributesJson</code>, which is what it's for.</p>
+</div>
+
+<div class="callout done">
+  <p><strong>D3 — Storefront authentication.</strong> <span class="chip exists">decided 2026-07-21</span><br/>
+  Day one, the storefront sends <code>X-Tenant-Id</code> server-side — works with today's
+  middleware; payments are guest intents. <em>Decision: no API-key model.</em> Ship on
+  <code>X-Tenant-Id</code> + CORS allow-list; revisit only if real traffic ever demands per-client
+  credentials. <strong>One hardening requirement folds into Spec C:</strong> today's cart endpoints
+  authorise by cart id alone — <code>AnonymousToken</code> is stored but never checked, so a leaked
+  cart URL (logs, history, shared link) would let any caller read, alter or check out that cart, and
+  CORS does not constrain non-browser requests. Spec C must require the guest cart token on
+  <em>every</em> cart read, write and checkout before carts can be called token-scoped.</p>
+</div>
+
+<div class="callout done">
+  <p><strong>D4 — One taxonomy, three axes.</strong> <span class="chip exists">decided 2026-07-21</span><br/>
+  The design templates carry two overlapping groupings (homepage rail categories vs menu wellness
+  goals) — the frontend code itself flags the clash. Decision: one primary
+  <strong>category</strong> per dish (Mains, Soups &amp; Stews…), any number of
+  <strong>facet tags</strong> (wellness goals, dietary, meal type, badges), and
+  <strong>collections</strong> for curated rails. "Carb-conscious" then exists once — as a
+  collection and/or tag — instead of ambiguously as a category.</p>
+</div>
+
+<div class="callout decision">
+  <p><strong>D5 — Step 2 open product call (frontend-only, for Abby).</strong> When one dish sits in
+  the box as two different versions, what do the card's +/− controls act on? The Step 2 spec
+  recommends hiding the stepper in that state (quantity changes happen where the version is
+  unambiguous). No Aonik impact — recorded here so it isn't lost.</p>
+</div>
+
+<div class="callout risk">
+  <p><strong>Frontend alignment debts (AbbysTable repo, tracked here so they're not orphaned):</strong>
+  the client cart still implements the "extras overflow" pricing that Step 2 v1.1 deleted (box size
+  is now a hard ceiling); personalisation options are fetched globally but the contract is per-dish;
+  and once Spec C lands, <code>CartProvider</code>'s localStorage box becomes a cache over the
+  server box rather than the source of truth. All are contained by the frontend's own seams.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="sequence">8. Sequencing &amp; milestones</h2>
+
+<div class="flow">
+  <span class="node"><b>Spec E</b> merchandising<br/><span class="small">independent</span></span>
+  <span class="node"><b>Spec D</b> delivery promise<br/><span class="small">independent</span></span>
+  <span class="node"><b>Spec A</b> option groups<br/><span class="small">keystone</span></span>
+  <span class="arrow">→</span>
+  <span class="node"><b>Spec B</b> content<br/><span class="small">needs A</span></span>
+  <span class="arrow">·</span>
+  <span class="node"><b>Spec C</b> box carts<br/><span class="small">needs A</span></span>
+</div>
+
+<p>E, D and A have no dependencies on each other — three parallel starts. Each milestone below is a
+moment the frontend flips another <code>AonikClient</code> method from fixtures to HTTP; the
+storefront is demoable end-to-end on fixtures the whole time, so nothing blocks Abby's design work.</p>
+
+<table>
+  <tr><th>Milestone</th><th>Storefront capability unlocked</th><th>Requires</th></tr>
+  <tr><td><strong>M1 — Menu is live</strong></td>
+      <td>Homepage rails, menu grid with facets and search, dish pages (content still
+      default-preparation), box offers, real earliest-delivery date</td>
+      <td>Spec E · Spec D phase 1 · image wiring · Spec A read-side</td></tr>
+  <tr><td><strong>M2 — Dish pages complete</strong></td>
+      <td>Personalisation panel with per-dish options and live price deltas; nutrition, ingredients,
+      allergens and heating tracking the selection</td>
+      <td>Spec A · Spec B</td></tr>
+  <tr><td><strong>M3 — The box is server-side</strong></td>
+      <td>Steps 1–2 fully on Aonik: sizes, lines, merges, ceiling, authoritative quotes, continue
+      gate — the Step 2 spec's 30 acceptance criteria testable against real endpoints</td>
+      <td>Spec C</td></tr>
+  <tr><td><strong>M4 — Orders flow</strong></td>
+      <td>Checkout with address + delivery selection, payment, confirmation page, kitchen production
+      sheets showing personalised lines</td>
+      <td>Spec D phase 2 · guest order status · existing checkout path</td></tr>
+  <tr><td><strong>M5 — Operate &amp; polish</strong></td>
+      <td>Admin authoring screens (Commerce AdminUI per spec 059 pattern), FAQ/enquiry, availability
+      surfacing, API-key decision revisited</td>
+      <td>wiring items · AdminUI work</td></tr>
+</table>
+
+<p class="small">Admin authoring is deliberately spread across specs (each ships its admin endpoints)
+with screens consolidated at M5 — Abby needs working authoring by the time real catalogue data
+entry starts, but curl/CLI-driven seeding covers M1–M3.</p>
+
+<!-- ================================================================ -->
+<h2 id="scope">9. Out of scope for this plan</h2>
+<ul>
+  <li><strong>Subscriptions / repeat orders</strong> — explicitly out of the Step 2 spec; revisit
+      post-launch.</li>
+  <li><strong>Gifting and the curated-box journey</strong> — distinct flows the templates reserve;
+      nothing here precludes them (a curated box is just a bundle with fixed selections).</li>
+  <li><strong>Delivery slot <em>booking</em> v2</strong> — capacity-aware customer slot selection
+      beyond the phase-2 date choice.</li>
+  <li><strong>BOM consumption deltas for personalisation</strong> — protein swaps changing prep-list
+      ingredient demand; flagged in Spec A, built when kitchen volume justifies it.</li>
+  <li><strong>Customer accounts, loyalty, marketing</strong> — the whole journey is guest-first by
+      design.</li>
+  <li><strong>Frontend implementation work</strong> — tracked in the AbbysTable repo; this plan only
+      pins the contract it consumes.</li>
+</ul>
+
+<hr style="border:none;border-top:1px solid var(--border);margin:40px 0 16px;"/>
+<p class="small">Sources: AbbysTable <code>web/src/lib/aonik/*</code>, <code>web/src/lib/cart/CartProvider.tsx</code>,
+<code>docs/specifications/Step2_Add_Dishes_Spec.html</code> (v1.1); Aonik
+<code>src/Aonik.Commerce</code>, <code>src/Aonik.Ordering</code>, spec 042 (commerce retail module),
+specs 050–058 (maker-ops), spec 059 (Commerce AdminUI), spec 065 / ADR-013 / ADR-014 (product
+identity &amp; config packs), Circle spec 061 (anonymous token pattern).
+Prepared 2026-07-21 · plan document, not a spec — each build area gets its own numbered
+specification before implementation.</p>
+
+</body>
+</html>
