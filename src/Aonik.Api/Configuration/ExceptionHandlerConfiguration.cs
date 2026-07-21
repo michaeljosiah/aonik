@@ -4,6 +4,7 @@ using System.Text.Json;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Api.Configuration;
 
@@ -178,6 +179,17 @@ public static class ExceptionHandlerConfiguration
 
             case InvalidStateException:
                 await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new { error = ex.Message });
+                return;
+
+            case DbUpdateConcurrencyException:
+                // Writers that guard shared invariants deliberately contend on a row-version token
+                // (e.g. Spec 066's option-group and product touches). The loser of that race is a
+                // well-defined outcome, not a server fault: tell the client to re-read and retry.
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = "The resource was modified by another operation. Re-read the current state and retry.",
+                    code = "concurrency_conflict",
+                });
                 return;
         }
 
