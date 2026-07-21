@@ -246,12 +246,16 @@ public class ProductOptionGroup : AuditableEntity, ITenantScoped
 <p><code>Product</code> gains one column:</p>
 <pre><code>/// <summary>Spec 066 — per-unit surcharge added on top of container/box pricing (e.g. a
 /// "signature" upgrade). Null = none. Display labelling is tenant configuration, not platform.</summary>
-public decimal? UnitSurcharge { get; set; }</code></pre>
+public decimal? UnitSurcharge { get; set; }
+/// <summary>ISO currency of <see cref="UnitSurcharge"/>. Required when the surcharge is set —
+/// a stored amount without its denomination would be silently reinterpreted if the storefront
+/// currency ever changed. Checked by V10 against the requested quote currency.</summary>
+public string? UnitSurchargeCurrency { get; set; }</code></pre>
 
 <table>
   <tr><th>Entity</th><th>Table</th><th>Unique index</th><th>Other indexes</th></tr>
   <tr><td><code>OptionGroup</code></td><td><code>AnkOptionGroups</code></td><td>(TenantId, Key)</td><td>—</td></tr>
-  <tr><td><code>OptionChoice</code></td><td><code>AnkOptionChoices</code></td><td>(TenantId, OptionGroupId, Key)</td><td>(TenantId, OptionGroupId)</td></tr>
+  <tr><td><code>OptionChoice</code></td><td><code>AnkOptionChoices</code></td><td>(TenantId, OptionGroupId, Key)</td><td>(TenantId, OptionGroupId); <strong>filtered unique</strong> (TenantId, OptionGroupId) <code>WHERE IsRecommendedDefault = 1 AND IsActive = 1</code> — the at-most-one-default invariant is database-enforced, not service-hoped: concurrent default moves serialize on this index (one commits, the other conflicts and retries/fails cleanly)</td></tr>
   <tr><td><code>ProductOptionGroup</code></td><td><code>AnkProductOptionGroups</code></td><td>(TenantId, ProductId, OptionGroupId)</td><td>(TenantId, ProductId)</td></tr>
 </table>
 
@@ -307,8 +311,12 @@ store only the normalised form):</p>
       stored selection is always <em>complete</em>, so orders are self-describing even if defaults
       later change.</li>
   <li>Multi-select arrays are de-duplicated and sorted ordinally — two selections are the same
-      selection regardless of pick order (Step 2 FR-6.2: "protein order does not matter"). This
-      makes canonical-JSON string equality a valid line-merge key for Spec C.</li>
+      selection regardless of pick order (Step 2 FR-6.2: "protein order does not matter").</li>
+  <li>The canonical serialization is <strong>byte-stable</strong>: single line, no whitespace,
+      <em>object keys sorted ordinally</em>, arrays sorted per the previous rule — independent of
+      the input's property order and of serializer insertion-order defaults. Only this makes
+      canonical-JSON string equality a valid line-merge key for Spec C; sorting the arrays alone
+      would not (two equivalent submissions could still differ in group-key order).</li>
   <li>Single-select values provided as one-element arrays are unwrapped; anything else
       shape-invalid is rejected (§9), never coerced.</li>
 </ul>
@@ -321,8 +329,12 @@ per Step 2 FR-5.3 state B).</p>
 strictly: V1–V5 and V10 reject anything malformed, not offered, or mis-denominated.
 <strong>Stored selections</strong> — a cart line written days ago, re-normalised on load — get
 drift semantics instead: a group that is no longer offered or servable is <em>dropped</em> from the
-selection; a choice that is no longer offered <em>remaps</em> to the current effective default;
-each change is reported, never thrown. Without this split, retiring an option — or deactivating a
+selection; a choice that is no longer offered <em>remaps</em> to the current effective default; a
+<strong>selection-mode change</strong> re-shapes deterministically — a group tightened Multi→One
+keeps a single stored choice (silent unwrap) but remaps multiple stored choices to the effective
+default with a drift entry (<code>selection-mode-changed</code>), and a group widened One→Multi
+wraps the stored string into a one-element array silently (no customer-visible change, no entry);
+each customer-visible change is reported, never thrown. Without this split, retiring an option — or deactivating a
 whole group — would turn every cart holding it into a hard 400. Spec C consumes this mode
 (<code>RenormalizeStoredAsync</code>, §10) for its catalogue-drift handling and customer-facing
 change report; only malformed JSON remains an error there.</p>
@@ -349,8 +361,10 @@ adjustment      = Σ groupAdjustment over all offered groups</code></pre>
   <li>Currency: the caller passes the target quote currency (the cart or size-plan currency).
       Every group involved must carry exactly that currency or the request is rejected (V10) —
       option maths never silently reinterprets amounts across currencies.
-      <code>UnitSurcharge</code> is denominated in the tenant's storefront currency and is covered
-      by the same check. The priced result echoes the currency explicitly.</li>
+      <code>UnitSurcharge</code> carries its own explicit denomination
+      (<code>UnitSurchargeCurrency</code>, required whenever the surcharge is set) and is covered
+      by the same V10 check — a bare decimal would be silently re-labelled if the storefront
+      currency ever changed. The priced result echoes the currency explicitly.</li>
 </ul>
 
 <p>The pricing result exposes a per-group breakdown (group key, chosen keys, group adjustment) so
@@ -370,7 +384,9 @@ storefronts can render "+£10 Full table · −£2 No side" without re-deriving 
   <tr><td>V7</td><td>A write would leave a <em>servable</em> group with zero or multiple active recommended defaults. Direct <code>IsRecommendedDefault</code> writes are allowed only for the 0→1 transition (first default on a new group); moving the default between choices must use the atomic recommended-default operation (§10/§11)</td><td>Authoring</td><td>—</td></tr>
   <tr><td>V8</td><td>Narrowing references unknown choice keys, or leaves the effective default unresolvable (§6 step 4)</td><td>Authoring</td><td>—</td></tr>
   <tr><td>V9</td><td>Deactivating a choice that is the last resolvable default of any product's narrowing (the error names the products)</td><td>Authoring</td><td>—</td></tr>
-  <tr><td>V10</td><td>Any involved group's currency (or the surcharge's storefront currency) differs from the requested quote currency — nothing is converted or assumed</td><td>Selection</td><td>—</td></tr>
+  <tr><td>V10</td><td>Any involved group's currency (or <code>UnitSurchargeCurrency</code>) differs from the requested quote currency — nothing is converted or assumed</td><td>Selection</td><td>—</td></tr>
+  <tr><td>V11</td><td>A recommended-default move to a choice that any product's narrowing excludes while that product has no resolvable <code>DefaultChoiceKey</code> override — committing would make the product's effective default unresolvable and §6's fail-safe would silently drop the whole group from its storefront. The error names the products; the operator adds overrides or widens narrowings first</td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V12</td><td><code>SelectionMode</code> (group) or <code>SelectionModeOverride</code> (product) is any value other than <code>One</code>/<code>Multi</code> — values are normalised (trim/case) then validated; a typo must not persist and leave normalisation unable to decide string-vs-array</td><td>Authoring</td><td>—</td></tr>
 </table>
 
 <p class="small">Selection-time failures throw a domain validation exception surfaced as HTTP 400
@@ -392,8 +408,10 @@ All methods take <code>CancellationToken cancellationToken = default</code>.</p>
     Task&lt;OptionChoiceDto&gt; AddChoiceAsync(Guid groupId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
     Task&lt;OptionChoiceDto&gt; UpdateChoiceAsync(Guid choiceId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
     /// <summary>Atomically move the recommended default to another choice (demote + promote in one
-    /// write). Response enumerates the products offering the group so dependent capabilities
-    /// (e.g. Spec 067 content review) can react.</summary>
+    /// transaction, serialized by the filtered unique index in §5). Validates every affected
+    /// product narrowing first (V11) — a move that would leave any product's effective default
+    /// unresolvable is rejected naming the products. Response enumerates the products offering
+    /// the group so dependent capabilities (e.g. Spec 067 content review) can react.</summary>
     Task&lt;OptionGroupDto&gt; SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken ct = default);
     Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken ct = default); // full replace
     // reads
@@ -486,15 +504,20 @@ both carrying the same <code>personalisation</code> object shown below:</p>
 
 <pre><code>{
   "personalisation": {
-    "selection":   { "portion": "full", "protein": ["salmon"], "side": "none", "heat": "medium" },
+    "selection":   { "heat": "medium", "portion": "full", "protein": ["salmon"], "side": "none" },
     "summary":     "Full table · Salmon · No side",   // differs-from-default only; "" when isDefault
+    "display":     [ { "group": "Portion", "choice": "Full table" },
+                     { "group": "Protein", "choice": "Salmon" },
+                     { "group": "Side",    "choice": "No side" },
+                     { "group": "Heat",    "choice": "Medium" } ],   // complete, defaults included
     "isDefault":   false,
     "adjustment":  8.00,                              // signed, per unit
     "currency":    "GBP",
     "breakdown":   [ { "group": "portion", "chosen": ["full"], "amount": 10.00 },
                      { "group": "side",    "chosen": ["none"], "amount": -2.00 } ]
   },
-  "unitSurcharge": 4.00                               // omitted when null
+  "unitSurcharge": 4.00,                              // omitted when null
+  "unitSurchargeCurrency": "GBP"
 }</code></pre>
 
 <ul>
@@ -503,6 +526,13 @@ both carrying the same <code>personalisation</code> object shown below:</p>
       to the live catalogue.</li>
   <li><code>summary</code> lists only what differs from the default at order time (Step 2 FR-11.4);
       it is presentation convenience, the selection is the truth.</li>
+  <li><code>display</code> snapshots the human-readable group and choice <em>labels</em> for
+      <strong>every</strong> group — defaults included — at order time. Keys are stable but labels
+      are deliberately mutable configuration, and an all-defaults order has an empty
+      <code>summary</code>; without this snapshot, production sheets could not render "Full table"
+      after a label edit (or at all, for a default order) without consulting the live catalogue.
+      The selection stays the machine truth; <code>display</code> is the human record the kitchen
+      fulfils from.</li>
   <li>The envelope is additive within <code>DetailsJson</code> — other order concerns may add
       sibling keys; nothing may nest inside <code>personalisation</code>.</li>
 </ul>
@@ -512,15 +542,19 @@ both carrying the same <code>personalisation</code> object shown below:</p>
 
 <ol>
   <li>Entity configurations as <code>IEntityTypeConfiguration&lt;T&gt;</code> in
-      <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> (keys, indexes from §5,
-      string lengths: Key 64, Label 128, Note 256, HelpText 512, Currency 3;
-      <code>Price</code>/<code>UnitSurcharge</code> <code>decimal(18,2)</code>).</li>
+      <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> (keys, indexes from §5 —
+      including the filtered unique default index on <code>AnkOptionChoices</code>; string lengths:
+      Key 64, Label 128, Note 256, HelpText 512, Currency 3;
+      <code>Price</code>/<code>UnitSurcharge</code> <code>decimal(19,4)</code>, matching the
+      precision of <code>ProductPrice</code>, bundle amounts and cart snapshots — a
+      <code>(18,2)</code> option adjustment combined with four-decimal product prices would round
+      at the wrong boundary).</li>
   <li><code>DbSet</code>s added to <strong>both</strong> <code>AonikDbContext</code> (canonical) and
       <code>CommerceDbContext</code> (runtime), plus <code>MapTable</code> entries
       (<code>OptionGroups</code>, <code>OptionChoices</code>, <code>ProductOptionGroups</code>).</li>
   <li>One migration, tool-generated only, against the canonical stream:
       <pre><code>dotnet ef migrations add AddCommerceProductOptionGroups --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
-      Review the generated migration (three new tables + one nullable column on
+      Review the generated migration (three new tables + two nullable columns on
       <code>AnkProducts</code>, nothing else), apply locally with
       <code>dotnet ef database update</code>, commit <code>.cs</code> + <code>.Designer.cs</code>.
       Hand-written migrations are prohibited (CLAUDE.md).</li>
@@ -604,7 +638,7 @@ both carrying the same <code>personalisation</code> object shown below:</p>
   <tr><td>A1</td><td>A group with default side priced 2.00; a selection choosing a 0.00 side → adjustment includes −2.00 and total adjustment reflects it (Step 2 AC-9 analogue).</td></tr>
   <tr><td>A2</td><td>A product narrowed to exclude choice "chicken" while "chicken" exists in the catalogue; a selection containing it → HTTP 400 naming V2 (Step 2 AC-24).</td></tr>
   <tr><td>A3</td><td>A product with no <code>ProductOptionGroup</code> rows → <code>effectiveOptionGroups: []</code> on the DTO; selection-quote with any non-empty selection → 400 (Step 2 AC-25).</td></tr>
-  <tr><td>A4</td><td>A product overriding a single-select protein group to multi; selection <code>["salmon","chicken"]</code> → both surcharges summed, default subtracted once; the same keys in reverse order produce byte-identical canonical JSON.</td></tr>
+  <tr><td>A4</td><td>A product overriding a single-select protein group to multi; selection <code>["salmon","chicken"]</code> → both surcharges summed, default subtracted once; the same keys in reverse order — <em>and the same groups submitted in reverse property order</em> — produce byte-identical canonical JSON (object keys sorted, arrays sorted; two equivalent submissions can never land as separate Spec C cart lines).</td></tr>
   <tr><td>A5</td><td>A multi-select group with zero chosen → 400 naming V4.</td></tr>
   <tr><td>A6</td><td>Empty/omitted selection on a personalisable product → normalises to all defaults, <code>isDefault: true</code>, adjustment 0.</td></tr>
   <tr><td>A7</td><td>Repricing a choice via admin → the next selection-quote reflects it with no other write (deltas are derived, not stored).</td></tr>
@@ -614,6 +648,9 @@ both carrying the same <code>personalisation</code> object shown below:</p>
   <tr><td>A11</td><td>A selection priced with a quote currency different from any involved group's currency → 400 naming V10; no conversion is attempted.</td></tr>
   <tr><td>A12</td><td>Moving the recommended default between two choices via the atomic operation succeeds in one write and reports affected products; attempting the same via direct choice updates → 400 naming V7.</td></tr>
   <tr><td>A13</td><td>A stored cart selection naming a group deactivated since → re-normalisation drops the group with a drift entry and re-prices; no error is thrown.</td></tr>
+  <tr><td>A14</td><td>Moving the default to a choice excluded by a product's narrowing (no override on that product) → 400 naming V11 and the product; adding a <code>DefaultChoiceKey</code> override first lets the same move succeed.</td></tr>
+  <tr><td>A15</td><td>Two concurrent recommended-default moves on one group → exactly one commits; the filtered unique index makes the double-default state unrepresentable, and the loser fails cleanly (retry gets the fresh state).</td></tr>
+  <tr><td>A16</td><td>A group tightened Multi→One while a cart holds two choices of it → re-normalisation remaps to the effective default with a <code>selection-mode-changed</code> drift entry; the same tightening over a single stored choice unwraps silently with no entry.</td></tr>
 </table>
 
 <!-- ============================================================ -->
