@@ -98,9 +98,11 @@ delivery date, served on a public endpoint the storefront shows everywhere the p
       dish detail pages, Step 1 and Step 2 — and per the client's notes it "will be pulled from the
       backend, based on the earliest delivery calculated". A hard-coded date is explicitly ruled out
       (Step 2 FR-7.6).</li>
-  <li>A batch-cook meal business genuinely computes this: orders placed before Tuesday's cutoff go
-      into Wednesday's production and deliver Thursday; after cutoff, next cycle. The inputs are
-      operational configuration, changing seasonally — data, not code.</li>
+  <li>A batch-cook meal business genuinely computes this. Two cadences exist in the wild and both
+      are modelled (§4): a <em>daily</em> order book (every day has a cutoff time; lead days roll
+      forward) and a <em>weekly cycle</em> (orders close at one weekday's cutoff — say Tuesday
+      noon — and later orders fall to the next week's cycle). The inputs are operational
+      configuration, changing seasonally — data, not code.</li>
   <li>Deliberately generic (ADR-013): any make-to-order tenant — florist, baker, meal kitchen —
       has the same shape: which days we deliver, when the order book closes, how long preparation
       takes.</li>
@@ -153,6 +155,10 @@ public class FulfilmentCalendar : AuditableEntity, ITenantScoped
     public string DeliveryDaysJson { get; set; } = "[]";
     /// <summary>Local time of day after which an order joins the next cycle, e.g. 12:00.</summary>
     public TimeOnly CutoffLocalTime { get; set; }
+    /// <summary>Null = daily order book (the cutoff applies every day). Set (lower-case day name,
+    /// e.g. "tuesday") = weekly cycle: the order book closes at that weekday's cutoff, and orders
+    /// after it join the FOLLOWING week's cycle. Lead days count from the cycle-close date.</summary>
+    public string? CutoffDayOfWeek { get; set; }
     /// <summary>Whole days between the effective order date and the earliest dispatch-eligible
     /// date. 0 = same-day eligible.</summary>
     public int LeadDays { get; set; }
@@ -177,8 +183,16 @@ this by zone and belong to the same change as zone fees (phase 2+, O2).</p>
 <code>DateTime.Now</code>):</p>
 
 <pre><code>nowLocal        = clock.UtcNow converted to calendar.Timezone
+
+// daily order book (CutoffDayOfWeek = null)
 effectiveDate   = date(nowLocal)                    // the order-book day this order would join
                   + 1 day  when time(nowLocal) &gt; CutoffLocalTime
+
+// weekly cycle (CutoffDayOfWeek set)
+effectiveDate   = the next date whose weekday == CutoffDayOfWeek and whose cutoff has not passed
+                  // i.e. today if it is cutoff day and time ≤ cutoff; otherwise the next
+                  // occurrence — orders after Tuesday noon join NEXT week's Tuesday close
+
 readyDate       = effectiveDate + LeadDays          // earliest dispatch-eligible date
 earliestDelivery = first date d ≥ readyDate where
                      weekday(d) ∈ DeliveryDays  and  d ∉ BlackoutDates
@@ -190,9 +204,12 @@ search bound    = readyDate + 62 days; none found ⇒ calendar is misconfigured 
       definition.</li>
   <li>The result is a <em>date</em>, not a timestamp. The storefront formats it
       ("Wednesday 6 August"); the API never pre-formats.</li>
-  <li>Worked example (launch config: cutoff 12:00, lead 14, delivery Wednesdays): computed from
-      Tuesday 2026-07-21 10:00 London → effective 21 Jul → ready 4 Aug → first Wednesday ≥ 4 Aug =
-      <strong>6 Aug 2026</strong> — matching the client's design fixture exactly.</li>
+  <li>Worked example (launch config: daily cutoff 12:00, lead 14, delivery <strong>Thursdays</strong> —
+      2026-08-06 is a Thursday): computed from Tuesday 2026-07-21 10:00 London → effective 21 Jul →
+      ready Tue 4 Aug → first Thursday ≥ 4 Aug = <strong>6 Aug 2026</strong>, matching the client's
+      design fixture exactly. Weekly-cycle example (cutoff Tuesdays 12:00, lead 2, Thursdays):
+      ordered Mon 20 Jul → cycle closes Tue 21 Jul → ready Thu 23 Jul → delivery 23 Jul; ordered
+      Tue 21 Jul 13:00 (past cutoff) → cycle closes Tue 28 Jul → delivery Thu 30 Jul.</li>
 </ul>
 
 <div class="callout">
@@ -224,13 +241,20 @@ public record FulfilmentPromiseDto(DateOnly EarliestDeliveryDate, string Timezon
       <td><code>{ "earliestDeliveryDate": "2026-08-06", "timezone": "Europe/London" }</code>;
       404 when unconfigured. Response is cacheable for minutes — the value only moves at cutoff
       or midnight, and a short-TTL stale promise on the storefront is acceptable (ISR revalidation
-      handles it).</td></tr>
+      handles it). <strong>Caching is tenant-partitioned</strong>: the response is tenant-specific
+      but the path is not, so the cache key must include the resolved tenant — header-routed
+      deployments (<code>Auth:TenantRouting=Header</code>, the configured mode) must emit
+      <code>Vary: X-Tenant-Id</code>; subdomain routing partitions naturally by host. A shared
+      cache serving tenant A's promise to tenant B would contradict A7 outright.</td></tr>
   <tr><td><code>GET /commerce/admin/fulfilment-calendar</code></td><td>AdminUserPolicy</td><td>Current calendar incl. inactive</td></tr>
   <tr><td><code>PUT /commerce/admin/fulfilment-calendar</code></td><td>AdminWritePolicy</td>
-      <td>Upsert. Validates: known IANA timezone; day names valid; <code>LeadDays</code> 0–60;
-      blackout entries parse as dates (expired ones pruned); active calendar must have ≥ 1 delivery
-      day. Response echoes the computed current promise so the operator sees the effect
-      immediately.</td></tr>
+      <td>Upsert. Validates: known IANA timezone; day names valid (incl.
+      <code>CutoffDayOfWeek</code> when set); <code>LeadDays</code> 0–60; blackout entries parse as
+      dates, expired ones pruned, and <strong>at most 100 future dates</strong> — a bound chosen to
+      keep the serialized array well inside the 2,048-character column (§8) so a request that
+      passes validation can never fail at persistence with a truncation error; active calendar
+      must have ≥ 1 delivery day. Response echoes the computed current promise so the operator
+      sees the effect immediately.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -253,9 +277,13 @@ Steps 3–5 build-out. Requirements at contract level:</p>
   <li><strong>Kitchen planning by delivery date</strong>: specs 055/056 gain the option to window
       production on delivery date rather than order-creation date — the operationally meaningful
       axis once dates exist.</li>
-  <li><strong>Per-day capacity</strong>: with bookings-per-date now countable, the calendar gains
-      <code>CapacityPerDeliveryDay?</code>; full days drop out of offered dates and, transitively,
-      out of the §5 promise.</li>
+  <li><strong>Per-day capacity</strong>: with bookings-per-date now recordable, the calendar gains
+      <code>CapacityPerDeliveryDay?</code>. Capacity is <em>claimed atomically</em> inside the
+      checkout transaction — a per-date claim row guarded by a database uniqueness/counter
+      constraint, never a read-then-write count (two concurrent checkouts observing the same count
+      would both pass and oversell the day) — and the claim is released on payment failure or
+      cancellation. Full days drop out of offered dates and, transitively, out of the §5
+      promise.</li>
   <li><strong>Zone fees</strong> (if ever needed): delivery zones keyed by postcode prefix with a
       fee feeding the quote's <code>deliveryCharged</code>; explicitly not designed further
       here.</li>
@@ -303,8 +331,9 @@ Steps 3–5 build-out. Requirements at contract level:</p>
   <li><strong>Unit — computation</strong> (fixed <code>IClock</code>): before/at/after cutoff
       (boundary: exactly cutoff is <em>before</em> — "&gt;" flips the day); lead-day arithmetic;
       weekday advance across week boundaries; blackout skip incl. consecutive blackouts; DST
-      transition weeks (March/October, Europe/London); 62-day exhaustion → null; the §5 worked
-      example verbatim.</li>
+      transition weeks (March/October, Europe/London); 62-day exhaustion → null; both §5 worked
+      examples verbatim (daily and weekly-cycle), incl. the weekly past-cutoff full-week
+      roll.</li>
   <li><strong>Service</strong> (InMemory, <code>TestTenantProvider</code>): unconfigured/inactive
       → null; upsert validations (bad timezone, empty days on active, LeadDays bounds, expired
       blackout pruning); upsert response echoes the recomputed promise.</li>
@@ -330,13 +359,15 @@ Steps 3–5 build-out. Requirements at contract level:</p>
 <h2 id="acceptance">13. Acceptance criteria</h2>
 <table>
   <tr><th>#</th><th>Given / when / then</th></tr>
-  <tr><td>A1</td><td>Cutoff 12:00, lead 14, Wednesdays, London; clock Tue 2026-07-21 10:00 local → <code>2026-08-06</code>.</td></tr>
-  <tr><td>A2</td><td>Same calendar; clock Tue 2026-07-21 13:00 (past cutoff) → effective date advances one day; result unchanged (<code>2026-08-06</code>) because the ready date still precedes that Wednesday — and a clock late enough to push ready past it rolls the promise a full week.</td></tr>
-  <tr><td>A3</td><td><code>2026-08-06</code> added to blackouts → promise becomes <code>2026-08-13</code> (next Wednesday).</td></tr>
+  <tr><td>A1</td><td>Daily cutoff 12:00, lead 14, <strong>Thursdays</strong>, London; clock Tue 2026-07-21 10:00 local → ready Tue 2026-08-04, first Thursday ≥ ready = <code>2026-08-06</code> (a Thursday).</td></tr>
+  <tr><td>A2</td><td>Same calendar; clock Tue 2026-07-21 13:00 (past cutoff) → effective date advances one day (ready 2026-08-05); result unchanged (<code>2026-08-06</code>) because ready still precedes that Thursday — and a clock late enough to push ready past it rolls the promise a full week to <code>2026-08-13</code>.</td></tr>
+  <tr><td>A3</td><td><code>2026-08-06</code> added to blackouts → promise becomes <code>2026-08-13</code> (next Thursday).</td></tr>
   <tr><td>A4</td><td>No calendar / inactive / empty delivery days → public endpoint 404; nothing is guessed.</td></tr>
   <tr><td>A5</td><td>Admin changes cutoff or lead → next read reflects it with no other write; upsert response already shows the new promise.</td></tr>
   <tr><td>A6</td><td>Calendar timezone respected: a UTC clock either side of the London cutoff (incl. a BST date) flips the effective date correctly.</td></tr>
-  <tr><td>A7</td><td>Tenant isolation: two tenants with different calendars each see only their own promise on the anonymous endpoint.</td></tr>
+  <tr><td>A7</td><td>Tenant isolation: two tenants with different calendars each see only their own promise on the anonymous endpoint — and the response carries tenant-partitioned cache semantics (<code>Vary: X-Tenant-Id</code> under header routing) so no shared cache can cross-serve it.</td></tr>
+  <tr><td>A8</td><td>Weekly cycle (<code>CutoffDayOfWeek=tuesday</code>, cutoff 12:00, lead 2, Thursdays): ordered Monday → delivered that week's Thursday; ordered Tuesday 13:00 → the cycle closes next Tuesday and delivery is the following Thursday — a full week later, not one day.</td></tr>
+  <tr><td>A9</td><td>101 future blackout dates → upsert 400 naming the bound; 100 succeed and persist without truncation.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -357,7 +388,7 @@ Steps 3–5 build-out. Requirements at contract level:</p>
 <ul>
   <li><a href="../abbys-table-storefront-plan.html">Storefront capability plan</a> — build area D</li>
   <li>AbbysTable repo: Step 2 spec FR-7.6 (promise from the back end), §6.5 (<code>earliestDelivery</code> config); client notes (promise on five surfaces)</li>
-  <li><a href="068.commerce-box-builder-carts.html">Spec 068</a> — quote's delivery display values (settings stopgap this spec supersedes in phase 2)</li>
+  <li>Spec 068 — box-builder carts (PR #254, in review; not in this tree) — quote's delivery display values (settings stopgap this spec supersedes in phase 2)</li>
   <li><a href="055.production-planning-sheet-prep-list.html">Spec 055</a> / <a href="056.production-orders-kitchen-sheet.html">Spec 056</a> — planning windows that phase 2 re-keys by delivery date</li>
   <li><a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> / <a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a></li>
 </ul>
