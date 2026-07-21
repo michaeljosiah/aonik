@@ -446,6 +446,12 @@ PUT  /commerce/admin/products/{id}/option-groups     (narrow per product)</code>
         an allergen declaration is served only when authored for exactly that combination (or the
         true standard preparation). The storefront renders its existing "not yet published" state;
         a substituted declaration with a footnote is still a wrong declaration.</li>
+    <li><strong>The default block is bound to the combination it describes</strong>: it records the
+        canonical default selection at authoring time, and whenever the effective default drifts
+        from it (a recommended-default move, a narrowing change), the block is flagged for review —
+        figures serve marked stale, declarations withheld — until re-authored or explicitly
+        confirmed. Moving a default must never silently re-label old content as the new "standard
+        preparation".</li>
     <li>Admin authoring endpoints; content rides product create/update.</li>
   </ul>
   <h4>Sketch</h4>
@@ -551,8 +557,10 @@ GET /commerce/config/delivery   →  { earliestDeliveryDate: "2026-08-06" }</cod
         attribute (calorie bands; a future protein or salt band with zero frontend change). Public
         endpoint serves the definitions; browse endpoint accepts them as filters.</li>
     <li><strong>Search hardening</strong>: per-product hidden keywords — matched by search, present
-        in no DTO (Step 2 AC-28: a customer searching "party" finds the dish; the word never
-        renders).</li>
+        in no <em>public storefront</em> DTO (Step 2 AC-28: a customer searching "party" finds the
+        dish; the word never renders). Authenticated admin read models <em>do</em> expose them —
+        an editor can't safely maintain keywords they can't see, and a full-update from a blind
+        read model would silently erase them.</li>
     <li><strong>List DTO enrichment</strong>: hero image, tags, selected attributes (spice, badges,
         surcharge) on the browse row so a menu grid renders without N detail calls. Explicitly
         <em>not</em> a retail price field — see the brand-rule callout in §5.</li>
@@ -628,7 +636,11 @@ GET /commerce/catalog/categories             GET /commerce/config/storefront</co
   authorise by cart id alone — <code>AnonymousToken</code> is stored but never checked, so a leaked
   cart URL (logs, history, shared link) would let any caller read, alter or check out that cart, and
   CORS does not constrain non-browser requests. Spec C must require the guest cart token on
-  <em>every</em> cart read, write and checkout before carts can be called token-scoped.</p>
+  <em>every</em> cart read, write and checkout — and the token must be <strong>server-minted</strong>
+  (high-entropy, opaque, disclosed exactly once in the create response). Today's create-cart
+  contract accepts an arbitrary nullable client-supplied token and stores it verbatim, so a client
+  could register an empty or guessable token; client-supplied values must be ignored and weak
+  legacy tokens rejected before carts can be called token-scoped.</p>
 </div>
 
 <div class="callout done">
