@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 066 - Commerce product option groups</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 066</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Commerce product option groups (configurable personalisation)</h1>
+  <p class="small">A first-class option model for configurable catalog products: a tenant-level
+  option catalogue, per-product narrowing, recommended defaults, single/multi selection, and
+  difference-based price adjustments (including negative ones) — plus a per-unit product surcharge.
+  Keystone of the storefront plan (<a href="../abbys-table-storefront-plan.html">Abby's Table
+  storefront capability plan</a>, Spec A): Specs B (option-dependent content) and C (box-builder
+  carts) both consume the contracts defined here.</p>
+</header>
+
+<h2>Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#motivation">Motivation &amp; why existing constructs don't fit</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#terms">Terminology</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#resolution">Effective-options resolution</a></li>
+    <li><a href="#selection">Selection contract &amp; canonical form</a></li>
+    <li><a href="#pricing">Adjustment pricing</a></li>
+    <li><a href="#validation">Validation rules</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#order">Order-landing contract (DetailsJson envelope)</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; tenancy</a></li>
+    <li><a href="#packs">Config-pack &amp; tenant vocabulary</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="summary">1. Summary</h2>
+
+<p>Storefront tenants sell products a customer can <em>configure</em> at add-to-cart time — portion
+size, protein, side, heat level — where each choice carries a price delta relative to a recommended
+default, some choices reduce the price, some products allow several choices in one group, and each
+product offers its own subset of the tenant's option catalogue. Today Commerce can express none of
+this: variants are discrete SKUs and bundle slots compose boxes, not per-product options.</p>
+
+<p>This spec adds three entities (<code>OptionGroup</code>, <code>OptionChoice</code>,
+<code>ProductOptionGroup</code>), one column on <code>Product</code> (<code>UnitSurcharge</code>),
+two services (authoring/resolution and selection validation/pricing), public read endpoints, admin
+authoring endpoints, and a canonical selection JSON contract that carts (Spec C) and orders
+(<code>OrderItem.DetailsJson</code>) will carry so kitchen production sheets can render "Jollof —
+Full table · salmon ×2".</p>
+
+<div class="callout ok">
+  <p><strong>Product-agnostic by construction (ADR-013).</strong> Nothing here says "dish",
+  "Abby's choice" or "signature". The platform models a <em>recommended default</em> and a
+  <em>per-unit surcharge</em>; tenant vocabulary ("Abby's choice", "Signature") is presentation,
+  supplied via config-pack settings (§15). The same entities must serve a coffee roaster's grind
+  options or a florist's wrap choices unchanged.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="motivation">2. Motivation &amp; why existing constructs don't fit</h2>
+
+<p>Driven by the Abby's Table storefront (first client of Commerce as a storefront backend). Its
+Step&nbsp;2 functional spec (v1.1, FR-11 / §6.4) requires, verbatim in spirit:</p>
+<ul>
+  <li>An ordered, back-end-owned catalogue of option groups — groups and options are configuration,
+      editable without a release (FR-11.2).</li>
+  <li>Per-product narrowing: which groups a product offers, which options within them, a per-product
+      default override; a product with no groups is simply not personalisable (FR-11.5, AC-25).</li>
+  <li>Multi-select groups on flagged products, minimum one selection (FR-11.3).</li>
+  <li>Delta pricing against the recommended default, with <strong>negative adjustments
+      first-class</strong> (§3.2: default side costs £2, choosing "No side" is −£2; AC-9).</li>
+  <li>Server-side rejection of any option a product does not offer, even when the option exists in
+      the catalogue (AC-24).</li>
+</ul>
+
+<h3>Why not variants?</h3>
+<p>Enumerating combinations as SKUs explodes immediately (2 portions × 4 proteins × 4 sides × 4
+heats = 128 variants per product) and cannot represent multi-select at all (choose 2 of 4 proteins
+adds another 6 combinations per remaining axis). Variants stay what they are: discrete purchasable
+SKUs (a 500g vs 1kg bag). Option groups are orthogonal: a <em>selection layered on</em> whatever is
+being bought.</p>
+
+<h3>Why not bundle slots?</h3>
+<p><code>BundleSlot</code>/<code>BundleSlotOption</code> compose a box out of <em>other
+variants</em> — the box's contents. Personalisation configures <em>one line itself</em> and must
+work for simple products too. Different axis; both will be active at once in the box flow (a bundle
+line whose component lines each carry a selection).</p>
+
+<!-- ============================================================ -->
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<table>
+  <tr><th style="width:50%">In</th><th>Out (and where it goes)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li>Option catalogue entities + per-product narrowing</li>
+        <li><code>Product.UnitSurcharge</code> (per-unit surcharge, e.g. "signature" upgrade)</li>
+        <li>Effective-options resolution (catalogue ∩ product)</li>
+        <li>Canonical selection JSON contract + normalisation</li>
+        <li>Validation + adjustment pricing service</li>
+        <li>Public reads (catalogue endpoint; product DTO extension)</li>
+        <li>Admin authoring endpoints</li>
+        <li><code>DetailsJson</code> personalisation envelope <em>schema</em></li>
+        <li>Migration via <code>AonikDbContext</code> (tool-generated)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li>Storing selections on cart lines, quote maths, merge rules, capacity ceiling —
+            <strong>Spec C</strong> (box-builder carts), which consumes
+            <code>IOptionSelectionService</code></li>
+        <li>Writing the envelope into <code>OrderItem.DetailsJson</code> at checkout —
+            <strong>Spec C</strong> (schema is fixed here so it lands stable)</li>
+        <li>Option-dependent nutrition/ingredients/allergens — <strong>Spec B</strong> (matches on
+            the canonical selection form defined here)</li>
+        <li>Retired-option remapping of live carts — <strong>Spec C</strong> (authoring side here
+            only soft-retires via <code>IsActive</code>)</li>
+        <li>BOM/ingredient consumption deltas per selection — future maker-ops spec</li>
+        <li>AdminUI screens — Commerce AdminUI workstream (spec 059 pattern); this spec ships
+            endpoints only</li>
+        <li>Facets/merchandising/search — <strong>Spec E</strong></li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<p class="small">Boundary note vs the plan document: the plan sketched "order landing" inside Spec A.
+At authoring, the cleaner cut is contract-here / writes-in-C — Spec C owns every cart-and-checkout
+write path, so it owns the persistence moment too. The plan's intent (selections reach the kitchen)
+is unchanged.</p>
+
+<!-- ============================================================ -->
+<h2 id="terms">4. Terminology</h2>
+
+<table>
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr><td>Option group</td><td>A tenant-level axis of configuration ("Portion", "Protein"), ordered, with a selection mode.</td></tr>
+  <tr><td>Option choice</td><td>One selectable value in a group ("Full table", note "450g", price 10.00).</td></tr>
+  <tr><td>Recommended default</td><td>The choice applied when the customer doesn't choose. Tenant vocabulary may label it ("Abby's choice"). Exactly one per group; overridable per product.</td></tr>
+  <tr><td>Narrowing</td><td>A product's declaration of which groups apply and which choices within them are offered.</td></tr>
+  <tr><td>Effective options</td><td>The result of catalogue ∩ narrowing for one product: what the storefront renders and the validator accepts.</td></tr>
+  <tr><td>Selection</td><td>A customer's chosen option per offered group, in canonical form (§7).</td></tr>
+  <tr><td>Adjustment</td><td>The signed price delta of a selection vs the all-defaults selection (§8). Negative is legitimate.</td></tr>
+  <tr><td>Unit surcharge</td><td>A per-unit price added on top of container pricing for a specific product ("signature upgrade"). Independent of the selection.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="model">5. Domain model</h2>
+
+<p>All entities are anemic (<code>AuditableEntity, ITenantScoped</code>), live in
+<code>src/Aonik.Commerce/Entities/Catalog/</code>, and follow existing Commerce conventions.</p>
+
+<pre><code>public class OptionGroup : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public string Key { get; set; } = string.Empty;        // stable, kebab/lower ("portion")
+    public string Label { get; set; } = string.Empty;      // display ("Portion")
+    public string? HelpText { get; set; }                  // "How much food arrives…"
+    public string SelectionMode { get; set; } = OptionSelectionModes.One;  // One | Multi
+    public string Currency { get; set; } = "GBP";          // all choice prices in this group
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public List&lt;OptionChoice&gt; Choices { get; set; } = new();
+}
+
+public class OptionChoice : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid OptionGroupId { get; set; }
+    public string Key { get; set; } = string.Empty;        // stable within group ("full")
+    public string Label { get; set; } = string.Empty;      // "Full table"
+    public string? Note { get; set; }                      // secondary line ("450g")
+    public decimal Price { get; set; }                     // absolute option price; deltas derived §8
+    public bool IsRecommendedDefault { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Join: which groups/choices one product offers. Absence of a row = group not offered.</summary>
+public class ProductOptionGroup : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid ProductId { get; set; }
+    public Guid OptionGroupId { get; set; }
+    public string? AllowedChoiceKeysJson { get; set; }     // JSON array; null = all active choices
+    public string? DefaultChoiceKey { get; set; }          // per-product default override
+    public string? SelectionModeOverride { get; set; }     // null = inherit; One | Multi
+    public int SortOrder { get; set; }
+}</code></pre>
+
+<p><code>Product</code> gains one column:</p>
+<pre><code>/// <summary>Spec 066 — per-unit surcharge added on top of container/box pricing (e.g. a
+/// "signature" upgrade). Null = none. Display labelling is tenant configuration, not platform.</summary>
+public decimal? UnitSurcharge { get; set; }</code></pre>
+
+<table>
+  <tr><th>Entity</th><th>Table</th><th>Unique index</th><th>Other indexes</th></tr>
+  <tr><td><code>OptionGroup</code></td><td><code>AnkOptionGroups</code></td><td>(TenantId, Key)</td><td>—</td></tr>
+  <tr><td><code>OptionChoice</code></td><td><code>AnkOptionChoices</code></td><td>(TenantId, OptionGroupId, Key)</td><td>(TenantId, OptionGroupId)</td></tr>
+  <tr><td><code>ProductOptionGroup</code></td><td><code>AnkProductOptionGroups</code></td><td>(TenantId, ProductId, OptionGroupId)</td><td>(TenantId, ProductId)</td></tr>
+</table>
+
+<div class="callout">
+  <p><strong>Invariants enforced in services, not the schema</strong> (anemic model, and several are
+  conditional on <code>IsActive</code>): exactly one active recommended default per active group;
+  <code>DefaultChoiceKey</code> and every entry of <code>AllowedChoiceKeysJson</code> must reference
+  an existing choice key of that group; a narrowing whose effective default would be unresolvable
+  (§6 step 4) is rejected at authoring time, never discovered at render time.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="resolution">6. Effective-options resolution</h2>
+
+<p>For one product, resolution produces the ordered list the storefront renders and the validator
+accepts:</p>
+<ol>
+  <li>Load the product's <code>ProductOptionGroup</code> rows, ordered by <code>SortOrder</code>.
+      No rows ⇒ the product is not personalisable — DTOs carry an empty list and storefronts hide
+      the personalisation UI entirely (Step 2 AC-25).</li>
+  <li>For each row, load the group (skip if inactive) and its active choices ordered by
+      <code>SortOrder</code>.</li>
+  <li>Intersect with <code>AllowedChoiceKeysJson</code> when present (unknown keys were rejected at
+      authoring; a key whose choice has since been deactivated simply drops out).</li>
+  <li>Effective default = <code>DefaultChoiceKey</code> if set and still offered, else the group's
+      recommended default if offered, else <strong>the row is invalid</strong> — authoring
+      validation (§9) prevents saving this state; if data drift ever produces it at read time, the
+      group is omitted from the effective list and a warning is logged (fail safe: the product loses
+      an axis rather than rendering a default-less group).</li>
+  <li>Effective selection mode = <code>SelectionModeOverride ?? group.SelectionMode</code>.</li>
+</ol>
+
+<p class="small">Widening (single-select group made multi for one product — Step 2's multi-protein
+dishes) and tightening (multi made single) are both legitimate uses of the override.</p>
+
+<!-- ============================================================ -->
+<h2 id="selection">7. Selection contract &amp; canonical form</h2>
+
+<p>A selection is a JSON object keyed by group key. Single-select groups map to a string; effective
+multi-select groups map to a non-empty array:</p>
+
+<pre><code>{ "portion": "full", "protein": ["chicken", "salmon"], "side": "none", "heat": "medium" }</code></pre>
+
+<p><strong>Normalisation</strong> (performed by <code>IOptionSelectionService</code>; consumers
+store only the normalised form):</p>
+<ul>
+  <li>Groups the product offers but the input omits are filled with the effective default — the
+      stored selection is always <em>complete</em>, so orders are self-describing even if defaults
+      later change.</li>
+  <li>Multi-select arrays are de-duplicated and sorted ordinally — two selections are the same
+      selection regardless of pick order (Step 2 FR-6.2: "protein order does not matter"). This
+      makes canonical-JSON string equality a valid line-merge key for Spec C.</li>
+  <li>Single-select values provided as one-element arrays are unwrapped; anything else
+      shape-invalid is rejected (§9), never coerced.</li>
+</ul>
+<p>A normalisation result also reports <code>isDefault</code> — true when every group equals its
+effective default (storefronts render the recommended-default marker instead of listing choices,
+per Step 2 FR-5.3 state B).</p>
+
+<!-- ============================================================ -->
+<h2 id="pricing">8. Adjustment pricing</h2>
+
+<p>Per group, over the normalised selection:</p>
+<pre><code>groupAdjustment = Σ price(chosen choice)  −  price(effective default choice)   // subtract once
+adjustment      = Σ groupAdjustment over all offered groups</code></pre>
+
+<ul>
+  <li>Prices are the <em>absolute</em> option prices from the catalogue; deltas are always derived,
+      never stored — repricing an option or changing a default reprices every future quote with no
+      data rewrite.</li>
+  <li>Negative group adjustments are first-class (default side 2.00, chosen "none" 0.00 ⇒ −2.00) and
+      must survive end-to-end: DTOs, quote breakdowns, order envelopes.</li>
+  <li>Multi-select sums every chosen price before subtracting the default's price once (Step 2
+      §3.2 formula).</li>
+  <li>The all-defaults selection prices to exactly 0 by construction.</li>
+  <li><code>Product.UnitSurcharge</code> is <em>not</em> part of the adjustment — it is returned
+      alongside it (<code>unitSurcharge</code>) and applied per unit by the quote engine (Spec C).
+      Independence is deliberate: both can apply to the same unit (Step 2 FR-12.2).</li>
+  <li>Currency: every group involved must share one currency; a mixed-currency resolution is an
+      authoring-time error. The priced result carries the currency explicitly.</li>
+</ul>
+
+<p>The pricing result exposes a per-group breakdown (group key, chosen keys, group adjustment) so
+storefronts can render "+£10 Full table · −£2 No side" without re-deriving maths client-side.</p>
+
+<!-- ============================================================ -->
+<h2 id="validation">9. Validation rules</h2>
+
+<table>
+  <tr><th>#</th><th>Rule (reject when…)</th><th>Applies at</th><th>Step 2 ref</th></tr>
+  <tr><td>V1</td><td>Selection names a group the product does not offer</td><td>Selection</td><td>—</td></tr>
+  <tr><td>V2</td><td>Selection names a choice key not in the product's effective choices — <em>even when the key exists in the catalogue</em></td><td>Selection</td><td>AC-24</td></tr>
+  <tr><td>V3</td><td>Choice or group is inactive</td><td>Selection</td><td>§7 rules</td></tr>
+  <tr><td>V4</td><td>Multi-select group selected with zero choices (minimum one)</td><td>Selection</td><td>FR-11.3</td></tr>
+  <tr><td>V5</td><td>Array supplied for an effective single-select group (beyond the 1-element unwrap), or non-string content</td><td>Selection</td><td>—</td></tr>
+  <tr><td>V6</td><td>Group key or choice key not unique, empty, or not <code>[a-z0-9-]{1,64}</code></td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V7</td><td>Zero or multiple active recommended defaults would result for an active group</td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V8</td><td>Narrowing references unknown choice keys, or leaves the effective default unresolvable (§6 step 4)</td><td>Authoring</td><td>—</td></tr>
+  <tr><td>V9</td><td>Deactivating a choice that is the last resolvable default of any product's narrowing (the error names the products)</td><td>Authoring</td><td>—</td></tr>
+</table>
+
+<p class="small">Selection-time failures throw a domain validation exception surfaced as HTTP 400
+with the rule id and the offending group/choice keys — storefronts show precise messages, and Spec C
+relies on the same errors for its write rejections.</p>
+
+<!-- ============================================================ -->
+<h2 id="services">10. Services</h2>
+
+<p>Interfaces in <code>Aonik.Commerce.Contracts.Services.Catalog</code>, implementations in
+<code>Services/Catalog/</code>, registered in <code>CommerceModule</code>. DTOs out, entities never.
+All methods take <code>CancellationToken cancellationToken = default</code>.</p>
+
+<pre><code>public interface IProductOptionService
+{
+    // authoring
+    Task&lt;OptionGroupDto&gt; CreateGroupAsync(CreateOptionGroupCommand command, CancellationToken ct = default);
+    Task&lt;OptionGroupDto&gt; UpdateGroupAsync(Guid groupId, UpdateOptionGroupCommand command, CancellationToken ct = default);
+    Task&lt;OptionChoiceDto&gt; AddChoiceAsync(Guid groupId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
+    Task&lt;OptionChoiceDto&gt; UpdateChoiceAsync(Guid choiceId, UpsertOptionChoiceCommand command, CancellationToken ct = default);
+    Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken ct = default); // full replace
+    // reads
+    Task&lt;IReadOnlyList&lt;OptionGroupDto&gt;&gt; GetCatalogueAsync(bool includeInactive = false, CancellationToken ct = default);
+    Task&lt;IReadOnlyList&lt;EffectiveOptionGroupDto&gt;&gt; GetEffectiveOptionsAsync(Guid productId, CancellationToken ct = default);
+}
+
+public interface IOptionSelectionService
+{
+    /// <summary>Validate against the product's effective options, fill defaults, canonicalise,
+    /// and price. Throws OptionSelectionValidationException (V1–V5) on invalid input.</summary>
+    Task&lt;OptionSelectionResult&gt; NormalizeAndPriceAsync(
+        Guid productId, JsonDocument? selection, CancellationToken ct = default);
+}
+
+public record OptionSelectionResult(
+    string CanonicalSelectionJson,       // complete, sorted — the merge key and the stored form
+    bool IsDefault,
+    decimal Adjustment,                  // signed
+    string Currency,
+    decimal? UnitSurcharge,              // from Product; null = none
+    IReadOnlyList&lt;OptionGroupAdjustment&gt; Breakdown);
+
+public record OptionGroupAdjustment(string GroupKey, IReadOnlyList&lt;string&gt; ChosenKeys, decimal Amount);</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="api">11. API surface</h2>
+
+<h3>Public (AllowAnonymous — tenant via existing header/subdomain resolution)</h3>
+<table>
+  <tr><th>Route</th><th>Returns</th></tr>
+  <tr><td><code>GET /commerce/catalog/options</code></td>
+      <td>The active option catalogue, ordered: groups with choices, prices, notes, recommended
+      default, selection mode, currency. (The storefront's global personaliser reference.)</td></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}</code> <em>(extended)</em></td>
+      <td><code>ProductDto</code> gains <code>effectiveOptionGroups</code> (this product's resolved
+      groups/choices/default/mode — empty list = not personalisable) and
+      <code>unitSurcharge</code>. One call renders a complete product page (Step 2 FR-11.5:
+      the card sub-line names only the groups this product offers).</td></tr>
+  <tr><td><code>POST /commerce/catalog/products/{slug}/selection-quote</code></td>
+      <td>Body: a selection. Returns <code>OptionSelectionResult</code> — lets the storefront show
+      authoritative deltas while the customer toggles options, before any cart exists. Read-only
+      semantics (POST for the body); no state is created.</td></tr>
+</table>
+
+<h3>Admin (Policies: AdminWritePolicy; reads AdminUserPolicy)</h3>
+<table>
+  <tr><th>Route</th><th>Purpose</th></tr>
+  <tr><td><code>POST /commerce/admin/option-groups</code></td><td>Create group</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-groups/{groupId:guid}</code></td><td>Update label/help/mode/currency/sort/active</td></tr>
+  <tr><td><code>POST /commerce/admin/option-groups/{groupId:guid}/choices</code></td><td>Add choice</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-choices/{choiceId:guid}</code></td><td>Update choice (label, note, price, default flag, sort, active)</td></tr>
+  <tr><td><code>GET /commerce/admin/option-groups</code></td><td>Catalogue incl. inactive</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId:guid}/option-groups</code></td><td>Full-replace the product's narrowing (idempotent; validates V8/V9)</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId:guid}/surcharge</code></td><td>Set/clear <code>UnitSurcharge</code></td></tr>
+</table>
+
+<p class="small">FastEndpoints conventions throughout: <code>Endpoint&lt;TReq,TRes&gt;</code>,
+<code>Send.OkAsync</code>/<code>Send.CreatedAtAsync</code>, records with positional parameters for
+DTOs. Keys are immutable after creation (they are the stable contract carts and content variants
+match on); renames are label edits.</p>
+
+<!-- ============================================================ -->
+<h2 id="order">12. Order-landing contract (DetailsJson envelope)</h2>
+
+<p>Defined here, written by Spec C at checkout. <code>OrderItem.DetailsJson</code> for a line with a
+selection carries:</p>
+
+<pre><code>{
+  "personalisation": {
+    "selection":   { "portion": "full", "protein": ["salmon"], "side": "none", "heat": "medium" },
+    "summary":     "Full table · Salmon · No side",   // differs-from-default only; "" when isDefault
+    "isDefault":   false,
+    "adjustment":  8.00,                              // signed, per unit
+    "currency":    "GBP",
+    "breakdown":   [ { "group": "portion", "chosen": ["full"], "amount": 10.00 },
+                     { "group": "side",    "chosen": ["none"], "amount": -2.00 } ]
+  },
+  "unitSurcharge": 4.00                               // omitted when null
+}</code></pre>
+
+<ul>
+  <li>The stored selection is the <em>complete canonical form</em> — a later default change never
+      rewrites history, and production sheets (specs 055/056) can render lines without joining back
+      to the live catalogue.</li>
+  <li><code>summary</code> lists only what differs from the default at order time (Step 2 FR-11.4);
+      it is presentation convenience, the selection is the truth.</li>
+  <li>The envelope is additive within <code>DetailsJson</code> — other order concerns may add
+      sibling keys; nothing may nest inside <code>personalisation</code>.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="persistence">13. Persistence &amp; migration</h2>
+
+<ol>
+  <li>Entity configurations as <code>IEntityTypeConfiguration&lt;T&gt;</code> in
+      <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> (keys, indexes from §5,
+      string lengths: Key 64, Label 128, Note 256, HelpText 512, Currency 3;
+      <code>Price</code>/<code>UnitSurcharge</code> <code>decimal(18,2)</code>).</li>
+  <li><code>DbSet</code>s added to <strong>both</strong> <code>AonikDbContext</code> (canonical) and
+      <code>CommerceDbContext</code> (runtime), plus <code>MapTable</code> entries
+      (<code>OptionGroups</code>, <code>OptionChoices</code>, <code>ProductOptionGroups</code>).</li>
+  <li>One migration, tool-generated only, against the canonical stream:
+      <pre><code>dotnet ef migrations add AddCommerceProductOptionGroups --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+      Review the generated migration (three new tables + one nullable column on
+      <code>AnkProducts</code>, nothing else), apply locally with
+      <code>dotnet ef database update</code>, commit <code>.cs</code> + <code>.Designer.cs</code>.
+      Hand-written migrations are prohibited (CLAUDE.md).</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="security">14. Security &amp; tenancy</h2>
+
+<ul>
+  <li>All three entities are <code>ITenantScoped</code>; global tenant query filters apply via
+      <code>AonikDbContextBase</code>. No cross-tenant reads are possible through the services.</li>
+  <li>Public endpoints are read-only (<code>selection-quote</code> computes, never writes), serve
+      Active/IsActive data only, and resolve tenant exactly as the existing anonymous catalog
+      endpoints do (<code>X-Tenant-Id</code> header / subdomain — plan decision D3: no API-key
+      layer).</li>
+  <li>Admin writes require <code>AdminWritePolicy</code>, reads <code>AdminUserPolicy</code>,
+      matching existing Commerce admin endpoints.</li>
+  <li>No PII anywhere in this model. Price data is tenant-commercial, already the sensitivity level
+      of <code>ProductPrice</code>.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="packs">15. Config-pack &amp; tenant vocabulary</h2>
+
+<ul>
+  <li>New tenant setting <code>Commerce.Storefront.RecommendedChoiceLabel</code> — the display
+      label storefronts render beside the recommended default. Default: <code>"Recommended"</code>.
+      The Abby's Table tenant configures <code>"Abby's choice"</code>. Served to storefronts via the
+      storefront config document (Spec E); until E lands, the frontend may hold it.</li>
+  <li>The <code>food-commerce</code> pack MAY seed a starter option catalogue (portion/protein/side/
+      heat with zero prices) so a fresh tenant demos personalisation. Seeding rides
+      <code>CommerceTenantProvisioningContributor</code>, idempotent, gated on the Commerce module —
+      never on business type. Optional task; not a blocker.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="testing">16. Testing</h2>
+
+<ul>
+  <li><strong>Unit — selection semantics</strong> (the highest-value surface):
+      normalisation fills defaults and produces <code>isDefault</code>; multi-select sort/dedupe
+      makes pick-order irrelevant; adjustment maths incl. negative deltas, multi-select
+      sum-minus-default-once, all-defaults ⇒ 0; V1–V5 each rejected with the right rule id.
+      Naming: <code>NormalizeAndPriceAsync_Should_ReturnNegativeAdjustment_When_ChosenPriceBelowDefault</code>.</li>
+  <li><strong>Service — authoring invariants</strong> (InMemory, unique db name,
+      <code>TestTenantProvider</code>): V6–V9; default-resolution fallback order of §6 step 4;
+      effective-mode override widening and tightening; inactive filtering.</li>
+  <li><strong>API</strong> (<code>CustomWebApplicationFactory</code>): anonymous catalogue + product
+      DTO extension + selection-quote round-trip; AC-24 (catalogue-valid but product-excluded choice
+      → 400); AC-25 (no narrowing rows → empty <code>effectiveOptionGroups</code>); admin authz
+      (anonymous → 401/403 on admin routes).</li>
+  <li><strong>Full-solution run</strong> before PR: <code>dotnet test Aonik.sln</code> —
+      Api.Tests boots the whole DI container and is the only net that catches registration
+      mistakes.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tasks">17. Phasing &amp; tasks</h2>
+
+<ol>
+  <li>Entities + configurations + DbSets (both contexts) + <code>MapTable</code> entries.</li>
+  <li>Tool-generated migration; local apply; review.</li>
+  <li><code>IProductOptionService</code> (authoring + resolution) + invariants V6–V9.</li>
+  <li><code>IOptionSelectionService</code> (normalise, validate V1–V5, price) + breakdown.</li>
+  <li>DTOs; extend <code>ProductDto</code> (+<code>effectiveOptionGroups</code>,
+      <code>unitSurcharge</code>) and its assembly in <code>ProductService</code>.</li>
+  <li>Public endpoints (options catalogue, selection-quote) + product endpoint extension.</li>
+  <li>Admin endpoints.</li>
+  <li>DI registration in <code>CommerceModule</code>; setting key constant.</li>
+  <li>Tests per §16; full-solution test run.</li>
+  <li>(Optional) pack seed + CLI smoke via <code>aonik packs</code>.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="acceptance">18. Acceptance criteria</h2>
+
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>A1</td><td>A group with default side priced 2.00; a selection choosing a 0.00 side → adjustment includes −2.00 and total adjustment reflects it (Step 2 AC-9 analogue).</td></tr>
+  <tr><td>A2</td><td>A product narrowed to exclude choice "chicken" while "chicken" exists in the catalogue; a selection containing it → HTTP 400 naming V2 (Step 2 AC-24).</td></tr>
+  <tr><td>A3</td><td>A product with no <code>ProductOptionGroup</code> rows → <code>effectiveOptionGroups: []</code> on the DTO; selection-quote with any non-empty selection → 400 (Step 2 AC-25).</td></tr>
+  <tr><td>A4</td><td>A product overriding a single-select protein group to multi; selection <code>["salmon","chicken"]</code> → both surcharges summed, default subtracted once; the same keys in reverse order produce byte-identical canonical JSON.</td></tr>
+  <tr><td>A5</td><td>A multi-select group with zero chosen → 400 naming V4.</td></tr>
+  <tr><td>A6</td><td>Empty/omitted selection on a personalisable product → normalises to all defaults, <code>isDefault: true</code>, adjustment 0.</td></tr>
+  <tr><td>A7</td><td>Repricing a choice via admin → the next selection-quote reflects it with no other write (deltas are derived, not stored).</td></tr>
+  <tr><td>A8</td><td>Deactivating the only resolvable default for a product's narrowing → authoring 400 naming the product (V9).</td></tr>
+  <tr><td>A9</td><td><code>UnitSurcharge</code> set on a product → returned on DTO and selection-quote, excluded from <code>adjustment</code>.</td></tr>
+  <tr><td>A10</td><td>All new endpoints tenant-isolated: tenant B never sees tenant A's groups regardless of ids supplied.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">19. Open decisions</h2>
+
+<div class="callout open">
+  <p><strong>O1 — Money representation in public DTOs.</strong> Internal storage is
+  <code>decimal</code> (consistent with <code>ProductPrice</code>). The storefront works in integer
+  minor units. Whether public Commerce DTOs serve minor units globally is the plan's "money at the
+  API edge" wiring item — this spec follows whatever that decides; until then DTOs serve decimals
+  and the frontend's client class converts.</p>
+</div>
+<div class="callout open">
+  <p><strong>O2 — Multi-currency option pricing.</strong> Currency lives on the group (launch-simple,
+  one storefront currency). If a tenant ever runs one catalogue across currencies, choices need
+  per-currency prices like <code>ProductPrice</code>. Deliberately deferred; the group-level field
+  keeps the door open without the join today.</p>
+</div>
+<div class="callout open">
+  <p><strong>O3 — Choice-level media.</strong> Step 2 renders text-only options. If option
+  photography is ever wanted, <code>OptionChoice</code> gains a media reference then — not
+  speculatively now.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="refs">20. References</h2>
+<ul>
+  <li><a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a> — Spec A, decisions D1–D4</li>
+  <li>AbbysTable repo: <code>docs/specifications/Step2_Add_Dishes_Spec.html</code> v1.1 — FR-11, §3.2, §6.4, AC-9/24/25</li>
+  <li><a href="042.commerce-retail-module.html">Spec 042</a> — Commerce retail module (catalog, bundles, cart, checkout)</li>
+  <li><a href="055.production-planning-sheet-prep-list.html">Spec 055</a> / <a href="056.production-orders-kitchen-sheet.html">Spec 056</a> — consumers of the order envelope</li>
+  <li><a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> — product identity is configuration</li>
+  <li><a href="065.business-type-configuration-packs.html">Spec 065</a> / <a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a> — config packs (seeding, vocabulary settings)</li>
+</ul>
+
+</body>
+</html>
