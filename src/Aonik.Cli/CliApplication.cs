@@ -168,9 +168,10 @@ public sealed class CliApplication
             Description = "Selection as group=choice; repeatable. Use group=a,b for a multi-select group.",
             AllowMultipleArgumentsPerToken = true
         };
-        var quoteCurrency = new Option<string?>("--currency")
+        var quoteCurrency = new Option<string>("--currency")
         {
-            Description = "Quote currency. Omitted: validate and canonicalise without binding money."
+            Description = "Quote currency (ISO 4217). The endpoint prices in exactly this currency and converts nothing.",
+            Required = true
         };
         var quoteBaseUrl = BaseUrl();
         var quoteTenant = TenantId();
@@ -186,7 +187,7 @@ public sealed class CliApplication
                 new StorefrontTarget(parseResult.GetRequiredValue(quoteBaseUrl), parseResult.GetRequiredValue(quoteTenant)),
                 parseResult.GetRequiredValue(quoteSlug),
                 parseResult.GetValue(quoteSelect) ?? [],
-                parseResult.GetValue(quoteCurrency),
+                parseResult.GetRequiredValue(quoteCurrency),
                 OutputModeParser.Parse(parseResult.GetValue(quoteOutput)),
                 cancellationToken));
 
@@ -194,7 +195,11 @@ public sealed class CliApplication
             "verify",
             "Run the Spec 066 acceptance behaviours against a live API. Exits non-zero if any check fails.");
         var verifySlug = new Argument<string>("slug");
-        var verifyCurrency = new Option<string?>("--currency") { Description = "Quote currency to verify against." };
+        var verifyCurrency = new Option<string>("--currency")
+        {
+            Description = "Quote currency (ISO 4217) to verify against.",
+            Required = true
+        };
         var verifyBaseUrl = BaseUrl();
         var verifyTenant = TenantId();
         var verifyOutput = CreateOutputOption(includeNdjson: false);
@@ -207,7 +212,7 @@ public sealed class CliApplication
             handler.VerifyAsync(
                 new StorefrontTarget(parseResult.GetRequiredValue(verifyBaseUrl), parseResult.GetRequiredValue(verifyTenant)),
                 parseResult.GetRequiredValue(verifySlug),
-                parseResult.GetValue(verifyCurrency),
+                parseResult.GetRequiredValue(verifyCurrency),
                 OutputModeParser.Parse(parseResult.GetValue(verifyOutput)),
                 cancellationToken));
 

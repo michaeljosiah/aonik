@@ -121,22 +121,123 @@ public class ProductOptionServiceTests
     [Fact]
     public async Task UpdateChoiceAsync_Should_Reject_When_DeactivatingAProductsLastResolvableDefault()
     {
-        // A8 / V9
+        // A8 / V9 — the per-product rule, exercised on a choice that is NOT the group's recommended
+        // default (chicken is). That keeps V9's remedy honest: widening this product's allowed
+        // choices really would fix it. Deactivating the group's own default is a broader failure
+        // with a different remedy, covered by the V7 test below.
         var (options, tenantId) = CommerceTestHarness.NewDb();
         await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
         var builder = new OptionCatalogueBuilder(ctx, tenantId);
         await builder.BuildCatalogueAsync();
-        var productId = await builder.BuildProductAsync("chicken-only");
+        var productId = await builder.BuildProductAsync("salmon-only");
         var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
 
-        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", AllowedChoiceKeys: ["chicken"]));
+        await builder.OfferAsync(productId, new ProductOptionGroupLine(
+            "protein", AllowedChoiceKeys: ["salmon"], DefaultChoiceKey: "salmon"));
+
+        var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
+        var act = () => service.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", IsActive: false));
+
+        var ex = (await act.Should().ThrowAsync<OptionValidationException>()).Which;
+        ex.RuleId.Should().Be("V9");
+        ex.Message.Should().Contain("salmon-only");
+    }
+
+    [Fact]
+    public async Task UpdateChoiceAsync_Should_Reject_When_DeactivatingTheGroupsRecommendedDefault()
+    {
+        // The V9 product check cannot catch this one: this product carries its own resolvable
+        // default and so looks perfectly safe in isolation. But §6 only serves a group with exactly
+        // one active recommended default, so deactivating the group's default strips the group from
+        // every product at once — including the ones that pinned their own choice.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var productId = await builder.BuildProductAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", DefaultChoiceKey: "salmon"));
 
         var chickenId = await builder.ChoiceIdAsync("protein", "chicken");
         var act = () => service.UpdateChoiceAsync(chickenId, new UpdateOptionChoiceCommand("Chicken", IsActive: false));
 
         var ex = (await act.Should().ThrowAsync<OptionValidationException>()).Which;
-        ex.RuleId.Should().Be("V9");
-        ex.Message.Should().Contain("chicken-only");
+        ex.RuleId.Should().Be("V7");
+        ex.Message.Should().Contain("recommended default");
+    }
+
+    [Fact]
+    public async Task UpdateChoiceAsync_Should_Allow_Deactivation_When_TheGroupDefaultMovedFirst()
+    {
+        // The V7 guard above is a sequencing rule, not a prohibition — and the group must still be
+        // servable afterwards, which is the whole point of the guard.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var productId = await builder.BuildProductAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein"));
+
+        var groupId = await builder.GroupIdAsync("protein");
+        await service.SetRecommendedDefaultAsync(groupId, "salmon");
+
+        var chickenId = await builder.ChoiceIdAsync("protein", "chicken");
+        var updated = await service.UpdateChoiceAsync(chickenId, new UpdateOptionChoiceCommand("Chicken", IsActive: false));
+
+        updated.IsActive.Should().BeFalse();
+        (await service.GetCatalogueAsync()).Should().Contain(g => g.Key == "protein");
+        (await service.GetEffectiveOptionsAsync(productId))
+            .Should().ContainSingle(g => g.Key == "protein")
+            .Which.DefaultChoiceKey.Should().Be("salmon");
+    }
+
+    [Fact]
+    public async Task SetRecommendedDefaultAsync_Should_ReportOnly_ProductsInheritingTheGroupDefault()
+    {
+        // A product pinned to a still-resolvable default of its own keeps exactly the preparation it
+        // had, so a default move must not report it as changed — Spec 067 content review would be
+        // sent re-checking products where nothing happened.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var inherits = await builder.BuildProductAsync("inherits");
+        var pinned = await builder.BuildProductAsync("pinned");
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(inherits, new ProductOptionGroupLine("protein"));
+        await builder.OfferAsync(pinned, new ProductOptionGroupLine("protein", DefaultChoiceKey: "prawns"));
+
+        var groupId = await builder.GroupIdAsync("protein");
+        var result = await service.SetRecommendedDefaultAsync(groupId, "salmon");
+
+        result.AffectedProductSlugs.Should().BeEquivalentTo(["inherits"]);
+    }
+
+    [Fact]
+    public async Task SetRecommendedDefaultAsync_Should_ReportProduct_When_ItsOverrideNoLongerResolves()
+    {
+        // A stale override is not protection: a product that pinned a since-deactivated choice is
+        // silently riding the group default, so a move genuinely changes what it serves.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var productId = await builder.BuildProductAsync("stale-override");
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", DefaultChoiceKey: "prawns"));
+
+        var prawnsId = await builder.ChoiceIdAsync("protein", "prawns");
+        await service.UpdateChoiceAsync(prawnsId, new UpdateOptionChoiceCommand("King prawns", IsActive: false));
+
+        var groupId = await builder.GroupIdAsync("protein");
+        var result = await service.SetRecommendedDefaultAsync(groupId, "salmon");
+
+        result.AffectedProductSlugs.Should().BeEquivalentTo(["stale-override"]);
     }
 
     [Fact]

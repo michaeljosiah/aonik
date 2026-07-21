@@ -41,7 +41,7 @@ public sealed class CommerceCommandHandler
         StorefrontTarget target,
         string slug,
         IReadOnlyList<string> selections,
-        string? currency,
+        string currency,
         OutputMode outputMode,
         CancellationToken cancellationToken = default)
     {
@@ -58,7 +58,7 @@ public sealed class CommerceCommandHandler
     public async Task<int> VerifyAsync(
         StorefrontTarget target,
         string slug,
-        string? currency,
+        string currency,
         OutputMode outputMode,
         CancellationToken cancellationToken = default)
     {
@@ -229,7 +229,7 @@ public sealed class CommerceCommandHandler
         StorefrontTarget target,
         string slug,
         IReadOnlyDictionary<string, object> selection,
-        string? currency,
+        string currency,
         CancellationToken cancellationToken)
     {
         try

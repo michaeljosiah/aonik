@@ -102,6 +102,10 @@ public static class SelectionDriftReasons
     /// effective default to remap to, so remapping would invent one.</summary>
     public const string GroupRemoved = "group-removed";
 
+    /// <summary>The product gained a group after the selection was stored, so its default was
+    /// applied. The customer never chose it, so this is reported rather than assumed silently.</summary>
+    public const string GroupAdded = "group-added";
+
     /// <summary>The group's selection mode changed and the stored value had to be re-shaped.</summary>
     public const string SelectionModeChanged = "selection-mode-changed";
 }

@@ -128,6 +128,22 @@ public class OptionSelectionServiceTests
     }
 
     [Fact]
+    public async Task NormalizeAndPriceAsync_Should_ReturnV5_When_SingleSelectGroupHasNoChoice()
+    {
+        // The same empty array, but on a single-select group, is a different diagnosis: V4 is
+        // specifically the multi-select minimum-one rule, while an array that is not the supported
+        // one-element unwrap is the V5 shape error. Clients switch on RuleId to decide what to say,
+        // so this pair has to stay distinguishable.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, _) = await ArrangeAsync(ctx, tenantId);
+
+        var act = () => selections.NormalizeAndPriceAsync(productId, Json("""{"protein":[]}"""), "GBP");
+
+        (await act.Should().ThrowAsync<OptionValidationException>()).Which.RuleId.Should().Be("V5");
+    }
+
+    [Fact]
     public async Task NormalizeAndPriceAsync_Should_FillDefaultsAndPriceZero_When_SelectionOmitted()
     {
         // A6 — a default quick-add sends no selection at all; that is not an error, and the stored
@@ -251,6 +267,66 @@ public class OptionSelectionServiceTests
         result.Drift.Should().ContainSingle(d =>
             d.GroupKey == "protein" && d.Reason == SelectionDriftReasons.SelectionModeChanged);
         result.Result.CanonicalSelectionJson.Should().Contain("\"protein\":\"chicken\"");
+    }
+
+    [Fact]
+    public async Task RenormalizeStoredAsync_Should_RemapToDefault_When_TightenedGroupHasOneSurvivingChoice()
+    {
+        // A16, the case that survived the first pass: judging the mode change on what SURVIVED
+        // retirement makes ["prawns","salmon"] look single-valued once prawns is retired, so the
+        // tightening goes undetected and salmon is silently kept — while the retirement drift has
+        // already reported a remap to the default. The selection would then contradict its own
+        // change report, and the cart would reprice against something the customer never saw.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, builder) = await ArrangeAsync(ctx, tenantId);
+        var optionService = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.Multi));
+        var stored = (await selections.NormalizeAndPriceAsync(productId, Json("""{"protein":["salmon","prawns"]}"""), "GBP"))
+            .CanonicalSelectionJson;
+
+        // Retire one of the two stored choices, then tighten — leaving exactly one survivor.
+        var prawnsId = await builder.ChoiceIdAsync("protein", "prawns");
+        await optionService.UpdateChoiceAsync(prawnsId, new UpdateOptionChoiceCommand("King prawns", IsActive: false));
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.One));
+
+        var result = await selections.RenormalizeStoredAsync(productId, stored, "GBP");
+
+        result.Drift.Should().Contain(d =>
+            d.GroupKey == "protein" && d.Reason == SelectionDriftReasons.SelectionModeChanged);
+        result.Result.CanonicalSelectionJson.Should().Contain("\"protein\":\"chicken\"");
+        result.Result.CanonicalSelectionJson.Should().NotContain("salmon");
+    }
+
+    [Fact]
+    public async Task RenormalizeStoredAsync_Should_ReportDrift_When_ProductGainedAGroupAfterStoring()
+    {
+        // A stored canonical selection names every group the product offered when it was saved, so
+        // a group missing from it is one the product has gained since. Filling the default is the
+        // right outcome, but it changes the preparation the customer chose — a consumer that cannot
+        // see it cannot confirm the change with them.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, builder) = await ArrangeAsync(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein"));
+        var stored = (await selections.NormalizeAndPriceAsync(productId, Json("""{"protein":"salmon"}"""), "GBP"))
+            .CanonicalSelectionJson;
+
+        await builder.OfferAsync(
+            productId,
+            new ProductOptionGroupLine("protein"),
+            new ProductOptionGroupLine("side"));
+
+        var result = await selections.RenormalizeStoredAsync(productId, stored, "GBP");
+
+        result.Drift.Should().ContainSingle(d =>
+            d.GroupKey == "side"
+            && d.FromChoiceKey == null
+            && d.ToChoiceKey == "wildrice"
+            && d.Reason == SelectionDriftReasons.GroupAdded);
+        result.Result.CanonicalSelectionJson.Should().Contain("\"side\":\"wildrice\"");
     }
 
     [Fact]

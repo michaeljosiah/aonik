@@ -120,6 +120,11 @@ internal sealed partial class ProductOptionService : IProductOptionService
         };
 
         _dbContext.OptionChoices.Add(choice);
+
+        // A new choice widens the offered set and can turn a half-authored group servable — both
+        // things a concurrent narrowing validates against, so it contends on the group's token.
+        TouchGroups([group]);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapChoice(choice);
@@ -131,6 +136,23 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var choice = await _dbContext.OptionChoices
             .FirstOrDefaultAsync(c => c.Id == choiceId && c.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException($"Option choice '{choiceId}' was not found.");
+
+        var group = await _dbContext.OptionGroups
+            .FirstOrDefaultAsync(g => g.Id == choice.OptionGroupId && g.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException($"Option group '{choice.OptionGroupId}' was not found.");
+
+        // V7 — deactivating the group's own recommended default leaves §6's servability rule with
+        // zero active defaults, so the group vanishes from the public catalogue and from EVERY
+        // product's effective options. The V9 check below cannot catch this: products carrying
+        // their own resolvable default each look safe in isolation, yet they lose the group along
+        // with everyone else. Move the group default first.
+        if (choice.IsActive && !command.IsActive && choice.IsRecommendedDefault && group.IsActive && !group.IsDeleted)
+        {
+            throw new OptionValidationException(
+                "V7",
+                $"Choice '{choice.Key}' is the recommended default for group '{group.Key}'; " +
+                "move the default to another choice before deactivating it.");
+        }
 
         // V9 — deactivating the last resolvable default for some product's narrowing would leave
         // that product with an unresolvable effective default, and §6's fail-safe would silently
@@ -167,6 +189,15 @@ internal sealed partial class ProductOptionService : IProductOptionService
                     $"Choice '{choice.Key}' still carries the recommended-default flag and the group already has an active default; " +
                     "move the default explicitly instead of reactivating a second one.");
             }
+        }
+
+        // An activation flip changes which choices are offered and which defaults resolve, so a
+        // concurrent narrowing must contend on the group's token rather than validating against
+        // state this write is about to remove. A pure label or price edit carries no invariant and
+        // deliberately does not contend.
+        if (choice.IsActive != command.IsActive)
+        {
+            TouchGroups([group]);
         }
 
         choice.Label = RequireLabel(command.Label);
@@ -208,44 +239,49 @@ internal sealed partial class ProductOptionService : IProductOptionService
                 "give them an explicit default or widen their allowed choices before moving the group default.");
         }
 
+        // Captured BEFORE the move, while the outgoing default is still the resolvable one, and
+        // narrowed to products that actually inherit it — a product pinned to a still-valid explicit
+        // default keeps exactly the preparation it had, so reporting it as changed would send Spec
+        // 067 content review chasing products nothing happened to.
+        var affectedProducts = await ProductsInheritingGroupDefaultAsync(tenantId, group, cancellationToken);
+
         // Demote FIRST, in its own round trip, then promote. A single SaveChanges is transactional
         // but does not guarantee EF emits the demote before the promote — and the filtered unique
         // index is evaluated per statement, so a promote-first ordering collides with the existing
         // default and fails the supported path. Two ordered writes inside one transaction avoid
         // both that and any window where the group has zero or two defaults.
-        var affectedProducts = await ProductsOfferingGroupAsync(tenantId, group.Id, cancellationToken);
-
-        var transaction = _dbContext.Database.IsRelational()
-            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
-
-        try
+        //
+        // The sequence runs through the configured execution strategy because CommerceDbContext
+        // enables EnableRetryOnFailure, and EF rejects a user-initiated transaction under a
+        // retrying strategy unless the whole delegate is replayable. Without this the method throws
+        // on every SQL Server call while passing every InMemory test, which opens no transaction.
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async ct =>
         {
-            var demoted = group.Choices.Where(c => c.IsRecommendedDefault && c.Id != target.Id).ToList();
-            if (demoted.Count > 0)
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(ct)
+                : null;
+
+            // Bump the group's own concurrency token. A concurrent SetProductOptionGroupsAsync
+            // validates a narrowing against the very default this move is about to change; without
+            // contending on a shared row both writes pass their own checks and commit, leaving a
+            // product with no resolvable default.
+            TouchGroups([group]);
+
+            foreach (var choice in group.Choices.Where(c => c.IsRecommendedDefault && c.Id != target.Id))
             {
-                foreach (var choice in demoted)
-                {
-                    choice.IsRecommendedDefault = false;
-                }
-                await _dbContext.SaveChangesAsync(cancellationToken);
+                choice.IsRecommendedDefault = false;
             }
+            await _dbContext.SaveChangesAsync(ct);
 
             target.IsRecommendedDefault = true;
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(ct);
 
             if (transaction is not null)
             {
-                await transaction.CommitAsync(cancellationToken);
+                await transaction.CommitAsync(ct);
             }
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
-        }
+        }, cancellationToken);
 
         return new RecommendedDefaultChangeResult(Map(group, group.Choices), affectedProducts);
     }
@@ -550,30 +586,17 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
             .ToListAsync(cancellationToken);
 
-        var activeKeys = group.Choices
-            .Where(c => c.IsActive && !c.IsDeleted)
-            .Select(c => c.Key)
-            .ToHashSet(StringComparer.Ordinal);
+        var activeKeys = ActiveChoiceKeys(group);
 
         var affected = new List<Guid>();
         foreach (var narrowing in narrowings)
         {
-            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
-
-            // A stored override only protects the product if it STILL resolves — the choice must
-            // be active and within the narrowing. A product that overrode to a since-deactivated
-            // choice is silently relying on the group default, so moving that default out of its
-            // allowed set would orphan it just as surely as having no override at all.
-            var overrideResolves =
-                narrowing.DefaultChoiceKey is { Length: > 0 } key &&
-                activeKeys.Contains(key) &&
-                (allowed is null || allowed.Contains(key));
-
-            if (overrideResolves)
+            if (OverrideResolves(narrowing, activeKeys))
             {
                 continue;
             }
 
+            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
             if (allowed is not null && !allowed.Contains(choiceKey))
             {
                 affected.Add(narrowing.ProductId);
@@ -581,6 +604,28 @@ internal sealed partial class ProductOptionService : IProductOptionService
         }
 
         return await SlugsForAsync(tenantId, affected, cancellationToken);
+    }
+
+    private static HashSet<string> ActiveChoiceKeys(OptionGroup group) => group.Choices
+        .Where(c => c.IsActive && !c.IsDeleted)
+        .Select(c => c.Key)
+        .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether a product's own default still stands on its own. A stored override only counts if it
+    /// STILL resolves — the choice must be active and within the narrowing. A product that overrode
+    /// to a since-deactivated choice is silently relying on the group default, so it moves when the
+    /// group default moves, exactly like a product with no override at all.
+    /// </summary>
+    private static bool OverrideResolves(ProductOptionGroup narrowing, HashSet<string> activeKeys)
+    {
+        if (narrowing.DefaultChoiceKey is not { Length: > 0 } key || !activeKeys.Contains(key))
+        {
+            return false;
+        }
+
+        var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
+        return allowed is null || allowed.Contains(key);
     }
 
     /// <summary>Products that would lose their only resolvable default if this choice were
@@ -635,19 +680,27 @@ internal sealed partial class ProductOptionService : IProductOptionService
         }
     }
 
-    /// <summary>Slugs of every product offering this group — returned by a default move so
-    /// dependent capabilities (Spec 067 content review) know what to re-check.</summary>
-    private async Task<IReadOnlyList<string>> ProductsOfferingGroupAsync(
-        Guid tenantId, Guid groupId, CancellationToken cancellationToken)
+    /// <summary>Slugs of the products whose effective default actually follows this group's
+    /// recommended default — returned by a default move so dependent capabilities (Spec 067 content
+    /// review) know what genuinely changed. Products pinned to a still-resolvable default of their
+    /// own keep the preparation they had and are deliberately excluded.</summary>
+    private async Task<IReadOnlyList<string>> ProductsInheritingGroupDefaultAsync(
+        Guid tenantId, OptionGroup group, CancellationToken cancellationToken)
     {
-        var productIds = await _dbContext.ProductOptionGroups
+        var narrowings = await _dbContext.ProductOptionGroups
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.OptionGroupId == groupId)
-            .Select(x => x.ProductId)
-            .Distinct()
+            .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
             .ToListAsync(cancellationToken);
 
-        return await SlugsForAsync(tenantId, productIds, cancellationToken);
+        var activeKeys = ActiveChoiceKeys(group);
+
+        var inheriting = narrowings
+            .Where(n => !OverrideResolves(n, activeKeys))
+            .Select(n => n.ProductId)
+            .Distinct()
+            .ToList();
+
+        return await SlugsForAsync(tenantId, inheriting, cancellationToken);
     }
 
     private async Task<List<string>> SlugsForAsync(Guid tenantId, List<Guid> productIds, CancellationToken cancellationToken)

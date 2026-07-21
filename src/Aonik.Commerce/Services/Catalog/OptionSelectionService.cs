@@ -58,18 +58,36 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             var isMulti = group.SelectionMode == OptionSelectionModes.Multi;
             var offered = group.Choices.Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
 
+            // A stored canonical selection names every group the product offered when it was saved,
+            // so a group missing from it is one the product has gained since. Filling the default is
+            // right, but it changes the preparation the customer actually chose — report it rather
+            // than mutating the selection silently.
             if (!stored.TryGetValue(group.Key, out var storedValues) || storedValues.Count == 0)
             {
+                drift.Add(new SelectionDrift(group.Key, null, group.DefaultChoiceKey, SelectionDriftReasons.GroupAdded));
                 resolved[group.Key] = [group.DefaultChoiceKey];
                 continue;
             }
 
-            var kept = storedValues.Where(v => offered.Contains(v)).Distinct(StringComparer.Ordinal).ToList();
-            var lost = storedValues.Where(v => !offered.Contains(v)).Distinct(StringComparer.Ordinal).ToList();
+            var storedDistinct = storedValues.Distinct(StringComparer.Ordinal).ToList();
+            var kept = storedDistinct.Where(v => offered.Contains(v)).ToList();
+            var lost = storedDistinct.Where(v => !offered.Contains(v)).ToList();
 
             foreach (var gone in lost)
             {
                 drift.Add(new SelectionDrift(group.Key, gone, group.DefaultChoiceKey, SelectionDriftReasons.OptionRetired));
+            }
+
+            // A group tightened Multi → One keeps a single stored choice silently, but cannot keep
+            // several. Decide that on what was STORED, not on what survived retirement: filtering
+            // first makes ["salmon","retired"] look single-valued, so the mode change goes unnoticed
+            // and salmon is kept — while the retirement drift above has already promised a remap to
+            // the default. The selection and its own change report would then disagree.
+            if (!isMulti && storedDistinct.Count > 1)
+            {
+                drift.Add(new SelectionDrift(group.Key, string.Join(",", storedDistinct), group.DefaultChoiceKey, SelectionDriftReasons.SelectionModeChanged));
+                resolved[group.Key] = [group.DefaultChoiceKey];
+                continue;
             }
 
             if (kept.Count == 0)
@@ -85,15 +103,6 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             if (isMulti && lost.Count > 0 && !kept.Contains(group.DefaultChoiceKey, StringComparer.Ordinal))
             {
                 kept.Add(group.DefaultChoiceKey);
-            }
-
-            // A group tightened Multi → One keeps a single stored choice silently, but cannot keep
-            // several — those remap to the default with a reported change.
-            if (!isMulti && kept.Count > 1)
-            {
-                drift.Add(new SelectionDrift(group.Key, string.Join(",", kept), group.DefaultChoiceKey, SelectionDriftReasons.SelectionModeChanged));
-                resolved[group.Key] = [group.DefaultChoiceKey];
-                continue;
             }
 
             resolved[group.Key] = isMulti ? kept : [kept[0]];
@@ -142,11 +151,18 @@ internal sealed class OptionSelectionService : IOptionSelectionService
                 continue;
             }
 
+            // V4 is specifically the multi-select minimum-one rule. For a single-select group an
+            // empty array is a shape error — the same family as supplying two — so it is V5.
+            // Clients switch on RuleId to decide what to say, so the distinction has to be right.
             if (chosen.Count == 0)
             {
-                throw new OptionValidationException(
-                    "V4",
-                    $"Group '{group.Key}' was supplied with no choice; at least one selection is required.");
+                throw isMulti
+                    ? new OptionValidationException(
+                        "V4",
+                        $"Group '{group.Key}' was supplied with no choice; at least one selection is required.")
+                    : new OptionValidationException(
+                        "V5",
+                        $"Group '{group.Key}' allows one choice but an empty selection was supplied.");
             }
 
             // V5 — a single-select group accepts a bare string or a one-element array (unwrapped);
