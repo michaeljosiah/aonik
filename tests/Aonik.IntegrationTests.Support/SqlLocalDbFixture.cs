@@ -114,8 +114,14 @@ public sealed class SqlLocalDbFixture : IAsyncLifetime
         // surface, never something to skip past.
         IsAvailable = true;
         await using var context = new AonikDbContext(CreateOptions<AonikDbContext>());
-        await context.Database.EnsureCreatedAsync();
+
+        // Record intent BEFORE materialising: on a relationally invalid model,
+        // EnsureCreated throws AFTER the physical database exists, and Dispose
+        // must still drop the partial database rather than orphan one per
+        // failing run. When creation failed before the database existed,
+        // EnsureDeleted is a safe no-op.
         _databaseCreated = true;
+        await context.Database.EnsureCreatedAsync();
     }
 
     public async Task DisposeAsync()
