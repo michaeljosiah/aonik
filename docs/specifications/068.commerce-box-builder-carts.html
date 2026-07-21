@@ -135,6 +135,8 @@ write returns the whole box plus the quote". Decision D1 settled <em>where</em> 
       <ul>
         <li><code>BundleSizePlan</code> + <code>BundleSizePreset</code> (container pricing)</li>
         <li>Cart-as-box: size on the cart, personalisation on lines, merge rule</li>
+        <li><code>LineKind</code> discriminator (<code>BoxDish</code> only at launch) and
+            kind-scoped capacity/merge/quote rules — §4.1</li>
         <li>Capacity ceiling + size-change validation</li>
         <li>Quote computation + breakdown; quote on every write</li>
         <li>Continue gate (units == size)</li>
@@ -157,6 +159,10 @@ write returns the whole box plus the quote". Decision D1 settled <em>where</em> 
         <li>Payment, invoicing, stock reserve/commit — existing Spec 042 checkout, unchanged</li>
         <li>Discounts on box quotes — existing checkout-time discounts still apply at checkout;
             in-session discount preview is future work</li>
+        <li><strong>Add-ons</strong> (items bought alongside the box at their own price) — the
+            <code>LineKind</code> discriminator that keeps them additive is in scope (§4.1); the
+            routes, <code>addOns</code> quote component, retail order lines and add-on price display
+            (a Spec 070 summary-DTO change) are a later spec</li>
         <li>Steps 3–5 storefront flows (extras, review) — only the continue gate is here</li>
       </ul>
     </td>
@@ -199,8 +205,13 @@ public class BundleSizePreset : AuditableEntity, ITenantScoped
 public Guid? BoxBundleProductId { get; set; }
 public int?  BoxSize { get; set; }
 
-// CartItem — a line: slot + variant + exact personalisation + quantity
-public Guid?    BoxBundleSlotId { get; set; }            // which slot this line fills (required on box lines)
+// CartItem — a line: kind + slot + variant + exact personalisation + quantity
+/// <summary>BoxDish (fills a box space, personalisable, priced by the box) or AddOn (an ordinary
+/// retail line bought alongside the box at its own price, consuming no box space). Launch ships
+/// BoxDish only — AddOn is reserved so every rule below states which kind it counts rather than
+/// silently assuming all lines are box dishes. See CartLineKinds and §4.1.</summary>
+public string   LineKind { get; set; } = CartLineKinds.BoxDish;
+public Guid?    BoxBundleSlotId { get; set; }            // which slot this line fills (required on BoxDish lines)
 public string?  PersonalisationJson { get; set; }        // canonical form (Spec 066), complete
 public string?  PersonalisationSummary { get; set; }     // differs-from-default text; "" = default
 public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed; recomputed each write
@@ -225,12 +236,36 @@ public string?  PersonalisationEnvelopeJson { get; set; }</code></pre>
 </table>
 
 <p class="small">Line identity is <code>CartItem.Id</code> — the storefront's <code>lineId</code>.
-The merge key is <code>(BoxBundleSlotId, ProductVariantId, PersonalisationJson)</code>;
+The merge key is <code>(LineKind, BoxBundleSlotId, ProductVariantId, PersonalisationJson)</code>;
 canonical-form string equality makes the selection part exact (Spec 066 §7). A variant can be
 eligible for more than one slot, and each slot carries its own min/max/allow-duplicates rules — so
 the slot is part of the line's identity: the add command names it explicitly, or the server
 resolves it automatically when exactly one slot is eligible and rejects as ambiguous otherwise.
 <code>OrderBundleSelection.BundleSlotId</code> is populated from the line at checkout.</p>
+
+<h3 id="linekinds">4.1 Line kinds — why the discriminator exists before the feature</h3>
+
+<p>A box session will eventually hold two different things: the dishes filling the box, and
+<strong>add-ons</strong> — an ordinary retail product bought alongside it (a jar of sauce, a
+cookbook), priced individually, consuming no box space. Add-ons are <em>not</em> in this spec's
+scope: no routes, no quote component, no checkout lines are built here.</p>
+
+<p>What <em>is</em> in scope is the discriminator. Without <code>LineKind</code>, every capacity,
+merge, quote and checkout rule below implicitly means "all lines" — and adding a second kind later
+would silently give a jar of sauce a box space and require re-auditing R1–R12 to find out where.
+With it, each rule states the kind it counts, and the later change is additive: new routes, a new
+quote component, extra order items. The column ships with exactly one legal value
+(<code>CartLineKinds.BoxDish</code>); writing any other is rejected until the add-on capability
+lands.</p>
+
+<div class="callout ok">
+  <p><strong>Product constraint (confirmed 2026-07-21): one box per cart.</strong> A cart holds at
+  most one box — hence <code>BoxBundleProductId</code>/<code>BoxSize</code> live on
+  <code>Cart</code> and no box-container entity is needed. Add-ons attach to that cart as
+  <code>AddOn</code> lines. If multiple boxes per order ever become real, that <em>is</em> the
+  change that outgrows this shape (the two fields move onto a per-box entity) — it is deliberately
+  not pre-built, and O3 records the trigger.</p>
+</div>
 
 <!-- ============================================================ -->
 <h2 id="pricing">5. Box pricing</h2>
@@ -258,6 +293,12 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
 <!-- ============================================================ -->
 <h2 id="writes">6. Write semantics</h2>
 
+<p class="small"><strong>"Units" means <code>BoxDish</code> units throughout this section and
+§12.</strong> Every capacity count, merge lookup and fullness test is scoped to
+<code>LineKind = BoxDish</code>; an <code>AddOn</code> line consumes no box space and never
+participates in them (§4.1). At launch every line is a box dish, so the two readings coincide —
+stating the scope now is what keeps them from diverging silently later.</p>
+
 <table>
   <tr><th>Operation</th><th>Behaviour</th></tr>
   <tr><td>Create box</td>
@@ -278,7 +319,7 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
       one is in stock, and repeated merges cannot creep past it; checkout still reserves
       atomically for races). Reject if total units would exceed <code>BoxSize</code> — growing
       first is the only path (Step&nbsp;2 FR-13.1: no overflow route exists server-side, whatever
-      the UI does). Merge into an existing line when <code>(slot, variant, canonical
+      the UI does). Merge into an existing line when <code>(kind, slot, variant, canonical
       selection)</code> matches; else create.</td></tr>
   <tr><td>Update line — quantity</td>
       <td>Increase re-checks the ceiling and aggregate availability; quantity 0 deletes the line;
@@ -324,25 +365,35 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
                           "personalisationSummary": "Full table · Salmon",
                           "isDefaultPersonalisation": false,
                           "personalisationAdjustment": 8.00, "unitSurcharge": 4.00 } ] },
-  "quote": { "boxPrice": 95.00,
-             "personalisation": 16.00,        // Σ adjustment × qty (signed)
-             "unitSurcharges": 8.00,          // Σ surcharge × qty
-             "deliveryList": 10.00,           // display values, tenant settings (§3 out-scope note)
-             "deliveryCharged": 0.00,
-             "total": 119.00,                 // boxPrice + personalisation + unitSurcharges + deliveryCharged
+  "quote": { "components": [                  // ORDERED, NAMED, ADDITIVE — total is their sum
+               { "key": "boxPrice",        "amount": 95.00 },
+               { "key": "personalisation", "amount": 16.00 },   // Σ adjustment × qty (signed)
+               { "key": "unitSurcharges",  "amount":  8.00 },   // Σ surcharge × qty
+               { "key": "deliveryCharged", "amount":  0.00 } ], //   ("addOns" joins here later)
+             "deliveryList": 10.00,           // struck-through display value; NOT a component
+             "total": 119.00,                 // Σ components — never a hard-coded formula
              "currency": "GBP",
              "unitsSelected": 6, "boxSize": 6, "spacesLeft": 0, "isFull": true },
   "changes": [ …catalogue-drift notices, usually empty — §8… ]
 }</code></pre>
 
 <ul>
+  <li><strong>The total is the sum of a named component list, not a fixed four-term formula.</strong>
+      Clients render the breakdown by iterating <code>components</code> and must not reconstruct the
+      total from known keys — that way the eventual <code>addOns</code> component (§4.1) is an
+      additive change no storefront release has to chase. Zero-amount components may be omitted;
+      unknown keys must render generically rather than break.</li>
   <li><code>personalisation</code> is signed and can be negative in aggregate — a box of
       below-default choices legitimately totals under the box price (Step&nbsp;2 AC-9).</li>
+  <li><code>unitsSelected</code>, <code>spacesLeft</code> and <code>isFull</code> count
+      <code>BoxDish</code> units only (§4.1); an add-on never changes them.</li>
   <li>Delivery display values come from tenant settings
       (<code>Commerce.Storefront.DeliveryListAmount</code> / <code>DeliveryChargedAmount</code>,
       default 0/0) until Spec 069 owns delivery properly; the quote shape will not change when it
       does.</li>
-  <li>No per-dish price appears anywhere in the payload — see §2 callout.</li>
+  <li>No per-dish price appears anywhere in the payload — see §2 callout. (An add-on line, when
+      that lands, <em>does</em> carry its own retail price: it is an ordinary product bought at its
+      own price, not a dish priced by the box.)</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -387,14 +438,18 @@ byte-for-byte unaffected.</p>
   <li>Reserve component stock exactly as the bundle path does today (<code>HoldRef</code> = cart
       id).</li>
   <li>Create one <code>ProductPurchase</code> order, idempotency key <code>cart:{id}</code>
-      (unchanged). The single box <code>OrderItem</code> carries <code>Quantity = 1</code>,
-      <code>UnitPrice</code> = the <em>goods</em> total (box price + personalisation + unit
-      surcharges), <code>AmountIn</code> likewise, and <code>DetailsJson</code> gains a box
-      envelope:
+      (unchanged). The order carries <strong>one <code>OrderItem</code> per priced thing</strong> —
+      today that is the box item and (when charged) the delivery item; each future
+      <code>AddOn</code> line will add one ordinary retail item alongside them, using the spine's
+      existing <code>ProductPurchase</code> line shape (Quantity, UnitPrice, ProductId, Sku)
+      unchanged, so nothing here is reserved for it now. The box <code>OrderItem</code> carries
+      <code>Quantity = 1</code>, <code>UnitPrice</code> = the <em>box goods</em> total (box price +
+      personalisation + unit surcharges — never any add-on amount), <code>AmountIn</code> likewise,
+      and <code>DetailsJson</code> gains a box envelope:
       <pre><code>{ "box": { "bundleProductId": "…", "size": 6,
            "quote": { "boxPrice": 95.00, "personalisation": 16.00,
                       "unitSurcharges": 8.00, "currency": "GBP" } } }</code></pre></li>
-  <li>Write one <code>OrderBundleSelection</code> row per line — now carrying
+  <li>Write one <code>OrderBundleSelection</code> row per <code>BoxDish</code> line — now carrying
       <code>PersonalisationJson</code> / <code>Summary</code> / <code>Adjustment</code> /
       <code>UnitSurcharge</code> (§4). <strong>This is the kitchen-facing landing</strong>: the
       production sheet and kitchen work orders (specs 055/056) read selections per component and can
@@ -490,7 +545,7 @@ the two can never disagree.</p>
   <tr><th>#</th><th>Rule</th></tr>
   <tr><td>R1</td><td>Size below plan minimum or above plan maximum → reject.</td></tr>
   <tr><td>R2</td><td>Size below units already selected → reject with the count to remove.</td></tr>
-  <tr><td>R3</td><td>Any write taking total units above <code>BoxSize</code> → reject. No overflow path exists.</td></tr>
+  <tr><td>R3</td><td>Any write taking total <code>BoxDish</code> units above <code>BoxSize</code> → reject. No overflow path exists. (Add-on lines are outside this count by construction — buying a jar of sauce must never consume a dish space, nor be blocked by a full box.)</td></tr>
   <tr><td>R4</td><td>Selection invalid per Spec 066 (V1–V5, incl. option-not-offered-by-product) → reject with 066's rule id.</td></tr>
   <tr><td>R5</td><td>Variant not eligible for the resolved slot, variant inactive (<code>ProductVariant.IsActive</code>), product not Active, ambiguous slot without an explicit <code>BundleSlotId</code>, or resulting <em>cart-wide</em> demand for the variant above current availability → reject.</td></tr>
   <tr><td>R6</td><td>Identical <code>(variant, canonical selection)</code> → merge, never duplicate lines.</td></tr>
@@ -498,8 +553,9 @@ the two can never disagree.</p>
   <tr><td>R8</td><td>Continue and checkout refused unless units == size and no line is flagged unavailable.</td></tr>
   <tr><td>R9</td><td>Writes to a cart whose status is not Open <strong>or whose <code>OrderId</code> is already stamped</strong> → reject. The existing checkout deliberately leaves a cart Open (with <code>OrderId</code> set) until payment completes — status alone would let a customer edit a box whose order, reservation and payment amount are already fixed (this mirrors <code>ValidateOpenCartAsync</code>).</td></tr>
   <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's token via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). The token is <strong>server-minted</strong>: ≥ 256 bits of entropy, opaque, disclosed exactly once in the create response; any client-supplied token value on create is <em>ignored</em> (today's contract stores it verbatim, so an attacker could register an empty or guessable token), and legacy carts whose stored token is null/weak fail closed. Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. Applies to the <em>generic</em> cart endpoints too, not just box carts. <strong>Enforcement lives at the service boundary, not endpoint middleware:</strong> <code>IBoxCartService</code> and <code>ICartService</code> operations take a required <code>CartAccessContext</code> (guest token or authenticated party principal) and authorize through one shared authorizer; the endpoints merely translate <code>X-Cart-Token</code> into it. Every direct consumer — <code>CheckoutService</code>, the Commerce agent tools, anything future — must present the context, so non-HTTP call paths cannot read or mutate arbitrary carts by knowing an id.</td></tr>
-  <tr><td>R11</td><td><strong>Box carts are writable only through <code>IBoxCartService</code>.</strong> The generic cart mutation paths (<code>POST /commerce/carts/{id}/items</code>, <code>/bundles</code>, generic remove) reject any cart with <code>BoxBundleProductId</code> set (400 pointing at the box routes) — otherwise ordinary item inserts would bypass capacity, slot, personalisation, merge and quote rules.</td></tr>
+  <tr><td>R11</td><td><strong>Box carts are writable only through kind-aware routes.</strong> The generic cart mutation paths (<code>POST /commerce/carts/{id}/items</code>, <code>/bundles</code>, generic remove) reject any cart with <code>BoxBundleProductId</code> set (400 pointing at the box routes) — a kind-blind insert would land an untyped line that capacity, slot, personalisation, merge and quote rules cannot classify. This is a rule about <em>kind-blindness</em>, not about add-ons: when the add-on capability lands it adds its own <code>IBoxCartService</code> route that stamps <code>LineKind = AddOn</code>, and the generic paths stay closed.</td></tr>
   <tr><td>R12</td><td>Add commands require quantity ≥ 1; update quantity 0 deletes the line, negative rejects; <code>applyToUnits</code> stays bounded 1..line quantity. Non-positive quantities never reach pricing or stock reservation (a negative reservation would <em>release</em> stock).</td></tr>
+  <tr><td>R13</td><td><code>LineKind</code> must be <code>BoxDish</code> — the only value this spec implements. Any other value is rejected until the add-on capability lands, so the column can never hold a kind whose rules do not yet exist. Persisted lines with a null/absent kind are read as <code>BoxDish</code>.</td></tr>
 </table>
 <p>Authoring rules: A1 preset sizes within [Min, Max]; A2 <code>BaseSize == MinSize</code> not
 required but <code>MinSize ≤ BaseSize ≤ MaxSize</code>; A3 plan requires
@@ -519,8 +575,13 @@ authoring forever.</p>
   <li>Two new tables (<code>AnkBundleSizePlans</code>, <code>AnkBundleSizePresets</code>) + additive
       nullable columns on <code>AnkCarts</code>, <code>AnkCartItems</code>,
       <code>AnkOrderBundleSelections</code> (§4). Configurations in
-      <code>Persistence/Configurations/</code>; amounts <code>decimal(18,2)</code>;
-      <code>PersonalisationJson</code> 2048, <code>PersonalisationSummary</code> 512.</li>
+      <code>Persistence/Configurations/</code>; amounts <code>decimal(19,4)</code> (matching
+      <code>ProductPrice</code> and the Spec 066 option amounts they are combined with);
+      <code>PersonalisationJson</code> <code>nvarchar(max)</code> (Spec 066 bounds neither group
+      count nor multi-select width — a fixed cap could reject a valid canonical selection at
+      persistence), <code>PersonalisationSummary</code> 512, <code>LineKind</code> 16 with a
+      non-null default of <code>BoxDish</code> so existing rows and generic-cart writes classify
+      correctly without a backfill.</li>
   <li><code>DbSet</code>s + <code>MapTable</code> entries in both contexts.</li>
   <li>One tool-generated migration:
       <pre><code>dotnet ef migrations add AddCommerceBoxBuilderCarts --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
@@ -612,6 +673,8 @@ authoring forever.</p>
   <tr><td>A20</td><td>Generic <code>POST /commerce/carts/{id}/items</code> (or <code>/bundles</code>) against a box cart → 400 directing to the box routes; the box's capacity and quote are untouched (R11).</td></tr>
   <tr><td>A21</td><td>Add with quantity 0 or −3 → 400 (R12); update to 0 deletes the line; a checkout can never pass a non-positive reservation quantity to inventory.</td></tr>
   <tr><td>A22</td><td>A box cart with <code>deliveryCharged</code> configured &gt; 0 → checkout produces a DeliveryFee order item and a payment total including it; the box item still carries only the goods total; the optional invoice shows the box-aggregate line + delivery line and no per-dish prices.</td></tr>
+  <tr><td>A23</td><td>A write attempting <code>LineKind</code> other than <code>BoxDish</code> → 400 (R13); a persisted line with a null kind reads as <code>BoxDish</code>.</td></tr>
+  <tr><td>A24</td><td>The quote's <code>total</code> equals the sum of its <code>components</code> array for every fixture in this section — no test (and no client) reconstructs it from a fixed set of known keys, so a future <code>addOns</code> component cannot silently break the total.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -631,10 +694,14 @@ authoring forever.</p>
   background-job infrastructure. Spec 069 phase 2 may later tighten the window for stale delivery
   promises.</p>
 </div>
-<div class="callout open">
-  <p><strong>O3 — Multiple boxes per session.</strong> The contract supports it naturally (each cart
-  is one box); the storefront currently builds one at a time. Nothing to build — noted so nobody
-  "adds" it.</p>
+<div class="callout ok">
+  <p><strong>O3 — Multiple boxes per session: closed.</strong> Confirmed with the client
+  (2026-07-21): an order carries <strong>at most one box</strong>. So
+  <code>BoxBundleProductId</code>/<code>BoxSize</code> stay on <code>Cart</code> and no box-container
+  entity is built. <em>Trigger to revisit:</em> if two boxes in one checkout ever becomes a real
+  requirement, those two fields move onto a per-box entity and the quote grows from one box price to
+  N — that is the migration this shape does not absorb. Add-ons (§4.1) are <em>not</em> that trigger:
+  they are extra lines beside the one box, which is exactly what <code>LineKind</code> handles.</p>
 </div>
 
 <!-- ============================================================ -->
