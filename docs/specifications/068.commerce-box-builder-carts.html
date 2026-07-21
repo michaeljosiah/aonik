@@ -199,7 +199,8 @@ public class BundleSizePreset : AuditableEntity, ITenantScoped
 public Guid? BoxBundleProductId { get; set; }
 public int?  BoxSize { get; set; }
 
-// CartItem — a line: variant + exact personalisation + quantity
+// CartItem — a line: slot + variant + exact personalisation + quantity
+public Guid?    BoxBundleSlotId { get; set; }            // which slot this line fills (required on box lines)
 public string?  PersonalisationJson { get; set; }        // canonical form (Spec 066), complete
 public string?  PersonalisationSummary { get; set; }     // differs-from-default text; "" = default
 public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed; recomputed each write
@@ -218,9 +219,12 @@ public decimal? UnitSurcharge { get; set; }</code></pre>
 </table>
 
 <p class="small">Line identity is <code>CartItem.Id</code> — the storefront's <code>lineId</code>.
-The merge key is <code>(ProductVariantId, PersonalisationJson)</code>; canonical-form string
-equality makes that exact (Spec 066 §7). Box lines always reference a variant of a product eligible
-for the bundle's slot (existing <code>BundleSlot</code> sourcing rules).</p>
+The merge key is <code>(BoxBundleSlotId, ProductVariantId, PersonalisationJson)</code>;
+canonical-form string equality makes the selection part exact (Spec 066 §7). A variant can be
+eligible for more than one slot, and each slot carries its own min/max/allow-duplicates rules — so
+the slot is part of the line's identity: the add command names it explicitly, or the server
+resolves it automatically when exactly one slot is eligible and rejects as ambiguous otherwise.
+<code>OrderBundleSelection.BundleSlotId</code> is populated from the line at checkout.</p>
 
 <!-- ============================================================ -->
 <h2 id="pricing">5. Box pricing</h2>
@@ -235,8 +239,14 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
   <li>A new pricing-mode constant <code>BundlePricingModes.SizeTiered</code> marks bundles priced
       this way; authoring a size plan requires that mode, and the existing modes
       (Fixed / SumOfComponents / SumPlusPremium) are untouched.</li>
-  <li><code>PerSpacePrice</code> is also the price of one added space when growing the box — the
-      figure appears in exactly one place, never as a per-dish line item (Step&nbsp;2 FR-13.2).</li>
+  <li><code>PerSpacePrice</code> feeds the formula only — it is <strong>not</strong> the universal
+      marginal price of a space. Around a discounted preset the marginal cost bends: with the
+      launch table, 11→12 costs 0 (formula 170 → preset 170) and 12→13 costs 30 (preset 170 →
+      formula 200). The charge for growing is therefore always
+      <code>boxPrice(target) − boxPrice(current)</code>, computed from the authoritative table;
+      grow-flow UI displays that delta, never <code>PerSpacePrice × spaces</code>. The per-space
+      figure still appears in exactly one place — the formula — and never as a per-dish line item
+      (Step&nbsp;2 FR-13.2).</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -253,14 +263,21 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
       <td>Validate MinSize ≤ new ≤ MaxSize; reject when new &lt; total units with the exact count to
       remove first (never silently drop lines). Reprices the container only.</td></tr>
   <tr><td>Add line</td>
-      <td>Validate the variant is slot-eligible, the product Active, availability &gt; 0
-      (non-reserving check), and the selection via Spec 066 (normalise → validate → price, passing
-      the cart currency — 066 V10 rejects any mis-denominated option group). Reject
-      if total units would exceed <code>BoxSize</code> — growing first is the only path
-      (Step&nbsp;2 FR-13.1: no overflow route exists server-side, whatever the UI does). Merge into
-      an existing line when <code>(variant, canonical selection)</code> matches; else create.</td></tr>
+      <td>Validate the target slot (named in the command, or auto-resolved when exactly one slot is
+      eligible — ambiguous otherwise), the variant slot-eligible and <em>active</em>, the product
+      Active, quantity ≥ 1, and the selection via Spec 066 (normalise → validate → price, passing
+      the cart currency — 066 V10 rejects any mis-denominated option group). Availability is
+      checked against <strong>aggregate demand</strong>: the resulting cart-wide quantity for the
+      variant must not exceed current availability (non-reserving — six units cannot be added when
+      one is in stock, and repeated merges cannot creep past it; checkout still reserves
+      atomically for races). Reject if total units would exceed <code>BoxSize</code> — growing
+      first is the only path (Step&nbsp;2 FR-13.1: no overflow route exists server-side, whatever
+      the UI does). Merge into an existing line when <code>(slot, variant, canonical
+      selection)</code> matches; else create.</td></tr>
   <tr><td>Update line — quantity</td>
-      <td>Increase re-checks the ceiling; decrease to 0 deletes the line.</td></tr>
+      <td>Increase re-checks the ceiling and aggregate availability; quantity 0 deletes the line;
+      negative quantities reject (R12) — a negative line must never reach pricing or, worse, flow a
+      negative reservation into the inventory engine at checkout.</td></tr>
   <tr><td>Update line — personalisation</td>
       <td>Re-validate/re-price via 066. If the new selection matches another existing line, merge
       into it (delete the source). Optional <code>applyToUnits</code> (1 ≤ n ≤ line quantity):
@@ -278,7 +295,15 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
   re-derived from the live catalogue on each write and re-snapshotted; the snapshots are display
   cache, never pricing inputs. No client-supplied amount is read anywhere (Step&nbsp;2 AC-22), and
   every write response carries the full box + quote so concurrent tabs self-correct on their next
-  action (last-write-wins is the concurrency model, as the Step&nbsp;2 edge table specifies).</p>
+  action.</p>
+  <p><strong>Capacity is enforced under a concurrency token, not hope.</strong> "Last write wins"
+  describes the UX between tabs, not the integrity model: two adds racing into the last space touch
+  <em>different</em> line rows, so neither overwrites the other and a naive implementation commits
+  seven units into a six-box. Every capacity-affecting write therefore runs in a transaction that
+  also touches the <code>Cart</code> row under its rowversion concurrency token
+  (<code>AonikDbContextBase.ConfigureRowVersions</code> already stamps it): concurrent writers
+  conflict, the loser revalidates against fresh state and retries once, then 409s. Two adds racing
+  into one remaining space can never both commit (A17).</p>
 </div>
 
 <!-- ============================================================ -->
@@ -330,10 +355,12 @@ thrown):</p>
       what changed and why (Step&nbsp;2 edge table).</li>
   <li>Remapping can merge lines (the remapped selection may now equal another line's) — the change
       entry says so.</li>
-  <li>A line's <em>product</em> becoming unavailable does not silently vanish: the line stays,
-      flagged <code>"unavailable"</code> in <code>changes[]</code>; add/increase on it is rejected;
-      continue and checkout are blocked while an unavailable line remains (the customer chooses:
-      remove it or keep waiting).</li>
+  <li>A line's <em>product or variant</em> becoming unavailable — product no longer Active,
+      variant deactivated (<code>ProductVariant.IsActive</code>), or availability gone — does not
+      silently vanish: the line stays, flagged <code>"unavailable"</code> in <code>changes[]</code>;
+      add/increase on it is rejected; continue and checkout are blocked while an unavailable line
+      remains (the customer chooses: remove it or keep waiting). A retired SKU can never ride an
+      old cart into a new order.</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -342,14 +369,19 @@ thrown):</p>
 <p>Extends the existing <code>CheckoutService</code> path for box carts; non-box carts are
 byte-for-byte unaffected.</p>
 <ol>
-  <li>Re-validate everything (full box, availability, selections) — the continue gate is advisory
-      UX; checkout is the enforcement.</li>
+  <li>Re-validate everything (full box, availability, active flags, selections) — the continue
+      gate is advisory UX; checkout is the enforcement. <strong>If re-validation produces any
+      drift change</strong> (option remap, line merge, unavailable line), checkout <em>stops</em>:
+      it returns 409 with the refreshed box + <code>changes[]</code> and creates nothing — a stale
+      client that skipped the continue step must explicitly review a changed meal or price before
+      money movement begins; resubmitting against the refreshed state proceeds (A18).</li>
   <li>Reserve component stock exactly as the bundle path does today (<code>HoldRef</code> = cart
       id).</li>
   <li>Create one <code>ProductPurchase</code> order, idempotency key <code>cart:{id}</code>
       (unchanged). The single box <code>OrderItem</code> carries <code>Quantity = 1</code>,
-      <code>UnitPrice = quote.total − deliveryCharged</code>, <code>AmountIn</code> likewise, and
-      <code>DetailsJson</code> gains a box envelope:
+      <code>UnitPrice</code> = the <em>goods</em> total (box price + personalisation + unit
+      surcharges), <code>AmountIn</code> likewise, and <code>DetailsJson</code> gains a box
+      envelope:
       <pre><code>{ "box": { "bundleProductId": "…", "size": 6,
            "quote": { "boxPrice": 95.00, "personalisation": 16.00,
                       "unitSurcharges": 8.00, "currency": "GBP" } } }</code></pre></li>
@@ -362,8 +394,27 @@ byte-for-byte unaffected.</p>
       per-line facts live on the selection rows and the item-level envelope carries the box
       aggregate. (Follow-up task in §16: surface the personalisation column on the 055/056 sheet
       DTOs.)</li>
-  <li>Discounts, tax, optional invoice, guest payment intent, funding link, charge summary — all
-      unchanged.</li>
+  <li><strong>Delivery charge is materialised, not absorbed.</strong> When
+      <code>deliveryCharged &gt; 0</code>, checkout adds a dedicated delivery order item
+      (<code>ItemType = "DeliveryFee"</code>, <code>AmountIn</code> = the charged amount) and
+      includes it in the payment total (subtotal − discount + tax + delivery) and charge summary.
+      The existing checkout maths has no delivery step, so without this the customer would be
+      charged less than the authoritative quote. Zero at launch (£10 list, free charged) — the
+      path is defined and tested, dormant in production until Spec 069 phase 2 turns fees on.</li>
+  <li><strong>Invoices for box carts are box-aggregate.</strong> The existing per-<code>CartItem</code>
+      invoice path would emit one line per dish from price snapshots that are explicitly not
+      pricing inputs here — exposing standalone dish prices and disagreeing with the single
+      aggregate order item. A box cart's optional invoice instead carries one line named for the
+      box ("6-dish box") at the goods total, plus the delivery line when charged. Non-box carts
+      keep the existing per-item path untouched.</li>
+  <li><strong>Kitchen projections ship in this spec, not as a follow-up.</strong>
+      <code>ProductionPlanningService</code> today aggregates <code>OrderBundleSelection</code>
+      rows by variant alone — two Jollof preparations would collapse into one demand line, and no
+      added column can un-collapse them afterwards. The Spec 055/056 projections are updated here:
+      production demand groups by <code>(variant, canonical personalisation)</code>, and the
+      production sheet / kitchen work-order DTOs render each group's
+      <code>PersonalisationSummary</code> and label-snapshotted display (A14).</li>
+  <li>Discounts, tax, guest payment intent, funding link — all unchanged.</li>
 </ol>
 
 <!-- ============================================================ -->
@@ -387,7 +438,8 @@ byte-for-byte unaffected.</p>
 
 public record CreateBoxCartCommand(Guid BundleProductId, int Size,
     AddBoxLineCommand? FirstLine = null, Guid? BuyerPartyId = null);
-public record AddBoxLineCommand(Guid ProductVariantId, int Quantity, JsonDocument? Personalisation);
+public record AddBoxLineCommand(Guid ProductVariantId, int Quantity, JsonDocument? Personalisation,
+    Guid? BundleSlotId = null);   // named, or auto-resolved when exactly one slot is eligible
 public record UpdateBoxLineCommand(int? Quantity, JsonDocument? Personalisation, int? ApplyToUnits);</code></pre>
 
 <p>Plus <code>IBundleSizePlanService</code> (authoring + the public plan read). Quote maths lives in
@@ -431,17 +483,26 @@ the two can never disagree.</p>
   <tr><td>R2</td><td>Size below units already selected → reject with the count to remove.</td></tr>
   <tr><td>R3</td><td>Any write taking total units above <code>BoxSize</code> → reject. No overflow path exists.</td></tr>
   <tr><td>R4</td><td>Selection invalid per Spec 066 (V1–V5, incl. option-not-offered-by-product) → reject with 066's rule id.</td></tr>
-  <tr><td>R5</td><td>Variant not eligible for the bundle's slots, product not Active, or availability ≤ 0 → reject.</td></tr>
+  <tr><td>R5</td><td>Variant not eligible for the resolved slot, variant inactive (<code>ProductVariant.IsActive</code>), product not Active, ambiguous slot without an explicit <code>BundleSlotId</code>, or resulting <em>cart-wide</em> demand for the variant above current availability → reject.</td></tr>
   <tr><td>R6</td><td>Identical <code>(variant, canonical selection)</code> → merge, never duplicate lines.</td></tr>
   <tr><td>R7</td><td>Price recomputed from scratch on every write; client-supplied amounts ignored.</td></tr>
   <tr><td>R8</td><td>Continue and checkout refused unless units == size and no line is flagged unavailable.</td></tr>
-  <tr><td>R9</td><td>Writes to a cart whose status is not Open → reject (checked-out and abandoned boxes are immutable).</td></tr>
-  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's <code>AnonymousToken</code> (returned exactly once, in the create response) via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. This closes the Spec 042 gap the plan's D3 review surfaced — the token existed but was never checked, so a leaked cart URL alone was enough to read, alter or check out a cart. Applies to the <em>generic</em> cart endpoints too, not just box carts.</td></tr>
+  <tr><td>R9</td><td>Writes to a cart whose status is not Open <strong>or whose <code>OrderId</code> is already stamped</strong> → reject. The existing checkout deliberately leaves a cart Open (with <code>OrderId</code> set) until payment completes — status alone would let a customer edit a box whose order, reservation and payment amount are already fixed (this mirrors <code>ValidateOpenCartAsync</code>).</td></tr>
+  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's token via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). The token is <strong>server-minted</strong>: ≥ 256 bits of entropy, opaque, disclosed exactly once in the create response; any client-supplied token value on create is <em>ignored</em> (today's contract stores it verbatim, so an attacker could register an empty or guessable token), and legacy carts whose stored token is null/weak fail closed. Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. Applies to the <em>generic</em> cart endpoints too, not just box carts.</td></tr>
+  <tr><td>R11</td><td><strong>Box carts are writable only through <code>IBoxCartService</code>.</strong> The generic cart mutation paths (<code>POST /commerce/carts/{id}/items</code>, <code>/bundles</code>, generic remove) reject any cart with <code>BoxBundleProductId</code> set (400 pointing at the box routes) — otherwise ordinary item inserts would bypass capacity, slot, personalisation, merge and quote rules.</td></tr>
+  <tr><td>R12</td><td>Add commands require quantity ≥ 1; update quantity 0 deletes the line, negative rejects; <code>applyToUnits</code> stays bounded 1..line quantity. Non-positive quantities never reach pricing or stock reservation (a negative reservation would <em>release</em> stock).</td></tr>
 </table>
 <p>Authoring rules: A1 preset sizes within [Min, Max]; A2 <code>BaseSize == MinSize</code> not
 required but <code>MinSize ≤ BaseSize ≤ MaxSize</code>; A3 plan requires
-<code>Kind=Bundle</code> + <code>BundlePricingMode=SizeTiered</code>; A4 currency immutable once any
-open box session references the plan.</p>
+<code>Kind=Bundle</code> + <code>BundlePricingMode=SizeTiered</code>; A4 currency immutable while
+any <em>non-stale</em> open box session references the plan (see A6); A5 structural and monetary
+bounds — <code>MinSize ≥ 1</code>, <code>MaxSize ≥ MinSize</code>, <code>BasePrice &gt; 0</code>,
+<code>PerSpacePrice ≥ 0</code>, every preset price &gt; 0, and the formula must price
+<em>every</em> size in [MinSize, MaxSize] strictly above zero — an empty, inverted or
+zero/negative-quoting plan must never reach order and payment creation; A6 box carts idle beyond a
+configured window (<code>Commerce.Carts.AbandonAfterDays</code>, default 14, existing background-job
+infrastructure) transition to Abandoned, so a single stale anonymous session cannot pin plan
+authoring forever.</p>
 
 <!-- ============================================================ -->
 <h2 id="persistence">13. Persistence &amp; migration</h2>
@@ -504,9 +565,11 @@ open box session references the plan.</p>
       handling.</li>
   <li>Checkout materialisation + selection-row landing; regression-guard the non-box path.</li>
   <li>Public endpoints + generic remove-item route.</li>
-  <li>Follow-up (may ship in this spec or immediately after): surface
-      <code>PersonalisationSummary</code> on the Spec 055/056 production-sheet and kitchen-sheet
-      DTOs.</li>
+  <li><strong>In scope, not a follow-up</strong>: update the Spec 055/056 projections — production
+      demand grouped by <code>(variant, canonical personalisation)</code>, with
+      <code>PersonalisationSummary</code> + display labels on the production-sheet and
+      kitchen-sheet DTOs (§9). Aggregation by variant alone collapses differently-personalised
+      lines and cannot be reconstructed later.</li>
   <li>Tests per §15; full-solution run.</li>
 </ol>
 
@@ -530,7 +593,13 @@ open box session references the plan.</p>
   <tr><td>A13</td><td>Product goes unavailable mid-session → line flagged, adds rejected, continue/checkout blocked until removed.</td></tr>
   <tr><td>A14</td><td>Checkout of a personalised box → one ProductPurchase order; every <code>OrderBundleSelection</code> row carries its canonical selection + summary; production sheet input contains them.</td></tr>
   <tr><td>A15</td><td>Signature-surcharge dish ×2 in the box → <code>unitSurcharges</code> 2 × surcharge; independent of personalisation on the same lines. [AC-12]</td></tr>
-  <tr><td>A16</td><td>Any cart read/write/quote/continue/checkout without the correct <code>X-Cart-Token</code> (absent or wrong) → 404, indistinguishable from an unknown cart id; with the token → succeeds. The generic (non-box) cart endpoints behave identically.</td></tr>
+  <tr><td>A16</td><td>Any cart read/write/quote/continue/checkout without the correct <code>X-Cart-Token</code> (absent or wrong) → 404, indistinguishable from an unknown cart id; with the token → succeeds. The token is server-minted — a token value supplied in the create body is ignored. The generic (non-box) cart endpoints behave identically.</td></tr>
+  <tr><td>A17</td><td>Two concurrent adds racing into a box's last remaining space → exactly one commits; the loser conflicts on the cart's concurrency token, revalidates, and returns the capacity rejection. A seven-unit six-box is unrepresentable.</td></tr>
+  <tr><td>A18</td><td>An option is retired, then a stale client posts checkout directly (no intervening GET) → checkout aborts 409 with the refreshed box + <code>changes[]</code>; nothing is reserved, no order or payment exists; resubmission against the refreshed state succeeds.</td></tr>
+  <tr><td>A19</td><td>With the launch table, growing 11→12 quotes a 0.00 delta and 12→13 quotes 30.00 — the grow flow shows <code>boxPrice(target) − boxPrice(current)</code>, never <code>PerSpacePrice × spaces</code>.</td></tr>
+  <tr><td>A20</td><td>Generic <code>POST /commerce/carts/{id}/items</code> (or <code>/bundles</code>) against a box cart → 400 directing to the box routes; the box's capacity and quote are untouched (R11).</td></tr>
+  <tr><td>A21</td><td>Add with quantity 0 or −3 → 400 (R12); update to 0 deletes the line; a checkout can never pass a non-positive reservation quantity to inventory.</td></tr>
+  <tr><td>A22</td><td>A box cart with <code>deliveryCharged</code> configured &gt; 0 → checkout produces a DeliveryFee order item and a payment total including it; the box item still carries only the goods total; the optional invoice shows the box-aggregate line + delivery line and no per-dish prices.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -542,10 +611,13 @@ open box session references the plan.</p>
   integrity gain — the replayed add revalidates everything anyway. Flagged in case product wants the
   pending dish to survive a page refresh mid-grow-flow.</p>
 </div>
-<div class="callout open">
-  <p><strong>O2 — Box session TTL.</strong> Carts already have an Abandoned status; no expiry job is
-  added here. When delivery dates arrive (Spec 069 phase 2), stale boxes quoting stale promises may
-  justify a TTL sweep — decide there.</p>
+<div class="callout ok">
+  <p><strong>O2 — Box session TTL: resolved in this revision.</strong> Because A4's currency lock
+  counts open carts, an abandonment sweep became a correctness requirement rather than a nicety:
+  authoring rule A6 transitions box carts idle beyond
+  <code>Commerce.Carts.AbandonAfterDays</code> (default 14) to Abandoned via the existing
+  background-job infrastructure. Spec 069 phase 2 may later tighten the window for stale delivery
+  promises.</p>
 </div>
 <div class="callout open">
   <p><strong>O3 — Multiple boxes per session.</strong> The contract supports it naturally (each cart
