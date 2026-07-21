@@ -207,10 +207,16 @@ public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed; re
 public decimal? UnitSurcharge { get; set; }              // product surcharge snapshot, per unit
 
 // OrderBundleSelection — kitchen-facing landing (see §9)
-public string?  PersonalisationJson { get; set; }
-public string?  PersonalisationSummary { get; set; }
-public decimal? PersonalisationAdjustment { get; set; }
-public decimal? UnitSurcharge { get; set; }</code></pre>
+public string?  PersonalisationJson { get; set; }        // canonical selection (query convenience)
+public string?  PersonalisationSummary { get; set; }     // differs-from-default text (query convenience)
+public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed (query convenience)
+public decimal? UnitSurcharge { get; set; }              // per unit (query convenience)
+/// <summary>The complete Spec 066 §12 personalisation envelope for this selection row —
+/// selection, summary, label-snapshotted display, isDefault, adjustment, currency, per-group
+/// breakdown, surcharge + its currency. Immutable full-fidelity record: after defaults or option
+/// prices change, the order must still explain which choices produced the amount charged without
+/// consulting the live catalogue. The scalar columns above are projections of this envelope.</summary>
+public string?  PersonalisationEnvelopeJson { get; set; }</code></pre>
 
 <table>
   <tr><th>Entity</th><th>Table</th><th>Unique index</th></tr>
@@ -347,12 +353,15 @@ line's selection is re-normalised against the product's <em>current</em> effecti
 Spec 066's stored-selection mode (<code>RenormalizeStoredAsync</code> — drift is reported, never
 thrown):</p>
 <ul>
-  <li>A chosen key no longer offered (retired choice, tightened narrowing, deactivated group) →
-      that group remaps to the current effective default, the line re-prices, and a
-      <code>changes[]</code> entry describes it plainly:
-      <code>{ "lineId": …, "group": "side", "from": "plantain", "to": "wildrice",
-      "reason": "option-retired", "priceDelta": -2.00 }</code>. The storefront tells the customer
-      what changed and why (Step&nbsp;2 edge table).</li>
+  <li>Drift follows Spec 066's <code>RenormalizeStoredAsync</code> contract exactly — the cases
+      differ: a <strong>retired choice in a still-servable group</strong> remaps to that group's
+      current effective default
+      (<code>{ "lineId": …, "group": "side", "from": "plantain", "to": "wildrice",
+      "reason": "option-retired", "priceDelta": -2.00 }</code>); a <strong>deactivated or
+      de-narrowed group</strong> has no effective default to remap to and is <em>dropped</em> from
+      the selection (<code>"reason": "group-removed"</code>). Both re-price and re-canonicalise
+      (the merge key changes with the selection). The storefront tells the customer what changed
+      and why (Step&nbsp;2 edge table).</li>
   <li>Remapping can merge lines (the remapped selection may now equal another line's) — the change
       entry says so.</li>
   <li>A line's <em>product or variant</em> becoming unavailable — product no longer Active,
@@ -488,7 +497,7 @@ the two can never disagree.</p>
   <tr><td>R7</td><td>Price recomputed from scratch on every write; client-supplied amounts ignored.</td></tr>
   <tr><td>R8</td><td>Continue and checkout refused unless units == size and no line is flagged unavailable.</td></tr>
   <tr><td>R9</td><td>Writes to a cart whose status is not Open <strong>or whose <code>OrderId</code> is already stamped</strong> → reject. The existing checkout deliberately leaves a cart Open (with <code>OrderId</code> set) until payment completes — status alone would let a customer edit a box whose order, reservation and payment amount are already fixed (this mirrors <code>ValidateOpenCartAsync</code>).</td></tr>
-  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's token via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). The token is <strong>server-minted</strong>: ≥ 256 bits of entropy, opaque, disclosed exactly once in the create response; any client-supplied token value on create is <em>ignored</em> (today's contract stores it verbatim, so an attacker could register an empty or guessable token), and legacy carts whose stored token is null/weak fail closed. Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. Applies to the <em>generic</em> cart endpoints too, not just box carts.</td></tr>
+  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's token via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). The token is <strong>server-minted</strong>: ≥ 256 bits of entropy, opaque, disclosed exactly once in the create response; any client-supplied token value on create is <em>ignored</em> (today's contract stores it verbatim, so an attacker could register an empty or guessable token), and legacy carts whose stored token is null/weak fail closed. Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. Applies to the <em>generic</em> cart endpoints too, not just box carts. <strong>Enforcement lives at the service boundary, not endpoint middleware:</strong> <code>IBoxCartService</code> and <code>ICartService</code> operations take a required <code>CartAccessContext</code> (guest token or authenticated party principal) and authorize through one shared authorizer; the endpoints merely translate <code>X-Cart-Token</code> into it. Every direct consumer — <code>CheckoutService</code>, the Commerce agent tools, anything future — must present the context, so non-HTTP call paths cannot read or mutate arbitrary carts by knowing an id.</td></tr>
   <tr><td>R11</td><td><strong>Box carts are writable only through <code>IBoxCartService</code>.</strong> The generic cart mutation paths (<code>POST /commerce/carts/{id}/items</code>, <code>/bundles</code>, generic remove) reject any cart with <code>BoxBundleProductId</code> set (400 pointing at the box routes) — otherwise ordinary item inserts would bypass capacity, slot, personalisation, merge and quote rules.</td></tr>
   <tr><td>R12</td><td>Add commands require quantity ≥ 1; update quantity 0 deletes the line, negative rejects; <code>applyToUnits</code> stays bounded 1..line quantity. Non-positive quantities never reach pricing or stock reservation (a negative reservation would <em>release</em> stock).</td></tr>
 </table>
@@ -515,8 +524,11 @@ authoring forever.</p>
   <li><code>DbSet</code>s + <code>MapTable</code> entries in both contexts.</li>
   <li>One tool-generated migration:
       <pre><code>dotnet ef migrations add AddCommerceBoxBuilderCarts --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
-      Review (two tables + additive columns, nothing else), apply locally, commit both files.
-      Hand-written migrations are prohibited (CLAUDE.md).</li>
+      Review (two tables + additive columns, nothing else), apply locally, and commit all three
+      generated artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>,
+      <em>and</em> the updated <code>AonikDbContextModelSnapshot.cs</code> (an uncommitted snapshot
+      makes the next migration rediscover these tables). Hand-written migrations are prohibited
+      (CLAUDE.md).</li>
 </ol>
 
 <!-- ============================================================ -->
