@@ -46,7 +46,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 067</span>
-  <span class="meta-tag status-draft">Draft v1.1</span>
+  <span class="meta-tag status-draft">Draft v1.2</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">Depends on: Spec 066</span>
@@ -72,6 +72,17 @@
   cache-key rules bound public cache staleness (§8). (8)&nbsp;Resolution history honesty: content
   resolves against <em>current</em> authoring; snapshot-at-checkout and revisions are explicit open
   decisions (§15).</p>
+  <p><strong>Revision 1.2 (Codex review round 2).</strong> (9)&nbsp;Variant declarations and
+  heating are explicit-or-withheld — dynamic inheritance from the default block is gone (§4/§5).
+  (10)&nbsp;Fallback withholds heating like declarations — substituted timings are unsafe food,
+  not a caption problem (§5). (11)&nbsp;<code>v</code> is validated: only the current version is
+  publicly cacheable, killing future-version cache poisoning; setting <code>RequiresReview</code>
+  bumps <code>ContentVersion</code> atomically; content caches vary by tenant (§8).
+  (12)&nbsp;Product DTO embeds the <em>resolved</em> standard preparation, not the raw block (§8).
+  (13)&nbsp;A currency-free <code>NormalizeAsync</code> is specified as a Spec 066 amendment (§7).
+  (14)&nbsp;Cross-row invariants serialize on the <code>ProductContent</code> concurrency token
+  (§9). (15)&nbsp;Selection columns are <code>nvarchar(max)</code>; coverage is bounded to
+  single-choice deviations (§8/§10).</p>
 </div>
 
 <h2>Contents</h2>
@@ -224,11 +235,18 @@ public class ProductContentVariant : AuditableEntity, ITenantScoped
     public decimal? FibreGrams { get; set; }
     public decimal? SugarsGrams { get; set; }
     public decimal? SaltGrams { get; set; }
-    /// <summary>Null = inherit the default block's text; non-null = replace it wholesale. No
-    /// merging. Inherited text is subject to the default block's review state (§6).</summary>
+    /// <summary>Explicit or withheld — never dynamically inherited. Null = WITHHELD for this
+    /// combination (the storefront shows its "not yet published" state); non-null = the authored
+    /// declaration for exactly this combination. Admin UI may prefill from the default block as a
+    /// copy at authoring time, but what is stored is what is served: a later default-block edit
+    /// can never silently change what a variant declares (the salmon variant returning the
+    /// standard preparation's shellfish line via inheritance is exactly the §2 incident).</summary>
     public string? Ingredients { get; set; }
     public string? Allergens { get; set; }
-    public string? HeatingJson { get; set; }                   // null = inherit default steps
+    /// <summary>Same rule as the declarations: explicit or withheld, never inherited. Heating is
+    /// option-dependent content too — a full portion served the light portion's timings is
+    /// undercooked food, not a display nit.</summary>
+    public string? HeatingJson { get; set; }
     public bool IsActive { get; set; } = true;
 }</code></pre>
 
@@ -260,9 +278,10 @@ public class ProductContentVariant : AuditableEntity, ITenantScoped
       canonical, validated. Invalid selections fail there first (V1–V5).</li>
   <li><strong>Variant lookup</strong>: find the active variant whose <code>SelectionHash</code> /
       <code>SelectionJson</code> equals the normalised complete selection. Found → serve it:
-      authored figures and serving label; null text/heating fields inherit from the default block
-      (inherited <em>declarations</em> are withheld while the default block
-      <code>RequiresReview</code>, §6). <code>isStandardPreparation: false</code>.</li>
+      authored figures and serving label; its declarations and heating serve only when explicitly
+      authored on the variant — null means withheld (<code>declarationsWithheld</code> /
+      <code>heatingWithheld</code>), never inherited from the default block.
+      <code>isStandardPreparation: false</code>.</li>
   <li>No variant. Compute the <strong>diff</strong>: the groups where the selection differs from
       the current effective default — compared by <em>keys</em>, never by price (two £0 proteins
       are still a diff, and a diff is exactly what can change an allergen list; multi-select values
@@ -271,13 +290,14 @@ public class ProductContentVariant : AuditableEntity, ITenantScoped
       default block, <code>isStandardPreparation: false</code>. If the block
       <code>RequiresReview</code>, figures are flagged <code>isStale: true</code> and declarations
       are withheld (§6).</li>
-  <li><strong>Non-empty diff</strong> → serve the default block's figures and heating with
+  <li><strong>Non-empty diff</strong> → serve the default block's <em>figures</em> with
       <code>isStandardPreparation: true</code> (caption: "figures are for the standard
-      preparation") — and <strong>withhold ingredients &amp; allergens</strong>
-      (<code>ingredients: null</code>, <code>allergens: null</code>,
-      <code>declarationsWithheld: true</code>). The storefront renders its existing "not yet
-      published for this combination" state. <code>RequiresReview</code> additionally flags the
-      figures stale.</li>
+      preparation") — and <strong>withhold ingredients, allergens <em>and heating</em></strong>
+      (<code>declarationsWithheld: true</code>, <code>heatingWithheld: true</code>). Heating is as
+      option-dependent as the declarations — light-portion timings on a full portion is
+      undercooked food; the caption qualifies figures, it does not make substituted preparation
+      instructions safe. The storefront renders its existing "not yet published for this
+      combination" states. <code>RequiresReview</code> additionally flags the figures stale.</li>
 </ol>
 
 <div class="callout">
@@ -310,7 +330,8 @@ remains true regardless of which combination is currently "default". Two consequ
       <code>ProductContent</code> (subscribing to the affected-products enumeration Spec 066's
       operation returns; product-level override and narrowing writes trigger the same flag).
       While flagged: exact variant matches serve normally; every resolution that would use the
-      default block serves figures flagged <code>isStale: true</code> and withholds declarations.
+      default block serves figures flagged <code>isStale: true</code> and withholds declarations
+      and heating.
       The flag clears when an admin re-upserts the block or calls the explicit confirm endpoint
       ("reviewed, still correct") — both re-capture <code>DescribesSelectionJson</code>.
       <strong>Belt and braces:</strong> the block stores the canonical all-defaults selection it
@@ -343,12 +364,24 @@ public record ResolvedContentDto(
     string? Ingredients,               // null when withheld or not authored
     string? Allergens,                 // null when withheld or not authored
     bool DeclarationsWithheld,         // true = no exact-authored declaration for this combination
-    IReadOnlyList&lt;HeatingStepDto&gt; Heating,
+    IReadOnlyList&lt;HeatingStepDto&gt; Heating,   // empty when withheld
+    bool HeatingWithheld,              // true = no exact-authored heating for this combination
     bool IsStandardPreparation,        // default figures shown for a different combination
     bool IsStale,                      // default block awaiting review after a default change
     string CanonicalSelectionJson,     // what was resolved for (post-normalisation)
     string? MatchedVariantSelectionJson,  // the variant that matched; null when default served
     int ContentVersion);</code></pre>
+
+<div class="callout">
+  <p><strong>Amendment to Spec 066 §10 (to fold into 066 at implementation):</strong> content
+  resolution is currency-independent, but 066's only strict operation is
+  <code>NormalizeAndPriceAsync(productId, selection, currency)</code> — using it here would either
+  invent a currency or fail valid content requests on pricing rule V10.
+  <code>IOptionSelectionService</code> therefore additionally exposes
+  <code>NormalizeAsync(productId, selection)</code>: identical validation and canonicalisation
+  (V1–V5), no pricing, no currency parameter. This resolver — and any other content-only consumer
+  — uses it.</p>
+</div>
 
 <!-- ============================================================ -->
 <h2 id="api">8. API surface &amp; caching</h2>
@@ -357,9 +390,13 @@ public record ResolvedContentDto(
 <table>
   <tr><th>Route</th><th>Returns</th></tr>
   <tr><td><code>GET /commerce/catalog/products/{slug}</code> <em>(extended)</em></td>
-      <td><code>ProductDto</code> gains <code>content</code> — the default block (<strong>null</strong>
-      when none is authored) — and <code>contentVersion</code>. A product page renders its panels
-      from the first call; no second request until an option changes.</td></tr>
+      <td><code>ProductDto</code> gains <code>content</code> — <strong>the resolved
+      standard-preparation content</strong> (the §5 resolution of the empty selection, carrying its
+      flags), <em>not</em> the raw default row — and <code>contentVersion</code>. Embedding the raw
+      block would bypass §5/§6: after a default move, the variant that now describes the standard
+      combination must win, and a suspect block must arrive stale-flagged with declarations
+      withheld. <strong>null</strong> when no default block is authored. A product page renders its
+      panels from the first call; no second request until an option changes.</td></tr>
   <tr><td><code>GET /commerce/catalog/products/{slug}/content?selection=&lt;url-encoded canonical JSON&gt;&amp;v={contentVersion}</code></td>
       <td><code>ResolvedContentDto</code> for the selection. Omitted/empty <code>selection</code>
       resolves the standard preparation. <strong>404</strong> when the product has no default
@@ -369,18 +406,31 @@ public record ResolvedContentDto(
 <h3>Caching (bounded staleness — safety content is cacheable only with an eviction story)</h3>
 <ul>
   <li><code>ContentVersion</code> increments on <em>every</em> content write for the product:
-      default upsert, review confirm, variant add/update/deactivate/reactivate.</li>
+      default upsert, review confirm, variant add/update/deactivate/reactivate — <strong>and the
+      §6 default-change reaction that sets <code>RequiresReview</code></strong>. The flag exists
+      precisely to change what resolution returns, so setting it must invalidate cached responses
+      like any other content write; the flag-set and version-bump commit atomically, or a cached
+      response could keep serving declarations with <code>isStale: false</code> after the default
+      moved.</li>
   <li>The storefront obtains <code>contentVersion</code> from the product DTO and includes it as
       the <code>v</code> parameter — the version is part of the cache key, so any authoring
       correction changes the URL and previously cached responses become unreachable rather than
       stale-served.</li>
-  <li>Responses carry <code>Cache-Control: public, max-age=300</code>. Worst-case staleness after
-      an admin correction is therefore bounded by the product-page revalidation window (which
-      refreshes <code>contentVersion</code>) plus 300&nbsp;s — not "until the CDN feels like it".
-      The bound is asserted in the acceptance criteria (A15).</li>
-  <li>Requests with a stale or absent <code>v</code> are still answered correctly from origin (the
-      parameter is a cache key, not an input); origin always resolves against current
-      authoring.</li>
+  <li><strong><code>v</code> is validated, not ignored.</strong> Origin computes the correct
+      current response either way, but only stamps <code>Cache-Control: public, max-age=300</code>
+      when <code>v</code> equals the current <code>ContentVersion</code>; an absent or mismatched
+      <code>v</code> gets <code>Cache-Control: no-store</code>. Otherwise an anonymous caller
+      could pre-poison a shared cache by requesting <em>future</em> versions
+      (<code>v=N+1</code> while current is N) and have the stale body served after a correction
+      bumps to N+1 — defeating the changed-URL guarantee A15 relies on.</li>
+  <li><strong>Cache partitioning is tenant-aware.</strong> Under header tenant routing two tenants
+      share host and path and differ only by <code>X-Tenant-Id</code>, so cacheable responses emit
+      <code>Vary: X-Tenant-Id</code> (subdomain routing partitions naturally by host). One
+      tenant's allergen content served to another's customers is not a tolerable cache
+      quirk.</li>
+  <li>Worst-case staleness after an admin correction is bounded by the product-page revalidation
+      window (which refreshes <code>contentVersion</code>) plus 300&nbsp;s — not "until the CDN
+      feels like it". The bound is asserted in the acceptance criteria (A15).</li>
 </ul>
 
 <h3>Admin (writes AdminWritePolicy, reads AdminUserPolicy)</h3>
@@ -392,11 +442,13 @@ public record ResolvedContentDto(
   <tr><td><code>PUT /commerce/admin/content-variants/{variantId:guid}</code></td><td>Update a variant</td></tr>
   <tr><td><code>DELETE /commerce/admin/content-variants/{variantId:guid}</code></td><td>Soft-retire (sets <code>IsActive=false</code>)</td></tr>
   <tr><td><code>GET /commerce/admin/products/{productId:guid}/content-coverage</code></td>
-      <td>Coverage listing: every authored variant combination, plus the <em>single-group</em>
-      non-default combinations the product's effective options make possible that have no variant.
-      (Full combinatorial coverage is unbounded; single-group gaps are the practical authoring
-      checklist. Multi-group combinations are authored on demand and appear in the authored
-      list.)</td></tr>
+      <td>Coverage listing: every authored variant combination, plus the
+      <em>single-choice-deviation</em> gaps — for each offered group, each offered non-default
+      choice substituted <strong>alone</strong> into the standard selection (a multi-select group
+      contributes each single choice alone, not its power set). Bounded by Σ|offered choices|
+      per product, never combinatorial — a large multi-select group must not turn an admin read
+      into a 2<sup>N</sup> enumeration. Multi-choice and multi-group combinations are authored on
+      demand and appear in the authored list.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -431,8 +483,19 @@ public record ResolvedContentDto(
       (<code>decimal(9,2)</code>) — on the default block and on variants alike. SQL would happily
       store −500 kcal; the service must not.</td></tr>
   <tr><td>V-C8</td><td>Adding a variant to a product that has no default block — the block is the
-      baseline V-C2 and inheritance are defined against.</td></tr>
+      baseline V-C2 is defined against.</td></tr>
 </table>
+
+<p><strong>Cross-row invariants are serialized, not hoped for.</strong> V-C2 and V-C6 span the
+default block and every active variant, and no single database constraint can express them: a
+default upsert racing a variant write could each validate against the other's old state and commit
+an inconsistent pair. Every content write for a product — default upsert, confirm-review, variant
+add/update/deactivate — therefore runs in one transaction that performs its validation <em>and</em>
+updates <code>ProductContent.ContentVersion</code> under the row's optimistic-concurrency token
+(rowversion, already stamped by <code>AonikDbContextBase.ConfigureRowVersions</code>). Concurrent
+content writes to the same product conflict on that token; the loser revalidates against fresh
+state and retries once, then fails cleanly. The version bump the cache needs (§8) doubles as the
+serialization point.</p>
 
 <!-- ============================================================ -->
 <h2 id="persistence">10. Persistence &amp; migration</h2>
@@ -441,8 +504,10 @@ public record ResolvedContentDto(
   <li>Configurations in <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> —
       indexes per §4; <code>ServingLabel</code> 128, <code>Ingredients</code>/<code>Allergens</code>
       <code>nvarchar(max)</code>, figures <code>decimal(9,2)</code>, <code>SelectionJson</code> and
-      <code>DescribesSelectionJson</code> 2048, <code>SelectionHash</code> <code>char(64)</code>
-      (the unique key —
+      <code>DescribesSelectionJson</code> <code>nvarchar(max)</code> — Spec 066 bounds neither
+      group count nor multi-select width, so a fixed cap could reject a valid canonical selection
+      at persistence after it passed validation; only the hash is ever indexed —
+      <code>SelectionHash</code> <code>char(64)</code> (the unique key —
       TenantId&nbsp;+&nbsp;ProductId&nbsp;+&nbsp;hash is ~96 bytes, comfortably inside SQL Server's
       1,700-byte nonclustered key limit; the JSON itself is never indexed).</li>
   <li><code>DbSet</code>s in <code>AonikDbContext</code> + <code>CommerceDbContext</code>, with
@@ -450,9 +515,12 @@ public record ResolvedContentDto(
       <code>ProductContentVariants</code>).</li>
   <li>Tool-generated migration on the canonical stream:
       <pre><code>dotnet ef migrations add AddCommerceProductContent --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
-      Expect two new tables, nothing else. Review, apply locally, commit both files. Hand-written
-      migrations are prohibited (CLAUDE.md). No backfill: existing products simply have
-      <code>content: null</code> until authored (§5 step 1).</li>
+      Expect two new tables, nothing else. Review, apply locally, and commit all three generated
+      artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>, <em>and</em> the
+      updated <code>AonikDbContextModelSnapshot.cs</code> (an uncommitted snapshot makes the next
+      migration rediscover these tables). Hand-written migrations are prohibited (CLAUDE.md). No
+      backfill: existing products simply have <code>content: null</code> until authored (§5
+      step 1).</li>
 </ol>
 
 <!-- ============================================================ -->
@@ -525,6 +593,11 @@ public record ResolvedContentDto(
   <tr><td>A14</td><td>Default upsert adding a sugars figure while an active variant lacks it → 400 naming the variant (V-C6); removing a figure the variants still publish succeeds.</td></tr>
   <tr><td>A15</td><td>An allergen correction on the default block bumps <code>contentVersion</code>; the storefront's next product-DTO revalidation yields a new <code>v</code> and therefore a new cache key — total staleness ≤ product-page revalidation window + 300 s, verified by the changed URL.</td></tr>
   <tr><td>A16</td><td>Authoring a variant whose normalised selection equals the current all-defaults selection → 400 naming V-C1.</td></tr>
+  <tr><td>A17</td><td>A request with <code>v</code> ≠ current <code>ContentVersion</code> (including a future value) returns the correct body with <code>Cache-Control: no-store</code>; only <code>v</code> == current gets <code>public, max-age=300</code> — a pre-poisoned future-version cache entry is impossible.</td></tr>
+  <tr><td>A18</td><td>A default change setting <code>RequiresReview</code> bumps <code>ContentVersion</code> in the same transaction — the next product-DTO read advertises a new <code>v</code> and no cached response can keep serving <code>isStale: false</code>.</td></tr>
+  <tr><td>A19</td><td>A variant authored with figures but null declarations → its resolution returns <code>declarationsWithheld: true</code> even though the default block has declarations; editing the default block's allergens changes nothing about what that variant serves.</td></tr>
+  <tr><td>A20</td><td>Fallback for a non-default combination withholds heating (<code>heatingWithheld: true</code>, empty steps) exactly as it withholds declarations; a variant with authored heating serves it.</td></tr>
+  <tr><td>A21</td><td>Concurrent default-upsert (adding a figure) and variant-add race → one commits, the other conflicts on the <code>ProductContent</code> token, revalidates, and is correctly rejected/accepted against the fresh state — a variant missing a now-published figure can never persist.</td></tr>
 </table>
 
 <!-- ============================================================ -->
