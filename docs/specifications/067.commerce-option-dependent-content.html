@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 067 - Commerce option-dependent product content</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 067</span>
+  <span class="meta-tag status-draft">Draft v1.2</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">Depends on: Spec 066</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Commerce option-dependent product content</h1>
+  <p class="small">Authored product content — nutrition figures, ingredients, allergen declarations,
+  preparation/heating guidance — that changes with the customer's option selection and is
+  <strong>never computed</strong>. Build area B of the
+  <a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a>;
+  implements plan decision D2 (structured entities, not <code>AttributesJson</code>).</p>
+</header>
+
+<div class="callout ok">
+  <p><strong>Revision 1.1 (Codex review round 1).</strong> (1)&nbsp;Variants are now keyed by the
+  <em>complete canonical selection</em>, not a diff — identity survives recommended-default changes
+  (§5); a default change flags the default block for review instead of silently re-labelling
+  content (§6). (2)&nbsp;Fallback for a non-default selection <strong>withholds ingredients &amp;
+  allergens</strong> — declarations are exact-authored or absent, never substituted (§5).
+  (3)&nbsp;V-C6 reversed: <em>adding</em> a default figure re-validates every active variant.
+  (4)&nbsp;Uniqueness moves to a fixed-length <code>SelectionHash</code> (SQL index key limit).
+  (5)&nbsp;Products without a default block are a defined state (null content, 404 resolution).
+  (6)&nbsp;Figures validated finite and non-negative. (7)&nbsp;<code>ContentVersion</code> +
+  cache-key rules bound public cache staleness (§8). (8)&nbsp;Resolution history honesty: content
+  resolves against <em>current</em> authoring; snapshot-at-checkout and revisions are explicit open
+  decisions (§15).</p>
+  <p><strong>Revision 1.2 (Codex review round 2).</strong> (9)&nbsp;Variant declarations and
+  heating are explicit-or-withheld — dynamic inheritance from the default block is gone (§4/§5).
+  (10)&nbsp;Fallback withholds heating like declarations — substituted timings are unsafe food,
+  not a caption problem (§5). (11)&nbsp;<code>v</code> is validated: only the current version is
+  publicly cacheable, killing future-version cache poisoning; setting <code>RequiresReview</code>
+  bumps <code>ContentVersion</code> atomically; content caches vary by tenant (§8).
+  (12)&nbsp;Product DTO embeds the <em>resolved</em> standard preparation, not the raw block (§8).
+  (13)&nbsp;A currency-free <code>NormalizeAsync</code> is specified as a Spec 066 amendment (§7).
+  (14)&nbsp;Cross-row invariants serialize on the <code>ProductContent</code> concurrency token
+  (§9). (15)&nbsp;Selection columns are <code>nvarchar(max)</code>; coverage is bounded to
+  single-choice deviations (§8/§10).</p>
+</div>
+
+<h2>Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#motivation">Motivation &amp; safety stance</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#matching">Resolution: exact-selection matching</a></li>
+    <li><a href="#defaults">Reacting to default changes</a></li>
+    <li><a href="#services">Service</a></li>
+    <li><a href="#api">API surface &amp; caching</a></li>
+    <li><a href="#validation">Validation rules</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; tenancy</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="summary">1. Summary</h2>
+
+<p>A product's displayed facts can depend on how it is configured: a portion change alters every
+nutrition figure; a protein swap alters protein, fat <em>and the allergen declaration</em>. This
+spec adds a default content block per product (<code>ProductContent</code>) and authored variants
+per <strong>complete selection combination</strong> (<code>ProductContentVariant</code>), a
+resolution service keyed on the canonical selection form defined in Spec 066, and a public
+resolution endpoint. When no variant is authored for a requested combination, nutrition figures
+fall back to the default flagged <code>isStandardPreparation: true</code> — but ingredients and
+allergen declarations are <strong>withheld</strong>, not substituted. Nothing is ever scaled,
+multiplied, merged or derived.</p>
+
+<!-- ============================================================ -->
+<h2 id="motivation">2. Motivation &amp; safety stance</h2>
+
+<p>The Abby's Table Step&nbsp;2 spec (FR-10.2) corrected its own v1.0 on exactly this point: it had
+said "multiply nutrition by 2 for a full portion", which is wrong in general and dangerous in
+particular — a multiplier can never produce a changed allergen list. The platform rules this spec
+encodes:</p>
+
+<div class="callout p0">
+  <p><strong>Authored, or absent. Never derived, never substituted.</strong> Nutrition figures shown
+  for a selection are either authored for exactly that combination or are the default figures
+  explicitly captioned as describing the standard preparation. Ingredients and allergen
+  declarations are stricter still: they are served <em>only</em> when authored for exactly the
+  requested combination (or when the request <em>is</em> the standard preparation) — otherwise they
+  are withheld and the storefront shows its "not yet published for this combination" state. A
+  customer who chose salmon must never read the standard preparation's shellfish declaration under
+  their selection, footnote or not. This data gets structured entities and admin validation rather
+  than a JSON-blob convention (plan decision D2) for the same reason.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<table>
+  <tr><th style="width:50%">In</th><th>Out (and where it goes)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><code>ProductContent</code> (default block) + <code>ProductContentVariant</code>
+            (per-combination content, complete-selection identity)</li>
+        <li>Exact-selection resolution + withheld-declaration fallback semantics</li>
+        <li>Default-change reaction: content review flag driven by Spec 066's atomic
+            recommended-default operation</li>
+        <li>Public resolution endpoint with bounded caching (<code>ContentVersion</code>)</li>
+        <li>Admin authoring endpoints with safety validations</li>
+        <li>Migration (tool-generated, canonical stream)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li>Option groups, selections, canonicalisation, pricing — <strong>Spec 066</strong>
+            (this spec consumes its canonical selection, effective options and normalisation)</li>
+        <li>Snapshotting resolved content onto orders — resolution is always against
+            <em>current</em> authoring; reproducing what a past shopper saw is Open decision O3
+            (snapshot-at-checkout hook for Spec 068, or immutable revisions)</li>
+        <li>Merchandising attributes (spice level, badges) — stay in
+            <code>Product.AttributesJson</code>; this spec is facts-of-record only</li>
+        <li>Photography/media — media pipeline wiring item</li>
+        <li>Authoring UI screens — Commerce AdminUI workstream</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="model">4. Domain model</h2>
+
+<p>Anemic, tenant-scoped, in <code>src/Aonik.Commerce/Entities/Catalog/</code>. Nutrition figures
+are dedicated nullable decimal columns (not JSON) per decision D2 — they are the facts admin
+validation operates on. Heating steps are display content and stay JSON.</p>
+
+<pre><code>/// <summary>Default ("standard preparation") content for one product. At most one per product.</summary>
+public class ProductContent : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid ProductId { get; set; }
+    public string ServingLabel { get; set; } = string.Empty;   // "Light table 225g"
+    public decimal? Kcal { get; set; }
+    public decimal? ProteinGrams { get; set; }
+    public decimal? CarbsGrams { get; set; }
+    public decimal? FatGrams { get; set; }
+    public decimal? FibreGrams { get; set; }
+    public decimal? SugarsGrams { get; set; }
+    public decimal? SaltGrams { get; set; }
+    public string? Ingredients { get; set; }                   // full declaration text
+    public string? Allergens { get; set; }                     // allergen declaration text
+    public string HeatingJson { get; set; } = "[]";            // [{ "method": "...", "body": "..." }]
+    /// <summary>The canonical all-defaults selection this block describes, captured at authoring
+    /// time. Resolution cross-checks it against the product's current all-defaults selection —
+    /// a mismatch behaves exactly like RequiresReview even if the flag write was missed, so the
+    /// binding is self-verifying, not only event-driven.</summary>
+    public string DescribesSelectionJson { get; set; } = "{}";
+    /// <summary>Set when the product's effective default combination changes after this block was
+    /// authored (§6). While true, non-variant resolutions are flagged stale and declarations are
+    /// withheld. Cleared by re-upserting the block or explicitly confirming review (both of which
+    /// re-capture DescribesSelectionJson).</summary>
+    public bool RequiresReview { get; set; }
+    /// <summary>Monotonic version covering this product's whole content set (default + variants).
+    /// Bumped on every content write; participates in the public cache key (§8).</summary>
+    public int ContentVersion { get; set; }
+}
+
+/// <summary>Authored content for one exact, complete selection combination of one product.
+/// Keyed by the complete canonical selection (Spec 066 §7) — identity is therefore stable when a
+/// recommended default later changes.</summary>
+public class ProductContentVariant : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid ProductId { get; set; }
+    /// <summary>The complete canonical selection this content describes. Authoring input may be
+    /// partial; it is normalised through Spec 066 (omitted groups filled with the then-current
+    /// defaults) and stored complete.</summary>
+    public string SelectionJson { get; set; } = "{}";
+    /// <summary>SHA-256 (hex, lower) of SelectionJson. Fixed-length uniqueness key — a 1024+ char
+    /// JSON string cannot participate in a SQL Server nonclustered unique index (1,700-byte key
+    /// limit).</summary>
+    public string SelectionHash { get; set; } = string.Empty;
+    public string ServingLabel { get; set; } = string.Empty;
+    public decimal? Kcal { get; set; }
+    public decimal? ProteinGrams { get; set; }
+    public decimal? CarbsGrams { get; set; }
+    public decimal? FatGrams { get; set; }
+    public decimal? FibreGrams { get; set; }
+    public decimal? SugarsGrams { get; set; }
+    public decimal? SaltGrams { get; set; }
+    /// <summary>Explicit or withheld — never dynamically inherited. Null = WITHHELD for this
+    /// combination (the storefront shows its "not yet published" state); non-null = the authored
+    /// declaration for exactly this combination. Admin UI may prefill from the default block as a
+    /// copy at authoring time, but what is stored is what is served: a later default-block edit
+    /// can never silently change what a variant declares (the salmon variant returning the
+    /// standard preparation's shellfish line via inheritance is exactly the §2 incident).</summary>
+    public string? Ingredients { get; set; }
+    public string? Allergens { get; set; }
+    /// <summary>Same rule as the declarations: explicit or withheld, never inherited. Heating is
+    /// option-dependent content too — a full portion served the light portion's timings is
+    /// undercooked food, not a display nit.</summary>
+    public string? HeatingJson { get; set; }
+    public bool IsActive { get; set; } = true;
+}</code></pre>
+
+<table>
+  <tr><th>Entity</th><th>Table</th><th>Unique index</th><th>Other indexes</th></tr>
+  <tr><td><code>ProductContent</code></td><td><code>AnkProductContents</code></td><td>(TenantId, ProductId)</td><td>—</td></tr>
+  <tr><td><code>ProductContentVariant</code></td><td><code>AnkProductContentVariants</code></td><td>(TenantId, ProductId, SelectionHash)</td><td>(TenantId, ProductId)</td></tr>
+</table>
+
+<div class="callout">
+  <p><strong>Nutrition figures are nullable per field, all-or-flagged per block.</strong> A variant
+  either supplies every figure the default block publishes, or admin validation rejects it (§9
+  V-C2) — a panel mixing default kcal with variant protein would be a derived panel by the back
+  door. A variant may publish <em>more</em> figures than the default, never fewer. The nullable
+  columns exist so a tenant that publishes no sugars figure at all can stay consistent, not to
+  allow per-variant partial panels.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="matching">5. Resolution: exact-selection matching</h2>
+
+<p>Given a product and a selection:</p>
+<ol>
+  <li>If the product has no <code>ProductContent</code> row, resolution returns
+      <strong>not-found</strong> (HTTP 404 on the endpoint; <code>content: null</code> on the
+      product DTO). Content is optional per product; absence is a defined state, never an empty
+      panel presented as fact.</li>
+  <li>Normalise the selection via Spec 066 (<code>IOptionSelectionService</code>) — complete,
+      canonical, validated. Invalid selections fail there first (V1–V5).</li>
+  <li><strong>Variant lookup</strong>: find the active variant whose <code>SelectionHash</code> /
+      <code>SelectionJson</code> equals the normalised complete selection. Found → serve it:
+      authored figures and serving label; its declarations and heating serve only when explicitly
+      authored on the variant — null means withheld (<code>declarationsWithheld</code> /
+      <code>heatingWithheld</code>), never inherited from the default block.
+      <code>isStandardPreparation: false</code>.</li>
+  <li>No variant. Compute the <strong>diff</strong>: the groups where the selection differs from
+      the current effective default — compared by <em>keys</em>, never by price (two £0 proteins
+      are still a diff, and a diff is exactly what can change an allergen list; multi-select values
+      compare as sorted arrays).</li>
+  <li><strong>Empty diff</strong> (the request <em>is</em> the standard preparation) → serve the
+      default block, <code>isStandardPreparation: false</code>. If the block
+      <code>RequiresReview</code>, figures are flagged <code>isStale: true</code> and declarations
+      are withheld (§6).</li>
+  <li><strong>Non-empty diff</strong> → serve the default block's <em>figures</em> with
+      <code>isStandardPreparation: true</code> (caption: "figures are for the standard
+      preparation") — and <strong>withhold ingredients, allergens <em>and heating</em></strong>
+      (<code>declarationsWithheld: true</code>, <code>heatingWithheld: true</code>). Heating is as
+      option-dependent as the declarations — light-portion timings on a full portion is
+      undercooked food; the caption qualifies figures, it does not make substituted preparation
+      instructions safe. The storefront renders its existing "not yet published for this
+      combination" states. <code>RequiresReview</code> additionally flags the figures stale.</li>
+</ol>
+
+<div class="callout">
+  <p><strong>Why exact, not best-partial.</strong> If variants exist for the full-portion
+  combination and the salmon combination and the customer picks full&nbsp;+&nbsp;salmon, neither
+  was authored for that combination — a "closest" pick would present a half-truth as fact (salmon
+  allergens with light-portion figures, or doubled figures without the fish declaration).
+  Step&nbsp;2 FR-10.2 names this exactly: "never present a guess as fact". The cost is authoring
+  combined variants where combinations matter; the coverage listing (§8, admin) makes those gaps
+  visible instead of silent.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="defaults">6. Reacting to default changes</h2>
+
+<p>Content meaning is entangled with defaults in exactly one place: the default block describes
+"the standard preparation", and which combination that <em>is</em> changes when a recommended
+default moves (Spec 066's atomic <code>SetRecommendedDefaultAsync</code>, a product-level
+<code>DefaultChoiceKey</code> override, or a narrowing change that shifts the effective default).
+Complete-selection variants are immune — their content describes an absolute combination that
+remains true regardless of which combination is currently "default". Two consequences:</p>
+
+<ul>
+  <li><strong>Variants stay reachable and correct.</strong> After the protein default moves
+      chicken → salmon, the variant authored for the salmon combination still serves for salmon
+      selections — now including the all-defaults selection, which §5 step 3 resolves to it
+      <em>before</em> any default-block fallback. Nothing silently re-labels.</li>
+  <li><strong>The default block becomes suspect.</strong> When a product's effective default
+      combination changes, this spec sets <code>RequiresReview = true</code> on its
+      <code>ProductContent</code> (subscribing to the affected-products enumeration Spec 066's
+      operation returns; product-level override and narrowing writes trigger the same flag).
+      While flagged: exact variant matches serve normally; every resolution that would use the
+      default block serves figures flagged <code>isStale: true</code> and withholds declarations
+      and heating.
+      The flag clears when an admin re-upserts the block or calls the explicit confirm endpoint
+      ("reviewed, still correct") — both re-capture <code>DescribesSelectionJson</code>.
+      <strong>Belt and braces:</strong> the block stores the canonical all-defaults selection it
+      was authored for, and resolution treats any mismatch between that and the <em>current</em>
+      all-defaults selection exactly as <code>RequiresReview</code> — a missed hook (or a default
+      shifted by a path that never fired one) can still never serve old standard-prep content as
+      the new standard preparation. Wrong-but-flagged beats wrong-presented-as-fact; withheld
+      beats both for declarations.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="services">7. Service</h2>
+
+<pre><code>public interface IProductContentService
+{
+    // authoring
+    Task&lt;ProductContentDto&gt; UpsertContentAsync(Guid productId, UpsertProductContentCommand command, CancellationToken ct = default);
+    Task&lt;ProductContentDto&gt; ConfirmContentReviewAsync(Guid productId, CancellationToken ct = default); // clears RequiresReview
+    Task&lt;ProductContentVariantDto&gt; AddVariantAsync(Guid productId, UpsertContentVariantCommand command, CancellationToken ct = default);
+    Task&lt;ProductContentVariantDto&gt; UpdateVariantAsync(Guid variantId, UpsertContentVariantCommand command, CancellationToken ct = default);
+    Task DeactivateVariantAsync(Guid variantId, CancellationToken ct = default);
+    // reads
+    Task&lt;ResolvedContentDto?&gt; ResolveAsync(Guid productId, JsonDocument? selection, CancellationToken ct = default); // null = no default block
+    Task&lt;ContentCoverageDto&gt; GetCoverageAsync(Guid productId, CancellationToken ct = default);
+}
+
+public record ResolvedContentDto(
+    string ServingLabel,
+    NutritionDto Nutrition,            // the published figures, nulls preserved
+    string? Ingredients,               // null when withheld or not authored
+    string? Allergens,                 // null when withheld or not authored
+    bool DeclarationsWithheld,         // true = no exact-authored declaration for this combination
+    IReadOnlyList&lt;HeatingStepDto&gt; Heating,   // empty when withheld
+    bool HeatingWithheld,              // true = no exact-authored heating for this combination
+    bool IsStandardPreparation,        // default figures shown for a different combination
+    bool IsStale,                      // default block awaiting review after a default change
+    string CanonicalSelectionJson,     // what was resolved for (post-normalisation)
+    string? MatchedVariantSelectionJson,  // the variant that matched; null when default served
+    int ContentVersion);</code></pre>
+
+<div class="callout">
+  <p><strong>Amendment to Spec 066 §10 (to fold into 066 at implementation):</strong> content
+  resolution is currency-independent, but 066's only strict operation is
+  <code>NormalizeAndPriceAsync(productId, selection, currency)</code> — using it here would either
+  invent a currency or fail valid content requests on pricing rule V10.
+  <code>IOptionSelectionService</code> therefore additionally exposes
+  <code>NormalizeAsync(productId, selection)</code>: identical validation and canonicalisation
+  (V1–V5), no pricing, no currency parameter. This resolver — and any other content-only consumer
+  — uses it.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="api">8. API surface &amp; caching</h2>
+
+<h3>Public (AllowAnonymous)</h3>
+<table>
+  <tr><th>Route</th><th>Returns</th></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}</code> <em>(extended)</em></td>
+      <td><code>ProductDto</code> gains <code>content</code> — <strong>the resolved
+      standard-preparation content</strong> (the §5 resolution of the empty selection, carrying its
+      flags), <em>not</em> the raw default row — and <code>contentVersion</code>. Embedding the raw
+      block would bypass §5/§6: after a default move, the variant that now describes the standard
+      combination must win, and a suspect block must arrive stale-flagged with declarations
+      withheld. <strong>null</strong> when no default block is authored. A product page renders its
+      panels from the first call; no second request until an option changes.</td></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}/content?selection=&lt;url-encoded canonical JSON&gt;&amp;v={contentVersion}</code></td>
+      <td><code>ResolvedContentDto</code> for the selection. Omitted/empty <code>selection</code>
+      resolves the standard preparation. <strong>404</strong> when the product has no default
+      block.</td></tr>
+</table>
+
+<h3>Caching (bounded staleness — safety content is cacheable only with an eviction story)</h3>
+<ul>
+  <li><code>ContentVersion</code> increments on <em>every</em> content write for the product:
+      default upsert, review confirm, variant add/update/deactivate/reactivate — <strong>and the
+      §6 default-change reaction that sets <code>RequiresReview</code></strong>. The flag exists
+      precisely to change what resolution returns, so setting it must invalidate cached responses
+      like any other content write; the flag-set and version-bump commit atomically, or a cached
+      response could keep serving declarations with <code>isStale: false</code> after the default
+      moved.</li>
+  <li>The storefront obtains <code>contentVersion</code> from the product DTO and includes it as
+      the <code>v</code> parameter — the version is part of the cache key, so any authoring
+      correction changes the URL and previously cached responses become unreachable rather than
+      stale-served.</li>
+  <li><strong><code>v</code> is validated, not ignored.</strong> Origin computes the correct
+      current response either way, but only stamps <code>Cache-Control: public, max-age=300</code>
+      when <code>v</code> equals the current <code>ContentVersion</code>; an absent or mismatched
+      <code>v</code> gets <code>Cache-Control: no-store</code>. Otherwise an anonymous caller
+      could pre-poison a shared cache by requesting <em>future</em> versions
+      (<code>v=N+1</code> while current is N) and have the stale body served after a correction
+      bumps to N+1 — defeating the changed-URL guarantee A15 relies on.</li>
+  <li><strong>Cache partitioning is tenant-aware.</strong> Under header tenant routing two tenants
+      share host and path and differ only by <code>X-Tenant-Id</code>, so cacheable responses emit
+      <code>Vary: X-Tenant-Id</code> (subdomain routing partitions naturally by host). One
+      tenant's allergen content served to another's customers is not a tolerable cache
+      quirk.</li>
+  <li>Worst-case staleness after an admin correction is bounded by the product-page revalidation
+      window (which refreshes <code>contentVersion</code>) plus 300&nbsp;s — not "until the CDN
+      feels like it". The bound is asserted in the acceptance criteria (A15).</li>
+</ul>
+
+<h3>Admin (writes AdminWritePolicy, reads AdminUserPolicy)</h3>
+<table>
+  <tr><th>Route</th><th>Purpose</th></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId:guid}/content</code></td><td>Upsert the default block (clears <code>RequiresReview</code>)</td></tr>
+  <tr><td><code>POST /commerce/admin/products/{productId:guid}/content/confirm-review</code></td><td>Clear <code>RequiresReview</code> without editing ("reviewed, still correct")</td></tr>
+  <tr><td><code>POST /commerce/admin/products/{productId:guid}/content-variants</code></td><td>Author a variant for a combination (input may be partial; stored complete)</td></tr>
+  <tr><td><code>PUT /commerce/admin/content-variants/{variantId:guid}</code></td><td>Update a variant</td></tr>
+  <tr><td><code>DELETE /commerce/admin/content-variants/{variantId:guid}</code></td><td>Soft-retire (sets <code>IsActive=false</code>)</td></tr>
+  <tr><td><code>GET /commerce/admin/products/{productId:guid}/content-coverage</code></td>
+      <td>Coverage listing: every authored variant combination, plus the
+      <em>single-choice-deviation</em> gaps — for each offered group, each offered non-default
+      choice substituted <strong>alone</strong> into the standard selection (a multi-select group
+      contributes each single choice alone, not its power set). Bounded by Σ|offered choices|
+      per product, never combinatorial — a large multi-select group must not turn an admin read
+      into a 2<sup>N</sup> enumeration. Multi-choice and multi-group combinations are authored on
+      demand and appear in the authored list.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="validation">9. Validation rules (authoring)</h2>
+
+<table>
+  <tr><th>#</th><th>Reject when…</th></tr>
+  <tr><td>V-C1</td><td>The variant's selection fails Spec 066 validation for this product (unknown
+      group/choice, not offered, selection-mode violation) — or, after normalisation, equals the
+      current all-defaults selection (that content belongs on the default block, and authoring it
+      as a variant would shadow the block's review lifecycle). Authoring input is normalised
+      through Spec 066 exactly like customer input, so partial input and any redundant
+      default-valued entries resolve into the stored complete canonical form — there is no
+      separate "diff hygiene" to police.</td></tr>
+  <tr><td>V-C2</td><td>The variant's figure set would produce a mixed panel: for every figure the
+      product's default block publishes, the variant must publish it too. (More is allowed; fewer
+      is not.)</td></tr>
+  <tr><td>V-C3</td><td><code>ServingLabel</code> missing — every block must caption which
+      preparation it describes (FR-10.2).</td></tr>
+  <tr><td>V-C4</td><td>A second active variant would exist for the same complete canonical
+      selection (uniqueness on <code>SelectionHash</code>; the service compares
+      <code>SelectionJson</code> on hash conflict before failing).</td></tr>
+  <tr><td>V-C5</td><td>Hard-deleting anything: variants soft-retire only — the rows remain for
+      admin history, audit and reactivation. (Note this is <em>authoring</em> history, not
+      resolution history: resolution always reflects current authoring — see Open decision
+      O3.)</td></tr>
+  <tr><td>V-C6</td><td>A default-content upsert <em>adds</em> a published figure that any active
+      variant does not publish — the write is rejected naming those variants (update them first,
+      or in the same batch). Removing a figure from the default is allowed: variants may
+      over-publish, and every variant that was complete stays complete.</td></tr>
+  <tr><td>V-C7</td><td>Any nutrition figure is negative, non-finite, or exceeds the column bound
+      (<code>decimal(9,2)</code>) — on the default block and on variants alike. SQL would happily
+      store −500 kcal; the service must not.</td></tr>
+  <tr><td>V-C8</td><td>Adding a variant to a product that has no default block — the block is the
+      baseline V-C2 is defined against.</td></tr>
+</table>
+
+<p><strong>Cross-row invariants are serialized, not hoped for.</strong> V-C2 and V-C6 span the
+default block and every active variant, and no single database constraint can express them: a
+default upsert racing a variant write could each validate against the other's old state and commit
+an inconsistent pair. Every content write for a product — default upsert, confirm-review, variant
+add/update/deactivate — therefore runs in one transaction that performs its validation <em>and</em>
+updates <code>ProductContent.ContentVersion</code> under the row's optimistic-concurrency token
+(rowversion, already stamped by <code>AonikDbContextBase.ConfigureRowVersions</code>). Concurrent
+content writes to the same product conflict on that token; the loser revalidates against fresh
+state and retries once, then fails cleanly. The version bump the cache needs (§8) doubles as the
+serialization point.</p>
+
+<!-- ============================================================ -->
+<h2 id="persistence">10. Persistence &amp; migration</h2>
+
+<ol>
+  <li>Configurations in <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> —
+      indexes per §4; <code>ServingLabel</code> 128, <code>Ingredients</code>/<code>Allergens</code>
+      <code>nvarchar(max)</code>, figures <code>decimal(9,2)</code>, <code>SelectionJson</code> and
+      <code>DescribesSelectionJson</code> <code>nvarchar(max)</code> — Spec 066 bounds neither
+      group count nor multi-select width, so a fixed cap could reject a valid canonical selection
+      at persistence after it passed validation; only the hash is ever indexed —
+      <code>SelectionHash</code> <code>char(64)</code> (the unique key —
+      TenantId&nbsp;+&nbsp;ProductId&nbsp;+&nbsp;hash is ~96 bytes, comfortably inside SQL Server's
+      1,700-byte nonclustered key limit; the JSON itself is never indexed).</li>
+  <li><code>DbSet</code>s in <code>AonikDbContext</code> + <code>CommerceDbContext</code>, with
+      <code>MapTable</code> entries (<code>ProductContents</code>,
+      <code>ProductContentVariants</code>).</li>
+  <li>Tool-generated migration on the canonical stream:
+      <pre><code>dotnet ef migrations add AddCommerceProductContent --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+      Expect two new tables, nothing else. Review, apply locally, and commit all three generated
+      artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>, <em>and</em> the
+      updated <code>AonikDbContextModelSnapshot.cs</code> (an uncommitted snapshot makes the next
+      migration rediscover these tables). Hand-written migrations are prohibited (CLAUDE.md). No
+      backfill: existing products simply have <code>content: null</code> until authored (§5
+      step 1).</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="security">11. Security &amp; tenancy</h2>
+<ul>
+  <li>Tenant-scoped entities behind the global query filters; public reads serve active data of
+      Active products only; tenant resolution as per the existing anonymous catalog endpoints.</li>
+  <li>Admin split identical to Spec 066 (<code>AdminWritePolicy</code> /
+      <code>AdminUserPolicy</code>).</li>
+  <li>No PII. Content is public-by-intent data; the sensitivity is <em>correctness</em>, which is
+      what §5, §6 and §9 exist for.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="testing">12. Testing</h2>
+<ul>
+  <li><strong>Unit — resolution</strong>: exact-selection hit; combined selection with only
+      single-group variants authored → default figures + note + <em>withheld declarations</em>;
+      empty diff serves the block unflagged; equal-price swaps still miss the block (key-based
+      diff); multi-select order-insensitivity via canonical form; inherit-vs-replace for text and
+      heating; no default block → null/404; RequiresReview: variant matches serve normally,
+      block-based resolutions flag stale + withhold declarations.</li>
+  <li><strong>Unit — default-change reaction</strong>: after the 066 default moves, the variant for
+      the new default combination resolves for the all-defaults selection (§5 step 3 before step
+      5); the block is flagged; confirm-review and re-upsert both clear it.</li>
+  <li><strong>Service — authoring invariants</strong> (InMemory, <code>TestTenantProvider</code>):
+      V-C1…V-C8, including V-C6's add-figure cross-check naming affected variants, V-C7 bounds,
+      and V-C1's normalise-then-reject-all-defaults path; <code>ContentVersion</code> bumps on
+      every write kind.</li>
+  <li><strong>API</strong> (<code>CustomWebApplicationFactory</code>): resolution round-trip with
+      URL-encoded selection + <code>v</code>; default embedded on product DTO (and null when
+      unauthored); 404 paths; admin authz; tenant isolation.</li>
+  <li>Full-solution <code>dotnet test Aonik.sln</code> before PR.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tasks">13. Phasing &amp; tasks</h2>
+<ol>
+  <li>Entities + configurations + DbSets + MapTable entries.</li>
+  <li>Tool-generated migration; local apply; review.</li>
+  <li>Canonicalisation + hash + resolution in <code>ProductContentService</code> (consumes
+      <code>IOptionSelectionService</code>).</li>
+  <li>Default-change subscription (066 affected-products hook) + <code>RequiresReview</code>
+      lifecycle.</li>
+  <li>Authoring methods + V-C1…V-C8; <code>ContentVersion</code> bumping.</li>
+  <li>DTOs; embed nullable default content + <code>contentVersion</code> in
+      <code>ProductDto</code>.</li>
+  <li>Public resolution endpoint (cache headers, <code>v</code> key) + admin endpoints incl.
+      coverage and confirm-review.</li>
+  <li>DI registration; tests per §12; full-solution run.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>A1</td><td>A variant authored for the full-portion combination; customer selects full → the authored figures return with its serving label — not the default figures doubled (Step 2 AC-19).</td></tr>
+  <tr><td>A2</td><td>Variants exist for the full-portion and salmon combinations separately; customer selects full + salmon → no exact match: default figures return with <code>isStandardPreparation: true</code> and <code>declarationsWithheld: true</code>; ingredients/allergens are null. Neither partial variant is served.</td></tr>
+  <tr><td>A3</td><td>The salmon-combination variant replaces the allergen text → resolution for that combination returns the fish declaration; the default's shellfish declaration is nowhere in the response.</td></tr>
+  <tr><td>A4</td><td>Selection equal to the standard preparation → default block, <code>isStandardPreparation: false</code>, declarations served.</td></tr>
+  <tr><td>A5</td><td>Two £0 choices swapped (chicken → prawns, both zero-priced) → still a non-default combination; resolution goes through variant lookup and, absent one, withholds declarations rather than assuming price-neutral means content-neutral.</td></tr>
+  <tr><td>A6</td><td>Multi-select combination <code>{protein: ["chicken","salmon"]}</code> matched regardless of authoring or selection order of the two keys.</td></tr>
+  <tr><td>A7</td><td>Authoring a variant referencing a choice the product's narrowing excludes → 400 naming V-C1.</td></tr>
+  <tr><td>A8</td><td>Authoring a variant missing a figure the default publishes → 400 naming V-C2 and the missing figure.</td></tr>
+  <tr><td>A9</td><td>Deactivated variant's combination selected → fallback semantics (withheld declarations); reactivating restores authored resolution with no other write.</td></tr>
+  <tr><td>A10</td><td>Coverage endpoint lists every offered single-group non-default combination without a variant; authoring one removes it from the gap list.</td></tr>
+  <tr><td>A11</td><td>The protein default moves chicken → salmon (Spec 066 atomic operation): the salmon-combination variant now serves for the all-defaults selection with full declarations; the default block is flagged — an all-chicken selection returns <code>isStale: true</code> with declarations withheld until re-upsert or confirm-review.</td></tr>
+  <tr><td>A12</td><td>Product with no default block → <code>ProductDto.content</code> is null; the content endpoint returns 404; adding a variant → 400 naming V-C8.</td></tr>
+  <tr><td>A13</td><td>Authoring kcal −500 (or any negative/non-finite figure) → 400 naming V-C7.</td></tr>
+  <tr><td>A14</td><td>Default upsert adding a sugars figure while an active variant lacks it → 400 naming the variant (V-C6); removing a figure the variants still publish succeeds.</td></tr>
+  <tr><td>A15</td><td>An allergen correction on the default block bumps <code>contentVersion</code>; the storefront's next product-DTO revalidation yields a new <code>v</code> and therefore a new cache key — total staleness ≤ product-page revalidation window + 300 s, verified by the changed URL.</td></tr>
+  <tr><td>A16</td><td>Authoring a variant whose normalised selection equals the current all-defaults selection → 400 naming V-C1.</td></tr>
+  <tr><td>A17</td><td>A request with <code>v</code> ≠ current <code>ContentVersion</code> (including a future value) returns the correct body with <code>Cache-Control: no-store</code>; only <code>v</code> == current gets <code>public, max-age=300</code> — a pre-poisoned future-version cache entry is impossible.</td></tr>
+  <tr><td>A18</td><td>A default change setting <code>RequiresReview</code> bumps <code>ContentVersion</code> in the same transaction — the next product-DTO read advertises a new <code>v</code> and no cached response can keep serving <code>isStale: false</code>.</td></tr>
+  <tr><td>A19</td><td>A variant authored with figures but null declarations → its resolution returns <code>declarationsWithheld: true</code> even though the default block has declarations; editing the default block's allergens changes nothing about what that variant serves.</td></tr>
+  <tr><td>A20</td><td>Fallback for a non-default combination withholds heating (<code>heatingWithheld: true</code>, empty steps) exactly as it withholds declarations; a variant with authored heating serves it.</td></tr>
+  <tr><td>A21</td><td>Concurrent default-upsert (adding a figure) and variant-add race → one commits, the other conflicts on the <code>ProductContent</code> token, revalidates, and is correctly rejected/accepted against the fresh state — a variant missing a now-published figure can never persist.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">15. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Figure precision &amp; units.</strong> Figures are unit-fixed by column name
+  (grams, kcal) with <code>decimal(9,2)</code>. If a tenant ever needs per-100g alongside
+  per-serving, that is a second figure set, not a unit column — deferred until a real tenant asks.</p>
+</div>
+<div class="callout open">
+  <p><strong>O2 — Localisation.</strong> Ingredients/allergens are single-language text. Multi-locale
+  content would add a locale key to both entities; out of scope until a multi-locale storefront
+  exists.</p>
+</div>
+<div class="callout open">
+  <p><strong>O3 — Reproducing what a shopper saw.</strong> Resolution is always against
+  <em>current</em> authoring; orders store the selection, not the content, so an allergen
+  correction changes what a historical selection resolves to (deliberately — the correction is the
+  truth). If displayed-content-at-purchase must ever be reproducible (dispute, regulation), the
+  clean options are (a) Spec 068 snapshotting the resolved content into the order envelope at
+  checkout, or (b) immutable content revisions with effective dates. Neither is built here;
+  choosing between them is deferred until the requirement is real.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="../abbys-table-storefront-plan.html">Storefront capability plan</a> — build area B, decision D2</li>
+  <li><a href="066.commerce-product-option-groups.html">Spec 066</a> — canonical selection, effective options, normalisation, atomic recommended-default operation (affected-products hook)</li>
+  <li>AbbysTable repo: <code>docs/specifications/Step2_Add_Dishes_Spec.html</code> v1.1 — FR-10.2, §6.1 (<code>nutritionVariants</code>), AC-19</li>
+  <li><a href="042.commerce-retail-module.html">Spec 042</a> — catalog module this extends</li>
+</ul>
+
+</body>
+</html>
