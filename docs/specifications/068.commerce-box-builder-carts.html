@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 068 - Commerce box-builder carts</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 068</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">Depends on: Spec 066</span>
+  <span class="meta-tag">2026-07-21</span>
+  <h1>Commerce box-builder carts — size pricing, line editing, authoritative quotes</h1>
+  <p class="small">The cart <em>is</em> the box (plan decision D1): a mutable, anonymous, server-side
+  box-building session with size-parameterised bundle pricing, personalised line editing with
+  identical-line merging, a hard capacity ceiling, an authoritative quote on every write, and
+  checkout materialisation onto the existing bundle/order shape. Build area C of the
+  <a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a>;
+  implements the server contract of the client's Step&nbsp;2 functional spec.</p>
+</header>
+
+<h2>Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#motivation">Motivation &amp; shape of the solution</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#pricing">Box pricing</a></li>
+    <li><a href="#writes">Write semantics</a></li>
+    <li><a href="#quote">The quote</a></li>
+    <li><a href="#drift">Catalogue-drift handling</a></li>
+    <li><a href="#checkout">Checkout materialisation</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#rules">Server-enforced rules</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; tenancy</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="summary">1. Summary</h2>
+
+<p>Spec 042's cart is add-and-checkout: items go in, a bundle line is validated once, checkout
+converts it to an order. A box-builder storefront needs a <em>session</em>: the customer picks a box
+size, fills it line by line with personalised dishes over many minutes, changes quantities, changes
+the size, and expects an authoritative running total after every touch. This spec makes the Commerce
+cart that session. The bundle product remains the catalog anchor — it now carries a
+<strong>size plan</strong> (preset price points + a formula) — while size and lines live on the
+cart. Checkout still produces the standard one-<code>ProductPurchase</code>-order shape, so
+production planning (specs 055/056), inventory and payments are unchanged consumers; they simply
+gain personalisation detail per selection.</p>
+
+<!-- ============================================================ -->
+<h2 id="motivation">2. Motivation &amp; shape of the solution</h2>
+
+<p>The client's Step&nbsp;2 spec (§6–§7) defines the contract this implements: a server-persisted
+box addressed by id, line CRUD where a line is <em>dish + exact personalisation + quantity</em>,
+identical lines merged, a capacity ceiling with grow-the-box as the only overflow path, and "every
+write returns the whole box plus the quote". Decision D1 settled <em>where</em> that lives:</p>
+
+<ul>
+  <li><strong>Not</strong> one bundle product per size — a 6–30 formula-priced range collapses into
+      25 near-identical products and "grow the box" becomes a product swap.</li>
+  <li><strong>The cart is the box.</strong> <code>Cart</code> gains the bundle reference and chosen
+      size; <code>CartItem</code> becomes the line (variant + canonical personalisation + quantity);
+      the existing <code>BundleSlot</code> machinery keeps defining <em>what may go in</em>
+      (source category, allow-duplicates), and the new size plan defines <em>what it costs at any
+      size</em>.</li>
+</ul>
+
+<div class="callout ok">
+  <p><strong>Two pricing regimes, explicitly separated.</strong> Container pricing (the box price by
+  size) is this spec. Per-line pricing (personalisation adjustment, per-unit surcharge) is Spec 066,
+  consumed here per line and summed in the quote. Dish variants keep their internal
+  <code>ProductPrice</code> rows for costing and margin (spec 057) — box quotes never read them, and
+  storefront responses never expose them (the "no standalone dish price" brand rule is thereby
+  possible, not enforced, at the API layer).</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<table>
+  <tr><th style="width:50%">In</th><th>Out (and where it goes)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><code>BundleSizePlan</code> + <code>BundleSizePreset</code> (container pricing)</li>
+        <li>Cart-as-box: size on the cart, personalisation on lines, merge rule</li>
+        <li><code>LineKind</code> discriminator (<code>BoxDish</code> only at launch) and
+            kind-scoped capacity/merge/quote rules — §4.1</li>
+        <li>Capacity ceiling + size-change validation</li>
+        <li>Quote computation + breakdown; quote on every write</li>
+        <li>Continue gate (units == size)</li>
+        <li>Retired-option remap on load, with customer-visible change report</li>
+        <li>Availability check on add (non-reserving)</li>
+        <li>Checkout materialisation incl. per-selection personalisation landing</li>
+        <li>Public endpoints: create-as-box, size, line CRUD, quote, continue, box-plan read;
+            plus the missing generic remove-item route</li>
+        <li>Admin endpoints for the size plan</li>
+        <li>Migration (tool-generated, canonical stream)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li>Option groups, selection validation/pricing — <strong>Spec 066</strong> (consumed)</li>
+        <li>Option-dependent content — <strong>Spec 067</strong> (storefront concern; carts never
+            resolve content)</li>
+        <li>Delivery date on the quote — display values only here (tenant settings);
+            calendar/computation is <strong>Spec 069</strong>; address/slot capture is 069 phase 2</li>
+        <li>Payment, invoicing, stock reserve/commit — existing Spec 042 checkout, unchanged</li>
+        <li>Discounts on box quotes — existing checkout-time discounts still apply at checkout;
+            in-session discount preview is future work</li>
+        <li><strong>Add-ons</strong> (items bought alongside the box at their own price) — the
+            <code>LineKind</code> discriminator that keeps them additive is in scope (§4.1); the
+            routes, <code>addOns</code> quote component, retail order lines and add-on price display
+            (a Spec 070 summary-DTO change) are a later spec</li>
+        <li>Steps 3–5 storefront flows (extras, review) — only the continue gate is here</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="model">4. Domain model</h2>
+
+<h3>New entities</h3>
+<pre><code>/// <summary>Container pricing for a bundle product priced by size (box of N). One per bundle.</summary>
+public class BundleSizePlan : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid BundleProductId { get; set; }
+    public int MinSize { get; set; }                 // smallest sellable box
+    public int MaxSize { get; set; }                 // tunable ceiling - never hard-coded client-side
+    public int BaseSize { get; set; }                // formula anchor (launch: 6)
+    public decimal BasePrice { get; set; }           // price at BaseSize (launch: 95.00)
+    public decimal PerSpacePrice { get; set; }       // per space above BaseSize (launch: 15.00)
+    public string Currency { get; set; } = "GBP";
+    public List&lt;BundleSizePreset&gt; Presets { get; set; } = new();
+}
+
+/// <summary>A merchandised price point that overrides the formula at its size.</summary>
+public class BundleSizePreset : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid BundleSizePlanId { get; set; }
+    public int Size { get; set; }
+    public decimal Price { get; set; }
+    public string? Badge { get; set; }               // "Most popular", "Minimum order"
+    public string? Blurb { get; set; }
+    public decimal? SavingAmount { get; set; }       // authored display saving; never computed
+    public int SortOrder { get; set; }
+}</code></pre>
+
+<h3>Extended entities (additive, nullable — generic carts unaffected)</h3>
+<pre><code>// Cart — a cart with BoxBundleProductId set is a box session
+public Guid? BoxBundleProductId { get; set; }
+public int?  BoxSize { get; set; }
+
+// CartItem — a line: kind + slot + variant + exact personalisation + quantity
+/// <summary>BoxDish (fills a box space, personalisable, priced by the box) or AddOn (an ordinary
+/// retail line bought alongside the box at its own price, consuming no box space). Launch ships
+/// BoxDish only — AddOn is reserved so every rule below states which kind it counts rather than
+/// silently assuming all lines are box dishes. See CartLineKinds and §4.1.</summary>
+public string   LineKind { get; set; } = CartLineKinds.BoxDish;
+public Guid?    BoxBundleSlotId { get; set; }            // which slot this line fills (required on BoxDish lines)
+public string?  PersonalisationJson { get; set; }        // canonical form (Spec 066), complete
+public string?  PersonalisationSummary { get; set; }     // differs-from-default text; "" = default
+public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed; recomputed each write
+public decimal? UnitSurcharge { get; set; }              // product surcharge snapshot, per unit
+
+// OrderBundleSelection — kitchen-facing landing (see §9)
+public string?  PersonalisationJson { get; set; }        // canonical selection (query convenience)
+public string?  PersonalisationSummary { get; set; }     // differs-from-default text (query convenience)
+public decimal? PersonalisationAdjustment { get; set; }  // per unit, signed (query convenience)
+public decimal? UnitSurcharge { get; set; }              // per unit (query convenience)
+/// <summary>The complete Spec 066 §12 personalisation envelope for this selection row —
+/// selection, summary, label-snapshotted display, isDefault, adjustment, currency, per-group
+/// breakdown, surcharge + its currency. Immutable full-fidelity record: after defaults or option
+/// prices change, the order must still explain which choices produced the amount charged without
+/// consulting the live catalogue. The scalar columns above are projections of this envelope.</summary>
+public string?  PersonalisationEnvelopeJson { get; set; }</code></pre>
+
+<table>
+  <tr><th>Entity</th><th>Table</th><th>Unique index</th></tr>
+  <tr><td><code>BundleSizePlan</code></td><td><code>AnkBundleSizePlans</code></td><td>(TenantId, BundleProductId)</td></tr>
+  <tr><td><code>BundleSizePreset</code></td><td><code>AnkBundleSizePresets</code></td><td>(TenantId, BundleSizePlanId, Size)</td></tr>
+</table>
+
+<p class="small">Line identity is <code>CartItem.Id</code> — the storefront's <code>lineId</code>.
+The merge key is <code>(LineKind, BoxBundleSlotId, ProductVariantId, PersonalisationJson)</code>;
+canonical-form string equality makes the selection part exact (Spec 066 §7). A variant can be
+eligible for more than one slot, and each slot carries its own min/max/allow-duplicates rules — so
+the slot is part of the line's identity: the add command names it explicitly, or the server
+resolves it automatically when exactly one slot is eligible and rejects as ambiguous otherwise.
+<code>OrderBundleSelection.BundleSlotId</code> is populated from the line at checkout.</p>
+
+<h3 id="linekinds">4.1 Line kinds — why the discriminator exists before the feature</h3>
+
+<p>A box session will eventually hold two different things: the dishes filling the box, and
+<strong>add-ons</strong> — an ordinary retail product bought alongside it (a jar of sauce, a
+cookbook), priced individually, consuming no box space. Add-ons are <em>not</em> in this spec's
+scope: no routes, no quote component, no checkout lines are built here.</p>
+
+<p>What <em>is</em> in scope is the discriminator. Without <code>LineKind</code>, every capacity,
+merge, quote and checkout rule below implicitly means "all lines" — and adding a second kind later
+would silently give a jar of sauce a box space and require re-auditing R1–R12 to find out where.
+With it, each rule states the kind it counts, and the later change is additive: new routes, a new
+quote component, extra order items. The column ships with exactly one legal value
+(<code>CartLineKinds.BoxDish</code>); writing any other is rejected until the add-on capability
+lands.</p>
+
+<div class="callout ok">
+  <p><strong>Product constraint (confirmed 2026-07-21): one box per cart.</strong> A cart holds at
+  most one box — hence <code>BoxBundleProductId</code>/<code>BoxSize</code> live on
+  <code>Cart</code> and no box-container entity is needed. Add-ons attach to that cart as
+  <code>AddOn</code> lines. If multiple boxes per order ever become real, that <em>is</em> the
+  change that outgrows this shape (the two fields move onto a per-box entity) — it is deliberately
+  not pre-built, and O3 records the trigger.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="pricing">5. Box pricing</h2>
+
+<pre><code>boxPrice(size) = preset(size).Price   when a preset row exists for that size
+               = BasePrice + (size − BaseSize) × PerSpacePrice   otherwise
+valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
+
+<ul>
+  <li>Presets always win over the formula at their size — 12 is 170.00 even though the formula says
+      185.00 (Step&nbsp;2 §3.1). Everything about this table is data; nothing is code.</li>
+  <li>A new pricing-mode constant <code>BundlePricingModes.SizeTiered</code> marks bundles priced
+      this way; authoring a size plan requires that mode, and the existing modes
+      (Fixed / SumOfComponents / SumPlusPremium) are untouched.</li>
+  <li><code>PerSpacePrice</code> feeds the formula only — it is <strong>not</strong> the universal
+      marginal price of a space. Around a discounted preset the marginal cost bends: with the
+      launch table, 11→12 costs 0 (formula 170 → preset 170) and 12→13 costs 30 (preset 170 →
+      formula 200). The charge for growing is therefore always
+      <code>boxPrice(target) − boxPrice(current)</code>, computed from the authoritative table;
+      grow-flow UI displays that delta, never <code>PerSpacePrice × spaces</code>. The per-space
+      figure still appears in exactly one place — the formula — and never as a per-dish line item
+      (Step&nbsp;2 FR-13.2).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="writes">6. Write semantics</h2>
+
+<p class="small"><strong>"Units" means <code>BoxDish</code> units throughout this section and
+§12.</strong> Every capacity count, merge lookup and fullness test is scoped to
+<code>LineKind = BoxDish</code>; an <code>AddOn</code> line consumes no box space and never
+participates in them (§4.1). At launch every line is a box dish, so the two readings coincide —
+stating the scope now is what keeps them from diverging silently later.</p>
+
+<table>
+  <tr><th>Operation</th><th>Behaviour</th></tr>
+  <tr><td>Create box</td>
+      <td>Cart created with <code>BoxBundleProductId</code>, initial <code>BoxSize</code> (validated
+      against the plan), currency from the plan, optional first line in the same call (the
+      dish-detail → Step 1 handoff: the viewed dish arrives already in the box, personalisation
+      carried over).</td></tr>
+  <tr><td>Change size</td>
+      <td>Validate MinSize ≤ new ≤ MaxSize; reject when new &lt; total units with the exact count to
+      remove first (never silently drop lines). Reprices the container only.</td></tr>
+  <tr><td>Add line</td>
+      <td>Validate the target slot (named in the command, or auto-resolved when exactly one slot is
+      eligible — ambiguous otherwise), the variant slot-eligible and <em>active</em>, the product
+      Active, quantity ≥ 1, and the selection via Spec 066 (normalise → validate → price, passing
+      the cart currency — 066 V10 rejects any mis-denominated option group). Availability is
+      checked against <strong>aggregate demand</strong>: the resulting cart-wide quantity for the
+      variant must not exceed current availability (non-reserving — six units cannot be added when
+      one is in stock, and repeated merges cannot creep past it; checkout still reserves
+      atomically for races). Reject if total units would exceed <code>BoxSize</code> — growing
+      first is the only path (Step&nbsp;2 FR-13.1: no overflow route exists server-side, whatever
+      the UI does). Merge into an existing line when <code>(kind, slot, variant, canonical
+      selection)</code> matches; else create.</td></tr>
+  <tr><td>Update line — quantity</td>
+      <td>Increase re-checks the ceiling and aggregate availability; quantity 0 deletes the line;
+      negative quantities reject (R12) — a negative line must never reach pricing or, worse, flow a
+      negative reservation into the inventory engine at checkout.</td></tr>
+  <tr><td>Update line — personalisation</td>
+      <td>Re-validate/re-price via 066. If the new selection matches another existing line, merge
+      into it (delete the source). Optional <code>applyToUnits</code> (1 ≤ n ≤ line quantity):
+      split semantics per Step&nbsp;2 FR-10.5 — remove n units from the target line (delete if
+      emptied), merge-or-create a line with the new selection carrying n units. One atomic
+      operation; the two-line state is never client-assembled.</td></tr>
+  <tr><td>Remove line</td><td>Delete regardless of quantity.</td></tr>
+  <tr><td>Continue</td>
+      <td>Validates total units == <code>BoxSize</code>; rejects otherwise naming the shortfall
+      (Step&nbsp;2 AC-20). Stateless gate — checkout independently re-validates.</td></tr>
+</table>
+
+<div class="callout">
+  <p><strong>Every write recomputes from scratch.</strong> Adjustments and surcharges are
+  re-derived from the live catalogue on each write and re-snapshotted; the snapshots are display
+  cache, never pricing inputs. No client-supplied amount is read anywhere (Step&nbsp;2 AC-22), and
+  every write response carries the full box + quote so concurrent tabs self-correct on their next
+  action.</p>
+  <p><strong>Capacity is enforced under a concurrency token, not hope.</strong> "Last write wins"
+  describes the UX between tabs, not the integrity model: two adds racing into the last space touch
+  <em>different</em> line rows, so neither overwrites the other and a naive implementation commits
+  seven units into a six-box. Every capacity-affecting write therefore runs in a transaction that
+  also touches the <code>Cart</code> row under its rowversion concurrency token
+  (<code>AonikDbContextBase.ConfigureRowVersions</code> already stamps it): concurrent writers
+  conflict, the loser revalidates against fresh state and retries once, then 409s. Two adds racing
+  into one remaining space can never both commit (A17).</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="quote">7. The quote</h2>
+
+<p>Returned by every write, by <code>GET</code>, and by the explicit quote endpoint:</p>
+
+<pre><code>{
+  "box":   { "cartId": "…", "bundleProductId": "…", "size": 6, "currency": "GBP",
+             "lines": [ { "lineId": "…", "productId": "…", "variantId": "…", "name": "…",
+                          "quantity": 2, "personalisation": { …canonical… },
+                          "personalisationSummary": "Full table · Salmon",
+                          "isDefaultPersonalisation": false,
+                          "personalisationAdjustment": 8.00, "unitSurcharge": 4.00 } ] },
+  "quote": { "components": [                  // ORDERED, NAMED, ADDITIVE — total is their sum
+               { "key": "boxPrice",        "amount": 95.00 },
+               { "key": "personalisation", "amount": 16.00 },   // Σ adjustment × qty (signed)
+               { "key": "unitSurcharges",  "amount":  8.00 },   // Σ surcharge × qty
+               { "key": "deliveryCharged", "amount":  0.00 } ], //   ("addOns" joins here later)
+             "deliveryList": 10.00,           // struck-through display value; NOT a component
+             "total": 119.00,                 // Σ components — never a hard-coded formula
+             "currency": "GBP",
+             "unitsSelected": 6, "boxSize": 6, "spacesLeft": 0, "isFull": true },
+  "changes": [ …catalogue-drift notices, usually empty — §8… ]
+}</code></pre>
+
+<ul>
+  <li><strong>The total is the sum of a named component list, not a fixed four-term formula.</strong>
+      Clients render the breakdown by iterating <code>components</code> and must not reconstruct the
+      total from known keys — that way the eventual <code>addOns</code> component (§4.1) is an
+      additive change no storefront release has to chase. Zero-amount components may be omitted;
+      unknown keys must render generically rather than break.</li>
+  <li><code>personalisation</code> is signed and can be negative in aggregate — a box of
+      below-default choices legitimately totals under the box price (Step&nbsp;2 AC-9).</li>
+  <li><code>unitsSelected</code>, <code>spacesLeft</code> and <code>isFull</code> count
+      <code>BoxDish</code> units only (§4.1); an add-on never changes them.</li>
+  <li>Delivery display values come from tenant settings
+      (<code>Commerce.Storefront.DeliveryListAmount</code> / <code>DeliveryChargedAmount</code>,
+      default 0/0) until Spec 069 owns delivery properly; the quote shape will not change when it
+      does.</li>
+  <li>No per-dish price appears anywhere in the payload — see §2 callout. (An add-on line, when
+      that lands, <em>does</em> carry its own retail price: it is an ordinary product bought at its
+      own price, not a dish priced by the box.)</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="drift">8. Catalogue-drift handling</h2>
+
+<p>A box session outlives catalogue edits. On every load (<code>GET</code> or any write), each
+line's selection is re-normalised against the product's <em>current</em> effective options via
+Spec 066's stored-selection mode (<code>RenormalizeStoredAsync</code> — drift is reported, never
+thrown):</p>
+<ul>
+  <li>Drift follows Spec 066's <code>RenormalizeStoredAsync</code> contract exactly — the cases
+      differ: a <strong>retired choice in a still-servable group</strong> remaps to that group's
+      current effective default
+      (<code>{ "lineId": …, "group": "side", "from": "plantain", "to": "wildrice",
+      "reason": "option-retired", "priceDelta": -2.00 }</code>); a <strong>deactivated or
+      de-narrowed group</strong> has no effective default to remap to and is <em>dropped</em> from
+      the selection (<code>"reason": "group-removed"</code>). Both re-price and re-canonicalise
+      (the merge key changes with the selection). The storefront tells the customer what changed
+      and why (Step&nbsp;2 edge table).</li>
+  <li>Remapping can merge lines (the remapped selection may now equal another line's) — the change
+      entry says so.</li>
+  <li>A line's <em>product or variant</em> becoming unavailable — product no longer Active,
+      variant deactivated (<code>ProductVariant.IsActive</code>), or availability gone — does not
+      silently vanish: the line stays, flagged <code>"unavailable"</code> in <code>changes[]</code>;
+      add/increase on it is rejected; continue and checkout are blocked while an unavailable line
+      remains (the customer chooses: remove it or keep waiting). A retired SKU can never ride an
+      old cart into a new order.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="checkout">9. Checkout materialisation</h2>
+
+<p>Extends the existing <code>CheckoutService</code> path for box carts; non-box carts are
+byte-for-byte unaffected.</p>
+<ol>
+  <li>Re-validate everything (full box, availability, active flags, selections) — the continue
+      gate is advisory UX; checkout is the enforcement. <strong>If re-validation produces any
+      drift change</strong> (option remap, line merge, unavailable line), checkout <em>stops</em>:
+      it returns 409 with the refreshed box + <code>changes[]</code> and creates nothing — a stale
+      client that skipped the continue step must explicitly review a changed meal or price before
+      money movement begins; resubmitting against the refreshed state proceeds (A18).</li>
+  <li>Reserve component stock exactly as the bundle path does today (<code>HoldRef</code> = cart
+      id).</li>
+  <li>Create one <code>ProductPurchase</code> order, idempotency key <code>cart:{id}</code>
+      (unchanged). The order carries <strong>one <code>OrderItem</code> per priced thing</strong> —
+      today that is the box item and (when charged) the delivery item; each future
+      <code>AddOn</code> line will add one ordinary retail item alongside them, using the spine's
+      existing <code>ProductPurchase</code> line shape (Quantity, UnitPrice, ProductId, Sku)
+      unchanged, so nothing here is reserved for it now. The box <code>OrderItem</code> carries
+      <code>Quantity = 1</code>, <code>UnitPrice</code> = the <em>box goods</em> total (box price +
+      personalisation + unit surcharges — never any add-on amount), <code>AmountIn</code> likewise,
+      and <code>DetailsJson</code> gains a box envelope:
+      <pre><code>{ "box": { "bundleProductId": "…", "size": 6,
+           "quote": { "boxPrice": 95.00, "personalisation": 16.00,
+                      "unitSurcharges": 8.00, "currency": "GBP" } } }</code></pre></li>
+  <li>Write one <code>OrderBundleSelection</code> row per <code>BoxDish</code> line — now carrying
+      <code>PersonalisationJson</code> / <code>Summary</code> / <code>Adjustment</code> /
+      <code>UnitSurcharge</code> (§4). <strong>This is the kitchen-facing landing</strong>: the
+      production sheet and kitchen work orders (specs 055/056) read selections per component and can
+      render "Jollof — Full table · Salmon ×2". Spec 066 §12's <code>DetailsJson</code> envelope
+      remains the contract for <em>simple-product</em> lines with selections; for box orders the
+      per-line facts live on the selection rows and the item-level envelope carries the box
+      aggregate. (Follow-up task in §16: surface the personalisation column on the 055/056 sheet
+      DTOs.)</li>
+  <li><strong>Delivery charge is materialised, not absorbed.</strong> When
+      <code>deliveryCharged &gt; 0</code>, checkout adds a dedicated delivery order item
+      (<code>ItemType = "DeliveryFee"</code>, <code>AmountIn</code> = the charged amount) and
+      includes it in the payment total (subtotal − discount + tax + delivery) and charge summary.
+      The existing checkout maths has no delivery step, so without this the customer would be
+      charged less than the authoritative quote. Zero at launch (£10 list, free charged) — the
+      path is defined and tested, dormant in production until Spec 069 phase 2 turns fees on.</li>
+  <li><strong>Invoices for box carts are box-aggregate.</strong> The existing per-<code>CartItem</code>
+      invoice path would emit one line per dish from price snapshots that are explicitly not
+      pricing inputs here — exposing standalone dish prices and disagreeing with the single
+      aggregate order item. A box cart's optional invoice instead carries one line named for the
+      box ("6-dish box") at the goods total, plus the delivery line when charged. Non-box carts
+      keep the existing per-item path untouched.</li>
+  <li><strong>Kitchen projections ship in this spec, not as a follow-up.</strong>
+      <code>ProductionPlanningService</code> today aggregates <code>OrderBundleSelection</code>
+      rows by variant alone — two Jollof preparations would collapse into one demand line, and no
+      added column can un-collapse them afterwards. The Spec 055/056 projections are updated here:
+      production demand groups by <code>(variant, canonical personalisation)</code>, and the
+      production sheet / kitchen work-order DTOs render each group's
+      <code>PersonalisationSummary</code> and label-snapshotted display (A14).</li>
+  <li>Discounts, tax, guest payment intent, funding link — all unchanged.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="services">10. Services</h2>
+
+<p>New <code>IBoxCartService</code> in <code>Aonik.Commerce.Contracts.Services.Cart</code>
+(implementation layered on the same persistence as <code>CartService</code>; the generic
+<code>ICartService</code> keeps its Spec 042 surface untouched):</p>
+
+<pre><code>public interface IBoxCartService
+{
+    Task&lt;BoxCartDto&gt; CreateAsync(CreateBoxCartCommand command, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; GetAsync(Guid cartId, CancellationToken ct = default);           // applies §8
+    Task&lt;BoxCartDto&gt; ChangeSizeAsync(Guid cartId, int newSize, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; AddLineAsync(Guid cartId, AddBoxLineCommand command, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; UpdateLineAsync(Guid cartId, Guid lineId, UpdateBoxLineCommand command, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; RemoveLineAsync(Guid cartId, Guid lineId, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; QuoteAsync(Guid cartId, CancellationToken ct = default);
+    Task&lt;BoxCartDto&gt; ContinueAsync(Guid cartId, CancellationToken ct = default);      // throws on not-full
+}
+
+public record CreateBoxCartCommand(Guid BundleProductId, int Size,
+    AddBoxLineCommand? FirstLine = null, Guid? BuyerPartyId = null);
+public record AddBoxLineCommand(Guid ProductVariantId, int Quantity, JsonDocument? Personalisation,
+    Guid? BundleSlotId = null);   // named, or auto-resolved when exactly one slot is eligible
+public record UpdateBoxLineCommand(int? Quantity, JsonDocument? Personalisation, int? ApplyToUnits);</code></pre>
+
+<p>Plus <code>IBundleSizePlanService</code> (authoring + the public plan read). Quote maths lives in
+one internal calculator used by both the service and checkout — a single implementation of §5/§7 so
+the two can never disagree.</p>
+
+<!-- ============================================================ -->
+<h2 id="api">11. API surface</h2>
+
+<h3>Public (AllowAnonymous)</h3>
+<table>
+  <tr><th>Route</th><th>Purpose</th></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}/box-plan</code></td>
+      <td>The size plan: min/max, presets (badge/blurb/saving), per-space price, currency — Step 1's
+      entire pricing UI, the homepage's box offers, and the grow-flow's maths in one read.</td></tr>
+  <tr><td><code>POST /commerce/carts/box</code></td><td>Create a box session (optional first line). Response includes the guest <code>cartToken</code> — the only time it is disclosed; every subsequent cart call requires it as <code>X-Cart-Token</code> (R10)</td></tr>
+  <tr><td><code>GET /commerce/carts/{cartId:guid}</code> <em>(extended)</em></td><td>Box carts return the §7 payload</td></tr>
+  <tr><td><code>PATCH /commerce/carts/{cartId:guid}/size</code></td><td>Change box size</td></tr>
+  <tr><td><code>POST /commerce/carts/{cartId:guid}/lines</code></td><td>Add a line</td></tr>
+  <tr><td><code>PATCH /commerce/carts/{cartId:guid}/lines/{lineId:guid}</code></td><td>Quantity / personalisation / split</td></tr>
+  <tr><td><code>DELETE /commerce/carts/{cartId:guid}/lines/{lineId:guid}</code></td><td>Remove a line</td></tr>
+  <tr><td><code>POST /commerce/carts/{cartId:guid}/quote</code></td><td>Recompute and return (no mutation)</td></tr>
+  <tr><td><code>POST /commerce/carts/{cartId:guid}/continue</code></td><td>Full-box gate</td></tr>
+  <tr><td><code>DELETE /commerce/carts/{cartId:guid}/items/{itemId:guid}</code></td>
+      <td>Generic carts too — closes the Spec 042 gap (service method existed, route didn't)</td></tr>
+</table>
+
+<h3>Admin (writes AdminWritePolicy)</h3>
+<table>
+  <tr><th>Route</th><th>Purpose</th></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId:guid}/size-plan</code></td><td>Upsert plan + presets (full replace; validates §12 A-rules)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="rules">12. Server-enforced rules</h2>
+
+<p>Write-path rules (Step&nbsp;2 "rules the back end must enforce", mapped):</p>
+<table>
+  <tr><th>#</th><th>Rule</th></tr>
+  <tr><td>R1</td><td>Size below plan minimum or above plan maximum → reject.</td></tr>
+  <tr><td>R2</td><td>Size below units already selected → reject with the count to remove.</td></tr>
+  <tr><td>R3</td><td>Any write taking total <code>BoxDish</code> units above <code>BoxSize</code> → reject. No overflow path exists. (Add-on lines are outside this count by construction — buying a jar of sauce must never consume a dish space, nor be blocked by a full box.)</td></tr>
+  <tr><td>R4</td><td>Selection invalid per Spec 066 (V1–V5, incl. option-not-offered-by-product) → reject with 066's rule id.</td></tr>
+  <tr><td>R5</td><td>Variant not eligible for the resolved slot, variant inactive (<code>ProductVariant.IsActive</code>), product not Active, ambiguous slot without an explicit <code>BundleSlotId</code>, or resulting <em>cart-wide</em> demand for the variant above current availability → reject.</td></tr>
+  <tr><td>R6</td><td>Identical <code>(variant, canonical selection)</code> → merge, never duplicate lines.</td></tr>
+  <tr><td>R7</td><td>Price recomputed from scratch on every write; client-supplied amounts ignored.</td></tr>
+  <tr><td>R8</td><td>Continue and checkout refused unless units == size and no line is flagged unavailable.</td></tr>
+  <tr><td>R9</td><td>Writes to a cart whose status is not Open <strong>or whose <code>OrderId</code> is already stamped</strong> → reject. The existing checkout deliberately leaves a cart Open (with <code>OrderId</code> set) until payment completes — status alone would let a customer edit a box whose order, reservation and payment amount are already fixed (this mirrors <code>ValidateOpenCartAsync</code>).</td></tr>
+  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's token via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). The token is <strong>server-minted</strong>: ≥ 256 bits of entropy, opaque, disclosed exactly once in the create response; any client-supplied token value on create is <em>ignored</em> (today's contract stores it verbatim, so an attacker could register an empty or guessable token), and legacy carts whose stored token is null/weak fail closed. Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. Applies to the <em>generic</em> cart endpoints too, not just box carts. <strong>Enforcement lives at the service boundary, not endpoint middleware:</strong> <code>IBoxCartService</code> and <code>ICartService</code> operations take a required <code>CartAccessContext</code> (guest token or authenticated party principal) and authorize through one shared authorizer; the endpoints merely translate <code>X-Cart-Token</code> into it. Every direct consumer — <code>CheckoutService</code>, the Commerce agent tools, anything future — must present the context, so non-HTTP call paths cannot read or mutate arbitrary carts by knowing an id.</td></tr>
+  <tr><td>R11</td><td><strong>Box carts are writable only through kind-aware routes.</strong> The generic cart mutation paths (<code>POST /commerce/carts/{id}/items</code>, <code>/bundles</code>, generic remove) reject any cart with <code>BoxBundleProductId</code> set (400 pointing at the box routes) — a kind-blind insert would land an untyped line that capacity, slot, personalisation, merge and quote rules cannot classify. This is a rule about <em>kind-blindness</em>, not about add-ons: when the add-on capability lands it adds its own <code>IBoxCartService</code> route that stamps <code>LineKind = AddOn</code>, and the generic paths stay closed.</td></tr>
+  <tr><td>R12</td><td>Add commands require quantity ≥ 1; update quantity 0 deletes the line, negative rejects; <code>applyToUnits</code> stays bounded 1..line quantity. Non-positive quantities never reach pricing or stock reservation (a negative reservation would <em>release</em> stock).</td></tr>
+  <tr><td>R13</td><td><code>LineKind</code> must be <code>BoxDish</code> — the only value this spec implements. Any other value is rejected until the add-on capability lands, so the column can never hold a kind whose rules do not yet exist. Persisted lines with a null/absent kind are read as <code>BoxDish</code>.</td></tr>
+</table>
+<p>Authoring rules: A1 preset sizes within [Min, Max]; A2 <code>BaseSize == MinSize</code> not
+required but <code>MinSize ≤ BaseSize ≤ MaxSize</code>; A3 plan requires
+<code>Kind=Bundle</code> + <code>BundlePricingMode=SizeTiered</code>; A4 currency immutable while
+any <em>non-stale</em> open box session references the plan (see A6); A5 structural and monetary
+bounds — <code>MinSize ≥ 1</code>, <code>MaxSize ≥ MinSize</code>, <code>BasePrice &gt; 0</code>,
+<code>PerSpacePrice ≥ 0</code>, every preset price &gt; 0, and the formula must price
+<em>every</em> size in [MinSize, MaxSize] strictly above zero — an empty, inverted or
+zero/negative-quoting plan must never reach order and payment creation; A6 box carts idle beyond a
+configured window (<code>Commerce.Carts.AbandonAfterDays</code>, default 14, existing background-job
+infrastructure) transition to Abandoned, so a single stale anonymous session cannot pin plan
+authoring forever.</p>
+
+<!-- ============================================================ -->
+<h2 id="persistence">13. Persistence &amp; migration</h2>
+<ol>
+  <li>Two new tables (<code>AnkBundleSizePlans</code>, <code>AnkBundleSizePresets</code>) + additive
+      nullable columns on <code>AnkCarts</code>, <code>AnkCartItems</code>,
+      <code>AnkOrderBundleSelections</code> (§4). Configurations in
+      <code>Persistence/Configurations/</code>; amounts <code>decimal(19,4)</code> (matching
+      <code>ProductPrice</code> and the Spec 066 option amounts they are combined with);
+      <code>PersonalisationJson</code> <code>nvarchar(max)</code> (Spec 066 bounds neither group
+      count nor multi-select width — a fixed cap could reject a valid canonical selection at
+      persistence), <code>PersonalisationSummary</code> 512, <code>LineKind</code> 16 with a
+      non-null default of <code>BoxDish</code> so existing rows and generic-cart writes classify
+      correctly without a backfill.</li>
+  <li><code>DbSet</code>s + <code>MapTable</code> entries in both contexts.</li>
+  <li>One tool-generated migration:
+      <pre><code>dotnet ef migrations add AddCommerceBoxBuilderCarts --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+      Review (two tables + additive columns, nothing else), apply locally, and commit all three
+      generated artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>,
+      <em>and</em> the updated <code>AonikDbContextModelSnapshot.cs</code> (an uncommitted snapshot
+      makes the next migration rediscover these tables). Hand-written migrations are prohibited
+      (CLAUDE.md).</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="security">14. Security &amp; tenancy</h2>
+<ul>
+  <li>Box endpoints are anonymous like the existing cart endpoints, but access is <strong>not</strong>
+      cart-id-possession alone: R10 requires the guest token (<code>X-Cart-Token</code>) on every
+      operation — cart ids travel in URLs and URLs leak (logs, history, shared links); the token
+      travels in a header and is disclosed exactly once, in the create response. Carts are
+      tenant-scoped; the global filters plus R10 make any unauthorised access return 404.</li>
+  <li>Rate limiting on cart writes follows the platform's anonymous-endpoint posture (the Spec 061
+      pattern is the precedent for tightening if abuse appears; not built pre-emptively).</li>
+  <li>No PII added. The personalisation payload is product configuration, not personal data.</li>
+  <li>Money paths: box carts never move money — checkout hands off to the existing guest
+      payment-intent flow, which already carries the money-action logging obligations (issue #142);
+      the new code emits no money actions of its own.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="testing">15. Testing</h2>
+<ul>
+  <li><strong>Unit — quote calculator</strong>: preset-over-formula (12 → 170.00 not 185.00);
+      formula sizes; negative personalisation aggregate; surcharge × qty; spacesLeft/isFull;
+      delivery display values from settings.</li>
+  <li><strong>Service — write semantics</strong> (InMemory, <code>TestTenantProvider</code>): merge
+      on identical canonical selection incl. multi-select order-insensitivity; split-update
+      (<code>applyToUnits</code>) producing decrement + merge-or-create atomically; ceiling on add /
+      increase / size-shrink; R1–R9 each; drift remap incl. remap-then-merge and unavailable-line
+      blocking.</li>
+  <li><strong>Checkout</strong>: box cart → one order + selection rows with personalisation columns
+      populated; idempotent re-checkout; non-box cart regression untouched.</li>
+  <li><strong>API</strong> (<code>CustomWebApplicationFactory</code>): full journey — create box
+      with first line → add → personalise → grow → fill → continue → checkout; AC-20 (continue on
+      incomplete box → 4xx); AC-22 (client price in any payload ignored); generic remove-item
+      route.</li>
+  <li>Full-solution <code>dotnet test Aonik.sln</code> before PR (DI-boot regressions).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tasks">16. Phasing &amp; tasks</h2>
+<ol>
+  <li>Entities + extensions + configurations + DbSets/MapTable; migration; local apply.</li>
+  <li>Quote calculator (single implementation) + <code>BundlePricingModes.SizeTiered</code>.</li>
+  <li><code>IBundleSizePlanService</code> + admin endpoint + public box-plan read.</li>
+  <li><code>IBoxCartService</code>: create/get/size/lines/quote/continue with R1–R9 + drift
+      handling.</li>
+  <li>Checkout materialisation + selection-row landing; regression-guard the non-box path.</li>
+  <li>Public endpoints + generic remove-item route.</li>
+  <li><strong>In scope, not a follow-up</strong>: update the Spec 055/056 projections — production
+      demand grouped by <code>(variant, canonical personalisation)</code>, with
+      <code>PersonalisationSummary</code> + display labels on the production-sheet and
+      kitchen-sheet DTOs (§9). Aggregation by variant alone collapses differently-personalised
+      lines and cannot be reconstructed later.</li>
+  <li>Tests per §15; full-solution run.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="acceptance">17. Acceptance criteria</h2>
+<p class="small">Numbers in brackets map to the client Step&nbsp;2 spec's acceptance criteria.</p>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>A1</td><td>6-box with 5 units; add a line → units 6, <code>isFull</code>, continue succeeds. [AC-1]</td></tr>
+  <tr><td>A2</td><td>Full 6-box; any add/increase route → rejected R3; no overflow charge exists anywhere in the quote. [AC-2, AC-11]</td></tr>
+  <tr><td>A3</td><td>Grow 6→8 then add → box 8, price 125.00 (formula), pending line added by the client's next call. [AC-3]</td></tr>
+  <tr><td>A4</td><td>Same dish added twice with identical selection → one line, qty 2. [AC-5]</td></tr>
+  <tr><td>A5</td><td>Same dish added with a different selection → second line. [AC-6]</td></tr>
+  <tr><td>A6</td><td>Line qty 3, update 1 unit to a new selection → original line 2, new line 1. [AC-18]</td></tr>
+  <tr><td>A7</td><td>Default side (2.00) switched to a 0.00 side → quote total drops by 2.00; breakdown shows the negative. [AC-9]</td></tr>
+  <tr><td>A8</td><td>Size 12 quotes 170.00, not the formula's 185.00; changing a preset price in admin re-prices the next quote.</td></tr>
+  <tr><td>A9</td><td>8 units selected; change size to 6 → rejected naming "remove 2". [AC-17]</td></tr>
+  <tr><td>A10</td><td>Continue on a 5/6 box → 4xx naming the shortfall; direct checkout equally refused. [AC-20]</td></tr>
+  <tr><td>A11</td><td>Any client-supplied price in any write body → ignored; server figures returned. [AC-22]</td></tr>
+  <tr><td>A12</td><td>Option retired while in a box → on next load the line remaps to the current default, re-prices, and <code>changes[]</code> explains it.</td></tr>
+  <tr><td>A13</td><td>Product goes unavailable mid-session → line flagged, adds rejected, continue/checkout blocked until removed.</td></tr>
+  <tr><td>A14</td><td>Checkout of a personalised box → one ProductPurchase order; every <code>OrderBundleSelection</code> row carries its canonical selection + summary; production sheet input contains them.</td></tr>
+  <tr><td>A15</td><td>Signature-surcharge dish ×2 in the box → <code>unitSurcharges</code> 2 × surcharge; independent of personalisation on the same lines. [AC-12]</td></tr>
+  <tr><td>A16</td><td>Any cart read/write/quote/continue/checkout without the correct <code>X-Cart-Token</code> (absent or wrong) → 404, indistinguishable from an unknown cart id; with the token → succeeds. The token is server-minted — a token value supplied in the create body is ignored. The generic (non-box) cart endpoints behave identically.</td></tr>
+  <tr><td>A17</td><td>Two concurrent adds racing into a box's last remaining space → exactly one commits; the loser conflicts on the cart's concurrency token, revalidates, and returns the capacity rejection. A seven-unit six-box is unrepresentable.</td></tr>
+  <tr><td>A18</td><td>An option is retired, then a stale client posts checkout directly (no intervening GET) → checkout aborts 409 with the refreshed box + <code>changes[]</code>; nothing is reserved, no order or payment exists; resubmission against the refreshed state succeeds.</td></tr>
+  <tr><td>A19</td><td>With the launch table, growing 11→12 quotes a 0.00 delta and 12→13 quotes 30.00 — the grow flow shows <code>boxPrice(target) − boxPrice(current)</code>, never <code>PerSpacePrice × spaces</code>.</td></tr>
+  <tr><td>A20</td><td>Generic <code>POST /commerce/carts/{id}/items</code> (or <code>/bundles</code>) against a box cart → 400 directing to the box routes; the box's capacity and quote are untouched (R11).</td></tr>
+  <tr><td>A21</td><td>Add with quantity 0 or −3 → 400 (R12); update to 0 deletes the line; a checkout can never pass a non-positive reservation quantity to inventory.</td></tr>
+  <tr><td>A22</td><td>A box cart with <code>deliveryCharged</code> configured &gt; 0 → checkout produces a DeliveryFee order item and a payment total including it; the box item still carries only the goods total; the optional invoice shows the box-aggregate line + delivery line and no per-dish prices.</td></tr>
+  <tr><td>A23</td><td>A write attempting <code>LineKind</code> other than <code>BoxDish</code> → 400 (R13); a persisted line with a null kind reads as <code>BoxDish</code>.</td></tr>
+  <tr><td>A24</td><td>The quote's <code>total</code> equals the sum of its <code>components</code> array for every fixture in this section — no test (and no client) reconstructs it from a fixed set of known keys, so a future <code>addOns</code> component cannot silently break the total.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">18. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Pending-action memory for the grow flow.</strong> Step&nbsp;2's "remember the dish
+  while the customer decides to grow" is modelled client-side (the FE holds the pending line and
+  replays it after the resize succeeds). Server-side pending intents would add state for no
+  integrity gain — the replayed add revalidates everything anyway. Flagged in case product wants the
+  pending dish to survive a page refresh mid-grow-flow.</p>
+</div>
+<div class="callout ok">
+  <p><strong>O2 — Box session TTL: resolved in this revision.</strong> Because A4's currency lock
+  counts open carts, an abandonment sweep became a correctness requirement rather than a nicety:
+  authoring rule A6 transitions box carts idle beyond
+  <code>Commerce.Carts.AbandonAfterDays</code> (default 14) to Abandoned via the existing
+  background-job infrastructure. Spec 069 phase 2 may later tighten the window for stale delivery
+  promises.</p>
+</div>
+<div class="callout ok">
+  <p><strong>O3 — Multiple boxes per session: closed.</strong> Confirmed with the client
+  (2026-07-21): an order carries <strong>at most one box</strong>. So
+  <code>BoxBundleProductId</code>/<code>BoxSize</code> stay on <code>Cart</code> and no box-container
+  entity is built. <em>Trigger to revisit:</em> if two boxes in one checkout ever becomes a real
+  requirement, those two fields move onto a per-box entity and the quote grows from one box price to
+  N — that is the migration this shape does not absorb. Add-ons (§4.1) are <em>not</em> that trigger:
+  they are extra lines beside the one box, which is exactly what <code>LineKind</code> handles.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="refs">19. References</h2>
+<ul>
+  <li><a href="../abbys-table-storefront-plan.html">Storefront capability plan</a> — build area C, decision D1</li>
+  <li><a href="066.commerce-product-option-groups.html">Spec 066</a> — selections, validation, adjustment pricing, DetailsJson envelope</li>
+  <li>AbbysTable repo: <code>docs/specifications/Step2_Add_Dishes_Spec.html</code> v1.1 — §3, §6, §7, AC-1…AC-30</li>
+  <li><a href="042.commerce-retail-module.html">Spec 042</a> — cart/checkout/bundle machinery this evolves</li>
+  <li><a href="055.production-planning-sheet-prep-list.html">Spec 055</a> / <a href="056.production-orders-kitchen-sheet.html">Spec 056</a> — consumers of the selection landing</li>
+</ul>
+
+</body>
+</html>
