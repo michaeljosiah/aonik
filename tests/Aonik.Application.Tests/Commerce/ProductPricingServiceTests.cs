@@ -15,7 +15,7 @@ namespace Aonik.Application.Tests.Commerce;
 public class ProductPricingServiceTests
 {
     private static ProductService Products(CommerceDbContext ctx, Guid tenantId)
-        => new(ctx, new TestTenantProvider(tenantId));
+        => CommerceTestHarness.NewProductService(ctx, tenantId);
 
     private static ProductPricingService Pricing(CommerceDbContext ctx, Guid tenantId)
         => new(ctx, new TestTenantProvider(tenantId), new CommerceTestHarness.TestClock());

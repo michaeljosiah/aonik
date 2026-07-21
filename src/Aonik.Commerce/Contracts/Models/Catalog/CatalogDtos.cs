@@ -38,8 +38,9 @@ public record BundleSlotDto(
 
 public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder);
 
-/// <summary>Full product detail, including variants, media, (for bundles) selection slots, and
-/// the Spec 057 target gross-margin percentage (null = no target set).</summary>
+/// <summary>Full product detail, including variants, media, (for bundles) selection slots, the
+/// Spec 057 target gross-margin percentage (null = no target set), and the Spec 066 personalisation
+/// surface.</summary>
 public record ProductDto(
     Guid Id,
     string Slug,
@@ -57,7 +58,14 @@ public record ProductDto(
     decimal? TargetMarginPct,
     IReadOnlyList<ProductVariantDto> Variants,
     IReadOnlyList<ProductMediaDto> Media,
-    IReadOnlyList<BundleSlotDto> BundleSlots);
+    IReadOnlyList<BundleSlotDto> BundleSlots,
+    /// Spec 066 — what this product actually offers, defaults resolved. An EMPTY list means the
+    /// product is not personalisable, and storefronts hide the panel entirely rather than
+    /// rendering an empty one.
+    IReadOnlyList<EffectiveOptionGroupDto> EffectiveOptionGroups,
+    /// Spec 066 — per-unit surcharge and its denomination; null when the product has none.
+    decimal? UnitSurcharge,
+    string? UnitSurchargeCurrency);
 
 /// <summary>Lightweight product row for list/browse responses.</summary>
 public record ProductSummaryDto(

@@ -15,7 +15,7 @@ public class ProductServiceTests
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();
         await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
-        var service = new ProductService(ctx, new TestTenantProvider(tenantId));
+        var service = CommerceTestHarness.NewProductService(ctx, tenantId);
 
         var created = await service.CreateProductAsync(new CreateProductCommand(
             Slug: "granola-vanilla",
@@ -33,7 +33,7 @@ public class ProductServiceTests
 
         // Persisted, not just tracked.
         await using var ctx2 = CommerceTestHarness.CreateContext(options, tenantId);
-        var fetched = await new ProductService(ctx2, new TestTenantProvider(tenantId))
+        var fetched = await CommerceTestHarness.NewProductService(ctx2, tenantId)
             .GetProductBySlugAsync("granola-vanilla");
         fetched.Should().NotBeNull();
         fetched!.Variants.Should().HaveCount(2);
@@ -44,7 +44,7 @@ public class ProductServiceTests
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();
         await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
-        var service = new ProductService(ctx, new TestTenantProvider(tenantId));
+        var service = CommerceTestHarness.NewProductService(ctx, tenantId);
 
         await service.CreateProductAsync(new CreateProductCommand("dup", "One", ProductKinds.Simple));
         var act = async () => await service.CreateProductAsync(new CreateProductCommand("dup", "Two", ProductKinds.Simple));
@@ -57,7 +57,7 @@ public class ProductServiceTests
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();
         await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
-        var service = new ProductService(ctx, new TestTenantProvider(tenantId));
+        var service = CommerceTestHarness.NewProductService(ctx, tenantId);
 
         await service.CreateProductAsync(new CreateProductCommand("box", "Wellness Box", ProductKinds.Bundle));
         await service.CreateProductAsync(new CreateProductCommand("a", "Apple", ProductKinds.Simple));
@@ -76,7 +76,7 @@ public class ProductServiceTests
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();
         await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
-        var service = new ProductService(ctx, new TestTenantProvider(tenantId));
+        var service = CommerceTestHarness.NewProductService(ctx, tenantId);
 
         var simple = await service.CreateProductAsync(new CreateProductCommand("plain", "Plain", ProductKinds.Simple));
         var act = async () => await service.AddBundleSlotAsync(new AddBundleSlotCommand(simple.Id, "Slot", 1, 3));

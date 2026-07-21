@@ -24,6 +24,8 @@ using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
+
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Tests.Commerce;
@@ -86,7 +88,12 @@ public class MarginReportServiceTests
 
         public CoreOrderService Orders() => new(Ordering(), _tenant, Clock, _user);
 
-        public ProductService Products() => new(Commerce(), _tenant);
+        public ProductService Products()
+        {
+            // ProductService and its Spec 066 option dependency must share one context.
+            var ctx = Commerce();
+            return new(ctx, _tenant, new ProductOptionService(ctx, _tenant, NullLogger<ProductOptionService>.Instance));
+        }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, Clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, Clock);
         public CartService Carts() => new(Commerce(), _tenant, Pricing());
