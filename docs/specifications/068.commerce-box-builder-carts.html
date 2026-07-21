@@ -254,7 +254,8 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
       remove first (never silently drop lines). Reprices the container only.</td></tr>
   <tr><td>Add line</td>
       <td>Validate the variant is slot-eligible, the product Active, availability &gt; 0
-      (non-reserving check), and the selection via Spec 066 (normalise → validate → price). Reject
+      (non-reserving check), and the selection via Spec 066 (normalise → validate → price, passing
+      the cart currency — 066 V10 rejects any mis-denominated option group). Reject
       if total units would exceed <code>BoxSize</code> — growing first is the only path
       (Step&nbsp;2 FR-13.1: no overflow route exists server-side, whatever the UI does). Merge into
       an existing line when <code>(variant, canonical selection)</code> matches; else create.</td></tr>
@@ -317,7 +318,9 @@ valid sizes:     MinSize ≤ size ≤ MaxSize</code></pre>
 <h2 id="drift">8. Catalogue-drift handling</h2>
 
 <p>A box session outlives catalogue edits. On every load (<code>GET</code> or any write), each
-line's selection is re-normalised against the product's <em>current</em> effective options:</p>
+line's selection is re-normalised against the product's <em>current</em> effective options via
+Spec 066's stored-selection mode (<code>RenormalizeStoredAsync</code> — drift is reported, never
+thrown):</p>
 <ul>
   <li>A chosen key no longer offered (retired choice, tightened narrowing, deactivated group) →
       that group remaps to the current effective default, the line re-prices, and a
@@ -400,7 +403,7 @@ the two can never disagree.</p>
   <tr><td><code>GET /commerce/catalog/products/{slug}/box-plan</code></td>
       <td>The size plan: min/max, presets (badge/blurb/saving), per-space price, currency — Step 1's
       entire pricing UI, the homepage's box offers, and the grow-flow's maths in one read.</td></tr>
-  <tr><td><code>POST /commerce/carts/box</code></td><td>Create a box session (optional first line)</td></tr>
+  <tr><td><code>POST /commerce/carts/box</code></td><td>Create a box session (optional first line). Response includes the guest <code>cartToken</code> — the only time it is disclosed; every subsequent cart call requires it as <code>X-Cart-Token</code> (R10)</td></tr>
   <tr><td><code>GET /commerce/carts/{cartId:guid}</code> <em>(extended)</em></td><td>Box carts return the §7 payload</td></tr>
   <tr><td><code>PATCH /commerce/carts/{cartId:guid}/size</code></td><td>Change box size</td></tr>
   <tr><td><code>POST /commerce/carts/{cartId:guid}/lines</code></td><td>Add a line</td></tr>
@@ -433,6 +436,7 @@ the two can never disagree.</p>
   <tr><td>R7</td><td>Price recomputed from scratch on every write; client-supplied amounts ignored.</td></tr>
   <tr><td>R8</td><td>Continue and checkout refused unless units == size and no line is flagged unavailable.</td></tr>
   <tr><td>R9</td><td>Writes to a cart whose status is not Open → reject (checked-out and abandoned boxes are immutable).</td></tr>
+  <tr><td>R10</td><td><strong>Guest-token enforcement on every cart operation.</strong> Anonymous carts: every read, write, quote, continue and checkout must present the cart's <code>AnonymousToken</code> (returned exactly once, in the create response) via the <code>X-Cart-Token</code> header; compared constant-time; any mismatch or absence → 404 (indistinguishable from an unknown cart — no oracle). Party-bound carts: an authenticated principal matching <code>BuyerPartyId</code> instead. This closes the Spec 042 gap the plan's D3 review surfaced — the token existed but was never checked, so a leaked cart URL alone was enough to read, alter or check out a cart. Applies to the <em>generic</em> cart endpoints too, not just box carts.</td></tr>
 </table>
 <p>Authoring rules: A1 preset sizes within [Min, Max]; A2 <code>BaseSize == MinSize</code> not
 required but <code>MinSize ≤ BaseSize ≤ MaxSize</code>; A3 plan requires
@@ -457,9 +461,11 @@ open box session references the plan.</p>
 <!-- ============================================================ -->
 <h2 id="security">14. Security &amp; tenancy</h2>
 <ul>
-  <li>Box endpoints are anonymous like the existing cart endpoints; possession of the unguessable
-      <code>cartId</code> (GUID) is the access model, unchanged from Spec 042. Carts are
-      tenant-scoped; the global filters make cross-tenant access return 404.</li>
+  <li>Box endpoints are anonymous like the existing cart endpoints, but access is <strong>not</strong>
+      cart-id-possession alone: R10 requires the guest token (<code>X-Cart-Token</code>) on every
+      operation — cart ids travel in URLs and URLs leak (logs, history, shared links); the token
+      travels in a header and is disclosed exactly once, in the create response. Carts are
+      tenant-scoped; the global filters plus R10 make any unauthorised access return 404.</li>
   <li>Rate limiting on cart writes follows the platform's anonymous-endpoint posture (the Spec 061
       pattern is the precedent for tightening if abuse appears; not built pre-emptively).</li>
   <li>No PII added. The personalisation payload is product configuration, not personal data.</li>
@@ -524,6 +530,7 @@ open box session references the plan.</p>
   <tr><td>A13</td><td>Product goes unavailable mid-session → line flagged, adds rejected, continue/checkout blocked until removed.</td></tr>
   <tr><td>A14</td><td>Checkout of a personalised box → one ProductPurchase order; every <code>OrderBundleSelection</code> row carries its canonical selection + summary; production sheet input contains them.</td></tr>
   <tr><td>A15</td><td>Signature-surcharge dish ×2 in the box → <code>unitSurcharges</code> 2 × surcharge; independent of personalisation on the same lines. [AC-12]</td></tr>
+  <tr><td>A16</td><td>Any cart read/write/quote/continue/checkout without the correct <code>X-Cart-Token</code> (absent or wrong) → 404, indistinguishable from an unknown cart id; with the token → succeeds. The generic (non-box) cart endpoints behave identically.</td></tr>
 </table>
 
 <!-- ============================================================ -->
