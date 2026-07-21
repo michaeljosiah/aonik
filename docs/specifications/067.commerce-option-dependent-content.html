@@ -186,9 +186,15 @@ public class ProductContent : AuditableEntity, ITenantScoped
     public string? Ingredients { get; set; }                   // full declaration text
     public string? Allergens { get; set; }                     // allergen declaration text
     public string HeatingJson { get; set; } = "[]";            // [{ "method": "...", "body": "..." }]
+    /// <summary>The canonical all-defaults selection this block describes, captured at authoring
+    /// time. Resolution cross-checks it against the product's current all-defaults selection —
+    /// a mismatch behaves exactly like RequiresReview even if the flag write was missed, so the
+    /// binding is self-verifying, not only event-driven.</summary>
+    public string DescribesSelectionJson { get; set; } = "{}";
     /// <summary>Set when the product's effective default combination changes after this block was
     /// authored (§6). While true, non-variant resolutions are flagged stale and declarations are
-    /// withheld. Cleared by re-upserting the block or explicitly confirming review.</summary>
+    /// withheld. Cleared by re-upserting the block or explicitly confirming review (both of which
+    /// re-capture DescribesSelectionJson).</summary>
     public bool RequiresReview { get; set; }
     /// <summary>Monotonic version covering this product's whole content set (default + variants).
     /// Bumped on every content write; participates in the public cache key (§8).</summary>
@@ -306,8 +312,13 @@ remains true regardless of which combination is currently "default". Two consequ
       While flagged: exact variant matches serve normally; every resolution that would use the
       default block serves figures flagged <code>isStale: true</code> and withholds declarations.
       The flag clears when an admin re-upserts the block or calls the explicit confirm endpoint
-      ("reviewed, still correct"). Wrong-but-flagged beats wrong-presented-as-fact; withheld beats
-      both for declarations.</li>
+      ("reviewed, still correct") — both re-capture <code>DescribesSelectionJson</code>.
+      <strong>Belt and braces:</strong> the block stores the canonical all-defaults selection it
+      was authored for, and resolution treats any mismatch between that and the <em>current</em>
+      all-defaults selection exactly as <code>RequiresReview</code> — a missed hook (or a default
+      shifted by a path that never fired one) can still never serve old standard-prep content as
+      the new standard preparation. Wrong-but-flagged beats wrong-presented-as-fact; withheld
+      beats both for declarations.</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -429,8 +440,9 @@ public record ResolvedContentDto(
 <ol>
   <li>Configurations in <code>src/Aonik.Commerce/Persistence/Configurations/Catalog/</code> —
       indexes per §4; <code>ServingLabel</code> 128, <code>Ingredients</code>/<code>Allergens</code>
-      <code>nvarchar(max)</code>, figures <code>decimal(9,2)</code>, <code>SelectionJson</code>
-      2048, <code>SelectionHash</code> <code>char(64)</code> (the unique key —
+      <code>nvarchar(max)</code>, figures <code>decimal(9,2)</code>, <code>SelectionJson</code> and
+      <code>DescribesSelectionJson</code> 2048, <code>SelectionHash</code> <code>char(64)</code>
+      (the unique key —
       TenantId&nbsp;+&nbsp;ProductId&nbsp;+&nbsp;hash is ~96 bytes, comfortably inside SQL Server's
       1,700-byte nonclustered key limit; the JSON itself is never indexed).</li>
   <li><code>DbSet</code>s in <code>AonikDbContext</code> + <code>CommerceDbContext</code>, with
