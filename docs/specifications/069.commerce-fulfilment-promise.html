@@ -299,7 +299,9 @@ Steps 3–5 build-out. Requirements at contract level:</p>
       <code>MapTable</code> entry (<code>FulfilmentCalendars</code>).</li>
   <li>One tool-generated migration:
       <pre><code>dotnet ef migrations add AddCommerceFulfilmentCalendar --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
-      Expect one new table, nothing else. Review, apply locally, commit both files. Hand-written
+      Expect one new table, nothing else. Review, apply locally, and commit all three generated
+      artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>, and the updated
+      <code>AonikDbContextModelSnapshot.cs</code>. Hand-written
       migrations are prohibited (CLAUDE.md).</li>
 </ol>
 
@@ -360,7 +362,7 @@ Steps 3–5 build-out. Requirements at contract level:</p>
 <table>
   <tr><th>#</th><th>Given / when / then</th></tr>
   <tr><td>A1</td><td>Daily cutoff 12:00, lead 14, <strong>Thursdays</strong>, London; clock Tue 2026-07-21 10:00 local → ready Tue 2026-08-04, first Thursday ≥ ready = <code>2026-08-06</code> (a Thursday).</td></tr>
-  <tr><td>A2</td><td>Same calendar; clock Tue 2026-07-21 13:00 (past cutoff) → effective date advances one day (ready 2026-08-05); result unchanged (<code>2026-08-06</code>) because ready still precedes that Thursday — and a clock late enough to push ready past it rolls the promise a full week to <code>2026-08-13</code>.</td></tr>
+  <tr><td>A2</td><td>Same calendar; clock <strong>Thursday 2026-07-23</strong>: at 11:00 → effective 23 Jul, ready Thu <code>2026-08-06</code> → promise <code>2026-08-06</code>; at 13:00 (past cutoff) → effective 24 Jul, ready Fri 2026-08-07 → promise <code>2026-08-13</code>. Crossing the cutoff visibly rolls the promise a week — an implementation that ignores <code>CutoffLocalTime</code> fails this pair. (At exactly 12:00 the order is still before cutoff — "&gt;" flips the day — so 12:00:00 yields <code>2026-08-06</code>.)</td></tr>
   <tr><td>A3</td><td><code>2026-08-06</code> added to blackouts → promise becomes <code>2026-08-13</code> (next Thursday).</td></tr>
   <tr><td>A4</td><td>No calendar / inactive / empty delivery days → public endpoint 404; nothing is guessed.</td></tr>
   <tr><td>A5</td><td>Admin changes cutoff or lead → next read reflects it with no other write; upsert response already shows the new promise.</td></tr>
