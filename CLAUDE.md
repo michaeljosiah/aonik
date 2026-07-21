@@ -172,6 +172,7 @@ An Order records: what was requested, who the relevant parties are, what amounts
 - **Database**: InMemory with unique name `$"TestDb_{Guid.NewGuid()}"`
 - **Required mocks**: `ITenantProvider` (use `TestTenantProvider`) and `ICurrentUserProvider`
 - **API tests**: Use `CustomWebApplicationFactory` with `UseInMemoryDatabase=true` in config
+- **SQL Server lane**: `tests/Aonik.Database.Tests` runs against SQL Server LocalDB via `SqlLocalDbFixture` (per-class throwaway database built with `EnsureCreated`; skips gracefully where LocalDB is absent). The InMemory provider is non-relational, so changes touching `BeginTransaction` / execution strategies, `RowVersion` optimistic concurrency, or filtered unique indexes MUST add or run coverage in this lane — the InMemory suite is structurally unable to fail on those (that is how the Spec 066 P1 shipped). The Docker-based `tests/Aonik.Finance.IntegrationTests` lane complements it by applying the real migration stream.
 
 ## Naming Conventions
 

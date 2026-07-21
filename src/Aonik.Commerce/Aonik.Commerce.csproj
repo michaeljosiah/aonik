@@ -24,6 +24,7 @@
     <InternalsVisibleTo Include="Aonik.Commerce.Tests" />
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
   </ItemGroup>
 
   <ItemGroup>
