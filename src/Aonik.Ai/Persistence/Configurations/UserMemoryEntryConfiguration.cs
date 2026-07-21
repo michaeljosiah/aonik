@@ -66,11 +66,17 @@ internal class UserMemoryEntryConfiguration : IEntityTypeConfiguration<UserMemor
             .OnDelete(DeleteBehavior.SetNull)
             .HasConstraintName("FK_UserMemoryEntry_AnkAiRuns_AiRunId");
 
-        // Self-referencing FK for superseded chain
+        // Self-referencing FK for superseded chain. NoAction, not SetNull: SQL Server rejects
+        // SET NULL on a self-referencing FK ("may cause cycles or multiple cascade paths"), which
+        // is why the Phase1Schema raw SQL created this constraint ON DELETE NO ACTION — SetNull
+        // here was model-only drift that made the model impossible to materialise on the real
+        // engine (EnsureCreated fails; only the raw-SQL migration path ever worked). NoAction
+        // matches every live database and the sibling supersede chains
+        // (CustomerInsightAiSummary / CustomerInsightSnapshot).
         builder.HasOne<UserMemoryEntry>()
             .WithMany()
             .HasForeignKey(x => x.SupersededById)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_UserMemoryEntry_UserMemoryEntry_SupersededById");
 
         // The FK-column indexes EF creates automatically were also named from the legacy entity — pin
