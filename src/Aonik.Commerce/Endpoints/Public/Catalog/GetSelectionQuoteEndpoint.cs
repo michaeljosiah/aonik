@@ -40,12 +40,19 @@ public class GetSelectionQuoteEndpoint : Endpoint<SelectionQuoteRequest, OptionS
             return;
         }
 
-        // Currency is optional: supplied means every amount must already be denominated in it
-        // (V10); omitted means validate and canonicalise without binding money at all.
-        var result = string.IsNullOrWhiteSpace(req.Currency)
-            ? await _selections.NormalizeAsync(product.Id, req.Selection, ct)
-            : await _selections.NormalizeAndPriceAsync(product.Id, req.Selection, req.Currency, ct);
+        // Currency is required for a *quote*. A product can combine independently authored option
+        // groups and a surcharge in different currencies, so without a target there is nothing to
+        // check them against (V10) and any total would be a sum of denominations wearing one
+        // label. Callers that only want validation and the canonical form use the option
+        // catalogue plus IOptionSelectionService.NormalizeAsync internally, not this endpoint.
+        if (string.IsNullOrWhiteSpace(req.Currency))
+        {
+            throw new OptionValidationException(
+                "V10",
+                "A quote requires a currency; supply the storefront currency so option amounts can be validated against it.");
+        }
 
+        var result = await _selections.NormalizeAndPriceAsync(product.Id, req.Selection, req.Currency, ct);
         await Send.OkAsync(result, ct);
     }
 }

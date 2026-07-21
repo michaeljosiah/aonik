@@ -49,6 +49,15 @@ public record EffectiveOptionGroupDto(
     string DefaultChoiceKey,
     IReadOnlyList<EffectiveOptionChoiceDto> Choices);
 
+/// <summary>
+/// The outcome of moving a group's recommended default. <see cref="AffectedProductSlugs"/> is the
+/// point of the type: which combination counts as "the standard preparation" just changed for every
+/// one of these products, so dependent capabilities (Spec 067 content review) must re-check them.
+/// </summary>
+public record RecommendedDefaultChangeResult(
+    OptionGroupDto Group,
+    IReadOnlyList<string> AffectedProductSlugs);
+
 // ─── Selection normalisation + pricing ────────────────────────────────────────
 
 /// <summary>Per-group contribution to the adjustment, so storefronts can show

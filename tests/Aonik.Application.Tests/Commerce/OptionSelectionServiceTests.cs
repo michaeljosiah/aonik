@@ -286,4 +286,71 @@ public class OptionSelectionServiceTests
         result.UnitSurcharge.Should().Be(4m);
         result.UnitSurchargeCurrency.Should().Be("GBP");
     }
+
+    [Fact]
+    public async Task RenormalizeStoredAsync_Should_InsertTheDefault_When_PartOfAMultiSelectionIsRetired()
+    {
+        // The drift report promised a remap to the default, so the selection must actually receive
+        // it. Otherwise ["salmon","retired"] silently becomes ["salmon"] and the cart is repriced
+        // against a selection the customer was never shown.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, builder) = await ArrangeAsync(ctx, tenantId);
+        var optionService = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.Multi));
+        var stored = (await selections.NormalizeAndPriceAsync(productId, Json("""{"protein":["salmon","prawns"]}"""), "GBP"))
+            .CanonicalSelectionJson;
+
+        var prawnsId = await builder.ChoiceIdAsync("protein", "prawns");
+        await optionService.UpdateChoiceAsync(prawnsId, new UpdateOptionChoiceCommand("King prawns", IsActive: false));
+
+        var result = await selections.RenormalizeStoredAsync(productId, stored, "GBP");
+
+        result.Drift.Should().ContainSingle(d => d.FromChoiceKey == "prawns" && d.ToChoiceKey == "chicken");
+        result.Result.CanonicalSelectionJson.Should().Contain("chicken");
+        result.Result.CanonicalSelectionJson.Should().Contain("salmon");
+    }
+
+    [Fact]
+    public async Task NormalizeAndPriceAsync_Should_ReportV3_When_TheChoiceWasRetiredRatherThanNeverOffered()
+    {
+        // V2 and V3 are different diagnoses: "you made that up" vs "we withdrew it". Collapsing
+        // both into V2 leaves clients unable to tell a retirement from a bad key.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, builder) = await ArrangeAsync(ctx, tenantId);
+        var optionService = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
+        await optionService.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", IsActive: false));
+
+        var retired = () => selections.NormalizeAndPriceAsync(productId, Json("""{"protein":"salmon"}"""), "GBP");
+        (await retired.Should().ThrowAsync<OptionValidationException>()).Which.RuleId.Should().Be("V3");
+
+        var invented = () => selections.NormalizeAndPriceAsync(productId, Json("""{"protein":"unicorn"}"""), "GBP");
+        (await invented.Should().ThrowAsync<OptionValidationException>()).Which.RuleId.Should().Be("V2");
+    }
+
+    [Fact]
+    public async Task NormalizeAsync_Should_ReturnNoMonetaryValues_Because_NoCurrencyWasValidated()
+    {
+        // Without a target currency V10 has not run, so any adjustment could be a sum of different
+        // denominations wearing one label. Publish the structure, not a number we cannot stand behind.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, _) = await ArrangeAsync(ctx, tenantId);
+        var optionService = CommerceTestHarness.NewOptionService(ctx, tenantId);
+        await optionService.SetUnitSurchargeAsync(productId, new SetUnitSurchargeCommand(4m, "GBP"));
+
+        var result = await selections.NormalizeAsync(productId, Json("""{"portion":"full"}"""));
+
+        result.Adjustment.Should().Be(0m);
+        result.Currency.Should().BeEmpty();
+        result.UnitSurcharge.Should().BeNull();
+        result.Breakdown.Should().BeEmpty();
+        // The structural facts are still there — that is what content resolution consumes.
+        result.CanonicalSelectionJson.Should().Contain("\"portion\":\"full\"");
+        result.IsDefault.Should().BeFalse();
+    }
 }

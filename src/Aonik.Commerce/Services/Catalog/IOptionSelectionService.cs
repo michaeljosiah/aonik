@@ -32,10 +32,16 @@ public interface IOptionSelectionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Validate and canonicalise without pricing — same rules V1–V5, no currency involved.
-    /// Content resolution (Spec 067) needs a canonical selection but has nothing to do with money,
-    /// and must not fail on a pricing rule.
+    /// Validate and canonicalise <strong>without pricing</strong> — same rules V1–V5, no currency
+    /// involved. Content resolution (Spec 067) needs a canonical selection but has nothing to do
+    /// with money, and must not fail on a pricing rule.
     /// </summary>
+    /// <remarks>
+    /// The returned result's monetary fields are deliberately zero/empty: with no target currency
+    /// rule V10 has not run, so an adjustment here could silently sum amounts denominated in
+    /// different currencies. Callers that need money must use
+    /// <see cref="NormalizeAndPriceAsync"/> with an explicit currency.
+    /// </remarks>
     /// <exception cref="OptionValidationException">Rules V1–V5.</exception>
     Task<OptionSelectionResult> NormalizeAsync(
         Guid productId,

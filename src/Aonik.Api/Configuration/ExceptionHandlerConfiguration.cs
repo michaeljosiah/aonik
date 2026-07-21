@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 
@@ -156,6 +157,18 @@ public static class ExceptionHandlerConfiguration
                     error = ex.Message,
                     code = "speech_library.validation",
                     fieldName = validation.FieldName,
+                });
+                return;
+
+            case OptionValidationException optionValidation:
+                // Spec 066 §9 — invalid customer or admin option input is a client fault, not a
+                // server error. The rule id travels with it so storefronts can react precisely
+                // (e.g. V2 "this product does not offer that choice" vs V3 "it was withdrawn").
+                await WriteJsonAsync(context, StatusCodes.Status400BadRequest, new
+                {
+                    error = ex.Message,
+                    code = "commerce.option_validation",
+                    rule = optionValidation.RuleId,
                 });
                 return;
 

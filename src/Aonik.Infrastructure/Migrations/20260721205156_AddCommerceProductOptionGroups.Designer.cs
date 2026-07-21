@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260721195511_AddCommerceProductOptionGroups")]
+    [Migration("20260721205156_AddCommerceProductOptionGroups")]
     partial class AddCommerceProductOptionGroups
     {
         /// <inheritdoc />
@@ -3030,14 +3030,15 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("OptionGroupId");
 
-                    b.HasIndex("TenantId", "OptionGroupId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_AnkOptionChoices_RecommendedDefault_Unique")
-                        .HasFilter("[IsRecommendedDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0");
-
                     b.HasIndex("TenantId", "OptionGroupId", "Key")
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex(new[] { "TenantId", "OptionGroupId" }, "IX_AnkOptionChoices_RecommendedDefault_Unique")
+                        .IsUnique()
+                        .HasFilter("[IsRecommendedDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0");
+
+                    b.HasIndex(new[] { "TenantId", "OptionGroupId" }, "IX_AnkOptionChoices_TenantId_OptionGroupId");
 
                     b.ToTable("AnkOptionChoices", "dbo");
                 });

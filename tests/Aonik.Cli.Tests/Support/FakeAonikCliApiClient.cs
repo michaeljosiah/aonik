@@ -720,4 +720,44 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
         LastCaptureRequest = request;
         return Task.FromResult(CaptureResult);
     }
+
+    // ── Commerce storefront options (Spec 066) ──────────────────────────
+
+    public IReadOnlyList<CliOptionGroup> OptionCatalogue { get; set; } = [];
+
+    public CliStorefrontProduct StorefrontProduct { get; set; } =
+        new(Guid.NewGuid(), "jollof", "Jollof Rice", "Active", null, null, []);
+
+    public CliSelectionQuote SelectionQuote { get; set; } =
+        new("{}", true, 0m, "GBP", null, null, string.Empty, [], []);
+
+    public StorefrontTarget? LastTarget { get; private set; }
+
+    public IReadOnlyDictionary<string, object>? LastSelection { get; private set; }
+
+    public Task<IReadOnlyList<CliOptionGroup>> GetOptionCatalogueAsync(
+        StorefrontTarget target, CancellationToken cancellationToken = default)
+    {
+        LastTarget = target;
+        return Task.FromResult(OptionCatalogue);
+    }
+
+    public Task<CliStorefrontProduct> GetStorefrontProductAsync(
+        StorefrontTarget target, string slug, CancellationToken cancellationToken = default)
+    {
+        LastTarget = target;
+        return Task.FromResult(StorefrontProduct);
+    }
+
+    public Task<CliSelectionQuote> GetSelectionQuoteAsync(
+        StorefrontTarget target,
+        string slug,
+        IReadOnlyDictionary<string, object> selection,
+        string? currency,
+        CancellationToken cancellationToken = default)
+    {
+        LastTarget = target;
+        LastSelection = selection;
+        return Task.FromResult(SelectionQuote);
+    }
 }

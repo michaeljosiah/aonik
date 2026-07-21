@@ -25,7 +25,7 @@ public interface IProductOptionService
     /// any product's effective default unresolvable is rejected naming those products, rather than
     /// silently dropping the group from their storefront.
     /// </summary>
-    Task<OptionGroupDto> SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken cancellationToken = default);
+    Task<RecommendedDefaultChangeResult> SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken cancellationToken = default);
 
     /// <summary>Full-replace a product's narrowing. Idempotent.</summary>
     Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken cancellationToken = default);

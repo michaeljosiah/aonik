@@ -128,7 +128,32 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
             "/commerce/catalog/products/plain/selection-quote",
             new { selection = new { portion = "full" }, currency = "GBP" });
 
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.InternalServerError);
+        // Strictly 400. An earlier version of this test also permitted 500, which masked the fact
+        // that OptionValidationException was unmapped and every invalid selection surfaced as an
+        // internal error.
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var payload = await response.Content.ReadFromJsonAsync<OptionErrorResponse>();
+        payload!.Code.Should().Be("commerce.option_validation");
+        payload.Rule.Should().Be("V1");
+    }
+
+    [Fact]
+    public async Task SelectionQuote_Should_Reject_When_CurrencyIsOmitted()
+    {
+        // A quote without a currency has nothing to validate its amounts against (V10), so a
+        // product mixing denominations would otherwise return a total wearing one arbitrary label.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCatalogueAsync(tenantId);
+        await SeedProductAsync(tenantId, "jollof", offerPortion: true);
+
+        var response = await AnonymousClient(tenantId).PostAsJsonAsync(
+            "/commerce/catalog/products/jollof/selection-quote",
+            new { selection = new { portion = "full" } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadFromJsonAsync<OptionErrorResponse>())!.Rule.Should().Be("V10");
     }
 
     [Fact]
@@ -259,6 +284,8 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
         await db.SaveChangesAsync();
         return productId;
     }
+
+    private sealed record OptionErrorResponse(string Error, string Code, string Rule);
 
     private sealed record OptionGroupResponse(string Key, string Label, List<OptionChoiceResponse> Choices);
 

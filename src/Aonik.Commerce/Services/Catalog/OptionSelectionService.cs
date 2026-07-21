@@ -78,6 +78,15 @@ internal sealed class OptionSelectionService : IOptionSelectionService
                 continue;
             }
 
+            // A partially retired multi-selection must actually receive the replacement the drift
+            // report promises. Without this, ["salmon","retired"] would silently become ["salmon"]
+            // while the report claimed a remap to the default — the cart would then be repriced
+            // against a selection the customer was never shown.
+            if (isMulti && lost.Count > 0 && !kept.Contains(group.DefaultChoiceKey, StringComparer.Ordinal))
+            {
+                kept.Add(group.DefaultChoiceKey);
+            }
+
             // A group tightened Multi → One keeps a single stored choice silently, but cannot keep
             // several — those remap to the default with a reported change.
             if (!isMulti && kept.Count > 1)
@@ -104,12 +113,17 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             ? CanonicalSelection.Parse(element, "V5")
             : new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
-        // V1 — a group the product does not offer is a client error, not something to ignore.
+        // V1/V3 — a group the product does not offer is a client error. Distinguish a group that
+        // exists in the catalogue but has been retired (V3) from one this product never offered
+        // (V1); the caller needs to tell "we withdrew it" from "you made that up".
         foreach (var groupKey in input.Keys)
         {
             if (!groups.Any(g => g.Key == groupKey))
             {
-                throw new OptionValidationException("V1", $"This product does not offer option group '{groupKey}'.");
+                var existsButRetired = await GroupWithdrawnAsync(groupKey, cancellationToken);
+                throw existsButRetired
+                    ? new OptionValidationException("V3", $"Option group '{groupKey}' is no longer available.")
+                    : new OptionValidationException("V1", $"This product does not offer option group '{groupKey}'.");
             }
         }
 
@@ -148,11 +162,13 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             {
                 if (!offered.Contains(key))
                 {
-                    // V2/V3 — the choice may well exist in the tenant catalogue; what matters is
-                    // that THIS product does not offer it (or it is inactive).
-                    throw new OptionValidationException(
-                        "V2",
-                        $"This product does not offer choice '{key}' in group '{group.Key}'.");
+                    // V2 vs V3: a key that exists in the catalogue but has been deactivated is a
+                    // retirement (V3); a key this product simply never offered — even one that is
+                    // perfectly valid elsewhere in the tenant catalogue — is V2.
+                    var retired = await ChoiceWithdrawnAsync(group.Key, key, cancellationToken);
+                    throw retired
+                        ? new OptionValidationException("V3", $"Choice '{key}' in group '{group.Key}' is no longer available.")
+                        : new OptionValidationException("V2", $"This product does not offer choice '{key}' in group '{group.Key}'.");
                 }
             }
 
@@ -160,6 +176,46 @@ internal sealed class OptionSelectionService : IOptionSelectionService
         }
 
         return await BuildResultAsync(productId, groups, resolved, currency, cancellationToken);
+    }
+
+    /// <summary>
+    /// True only when the group exists in the tenant catalogue AND has been withdrawn (inactive,
+    /// or left without an active choice / recommended default). A group that is alive and well but
+    /// simply not offered by this product is not a retirement — that is V1.
+    /// </summary>
+    private async Task<bool> GroupWithdrawnAsync(string groupKey, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var group = await _dbContext.OptionGroups
+            .AsNoTracking()
+            .Include(g => g.Choices)
+            .FirstOrDefaultAsync(g => g.TenantId == tenantId && g.Key == groupKey, cancellationToken);
+
+        if (group is null)
+        {
+            return false;
+        }
+
+        var active = group.Choices.Where(c => c.IsActive && !c.IsDeleted).ToList();
+        var servable = group.IsActive && !group.IsDeleted && active.Count > 0 && active.Count(c => c.IsRecommendedDefault) == 1;
+        return !servable;
+    }
+
+    /// <summary>
+    /// True only when the choice exists in the group AND is inactive — a retirement. A choice that
+    /// is active but outside this product's narrowing is V2, however valid it is elsewhere.
+    /// </summary>
+    private async Task<bool> ChoiceWithdrawnAsync(string groupKey, string choiceKey, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await _dbContext.OptionChoices
+            .AsNoTracking()
+            .Join(
+                _dbContext.OptionGroups.AsNoTracking().Where(g => g.TenantId == tenantId && g.Key == groupKey),
+                c => c.OptionGroupId,
+                g => g.Id,
+                (c, _) => c)
+            .AnyAsync(c => c.TenantId == tenantId && c.Key == choiceKey && !c.IsActive, cancellationToken);
     }
 
     private async Task<OptionSelectionResult> BuildResultAsync(
@@ -251,11 +307,23 @@ internal sealed class OptionSelectionService : IOptionSelectionService
 
         var canonical = CanonicalSelection.Serialize(resolved, multiSelectGroups);
 
+        // Without a target currency nothing has been checked against V10, so any total would be a
+        // sum of possibly-different denominations wearing one label. Return the canonical form and
+        // the structural facts, and zero the money rather than publish a number we cannot stand
+        // behind — this is the contract content resolution (Spec 067) consumes.
+        if (target is null)
+        {
+            return new OptionSelectionResult(
+                canonical, isDefault, Adjustment: 0m, Currency: string.Empty,
+                UnitSurcharge: null, UnitSurchargeCurrency: null,
+                string.Join(" · ", summaryParts), display, Breakdown: []);
+        }
+
         return new OptionSelectionResult(
             canonical,
             isDefault,
             adjustment,
-            target ?? groups.FirstOrDefault()?.Currency ?? product.UnitSurchargeCurrency ?? string.Empty,
+            target,
             product.UnitSurcharge,
             product.UnitSurchargeCurrency,
             // Differs-from-default only (Step 2 FR-11.4). Presentation convenience — the canonical

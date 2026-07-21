@@ -134,6 +134,12 @@ namespace Aonik.Infrastructure.Migrations
                 filter: "[IsRecommendedDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AnkOptionChoices_TenantId_OptionGroupId",
+                schema: "dbo",
+                table: "AnkOptionChoices",
+                columns: new[] { "TenantId", "OptionGroupId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AnkOptionChoices_TenantId_OptionGroupId_Key",
                 schema: "dbo",
                 table: "AnkOptionChoices",

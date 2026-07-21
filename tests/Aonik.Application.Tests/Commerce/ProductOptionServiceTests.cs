@@ -58,8 +58,8 @@ public class ProductOptionServiceTests
         var proteinId = await builder.GroupIdAsync("protein");
         var updated = await service.SetRecommendedDefaultAsync(proteinId, "salmon");
 
-        updated.Choices.Should().ContainSingle(c => c.IsRecommendedDefault);
-        updated.Choices.Single(c => c.IsRecommendedDefault).Key.Should().Be("salmon");
+        updated.Group.Choices.Should().ContainSingle(c => c.IsRecommendedDefault);
+        updated.Group.Choices.Single(c => c.IsRecommendedDefault).Key.Should().Be("salmon");
     }
 
     [Fact]

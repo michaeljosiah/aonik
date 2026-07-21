@@ -147,6 +147,28 @@ internal sealed partial class ProductOptionService : IProductOptionService
             }
         }
 
+        // V7 (inverse transition) — a deactivated choice keeps its IsRecommendedDefault flag, so
+        // reactivating it after another choice took over would leave two active defaults: a raw
+        // unique-index error on SQL Server, and a silently non-servable group on InMemory.
+        if (!choice.IsActive && command.IsActive && choice.IsRecommendedDefault)
+        {
+            var hasOtherDefault = await _dbContext.OptionChoices.AnyAsync(
+                c => c.TenantId == tenantId
+                    && c.OptionGroupId == choice.OptionGroupId
+                    && c.Id != choice.Id
+                    && c.IsRecommendedDefault
+                    && c.IsActive,
+                cancellationToken);
+
+            if (hasOtherDefault)
+            {
+                throw new OptionValidationException(
+                    "V7",
+                    $"Choice '{choice.Key}' still carries the recommended-default flag and the group already has an active default; " +
+                    "move the default explicitly instead of reactivating a second one.");
+            }
+        }
+
         choice.Label = RequireLabel(command.Label);
         choice.Note = command.Note;
         choice.Price = command.Price;
@@ -157,7 +179,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         return MapChoice(choice);
     }
 
-    public async Task<OptionGroupDto> SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken cancellationToken = default)
+    public async Task<RecommendedDefaultChangeResult> SetRecommendedDefaultAsync(Guid groupId, string choiceKey, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var group = await _dbContext.OptionGroups
@@ -186,16 +208,46 @@ internal sealed partial class ProductOptionService : IProductOptionService
                 "give them an explicit default or widen their allowed choices before moving the group default.");
         }
 
-        // Demote + promote in one SaveChanges. The filtered unique index serializes concurrent
-        // callers: one commits, the other conflicts rather than leaving two defaults behind.
-        foreach (var choice in group.Choices.Where(c => c.IsRecommendedDefault && c.Id != target.Id))
-        {
-            choice.IsRecommendedDefault = false;
-        }
-        target.IsRecommendedDefault = true;
+        // Demote FIRST, in its own round trip, then promote. A single SaveChanges is transactional
+        // but does not guarantee EF emits the demote before the promote — and the filtered unique
+        // index is evaluated per statement, so a promote-first ordering collides with the existing
+        // default and fails the supported path. Two ordered writes inside one transaction avoid
+        // both that and any window where the group has zero or two defaults.
+        var affectedProducts = await ProductsOfferingGroupAsync(tenantId, group.Id, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(group, group.Choices);
+        var transaction = _dbContext.Database.IsRelational()
+            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        try
+        {
+            var demoted = group.Choices.Where(c => c.IsRecommendedDefault && c.Id != target.Id).ToList();
+            if (demoted.Count > 0)
+            {
+                foreach (var choice in demoted)
+                {
+                    choice.IsRecommendedDefault = false;
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            target.IsRecommendedDefault = true;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+
+        return new RecommendedDefaultChangeResult(Map(group, group.Choices), affectedProducts);
     }
 
     public async Task SetProductOptionGroupsAsync(Guid productId, SetProductOptionGroupsCommand command, CancellationToken cancellationToken = default)
@@ -214,6 +266,23 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .Where(g => g.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 
+        // Duplicate keys would create two live rows for the same (product, group): a raw
+        // unique-index error on SQL Server, and on InMemory a group emitted twice with its
+        // adjustment double-counted. Reject it as the authoring mistake it is.
+        var duplicates = command.Groups
+            .Select(line => NormalizeKey(line.GroupKey, "group"))
+            .GroupBy(key => key, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicates.Count > 0)
+        {
+            throw new OptionValidationException(
+                "V6",
+                $"Option group(s) {string.Join(", ", duplicates)} appear more than once in this narrowing.");
+        }
+
         var replacements = new List<ProductOptionGroup>();
 
         foreach (var line in command.Groups)
@@ -224,8 +293,12 @@ internal sealed partial class ProductOptionService : IProductOptionService
 
             var groupChoiceKeys = group.Choices.Where(c => !c.IsDeleted).Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
 
+            // An explicitly supplied empty list is NOT the same as null. Null means "every active
+            // choice"; an empty list means the operator selected nothing, and silently widening it
+            // to the whole catalogue would expose choices they deliberately did not pick. Let it
+            // fall through to the zero-active-choices rejection below.
             List<string>? allowed = null;
-            if (line.AllowedChoiceKeys is { Count: > 0 })
+            if (line.AllowedChoiceKeys is not null)
             {
                 allowed = line.AllowedChoiceKeys.Select(k => NormalizeKey(k, "choice")).Distinct(StringComparer.Ordinal).ToList();
                 var unknown = allowed.Where(k => !groupChoiceKeys.Contains(k)).ToList();
@@ -302,6 +375,14 @@ internal sealed partial class ProductOptionService : IProductOptionService
 
         _dbContext.ProductOptionGroups.RemoveRange(existing);
         _dbContext.ProductOptionGroups.AddRange(replacements);
+
+        // Serialize against a concurrent default move. Both operations validate against state the
+        // other is about to change — narrowing a product to {A} while the group default moves
+        // A→B passes both checks independently and commits a product with no resolvable default.
+        // Touching the shared group rows makes the two writes contend on the group's concurrency
+        // token, so the loser retries against fresh state instead of silently disagreeing.
+        TouchGroups(groups.Where(g => replacements.Any(r => r.OptionGroupId == g.Id)));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -469,15 +550,30 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
             .ToListAsync(cancellationToken);
 
+        var activeKeys = group.Choices
+            .Where(c => c.IsActive && !c.IsDeleted)
+            .Select(c => c.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
         var affected = new List<Guid>();
         foreach (var narrowing in narrowings)
         {
-            if (!string.IsNullOrWhiteSpace(narrowing.DefaultChoiceKey))
+            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
+
+            // A stored override only protects the product if it STILL resolves — the choice must
+            // be active and within the narrowing. A product that overrode to a since-deactivated
+            // choice is silently relying on the group default, so moving that default out of its
+            // allowed set would orphan it just as surely as having no override at all.
+            var overrideResolves =
+                narrowing.DefaultChoiceKey is { Length: > 0 } key &&
+                activeKeys.Contains(key) &&
+                (allowed is null || allowed.Contains(key));
+
+            if (overrideResolves)
             {
-                continue; // has its own default — a group-level move cannot orphan it
+                continue;
             }
 
-            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
             if (allowed is not null && !allowed.Contains(choiceKey))
             {
                 affected.Add(narrowing.ProductId);
@@ -527,6 +623,31 @@ internal sealed partial class ProductOptionService : IProductOptionService
         }
 
         return await SlugsForAsync(tenantId, affected, cancellationToken);
+    }
+
+    /// <summary>Marks the shared option-group rows modified so concurrent writers that validate
+    /// against each other's state contend on the group's rowversion instead of both committing.</summary>
+    private void TouchGroups(IEnumerable<OptionGroup> groups)
+    {
+        foreach (var group in groups)
+        {
+            _dbContext.Entry(group).State = EntityState.Modified;
+        }
+    }
+
+    /// <summary>Slugs of every product offering this group — returned by a default move so
+    /// dependent capabilities (Spec 067 content review) know what to re-check.</summary>
+    private async Task<IReadOnlyList<string>> ProductsOfferingGroupAsync(
+        Guid tenantId, Guid groupId, CancellationToken cancellationToken)
+    {
+        var productIds = await _dbContext.ProductOptionGroups
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.OptionGroupId == groupId)
+            .Select(x => x.ProductId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return await SlugsForAsync(tenantId, productIds, cancellationToken);
     }
 
     private async Task<List<string>> SlugsForAsync(Guid tenantId, List<Guid> productIds, CancellationToken cancellationToken)

@@ -104,6 +104,12 @@ public static class SettingDefinitions
 
             // ── Text To Speech ───────────────────────────────────────────
             [TextToSpeechSettingNames.TenantProfile] = new SettingDefinition(TextToSpeechSettingNames.TenantProfile),
+
+            // ── Commerce storefront (Spec 066/070) ───────────────────────
+            [CommerceSettingNames.StorefrontRecommendedChoiceLabel] = new SettingDefinition(
+                CommerceSettingNames.StorefrontRecommendedChoiceLabel,
+                DefaultValue: "Recommended",
+                IsVisibleToClients: true),
         });
 
     public static SettingDefinition? Get(string key)

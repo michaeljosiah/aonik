@@ -49,8 +49,8 @@ public record SetProductOptionGroupsRequest(IReadOnlyCollection<ProductOptionGro
 public record SetUnitSurchargeRequest(decimal? Amount, string? Currency);
 
 /// <summary>
-/// A selection to price, before any cart exists. <see cref="Currency"/> is optional: when supplied
-/// every involved amount must already be denominated in it (rule V10); when omitted the selection
-/// is validated and canonicalised without currency binding.
+/// A selection to price, before any cart exists. <see cref="Currency"/> is <strong>required</strong>:
+/// every involved amount must already be denominated in it (rule V10), and without a target there
+/// is nothing to validate a multi-currency product's groups against.
 /// </summary>
 public record SelectionQuoteRequest(JsonElement? Selection, string? Currency);
