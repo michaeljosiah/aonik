@@ -234,7 +234,7 @@ public string SearchKeywordsJson { get; set; } = "[]";</code></pre>
 <table>
   <tr><th>Entity</th><th>Table</th><th>Unique index</th><th>Other</th></tr>
   <tr><td><code>Collection</code></td><td><code>AnkCollections</code></td><td>(TenantId, Slug)</td><td>—</td></tr>
-  <tr><td><code>CollectionItem</code></td><td><code>AnkCollectionItems</code></td><td>(TenantId, CollectionId, ProductId); <strong>plus</strong> (TenantId, CollectionId, Rank) — duplicate ranks would make "curated order" nondeterministic under SQL ordering</td><td>(TenantId, CollectionId)</td></tr>
+  <tr><td><code>CollectionItem</code></td><td><code>AnkCollectionItems</code></td><td>(TenantId, CollectionId, ProductId) and (TenantId, CollectionId, Rank) — <strong>both filtered <code>WHERE IsDeleted = 0</code></strong>: <code>AonikDbContextBase</code> converts deletes into soft-deleted rows, so an unfiltered unique index would keep a removed product's row occupying the key and make re-adding it (or a delete/reinsert reorder) fail. The full-replace operation revives a soft-deleted row instead of inserting a duplicate. Duplicate <em>active</em> ranks stay impossible — curated order stays deterministic</td><td>(TenantId, CollectionId)</td></tr>
   <tr><td><code>FacetGroup</code></td><td><code>AnkFacetGroups</code></td><td>(TenantId, Key)</td><td>—</td></tr>
 </table>
 
@@ -271,8 +271,17 @@ default remains <code>name</code>.</p>
 <h2 id="search">7. Search &amp; hidden keywords</h2>
 
 <ul>
-  <li>Search matches case-insensitively, anywhere in the text, across: product name, description,
-      and every entry of <code>SearchKeywordsJson</code> (Step&nbsp;2 FR-2.1).</li>
+  <li>Search matches case-insensitively, anywhere in the text, across: product name,
+      <strong>slug</strong> (the existing browse already matches it — dropping it would regress
+      slug-based discovery), description, and every entry of <code>SearchKeywordsJson</code>
+      (Step&nbsp;2 FR-2.1).</li>
+  <li><strong>Keywords are matched as logical array entries, not serialized text.</strong> A LIKE
+      over the raw JSON column would miss escaped characters (a serializer may persist
+      <code>café</code> as <code>caf&#92;u00E9</code>) and could match JSON syntax instead of
+      values.
+      Matching uses the database's JSON functions (<code>OPENJSON</code> via the EF-translated
+      collection query) — or an equivalently normalized searchable projection — so the value the
+      author typed is the value that matches.</li>
   <li><strong>Keywords appear in no public response.</strong> Not on <code>ProductDto</code>, not
       on <code>ProductSummaryDto</code>, not indirectly via <code>AttributesJson</code> (they are a
       dedicated column precisely so they cannot leak through the attributes pass-through). Because
@@ -317,7 +326,7 @@ that violates the pricing posture:</p>
 tunable the frontend must not hard-code:</p>
 
 <pre><code>{
-  "currency": "GBP",                                // Commerce.Storefront.Currency (default "GBP")
+  "currency": "GBP",                                // Tenant.DefaultCurrency - the canonical tenant currency, not a new setting
   "recommendedChoiceLabel": "Abby's choice",        // Commerce.Storefront.RecommendedChoiceLabel (Spec 066 §15)
   "resultsPageSize": 8,                             // Commerce.Storefront.ResultsPageSize
   "backToTopTrigger": { "type": "cardIndex", "value": 10 },   // Commerce.Storefront.BackToTopTriggerJson
@@ -332,22 +341,26 @@ tunable the frontend must not hard-code:</p>
 }</code></pre>
 
 <ul>
-  <li>Backed by tenant settings (keys above, under <code>Commerce.Storefront.*</code>, including
-      <code>Commerce.Storefront.Currency</code>) — the settings <em>store</em> is the existing
+  <li>Backed by tenant settings (keys above, under <code>Commerce.Storefront.*</code>) — the
+      settings <em>store</em> is the existing
       mechanism config packs already write, but authoring goes through a Commerce-owned endpoint
       (<code>PUT /commerce/admin/storefront-config</code>, <code>AdminWritePolicy</code>, §10):
       the platform tenant-settings endpoint sits behind <code>AdminPolicy</code>
       (PlatformAdmin/TenantAdmin only), which would lock Operations users out of storefront
       settings while they can edit every product — same store, Commerce-appropriate policy.</li>
-  <li><strong>Currency semantics</strong>: the top-level <code>currency</code> comes from
-      <code>Commerce.Storefront.Currency</code> (default <code>"GBP"</code> when unset) and labels
-      the settings-derived amounts (delivery display values). The <code>box</code> section carries
-      the size plan's <em>own</em> currency, and box amounts are always labelled with it; when the
-      two differ, the document serves both verbatim — surfacing the misconfiguration to the
-      operator rather than silently re-labelling either side.</li>
+  <li><strong>Currency semantics</strong>: the top-level <code>currency</code> is read from
+      <code>Tenant.DefaultCurrency</code> through a shared tenant-currency reader — the platform
+      already holds the validated canonical tenant currency, and a parallel
+      <code>Commerce.Storefront.*</code> setting would be an unsynchronized duplicate that goes
+      stale the day the tenant's currency changes. It labels the settings-derived amounts
+      (delivery display values); <code>"GBP"</code> only as the last-resort fallback when the
+      tenant record carries none. The <code>box</code> section carries the size plan's
+      <em>own</em> currency, and box amounts are always labelled with it; when the two differ, the
+      document serves both verbatim — surfacing the misconfiguration to the operator rather than
+      silently re-labelling either side.</li>
   <li>Unset values return sensible defaults (page size 8, label "Recommended", delivery 0/0,
-      currency "GBP", <code>box: null</code>). The endpoint never 404s — an unconfigured
-      storefront gets a valid minimal document.</li>
+      currency from the tenant record, <code>box: null</code>). The endpoint never 404s — an
+      unconfigured storefront gets a valid minimal document.</li>
   <li><strong>Caching is tenant-partitioned</strong>: the document is tenant-specific on a
       tenant-less path, so the cache key must include the resolved tenant — header-routed
       deployments emit <code>Vary: X-Tenant-Id</code>; subdomain routing partitions by host. A
@@ -412,7 +425,9 @@ tunable the frontend must not hard-code:</p>
       <pre><code>dotnet ef migrations add AddCommerceStorefrontMerchandising --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
       Expect three new tables + one column on <code>AnkProducts</code>
       (<code>SearchKeywordsJson</code>) + one column on <code>AnkProductCategories</code>
-      (<code>IsActive</code>), nothing else. Review, apply locally, commit both files. Hand-written
+      (<code>IsActive</code>), nothing else. Review, apply locally, and commit all three generated
+      artifacts — the migration <code>.cs</code>, its <code>.Designer.cs</code>, and the updated
+      <code>AonikDbContextModelSnapshot.cs</code>. Hand-written
       migrations are prohibited (CLAUDE.md).</li>
 </ol>
 
