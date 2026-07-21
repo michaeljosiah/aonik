@@ -34,11 +34,26 @@ namespace Aonik.IntegrationTests.Support;
 /// isolate from each other by minting a fresh TenantId each — the same
 /// convention the InMemory suite uses. If a run is killed hard, the orphaned
 /// database is identifiable by the <c>AonikDatabaseTests_</c> prefix on the
-/// MSSQLLocalDB instance.
+/// instance.
+///
+/// CI / non-Windows: set <c>AONIK_SQLSERVER_TEST_CONNECTION</c> to a
+/// SERVER-level connection string (credentials with CREATE/DROP DATABASE
+/// rights; any Initial Catalog in it is ignored — the fixture swaps in its
+/// per-class database name) and the fixture targets that SQL Server instead of
+/// LocalDB — this is how the ubuntu CI leg runs the lane against a SQL Server
+/// service container. When the variable is set there is deliberately NO skip
+/// path: the operator explicitly demanded relational coverage, so an
+/// unreachable server fails the lane loudly rather than skipping into a false
+/// all-clear.
 /// </summary>
 public sealed class SqlLocalDbFixture : IAsyncLifetime
 {
     private const string InstanceDataSource = @"(localdb)\MSSQLLocalDB";
+
+    private const string OverrideVariable = "AONIK_SQLSERVER_TEST_CONNECTION";
+
+    private static readonly string? OverrideConnectionString =
+        Environment.GetEnvironmentVariable(OverrideVariable) is { Length: > 0 } value ? value : null;
 
     // Probed once per test process, not per fixture: when LocalDB is installed the
     // first connection may cold-start the instance (seconds), and when it is not
@@ -80,10 +95,17 @@ public sealed class SqlLocalDbFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        SkipReason = await InstanceProbe.Value;
-        if (SkipReason is not null)
+        // The LocalDB availability probe (and its skip semantics) applies only
+        // when no override is configured. With AONIK_SQLSERVER_TEST_CONNECTION
+        // set, an unreachable server surfaces as a hard failure from
+        // EnsureCreated below — never a skip.
+        if (OverrideConnectionString is null)
         {
-            return;
+            SkipReason = await InstanceProbe.Value;
+            if (SkipReason is not null)
+            {
+                return;
+            }
         }
 
         // IsAvailable must be set before CreateOptions (which guards on it); if
@@ -138,8 +160,19 @@ public sealed class SqlLocalDbFixture : IAsyncLifetime
         }
     }
 
-    private static string BuildConnectionString(string database) =>
-        new SqlConnectionStringBuilder
+    private static string BuildConnectionString(string database)
+    {
+        if (OverrideConnectionString is not null)
+        {
+            // Server-level override (CI service container, a full local SQL
+            // Server, …): keep every supplied setting, swap in our database.
+            return new SqlConnectionStringBuilder(OverrideConnectionString)
+            {
+                InitialCatalog = database,
+            }.ConnectionString;
+        }
+
+        return new SqlConnectionStringBuilder
         {
             DataSource = InstanceDataSource,
             InitialCatalog = database,
@@ -149,4 +182,5 @@ public sealed class SqlLocalDbFixture : IAsyncLifetime
             // instance, which can take well over the 15s default.
             ConnectTimeout = 60,
         }.ConnectionString;
+    }
 }
