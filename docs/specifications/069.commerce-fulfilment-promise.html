@@ -94,7 +94,7 @@ delivery date, served on a public endpoint the storefront shows everywhere the p
 <h2 id="motivation">2. Motivation</h2>
 
 <ul>
-  <li>"Earliest delivery: Wednesday 6 August" appears on the client's homepage (twice), menu page,
+  <li>"Earliest delivery: 6 August" appears on the client's homepage (twice), menu page,
       dish detail pages, Step 1 and Step 2 — and per the client's notes it "will be pulled from the
       backend, based on the earliest delivery calculated". A hard-coded date is explicitly ruled out
       (Step 2 FR-7.6).</li>
@@ -196,14 +196,29 @@ effectiveDate   = the next date whose weekday == CutoffDayOfWeek and whose cutof
 readyDate       = effectiveDate + LeadDays          // earliest dispatch-eligible date
 earliestDelivery = first date d ≥ readyDate where
                      weekday(d) ∈ DeliveryDays  and  d ∉ BlackoutDates
-search bound    = readyDate + 62 days; none found ⇒ calendar is misconfigured (treated as inactive)</code></pre>
+search horizon  = max(readyDate, latest blackout date) + 62 days
+                  // beyond the last blackout no blackout can apply, so with ≥1 delivery weekday a
+                  // valid day exists within 7 days of the horizon start — a calendar the admin API
+                  // accepted (≤100 future blackouts) can NEVER produce a false 404. Exhaustion ⇒
+                  // genuinely misconfigured (treated as inactive).</code></pre>
 
 <ul>
   <li>Timezone conversion uses IANA ids via <code>TimeZoneInfo</code> (cross-platform on .NET 10).
-      DST transitions fall out of the conversion — the cutoff is a local wall-clock time by
-      definition.</li>
+      The cutoff is a local wall-clock time, and DST transitions get an <strong>explicit
+      policy</strong> rather than a shrug: the cutoff instant for a date is the UTC instant of the
+      <em>first</em> mapping of that wall-clock time — a nonexistent time (spring-forward gap,
+      e.g. 01:30 on the gap day) maps to the first valid instant after the gap; an ambiguous time
+      (autumn overlap) uses its first occurrence. Comparisons run on UTC instants, which makes the
+      passed-cutoff state <strong>monotonic</strong>: once the cutoff has passed it stays passed —
+      the clock rolling back from 01:45 to 01:15 must never reopen the order book and move the
+      promise backward.</li>
   <li>The result is a <em>date</em>, not a timestamp. The storefront formats it
-      ("Wednesday 6 August"); the API never pre-formats.</li>
+      ("Thursday 6 August") — the weekday label is always <em>derived from the date</em>, never a
+      second configured string. (The client's design mock reads "Wednesday 6 August", but 6 Aug
+      2026 is a Thursday — the mock's weekday label is internally inconsistent with its own date.
+      This spec's fixture is one consistent definition: Thursday deliveries producing 2026-08-06;
+      the storefront formats the weekday from the API date, so mock copy can never reintroduce the
+      contradiction.)</li>
   <li>Worked example (launch config: daily cutoff 12:00, lead 14, delivery <strong>Thursdays</strong> —
       2026-08-06 is a Thursday): computed from Tuesday 2026-07-21 10:00 London → effective 21 Jul →
       ready Tue 4 Aug → first Thursday ≥ 4 Aug = <strong>6 Aug 2026</strong>, matching the client's
@@ -281,9 +296,16 @@ Steps 3–5 build-out. Requirements at contract level:</p>
       <code>CapacityPerDeliveryDay?</code>. Capacity is <em>claimed atomically</em> inside the
       checkout transaction — a per-date claim row guarded by a database uniqueness/counter
       constraint, never a read-then-write count (two concurrent checkouts observing the same count
-      would both pass and oversell the day) — and the claim is released on payment failure or
-      cancellation. Full days drop out of offered dates and, transitively, out of the §5
-      promise.</li>
+      would both pass and oversell the day). Claims are released on payment failure or
+      cancellation <strong>and expire on a TTL sweep</strong> — a checkout abandoned with a
+      payment intent still pending fires neither event, and without expiry such ghosts would
+      slowly mark days full with no paid orders (the pattern mirrors inventory reservations'
+      Held-with-<code>ExpiresAt</code> + release sweep exactly). Full days drop out of offered
+      dates and, transitively, out of the §5 promise — <strong>which supersedes phase 1's cache
+      policy</strong>: the promise then moves on every claim and release, not just at cutoff and
+      midnight, so promise/offered-date responses require tenant-partitioned invalidation on
+      capacity changes (a capacity version in the cache key, or <code>no-store</code> for the
+      offered-dates read) rather than a bare max-age.</li>
   <li><strong>Zone fees</strong> (if ever needed): delivery zones keyed by postcode prefix with a
       fee feeding the quote's <code>deliveryCharged</code>; explicitly not designed further
       here.</li>
@@ -323,7 +345,7 @@ Steps 3–5 build-out. Requirements at contract level:</p>
       empty days) so the admin screen has a row to edit rather than a create-from-nothing flow.
       Seeding rides <code>CommerceTenantProvisioningContributor</code>, idempotent, gated on the
       Commerce module — never on business type (ADR-014). Optional task.</li>
-  <li>The Abby's Table tenant's real values (cutoff, lead, Wednesdays) are operator data entered in
+  <li>The Abby's Table tenant's real values (cutoff, lead, delivery weekdays) are operator data entered in
       admin, not pack content.</li>
 </ul>
 
