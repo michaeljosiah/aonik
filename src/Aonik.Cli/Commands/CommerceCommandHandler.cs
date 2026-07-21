@@ -212,14 +212,14 @@ public sealed class CommerceCommandHandler
             "unknown-choice-rejected",
             target, slug,
             new Dictionary<string, object> { [groups[0].Key] = "__not-a-real-choice__" },
-            currency, cancellationToken));
+            currency, "V2", cancellationToken));
 
         // 7 — a group this product does not offer must be rejected.
         checks.Add(await ExpectRejectionAsync(
             "unoffered-group-rejected",
             target, slug,
             new Dictionary<string, object> { ["__not-a-real-group__"] = "x" },
-            currency, cancellationToken));
+            currency, "V1", cancellationToken));
 
         return await ReportAsync(checks, outputMode, cancellationToken);
     }
@@ -230,6 +230,7 @@ public sealed class CommerceCommandHandler
         string slug,
         IReadOnlyDictionary<string, object> selection,
         string currency,
+        string expectedRule,
         CancellationToken cancellationToken)
     {
         try
@@ -239,9 +240,23 @@ public sealed class CommerceCommandHandler
                 checkName,
                 $"expected the API to reject this selection, but it returned '{quote.CanonicalSelectionJson}'.");
         }
-        catch (AonikCliException)
+        catch (AonikCliException ex)
         {
-            return CliVerificationCheck.Pass(checkName, "rejected, as required.");
+            // "It threw" is not the assertion. A 401, 404 or 500 throws identically, so a regression
+            // that turns malformed selections into internal errors would sail through a gate that
+            // only asks whether something went wrong. Ask *how* it went wrong.
+            if (ex.StatusCode != 400)
+            {
+                return CliVerificationCheck.Fail(
+                    checkName,
+                    $"expected a 400 option-validation rejection, got {(ex.StatusCode?.ToString() ?? "no HTTP status")}: {ex.Message}");
+            }
+
+            return string.Equals(ex.RuleId, expectedRule, StringComparison.Ordinal)
+                ? CliVerificationCheck.Pass(checkName, $"rejected with {expectedRule}, as required.")
+                : CliVerificationCheck.Fail(
+                    checkName,
+                    $"expected rule {expectedRule}, got {ex.RuleId ?? "none"}: {ex.Message}");
         }
     }
 

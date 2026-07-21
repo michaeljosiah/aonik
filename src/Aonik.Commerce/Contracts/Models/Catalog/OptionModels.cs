@@ -125,8 +125,13 @@ public record CreateOptionGroupCommand(
 public record UpdateOptionGroupCommand(
     string Label,
     string? HelpText = null,
-    string SelectionMode = OptionSelectionModes.One,
-    string Currency = "GBP",
+    /// Null preserves the stored mode. There is no safe default here: applying <c>One</c> would
+    /// silently tighten a multi-select group on any update that did not mention the mode.
+    string? SelectionMode = null,
+    /// Null preserves the stored currency. It denominates the group's <em>absolute</em> choice
+    /// prices, so defaulting it would reinterpret USD or EUR amounts as GBP without touching a
+    /// single number.
+    string? Currency = null,
     int SortOrder = 0,
     bool IsActive = true);
 

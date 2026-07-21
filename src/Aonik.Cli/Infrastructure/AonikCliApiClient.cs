@@ -128,7 +128,7 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new AonikCliException(await BuildErrorAsync(response, cancellationToken));
+            throw await BuildErrorAsync(response, cancellationToken);
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -1043,7 +1043,7 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AonikCliException(await BuildErrorAsync(response, cancellationToken));
+            throw await BuildErrorAsync(response, cancellationToken);
         }
 
         var payload = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions, cancellationToken);
@@ -1074,7 +1074,7 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AonikCliException(await BuildErrorAsync(response, cancellationToken));
+            throw await BuildErrorAsync(response, cancellationToken);
         }
     }
 
@@ -1128,7 +1128,7 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AonikCliException(await BuildErrorAsync(response, cancellationToken));
+            throw await BuildErrorAsync(response, cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
@@ -1156,12 +1156,17 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         return new Uri($"{normalizedBaseUrl}{path}", UriKind.Absolute);
     }
 
-    private static async Task<string> BuildErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    /// <summary>Builds the failure, carrying the status and — when the API supplied one — the rule
+    /// id, so callers can distinguish "rejected this input" from "failed for some other reason".</summary>
+    private static async Task<AonikCliException> BuildErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        var status = (int)response.StatusCode;
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
         if (string.IsNullOrWhiteSpace(body))
         {
-            return $"AONIK API call failed with status {(int)response.StatusCode} ({response.ReasonPhrase}).";
+            return new AonikCliException(
+                $"AONIK API call failed with status {status} ({response.ReasonPhrase}).", status, null);
         }
 
         var sanitizedBody = body.Trim();
@@ -1170,6 +1175,28 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             sanitizedBody = sanitizedBody[..400];
         }
 
-        return $"AONIK API call failed with status {(int)response.StatusCode} ({response.ReasonPhrase}): {sanitizedBody}";
+        return new AonikCliException(
+            $"AONIK API call failed with status {status} ({response.ReasonPhrase}): {sanitizedBody}",
+            status,
+            TryReadRuleId(body));
+    }
+
+    /// <summary>Reads the <c>rule</c> field the API emits for option-validation failures. Best
+    /// effort: a body that is not the expected shape simply yields no rule.</summary>
+    private static string? TryReadRuleId(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("rule", out var rule)
+                && rule.ValueKind == JsonValueKind.String
+                    ? rule.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

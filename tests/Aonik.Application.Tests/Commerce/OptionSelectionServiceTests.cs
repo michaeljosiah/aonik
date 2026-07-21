@@ -128,6 +128,38 @@ public class OptionSelectionServiceTests
     }
 
     [Fact]
+    public async Task NormalizeAndPriceAsync_Should_ReturnV5_When_MultiSelectGroupGivenAScalar()
+    {
+        // §7 says multi-select maps to a non-empty array, and calls interactive input strict.
+        // Accepting `"salmon"` and rewriting it as `["salmon"]` would reshape the client's request
+        // on their behalf — and hand back a canonical form that does not match what they sent.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, builder) = await ArrangeAsync(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.Multi));
+
+        var act = () => selections.NormalizeAndPriceAsync(productId, Json("""{"protein":"salmon"}"""), "GBP");
+
+        (await act.Should().ThrowAsync<OptionValidationException>()).Which.RuleId.Should().Be("V5");
+    }
+
+    [Fact]
+    public async Task NormalizeAndPriceAsync_Should_Accept_SingleSelectScalarAndOneElementArray_Alike()
+    {
+        // The strictness above is specific to multi-select. A single-select group still accepts both
+        // spellings and canonicalises them identically — that unwrap is deliberate, not leniency.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var (selections, productId, _) = await ArrangeAsync(ctx, tenantId);
+
+        var scalar = await selections.NormalizeAndPriceAsync(productId, Json("""{"protein":"salmon"}"""), "GBP");
+        var array = await selections.NormalizeAndPriceAsync(productId, Json("""{"protein":["salmon"]}"""), "GBP");
+
+        scalar.CanonicalSelectionJson.Should().Be(array.CanonicalSelectionJson);
+    }
+
+    [Fact]
     public async Task NormalizeAndPriceAsync_Should_ReturnV5_When_SingleSelectGroupHasNoChoice()
     {
         // The same empty array, but on a single-select group, is a different diagnosis: V4 is

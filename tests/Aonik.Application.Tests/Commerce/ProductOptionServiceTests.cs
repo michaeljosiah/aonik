@@ -1,6 +1,7 @@
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.SharedKernel.Abstractions;
 
 using FluentAssertions;
 
@@ -192,6 +193,89 @@ public class ProductOptionServiceTests
         (await service.GetEffectiveOptionsAsync(productId))
             .Should().ContainSingle(g => g.Key == "protein")
             .Which.DefaultChoiceKey.Should().Be("salmon");
+    }
+
+    [Fact]
+    public async Task UpdateGroupAsync_Should_PreserveCurrencyAndMode_When_TheUpdateOmitsThem()
+    {
+        // Currency denominates the group's ABSOLUTE choice prices. Defaulting it to GBP on a
+        // label-only edit would reinterpret every stored amount without changing a single number —
+        // the most dangerous kind of change, because nothing in the data looks different afterwards.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var created = await service.CreateGroupAsync(new CreateOptionGroupCommand(
+            "extras", "Extras", SelectionMode: OptionSelectionModes.Multi, Currency: "USD"));
+
+        var updated = await service.UpdateGroupAsync(created.Id, new UpdateOptionGroupCommand("Extras (renamed)"));
+
+        updated.Label.Should().Be("Extras (renamed)");
+        updated.Currency.Should().Be("USD");
+        updated.SelectionMode.Should().Be(OptionSelectionModes.Multi);
+    }
+
+    [Fact]
+    public async Task UpdateGroupAsync_Should_ApplyCurrencyAndMode_When_TheUpdateSuppliesThem()
+    {
+        // Preserving on omission must not become "ignoring" — an explicit value still applies.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        var created = await service.CreateGroupAsync(new CreateOptionGroupCommand(
+            "extras", "Extras", SelectionMode: OptionSelectionModes.Multi, Currency: "USD"));
+
+        var updated = await service.UpdateGroupAsync(created.Id, new UpdateOptionGroupCommand(
+            "Extras", SelectionMode: OptionSelectionModes.One, Currency: "EUR"));
+
+        updated.Currency.Should().Be("EUR");
+        updated.SelectionMode.Should().Be(OptionSelectionModes.One);
+    }
+
+    [Fact]
+    public async Task AuthoringOperations_Should_ThrowNotFound_When_TheResourceDoesNotExist()
+    {
+        // These surface to admins as HTTP status: only NotFoundException maps to 404, so throwing
+        // InvalidOperationException turned an ordinary stale link into a reported server failure.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+        var missing = Guid.NewGuid();
+
+        await FluentActions.Awaiting(() => service.UpdateGroupAsync(missing, new UpdateOptionGroupCommand("x")))
+            .Should().ThrowAsync<NotFoundException>();
+        await FluentActions.Awaiting(() => service.AddChoiceAsync(missing, new AddOptionChoiceCommand("k", "K")))
+            .Should().ThrowAsync<NotFoundException>();
+        await FluentActions.Awaiting(() => service.UpdateChoiceAsync(missing, new UpdateOptionChoiceCommand("x")))
+            .Should().ThrowAsync<NotFoundException>();
+        await FluentActions.Awaiting(() => service.SetRecommendedDefaultAsync(missing, "k"))
+            .Should().ThrowAsync<NotFoundException>();
+        await FluentActions.Awaiting(() => service.SetProductOptionGroupsAsync(missing, new SetProductOptionGroupsCommand([])))
+            .Should().ThrowAsync<NotFoundException>();
+        await FluentActions.Awaiting(() => service.SetUnitSurchargeAsync(missing, new SetUnitSurchargeCommand(null, null)))
+            .Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task SetRecommendedDefaultAsync_Should_ReportNothing_When_TheChoiceIsAlreadyTheDefault()
+    {
+        // A no-op must not look like a change: Spec 067 uses AffectedProductSlugs to decide what
+        // content to re-review, and re-running the same call should not manufacture work.
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        await builder.BuildCatalogueAsync();
+        var productId = await builder.BuildProductAsync();
+        var service = CommerceTestHarness.NewOptionService(ctx, tenantId);
+
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein"));
+
+        var groupId = await builder.GroupIdAsync("protein");
+        var result = await service.SetRecommendedDefaultAsync(groupId, "chicken");
+
+        result.AffectedProductSlugs.Should().BeEmpty();
+        result.Group.Choices.Single(c => c.Key == "chicken").IsRecommendedDefault.Should().BeTrue();
     }
 
     [Fact]

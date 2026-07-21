@@ -23,11 +23,14 @@ public class UpdateOptionGroupEndpoint : Endpoint<UpdateOptionGroupRequest, Opti
     {
         var result = await _options.UpdateGroupAsync(
             Route<Guid>("groupId"),
+            // Selection mode and currency pass through as null when omitted, which the service reads
+            // as "leave it alone". Applying the creation defaults here would let a label-only edit
+            // silently re-shape the group, or redenominate every stored choice price as GBP.
             new UpdateOptionGroupCommand(
                 req.Label,
                 req.HelpText,
-                req.SelectionMode ?? Entities.Catalog.OptionSelectionModes.One,
-                req.Currency ?? "GBP",
+                req.SelectionMode,
+                req.Currency,
                 req.SortOrder,
                 req.IsActive),
             ct);

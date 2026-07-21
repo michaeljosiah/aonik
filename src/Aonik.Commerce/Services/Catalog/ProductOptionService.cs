@@ -1,9 +1,10 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
@@ -67,14 +68,25 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var group = await _dbContext.OptionGroups
             .Include(g => g.Choices)
             .FirstOrDefaultAsync(g => g.Id == groupId && g.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Option group '{groupId}' was not found.");
+            ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
 
         group.Label = RequireLabel(command.Label);
         group.HelpText = command.HelpText;
-        group.SelectionMode = NormalizeSelectionMode(command.SelectionMode);
-        group.Currency = NormalizeCurrency(command.Currency);
         group.SortOrder = command.SortOrder;
         group.IsActive = command.IsActive;
+
+        // Omitted means unchanged. Currency in particular denominates the group's absolute choice
+        // prices, so silently defaulting it would reinterpret every one of them without editing a
+        // single amount — a label edit must never be able to redenominate money.
+        if (command.SelectionMode is not null)
+        {
+            group.SelectionMode = NormalizeSelectionMode(command.SelectionMode);
+        }
+
+        if (command.Currency is not null)
+        {
+            group.Currency = NormalizeCurrency(command.Currency);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return Map(group, group.Choices);
@@ -86,7 +98,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var group = await _dbContext.OptionGroups
             .Include(g => g.Choices)
             .FirstOrDefaultAsync(g => g.Id == groupId && g.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Option group '{groupId}' was not found.");
+            ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
 
         var key = NormalizeKey(command.Key, "choice");
 
@@ -135,11 +147,11 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var choice = await _dbContext.OptionChoices
             .FirstOrDefaultAsync(c => c.Id == choiceId && c.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Option choice '{choiceId}' was not found.");
+            ?? throw new NotFoundException($"Option choice '{choiceId}' was not found.");
 
         var group = await _dbContext.OptionGroups
             .FirstOrDefaultAsync(g => g.Id == choice.OptionGroupId && g.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Option group '{choice.OptionGroupId}' was not found.");
+            ?? throw new NotFoundException($"Option group '{choice.OptionGroupId}' was not found.");
 
         // V7 — deactivating the group's own recommended default leaves §6's servability rule with
         // zero active defaults, so the group vanishes from the public catalogue and from EVERY
@@ -216,7 +228,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var group = await _dbContext.OptionGroups
             .Include(g => g.Choices)
             .FirstOrDefaultAsync(g => g.Id == groupId && g.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Option group '{groupId}' was not found.");
+            ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
 
         var key = NormalizeKey(choiceKey, "choice");
         var target = group.Choices.FirstOrDefault(c => c.Key == key && !c.IsDeleted)
@@ -225,6 +237,13 @@ internal sealed partial class ProductOptionService : IProductOptionService
         if (!target.IsActive)
         {
             throw new OptionValidationException("V7", $"Choice '{key}' is inactive and cannot be the recommended default.");
+        }
+
+        // Already the default: nothing moves, so nothing downstream should be told it did. Reporting
+        // affected products here would have Spec 067 re-review content that did not change.
+        if (target.IsRecommendedDefault)
+        {
+            return new RecommendedDefaultChangeResult(Map(group, group.Choices), []);
         }
 
         // V11 — a product that excludes the incoming default and has no override of its own would
@@ -294,7 +313,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .AnyAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
         if (!productExists)
         {
-            throw new InvalidOperationException($"Product '{productId}' was not found.");
+            throw new NotFoundException($"Product '{productId}' was not found.");
         }
 
         var groups = await _dbContext.OptionGroups
@@ -427,7 +446,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var product = await _dbContext.Products
             .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Product '{productId}' was not found.");
+            ?? throw new NotFoundException($"Product '{productId}' was not found.");
 
         if (command.Amount is { } amount)
         {

@@ -187,7 +187,110 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
         list.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task SetProductOptionGroups_Should_Reject_When_TheGroupsPropertyIsMissing()
+    {
+        // A malformed payload must not be able to do the one thing only an explicit clear should do.
+        // Model binding leaves Groups null when the property is omitted or misspelled, and treating
+        // that as an empty list would strip the product's entire personalisation surface — silently,
+        // and with a 200.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCatalogueAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "malformed-payload", offerPortion: true);
+        var client = await AdminClient(tenantId);
+
+        var malformed = await client.PutAsJsonAsync(
+            $"/commerce/admin/products/{productId}/option-groups",
+            new { groupz = new[] { new { groupKey = "portion" } } });
+
+        malformed.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await CountNarrowingsAsync(tenantId, productId)).Should().Be(1, "a rejected request must change nothing");
+    }
+
+    [Fact]
+    public async Task SetProductOptionGroups_Should_Clear_When_AnEmptyArrayIsExplicit()
+    {
+        // The counterpart: clearing is legitimate, it just has to be said out loud.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCatalogueAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "explicit-clear", offerPortion: true);
+        var client = await AdminClient(tenantId);
+
+        var cleared = await client.PutAsJsonAsync(
+            $"/commerce/admin/products/{productId}/option-groups",
+            new { groups = Array.Empty<object>() });
+
+        cleared.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await CountNarrowingsAsync(tenantId, productId)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateOptionGroup_Should_PreserveCurrencyAndMode_When_TheUpdateOmitsThem()
+    {
+        // Currency denominates the group's ABSOLUTE choice prices. An update that says nothing about
+        // currency must not redenominate them: renaming a group would otherwise reinterpret every
+        // USD price as GBP without altering a single number, which no amount of eyeballing the data
+        // afterwards would reveal.
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var groupId = await SeedUsdMultiGroupAsync(tenantId);
+        var client = await AdminClient(tenantId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/commerce/admin/option-groups/{groupId}",
+            new { label = "Extras (renamed)", sortOrder = 1, isActive = true });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<UpdatedGroupResponse>();
+        payload!.Label.Should().Be("Extras (renamed)");
+        payload.Currency.Should().Be("USD");
+        payload.SelectionMode.Should().Be(OptionSelectionModes.Multi);
+    }
+
     // ─── Seeding ─────────────────────────────────────────────────────────────
+
+    private async Task<Guid> SeedUsdMultiGroupAsync(Guid tenantId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+
+        var groupId = Guid.NewGuid();
+        db.OptionGroups.Add(new OptionGroup
+        {
+            Id = groupId,
+            TenantId = tenantId,
+            Key = "extras",
+            Label = "Extras",
+            SelectionMode = OptionSelectionModes.Multi,
+            Currency = "USD",
+            SortOrder = 1,
+            IsActive = true,
+        });
+        db.OptionChoices.Add(new OptionChoice
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, OptionGroupId = groupId,
+            Key = "cheese", Label = "Cheese", Price = 2m, IsRecommendedDefault = true, SortOrder = 0, IsActive = true,
+        });
+
+        await db.SaveChangesAsync();
+        return groupId;
+    }
+
+    private Task<HttpClient> AdminClient(Guid tenantId)
+        => _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithRoles("Operations").WithTenant(tenantId));
+
+    private async Task<int> CountNarrowingsAsync(Guid tenantId, Guid productId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        return await db.ProductOptionGroups.CountAsync(x => x.ProductId == productId);
+    }
 
     private HttpClient AnonymousClient(Guid tenantId)
     {
@@ -288,6 +391,8 @@ public class CommerceOptionEndpointTests : IClassFixture<CustomWebApplicationFac
     private sealed record OptionErrorResponse(string Error, string Code, string Rule);
 
     private sealed record OptionGroupResponse(string Key, string Label, List<OptionChoiceResponse> Choices);
+
+    private sealed record UpdatedGroupResponse(string Key, string Label, string SelectionMode, string Currency);
 
     private sealed record OptionChoiceResponse(string Key, string Label, decimal Price, bool IsRecommendedDefault);
 

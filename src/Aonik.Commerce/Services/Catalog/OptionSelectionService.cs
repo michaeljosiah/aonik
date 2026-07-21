@@ -1,8 +1,9 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
@@ -120,7 +121,7 @@ internal sealed class OptionSelectionService : IOptionSelectionService
         var groups = await _optionService.GetEffectiveOptionsAsync(productId, cancellationToken);
         var input = selection is { } element
             ? CanonicalSelection.Parse(element, "V5")
-            : new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            : new Dictionary<string, CanonicalSelection.SelectionValue>(StringComparer.Ordinal);
 
         // V1/V3 — a group the product does not offer is a client error. Distinguish a group that
         // exists in the catalogue but has been retired (V3) from one this product never offered
@@ -145,11 +146,13 @@ internal sealed class OptionSelectionService : IOptionSelectionService
 
             // Omitted groups fill with the recommended default — a default quick-add legitimately
             // sends no selection at all, so absence is never an error (Spec 066 §7).
-            if (!input.TryGetValue(group.Key, out var chosen))
+            if (!input.TryGetValue(group.Key, out var supplied))
             {
                 resolved[group.Key] = [group.DefaultChoiceKey];
                 continue;
             }
+
+            var chosen = supplied.Values;
 
             // V4 is specifically the multi-select minimum-one rule. For a single-select group an
             // empty array is a shape error — the same family as supplying two — so it is V5.
@@ -163,6 +166,17 @@ internal sealed class OptionSelectionService : IOptionSelectionService
                     : new OptionValidationException(
                         "V5",
                         $"Group '{group.Key}' allows one choice but an empty selection was supplied.");
+            }
+
+            // V5 — a multi-select group requires an array (§7). Accepting a bare string and quietly
+            // rewriting it as a one-item array would reshape the client's request on their behalf,
+            // and the canonical form they get back would not match what they sent. This runs after
+            // the empty check so an explicit null still reports the emptiness, not the shape.
+            if (isMulti && !supplied.WasArray)
+            {
+                throw new OptionValidationException(
+                    "V5",
+                    $"Group '{group.Key}' is multi-select and requires an array of choices.");
             }
 
             // V5 — a single-select group accepts a bare string or a one-element array (unwrapped);
@@ -245,7 +259,7 @@ internal sealed class OptionSelectionService : IOptionSelectionService
         var product = await _dbContext.Products
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Product '{productId}' was not found.");
+            ?? throw new NotFoundException($"Product '{productId}' was not found.");
 
         var target = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
 

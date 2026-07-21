@@ -45,13 +45,20 @@ internal static class CanonicalSelection
     }
 
     /// <summary>
+    /// A parsed group value. <see cref="WasArray"/> is retained because collapsing a bare string
+    /// into a one-item list destroys the only evidence of what the client actually sent — and a
+    /// multi-select group requires an array (Spec 066 §7).
+    /// </summary>
+    public readonly record struct SelectionValue(List<string> Values, bool WasArray);
+
+    /// <summary>
     /// Read a selection payload into group → chosen keys, without judging it against any product.
     /// Shape errors (non-object root, nested objects, non-string array entries) throw; membership
     /// and mode validation belong to the caller, which knows the product's effective options.
     /// </summary>
-    public static Dictionary<string, List<string>> Parse(JsonElement selection, string ruleIdForShape)
+    public static Dictionary<string, SelectionValue> Parse(JsonElement selection, string ruleIdForShape)
     {
-        var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var result = new Dictionary<string, SelectionValue>(StringComparer.Ordinal);
 
         if (selection.ValueKind == JsonValueKind.Null || selection.ValueKind == JsonValueKind.Undefined)
         {
@@ -68,7 +75,7 @@ internal static class CanonicalSelection
             switch (property.Value.ValueKind)
             {
                 case JsonValueKind.String:
-                    result[property.Name] = [property.Value.GetString() ?? string.Empty];
+                    result[property.Name] = new([property.Value.GetString() ?? string.Empty], WasArray: false);
                     break;
 
                 case JsonValueKind.Array:
@@ -83,13 +90,13 @@ internal static class CanonicalSelection
                         }
                         values.Add(item.GetString() ?? string.Empty);
                     }
-                    result[property.Name] = values;
+                    result[property.Name] = new(values, WasArray: true);
                     break;
 
                 case JsonValueKind.Null:
                     // An explicit null means "no choice", which only matters for multi-select
                     // groups; recorded as empty so rule V4 can reject it with the right message.
-                    result[property.Name] = [];
+                    result[property.Name] = new([], WasArray: false);
                     break;
 
                 default:
@@ -103,7 +110,10 @@ internal static class CanonicalSelection
     }
 
     /// <summary>Parse a stored canonical selection string. Malformed JSON is the one error that
-    /// survives into the drift path — everything else is remapped and reported.</summary>
+    /// survives into the drift path — everything else is remapped and reported. The array/scalar
+    /// distinction is dropped here on purpose: the canonical form writes single-select values as
+    /// bare strings by construction, so it carries no information about what a client once sent,
+    /// and re-normalisation is the lenient path regardless.</summary>
     public static Dictionary<string, List<string>> ParseStored(string canonicalSelectionJson)
     {
         if (string.IsNullOrWhiteSpace(canonicalSelectionJson))
@@ -112,7 +122,8 @@ internal static class CanonicalSelection
         }
 
         using var document = JsonDocument.Parse(canonicalSelectionJson);
-        return Parse(document.RootElement, "V5");
+        return Parse(document.RootElement, "V5")
+            .ToDictionary(entry => entry.Key, entry => entry.Value.Values, StringComparer.Ordinal);
     }
 
     private static readonly JsonSerializerOptions SerializerOptions = new()

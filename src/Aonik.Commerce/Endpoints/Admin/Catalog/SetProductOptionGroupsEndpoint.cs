@@ -27,7 +27,17 @@ public class SetProductOptionGroupsEndpoint : Endpoint<SetProductOptionGroupsReq
     {
         var productId = Route<Guid>("productId");
 
-        var lines = (req.Groups ?? [])
+        // A missing or misspelled `groups` property binds to null, and coalescing that to an empty
+        // list would make a malformed payload indistinguishable from an intentional clear — quietly
+        // removing the product's entire personalisation surface. Clearing has to be said out loud.
+        if (req.Groups is null)
+        {
+            throw new OptionValidationException(
+                "V6",
+                "A 'groups' array is required. To remove every option group from this product, send an explicit empty array.");
+        }
+
+        var lines = req.Groups
             .Select(g => new ProductOptionGroupLine(
                 g.GroupKey, g.AllowedChoiceKeys, g.DefaultChoiceKey, g.SelectionModeOverride, g.SortOrder))
             .ToList();
