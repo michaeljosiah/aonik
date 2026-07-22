@@ -1,4 +1,4 @@
-namespace Aonik.Worker.Jobs;
+﻿namespace Aonik.Worker.Jobs;
 
 /// <summary>
 /// Configuration for all Quartz-scheduled background jobs.
@@ -15,6 +15,7 @@ public sealed class ScheduledJobOptions
     public WorkItemDispatchJobOptions WorkItemDispatch { get; set; } = new();
     public InventoryReservationSweepJobOptions InventoryReservationSweep { get; set; } = new();
     public LowStockScanJobOptions LowStockScan { get; set; } = new();
+    public BoxCartAbandonSweepJobOptions BoxCartAbandonSweep { get; set; } = new();
 }
 
 public sealed class InventoryReservationSweepJobOptions
@@ -159,4 +160,16 @@ public sealed class CustomerInsightAiSummaryJobOptions
     public int SnapshotWarningThresholdSeconds { get; set; } = 20;
 
     public int SnapshotTimeoutSeconds { get; set; } = 90;
+}
+
+public sealed class BoxCartAbandonSweepJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: daily at 03:10 — abandonment is a
+    /// days-scale window (Spec 068 A6, Commerce.Carts.AbandonAfterDays, default 14), so a daily
+    /// pass is ample; the transition is idempotent.
+    /// </summary>
+    public string CronExpression { get; set; } = "0 10 3 * * ?";
 }

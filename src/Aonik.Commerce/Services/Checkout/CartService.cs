@@ -223,6 +223,6 @@ internal sealed class CartService : ICartService
 
         // R10 — the token is disclosed exactly once, by create; every other read carries null.
         return new CartDto(cart.Id, cart.BuyerPartyId, null, cart.Status, cart.Currency, cart.OrderId,
-            items.Sum(i => i.LineTotal), items);
+            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId);
     }
 }

@@ -25,27 +25,40 @@ public class CreateCartEndpoint : Endpoint<CreateCartRequest, CartDto>
     }
 }
 
-public class GetCartEndpoint : EndpointWithoutRequest<CartDto>
+public class GetCartEndpoint : EndpointWithoutRequest<object>
 {
     private readonly ICartService _carts;
-    public GetCartEndpoint(ICartService carts) => _carts = carts;
+    private readonly IBoxCartService _boxCarts;
+
+    public GetCartEndpoint(ICartService carts, IBoxCartService boxCarts)
+    {
+        _carts = carts;
+        _boxCarts = boxCarts;
+    }
 
     public override void Configure()
     {
         Get("/commerce/carts/{cartId:guid}");
         AllowAnonymous();
-        Summary(s => s.Summary = "Get a cart with its lines and totals.");
+        Summary(s => s.Summary = "Get a cart. Box sessions return the Spec 068 §7 box + quote payload.");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), CartRequestAccess.From(HttpContext), ct);
+        var access = CartRequestAccess.From(HttpContext);
+        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), access, ct);
         if (cart is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
-        await Send.OkAsync(cart, ct);
+        if (cart.BoxBundleProductId is not null)
+        {
+            // Spec 068 §11 — a box cart's GET is the §7 payload (drift-repaired, quoted).
+            await Send.OkAsync((object)await _boxCarts.GetAsync(cart.Id, access, ct), ct);
+            return;
+        }
+        await Send.OkAsync((object)cart, ct);
     }
 }
 

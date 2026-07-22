@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 
 namespace Aonik.Commerce.Contracts.Models.Checkout;
 
@@ -26,12 +26,15 @@ public record CartItemDto(
 public record CartDto(
     Guid Id,
     Guid? BuyerPartyId,
+    /// Populated ONLY by create (Spec 068 R10) — every other read carries null.
     string? AnonymousToken,
     string Status,
     string Currency,
     Guid? OrderId,
     decimal Total,
-    IReadOnlyList<CartItemDto> Items);
+    IReadOnlyList<CartItemDto> Items,
+    /// Spec 068 — set when this cart is a box session; GET then serves the §7 box payload.
+    Guid? BoxBundleProductId = null);
 
 public record CreateCartCommand(string Currency, Guid? BuyerPartyId = null, string? AnonymousToken = null);
 

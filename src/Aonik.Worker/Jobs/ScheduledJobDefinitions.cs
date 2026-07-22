@@ -1,4 +1,4 @@
-using Aonik.Platform.Entities.Operations;
+﻿using Aonik.Platform.Entities.Operations;
 using Quartz;
 
 namespace Aonik.Worker.Jobs;
@@ -143,6 +143,13 @@ internal static class ScheduledJobDefinitions
                 "Raises or refreshes low-stock alerts for ingredient levels at or below their reorder point (Spec 052).",
                 options.LowStockScan.CronExpression,
                 options.LowStockScan.Enabled),
+            new ScheduledJobDefinition<BoxCartAbandonSweepJob>(
+                BoxCartAbandonSweepJob.Key,
+                new TriggerKey("BoxCartAbandonSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Box Cart Abandon Sweep",
+                "Transitions box sessions idle beyond the configured window to Abandoned (Spec 068 A6).",
+                options.BoxCartAbandonSweep.CronExpression,
+                options.BoxCartAbandonSweep.Enabled),
         ];
     }
 }
