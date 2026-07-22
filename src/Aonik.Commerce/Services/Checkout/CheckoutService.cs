@@ -118,6 +118,13 @@ internal sealed class CheckoutService : ICheckoutService
         // durable side effect: a nonpositive payable (e.g. a 100% coupon with zero delivery)
         // must reject while there is still nothing to unwind (L4).
         var subtotal = box is not null ? box.GoodsTotal + box.AddOnGoodsTotal : cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
+        if (box is not null && subtotal <= 0)
+        {
+            // R4 — a delivery charge must not carry a nonpositive goods figure over the final
+            // total guard and mint a negative-priced retail item.
+            throw new StorefrontValidationException(
+                "The goods total for this box is zero or below; it cannot be checked out.");
+        }
         var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
         var taxable = subtotal - discount.Amount;
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);

@@ -48,6 +48,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ITenantSettingStore _settingStore;
+    private readonly ISettingProvider _settings;
     private readonly ITenantCurrencyProvider _tenantCurrency;
     private readonly IProductPricingService _pricing;
     private readonly IProductOptionService _options;
@@ -57,6 +58,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
         ITenantSettingStore settingStore,
+        ISettingProvider settings,
         ITenantCurrencyProvider tenantCurrency,
         IProductPricingService pricing,
         IProductOptionService options,
@@ -65,6 +67,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _settingStore = settingStore;
+        _settings = settings;
         _tenantCurrency = tenantCurrency;
         _pricing = pricing;
         _options = options;
@@ -76,6 +79,12 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var slug = (await _settingStore.GetTenantValueAsync(
                 CommerceSettingNames.StorefrontExtrasCollectionSlug, tenantId, cancellationToken))?.Trim();
+        if (string.IsNullOrEmpty(slug))
+        {
+            // R3 — Global/configuration/registered-default scopes count too (the registered
+            // default is "extras"); the literal is only the last resort.
+            slug = (await _settings.GetAsync(CommerceSettingNames.StorefrontExtrasCollectionSlug, cancellationToken))?.Trim();
+        }
         slug = string.IsNullOrEmpty(slug) ? DefaultSlug : slug;
 
         var collection = await _dbContext.Collections
@@ -99,7 +108,8 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
 
         var products = await _dbContext.Products
             .AsNoTracking()
-            .Where(p => p.TenantId == tenantId && memberships.Contains(p.Id) && p.Status == ProductStatuses.Active)
+            .Where(p => p.TenantId == tenantId && memberships.Contains(p.Id)
+                && p.Status == ProductStatuses.Active && p.Kind == ProductKinds.Simple)
             .ToDictionaryAsync(p => p.Id, cancellationToken);
         var variants = await _dbContext.ProductVariants
             .AsNoTracking()

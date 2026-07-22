@@ -182,12 +182,17 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             {
                 throw new StorefrontValidationException("X2: this extra is not currently available.");
             }
+            // R1 — an add-on is an ordinary SIMPLE retail product: a bundle would materialise as
+            // a component-less retail item with nothing reserved or fulfilled per slot.
+            if (product.Kind != ProductKinds.Simple)
+            {
+                throw new StorefrontValidationException(
+                    $"X1: '{product.Name}' is not a simple product and cannot be an extra.");
+            }
 
             // X1 — the merchandising boundary IS the eligibility boundary: only members of the
             // tenant's active extras collection are purchasable as add-ons (Spec 071 O1).
-            var extrasSlug = (await _settingStore.GetTenantValueAsync(
-                    CommerceSettingNames.StorefrontExtrasCollectionSlug, ctx.TenantId, ct))?.Trim();
-            extrasSlug = string.IsNullOrEmpty(extrasSlug) ? "extras" : extrasSlug;
+            var extrasSlug = await ResolveExtrasSlugAsync(ctx.TenantId, ct);
             var isMember = await _dbContext.CollectionItems
                 .AsNoTracking()
                 .AnyAsync(i => i.TenantId == ctx.TenantId
@@ -211,12 +216,17 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             // X5 — availability sums both kinds; X3 — no capacity or slot checks apply.
             await EnsureAvailabilityAsync(ctx, variant.Id, command.Quantity, ct);
 
+            // R5 — an optionless extra's canonical selection is "{}"; storing it would emit a
+            // personalisation envelope for nothing and split production demand from ordinary
+            // retail demand of the same variant. Null IS the unpersonalised key.
+            var canonicalOrNull = priced.CanonicalSelectionJson == "{}" ? null : priced.CanonicalSelectionJson;
+
             var target = ctx.AddOnLines.FirstOrDefault(l => l.ProductVariantId == variant.Id
-                && string.Equals(l.PersonalisationJson, priced.CanonicalSelectionJson, StringComparison.Ordinal));
+                && string.Equals(l.PersonalisationJson, canonicalOrNull, StringComparison.Ordinal));
             if (target is not null)
             {
                 target.Quantity += command.Quantity;
-                ApplySelection(target, priced);
+                ApplyAddOnSelection(target, priced);
                 target.UnitPriceSnapshot = price;
                 return;
             }
@@ -234,7 +244,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 Sku = variant.Sku,
                 NameSnapshot = product.Name,
             };
-            ApplySelection(newLine, priced);
+            ApplyAddOnSelection(newLine, priced);
             _dbContext.CartItems.Add(newLine);
             if (!ctx.Cart.Items.Contains(newLine))
             {
@@ -910,6 +920,36 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         };
         ApplySelection(line, priced);
         return line;
+    }
+
+    /// <summary>R3 — the slug resolves through the full hierarchy: tenant override, then the
+    /// provider's Global/configuration/registered-default chain (the registered default is
+    /// "extras"), with the literal as the last resort.</summary>
+    private async Task<string> ResolveExtrasSlugAsync(Guid tenantId, CancellationToken ct)
+    {
+        var slug = (await _settingStore.GetTenantValueAsync(
+            CommerceSettingNames.StorefrontExtrasCollectionSlug, tenantId, ct))?.Trim();
+        if (string.IsNullOrEmpty(slug))
+        {
+            slug = (await _settings.GetAsync(CommerceSettingNames.StorefrontExtrasCollectionSlug, ct))?.Trim();
+        }
+        return string.IsNullOrEmpty(slug) ? "extras" : slug;
+    }
+
+    /// <summary>R5 — AddOn snapshot: personalisation columns stay NULL for an optionless extra
+    /// (canonical "{}"), so its demand groups with ordinary retail demand of the same variant;
+    /// the product-level surcharge still applies either way.</summary>
+    private static void ApplyAddOnSelection(CartItem line, OptionSelectionResult priced)
+    {
+        if (priced.CanonicalSelectionJson == "{}")
+        {
+            line.PersonalisationJson = null;
+            line.PersonalisationSummary = null;
+            line.PersonalisationAdjustment = null;
+            line.UnitSurcharge = priced.UnitSurcharge ?? 0m;
+            return;
+        }
+        ApplySelection(line, priced);
     }
 
     private static void ApplySelection(CartItem line, OptionSelectionResult priced)

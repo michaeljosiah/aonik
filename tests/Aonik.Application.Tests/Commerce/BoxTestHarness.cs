@@ -184,6 +184,7 @@ internal sealed class BoxTestHarness
         return new ExtrasCatalogService(ctx,
             _tenant,
             new DictionaryTenantSettingStore(Settings),
+            new NullSettingProvider(),
             new GbpTenantCurrencyProvider(),
             new ProductPricingService(ctx, _tenant, _clock),
             CommerceTestHarness.NewOptionService(ctx, _tenantId),

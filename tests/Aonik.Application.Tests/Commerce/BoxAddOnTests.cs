@@ -173,6 +173,70 @@ public class BoxAddOnTests
     }
 
     [Fact]
+    public async Task R1_BundlesInTheExtrasCollection_AreNotPurchasable()
+    {
+        // A bundle would materialise as a component-less retail item — reject at the boundary.
+        var (h, f, box, _) = await ArrangeAsync();
+        await using (var ctx = h.Commerce())
+        {
+            var collection = await ctx.Collections.FirstAsync(c => c.Slug == "extras");
+            ctx.CollectionItems.Add(new Aonik.Commerce.Entities.Catalog.CollectionItem
+            {
+                Id = Guid.NewGuid(), TenantId = h.TenantId, CollectionId = collection.Id,
+                ProductId = f.BundleProductId, Rank = 9,
+            });
+            await ctx.SaveChangesAsync();
+        }
+        var bundleVariantId = Guid.NewGuid();
+        await using (var ctx = h.Commerce())
+        {
+            ctx.ProductVariants.Add(new Aonik.Commerce.Entities.Catalog.ProductVariant
+            {
+                Id = bundleVariantId, TenantId = h.TenantId, ProductId = f.BundleProductId,
+                Sku = "BOX-V", Name = "Box variant",
+            });
+            await ctx.SaveChangesAsync();
+        }
+        await h.Pricing().SetPriceAsync(new Aonik.Commerce.Contracts.Models.Catalog.SetPriceCommand(
+            bundleVariantId, "GBP", 95m));
+
+        var act = () => h.BoxCarts().AddExtraLineAsync(box.Box.CartId,
+            new AddBoxExtraCommand(bundleVariantId, 1), Token(box));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("simple product");
+        (await h.Extras().GetExtrasAsync()).Rows.Should().NotContain(r => r.ProductId == f.BundleProductId,
+            "the read excludes non-Simple kinds too");
+    }
+
+    [Fact]
+    public async Task R5_OptionlessExtras_StayUnpersonalised()
+    {
+        // pepper-sauce has no option groups: canonical "{}" must persist as NULL so its demand
+        // groups with ordinary retail demand and checkout emits no empty envelope.
+        var (h, f, box, extraVariant) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
+        await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
+
+        await using (var ctx = h.Commerce())
+        {
+            var line = await ctx.CartItems.FirstAsync(i => i.ProductVariantId == extraVariant);
+            line.PersonalisationJson.Should().BeNull();
+            line.PersonalisationSummary.Should().BeNull();
+        }
+
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        await using var ordering = h.Ordering();
+        var order = await ordering.Orders.Include(o => o.Items).FirstAsync(o => o.Id == result.OrderId);
+        // The ordering layer normalizes an absent DetailsJson to "{}" — the claim is that no
+        // ENVELOPE was emitted, so production planning's reader yields the null trio.
+        (order.Items.Single(i => i.ItemIndex == 1).DetailsJson ?? string.Empty)
+            .Should().NotContain("canonicalSelectionJson", "no envelope for an optionless retail line");
+    }
+
+    [Fact]
     public async Task B6_MixedCheckout_MaterialisesRetailItems_AndCombinedGoods()
     {
         var (h, f, box, extraVariant) = await ArrangeAsync();

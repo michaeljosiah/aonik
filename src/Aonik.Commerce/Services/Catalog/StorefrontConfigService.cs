@@ -117,6 +117,18 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
             throw new StorefrontValidationException("Delivery amounts cannot be negative.");
         }
 
+        // R2 — the extras slug must be a usable collection slug BEFORE any key commits: an
+        // oversized value would fail mid-document, and a malformed one could never match.
+        if (command.ExtrasCollectionSlug is { } rawExtrasSlug)
+        {
+            var candidate = rawExtrasSlug.Trim().ToLowerInvariant();
+            if (candidate.Length is < 1 or > 64 || !candidate.All(ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch == '-'))
+            {
+                throw new StorefrontValidationException(
+                    "extrasCollectionSlug must be 1-64 lowercase letters, digits or hyphens.");
+            }
+        }
+
         if (command.BackToTopTriggerJson is { } triggerJson
             && !string.IsNullOrWhiteSpace(triggerJson)
             && ParseTrigger(triggerJson) is null)
