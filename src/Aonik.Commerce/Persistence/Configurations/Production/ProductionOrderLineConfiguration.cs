@@ -16,6 +16,10 @@ public class ProductionOrderLineConfiguration : IEntityTypeConfiguration<Product
         // precedent for JSON columns (Product.TagsJson/AttributesJson, ProductVariant.OptionsJson).
         builder.Property(x => x.RecipeSnapshotJson).IsRequired().HasColumnType("nvarchar(max)");
 
+        // Spec 068 §9 — demand groups by (variant, canonical personalisation); summary bounded,
+        // JSON columns unbounded like the canonical selections they carry.
+        builder.Property(x => x.PersonalisationSummary).HasMaxLength(512);
+
         builder.HasIndex(x => new { x.TenantId, x.ProductionOrderId });
     }
 }

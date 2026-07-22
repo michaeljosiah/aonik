@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Production;
+﻿using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Inventory;
@@ -93,22 +93,31 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
             }
         }
 
-        var portionsByVariant = new Dictionary<Guid, decimal>();
-        var ordersByVariant = new Dictionary<Guid, HashSet<Guid>>();
+        // Spec 068 §9 — demand groups by (variant, canonical personalisation): collapsing two
+        // preparations of one variant can never be un-collapsed afterwards. Unpersonalised demand
+        // keys on the empty string and renders exactly as before.
+        var portionsByKey = new Dictionary<(Guid VariantId, string Personalisation), decimal>();
+        var ordersByKey = new Dictionary<(Guid VariantId, string Personalisation), HashSet<Guid>>();
+        var metaByKey = new Dictionary<(Guid VariantId, string Personalisation), (string? Json, string? Summary, string? Display)>();
         var bundleLinesExpanded = 0;
 
-        void AddDemand(Guid variantId, decimal portions, Guid orderId)
+        void AddDemand(Guid variantId, string? personalisationJson, string? summary, string? display, decimal portions, Guid orderId)
         {
             if (portions <= 0m)
             {
                 return;
             }
-            portionsByVariant[variantId] = portionsByVariant.GetValueOrDefault(variantId) + portions;
-            if (!ordersByVariant.TryGetValue(variantId, out var contributingOrders))
+            var key = (variantId, personalisationJson ?? string.Empty);
+            portionsByKey[key] = portionsByKey.GetValueOrDefault(key) + portions;
+            if (!ordersByKey.TryGetValue(key, out var contributingOrders))
             {
-                ordersByVariant[variantId] = contributingOrders = new HashSet<Guid>();
+                ordersByKey[key] = contributingOrders = new HashSet<Guid>();
             }
             contributingOrders.Add(orderId);
+            if (!metaByKey.ContainsKey(key))
+            {
+                metaByKey[key] = (personalisationJson, summary, display);
+            }
         }
 
         foreach (var order in included)
@@ -120,7 +129,13 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
                     bundleLinesExpanded++;
                     foreach (var selection in selections)
                     {
-                        AddDemand(selection.ProductVariantId, selection.Quantity, order.Id);
+                        AddDemand(
+                            selection.ProductVariantId,
+                            selection.PersonalisationJson,
+                            selection.PersonalisationSummary,
+                            DisplayFromEnvelope(selection.PersonalisationEnvelopeJson),
+                            selection.Quantity,
+                            order.Id);
                     }
                     continue;
                 }
@@ -129,24 +144,28 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
                 {
                     continue;
                 }
-                AddDemand(variantId, quantity, order.Id);
+                AddDemand(variantId, null, null, null, quantity, order.Id);
             }
         }
 
-        var names = await ResolveVariantNamesAsync(tenantId, portionsByVariant.Keys, cancellationToken);
+        var names = await ResolveVariantNamesAsync(
+            tenantId, portionsByKey.Keys.Select(k => k.VariantId).Distinct().ToList(), cancellationToken);
 
-        var lines = portionsByVariant
+        var lines = portionsByKey
             .Select(kvp =>
             {
-                var (productName, variantName) = names.TryGetValue(kvp.Key, out var resolved)
+                var (productName, variantName) = names.TryGetValue(kvp.Key.VariantId, out var resolved)
                     ? resolved
                     : (UnknownProductName, UnknownVariantName);
+                var meta = metaByKey[kvp.Key];
                 return new ProductionSheetLineDto(
-                    kvp.Key, productName, variantName, kvp.Value, ordersByVariant[kvp.Key].Count);
+                    kvp.Key.VariantId, productName, variantName, kvp.Value, ordersByKey[kvp.Key].Count,
+                    meta.Json, meta.Summary, meta.Display);
             })
             .OrderBy(l => l.ProductName, StringComparer.Ordinal)
             .ThenBy(l => l.VariantName, StringComparer.Ordinal)
             .ThenBy(l => l.ProductVariantId)
+            .ThenBy(l => l.PersonalisationSummary ?? string.Empty, StringComparer.Ordinal)
             .ToList();
 
         return new ProductionSheetDto(window, lines, TotalOrders: included.Count, bundleLinesExpanded);
@@ -320,6 +339,28 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
     }
 
     // ── §12 window guard ────────────────────────────────────────────────────────────────────────
+
+
+    /// <summary>The label-snapshotted display entries out of a Spec 066 §12 envelope — raw JSON,
+    /// null on absent or malformed input (row-level degradation, never a thrown sheet).</summary>
+    private static string? DisplayFromEnvelope(string? envelopeJson)
+    {
+        if (string.IsNullOrWhiteSpace(envelopeJson))
+        {
+            return null;
+        }
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(envelopeJson);
+            return document.RootElement.TryGetProperty("display", out var display)
+                ? display.GetRawText()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 
     private static void ValidateWindow(ProductionWindow window)
     {

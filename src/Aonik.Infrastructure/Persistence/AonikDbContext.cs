@@ -129,6 +129,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Commerce (Spec 067) — option-dependent product content.
     public virtual DbSet<ProductContent> ProductContents { get; set; } = null!;
     public virtual DbSet<ProductContentVariant> ProductContentVariants { get; set; } = null!;
+    public virtual DbSet<BundleSizePlan> BundleSizePlans { get; set; } = null!;
+    public virtual DbSet<BundleSizePreset> BundleSizePresets { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -428,6 +430,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Commerce (Spec 067)
         MapCommerceTable<ProductContent>(modelBuilder, "ProductContents");
         MapCommerceTable<ProductContentVariant>(modelBuilder, "ProductContentVariants");
+        MapCommerceTable<BundleSizePlan>(modelBuilder, "BundleSizePlans");
+        MapCommerceTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");

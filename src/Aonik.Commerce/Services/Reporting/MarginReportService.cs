@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Production;
+﻿using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Contracts.Models.Reporting;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
@@ -94,7 +94,14 @@ internal sealed class MarginReportService : IMarginReportService
                 ? summary.DiscountTotal
                 : 0m;
 
-            var items = order.Items.OrderBy(i => i.ItemIndex).ToList();
+            // Delivery lines are not goods: checkout computes the discount on the GOODS subtotal
+            // only, so apportioning across a DeliveryFee item would leak part of the discount
+            // onto a line reporting later skips — per-variant revenue would no longer reconcile
+            // to Subtotal − DiscountTotal (Spec 068).
+            var items = order.Items
+                .Where(i => i.ItemType != Checkout.CheckoutService.DeliveryFeeItemType)
+                .OrderBy(i => i.ItemIndex)
+                .ToList();
             var discountShares = AllocateProportionally(discountTotal, items.Select(i => i.AmountIn).ToList());
 
             for (var i = 0; i < items.Count; i++)

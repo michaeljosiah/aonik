@@ -35,6 +35,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<FacetGroup> FacetGroups => Set<FacetGroup>();
     public DbSet<ProductContent> ProductContents => Set<ProductContent>();
     public DbSet<ProductContentVariant> ProductContentVariants => Set<ProductContentVariant>();
+    public DbSet<BundleSizePlan> BundleSizePlans => Set<BundleSizePlan>();
+    public DbSet<BundleSizePreset> BundleSizePresets => Set<BundleSizePreset>();
     public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
     public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
     public DbSet<Entities.Cart.Cart> Carts => Set<Entities.Cart.Cart>();
@@ -94,6 +96,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<FacetGroup>(modelBuilder, "FacetGroups");
         MapTable<ProductContent>(modelBuilder, "ProductContents");
         MapTable<ProductContentVariant>(modelBuilder, "ProductContentVariants");
+        MapTable<BundleSizePlan>(modelBuilder, "BundleSizePlans");
+        MapTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapTable<Entities.Cart.Cart>(modelBuilder, "Carts");

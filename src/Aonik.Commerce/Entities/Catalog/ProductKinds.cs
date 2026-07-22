@@ -38,4 +38,8 @@ public static class BundlePricingModes
 
     /// <summary>The sum of the chosen components' prices plus a fixed box premium.</summary>
     public const string SumPlusPremium = "SumPlusPremium";
+
+    /// <summary>Priced by box size via a <c>BundleSizePlan</c> — presets override a linear formula
+    /// (Spec 068 §5). Authoring a size plan requires this mode.</summary>
+    public const string SizeTiered = "SizeTiered";
 }

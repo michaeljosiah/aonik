@@ -1,4 +1,5 @@
-﻿using Aonik.Commerce.Persistence;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
@@ -42,4 +43,50 @@ internal static class CommerceTestHarness
     /// <summary>Builds a ProductService with its Spec 066 option dependency wired.</summary>
     public static ProductService NewProductService(CommerceDbContext ctx, Guid tenantId)
         => new(ctx, new TestTenantProvider(tenantId), NewOptionService(ctx, tenantId), NullLogger<ProductService>.Instance);
+}
+
+/// <summary>Settings null-objects: no tenant override, no registered default — services fall
+/// back to their own defaults (delivery amounts 0/0 for the box quote).</summary>
+internal sealed class NullTenantSettingStore : Aonik.SharedKernel.Abstractions.Settings.ITenantSettingStore
+{
+    public Task<string?> GetTenantValueAsync(string key, Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+
+    public Task SetTenantValueAsync(string key, string? value, Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+}
+
+internal sealed class NullSettingProvider : Aonik.SharedKernel.Abstractions.Settings.ISettingProvider
+{
+    public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+
+    public Task<string> GetRequiredAsync(string key, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"No value for '{key}'.");
+
+    public Task<string?> GetForScopeAsync(
+        string key, Aonik.SharedKernel.Abstractions.Settings.SettingScope scope,
+        Guid? tenantId = null, Guid? userId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+
+    public Task<Aonik.SharedKernel.Abstractions.Settings.SettingResolution> GetResolvedAsync(
+        string key, Guid? tenantId = null, Guid? userId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(new Aonik.SharedKernel.Abstractions.Settings.SettingResolution(key, null, "none"));
+}
+
+internal sealed class GbpTenantCurrencyProvider : Aonik.SharedKernel.Abstractions.ITenantCurrencyProvider
+{
+    public Task<List<string>> GetTenantCurrencyCodesAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<string> { "GBP" });
+
+    public Task<string?> GetTenantDefaultCurrencyAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>("GBP");
+}
+
+/// <summary>R10 threading for tests: every harness cart is party-bound, so the owning access
+/// context is the party principal. Guest-token paths get their own dedicated tests.</summary>
+internal static class CartTestAccess
+{
+    public static CartAccessContext Owner(CartDto cart)
+        => CartAccessContext.ForParty(cart.BuyerPartyId!.Value);
 }

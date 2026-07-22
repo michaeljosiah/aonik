@@ -114,8 +114,23 @@ public class StorefrontConfigServiceTests
             new FakeSettingProvider(),
             store,
             new FakeTenantCurrencyProvider(tenantCurrency),
-            new TestTenantProvider(tenantId));
+            new TestTenantProvider(tenantId),
+            new NoPlanBundleSizePlanService());
         return (service, store, tenantId);
+    }
+
+    /// <summary>No plan authored anywhere — the box section stays in its pre-068 null state,
+    /// which is what every existing expectation in this class asserts.</summary>
+    private sealed class NoPlanBundleSizePlanService : IBundleSizePlanService
+    {
+        public Task<BoxPlanDto> UpsertAsync(Guid productId, UpsertBundleSizePlanCommand command, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<BoxPlanDto?> GetForProductAsync(Guid productId, CancellationToken cancellationToken = default)
+            => Task.FromResult<BoxPlanDto?>(null);
+
+        public Task<BoxPlanDto?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+            => Task.FromResult<BoxPlanDto?>(null);
     }
 
     /// <summary>Global/default chain only — mirrors the real provider's role in the composition:

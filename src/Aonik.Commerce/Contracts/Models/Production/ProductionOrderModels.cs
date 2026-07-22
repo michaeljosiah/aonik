@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Models.Production;
+﻿namespace Aonik.Commerce.Contracts.Models.Production;
 
 // Spec 056 — production / work orders + the kitchen sheet. A production order is an internal
 // Commerce work order (never an Order on the Spec 041 spine): release consumes ingredient stock
@@ -104,7 +104,12 @@ public record KitchenSheetDishDto(
     string VariantName,
     decimal PlannedQuantity,
     decimal? ProducedQuantity,
-    IReadOnlyList<KitchenSheetComponentDto> Components);
+    IReadOnlyList<KitchenSheetComponentDto> Components,
+    /// Spec 068 §9 — how these portions are prepared ("Full table · Salmon"); null when the
+    /// demand carried no personalisation.
+    string? PersonalisationSummary = null,
+    /// Label-snapshotted Spec 066 §12 display entries, frozen at materialisation (raw JSON).
+    string? PersonalisationDisplayJson = null);
 
 /// <summary>One line of the kitchen sheet's merged all-ingredients totals (Spec 056 §11) — the
 /// shopping/prep summary, summed across dishes from the same frozen snapshots.</summary>

@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 
 namespace Aonik.Commerce.Services.Checkout;
@@ -9,12 +9,14 @@ namespace Aonik.Commerce.Services.Checkout;
 /// </summary>
 public interface ICartService
 {
+    /// <summary>Create a cart. The guest token is server-minted and disclosed ONLY in this
+    /// response (R10); any client-supplied token value is ignored.</summary>
     Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default);
-    Task<CartDto?> GetCartAsync(Guid cartId, CancellationToken cancellationToken = default);
-    Task<CartDto> AddItemAsync(AddCartItemCommand command, CancellationToken cancellationToken = default);
+    Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
+    Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     /// <summary>Adds a validated build-your-own-box selection as a single bundle line (§12).</summary>
-    Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CancellationToken cancellationToken = default);
+    Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
-    Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CancellationToken cancellationToken = default);
+    Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CartAccessContext access, CancellationToken cancellationToken = default);
 }

@@ -30,6 +30,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Tests.Commerce;
 
+using static Aonik.Application.Tests.Commerce.CartTestAccess;
+
 /// <summary>
 /// The margin &amp; profit report (Spec 057). Composes the REAL services end to end — checkout
 /// (CheckoutService over the real CoreOrderService, with the CheckoutServiceTests payment/invoice
@@ -102,9 +104,16 @@ public class MarginReportServiceTests
         public IngredientCostService Costs() => new(Commerce(), _tenant, Clock);
         public ProductCostingService Costing() => new(Recipes(), Costs(), Clock);
 
-        public CheckoutService Checkout() => new(
-            Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
-            Discounts(), new ZeroRateTaxCalculator(), _tenant);
+        public CheckoutService Checkout()
+        {
+            var ctx = Commerce();
+            var boxCarts = new BoxCartService(ctx, _tenant,
+                CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+            return new CheckoutService(
+                Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
+                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts);
+        }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);
 
@@ -182,9 +191,9 @@ public class MarginReportServiceTests
             var cart = await Carts().CreateCartAsync(new CreateCartCommand(currency, BuyerPartyId: Guid.NewGuid()));
             foreach (var (variantId, quantity) in lines)
             {
-                await Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, quantity));
+                await Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, quantity), Owner(cart));
             }
-            var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: discountCode));
+            var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: discountCode), Owner(cart));
             if (confirmPayment)
             {
                 await Checkout().ConfirmPaymentAsync(result.OrderId);
@@ -326,8 +335,8 @@ public class MarginReportServiceTests
         {
             new BundleSelectionLine(slot.Id, jollof, 2m),
             new BundleSelectionLine(slot.Id, moimoi, 1m),
-        }));
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        }), Owner(cart));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         await h.Checkout().ConfirmPaymentAsync(result.OrderId);
 
         var report = await h.ReportAsync();
@@ -383,8 +392,8 @@ public class MarginReportServiceTests
         {
             new BundleSelectionLine(slot.Id, jollof, 2m),
             new BundleSelectionLine(slot.Id, moimoi, 1m),
-        }));
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        }), Owner(cart));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         await h.Checkout().ConfirmPaymentAsync(result.OrderId);
 
         // A lowercase report currency must behave IDENTICALLY to the uppercase call. The order

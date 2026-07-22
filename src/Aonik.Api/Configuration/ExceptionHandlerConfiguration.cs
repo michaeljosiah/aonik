@@ -1,3 +1,4 @@
+﻿using Aonik.Commerce.Services.Checkout;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -189,6 +190,20 @@ public static class ExceptionHandlerConfiguration
 
             case InvalidStateException:
                 await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new { error = ex.Message });
+                return;
+
+            case BoxCheckoutDriftException boxDrift:
+                // Spec 068 A18 — the box changed since the client last saw it; nothing was
+                // reserved or created. The refreshed box + changes travel in the body so the
+                // customer reviews the changed meal or price, then resubmits.
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = "commerce.box_drift",
+                    message = boxDrift.Message,
+                    box = boxDrift.Refreshed.Box,
+                    quote = boxDrift.Refreshed.Quote,
+                    changes = boxDrift.Refreshed.Changes,
+                });
                 return;
 
             case DbUpdateConcurrencyException:

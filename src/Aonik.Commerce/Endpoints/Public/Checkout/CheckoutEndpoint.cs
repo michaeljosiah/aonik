@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Checkout;
+﻿using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 
@@ -28,7 +28,8 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
                 req.ReturnUrl,
                 req.CancelUrl,
                 req.CustomerAccountId,
-                req.DiscountCode), ct);
+                req.DiscountCode),
+            CartRequestAccess.From(HttpContext), ct);
         await Send.OkAsync(result, ct);
     }
 }

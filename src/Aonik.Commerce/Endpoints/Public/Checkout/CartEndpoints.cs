@@ -1,8 +1,10 @@
-using Aonik.Commerce.Contracts.Api.Checkout;
+﻿using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
+
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Commerce.Endpoints.Public.Checkout;
 
@@ -20,32 +22,65 @@ public class CreateCartEndpoint : Endpoint<CreateCartRequest, CartDto>
 
     public override async Task HandleAsync(CreateCartRequest req, CancellationToken ct)
     {
-        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency, req.BuyerPartyId, req.AnonymousToken), ct);
+        // R10 — a party-bound cart authorizes ONLY by an authenticated principal matching
+        // BuyerPartyId, and these anonymous routes carry no principal-to-party mapping yet (that
+        // arrives with the storefront customer-identity capability). Accepting a party id here
+        // would mint a cart its own creator can never read again — reject it loudly instead.
+        if (req.BuyerPartyId is not null)
+        {
+            throw new Aonik.Commerce.Services.Catalog.StorefrontValidationException(
+                "Party-bound carts are not available on this route yet; omit buyerPartyId for a guest cart.");
+        }
+
+        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency), ct);
         await Send.OkAsync(cart, ct);
     }
 }
 
-public class GetCartEndpoint : EndpointWithoutRequest<CartDto>
+public class GetCartEndpoint : EndpointWithoutRequest<object>
 {
     private readonly ICartService _carts;
-    public GetCartEndpoint(ICartService carts) => _carts = carts;
+    private readonly IBoxCartService _boxCarts;
+
+    public GetCartEndpoint(ICartService carts, IBoxCartService boxCarts)
+    {
+        _carts = carts;
+        _boxCarts = boxCarts;
+    }
 
     public override void Configure()
     {
         Get("/commerce/carts/{cartId:guid}");
         AllowAnonymous();
-        Summary(s => s.Summary = "Get a cart with its lines and totals.");
+        // K9 — the runtime dispatches CartDto | BoxCartDto by cart kind; publish both success
+        // shapes so generated clients see the concrete models instead of an untyped object.
+        Description(b => b
+            .Produces<CartDto>(200, "application/json")
+            .Produces<BoxCartDto>(200, "application/json"));
+        Summary(s =>
+        {
+            s.Summary = "Get a cart. Box sessions return the Spec 068 §7 box + quote payload.";
+            s.Response<CartDto>(200, "A generic cart.");
+            s.Response<BoxCartDto>(200, "A box session (the §7 box + quote payload).");
+        });
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), ct);
+        var access = CartRequestAccess.From(HttpContext);
+        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), access, ct);
         if (cart is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
-        await Send.OkAsync(cart, ct);
+        if (cart.BoxBundleProductId is not null)
+        {
+            // Spec 068 §11 — a box cart's GET is the §7 payload (drift-repaired, quoted).
+            await Send.OkAsync((object)await _boxCarts.GetAsync(cart.Id, access, ct), ct);
+            return;
+        }
+        await Send.OkAsync((object)cart, ct);
     }
 }
 
@@ -64,7 +99,8 @@ public class AddCartItemEndpoint : Endpoint<AddCartItemRequest, CartDto>
     public override async Task HandleAsync(AddCartItemRequest req, CancellationToken ct)
     {
         var cart = await _carts.AddItemAsync(
-            new AddCartItemCommand(Route<Guid>("cartId"), req.ProductVariantId, req.Quantity), ct);
+            new AddCartItemCommand(Route<Guid>("cartId"), req.ProductVariantId, req.Quantity),
+            CartRequestAccess.From(HttpContext), ct);
         await Send.OkAsync(cart, ct);
     }
 }
@@ -84,7 +120,8 @@ public class AddBundleToCartEndpoint : Endpoint<AddBundleToCartRequest, CartDto>
     public override async Task HandleAsync(AddBundleToCartRequest req, CancellationToken ct)
     {
         var cart = await _carts.AddBundleAsync(
-            new AddBundleToCartCommand(Route<Guid>("cartId"), req.BundleProductId, req.Selection), ct);
+            new AddBundleToCartCommand(Route<Guid>("cartId"), req.BundleProductId, req.Selection),
+            CartRequestAccess.From(HttpContext), ct);
         await Send.OkAsync(cart, ct);
     }
 }

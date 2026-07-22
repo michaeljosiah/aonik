@@ -2572,6 +2572,12 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<Guid?>("BoxBundleProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("BoxSize")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("BuyerPartyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2635,6 +2641,9 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("BoxBundleSlotId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("BundleProductId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2659,10 +2668,28 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LineKind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("BoxDish");
+
                     b.Property<string>("NameSnapshot")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<decimal?>("PersonalisationAdjustment")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("PersonalisationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalisationSummary")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
 
                     b.Property<Guid>("ProductVariantId")
                         .HasColumnType("uniqueidentifier");
@@ -2686,6 +2713,10 @@ namespace Aonik.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("UnitPriceSnapshot")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<decimal?>("UnitSurcharge")
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
 
@@ -2802,6 +2833,20 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<int>("OrderItemIndex")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("PersonalisationAdjustment")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("PersonalisationEnvelopeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalisationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalisationSummary")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<Guid>("ProductVariantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2823,6 +2868,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("UnitSurcharge")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -2834,6 +2883,148 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("TenantId", "OrderId");
 
                     b.ToTable("AnkOrderBundleSelections", "dbo");
+                });
+
+            modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSizePlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("BasePrice")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<int>("BaseSize")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("BundleProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxSize")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinSize")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PerSpacePrice")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BundleProductId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AnkBundleSizePlans", "dbo");
+                });
+
+            modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSizePreset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Badge")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Blurb")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("BundleSizePlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal?>("SavingAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<int>("Size")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BundleSizePlanId");
+
+                    b.HasIndex("TenantId", "BundleSizePlanId", "Size")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AnkBundleSizePresets", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSlot", b =>
@@ -4226,6 +4417,16 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("PersonalisationDisplayJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalisationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalisationSummary")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
 
                     b.Property<decimal>("PlannedQuantity")
                         .HasPrecision(19, 4)
@@ -24210,6 +24411,15 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSizePreset", b =>
+                {
+                    b.HasOne("Aonik.Commerce.Entities.Catalog.BundleSizePlan", null)
+                        .WithMany("Presets")
+                        .HasForeignKey("BundleSizePlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSlot", b =>
                 {
                     b.HasOne("Aonik.Commerce.Entities.Catalog.Product", null)
@@ -24826,6 +25036,11 @@ namespace Aonik.Infrastructure.Migrations
             modelBuilder.Entity("Aonik.Commerce.Entities.Cart.CartItem", b =>
                 {
                     b.Navigation("Selections");
+                });
+
+            modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSizePlan", b =>
+                {
+                    b.Navigation("Presets");
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Catalog.BundleSlot", b =>
