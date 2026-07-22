@@ -408,6 +408,141 @@ public class ProductContentAuthoringTests
         return (content, productId, builder, ctx);
     }
 
+    // ─── Round-3: servability-aware staging on the remaining mutation paths ──────────────
+
+    private static async Task<(ProductContentService Content, Guid ProductId,
+        Aonik.Commerce.Persistence.CommerceDbContext Ctx, ProductOptionService Options, Guid HeatGroupId)>
+        ArrangeActiveButUnservableHeatAsync()
+    {
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var options = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+        var mediumId = await builder.ChoiceIdAsync("heat", "medium");
+
+        // Pin heat to "high" so the product never references "medium", then walk the permitted
+        // route to "active group, zero active recommended defaults" (see
+        // GroupServabilityFlips_Should_FlagEveryOfferingProduct).
+        await builder.OfferAsync(productId,
+            new ProductOptionGroupLine("portion", SortOrder: 0),
+            new ProductOptionGroupLine("protein", SortOrder: 1),
+            new ProductOptionGroupLine("side", SortOrder: 2),
+            new ProductOptionGroupLine("heat", DefaultChoiceKey: "high", SortOrder: 3));
+        await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        await options.UpdateChoiceAsync(mediumId, new UpdateOptionChoiceCommand("Medium", IsActive: false));
+        await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: true));
+        await content.ConfirmContentReviewAsync(productId);
+
+        return (content, productId, ctx, options, groupId);
+    }
+
+    [Fact]
+    public async Task AddChoice_RestoringServability_Should_FlagEveryOfferingProduct()
+    {
+        // The one add-side default transition V7 sanctions (0 → 1) flips an active group
+        // servable; every offering product's standard preparation gains the group, so the add
+        // must stage them — a cached ?v=N response would otherwise keep serving the previous
+        // declarations under an unchanged version.
+        var (_, productId, ctx, options, groupId) = await ArrangeActiveButUnservableHeatAsync();
+
+        await options.AddChoiceAsync(groupId, new AddOptionChoiceCommand(
+            "scorching", "Scorching", IsRecommendedDefault: true));
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeTrue("the new active default made the group servable again");
+    }
+
+    [Fact]
+    public async Task DefaultMove_RestoringServability_Should_FlagPinnedProductsToo()
+    {
+        // Promoting a default on an active-but-unservable group restores it for EVERY offering
+        // product — including one pinned to a different choice, which inheriting-only staging
+        // never covered.
+        var (_, productId, ctx, options, groupId) = await ArrangeActiveButUnservableHeatAsync();
+
+        await options.SetRecommendedDefaultAsync(groupId, "high");
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeTrue("the move made the group servable and the pinned narrowing regained it");
+    }
+
+    [Fact]
+    public async Task DefaultMove_OnInactiveGroup_Should_NotFlag()
+    {
+        // The group is absent from every selection before and after the move — maintaining an
+        // inactive group must not withhold declarations pending a pointless review.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var options = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+
+        await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        await content.ConfirmContentReviewAsync(productId);
+
+        await options.SetRecommendedDefaultAsync(groupId, "high");
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("an inactive group contributes nothing to any standard preparation");
+    }
+
+    [Fact]
+    public async Task PinnedChoiceFlips_OnUnservableGroup_Should_NotFlag()
+    {
+        // Deactivating a pinned choice while its group is inactive changes nothing customers
+        // see; V9 still guards resolvability (the group default remains), and staging waits
+        // for the group's own reactivation path.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var options = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+        var highId = await builder.ChoiceIdAsync("heat", "high");
+
+        await builder.OfferAsync(productId,
+            new ProductOptionGroupLine("portion", SortOrder: 0),
+            new ProductOptionGroupLine("protein", SortOrder: 1),
+            new ProductOptionGroupLine("side", SortOrder: 2),
+            new ProductOptionGroupLine("heat", DefaultChoiceKey: "high", SortOrder: 3));
+        await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        await content.ConfirmContentReviewAsync(productId);
+
+        await options.UpdateChoiceAsync(highId, new UpdateOptionChoiceCommand("High", IsActive: false));
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("an unservable group's pinned default is not being served");
+    }
+
+    [Fact]
+    public async Task VariantWhoseCombinationBecameDefault_Should_RemainUpdatable()
+    {
+        // A default move under an authored variant makes its combination the standard one;
+        // resolution keeps serving the variant ahead of the block, so its facts must stay
+        // correctable in place — while MOVING another variant onto the default combination
+        // stays V-C1.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var options = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var salmonVariant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        var prawnVariant = await content.AddVariantAsync(productId, Variant("""{"protein":"prawns"}""", 610));
+
+        await options.SetRecommendedDefaultAsync(await builder.GroupIdAsync("protein"), "salmon");
+
+        var updated = await content.UpdateVariantAsync(salmonVariant.Id, Variant("""{"protein":"salmon"}""", 655));
+        updated.Nutrition.Kcal.Should().Be(655);
+
+        var move = () => content.UpdateVariantAsync(prawnVariant.Id, Variant("""{"protein":"salmon"}""", 700));
+        (await move.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C1");
+    }
+
+    [Fact]
+    public async Task RetiredVariants_Should_RejectUpdates()
+    {
+        // Soft-retired rows are history for audit and revival — editing one in place would
+        // rewrite that record while staying unservable. Revive goes through the add path.
+        var (content, productId, _, _) = await ArrangeAsync();
+        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        await content.DeactivateVariantAsync(variant.Id);
+
+        var act = () => content.UpdateVariantAsync(variant.Id, Variant("""{"protein":"salmon"}""", 650));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C5");
+    }
+
     private static Guid TenantOf(Aonik.Commerce.Persistence.CommerceDbContext ctx, Guid productId)
         => ctx.Products.Single(p => p.Id == productId).TenantId;
 

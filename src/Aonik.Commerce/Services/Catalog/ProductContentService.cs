@@ -321,9 +321,25 @@ internal sealed class ProductContentService : IProductContentService
             // then normalise inside the same serialized snapshot as the write — see AddVariant.
             await _dbContext.Entry(variant).ReloadAsync(ct2);
 
+            // A retired variant is history (V-C5): its authored combination must survive for
+            // audit and revival, and coverage still lists its id. Rewriting it in place — worse,
+            // moving it to another hash — destroys that record while staying unservable.
+            if (!variant.IsActive)
+            {
+                throw new StorefrontValidationException(
+                    "V-C5: this variant is retired — re-author its combination to revive it; retired rows are not editable.");
+            }
+
             var canonical = (await NormalizeAuthoringSelectionAsync(variant.ProductId, command.SelectionJson, ct2)).CanonicalSelectionJson;
+            var hash = HashSelection(canonical);
+            var selectionChanges = !string.Equals(hash, variant.SelectionHash, StringComparison.Ordinal);
+
+            // V-C1 guards MOVES onto the standard preparation. A variant whose UNCHANGED
+            // combination became the default (the default moved under it) is deliberately served
+            // ahead of the block, so its facts must remain correctable in place — blocking the
+            // update would freeze exactly the content customers are being served.
             var allDefaults = (await _selections.NormalizeAsync(variant.ProductId, null, ct2)).CanonicalSelectionJson;
-            if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
+            if (selectionChanges && string.Equals(canonical, allDefaults, StringComparison.Ordinal))
             {
                 throw new StorefrontValidationException(
                     "V-C1: this selection is the current standard preparation — author it on the default block, not as a variant.");
@@ -331,8 +347,7 @@ internal sealed class ProductContentService : IProductContentService
 
             ValidateVariantFigureCompleteness(content!, FiguresOf(command));
 
-            var hash = HashSelection(canonical);
-            if (!string.Equals(hash, variant.SelectionHash, StringComparison.Ordinal))
+            if (selectionChanges)
             {
                 var occupant = await _dbContext.ProductContentVariants.AnyAsync(
                     v => v.TenantId == tenantId && v.ProductId == variant.ProductId
@@ -362,10 +377,13 @@ internal sealed class ProductContentService : IProductContentService
 
         // Soft-retire only (V-C5) — and still a content write: resolution changes, so the
         // version bumps and cached responses become unreachable.
-        await RunContentWriteAsync(tenantId, variant.ProductId, requireExisting: true, (content, _) =>
+        await RunContentWriteAsync(tenantId, variant.ProductId, requireExisting: true, async (content, ct2) =>
         {
+            // Reload per attempt: a retry must submit the CURRENT rowversion, not the token a
+            // failed attempt already burned — see UpdateVariantAsync.
+            await _dbContext.Entry(variant).ReloadAsync(ct2);
             variant.IsActive = false;
-            return Task.FromResult(content!);
+            return content!;
         }, ct, _ => true);
     }
 

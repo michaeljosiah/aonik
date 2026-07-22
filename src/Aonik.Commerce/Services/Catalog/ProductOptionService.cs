@@ -174,7 +174,29 @@ internal sealed partial class ProductOptionService : IProductOptionService
             IsActive = command.IsActive,
         };
 
+        // Spec 067 §6 — V7 sanctions exactly one add-side default transition (0 to 1), and on an
+        // active group that transition flips SERVABILITY: the group re-enters every offering
+        // product's standard preparation, so all of them are staged in the SAME save (A18) and
+        // their ContentVersion bump invalidates cached ?v=N responses. Computed from the pre-add
+        // snapshot: EF's relationship fixup puts the new choice into group.Choices on Add.
+        var wasServable = IsServable(group);
+        var willBeServable = group.IsActive && !group.IsDeleted
+            && group.Choices.Count(c => c.IsActive && !c.IsDeleted) + (command.IsActive ? 1 : 0) > 0
+            && group.Choices.Count(c => c.IsActive && !c.IsDeleted && c.IsRecommendedDefault)
+                + (command.IsActive && command.IsRecommendedDefault ? 1 : 0) == 1;
+
         _dbContext.OptionChoices.Add(choice);
+
+        if (wasServable != willBeServable)
+        {
+            var affected = await _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            await _contentReview.StageAsync(affected, cancellationToken);
+        }
 
         // A new choice widens the offered set and can turn a half-authored group servable — both
         // things a concurrent narrowing validates against, so it contends on the group's token.
@@ -278,21 +300,28 @@ internal sealed partial class ProductOptionService : IProductOptionService
                 return group.IsActive && !group.IsDeleted && activeCount > 0 && defaultCount == 1;
             }
 
-            var servabilityChanges = ServableWith(choice.IsActive) != ServableWith(newActive);
+            var servableNow = ServableWith(choice.IsActive);
+            var servabilityChanges = servableNow != ServableWith(newActive);
 
-            var affectedQuery = _dbContext.ProductOptionGroups
-                .AsNoTracking()
-                .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId);
-            if (!servabilityChanges)
+            // (b) applies only while the group is servable: a pinned default on an unservable
+            // group is absent from every standard selection, so the flip changes nothing a
+            // customer can observe — the group's own activation path stages when it returns.
+            if (servabilityChanges || servableNow)
             {
-                affectedQuery = affectedQuery.Where(x => x.DefaultChoiceKey == choice.Key);
-            }
+                var affectedQuery = _dbContext.ProductOptionGroups
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId);
+                if (!servabilityChanges)
+                {
+                    affectedQuery = affectedQuery.Where(x => x.DefaultChoiceKey == choice.Key);
+                }
 
-            var affected = await affectedQuery
-                .Select(x => x.ProductId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-            await _contentReview.StageAsync(affected, cancellationToken);
+                var affected = await affectedQuery
+                    .Select(x => x.ProductId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                await _contentReview.StageAsync(affected, cancellationToken);
+            }
         }
 
         choice.Label = RequireLabel(command.Label);
@@ -398,8 +427,28 @@ internal sealed partial class ProductOptionService : IProductOptionService
             // Spec 067 §6 — the products whose STANDARD PREPARATION this move changes get their
             // default content block flagged for review, in the SAME transaction as the move: the
             // flag changes what resolution returns, so its ContentVersion bump must invalidate
-            // cached content atomically with the default change (067 A18).
-            await _contentReview.StageAsync(inheritingIds, ct);
+            // cached content atomically with the default change (067 A18). What counts as
+            // "changes" follows servability: after the promote the group holds exactly one active
+            // default, so it is servable iff its own flags allow — an INACTIVE group is absent
+            // from every selection before and after (stage nothing), and a move that RESTORES
+            // servability (active group, zero active defaults) re-enters every offering product's
+            // selection, pinned narrowings included (stage them all).
+            var wasServable = IsServable(group);
+            var willBeServable = group.IsActive && !group.IsDeleted;
+            if (willBeServable && !wasServable)
+            {
+                var offering = await _dbContext.ProductOptionGroups
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                    .Select(x => x.ProductId)
+                    .Distinct()
+                    .ToListAsync(ct);
+                await _contentReview.StageAsync(offering, ct);
+            }
+            else if (willBeServable)
+            {
+                await _contentReview.StageAsync(inheritingIds, ct);
+            }
 
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
