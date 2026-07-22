@@ -208,7 +208,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     {
                         var split = NewBoxLine(ctx.TenantId, ctx.Cart, line.BoxBundleSlotId!.Value,
                             ctx.Variants[line.ProductVariantId], ctx.Products[variant.ProductId], applyTo, priced);
-                        ctx.Cart.Items.Add(split);
+                        // Explicit Add: an entity with a pre-set key discovered via navigation
+                        // fixup would be tracked as Modified, not Added. Fixup appends it to
+                        // cart.Items, so only backfill the collections it does not own.
+                        _dbContext.CartItems.Add(split);
+                        if (!ctx.Cart.Items.Contains(split))
+                        {
+                            ctx.Cart.Items.Add(split);
+                        }
                         ctx.BoxLines.Add(split);
                     }
                 }
@@ -295,12 +302,19 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         return await strategy.ExecuteAsync(async ct =>
         {
-            // A replayed attempt must not resubmit entities a failed attempt added or mutated.
+            // A replayed attempt must not resubmit entities a failed attempt added or mutated —
+            // and a detached instance must also leave its cart's Items collection, or the fresh
+            // query would materialise a tracked TWIN of the same row beside the stale ghost and
+            // the reload below would hit an identity-map conflict.
             foreach (var entry in _dbContext.ChangeTracker.Entries<CartItem>()
                          .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
                          .ToList())
             {
                 entry.State = EntityState.Detached;
+            }
+            foreach (var trackedCart in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>().ToList())
+            {
+                trackedCart.Entity.Items.RemoveAll(i => _dbContext.Entry(i).State == EntityState.Detached);
             }
 
             var cart = await _dbContext.Carts
@@ -309,7 +323,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             if (cart is not null)
             {
                 await _dbContext.Entry(cart).ReloadAsync(ct);
-                foreach (var item in cart.Items)
+                // Snapshot first: reloading an item triggers relationship fixup, which can mutate
+                // cart.Items mid-enumeration.
+                foreach (var item in cart.Items.ToList())
                 {
                     await _dbContext.Entry(item).ReloadAsync(ct);
                 }
@@ -558,7 +574,18 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             return;
         }
 
-        cart.Items.Add(NewBoxLine(tenantId, cart, slotId, variant, product, command.Quantity, priced));
+        var newLine = NewBoxLine(tenantId, cart, slotId, variant, product, command.Quantity, priced);
+        // Explicit Add unless the whole cart graph is itself being added (create-with-first-line):
+        // a pre-set key discovered via fixup from an UNCHANGED parent tracks as Modified. The Add
+        // fixes up cart.Items itself; the manual append covers only the Added-graph path.
+        if (_dbContext.Entry(cart).State != EntityState.Added)
+        {
+            _dbContext.CartItems.Add(newLine);
+        }
+        if (!cart.Items.Contains(newLine))
+        {
+            cart.Items.Add(newLine);
+        }
     }
 
     private async Task<Guid> ResolveSlotAsync(

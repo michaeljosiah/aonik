@@ -98,7 +98,7 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
             var existing = live.FirstOrDefault(p => p.Size == spec.Size);
             if (existing is null)
             {
-                plan.Presets.Add(new BundleSizePreset
+                var preset = new BundleSizePreset
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
@@ -109,7 +109,17 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
                     Blurb = spec.Blurb,
                     SavingAmount = spec.SavingAmount,
                     SortOrder = spec.SortOrder,
-                });
+                };
+                // Explicit Add: a pre-set key discovered via navigation fixup from a TRACKED plan
+                // would be treated as an existing row (Modified) and fail the update.
+                if (_dbContext.Entry(plan).State != EntityState.Added)
+                {
+                    _dbContext.BundleSizePresets.Add(preset);
+                }
+                if (!plan.Presets.Contains(preset))
+                {
+                    plan.Presets.Add(preset);
+                }
             }
             else
             {
