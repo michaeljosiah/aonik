@@ -1,4 +1,4 @@
-using Aonik.Commerce.Agents;
+﻿using Aonik.Commerce.Agents;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -56,6 +56,12 @@ public sealed class CommerceModule : IModule
         // difference-prices a customer's choices (negative adjustments included).
         services.AddScoped<IProductOptionService, ProductOptionService>();
         services.AddScoped<IOptionSelectionService, OptionSelectionService>();
+
+        // Spec 070 - storefront merchandising: curated collections, configurable filter facets,
+        // and the storefront-config document (the tunables a frontend must never hard-code).
+        services.AddScoped<ICollectionService, CollectionService>();
+        services.AddScoped<IFacetGroupService, FacetGroupService>();
+        services.AddScoped<IStorefrontConfigService, StorefrontConfigService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICheckoutService, CheckoutService>();

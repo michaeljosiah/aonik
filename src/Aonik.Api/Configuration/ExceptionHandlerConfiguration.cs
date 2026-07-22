@@ -173,6 +173,16 @@ public static class ExceptionHandlerConfiguration
                 });
                 return;
 
+            case StorefrontValidationException:
+                // Spec 070 §6 — unknown facet keys/values, label-for-value submissions, invalid
+                // sort combinations: a storefront bug should be loud, and a client fault, not 500.
+                await WriteJsonAsync(context, StatusCodes.Status400BadRequest, new
+                {
+                    error = ex.Message,
+                    code = "commerce.storefront_validation",
+                });
+                return;
+
             case NotFoundException:
                 await WriteJsonAsync(context, StatusCodes.Status404NotFound, new { error = ex.Message });
                 return;

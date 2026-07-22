@@ -22,7 +22,10 @@ public record CreateProductCommand(
     string? BundlePricingMode = null,
     decimal? BundleFixedAmount = null,
     decimal? BundlePremium = null,
-    string? BundleCurrency = null);
+    string? BundleCurrency = null,
+    // Spec 070 §7 — keywords are part of product authoring; forcing a follow-up PATCH to make a
+    // new product searchable would be a two-request contract for a one-request intent.
+    string? SearchKeywordsJson = null);
 
 public record AddVariantCommand(
     Guid ProductId,
@@ -61,4 +64,40 @@ public record ListProductsQuery(
     string? Status = null,
     string? Search = null,
     int Page = 1,
-    int PageSize = 50);
+    int PageSize = 50,
+    /// Spec 070 §6 — facet key → selected option VALUES (stable tokens, never labels). OR within
+    /// a group, AND across groups. Unknown keys or values are rejected loudly, never ignored.
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? Facets = null,
+    /// Spec 070 §6 — collection slug membership filter.
+    string? Collection = null,
+    /// Spec 070 §6 — name | newest | rank. Rank requires a collection filter. Null defaults to
+    /// rank when a collection is present, name otherwise.
+    string? Sort = null);
+
+/// <summary>The missing product update (Spec 070 §10) — PATCH semantics: every member optional,
+/// only supplied members apply, JSON fields validated on write (§11). <c>ClearCategory</c> exists
+/// because a nullable Guid alone cannot distinguish "unchanged" from "remove the category".</summary>
+public record UpdateProductCommand(
+    string? Name = null,
+    string? Description = null,
+    string? Status = null,
+    Guid? CategoryId = null,
+    bool ClearCategory = false,
+    string? TagsJson = null,
+    string? AttributesJson = null,
+    string? SearchKeywordsJson = null);
+
+public record ProductMediaLine(string Url, string? Kind = null);
+
+/// <summary>Full-replace of a product's ordered media (Spec 070 §10) — list/reorder/remove;
+/// upload wiring is out of scope (§3). Null <see cref="Items"/> is rejected: a missing property
+/// must never read as an intentional clear.</summary>
+public record ReplaceProductMediaCommand(IReadOnlyList<ProductMediaLine>? Items);
+
+/// <summary>Known <see cref="ListProductsQuery.Sort"/> values (Spec 070 §6).</summary>
+public static class ProductSortOrders
+{
+    public const string Name = "name";
+    public const string Newest = "newest";
+    public const string Rank = "rank";
+}

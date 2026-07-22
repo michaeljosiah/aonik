@@ -30,6 +30,9 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<OptionGroup> OptionGroups => Set<OptionGroup>();
     public DbSet<OptionChoice> OptionChoices => Set<OptionChoice>();
     public DbSet<ProductOptionGroup> ProductOptionGroups => Set<ProductOptionGroup>();
+    public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<CollectionItem> CollectionItems => Set<CollectionItem>();
+    public DbSet<FacetGroup> FacetGroups => Set<FacetGroup>();
     public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
     public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
     public DbSet<Entities.Cart.Cart> Carts => Set<Entities.Cart.Cart>();
@@ -84,6 +87,9 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<OptionGroup>(modelBuilder, "OptionGroups");
         MapTable<OptionChoice>(modelBuilder, "OptionChoices");
         MapTable<ProductOptionGroup>(modelBuilder, "ProductOptionGroups");
+        MapTable<Collection>(modelBuilder, "Collections");
+        MapTable<CollectionItem>(modelBuilder, "CollectionItems");
+        MapTable<FacetGroup>(modelBuilder, "FacetGroups");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapTable<Entities.Cart.Cart>(modelBuilder, "Carts");

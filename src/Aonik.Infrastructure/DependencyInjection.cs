@@ -192,6 +192,7 @@ public static class DependencyInjection
         services.AddScoped<ISettingValueProtector, SettingValueProtector>();
         services.AddScoped<ISettingProvider, SettingService>();
         services.AddScoped<ISettingManager, SettingService>();
+        services.AddScoped<ITenantSettingStore, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddHttpClient<IAiModelCatalogSource, ModelsDevAiModelCatalogSource>((_, client) =>
         {

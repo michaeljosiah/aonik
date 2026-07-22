@@ -48,6 +48,9 @@ public class MySpaceSummaryServiceTests
     {
         public Task<List<string>> GetTenantCurrencyCodesAsync(Guid tenantId, CancellationToken ct = default) =>
             Task.FromResult(codes);
+
+        public Task<string?> GetTenantDefaultCurrencyAsync(Guid tenantId, CancellationToken ct = default) =>
+            Task.FromResult(codes.FirstOrDefault());
     }
 
     private sealed class StubPermissionService : IPermissionService

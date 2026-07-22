@@ -36,7 +36,9 @@ public record BundleSlotDto(
     int SortOrder,
     IReadOnlyList<BundleSlotOptionDto> Options);
 
-public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder);
+/// <summary>Carries <see cref="IsActive"/> so the back office can see — and therefore reactivate —
+/// a retired category (Spec 070 A17); the public surface uses the active-only tree instead.</summary>
+public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder, bool IsActive);
 
 /// <summary>Full product detail, including variants, media, (for bundles) selection slots, the
 /// Spec 057 target gross-margin percentage (null = no target set), and the Spec 066 personalisation
@@ -67,7 +69,42 @@ public record ProductDto(
     decimal? UnitSurcharge,
     string? UnitSurchargeCurrency);
 
-/// <summary>Lightweight product row for list/browse responses.</summary>
+/// <summary>The ADMIN product detail (Spec 070 §7): every <see cref="ProductDto"/> field plus the
+/// hidden search keywords, serialized flat. A distinct type on purpose — the public product read
+/// returns <see cref="ProductDto"/>, which structurally cannot leak keywords, and an editor who
+/// could not see current keywords would silently erase them on a full update.</summary>
+public record AdminProductDetailDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string Description,
+    string Status,
+    string Kind,
+    Guid? CategoryId,
+    string TagsJson,
+    string AttributesJson,
+    string? BundlePricingMode,
+    decimal? BundleFixedAmount,
+    decimal? BundlePremium,
+    string? BundleCurrency,
+    decimal? TargetMarginPct,
+    IReadOnlyList<ProductVariantDto> Variants,
+    IReadOnlyList<ProductMediaDto> Media,
+    IReadOnlyList<BundleSlotDto> BundleSlots,
+    IReadOnlyList<EffectiveOptionGroupDto> EffectiveOptionGroups,
+    decimal? UnitSurcharge,
+    string? UnitSurchargeCurrency,
+    IReadOnlyList<string> SearchKeywords)
+    : ProductDto(
+        Id, Slug, Name, Description, Status, Kind, CategoryId, TagsJson, AttributesJson,
+        BundlePricingMode, BundleFixedAmount, BundlePremium, BundleCurrency, TargetMarginPct,
+        Variants, Media, BundleSlots, EffectiveOptionGroups, UnitSurcharge, UnitSurchargeCurrency);
+
+/// <summary>Lightweight product row for list/browse responses — everything a menu-grid card
+/// renders without a detail call (Spec 070 §8). Deliberately carries NO retail price: the brand
+/// rule "dishes never show a standalone price" is only possible if the API doesn't force prices
+/// into every list payload. <see cref="UnitSurcharge"/> is the one price-like field allowed — an
+/// on-top-of-the-box delta, not a dish price.</summary>
 public record ProductSummaryDto(
     Guid Id,
     string Slug,
@@ -75,4 +112,11 @@ public record ProductSummaryDto(
     string Status,
     string Kind,
     Guid? CategoryId,
-    int VariantCount);
+    int VariantCount,
+    /// First ProductMedia image by SortOrder; null when the product has none.
+    string? HeroImageUrl,
+    /// Parsed from TagsJson; a malformed legacy row renders with empty tags rather than failing.
+    IReadOnlyList<string> Tags,
+    /// Pass-through for card badges (spice, etc.).
+    string AttributesJson,
+    decimal? UnitSurcharge);

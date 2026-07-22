@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Catalog;
+﻿using Aonik.Commerce.Contracts.Api.Catalog;
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Services.Catalog;
 
@@ -34,7 +34,8 @@ public class CreateProductEndpoint : Endpoint<CreateProductRequest, ProductDto>
             req.BundlePricingMode,
             req.BundleFixedAmount,
             req.BundlePremium,
-            req.BundleCurrency);
+            req.BundleCurrency,
+            req.SearchKeywordsJson);
 
         var result = await _products.CreateProductAsync(command, ct);
         await Send.OkAsync(result, ct);

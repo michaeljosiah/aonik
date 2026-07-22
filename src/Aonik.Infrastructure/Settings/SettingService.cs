@@ -15,7 +15,7 @@ using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Infrastructure.Settings;
 
-public class SettingService : ISettingProvider, ISettingManager
+public class SettingService : ISettingProvider, ISettingManager, ITenantSettingStore
 {
     private const string CacheSet = "settings";
     private readonly IAonikDbContext _dbContext;
@@ -115,6 +115,19 @@ public class SettingService : ISettingProvider, ISettingManager
         }
 
         await EnsureSettingsReadPermissionAsync(scope, cancellationToken);
+        return await ReadCoreAsync(key, scope, tenantId, userId, cancellationToken);
+    }
+
+    /// <summary>The shared read core: cache, scope query, decryption. Authorization is the
+    /// CALLER's concern — <see cref="GetForScopeAsync"/> enforces the platform permission,
+    /// <see cref="GetTenantValueAsync"/> relies on the calling module endpoint's policy.</summary>
+    private async Task<string?> ReadCoreAsync(
+        string key,
+        SettingScope scope,
+        Guid? tenantId,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
         var cacheKey = GetCacheKey(scope, key, tenantId, userId);
 
         return await _cache.GetOrSetAsync(
@@ -221,13 +234,29 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        await EnsureSettingsWritePermissionAsync(scope, cancellationToken);
+        await WriteCoreAsync(key, value, scope, tenantId, userId, cancellationToken);
+    }
+
+    /// <summary>The shared write core: config-managed refusal, scope validation, normalization,
+    /// encryption, upsert/remove, and cache invalidation. Authorization is the CALLER's concern —
+    /// <see cref="SetAsync(string, string?, SettingScope, Guid?, Guid?, CancellationToken)"/>
+    /// enforces the platform permission, <see cref="SetTenantValueAsync"/> relies on the calling
+    /// module endpoint's policy.</summary>
+    private async Task WriteCoreAsync(
+        string key,
+        string? value,
+        SettingScope scope,
+        Guid? tenantId,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
         if (IsConfigurationManagedKey(key))
         {
             throw new InvalidOperationException(
                 $"Setting '{key}' is managed through application configuration and cannot be changed via settings APIs.");
         }
 
-        await EnsureSettingsWritePermissionAsync(scope, cancellationToken);
         ValidateScope(scope, tenantId, userId);
 
         var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -281,6 +310,35 @@ public class SettingService : ISettingProvider, ISettingManager
         await _cacheInvalidationPublisher.PublishAsync(
             new CacheInvalidationEvent(CacheSet, GetCacheKey(scope, key, tenantId, userId)),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="ITenantSettingStore"/> — the module-owned path (Spec 070 §9). Deliberately does
+    /// NOT check the platform <c>Settings.Read</c>/<c>Settings.Write</c> permissions: the calling
+    /// module endpoint gates access with its own policy (e.g. Commerce's AdminWritePolicy lets an
+    /// Operations user edit storefront settings exactly as they edit products, while the platform
+    /// settings surface stays PlatformAdmin/TenantAdmin). Configuration-managed keys stay refused
+    /// on write, and encryption/caching behave identically to the managed path.
+    /// </summary>
+    public Task<string?> GetTenantValueAsync(string key, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            throw new InvalidOperationException("TenantId is required for tenant-scoped settings.");
+        }
+
+        return ReadCoreAsync(key, SettingScope.Tenant, tenantId, userId: null, cancellationToken);
+    }
+
+    /// <inheritdoc cref="GetTenantValueAsync"/>
+    public Task SetTenantValueAsync(string key, string? value, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            throw new InvalidOperationException("TenantId is required for tenant-scoped settings.");
+        }
+
+        return WriteCoreAsync(key, value, SettingScope.Tenant, tenantId, userId: null, cancellationToken);
     }
 
     public async Task<bool> HasStoredValueAsync(

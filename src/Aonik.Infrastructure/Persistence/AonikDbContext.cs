@@ -120,6 +120,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<OptionGroup> OptionGroups { get; set; } = null!;
     public virtual DbSet<OptionChoice> OptionChoices { get; set; } = null!;
     public virtual DbSet<ProductOptionGroup> ProductOptionGroups { get; set; } = null!;
+
+    // Commerce (Spec 070) — storefront merchandising: curated collections + filter facets.
+    public virtual DbSet<Collection> Collections { get; set; } = null!;
+    public virtual DbSet<CollectionItem> CollectionItems { get; set; } = null!;
+    public virtual DbSet<FacetGroup> FacetGroups { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -410,6 +415,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<OptionGroup>(modelBuilder, "OptionGroups");
         MapCommerceTable<OptionChoice>(modelBuilder, "OptionChoices");
         MapCommerceTable<ProductOptionGroup>(modelBuilder, "ProductOptionGroups");
+
+        // Commerce (Spec 070)
+        MapCommerceTable<Collection>(modelBuilder, "Collections");
+        MapCommerceTable<CollectionItem>(modelBuilder, "CollectionItems");
+        MapCommerceTable<FacetGroup>(modelBuilder, "FacetGroups");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");

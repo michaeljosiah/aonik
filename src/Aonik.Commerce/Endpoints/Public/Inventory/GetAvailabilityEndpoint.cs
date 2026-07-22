@@ -1,4 +1,5 @@
 using Aonik.Commerce.Contracts.Api.Inventory;
+using Aonik.Commerce.Endpoints.Public.Catalog;
 using Aonik.Commerce.Services.Inventory;
 
 using FastEndpoints;
@@ -20,6 +21,10 @@ public class GetAvailabilityEndpoint : EndpointWithoutRequest<InventoryAvailabil
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        // A tenant-specific catalog read on a tenant-less path — the same shared-cache hazard as
+        // every other anonymous catalog surface (Spec 070 A14).
+        StorefrontCacheHeaders.Apply(HttpContext);
+
         var variantId = Route<Guid>("variantId");
         var available = await _inventory.GetAvailableAsync(variantId, ct);
         await Send.OkAsync(new InventoryAvailabilityResponse(variantId, available), ct);

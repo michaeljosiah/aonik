@@ -48,4 +48,19 @@ internal class TenantCurrencyProvider : ITenantCurrencyProvider
 
         return new List<string> { "USD" };
     }
+
+    public async Task<string?> GetTenantDefaultCurrencyAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var defaultCurrency = await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.DefaultCurrency)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.IsNullOrWhiteSpace(defaultCurrency)
+            ? null
+            : defaultCurrency.Trim().ToUpperInvariant();
+    }
 }
