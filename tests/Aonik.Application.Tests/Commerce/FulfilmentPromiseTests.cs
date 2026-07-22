@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Fulfilment;
+﻿using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Fulfilment;
@@ -119,6 +119,18 @@ public class FulfilmentPromiseTests
             .Should().Be(new DateOnly(2026, 7, 22));
     }
 
+    [Fact]
+    public void ExtremeStoredBlackouts_Should_DegradeToNoPromise_NotThrow()
+    {
+        // M1 — stored data is forever: a far-future blackout must clamp the horizon against
+        // DateOnly.MaxValue and degrade, never throw a 500 into every later read.
+        var calendar = Launch(blackouts: """["9999-12-31"]""");
+
+        var act = () => FulfilmentPromiseCalculator.EarliestDelivery(calendar, Bst(2026, 7, 21, 10));
+
+        act.Should().NotThrow();
+    }
+
     // ─── Service (InMemory) ──────────────────────────────────────────────────
 
     private static (FulfilmentPromiseService Service, CommerceTestHarness.TestClock Clock, Aonik.Commerce.Persistence.CommerceDbContext Ctx) NewService()
@@ -183,6 +195,10 @@ public class FulfilmentPromiseTests
 
         var badDate = () => service.UpsertCalendarAsync(Command(blackouts: ["25/12/2026"]));
         (await badDate.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("ISO date");
+
+        // M1 — a far-future blackout is a typo, not seasonal operational data.
+        var farFuture = () => service.UpsertCalendarAsync(Command(blackouts: ["9999-12-31"]));
+        (await farFuture.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("two years");
     }
 
     [Fact]

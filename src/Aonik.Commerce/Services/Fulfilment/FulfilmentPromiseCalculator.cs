@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Entities.Fulfilment;
 
@@ -72,7 +72,10 @@ internal static class FulfilmentPromiseCalculator
         var readyDate = effectiveDate.AddDays(calendar.LeadDays);
 
         var horizonStart = blackouts.Count > 0 && blackouts.Max() > readyDate ? blackouts.Max() : readyDate;
-        var horizon = horizonStart.AddDays(SearchHorizonDays);
+        // Clamp: an extreme stored blackout (e.g. 9999-12-31) must degrade to "no promise", not
+        // throw past DateOnly.MaxValue — the upsert bounds new data, but stored data is forever.
+        var maxSpan = DateOnly.MaxValue.DayNumber - horizonStart.DayNumber;
+        var horizon = horizonStart.AddDays(Math.Min(SearchHorizonDays, maxSpan));
         for (var date = readyDate; date <= horizon; date = date.AddDays(1))
         {
             if (deliveryDays.Contains(date.DayOfWeek) && !blackouts.Contains(date))

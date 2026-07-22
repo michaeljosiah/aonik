@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Fulfilment;
@@ -122,10 +122,18 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
             {
                 throw new StorefrontValidationException($"'{raw}' is not an ISO date (yyyy-MM-dd).");
             }
-            if (date >= todayLocal)
+            if (date < todayLocal)
             {
-                blackouts.Add(date);
+                continue;   // expired — pruned on save
             }
+            // Blackouts are seasonal operational data (§2); a far-future date is a typo that
+            // would otherwise ride into the horizon arithmetic forever.
+            if (date > todayLocal.AddYears(2))
+            {
+                throw new StorefrontValidationException(
+                    $"Blackout '{raw}' is more than two years out; blackout dates are near-term operational data.");
+            }
+            blackouts.Add(date);
         }
         if (blackouts.Count > MaxFutureBlackouts)
         {

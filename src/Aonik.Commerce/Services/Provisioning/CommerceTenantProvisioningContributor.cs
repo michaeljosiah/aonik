@@ -49,31 +49,33 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
             return new TenantProvisioningContribution(actions);
         }
 
-        // Idempotent: skip if the tenant already has any categories.
+        // Each seed is idempotent INDEPENDENTLY — a tenant provisioned before a newer seed
+        // existed (or a retry after one seed committed) must still receive the others.
         var hasCategories = await _dbContext.ProductCategories
             .AnyAsync(c => c.TenantId == context.TenantId, cancellationToken);
         if (hasCategories)
         {
             actions.Add("Commerce categories already exist - skipped");
-            return new TenantProvisioningContribution(actions);
         }
+        else
+        {
+            var categories = DefaultCategories
+                .Select(category => new ProductCategory
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    Slug = category.Slug,
+                    Name = category.Name,
+                    SortOrder = category.SortOrder,
+                    CreatedAt = context.Now,
+                    CreatedBy = context.UserId,
+                })
+                .ToList();
 
-        var categories = DefaultCategories
-            .Select(category => new ProductCategory
-            {
-                Id = Guid.NewGuid(),
-                TenantId = context.TenantId,
-                Slug = category.Slug,
-                Name = category.Name,
-                SortOrder = category.SortOrder,
-                CreatedAt = context.Now,
-                CreatedBy = context.UserId,
-            })
-            .ToList();
-
-        _dbContext.ProductCategories.AddRange(categories);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        actions.Add($"Created {categories.Count} default Commerce categories");
+            _dbContext.ProductCategories.AddRange(categories);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            actions.Add($"Created {categories.Count} default Commerce categories");
+        }
 
         // Spec 069 §10 — seed a PARKED fulfilment calendar (inactive, no delivery days) so the
         // admin screen has a row to edit rather than a create-from-nothing flow. The tenant's
