@@ -109,7 +109,7 @@ public class MarginReportServiceTests
             var ctx = Commerce();
             var boxCarts = new BoxCartService(ctx, _tenant,
                 CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock));
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
                 Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts);

@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Settings;
+﻿namespace Aonik.SharedKernel.Abstractions.Settings;
 
 /// <summary>
 /// Well-known setting keys for the Commerce storefront. Platform registers their schemas in
@@ -32,4 +32,8 @@ public static class CommerceSettingNames
     /// <summary>Spec 070 §9 — slug of the bundle product the storefront treats as "the box". The
     /// config document embeds that bundle's Spec 068 size plan when one exists.</summary>
     public const string StorefrontDefaultBoxProductSlug = "Commerce.Storefront.DefaultBoxProductSlug";
+
+    /// <summary>Spec 071 — the collection whose members are the storefront's add-on extras.
+    /// Default "extras" when unset; an unconfigured or missing collection serves an empty list.</summary>
+    public const string StorefrontExtrasCollectionSlug = "Commerce.Storefront.ExtrasCollectionSlug";
 }

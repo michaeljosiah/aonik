@@ -144,7 +144,11 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
                 {
                     continue;
                 }
-                AddDemand(variantId, null, null, null, quantity, order.Id);
+                // Spec 071 (and 066 §12) — a personalised RETAIL line (an add-on, or a simple
+                // line with selections) carries its envelope in DetailsJson: two preparations of
+                // the same product must not collapse into one production row.
+                var (retailJson, retailSummary, retailDisplay) = EnvelopeFacts(item.DetailsJson);
+                AddDemand(variantId, retailJson, retailSummary, retailDisplay, quantity, order.Id);
             }
         }
 
@@ -340,6 +344,40 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
 
     // ── §12 window guard ────────────────────────────────────────────────────────────────────────
 
+
+    /// <summary>The (canonical selection, summary, display) trio out of a Spec 066 §12 envelope
+    /// carried in an order item's DetailsJson. Nulls when absent, malformed, or a different
+    /// document (the Spec 068 box envelope has no canonicalSelectionJson root) — row-level
+    /// degradation, never a thrown sheet.</summary>
+    private static (string? Json, string? Summary, string? Display) EnvelopeFacts(string? detailsJson)
+    {
+        if (string.IsNullOrWhiteSpace(detailsJson))
+        {
+            return (null, null, null);
+        }
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(detailsJson);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return (null, null, null);   // any non-object root is an unrelated document
+            }
+            if (!document.RootElement.TryGetProperty("canonicalSelectionJson", out var canonical)
+                || canonical.ValueKind != System.Text.Json.JsonValueKind.String)
+            {
+                return (null, null, null);
+            }
+            var summary = document.RootElement.TryGetProperty("summary", out var s2)
+                && s2.ValueKind == System.Text.Json.JsonValueKind.String ? s2.GetString() : null;
+            var display = document.RootElement.TryGetProperty("display", out var d2)
+                ? d2.GetRawText() : null;
+            return (canonical.GetString(), summary, display);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return (null, null, null);
+        }
+    }
 
     /// <summary>The label-snapshotted display entries out of a Spec 066 §12 envelope — raw JSON,
     /// null on absent or malformed input (row-level degradation, never a thrown sheet).</summary>

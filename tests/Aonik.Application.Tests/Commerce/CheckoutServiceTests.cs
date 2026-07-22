@@ -96,7 +96,7 @@ public class CheckoutServiceTests
         {
             var ctx = Commerce();
             return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, _clock));
         }
 
         public CheckoutService Checkout() => new(

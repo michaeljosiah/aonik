@@ -1,4 +1,4 @@
-using Aonik.Commerce.Entities.Catalog;
+﻿using Aonik.Commerce.Entities.Catalog;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -29,5 +29,6 @@ internal static class QuoteComponentKeys
     public const string BoxPrice = "boxPrice";
     public const string Personalisation = "personalisation";
     public const string UnitSurcharges = "unitSurcharges";
+    public const string AddOns = "addOns";
     public const string DeliveryCharged = "deliveryCharged";
 }

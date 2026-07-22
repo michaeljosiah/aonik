@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Aonik.Commerce.Contracts.Api.Checkout;
 
@@ -18,6 +18,12 @@ public record CreateBoxCartRequest(
     Guid? BuyerPartyId = null);
 
 public record ChangeBoxSizeRequest(int Size);
+
+/// <summary>Spec 071 — an add-on extra: retail product, no slot, no capacity.</summary>
+public record AddBoxExtraRequest(
+    Guid ProductVariantId,
+    int Quantity,
+    JsonElement? Personalisation = null);
 
 /// <summary>Omitted members mean unchanged; Quantity 0 deletes the line; ApplyToUnits applies a
 /// personalisation change to n units (split semantics, atomic).</summary>

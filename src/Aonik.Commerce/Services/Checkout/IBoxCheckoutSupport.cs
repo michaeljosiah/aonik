@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 
@@ -33,7 +33,12 @@ internal sealed record BoxCheckoutShape(
     /// The order item's DetailsJson box envelope (§9).
     string EnvelopeJson,
     /// Each BoxDish line with its freshly priced Spec 066 §12 envelope.
-    IReadOnlyList<(CartItem Line, OptionSelectionResult Priced)> Lines);
+    IReadOnlyList<(CartItem Line, OptionSelectionResult Priced)> Lines,
+    /// Spec 071 — each AddOn line with its envelope (null when unpersonalised) and its charged
+    /// unit price (retail + adjustment + surcharge).
+    IReadOnlyList<(CartItem Line, OptionSelectionResult? Priced, decimal ChargedUnitPrice)> AddOnLines,
+    /// Σ charged unit price × qty over AddOn lines — joins the goods subtotal (X7).
+    decimal AddOnGoodsTotal);
 
 /// <summary>
 /// A18 — checkout found catalogue drift (or an unavailable line): the customer must explicitly

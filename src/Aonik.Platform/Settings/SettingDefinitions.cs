@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions.Settings;
 
@@ -131,6 +131,10 @@ public static class SettingDefinitions
                 IsVisibleToClients: true),
             [CommerceSettingNames.StorefrontDefaultBoxProductSlug] = new SettingDefinition(
                 CommerceSettingNames.StorefrontDefaultBoxProductSlug,
+                IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontExtrasCollectionSlug] = new SettingDefinition(
+                CommerceSettingNames.StorefrontExtrasCollectionSlug,
+                DefaultValue: "extras",
                 IsVisibleToClients: true),
         });
 

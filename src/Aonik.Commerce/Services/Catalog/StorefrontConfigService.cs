@@ -65,6 +65,9 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
         var boxSlug = await ReadTenantSettingAsync(CommerceSettingNames.StorefrontDefaultBoxProductSlug, tenantId, cancellationToken);
         boxSlug = string.IsNullOrWhiteSpace(boxSlug) ? null : boxSlug.Trim();
 
+        var extrasSlug = await ReadTenantSettingAsync(CommerceSettingNames.StorefrontExtrasCollectionSlug, tenantId, cancellationToken);
+        extrasSlug = string.IsNullOrWhiteSpace(extrasSlug) ? "extras" : extrasSlug.Trim();
+
         // Box: the default bundle's Spec 068 size plan — null (the "not yet live" state §9
         // defines) until a slug is configured AND that product is an Active bundle with a plan.
         StorefrontBoxPlanDto? box = null;
@@ -84,7 +87,7 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
             }
         }
 
-        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, box);
+        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, extrasSlug, box);
     }
 
     public async Task<StorefrontConfigDto> UpdateAsync(
@@ -112,6 +115,18 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
         if (command.DeliveryListAmount is < 0 || command.DeliveryChargedAmount is < 0)
         {
             throw new StorefrontValidationException("Delivery amounts cannot be negative.");
+        }
+
+        // R2 — the extras slug must be a usable collection slug BEFORE any key commits: an
+        // oversized value would fail mid-document, and a malformed one could never match.
+        if (command.ExtrasCollectionSlug is { } rawExtrasSlug)
+        {
+            var candidate = rawExtrasSlug.Trim().ToLowerInvariant();
+            if (candidate.Length is < 1 or > 64 || !candidate.All(ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch == '-'))
+            {
+                throw new StorefrontValidationException(
+                    "extrasCollectionSlug must be 1-64 lowercase letters, digits or hyphens.");
+            }
         }
 
         if (command.BackToTopTriggerJson is { } triggerJson
@@ -167,6 +182,13 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
             await _settingStore.SetTenantValueAsync(
                 CommerceSettingNames.StorefrontDefaultBoxProductSlug,
                 boxSlug.Trim().ToLowerInvariant(), tenantId, cancellationToken);
+        }
+
+        if (command.ExtrasCollectionSlug is { } extrasSlug)
+        {
+            await _settingStore.SetTenantValueAsync(
+                CommerceSettingNames.StorefrontExtrasCollectionSlug,
+                extrasSlug.Trim().ToLowerInvariant(), tenantId, cancellationToken);
         }
 
         return await GetAsync(cancellationToken);
