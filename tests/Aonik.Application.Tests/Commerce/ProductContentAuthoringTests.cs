@@ -1,4 +1,7 @@
+using System.Text.Json;
+
 using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 
@@ -256,6 +259,86 @@ public class ProductContentAuthoringTests
     }
 
     [Fact]
+    public async Task OneSidedDeclarations_Should_StillReportWithheld()
+    {
+        // ANY missing declaration is withheld: ingredients authored with no allergens must show
+        // the not-yet-published state — the absent ALLERGEN line is the dangerous half. The
+        // authored side still serves.
+        var (content, productId, _, _) = await ArrangeAsync();
+        await content.UpsertContentAsync(productId, DefaultBlock() with { Allergens = null });
+
+        var block = await content.ResolveAsync(productId, null);
+        block!.Ingredients.Should().NotBeNull();
+        block.Allergens.Should().BeNull();
+        block.DeclarationsWithheld.Should().BeTrue();
+
+        await content.AddVariantAsync(productId, new UpsertContentVariantCommand(
+            """{"protein":"salmon"}""", "Salmon",
+            Kcal: 640, ProteinGrams: 30, CarbsGrams: 60, FatGrams: 12,
+            Ingredients: "Rice, salmon" /* allergens deliberately unauthored */));
+
+        var variant = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
+        variant!.Ingredients.Should().Be("Rice, salmon");
+        variant.DeclarationsWithheld.Should().BeTrue("no exact allergen declaration exists for this combination");
+    }
+
+    [Fact]
+    public async Task GroupServabilityFlips_Should_FlagEveryOfferingProduct()
+    {
+        // M1's real path: an active group left with zero active recommended defaults is
+        // unservable (absent from every all-defaults selection); reactivating that sole default
+        // flips servability back and re-enters every offering product's standard preparation —
+        // INCLUDING products whose narrowing pins a DIFFERENT choice, which the old
+        // pinned-products filter never staged.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var optionService = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+        var mediumId = await builder.ChoiceIdAsync("heat", "medium");   // heat's recommended default
+
+        // Pin this product's heat default to "high" (full replace restates every line). The
+        // product never references "medium", so DefaultChoiceKey-based staging misses it.
+        await builder.OfferAsync(productId,
+            new ProductOptionGroupLine("portion", SortOrder: 0),
+            new ProductOptionGroupLine("protein", SortOrder: 1),
+            new ProductOptionGroupLine("side", SortOrder: 2),
+            new ProductOptionGroupLine("heat", DefaultChoiceKey: "high", SortOrder: 3));
+
+        // Reach "active group, zero active defaults" via the permitted route: deactivate the
+        // group (V7 guards only active groups), retire its group default (V9 satisfied — the
+        // narrowing resolves via its pinned "high"), reactivate the still-unservable group.
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        await optionService.UpdateChoiceAsync(mediumId, new UpdateOptionChoiceCommand("Medium", IsActive: false));
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: true));
+        await content.ConfirmContentReviewAsync(productId);   // clear the flags those staged
+
+        // Reactivating the sole recommended default makes the group servable again → every
+        // offering product is staged, pinned-elsewhere narrowings included.
+        await optionService.UpdateChoiceAsync(mediumId, new UpdateOptionChoiceCommand("Medium", IsActive: true));
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeTrue("the group re-entered the product's standard preparation");
+    }
+
+    [Fact]
+    public async Task InactiveGroupModeEdits_Should_NotFlag()
+    {
+        // M3 — an unservable group is absent from every all-defaults selection; changing its
+        // mode changes nothing a customer sees, and must not withhold declarations for review.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var optionService = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        await content.ConfirmContentReviewAsync(productId);   // clear the deactivation flag
+
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand(
+            "Heat", SelectionMode: OptionSelectionModes.Multi));
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("an unservable group contributes nothing to the selection");
+    }
+
+    [Fact]
     public async Task BlankDeclarations_Should_NormalizeToAbsent()
     {
         // "" is absence wearing quotes: storing it would report DeclarationsWithheld: false over
@@ -327,6 +410,12 @@ public class ProductContentAuthoringTests
 
     private static Guid TenantOf(Aonik.Commerce.Persistence.CommerceDbContext ctx, Guid productId)
         => ctx.Products.Single(p => p.Id == productId).TenantId;
+
+    private static JsonElement Selection(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
 
     private static UpsertProductContentCommand DefaultBlock() => new(
         "Light table 225g",

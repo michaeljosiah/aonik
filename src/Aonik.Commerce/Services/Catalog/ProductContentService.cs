@@ -78,7 +78,10 @@ internal sealed class ProductContentService : IProductContentService
                 NutritionOf(variant),
                 variant.Ingredients,
                 variant.Allergens,
-                DeclarationsWithheld: variant.Ingredients is null && variant.Allergens is null,
+                // ANY missing declaration is withheld: a half-published pair (ingredients
+                // authored, allergens not) must still show the not-yet-published state — the
+                // absent ALLERGEN line is the dangerous half.
+                DeclarationsWithheld: variant.Ingredients is null || variant.Allergens is null,
                 heating ?? [],
                 HeatingWithheld: heating is null,
                 IsStandardPreparation: false,
@@ -115,7 +118,7 @@ internal sealed class ProductContentService : IProductContentService
             NutritionOf(content),
             withhold ? null : content.Ingredients,
             withhold ? null : content.Allergens,
-            DeclarationsWithheld: withhold || (content.Ingredients is null && content.Allergens is null),
+            DeclarationsWithheld: withhold || content.Ingredients is null || content.Allergens is null,
             withhold || blockHeating is null ? [] : blockHeating,
             HeatingWithheld: withhold || blockHeating is null,
             isStandardPreparation,
@@ -140,10 +143,13 @@ internal sealed class ProductContentService : IProductContentService
         var allergens = NormalizeDeclaration(command.Allergens);
 
         // Captured OUTSIDE the write: the all-defaults binding the block will describe.
-        var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
-
         return await RunContentWriteAsync(tenantId, productId, requireExisting: false, async (content, ct2) =>
         {
+            // The all-defaults binding is captured INSIDE the serialized attempt: an option
+            // write committing between an outside capture and this write would store a binding
+            // that was stale at birth (M4-class staleness).
+            var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
+
             // V-C6 — a figure the default newly publishes must be published by every ACTIVE
             // variant, or a resolved panel could mix default and variant figures by the back
             // door. Validated INSIDE the serialized write so a racing variant-add cannot slip a
@@ -202,15 +208,16 @@ internal sealed class ProductContentService : IProductContentService
     public async Task<ProductContentDto> ConfirmContentReviewAsync(Guid productId, CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
 
-        return await RunContentWriteAsync(tenantId, productId, requireExisting: true, (content, _) =>
+        return await RunContentWriteAsync(tenantId, productId, requireExisting: true, async (content, ct2) =>
         {
             // "Reviewed, still correct": the operator asserts the existing text describes the
-            // CURRENT standard preparation — so the binding is re-captured to it.
+            // CURRENT standard preparation — captured inside the attempt so "current" means
+            // current at commit, not at request parse.
+            var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
             content!.DescribesSelectionJson = allDefaults;
             content.RequiresReview = false;
-            return Task.FromResult(content);
+            return content;
         }, ct, MapContent);
     }
 
@@ -224,20 +231,21 @@ internal sealed class ProductContentService : IProductContentService
         ValidateFigures(FiguresOf(command));
         var heatingJson = NormalizeHeatingJson(command.HeatingJson);
 
-        // V-C1 — authoring input is normalised through Spec 066 exactly like customer input
-        // (V1–V5 throw there), so partial input and redundant default-valued entries resolve into
-        // the stored complete canonical form. There is no separate diff hygiene to police.
-        var canonical = (await NormalizeAuthoringSelectionAsync(productId, command.SelectionJson, ct)).CanonicalSelectionJson;
-        var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
-        if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
-        {
-            throw new StorefrontValidationException(
-                "V-C1: this selection is the current standard preparation — author it on the default block, not as a variant.");
-        }
-
         ProductContentVariant? result = null;
         await RunContentWriteAsync(tenantId, productId, requireExisting: true, async (content, ct2) =>
         {
+            // V-C1 — normalised INSIDE the serialized attempt: an option write (narrowing,
+            // default move) committing after an outside normalisation would let this store a
+            // variant for a now-invalid combination, or one that now shadows the default block.
+            // 066's V1–V5 throw here exactly as they do for customer input.
+            var canonical = (await NormalizeAuthoringSelectionAsync(productId, command.SelectionJson, ct2)).CanonicalSelectionJson;
+            var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
+            if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
+            {
+                throw new StorefrontValidationException(
+                    "V-C1: this selection is the current standard preparation — author it on the default block, not as a variant.");
+            }
+
             // V-C8 enforced by requireExisting; V-C2 against the block inside the same write.
             ValidateVariantFigureCompleteness(content!, FiguresOf(command));
 
@@ -307,16 +315,20 @@ internal sealed class ProductContentService : IProductContentService
         ValidateFigures(FiguresOf(command));
         var heatingJson = NormalizeHeatingJson(command.HeatingJson);
 
-        var canonical = (await NormalizeAuthoringSelectionAsync(variant.ProductId, command.SelectionJson, ct)).CanonicalSelectionJson;
-        var allDefaults = (await _selections.NormalizeAsync(variant.ProductId, null, ct)).CanonicalSelectionJson;
-        if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
-        {
-            throw new StorefrontValidationException(
-                "V-C1: this selection is the current standard preparation — author it on the default block, not as a variant.");
-        }
-
         await RunContentWriteAsync(tenantId, variant.ProductId, requireExisting: true, async (content, ct2) =>
         {
+            // Reload the tracked variant per attempt (a failed attempt mutated it in memory),
+            // then normalise inside the same serialized snapshot as the write — see AddVariant.
+            await _dbContext.Entry(variant).ReloadAsync(ct2);
+
+            var canonical = (await NormalizeAuthoringSelectionAsync(variant.ProductId, command.SelectionJson, ct2)).CanonicalSelectionJson;
+            var allDefaults = (await _selections.NormalizeAsync(variant.ProductId, null, ct2)).CanonicalSelectionJson;
+            if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
+            {
+                throw new StorefrontValidationException(
+                    "V-C1: this selection is the current standard preparation — author it on the default block, not as a variant.");
+            }
+
             ValidateVariantFigureCompleteness(content!, FiguresOf(command));
 
             var hash = HashSelection(canonical);
@@ -428,8 +440,12 @@ internal sealed class ProductContentService : IProductContentService
         {
             return await RunContentWriteAttemptAsync(tenantId, productId, requireExisting, mutate, ct, map);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateException)
         {
+            // Concurrency loser OR the first-upsert race: two creators both observe no row, and
+            // the unique (TenantId, ProductId) index rejects one with a plain DbUpdateException —
+            // there was no rowversion to contend on yet. Either way the retry's reload sees the
+            // winner's committed state and revalidates against it; a second failure is genuine.
             return await RunContentWriteAttemptAsync(tenantId, productId, requireExisting, mutate, ct, map);
         }
     }
@@ -445,6 +461,22 @@ internal sealed class ProductContentService : IProductContentService
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async ct2 =>
         {
+            // A replay must not re-stage entities a failed attempt left tracked as Added — a
+            // second AddVariant would double-insert into the unique selection index, and a
+            // second first-upsert would double-insert the content row itself.
+            foreach (var entry in _dbContext.ChangeTracker.Entries<ProductContentVariant>()
+                .Where(e => e.State == EntityState.Added && e.Entity.ProductId == productId)
+                .ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+            foreach (var entry in _dbContext.ChangeTracker.Entries<ProductContent>()
+                .Where(e => e.State == EntityState.Added && e.Entity.ProductId == productId)
+                .ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+
             // Fresh snapshot per attempt — a replay must not trust state a failed attempt
             // mutated in memory (the Spec 066 retry lessons).
             var content = await _dbContext.ProductContents

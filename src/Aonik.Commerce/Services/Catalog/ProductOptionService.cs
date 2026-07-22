@@ -80,12 +80,24 @@ internal sealed partial class ProductOptionService : IProductOptionService
         var activationFlips = command.IsActive is { } newActive && newActive != group.IsActive;
         var modeChanges = command.SelectionMode is not null
             && !string.Equals(NormalizeSelectionMode(command.SelectionMode), group.SelectionMode, StringComparison.Ordinal);
-        if (activationFlips || modeChanges)
+
+        // Only edits that actually change all-defaults selections stage a review: an activation
+        // flip matters only when it changes SERVABILITY (an active-but-unservable group is
+        // already absent from every selection), and a mode change matters only while the group
+        // is servable and only for narrowings without their own override.
+        var wasServable = IsServable(group);
+        var willBeServable = command.IsActive is { } active
+            ? active && !group.IsDeleted && HasServableChoiceSet(group)
+            : wasServable;
+        var servabilityChanges = activationFlips && wasServable != willBeServable;
+        var modeMatters = modeChanges && wasServable;
+
+        if (servabilityChanges || modeMatters)
         {
             var affected = await _dbContext.ProductOptionGroups
                 .AsNoTracking()
                 .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
-                .Where(x => activationFlips || x.SelectionModeOverride == null)
+                .Where(x => servabilityChanges || x.SelectionModeOverride == null)
                 .Select(x => x.ProductId)
                 .Distinct()
                 .ToListAsync(cancellationToken);
@@ -242,17 +254,45 @@ internal sealed partial class ProductOptionService : IProductOptionService
         {
             TouchGroups([group]);
 
-            // Spec 067 §6 — a product whose narrowing pins THIS choice as its explicit default
-            // changes standard preparation on either flip: deactivation falls it back to the
-            // group default (V9 allows that when one remains), reactivation restores it.
-            var pinnedProducts = await _dbContext.ProductOptionGroups
+            // Spec 067 §6, two distinct blast radii:
+            //
+            // (a) Group SERVABILITY flips — reactivating the sole recommended default of an
+            //     active group turns it servable, adding it to EVERY offering product's
+            //     all-defaults selection (the symmetric deactivation is V7-blocked for active
+            //     groups, but the reactivation path is real). Every offering product is staged.
+            //
+            // (b) Otherwise, a product whose narrowing pins THIS choice as its explicit default
+            //     changes standard preparation on either flip: deactivation falls it back to the
+            //     group default (V9 allows that when one remains), reactivation restores it.
+            var groupChoices = await _dbContext.OptionChoices
                 .AsNoTracking()
-                .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId
-                    && x.DefaultChoiceKey == choice.Key)
+                .Where(c => c.TenantId == tenantId && c.OptionGroupId == choice.OptionGroupId && c.Id != choice.Id)
+                .ToListAsync(cancellationToken);
+
+            bool ServableWith(bool thisChoiceActive)
+            {
+                var active = groupChoices.Where(c => c.IsActive && !c.IsDeleted).ToList();
+                var activeCount = active.Count + (thisChoiceActive && !choice.IsDeleted ? 1 : 0);
+                var defaultCount = active.Count(c => c.IsRecommendedDefault)
+                    + (thisChoiceActive && !choice.IsDeleted && choice.IsRecommendedDefault ? 1 : 0);
+                return group.IsActive && !group.IsDeleted && activeCount > 0 && defaultCount == 1;
+            }
+
+            var servabilityChanges = ServableWith(choice.IsActive) != ServableWith(newActive);
+
+            var affectedQuery = _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId);
+            if (!servabilityChanges)
+            {
+                affectedQuery = affectedQuery.Where(x => x.DefaultChoiceKey == choice.Key);
+            }
+
+            var affected = await affectedQuery
                 .Select(x => x.ProductId)
                 .Distinct()
                 .ToListAsync(cancellationToken);
-            await _contentReview.StageAsync(pinnedProducts, cancellationToken);
+            await _contentReview.StageAsync(affected, cancellationToken);
         }
 
         choice.Label = RequireLabel(command.Label);
@@ -661,6 +701,14 @@ internal sealed partial class ProductOptionService : IProductOptionService
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────
+
+    /// <summary>The choice-set half of servability: at least one active choice and exactly one
+    /// active recommended default. Combined with the group flags by callers previewing a flip.</summary>
+    private static bool HasServableChoiceSet(OptionGroup group)
+    {
+        var active = group.Choices.Where(c => c.IsActive && !c.IsDeleted).ToList();
+        return active.Count > 0 && active.Count(c => c.IsRecommendedDefault) == 1;
+    }
 
     /// <summary>The product's effective default combination as a comparable string: for each
     /// SERVABLE offered group (same rules as <see cref="GetEffectiveOptionsAsync"/>), its key,
