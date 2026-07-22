@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Commerce.Endpoints.Public.Catalog;
 
@@ -12,6 +12,13 @@ namespace Aonik.Commerce.Endpoints.Public.Catalog;
 internal static class StorefrontCacheHeaders
 {
     private const string TenantHeader = "X-Tenant-Id";
+
+    /// <summary>Shared caches may store a response ONLY when the cache key can see the tenant:
+    /// under header routing an authenticated request may omit X-Tenant-Id (tenant resolves from
+    /// the user), and Vary on an absent header would let one tenant's public response serve
+    /// another such caller.</summary>
+    public static bool AllowsSharedCaching(HttpContext context)
+        => context.Request.Headers.ContainsKey(TenantHeader);
 
     public static void Apply(HttpContext context)
     {

@@ -165,7 +165,8 @@ internal static class FulfilmentPromiseCalculator
             var dates = new HashSet<DateOnly>();
             foreach (var value in raw)
             {
-                if (DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date))
+                if (DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var date))
                 {
                     dates.Add(date);
                 }

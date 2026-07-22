@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Fulfilment;
+﻿using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Endpoints.Public.Catalog;
 using Aonik.Commerce.Services.Fulfilment;
 
@@ -39,7 +39,11 @@ public class GetDeliveryConfigEndpoint : EndpointWithoutRequest<FulfilmentPromis
             return;
         }
 
-        HttpContext.Response.Headers.CacheControl = "public, max-age=300";
+        // O1 - public only when the tenant discriminator is cache-visible; a tenant resolved
+        // from the authenticated user must never be stored under a headerless key.
+        HttpContext.Response.Headers.CacheControl = StorefrontCacheHeaders.AllowsSharedCaching(HttpContext)
+            ? "public, max-age=300"
+            : "no-store";
         await Send.OkAsync(promise, ct);
     }
 }

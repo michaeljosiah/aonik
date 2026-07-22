@@ -84,7 +84,7 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
             .AnyAsync(c => c.TenantId == context.TenantId, cancellationToken);
         if (!hasCalendar)
         {
-            _dbContext.FulfilmentCalendars.Add(new FulfilmentCalendar
+            var seed = new FulfilmentCalendar
             {
                 Id = Guid.NewGuid(),
                 TenantId = context.TenantId,
@@ -95,9 +95,20 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
                 IsActive = false,
                 CreatedAt = context.Now,
                 CreatedBy = context.UserId,
-            });
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            actions.Add("Seeded a parked fulfilment calendar (inactive)");
+            };
+            _dbContext.FulfilmentCalendars.Add(seed);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                actions.Add("Seeded a parked fulfilment calendar (inactive)");
+            }
+            catch (DbUpdateException)
+            {
+                // A concurrent provisioning run won the filtered unique (TenantId) index - the
+                // seed exists, which is the contract; idempotent under retries.
+                _dbContext.Entry(seed).State = EntityState.Detached;
+                actions.Add("Fulfilment calendar already seeded concurrently - skipped");
+            }
         }
 
         return new TenantProvisioningContribution(actions);

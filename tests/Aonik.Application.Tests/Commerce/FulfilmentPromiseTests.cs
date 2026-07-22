@@ -179,6 +179,13 @@ public class FulfilmentPromiseTests
         var badTimezone = () => service.UpsertCalendarAsync(Command(timezone: "Mars/OlympusMons"));
         (await badTimezone.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("timezone");
 
+        // O3 - the contract is IANA: a Windows id converts to its IANA equivalent, and a
+        // free-text non-IANA value rejects even where the host OS could resolve it.
+        var converted = await service.UpsertCalendarAsync(Command(timezone: "GMT Standard Time"));
+        converted.Timezone.Should().Be("Europe/London");
+        var notIana = () => service.UpsertCalendarAsync(Command(timezone: "Local"));
+        await notIana.Should().ThrowAsync<StorefrontValidationException>();
+
         var badDay = () => service.UpsertCalendarAsync(Command(days: ["thorsday"]));
         (await badDay.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("weekday");
 

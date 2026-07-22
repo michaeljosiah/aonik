@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Fulfilment;
@@ -70,6 +71,22 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
 
         // Known IANA timezone — every downstream computation depends on it resolving.
         var timezoneId = command.Timezone?.Trim() ?? string.Empty;
+
+        // O3 - the contract is IANA ids: browsers cannot use a platform-native id like
+        // "Eastern Standard Time" even where the host OS resolves it. A recognisable Windows id
+        // converts; anything else without an Area/Location shape (or bare "UTC") rejects.
+        if (!timezoneId.Contains('/') && !string.Equals(timezoneId, "UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(timezoneId, out var ianaId))
+            {
+                timezoneId = ianaId;
+            }
+            else
+            {
+                throw new StorefrontValidationException("'" + timezoneId + "' is not a known IANA timezone id.");
+            }
+        }
+
         TimeZoneInfo timezone;
         try
         {
@@ -118,7 +135,8 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
         var blackouts = new SortedSet<DateOnly>();
         foreach (var raw in command.BlackoutDates ?? [])
         {
-            if (!DateOnly.TryParseExact(raw?.Trim(), "yyyy-MM-dd", out var date))
+            if (!DateOnly.TryParseExact(raw?.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var date))
             {
                 throw new StorefrontValidationException($"'{raw}' is not an ISO date (yyyy-MM-dd).");
             }
@@ -152,12 +170,12 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
 
         void Apply(FulfilmentCalendar target)
         {
-            target.Timezone = timezone.Id;
+            target.Timezone = timezoneId;
             target.DeliveryDaysJson = JsonSerializer.Serialize(deliveryDays);
             target.CutoffLocalTime = command.CutoffLocalTime;
             target.CutoffDayOfWeek = cutoffDay;
             target.LeadDays = command.LeadDays;
-            target.BlackoutDatesJson = JsonSerializer.Serialize(blackouts.Select(d => d.ToString("yyyy-MM-dd")).ToList());
+            target.BlackoutDatesJson = JsonSerializer.Serialize(blackouts.Select(d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToList());
             target.IsActive = command.IsActive;
         }
 
@@ -194,7 +212,7 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
             calendar.LeadDays,
             FulfilmentPromiseCalculator.ParseDates(calendar.BlackoutDatesJson)
                 .OrderBy(d => d)
-                .Select(d => d.ToString("yyyy-MM-dd"))
+                .Select(d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
                 .ToList(),
             calendar.IsActive,
             earliest is { } date ? new FulfilmentPromiseDto(date, calendar.Timezone) : null);
