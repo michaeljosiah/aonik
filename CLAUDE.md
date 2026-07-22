@@ -117,6 +117,8 @@ dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-pro
 - Running raw SQL against production/dev databases to "fix" schema drift (except as a last-resort emergency with explicit user approval)
 - Using `--no-build` with migration generation if model changes haven't been compiled
 
+**Narrow exception — snapshot-reconciliation no-ops:** when the differ scaffolds an operation that cannot execute against the physical schema because the PRIOR snapshot itself misdescribes reality (raw-SQL-era drift — e.g. a delete behavior SQL Server rejects), the affected `Up`/`Down` body may be replaced with a no-op carrying a comment that explains which physical state makes the scaffolded operation wrong or impossible. The migration must still be CLI-generated and its `.Designer.cs` must remain untouched tool output — the exception covers operation bodies only, never the snapshot, and never licenses authoring schema operations by hand. Precedents: `20260620063309_ReconcileUserMemoryEntryMapping` (both bodies), `20260721225529_ReconcileUserMemoryEntrySupersededByDeleteBehavior` (`Down` only — the prior snapshot declared a SET NULL self-referencing FK no database ever held, so any scaffolded rollback re-creates DDL SQL Server rejects outright).
+
 **After deployment, always verify:** Run `dotnet ef migrations list --connection <conn>` against the target database to confirm the migration was applied. If auto-migration at startup fails silently, apply it explicitly with `dotnet ef database update --connection <conn>`.
 
 ## Non-Negotiable Architectural Rules
@@ -172,6 +174,7 @@ An Order records: what was requested, who the relevant parties are, what amounts
 - **Database**: InMemory with unique name `$"TestDb_{Guid.NewGuid()}"`
 - **Required mocks**: `ITenantProvider` (use `TestTenantProvider`) and `ICurrentUserProvider`
 - **API tests**: Use `CustomWebApplicationFactory` with `UseInMemoryDatabase=true` in config
+- **SQL Server lane**: `tests/Aonik.Database.Tests` runs against SQL Server LocalDB via `SqlLocalDbFixture` (per-class throwaway database built with `EnsureCreated`; skips gracefully where LocalDB is absent). The InMemory provider is non-relational, so changes touching `BeginTransaction` / execution strategies, `RowVersion` optimistic concurrency, or filtered unique indexes MUST add or run coverage in this lane — the InMemory suite is structurally unable to fail on those (that is how the Spec 066 P1 shipped). The Docker-based `tests/Aonik.Finance.IntegrationTests` lane complements it by applying the real migration stream.
 
 ## Naming Conventions
 

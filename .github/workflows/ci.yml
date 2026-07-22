@@ -18,6 +18,25 @@ jobs:
     name: Build solution
     runs-on: ubuntu-latest
 
+    services:
+      # Real relational target for tests/Aonik.Database.Tests on this Linux
+      # runner, where SQL Server LocalDB does not exist. Same engine family the
+      # Testcontainers fixture uses. The throwaway sa password only ever guards
+      # this job-scoped container, so it is deliberately not a secret.
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "AonikCiPassw0rd"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $MSSQL_SA_PASSWORD -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+          --health-start-period 20s
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,6 +61,13 @@ jobs:
         run: dotnet build Aonik.sln --configuration Release --no-restore
 
       - name: Run tests
+        env:
+          # Points tests/Aonik.Database.Tests at the sqlserver service container
+          # (SqlLocalDbFixture override). Server-level string: the fixture swaps
+          # in its per-class throwaway database name. With this variable set the
+          # lane FAILS (never skips) if the server is unreachable, so the
+          # relational coverage cannot silently degrade into 12 skips.
+          AONIK_SQLSERVER_TEST_CONNECTION: "Server=localhost,1433;User Id=sa;Password=AonikCiPassw0rd;TrustServerCertificate=True"
         run: dotnet test Aonik.sln --configuration Release --no-build --logger "console;verbosity=normal"
 
   publish-images:

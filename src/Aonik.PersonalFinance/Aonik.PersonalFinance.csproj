@@ -26,6 +26,7 @@
     <InternalsVisibleTo Include="Aonik.PersonalFinance.Tests" />
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
     <!--
       Spec 027 S5 (#118/#126): the transitional InternalsVisibleTo for
       Aonik.Finance was DROPPED here, paired with removing the

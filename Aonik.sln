@@ -73,6 +73,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Ordering", "src\Aonik
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Commerce", "src\Aonik.Commerce\Aonik.Commerce.csproj", "{559601F8-39A2-4D3A-9DD6-8CFD8BDABCA0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Database.Tests", "tests\Aonik.Database.Tests\Aonik.Database.Tests.csproj", "{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -479,6 +481,18 @@ Global
 		{559601F8-39A2-4D3A-9DD6-8CFD8BDABCA0}.Release|x64.Build.0 = Release|Any CPU
 		{559601F8-39A2-4D3A-9DD6-8CFD8BDABCA0}.Release|x86.ActiveCfg = Release|Any CPU
 		{559601F8-39A2-4D3A-9DD6-8CFD8BDABCA0}.Release|x86.Build.0 = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|x64.Build.0 = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Debug|x86.Build.0 = Debug|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|x64.ActiveCfg = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|x64.Build.0 = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|x86.ActiveCfg = Release|Any CPU
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -517,5 +531,6 @@ Global
 		{B4382700-AC08-40B4-A0D9-F28CE6F13612} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{9735E34B-37B8-461A-88E3-983A034C8C10} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{559601F8-39A2-4D3A-9DD6-8CFD8BDABCA0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{D7C95E59-15A9-49D9-AE4C-F0CAA50328AB} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

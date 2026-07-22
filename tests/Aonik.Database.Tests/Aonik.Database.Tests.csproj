@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="FluentAssertions" Version="8.8.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Moq" Version="4.20.70" />
+    <!-- [SkippableFact] + Skip.IfNot, so the lane reports Skipped (not Failed)
+         on contributors and CI legs without SQL Server LocalDB. -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Relational-provider semantics tests over SQL Server LocalDB (SqlLocalDbFixture).
+
+    The InMemory provider is non-relational, so three defect classes are invisible
+    to every other test project (the Spec 066 / PR #257 P1 was one of them —
+    a bare BeginTransactionAsync under EnableRetryOnFailure throws on every
+    SQL Server call while all InMemory tests pass):
+
+      1. User-initiated transactions under the retrying execution strategy —
+         all four BeginTransaction sites are pinned here.
+      2. Optimistic concurrency on the rowversion tokens from
+         AonikDbContextBase.ConfigureRowVersions (engine-generated; InMemory
+         never bumps them, so conflicts can never fire there).
+      3. Filtered unique indexes (e.g. IX_AnkOptionChoices_RecommendedDefault_Unique),
+         which only the engine enforces.
+
+    Skips gracefully when LocalDB is unavailable. The Docker-based
+    Aonik.Finance.IntegrationTests lane is complementary: it validates the real
+    migration stream; this lane materialises the current model via EnsureCreated
+    and needs no Docker.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Aonik.Commerce\Aonik.Commerce.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
+    <ProjectReference Include="..\Aonik.IntegrationTests.Support\Aonik.IntegrationTests.Support.csproj" />
+  </ItemGroup>
+
+</Project>
