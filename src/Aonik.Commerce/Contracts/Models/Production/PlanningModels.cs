@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Models.Production;
+﻿namespace Aonik.Commerce.Contracts.Models.Production;
 
 // Spec 055 — production planning read models. There is NO persisted entity behind these: the
 // production sheet and the prep list are projections computed on read from ProductPurchase orders
@@ -18,7 +18,13 @@ public record ProductionSheetLineDto(
     string ProductName,
     string VariantName,
     decimal PortionsDemanded,
-    int OrderCount);
+    int OrderCount,
+    /// Spec 068 §9 — demand groups by (variant, canonical personalisation): two differently-
+    /// personalised preparations of one variant are two lines. Null = unpersonalised demand.
+    string? PersonalisationJson = null,
+    string? PersonalisationSummary = null,
+    /// Label-snapshotted Spec 066 §12 display entries, frozen at checkout (raw JSON).
+    string? PersonalisationDisplayJson = null);
 
 /// <summary>The aggregated production sheet for a window (Spec 055 §9): "what must the kitchen
 /// make, and how many portions of each". <see cref="TotalOrders"/> counts the orders admitted by

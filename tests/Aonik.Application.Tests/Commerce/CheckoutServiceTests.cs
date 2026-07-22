@@ -92,9 +92,16 @@ public class CheckoutServiceTests
         public InventoryService Inventory() => new(Commerce(), _tenant, new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
         public CartService Carts() => new(Commerce(), _tenant, Pricing());
         public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
+        public BoxCartService BoxCarts()
+        {
+            var ctx = Commerce();
+            return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
+                new NullTenantSettingStore(), new NullSettingProvider());
+        }
+
         public CheckoutService Checkout() => new(
             Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
-            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant);
+            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts());
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Entities.Production;
@@ -104,7 +104,7 @@ internal sealed class ProductionOrderService : IProductionOrderService
 
         // Explode each line ONCE at one portion and freeze it (§7/R9). A variant with no active
         // recipe rejects the whole create, naming it — a line never carries an empty snapshot.
-        var seeds = new List<(Guid VariantId, decimal Portions, string SnapshotJson)>();
+        var seeds = new List<ProductionSeed>();
         var withoutRecipe = new List<Guid>();
         foreach (var demand in demands)
         {
@@ -114,7 +114,7 @@ internal sealed class ProductionOrderService : IProductionOrderService
                 withoutRecipe.Add(demand.VariantId);
                 continue;
             }
-            seeds.Add((demand.VariantId, demand.Portions, SerializeSnapshot(explosion)));
+            seeds.Add(new ProductionSeed(demand.VariantId, demand.Portions, SerializeSnapshot(explosion), null, null, null));
         }
         if (withoutRecipe.Count > 0)
         {
@@ -145,7 +145,7 @@ internal sealed class ProductionOrderService : IProductionOrderService
         // legitimately contains no-recipe variants (Spec 055 surfaces the same diagnostic), so a
         // whole-seed rejection would make the feature unusable — but a silent drop would
         // under-produce, so the skips always travel with the result.
-        var seeds = new List<(Guid VariantId, decimal Portions, string SnapshotJson)>();
+        var seeds = new List<ProductionSeed>();
         var skipped = new List<Guid>();
         foreach (var line in sheet.Lines)
         {
@@ -155,7 +155,11 @@ internal sealed class ProductionOrderService : IProductionOrderService
                 skipped.Add(line.ProductVariantId);
                 continue;
             }
-            seeds.Add((line.ProductVariantId, NormalizeQuantity(line.PortionsDemanded), SerializeSnapshot(explosion)));
+            // Spec 068 §9 — a sheet line IS a (variant, personalisation) demand group; the trio
+            // rides onto the production line so the kitchen sheet can render the preparation.
+            seeds.Add(new ProductionSeed(
+                line.ProductVariantId, NormalizeQuantity(line.PortionsDemanded), SerializeSnapshot(explosion),
+                line.PersonalisationJson, line.PersonalisationSummary, line.PersonalisationDisplayJson));
         }
         if (seeds.Count == 0)
         {
@@ -419,11 +423,13 @@ internal sealed class ProductionOrderService : IProductionOrderService
                     .ToList();
                 return new KitchenSheetDishDto(
                     line.Id, line.ProductVariantId, productName, variantName,
-                    line.PlannedQuantity, line.ProducedQuantity, components);
+                    line.PlannedQuantity, line.ProducedQuantity, components,
+                    line.PersonalisationSummary, line.PersonalisationDisplayJson);
             })
             .OrderBy(d => d.ProductName, StringComparer.Ordinal)
             .ThenBy(d => d.VariantName, StringComparer.Ordinal)
             .ThenBy(d => d.ProductVariantId)
+            .ThenBy(d => d.PersonalisationSummary ?? string.Empty, StringComparer.Ordinal)
             .ToList();
 
         // Totals = the merge of the SAME frozen snapshots — by construction identical to the bill
@@ -477,7 +483,7 @@ internal sealed class ProductionOrderService : IProductionOrderService
     private async Task<ProductionOrder> PersistAsync(
         Guid tenantId,
         DateTime plannedFor,
-        IReadOnlyList<(Guid VariantId, decimal Portions, string SnapshotJson)> seeds,
+        IReadOnlyList<ProductionSeed> seeds,
         string? notes,
         CancellationToken cancellationToken)
     {
@@ -499,6 +505,9 @@ internal sealed class ProductionOrderService : IProductionOrderService
                 ProductVariantId = seed.VariantId,
                 PlannedQuantity = seed.Portions,
                 RecipeSnapshotJson = seed.SnapshotJson,
+                PersonalisationJson = seed.PersonalisationJson,
+                PersonalisationSummary = seed.PersonalisationSummary,
+                PersonalisationDisplayJson = seed.PersonalisationDisplayJson,
             });
         }
         _dbContext.ProductionOrders.Add(order);
@@ -615,3 +624,13 @@ internal sealed class ProductionOrderService : IProductionOrderService
     private static decimal NormalizeQuantity(decimal quantity)
         => Math.Round(quantity, 4, MidpointRounding.AwayFromZero);
 }
+
+/// <summary>One production-line seed: a (variant, personalisation) demand group with its frozen
+/// per-portion recipe snapshot (Spec 056 §7, personalisation per Spec 068 §9).</summary>
+internal sealed record ProductionSeed(
+    Guid VariantId,
+    decimal Portions,
+    string SnapshotJson,
+    string? PersonalisationJson,
+    string? PersonalisationSummary,
+    string? PersonalisationDisplayJson);

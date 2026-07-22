@@ -104,9 +104,16 @@ public class MarginReportServiceTests
         public IngredientCostService Costs() => new(Commerce(), _tenant, Clock);
         public ProductCostingService Costing() => new(Recipes(), Costs(), Clock);
 
-        public CheckoutService Checkout() => new(
-            Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
-            Discounts(), new ZeroRateTaxCalculator(), _tenant);
+        public CheckoutService Checkout()
+        {
+            var ctx = Commerce();
+            var boxCarts = new BoxCartService(ctx, _tenant,
+                CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
+                new NullTenantSettingStore(), new NullSettingProvider());
+            return new CheckoutService(
+                Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
+                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts);
+        }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);
 

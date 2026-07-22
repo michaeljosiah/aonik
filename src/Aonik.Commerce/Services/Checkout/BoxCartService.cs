@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
@@ -23,7 +23,7 @@ namespace Aonik.Commerce.Services.Checkout;
 /// the Cart row's concurrency token (A17): the loser revalidates against fresh state and retries
 /// once, then surfaces the conflict as a 409.
 /// </summary>
-internal sealed class BoxCartService : IBoxCartService
+internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 {
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
@@ -257,6 +257,9 @@ internal sealed class BoxCartService : IBoxCartService
         public required List<BoxChangeDto> Changes { get; init; }
         public required HashSet<Guid> UnavailableLineIds { get; init; }
         public required Dictionary<Guid, decimal> Available { get; init; }
+
+        /// <summary>Each line's freshly renormalized §12 result — the checkout envelopes.</summary>
+        public required Dictionary<Guid, OptionSelectionResult> Priced { get; init; }
     }
 
     private async Task<BoxCartDto> RunAsync(
@@ -400,6 +403,7 @@ internal sealed class BoxCartService : IBoxCartService
             Changes = [],
             UnavailableLineIds = [],
             Available = [],
+            Priced = [],
         };
     }
 
@@ -431,6 +435,7 @@ internal sealed class BoxCartService : IBoxCartService
                     priceDelta == 0m ? null : priceDelta));
             }
 
+            context.Priced[line.Id] = result;
             var selectionChanged = !string.Equals(result.CanonicalSelectionJson, line.PersonalisationJson, StringComparison.Ordinal);
 
             // R7 — snapshots are display cache, re-derived on every load from the live catalogue.
@@ -665,6 +670,77 @@ internal sealed class BoxCartService : IBoxCartService
     }
 
     private static int TotalUnits(IEnumerable<CartItem> boxLines) => (int)boxLines.Sum(l => l.Quantity);
+
+    // ─── Checkout support (Spec 068 §9) ──────────────────────────────────────
+
+    public async Task<BoxCheckoutShape> PrepareForCheckoutAsync(Entities.Cart.Cart cart, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var plan = await LoadPlanAsync(tenantId, cart.BoxBundleProductId!.Value, cancellationToken);
+        var context = await BuildContextAsync(tenantId, cart, plan, cancellationToken);
+
+        await ApplyDriftAsync(context, cancellationToken);
+        await FlagUnavailableAsync(context, cancellationToken);
+
+        // A18 — any drift or unavailable line stops checkout BEFORE anything is reserved or
+        // created: persist the repair so the refreshed state is durable, then 409 with it. A
+        // stale client that skipped continue must explicitly review a changed meal or price.
+        if (context.Changes.Count > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new BoxCheckoutDriftException(
+                await BuildDtoAsync(tenantId, cart, plan, context.Changes, cartToken: null, cancellationToken));
+        }
+
+        // R8 — checkout is the enforcement; the continue gate was advisory.
+        var units = TotalUnits(context.BoxLines);
+        if (units != cart.BoxSize)
+        {
+            throw new StorefrontValidationException(
+                $"R8: the box has {units}/{cart.BoxSize} dishes; it must be full to check out.");
+        }
+
+        var bundleProduct = await _dbContext.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == cart.BoxBundleProductId && p.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException($"Product '{cart.BoxBundleProductId}' was not found.");
+
+        var boxPrice = BoxPricing.BoxPrice(plan, cart.BoxSize!.Value);
+        var personalisation = context.BoxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
+        var surcharges = context.BoxLines.Sum(l => (l.UnitSurcharge ?? 0m) * l.Quantity);
+        var deliveryCharged = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, cancellationToken);
+
+        var envelope = JsonSerializer.Serialize(new
+        {
+            box = new
+            {
+                bundleProductId = cart.BoxBundleProductId,
+                size = cart.BoxSize!.Value,
+                quote = new
+                {
+                    boxPrice,
+                    personalisation,
+                    unitSurcharges = surcharges,
+                    currency = cart.Currency,
+                },
+            },
+        });
+
+        var lines = context.BoxLines
+            .Select(l => (Line: l, Priced: context.Priced[l.Id]))
+            .ToList();
+
+        return new BoxCheckoutShape(
+            boxPrice + personalisation + surcharges,
+            boxPrice,
+            personalisation,
+            surcharges,
+            deliveryCharged,
+            bundleProduct.Slug,
+            cart.BoxSize!.Value,
+            envelope,
+            lines);
+    }
 
     // ─── Plan, quote and mapping ─────────────────────────────────────────────
 
