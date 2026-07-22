@@ -1,4 +1,5 @@
-using Aonik.Commerce.Entities.Catalog;
+﻿using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Packs;
@@ -48,31 +49,67 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
             return new TenantProvisioningContribution(actions);
         }
 
-        // Idempotent: skip if the tenant already has any categories.
+        // Each seed is idempotent INDEPENDENTLY — a tenant provisioned before a newer seed
+        // existed (or a retry after one seed committed) must still receive the others.
         var hasCategories = await _dbContext.ProductCategories
             .AnyAsync(c => c.TenantId == context.TenantId, cancellationToken);
         if (hasCategories)
         {
             actions.Add("Commerce categories already exist - skipped");
-            return new TenantProvisioningContribution(actions);
+        }
+        else
+        {
+            var categories = DefaultCategories
+                .Select(category => new ProductCategory
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    Slug = category.Slug,
+                    Name = category.Name,
+                    SortOrder = category.SortOrder,
+                    CreatedAt = context.Now,
+                    CreatedBy = context.UserId,
+                })
+                .ToList();
+
+            _dbContext.ProductCategories.AddRange(categories);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            actions.Add($"Created {categories.Count} default Commerce categories");
         }
 
-        var categories = DefaultCategories
-            .Select(category => new ProductCategory
+        // Spec 069 §10 — seed a PARKED fulfilment calendar (inactive, no delivery days) so the
+        // admin screen has a row to edit rather than a create-from-nothing flow. The tenant's
+        // real cadence is operator data entered in admin, never pack content. Idempotent.
+        var hasCalendar = await _dbContext.FulfilmentCalendars
+            .AnyAsync(c => c.TenantId == context.TenantId, cancellationToken);
+        if (!hasCalendar)
+        {
+            var seed = new FulfilmentCalendar
             {
                 Id = Guid.NewGuid(),
                 TenantId = context.TenantId,
-                Slug = category.Slug,
-                Name = category.Name,
-                SortOrder = category.SortOrder,
+                Timezone = "Europe/London",
+                DeliveryDaysJson = "[]",
+                CutoffLocalTime = new TimeOnly(12, 0),
+                LeadDays = 0,
+                IsActive = false,
                 CreatedAt = context.Now,
                 CreatedBy = context.UserId,
-            })
-            .ToList();
-
-        _dbContext.ProductCategories.AddRange(categories);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        actions.Add($"Created {categories.Count} default Commerce categories");
+            };
+            _dbContext.FulfilmentCalendars.Add(seed);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                actions.Add("Seeded a parked fulfilment calendar (inactive)");
+            }
+            catch (DbUpdateException)
+            {
+                // A concurrent provisioning run won the filtered unique (TenantId) index - the
+                // seed exists, which is the contract; idempotent under retries.
+                _dbContext.Entry(seed).State = EntityState.Detached;
+                actions.Add("Fulfilment calendar already seeded concurrently - skipped");
+            }
+        }
 
         return new TenantProvisioningContribution(actions);
     }

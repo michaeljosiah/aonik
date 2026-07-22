@@ -131,6 +131,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ProductContentVariant> ProductContentVariants { get; set; } = null!;
     public virtual DbSet<BundleSizePlan> BundleSizePlans { get; set; } = null!;
     public virtual DbSet<BundleSizePreset> BundleSizePresets { get; set; } = null!;
+    public virtual DbSet<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar> FulfilmentCalendars { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -432,6 +433,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<ProductContentVariant>(modelBuilder, "ProductContentVariants");
         MapCommerceTable<BundleSizePlan>(modelBuilder, "BundleSizePlans");
         MapCommerceTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
+        MapCommerceTable<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>(modelBuilder, "FulfilmentCalendars");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");

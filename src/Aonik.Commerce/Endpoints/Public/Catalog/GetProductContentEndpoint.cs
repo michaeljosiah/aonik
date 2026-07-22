@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
@@ -75,8 +75,10 @@ public class GetProductContentEndpoint : EndpointWithoutRequest<ResolvedContentD
             }
 
             var v = Query<int?>("v", isRequired: false);
-            if (v == resolved.ContentVersion)
+            if (v == resolved.ContentVersion && StorefrontCacheHeaders.AllowsSharedCaching(HttpContext))
             {
+                // Public only when the tenant discriminator is cache-visible (same class as the
+                // Spec 069 promise endpoint): Vary on an absent header cannot partition.
                 HttpContext.Response.Headers.CacheControl = "public, max-age=300";
             }
 

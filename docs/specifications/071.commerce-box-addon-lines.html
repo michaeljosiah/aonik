@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 071 - Commerce box add-on lines</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 071</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Commerce</span>
+  <span class="meta-tag">Depends on: Spec 068</span>
+  <span class="meta-tag">2026-07-22</span>
+  <h1>Commerce box add-on lines — extras alongside the box</h1>
+  <p class="small">Activates the <code>AddOn</code> line kind Spec 068 §4.1 reserved: ordinary retail
+  products bought alongside the box at their own price, consuming no box space. Covers the extras
+  merchandising read, the cart routes, the <code>addOns</code> quote component, and checkout's
+  retail order lines — the storefront's Step&nbsp;3 (<code>/box/extras</code>) server contract.</p>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">Domain model — nothing new</a></li>
+    <li><a href="#read">The extras read</a></li>
+    <li><a href="#writes">Cart write semantics</a></li>
+    <li><a href="#quote">The quote</a></li>
+    <li><a href="#checkout">Checkout materialisation</a></li>
+    <li><a href="#rules">Server-enforced rules</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#references">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>Spec 068 shipped the <code>LineKind</code> discriminator with exactly one writable value so that
+every capacity, merge, quote and checkout rule already states which kind it counts. This spec turns
+the reserved <code>AddOn</code> value on. An add-on is an <strong>ordinary retail product</strong> —
+a jar of pepper sauce, a drink, a snack — bought alongside the box at its own price: it consumes no
+box space, never blocks or is blocked by the fullness gate, carries its own retail price (the
+deliberate exception to the storefront's no-standalone-dish-price rule), and lands on the order as
+an ordinary <code>ProductPurchase</code> retail line using the spine's existing shape. Everything
+extras need beyond that — options, content, stock, merchandising — is machinery specs 066/067/052/070
+already provide for any product; this spec adds <em>routes and rules</em>, not tables.</p>
+
+<h2 id="scope">2. Scope (in / out)</h2>
+<table>
+  <tr><th>In</th><th>Out (and where it goes)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li>Public extras read (<code>GET /commerce/catalog/extras</code>) with retail prices, resolved content and option summaries</li>
+        <li><code>Commerce.Storefront.ExtrasCollectionSlug</code> setting (070 config document)</li>
+        <li>Cart routes: add an AddOn line; quantity/personalisation/remove via the existing line routes (kind-aware)</li>
+        <li><code>addOns</code> quote component (§4.1's promised additive change)</li>
+        <li>Checkout: one retail order item per AddOn line + invoice lines; reservation as ordinary stock</li>
+        <li>Drift/availability handling identical to dishes (066 stored-selection contract)</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li>New tables or columns — none needed; <code>AddOn</code>, the price snapshot and the personalisation columns all shipped in 068's migration</li>
+        <li>Extra-specific taxonomies — categories/serve-style/heating are data (070 facets/attributes, 067 content), not schema</li>
+        <li>Cross-sell/recommendation logic — merchandising is the curated collection, nothing cleverer</li>
+        <li>Delivery interplay — delivery stays Spec 069's concern</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h2 id="model">3. Domain model — nothing new</h2>
+<p>An extra is a normal <code>Simple</code> product: retail price via <code>ProductPrice</code>
+(tenant currency), optional Spec 066 option groups (the frontend's Size/Heat choices with
+<code>addPence</code> are exactly option adjustments), Spec 067 content (nutrition, ingredients,
+allergens, heating), Spec 052 stock, Spec 070 attributes/tags for serve style and category rails.
+Merchandising membership is a Spec 070 <code>Collection</code> whose slug the tenant configures
+(<code>Commerce.Storefront.ExtrasCollectionSlug</code>, default <code>"extras"</code>).</p>
+<p>On the cart, an AddOn line reuses 068's columns verbatim: <code>LineKind = AddOn</code>,
+<code>BoxBundleSlotId = null</code> (add-ons fill no slot), <code>UnitPriceSnapshot</code> = the
+resolved retail unit price (display cache, re-derived each write like every other snapshot),
+canonical <code>PersonalisationJson</code> + adjustment/surcharge snapshots when personalised.
+The merge key is <code>(AddOn, null, variant, canonical selection)</code> — the same discipline as
+dishes, one kind over.</p>
+
+<h2 id="read">4. The extras read</h2>
+<table>
+  <tr><th>Route</th><th>Behaviour</th></tr>
+  <tr>
+    <td><code>GET /commerce/catalog/extras</code> <span class="small">(AllowAnonymous)</span></td>
+    <td>The members of the configured extras collection, in curated rank order, each row carrying:
+    the 070 summary fields (name, slug, hero image, tags, attributes), the <strong>retail unit
+    price</strong> in the tenant currency (the AddOn exception — a product without a price in that
+    currency is omitted and reported in a <code>skipped</code> diagnostic count rather than served
+    unpriceable), the resolved 067 standard-preparation content (nutrition, declarations, heating)
+    when authored, and the product's effective option groups so the storefront renders the Size/Heat
+    picker without a second call. Unconfigured slug or missing collection ⇒ empty list, never a
+    guess. <code>Vary: X-Tenant-Id</code> like every anonymous storefront read.</td>
+  </tr>
+</table>
+
+<h2 id="writes">5. Cart write semantics</h2>
+<table>
+  <tr><th>Operation</th><th>Behaviour</th></tr>
+  <tr>
+    <td>Add extra<br /><code>POST /commerce/carts/{cartId:guid}/extras</code></td>
+    <td>Box carts only (the generic paths stay closed — R11 is about kind-blindness, and this route
+    is the kind-aware one 068 promised). Validates the variant active + product Active, the product
+    <em>priceable in the cart currency</em> (the retail snapshot is mandatory for AddOn lines),
+    quantity ≥ 1 (R12), the selection via 066 when supplied, and aggregate non-reserving
+    availability across the cart (R5 — dish and add-on demand for the same variant sum). Merges on
+    the AddOn merge key. <strong>No capacity check</strong>: add-ons consume no box space (R3
+    explicitly excludes them), and a full box never blocks a jar of sauce.</td>
+  </tr>
+  <tr>
+    <td>Quantity / personalisation / remove<br /><code>PATCH·DELETE /commerce/carts/{cartId:guid}/lines/{lineId:guid}</code></td>
+    <td>The existing line routes serve both kinds; the service branches on the line's kind:
+    AddOn increases re-check availability but never capacity or slot bounds; splits
+    (<code>applyToUnits</code>) work identically; quantity 0 deletes; personalisation re-validates
+    and re-prices via 066 and can merge, exactly as dishes do.</td>
+  </tr>
+  <tr>
+    <td>Drift &amp; availability</td>
+    <td>The §8 pass covers AddOn lines unchanged: retired options remap and report, remapped lines
+    can merge, unavailable extras flag (never vanish) and block continue/checkout until removed.
+    Additionally the retail price snapshot is re-resolved on every load; a product whose price in
+    the cart currency disappeared flags the line unavailable — a priceless retail line must never
+    reach checkout.</td>
+  </tr>
+  <tr>
+    <td>Continue (R8)</td>
+    <td>Unchanged: fullness counts BoxDish units only. Add-ons neither satisfy nor obstruct the
+    gate; a cart holding only extras cannot continue (the box is the product being bought).</td>
+  </tr>
+</table>
+
+<h2 id="quote">6. The quote</h2>
+<p>The <code>addOns</code> component joins the ordered, named, additive list — the §7 contract said
+clients iterate components rather than reconstruct, so this is the non-event it was designed to be:</p>
+<pre><code>{ "key": "boxPrice",        "amount": 95.00 },
+{ "key": "personalisation", "amount": 16.00 },   // BoxDish adjustments only
+{ "key": "unitSurcharges",  "amount":  8.00 },   // BoxDish surcharges only
+{ "key": "addOns",          "amount": 21.50 },   // Σ (unit price + adjustment + surcharge) × qty over AddOn lines
+{ "key": "deliveryCharged", "amount":  0.00 }</code></pre>
+<p>The box-goods components stay <strong>BoxDish-scoped</strong> — an add-on's option adjustment is
+part of what that add-on costs, not part of the box's personalisation story — so each line kind has
+exactly one component family and the total remains the component sum (A24). The line payload gains
+<code>lineKind</code> and, on AddOn lines only, <code>unitPrice</code>; <code>unitsSelected</code>,
+<code>spacesLeft</code> and <code>isFull</code> keep counting BoxDish only.</p>
+
+<h2 id="checkout">7. Checkout materialisation</h2>
+<ul>
+  <li><strong>Re-validation</strong>: the A18 drift stop covers AddOn lines (a repriced or retired
+  extra refreshes and 409s exactly like a dish change); the R8 enforcement is unchanged.</li>
+  <li><strong>Reservation</strong>: AddOn lines reserve <code>variant × quantity</code> in the same
+  all-or-nothing hold as everything else.</li>
+  <li><strong>Order</strong>: still one <code>ProductPurchase</code> order — the box item (goods
+  total, box envelope) plus <strong>one ordinary retail item per AddOn line</strong> using the
+  spine's existing retail shape: <code>Quantity</code>, <code>UnitPrice</code> = the charged unit
+  price (retail + adjustment + surcharge), <code>ProductId</code> = the variant, <code>Sku</code>,
+  and the 066 §12 envelope in <code>DetailsJson</code> when personalised — the same convention
+  simple product lines already use. The delivery item, when charged, follows.</li>
+  <li><strong>Charge</strong>: the goods subtotal becomes box goods + add-on goods; discount and
+  tax apply to that goods subtotal; delivery joins the payable total last, as today. The nonpositive
+  guards (K5/L4) apply to the combined figures.</li>
+  <li><strong>Invoice</strong>: the box-aggregate line, one line per add-on (name, quantity, charged
+  unit price — add-ons are ordinary retail and may show their prices), the delivery line.</li>
+  <li><strong>Kitchen</strong>: add-ons write <code>OrderBundleSelection</code> rows? <strong>No</strong> —
+  selection rows are the box's kitchen landing. An add-on that needs preparation appears in
+  production planning through the ordinary retail path (its own order item, expanded by the 055
+  sheet exactly as simple lines are today), keyed by its own personalisation columns on the item
+  envelope. Nothing new.</li>
+</ul>
+
+<h2 id="rules">8. Server-enforced rules</h2>
+<table>
+  <tr><th>#</th><th>Rule</th></tr>
+  <tr><td>X1</td><td>AddOn lines exist only on box carts, created only by the extras route; the generic item/bundle paths remain closed to box carts (R11 unchanged).</td></tr>
+  <tr><td>X2</td><td>An AddOn line MUST carry a retail price snapshot in the cart currency at every write and at checkout; unpriceable ⇒ reject on add, flag unavailable on load.</td></tr>
+  <tr><td>X3</td><td>Add-ons never count toward capacity, fullness, or slot bounds (R3/R8/slot rules stay BoxDish-scoped — 068 §4.1's promise, now load-bearing).</td></tr>
+  <tr><td>X4</td><td>R12 quantity rules apply unchanged (≥1 on add; 0 deletes; negatives reject; applyToUnits bounded).</td></tr>
+  <tr><td>X5</td><td>Aggregate availability sums BOTH kinds per variant — a dish and an add-on drawing the same stock cannot jointly oversell it (R5 extended).</td></tr>
+  <tr><td>X6</td><td>The quote's total remains exactly the component sum with <code>addOns</code> present (A24 contract).</td></tr>
+  <tr><td>X7</td><td>Checkout emits one retail order item per AddOn line and includes them in the goods subtotal for discount/tax; the box item never absorbs an add-on amount.</td></tr>
+</table>
+
+<h2 id="persistence">9. Persistence &amp; migration</h2>
+<p><strong>No migration.</strong> Every column this spec touches shipped in
+<code>AddCommerceBoxBuilderCarts</code> (068): <code>LineKind</code>, the price snapshot, the
+personalisation columns. The extras collection and setting are data. This is the additive change
+068 §4.1 designed for — if a migration turns out to be needed, that is a spec bug to raise, not a
+hand-written migration to write.</p>
+
+<h2 id="testing">10. Testing</h2>
+<ul>
+  <li><strong>Read</strong>: configured collection serves priced rows with content + option groups; unpriced members skip with a diagnostic count; unconfigured ⇒ empty; Vary header.</li>
+  <li><strong>Cart</strong>: add/merge/split/remove for AddOn lines; a full box still accepts extras (X3) and extras never satisfy continue; mixed-kind availability creep (X5); unpriceable add rejection and load-flagging (X2); personalised extras price via 066.</li>
+  <li><strong>Quote</strong>: addOns component maths incl. personalised extras; A24 sum with all five components; BoxDish components unchanged by extras.</li>
+  <li><strong>Checkout</strong>: mixed cart → box item + N retail items + selections rows for dishes only; discount/tax on combined goods; invoice lines; reservation covers extras; drift 409 on a repriced extra.</li>
+  <li>Full-solution <code>dotnet test Aonik.sln</code> before PR.</li>
+</ul>
+
+<h2 id="acceptance">11. Acceptance criteria</h2>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>B1</td><td>A full 6/6 box; add 2 pepper sauces → accepted; <code>unitsSelected</code> stays 6, <code>isFull</code> true, continue still passes.</td></tr>
+  <tr><td>B2</td><td>A cart holding only 3 extras and an empty box → continue rejects with the R8 shortfall; the extras neither help nor block.</td></tr>
+  <tr><td>B3</td><td>Extra priced 3.50, size option +1.00, qty 2 → <code>addOns</code> component 9.00; total = Σ components (A24).</td></tr>
+  <tr><td>B4</td><td>Add an extra with no price in the cart currency → rejected naming the product; price removed after adding → line flags unavailable, continue/checkout block until removed.</td></tr>
+  <tr><td>B5</td><td>Same extra added twice with the same option → one line qty 2; different option → second line; applyToUnits splits.</td></tr>
+  <tr><td>B6</td><td>Checkout of box + 2 add-on lines → one order: box item at box-goods total, two retail items at their charged unit prices with envelopes, selection rows for dishes ONLY; payment total = (boxGoods + addOnGoods) − discount + tax + delivery.</td></tr>
+  <tr><td>B7</td><td>Dish uses variant V (3 units) and an add-on uses V (2 units), availability 4 → the second add rejects (X5).</td></tr>
+  <tr><td>B8</td><td>Extras read: configured collection with one unpriced member → the priced rows serve with content + options, <code>skipped: 1</code>, Vary present; unconfigured slug → empty list, 200.</td></tr>
+  <tr><td>B9</td><td>An extra's chosen option is retired mid-session → next load remaps to the default, re-prices, reports in <code>changes[]</code>; checkout after the drift 409s first, resubmit succeeds.</td></tr>
+</table>
+
+<h2 id="open">12. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Add-on eligibility.</strong> Phase 1 defines eligibility as membership of the
+  configured extras collection at ADD time; the line then lives its own life (drift rules govern).
+  If merchandising removal should also evict cart lines, that is a later policy — eviction today
+  would contradict the "lines never vanish silently" principle.</p>
+  <p><strong>O2 — Per-kind quote breakdowns.</strong> If the storefront ever needs add-on
+  personalisation itemised separately from the unit price, the component list can gain
+  <code>addOnPersonalisation</code> additively — same A24 contract, nobody chases it now.</p>
+</div>
+
+<h2 id="references">13. References</h2>
+<ul>
+  <li><a href="068.commerce-box-builder-carts.html">Spec 068</a> — §4.1 (the reserved kind and the rules this activates), §7 (component contract), R11/R12</li>
+  <li><a href="066.commerce-product-option-groups.html">Spec 066</a> — option pricing the extras options reuse; §12 envelope on retail lines</li>
+  <li><a href="067.commerce-option-dependent-content.html">Spec 067</a> — content the extras read embeds</li>
+  <li><a href="070.commerce-storefront-merchandising.html">Spec 070</a> — collections, attributes, the config document the extras slug joins</li>
+  <li>AbbysTable repo: <code>web/src/lib/aonik/extras.ts</code> (14 fixtures), Step 3 page (<code>/box/extras</code>)</li>
+</ul>
+
+</body>
+</html>
