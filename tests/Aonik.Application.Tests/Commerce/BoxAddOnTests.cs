@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -234,6 +235,58 @@ public class BoxAddOnTests
         // ENVELOPE was emitted, so production planning's reader yields the null trio.
         (order.Items.Single(i => i.ItemIndex == 1).DetailsJson ?? string.Empty)
             .Should().NotContain("canonicalSelectionJson", "no envelope for an optionless retail line");
+    }
+
+    [Fact]
+    public async Task S1_ASurchargeAddedToAnOptionlessExtra_IsDriftToo()
+    {
+        // Null personalisation is the stored "{}" — a later product surcharge must still
+        // renormalize, report, and stop checkout.
+        var (h, f, box, extraVariant) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
+        await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
+
+        await using (var ctx = h.Commerce())
+        {
+            var extra = await ctx.Products.FirstAsync(p => p.Slug == "pepper-sauce");
+            extra.UnitSurcharge = 1.00m;
+            extra.UnitSurchargeCurrency = "GBP";
+            await ctx.SaveChangesAsync();
+        }
+
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
+        drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 1.00m);
+
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        result.Total.Should().Be(95m + 3.50m + 1.00m);
+    }
+
+    [Fact]
+    public async Task S4_AnOptionPriceChange_OnAnUnchangedSelection_IsDrift()
+    {
+        // Same keys, new money: the salmon choice's price moves under a dish line — the A18 stop
+        // must fire even though RenormalizeStored reports no structural drift.
+        var (h, f, box, _) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 5, null), access);
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(
+            f.DishVariants["jollof"], 1, Sel("""{"protein":"salmon"}""")), access);
+
+        var salmonId = await f.Options.ChoiceIdAsync("protein", "salmon");
+        var options = CommerceTestHarness.NewOptionService(h.Commerce(), h.TenantId);
+        await options.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", Price: 5m));
+
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
+        drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 2m,
+            "adjustment moved 3 → 5");
+
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        result.Total.Should().Be(95m + 5m);
     }
 
     [Fact]

@@ -213,6 +213,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             var priced = await _selections.NormalizeAndPriceAsync(
                 product.Id, command.Personalisation, ctx.Cart.Currency, ct);
 
+            // S3 — a signed adjustment can exceed the retail price; a nonpositive per-line
+            // charge must never exist (it would mint a negative retail order item).
+            if (price + priced.Adjustment + (priced.UnitSurcharge ?? 0m) <= 0)
+            {
+                throw new StorefrontValidationException(
+                    $"X2: the selected options reduce '{product.Name}' to a nonpositive price.");
+            }
+
             // X5 — availability sums both kinds; X3 — no capacity or slot checks apply.
             await EnsureAvailabilityAsync(ctx, variant.Id, command.Quantity, ct);
 
@@ -653,30 +661,44 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             line.UnitPriceSnapshot = price ?? 0m;
             context.PricedAddOns[line.Id] = price;
 
-            if (line.PersonalisationJson is null)
-            {
-                continue;
-            }
+            // S1 — a null selection IS the stored "{}": it must still renormalize, or a later
+            // option-group addition (or surcharge change) never reaches the customer.
             var variantForLine = context.Variants[line.ProductVariantId];
             var renormalizedAddOn = await _selections.RenormalizeStoredAsync(
-                variantForLine.ProductId, line.PersonalisationJson, context.Cart.Currency, ct);
+                variantForLine.ProductId, line.PersonalisationJson ?? "{}", context.Cart.Currency, ct);
             var addOnResult = renormalizedAddOn.Result;
+            var oldAddOnAmounts = (line.PersonalisationAdjustment ?? 0m) + (line.UnitSurcharge ?? 0m);
+            var newAddOnAmounts = addOnResult.Adjustment + (addOnResult.UnitSurcharge ?? 0m);
             var addOnDelta = addOnResult.Adjustment - (line.PersonalisationAdjustment ?? 0m);
+            var addOnEmitted = false;
             foreach (var drift in renormalizedAddOn.Drift)
             {
+                addOnEmitted = true;
                 context.Changes.Add(new BoxChangeDto(
                     line.Id, drift.GroupKey, drift.FromChoiceKey, drift.ToChoiceKey, drift.Reason,
                     addOnDelta == 0m ? null : addOnDelta));
             }
+            // S4 — monetary-only drift: same keys, changed option price or product surcharge.
+            // Without a record, a direct checkout would silently charge the new amount.
+            if (!addOnEmitted && newAddOnAmounts != oldAddOnAmounts)
+            {
+                context.Changes.Add(new BoxChangeDto(
+                    line.Id, null, null, null, BoxChangeReasons.PriceChanged,
+                    newAddOnAmounts - oldAddOnAmounts));
+            }
             context.Priced[line.Id] = addOnResult;
-            var addOnSelectionChanged = !string.Equals(addOnResult.CanonicalSelectionJson, line.PersonalisationJson, StringComparison.Ordinal);
-            ApplySelection(line, addOnResult);
-            line.UnitPriceSnapshot = price ?? 0m;   // ApplySelection does not touch it; keep explicit
+            var addOnSelectionChanged = !string.Equals(
+                addOnResult.CanonicalSelectionJson,
+                line.PersonalisationJson ?? "{}",
+                StringComparison.Ordinal);
+            ApplyAddOnSelection(line, addOnResult);
+            line.UnitPriceSnapshot = price ?? 0m;   // ApplyAddOnSelection does not touch it; keep explicit
             if (addOnSelectionChanged)
             {
+                var addOnCanonicalOrNull = addOnResult.CanonicalSelectionJson == "{}" ? null : addOnResult.CanonicalSelectionJson;
                 var addOnTarget = context.AddOnLines.FirstOrDefault(l => l.Id != line.Id
                     && l.ProductVariantId == line.ProductVariantId
-                    && string.Equals(l.PersonalisationJson, addOnResult.CanonicalSelectionJson, StringComparison.Ordinal));
+                    && string.Equals(l.PersonalisationJson, addOnCanonicalOrNull, StringComparison.Ordinal));
                 if (addOnTarget is not null)
                 {
                     addOnTarget.Quantity += line.Quantity;
@@ -705,11 +727,23 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             var result = renormalized.Result;
 
             var priceDelta = result.Adjustment - (line.PersonalisationAdjustment ?? 0m);
+            var dishEmitted = false;
             foreach (var drift in renormalized.Drift)
             {
+                dishEmitted = true;
                 context.Changes.Add(new BoxChangeDto(
                     line.Id, drift.GroupKey, drift.FromChoiceKey, drift.ToChoiceKey, drift.Reason,
                     priceDelta == 0m ? null : priceDelta));
+            }
+            // S4 — same keys, changed option price or product surcharge: still a customer-visible
+            // price movement that must trip the A18 stop.
+            var oldDishAmounts = (line.PersonalisationAdjustment ?? 0m) + (line.UnitSurcharge ?? 0m);
+            var newDishAmounts = result.Adjustment + (result.UnitSurcharge ?? 0m);
+            if (!dishEmitted && newDishAmounts != oldDishAmounts)
+            {
+                context.Changes.Add(new BoxChangeDto(
+                    line.Id, null, null, null, BoxChangeReasons.PriceChanged,
+                    newDishAmounts - oldDishAmounts));
             }
 
             context.Priced[line.Id] = result;
@@ -828,7 +862,11 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         // R5 — aggregate, non-reserving availability: the resulting cart-wide demand for the
         // variant must not exceed what is available; repeated merges cannot creep past it.
-        var cartWide = (int)boxLines.Where(l => l.ProductVariantId == variant.Id).Sum(l => l.Quantity);
+        // S2 — BOTH kinds draw the same stock, so an existing AddOn line counts here too.
+        var cartWide = (int)cart.Items
+            .Where(l => l.ProductVariantId == variant.Id && !l.IsDeleted
+                && _dbContext.Entry(l).State != EntityState.Deleted)
+            .Sum(l => l.Quantity);
         var available = await _inventory.GetAvailableAsync(variant.Id, ct);
         if (cartWide + command.Quantity > available)
         {
@@ -1150,6 +1188,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 Priced: l.PersonalisationJson is null ? (OptionSelectionResult?)null : context.Priced.GetValueOrDefault(l.Id),
                 ChargedUnitPrice: l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)))
             .ToList();
+        var negativeAddOn = addOnLines.FirstOrDefault(a => a.ChargedUnitPrice <= 0);
+        if (negativeAddOn.Line is not null)
+        {
+            // S3 — drift can drive a line's charge nonpositive after add; it must never reach
+            // reservation or a retail order item.
+            throw new StorefrontValidationException(
+                $"'{negativeAddOn.Line.NameSnapshot}' now has a nonpositive price; remove it to check out.");
+        }
         var addOnGoods = addOnLines.Sum(a => a.ChargedUnitPrice * a.Line.Quantity);
 
         return new BoxCheckoutShape(

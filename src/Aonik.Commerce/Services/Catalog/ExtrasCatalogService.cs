@@ -31,6 +31,9 @@ public record ExtraRowDto(
     string? AttributesJson,
     /// The retail unit price in the tenant currency — add-ons are ordinary retail (Spec 071 §1).
     decimal UnitPrice,
+    /// The product-level per-unit surcharge that will join the charge on add (Spec 066), so the
+    /// advertised pre-add price is complete.
+    decimal? UnitSurcharge,
     string Currency,
     /// The resolved standard-preparation content (Spec 067), when authored.
     ResolvedContentDto? Content,
@@ -152,6 +155,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
                 ParseTags(product.TagsJson),
                 product.AttributesJson,
                 price.Value,
+                product.UnitSurcharge,
                 currency,
                 await _content.ResolveAsync(product.Id, null, cancellationToken),
                 await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken)));

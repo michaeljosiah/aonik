@@ -358,6 +358,10 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
         try
         {
             using var document = System.Text.Json.JsonDocument.Parse(detailsJson);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return (null, null, null);   // any non-object root is an unrelated document
+            }
             if (!document.RootElement.TryGetProperty("canonicalSelectionJson", out var canonical)
                 || canonical.ValueKind != System.Text.Json.JsonValueKind.String)
             {
