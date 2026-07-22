@@ -97,6 +97,11 @@ internal static class FulfilmentPromiseCalculator
 
         if (timezone.IsInvalidTime(local))
         {
+            // The first valid instant AFTER the gap — sub-minute components must not survive
+            // the walk (01:30:30 maps to the gap end 02:00:00, not 02:00:30): truncate to the
+            // minute first; DST gaps are whole-minute aligned, so the walk lands exactly on the
+            // gap boundary.
+            local = new DateTime(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, DateTimeKind.Unspecified);
             do
             {
                 local = local.AddMinutes(1);

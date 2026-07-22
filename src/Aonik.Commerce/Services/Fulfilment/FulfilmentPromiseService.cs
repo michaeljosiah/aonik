@@ -143,21 +143,41 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
 
         var calendar = await _dbContext.FulfilmentCalendars
             .FirstOrDefaultAsync(c => c.TenantId == tenantId, cancellationToken);
+        var creating = calendar is null;
         if (calendar is null)
         {
             calendar = new FulfilmentCalendar { Id = Guid.NewGuid(), TenantId = tenantId };
             _dbContext.FulfilmentCalendars.Add(calendar);
         }
 
-        calendar.Timezone = timezone.Id;
-        calendar.DeliveryDaysJson = JsonSerializer.Serialize(deliveryDays);
-        calendar.CutoffLocalTime = command.CutoffLocalTime;
-        calendar.CutoffDayOfWeek = cutoffDay;
-        calendar.LeadDays = command.LeadDays;
-        calendar.BlackoutDatesJson = JsonSerializer.Serialize(blackouts.Select(d => d.ToString("yyyy-MM-dd")).ToList());
-        calendar.IsActive = command.IsActive;
+        void Apply(FulfilmentCalendar target)
+        {
+            target.Timezone = timezone.Id;
+            target.DeliveryDaysJson = JsonSerializer.Serialize(deliveryDays);
+            target.CutoffLocalTime = command.CutoffLocalTime;
+            target.CutoffDayOfWeek = cutoffDay;
+            target.LeadDays = command.LeadDays;
+            target.BlackoutDatesJson = JsonSerializer.Serialize(blackouts.Select(d => d.ToString("yyyy-MM-dd")).ToList());
+            target.IsActive = command.IsActive;
+        }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        Apply(calendar);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (creating)
+        {
+            // Two first-time upserts raced the filtered unique (TenantId) index — this is an
+            // UPSERT, so the loser adopts the winner's row and applies its own values rather
+            // than surfacing a 500 (the 068 first-insert-race pattern).
+            _dbContext.Entry(calendar).State = EntityState.Detached;
+            calendar = await _dbContext.FulfilmentCalendars
+                .FirstAsync(c => c.TenantId == tenantId, cancellationToken);
+            Apply(calendar);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         return Map(calendar);
     }

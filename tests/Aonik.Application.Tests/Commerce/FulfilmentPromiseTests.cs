@@ -98,8 +98,11 @@ public class FulfilmentPromiseTests
         var london = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
 
         // Spring-forward 2026-03-29: 01:30 does not exist — the cutoff maps to the first valid
-        // instant after the gap (02:00 BST = 01:00 UTC).
+        // instant after the gap (02:00 BST = 01:00 UTC). Sub-minute components must not survive
+        // the walk: 01:30:30 maps to the gap END, not 02:00:30.
         FulfilmentPromiseCalculator.CutoffInstantUtc(new DateOnly(2026, 3, 29), new TimeOnly(1, 30), london)
+            .Should().Be(new DateTime(2026, 3, 29, 1, 0, 0, DateTimeKind.Utc));
+        FulfilmentPromiseCalculator.CutoffInstantUtc(new DateOnly(2026, 3, 29), new TimeOnly(1, 30, 30), london)
             .Should().Be(new DateTime(2026, 3, 29, 1, 0, 0, DateTimeKind.Utc));
 
         // Autumn overlap 2026-10-25: 01:30 occurs twice — the FIRST occurrence is the BST one
