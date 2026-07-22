@@ -289,6 +289,8 @@ Hand-written migrations cause model snapshot drift — the Designer.cs file dive
 - ❌ Editing a generated `.Designer.cs` snapshot
 - ❌ Running raw SQL against databases to fix schema drift (except last-resort emergency with explicit user approval)
 
+**Narrow exception — snapshot-reconciliation no-ops:** when a scaffolded operation cannot execute against the physical schema because the PRIOR snapshot itself misdescribes reality (raw-SQL-era drift), the affected `Up`/`Down` body may be replaced with a documented no-op. The migration must still be CLI-generated and its `.Designer.cs` must remain untouched tool output — this never licenses editing the snapshot or authoring schema operations by hand. Precedents: `20260620063309_ReconcileUserMemoryEntryMapping`, `20260721225529_ReconcileUserMemoryEntrySupersededByDeleteBehavior`.
+
 ### Common Mistakes to Avoid
 
 - ❌ Running `dotnet ef migrations add` against `PlatformDbContext` or other module contexts
