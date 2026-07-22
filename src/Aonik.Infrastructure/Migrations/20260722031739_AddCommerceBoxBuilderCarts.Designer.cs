@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260722031227_AddCommerceBoxBuilderCarts")]
+    [Migration("20260722031739_AddCommerceBoxBuilderCarts")]
     partial class AddCommerceBoxBuilderCarts
     {
         /// <inheritdoc />
@@ -2952,7 +2952,8 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "BundleProductId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkBundleSizePlans", "dbo");
                 });
@@ -3023,7 +3024,8 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("BundleSizePlanId");
 
                     b.HasIndex("TenantId", "BundleSizePlanId", "Size")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkBundleSizePresets", "dbo");
                 });

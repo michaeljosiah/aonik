@@ -204,7 +204,8 @@ namespace Aonik.Infrastructure.Migrations
                 schema: "dbo",
                 table: "AnkBundleSizePlans",
                 columns: new[] { "TenantId", "BundleProductId" },
-                unique: true);
+                unique: true,
+                filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AnkBundleSizePresets_BundleSizePlanId",
@@ -217,7 +218,8 @@ namespace Aonik.Infrastructure.Migrations
                 schema: "dbo",
                 table: "AnkBundleSizePresets",
                 columns: new[] { "TenantId", "BundleSizePlanId", "Size" },
-                unique: true);
+                unique: true,
+                filter: "[IsDeleted] = 0");
         }
 
         /// <inheritdoc />

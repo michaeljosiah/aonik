@@ -15,7 +15,10 @@ public class BundleSizePresetConfiguration : IEntityTypeConfiguration<BundleSize
         builder.Property(x => x.Badge).HasMaxLength(64);
         builder.Property(x => x.Blurb).HasMaxLength(256);
 
-        // One price point per size within a plan.
-        builder.HasIndex(x => new { x.TenantId, x.BundleSizePlanId, x.Size }).IsUnique();
+        // One LIVE price point per size within a plan — filtered so soft-deleted presets from a
+        // full replace never block re-adding the same size.
+        builder.HasIndex(x => new { x.TenantId, x.BundleSizePlanId, x.Size })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }

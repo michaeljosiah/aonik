@@ -21,7 +21,10 @@ public class BundleSizePlanConfiguration : IEntityTypeConfiguration<BundleSizePl
             .HasForeignKey(x => x.BundleSizePlanId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // One plan per bundle product.
-        builder.HasIndex(x => new { x.TenantId, x.BundleProductId }).IsUnique();
+        // One LIVE plan per bundle product — filtered so a soft-deleted plan never blocks
+        // re-authoring (house convention: RecipeComponent, CollectionItem).
+        builder.HasIndex(x => new { x.TenantId, x.BundleProductId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }

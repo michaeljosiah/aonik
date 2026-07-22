@@ -2949,7 +2949,8 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "BundleProductId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkBundleSizePlans", "dbo");
                 });
@@ -3020,7 +3021,8 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("BundleSizePlanId");
 
                     b.HasIndex("TenantId", "BundleSizePlanId", "Size")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkBundleSizePresets", "dbo");
                 });
