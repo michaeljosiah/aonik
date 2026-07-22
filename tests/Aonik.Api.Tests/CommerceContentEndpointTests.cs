@@ -94,8 +94,13 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
         await SeedProductAsync(tenantId, "jollof");
         var anonymous = AnonymousClient(tenantId);
 
-        (await anonymous.GetAsync("/commerce/catalog/products/jollof/content"))
-            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // The pre-content 404 carries no-store: shared caches cache 404s heuristically, and a
+        // pre-authoring request for ?v=1 must not park a 404 under the exact URL the first
+        // upsert will occupy.
+        var notFound = await anonymous.GetAsync("/commerce/catalog/products/jollof/content?v=1");
+        notFound.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        notFound.Headers.CacheControl!.NoStore.Should().BeTrue();
+
         (await anonymous.GetAsync("/commerce/catalog/products/jollof/content?selection=%7Bnot-json"))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

@@ -188,16 +188,103 @@ public class ProductContentAuthoringTests
     }
 
     [Fact]
-    public async Task ANarrowingWrite_Should_FlagTheBlock()
+    public async Task ANarrowingWrite_Should_FlagTheBlock_OnlyWhenTheEffectiveDefaultChanges()
     {
-        // §6 — a narrowing change can shift the effective default combination; the block is
-        // flagged in the same SaveChanges as the narrowing.
+        // §6, precise form — a default-shifting narrowing flags; an idempotent re-offer or a
+        // pure allowed-set edit that leaves every effective default intact must NOT withhold
+        // allergen declarations until an admin performs a pointless review.
         var (content, productId, builder, ctx) = await ArrangeAsync();
 
-        await builder.OfferAsync(productId,
-            new ProductOptionGroupLine("protein", AllowedChoiceKeys: ["salmon", "prawns"], DefaultChoiceKey: "salmon"));
+        // Idempotent re-offer: same groups, same defaults → no flag.
+        await builder.OfferAllAsync(productId);
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("nothing about the standard preparation changed");
 
+        // Allowed-set narrowing that keeps every group offered and every effective default
+        // intact → still no flag. (OfferAsync is a FULL replace, so all four groups restate.)
+        await builder.OfferAsync(productId,
+            new ProductOptionGroupLine("portion"),
+            new ProductOptionGroupLine("protein", AllowedChoiceKeys: ["chicken", "salmon"]),
+            new ProductOptionGroupLine("side"),
+            new ProductOptionGroupLine("heat"));
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("chicken is still the effective default of a still-offered group");
+
+        // Explicit-default change → flag.
+        await builder.OfferAsync(productId,
+            new ProductOptionGroupLine("portion"),
+            new ProductOptionGroupLine("protein", AllowedChoiceKeys: ["salmon", "prawns"], DefaultChoiceKey: "salmon"),
+            new ProductOptionGroupLine("side"),
+            new ProductOptionGroupLine("heat"));
         ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GroupLevelEdits_Should_FlagInheritingProducts_WhenTheyChangeTheSelection()
+    {
+        // §6 — deactivating a group removes it from every product's all-defaults selection; a
+        // mode change alters its canonical shape. Label-only edits change nothing.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var optionService = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        var groupId = await builder.GroupIdAsync("heat");
+
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat (renamed)"));
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeFalse("a rename changes no selection");
+
+        await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
+        var block = ctx.ProductContents.Single(c => c.ProductId == productId);
+        block.RequiresReview.Should().BeTrue("the group vanished from the standard preparation");
+    }
+
+    [Fact]
+    public async Task DeactivatingAPinnedExplicitDefault_Should_FlagTheProduct()
+    {
+        // §6 — V9 permits deactivating a product's explicit default when the group default
+        // remains, silently falling the product back to it: that IS a standard-preparation
+        // change, and the content block must be flagged in the same write.
+        var (content, productId, builder, ctx) = await ArrangeAsync();
+        var optionService = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
+        await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", DefaultChoiceKey: "salmon"));
+        await content.ConfirmContentReviewAsync(productId); // clear the narrowing-change flag
+
+        var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
+        await optionService.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", IsActive: false));
+
+        ctx.ProductContents.Single(c => c.ProductId == productId).RequiresReview
+            .Should().BeTrue("the effective default silently fell back to the group default");
+    }
+
+    [Fact]
+    public async Task BlankDeclarations_Should_NormalizeToAbsent()
+    {
+        // "" is absence wearing quotes: storing it would report DeclarationsWithheld: false over
+        // no usable allergen information, suppressing the storefront's unpublished warning.
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        await content.UpsertContentAsync(productId, DefaultBlock() with { Ingredients = "  ", Allergens = "" });
+
+        var resolved = await content.ResolveAsync(productId, null);
+        resolved!.Ingredients.Should().BeNull();
+        resolved.Allergens.Should().BeNull();
+        resolved.DeclarationsWithheld.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task MalformedStoredHeating_Should_BeWithheld_NotServedAsAuthoredEmpty()
+    {
+        // Legacy damage is withheld, never presented as an explicitly authored "no heating
+        // required" — the same authored-or-absent rule as the declarations.
+        var (content, productId, _, ctx) = await ArrangeAsync();
+        var block = ctx.ProductContents.Single(c => c.ProductId == productId);
+        block.HeatingJson = "{corrupt";
+        await ctx.SaveChangesAsync();
+
+        var resolved = await content.ResolveAsync(productId, null);
+
+        resolved!.HeatingWithheld.Should().BeTrue();
+        resolved.Heating.Should().BeEmpty();
+        resolved.DeclarationsWithheld.Should().BeFalse("only the corrupted panel is withheld");
     }
 
     // ─── Coverage ────────────────────────────────────────────────────────────

@@ -106,7 +106,9 @@ internal sealed class ProductContentService : IProductContentService
         // light-portion timings safe. A stale block withholds them even for the standard
         // preparation.
         var withhold = isStandardPreparation || isStale;
-        var blockHeating = ParseHeatingLenient(content.HeatingJson) ?? [];
+        // Null = the stored JSON failed to parse (legacy damage): corrupted heating is WITHHELD,
+        // never presented as an explicitly authored "no heating required".
+        var blockHeating = ParseHeatingLenient(content.HeatingJson);
 
         return new ResolvedContentDto(
             content.ServingLabel,
@@ -114,8 +116,8 @@ internal sealed class ProductContentService : IProductContentService
             withhold ? null : content.Ingredients,
             withhold ? null : content.Allergens,
             DeclarationsWithheld: withhold || (content.Ingredients is null && content.Allergens is null),
-            withhold ? [] : blockHeating,
-            HeatingWithheld: withhold,
+            withhold || blockHeating is null ? [] : blockHeating,
+            HeatingWithheld: withhold || blockHeating is null,
             isStandardPreparation,
             isStale,
             canonical,
@@ -134,6 +136,8 @@ internal sealed class ProductContentService : IProductContentService
         ValidateServingLabel(command.ServingLabel);
         ValidateFigures(FiguresOf(command));
         var heatingJson = NormalizeHeatingJson(command.HeatingJson) ?? "[]";
+        var ingredients = NormalizeDeclaration(command.Ingredients);
+        var allergens = NormalizeDeclaration(command.Allergens);
 
         // Captured OUTSIDE the write: the all-defaults binding the block will describe.
         var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
@@ -145,7 +149,12 @@ internal sealed class ProductContentService : IProductContentService
             // door. Validated INSIDE the serialized write so a racing variant-add cannot slip a
             // now-incomplete variant past it (§9 / A21). Removing a figure is always allowed.
             var newFigures = FiguresOf(command);
+            // AsNoTracking on purpose: a RETRY reuses this context, and a tracking query would
+            // hand back variant instances loaded by the failed attempt — validating V-C6 against
+            // values the winning writer already changed. No-tracking reads the database truth
+            // every attempt; this path only reads.
             var activeVariants = await _dbContext.ProductContentVariants
+                .AsNoTracking()
                 .Where(v => v.TenantId == tenantId && v.ProductId == productId && v.IsActive)
                 .ToListAsync(ct2);
 
@@ -180,8 +189,8 @@ internal sealed class ProductContentService : IProductContentService
             content.FibreGrams = command.FibreGrams;
             content.SugarsGrams = command.SugarsGrams;
             content.SaltGrams = command.SaltGrams;
-            content.Ingredients = command.Ingredients;
-            content.Allergens = command.Allergens;
+            content.Ingredients = ingredients;
+            content.Allergens = allergens;
             content.HeatingJson = heatingJson;
             content.DescribesSelectionJson = allDefaults;   // re-captures the binding (§6)
             content.RequiresReview = false;
@@ -236,6 +245,12 @@ internal sealed class ProductContentService : IProductContentService
             var existing = await _dbContext.ProductContentVariants
                 .FirstOrDefaultAsync(
                     v => v.TenantId == tenantId && v.ProductId == productId && v.SelectionHash == hash, ct2);
+            if (existing is not null)
+            {
+                // Tracked because the revive path mutates it — so a retry must reload it, or it
+                // replays flags a failed attempt already flipped in memory.
+                await _dbContext.Entry(existing).ReloadAsync(ct2);
+            }
 
             if (existing is not null && !string.Equals(existing.SelectionJson, canonical, StringComparison.Ordinal))
             {
@@ -579,14 +594,20 @@ internal sealed class ProductContentService : IProductContentService
         variant.FibreGrams = command.FibreGrams;
         variant.SugarsGrams = command.SugarsGrams;
         variant.SaltGrams = command.SaltGrams;
-        variant.Ingredients = command.Ingredients;
-        variant.Allergens = command.Allergens;
+        variant.Ingredients = NormalizeDeclaration(command.Ingredients);
+        variant.Allergens = NormalizeDeclaration(command.Allergens);
         variant.HeatingJson = heatingJson;
     }
 
     /// <summary>Strict for authoring: a JSON array of { method, body } with non-empty strings.
     /// Null input stays null — on a VARIANT that means withheld (§4); the default block maps null
     /// to "[]" at its call site.</summary>
+    /// <summary>Declarations are authored or ABSENT: a blank string is absence wearing quotes,
+    /// and storing it would make resolution report DeclarationsWithheld: false over no usable
+    /// allergen information — the storefront would suppress its unpublished warning.</summary>
+    private static string? NormalizeDeclaration(string? text)
+        => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
     private static string? NormalizeHeatingJson(string? heatingJson)
     {
         if (heatingJson is null)

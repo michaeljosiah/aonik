@@ -37,6 +37,11 @@ public class GetProductContentEndpoint : EndpointWithoutRequest<ResolvedContentD
     {
         StorefrontCacheHeaders.Apply(HttpContext);
 
+        // no-store FIRST, before every early exit: shared caches may cache 404s heuristically,
+        // and a pre-authoring request for ?v=1 must not park a 404 under the exact URL the first
+        // upsert will occupy. Only a matching successful response overwrites this below.
+        HttpContext.Response.Headers.CacheControl = "no-store";
+
         var slug = Route<string>("slug") ?? string.Empty;
         var product = await _products.GetProductBySlugAsync(slug, ct);
         if (product is null || product.Status != ProductStatuses.Active)
@@ -70,9 +75,10 @@ public class GetProductContentEndpoint : EndpointWithoutRequest<ResolvedContentD
             }
 
             var v = Query<int?>("v", isRequired: false);
-            HttpContext.Response.Headers.CacheControl = v == resolved.ContentVersion
-                ? "public, max-age=300"
-                : "no-store";
+            if (v == resolved.ContentVersion)
+            {
+                HttpContext.Response.Headers.CacheControl = "public, max-age=300";
+            }
 
             await Send.OkAsync(resolved, ct);
         }

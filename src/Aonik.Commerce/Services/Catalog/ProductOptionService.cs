@@ -73,6 +73,25 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .FirstOrDefaultAsync(g => g.Id == groupId && g.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
 
+        // Spec 067 §6 — group-level edits that change every inheriting product's all-defaults
+        // selection: an activation flip adds/removes the group from it, and a selection-mode
+        // change alters its canonical SHAPE (key vs [key]) for narrowings without an override.
+        // Label/currency/sort edits change no selection and stage nothing.
+        var activationFlips = command.IsActive is { } newActive && newActive != group.IsActive;
+        var modeChanges = command.SelectionMode is not null
+            && !string.Equals(NormalizeSelectionMode(command.SelectionMode), group.SelectionMode, StringComparison.Ordinal);
+        if (activationFlips || modeChanges)
+        {
+            var affected = await _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                .Where(x => activationFlips || x.SelectionModeOverride == null)
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            await _contentReview.StageAsync(affected, cancellationToken);
+        }
+
         group.Label = RequireLabel(command.Label);
         group.HelpText = command.HelpText;
 
@@ -222,6 +241,18 @@ internal sealed partial class ProductOptionService : IProductOptionService
         if (command.IsActive is { } newActive && choice.IsActive != newActive)
         {
             TouchGroups([group]);
+
+            // Spec 067 §6 — a product whose narrowing pins THIS choice as its explicit default
+            // changes standard preparation on either flip: deactivation falls it back to the
+            // group default (V9 allows that when one remains), reactivation restores it.
+            var pinnedProducts = await _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId
+                    && x.DefaultChoiceKey == choice.Key)
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            await _contentReview.StageAsync(pinnedProducts, cancellationToken);
         }
 
         choice.Label = RequireLabel(command.Label);
@@ -491,11 +522,16 @@ internal sealed partial class ProductOptionService : IProductOptionService
         TouchGroups(groups.Where(g => replacements.Any(r => r.OptionGroupId == g.Id)));
 
         // Spec 067 §6 — a narrowing write can shift this product's effective default
-        // combination (allowed set, explicit default, mode override), making its default content
-        // block describe a preparation that may no longer be the standard one. Flag it in the
-        // same SaveChanges; the belt-and-braces DescribesSelectionJson cross-check would catch a
-        // missed case, but flagged-now beats detected-later.
-        await _contentReview.StageAsync([productId], cancellationToken);
+        // combination (offered groups, explicit default, mode override). Flag its content block
+        // in the same SaveChanges — but ONLY when the combination actually changes: an idempotent
+        // save or a sort/allowed-set edit that leaves every effective default intact must not
+        // withhold allergen declarations until an admin performs a pointless review.
+        var signatureBefore = EffectiveDefaultSignature(existing, groups);
+        var signatureAfter = EffectiveDefaultSignature(replacements, groups);
+        if (!string.Equals(signatureBefore, signatureAfter, StringComparison.Ordinal))
+        {
+            await _contentReview.StageAsync([productId], cancellationToken);
+        }
 
         // Serialize against a concurrent FULL REPLACE of the same product. The group rows cannot
         // do this: two replaces with disjoint group sets — or a replace racing an explicit clear —
@@ -625,6 +661,47 @@ internal sealed partial class ProductOptionService : IProductOptionService
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────
+
+    /// <summary>The product's effective default combination as a comparable string: for each
+    /// SERVABLE offered group (same rules as <see cref="GetEffectiveOptionsAsync"/>), its key,
+    /// effective selection mode and resolved default key. Two narrowing states with equal
+    /// signatures canonicalise the same all-defaults selection, so content review is only staged
+    /// when the signatures differ (Spec 067 §6, precise form).</summary>
+    private static string EffectiveDefaultSignature(
+        IEnumerable<ProductOptionGroup> narrowings, IReadOnlyList<OptionGroup> groups)
+    {
+        var parts = new List<string>();
+        foreach (var narrowing in narrowings)
+        {
+            var group = groups.FirstOrDefault(g => g.Id == narrowing.OptionGroupId);
+            if (group is null || !IsServable(group))
+            {
+                continue;
+            }
+
+            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
+            var choices = group.Choices
+                .Where(c => c.IsActive && !c.IsDeleted)
+                .Where(c => allowed is null || allowed.Contains(c.Key))
+                .ToList();
+            if (choices.Count == 0)
+            {
+                continue;
+            }
+
+            var defaultKey = ResolveDefaultKey(narrowing, choices);
+            if (defaultKey is null)
+            {
+                continue;
+            }
+
+            var mode = narrowing.SelectionModeOverride ?? group.SelectionMode;
+            parts.Add($"{group.Key}:{mode}:{defaultKey}");
+        }
+
+        parts.Sort(StringComparer.Ordinal);
+        return string.Join(";", parts);
+    }
 
     /// <summary>A group is servable only when it is active, has at least one active choice, and has
     /// exactly one active recommended default. Half-authored groups simply do not appear.</summary>
