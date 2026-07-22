@@ -28,4 +28,17 @@ public class ProductionOrderLine : AuditableEntity, ITenantScoped
 
     /// <summary>The frozen per-portion component bill (see class remarks). Required — never empty.</summary>
     public string RecipeSnapshotJson { get; set; } = string.Empty;
+
+    /// <summary>Spec 068 §9 — the canonical personalisation this line's portions are prepared with.
+    /// Demand groups by (variant, canonical personalisation): two differently-personalised Jollof
+    /// preparations are two lines, because collapsing them can never be undone afterwards. Null =
+    /// unpersonalised demand (pre-068 rows, simple lines) — distinct from an explicit default.</summary>
+    public string? PersonalisationJson { get; set; }
+
+    /// <summary>Differs-from-default text for kitchen rendering ("Full table · Salmon"); "" = default.</summary>
+    public string? PersonalisationSummary { get; set; }
+
+    /// <summary>Label-snapshotted display entries (Spec 066 §12 Display), frozen at materialisation
+    /// so later label edits never rewrite a kitchen sheet.</summary>
+    public string? PersonalisationDisplayJson { get; set; }
 }

@@ -19,6 +19,13 @@ public class Cart : AuditableEntity, ITenantScoped
     /// <summary>Set at checkout — the ProductPurchase order this cart produced.</summary>
     public Guid? OrderId { get; set; }
 
+    /// <summary>Spec 068 — set when this cart IS a box-building session for that bundle product.
+    /// A cart holds at most one box (068 O3), so the box lives here, not on a child entity.</summary>
+    public Guid? BoxBundleProductId { get; set; }
+
+    /// <summary>Spec 068 — the chosen box size; the capacity ceiling for BoxDish units.</summary>
+    public int? BoxSize { get; set; }
+
     public List<CartItem> Items { get; set; } = new();
 }
 

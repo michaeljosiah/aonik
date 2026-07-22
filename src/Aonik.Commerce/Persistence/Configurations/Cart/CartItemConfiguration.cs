@@ -15,6 +15,19 @@ public class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
         builder.Property(x => x.Sku).HasMaxLength(64);
         builder.Property(x => x.NameSnapshot).HasMaxLength(256);
 
+        // Spec 068 §13 — non-null with a database default so existing rows and generic-cart
+        // writes classify as BoxDish without a backfill (R13 reads null/absent as BoxDish).
+        builder.Property(x => x.LineKind)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasDefaultValue(CartLineKinds.BoxDish);
+
+        // PersonalisationJson stays nvarchar(max): Spec 066 bounds neither group count nor
+        // multi-select width, so a fixed cap could reject a valid canonical selection.
+        builder.Property(x => x.PersonalisationSummary).HasMaxLength(512);
+        builder.Property(x => x.PersonalisationAdjustment).HasPrecision(19, 4);
+        builder.Property(x => x.UnitSurcharge).HasPrecision(19, 4);
+
         builder.HasMany(x => x.Selections)
             .WithOne()
             .HasForeignKey(x => x.CartItemId)
