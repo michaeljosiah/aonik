@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
@@ -135,6 +135,41 @@ public class BoxAddOnTests
         var creep = () => carts.AddExtraLineAsync(box.Box.CartId,
             new AddBoxExtraCommand(f.DishVariants["jollof"], 2), access);
         (await creep.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("R5");
+    }
+
+    [Fact]
+    public async Task Q1_ARetailPriceChange_IsDrift_AndStopsCheckout()
+    {
+        var (h, f, box, extraVariant) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
+        await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 2), access);
+
+        await h.Pricing().SetPriceAsync(new Aonik.Commerce.Contracts.Models.Catalog.SetPriceCommand(
+            extraVariant, "GBP", 4.25m));
+
+        // Checkout must STOP on the changed price (A18) — the customer accepts the new amount.
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
+        drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 0.75m);
+
+        // Resubmission charges the accepted new price.
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        result.Total.Should().Be(95m + 4.25m * 2);
+    }
+
+    [Fact]
+    public async Task Q2_NonMembers_AreNotPurchasableAsExtras()
+    {
+        // A priced, active catalog product outside the extras collection must not ride the route.
+        var (h, _, box, _) = await ArrangeAsync();
+        var (_, outsider) = await h.AddExtraAsync("chef-knife", 25m, inExtrasCollection: false);
+
+        var act = () => h.BoxCarts().AddExtraLineAsync(box.Box.CartId,
+            new AddBoxExtraCommand(outsider, 1), Token(box));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("X1");
     }
 
     [Fact]

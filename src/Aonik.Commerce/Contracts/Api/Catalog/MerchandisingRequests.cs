@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Api.Catalog;
+﻿namespace Aonik.Commerce.Contracts.Api.Catalog;
 
 /// <summary>HTTP request bodies for the Spec 070 merchandising endpoints. Update requests use
 /// nullable value types throughout — an omitted member binds to null and means "leave unchanged",
@@ -73,4 +73,5 @@ public record UpdateStorefrontConfigRequest(
     string? BackToTopTriggerJson = null,
     decimal? DeliveryListAmount = null,
     decimal? DeliveryChargedAmount = null,
-    string? DefaultBoxSlug = null);
+    string? DefaultBoxSlug = null,
+    string? ExtrasCollectionSlug = null);

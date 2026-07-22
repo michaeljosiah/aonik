@@ -183,6 +183,23 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 throw new StorefrontValidationException("X2: this extra is not currently available.");
             }
 
+            // X1 — the merchandising boundary IS the eligibility boundary: only members of the
+            // tenant's active extras collection are purchasable as add-ons (Spec 071 O1).
+            var extrasSlug = (await _settingStore.GetTenantValueAsync(
+                    CommerceSettingNames.StorefrontExtrasCollectionSlug, ctx.TenantId, ct))?.Trim();
+            extrasSlug = string.IsNullOrEmpty(extrasSlug) ? "extras" : extrasSlug;
+            var isMember = await _dbContext.CollectionItems
+                .AsNoTracking()
+                .AnyAsync(i => i.TenantId == ctx.TenantId
+                    && i.ProductId == product.Id
+                    && _dbContext.Collections.Any(c => c.Id == i.CollectionId
+                        && c.TenantId == ctx.TenantId && c.Slug == extrasSlug && c.IsActive), ct);
+            if (!isMember)
+            {
+                throw new StorefrontValidationException(
+                    $"X1: '{product.Name}' is not offered as an extra.");
+            }
+
             // X2 — the retail snapshot is mandatory: an add-on is an ordinary retail purchase.
             var price = await _pricing.ResolvePriceAsync(variant.Id, ctx.Cart.Currency, null, ct)
                 ?? throw new StorefrontValidationException(
@@ -615,6 +632,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 continue;
             }
             var price = await _pricing.ResolvePriceAsync(line.ProductVariantId, context.Cart.Currency, null, ct);
+            // Q1 — a changed retail price is a customer-visible drift: report it BEFORE the
+            // snapshot moves, so checkout's A18 stop makes the customer accept the new amount.
+            if (price is { } newPrice && newPrice != line.UnitPriceSnapshot)
+            {
+                context.Changes.Add(new BoxChangeDto(
+                    line.Id, null, null, null, BoxChangeReasons.PriceChanged,
+                    newPrice - line.UnitPriceSnapshot));
+            }
             line.UnitPriceSnapshot = price ?? 0m;
             context.PricedAddOns[line.Id] = price;
 

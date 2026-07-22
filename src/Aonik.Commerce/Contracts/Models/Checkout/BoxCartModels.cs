@@ -86,6 +86,10 @@ public static class BoxChangeReasons
 
     /// <summary>A remapped selection now equals another line's; the quantities merged.</summary>
     public const string LineMerged = "line-merged";
+
+    /// <summary>Spec 071 — an add-on's retail price changed since it was added; the customer
+    /// must explicitly accept the new amount before checkout (the A18 stop).</summary>
+    public const string PriceChanged = "price-changed";
 }
 
 /// <summary>Every read and write returns the whole box + the authoritative quote, so concurrent

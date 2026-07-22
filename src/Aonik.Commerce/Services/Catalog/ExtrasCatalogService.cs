@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
@@ -27,6 +27,8 @@ public record ExtraRowDto(
     string? Description,
     string? ImageUrl,
     IReadOnlyList<string> Tags,
+    /// Raw attributes JSON, exactly as the 070 summary shape exposes it (badges, serve style...).
+    string? AttributesJson,
     /// The retail unit price in the tenant currency — add-ons are ordinary retail (Spec 071 §1).
     decimal UnitPrice,
     string Currency,
@@ -78,7 +80,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
 
         var collection = await _dbContext.Collections
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Slug == slug, cancellationToken);
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Slug == slug && c.IsActive, cancellationToken);
         if (collection is null)
         {
             return new ExtrasListDto([], 0);   // unconfigured is a state — empty, never a guess
@@ -107,7 +109,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
             .ToDictionaryAsync(v => v.ProductId, cancellationToken);
         var heroImages = await _dbContext.ProductMedia
             .AsNoTracking()
-            .Where(m => m.TenantId == tenantId && memberships.Contains(m.ProductId))
+            .Where(m => m.TenantId == tenantId && memberships.Contains(m.ProductId) && m.Kind == "image")
             .GroupBy(m => m.ProductId)
             .Select(g => g.OrderBy(m => m.SortOrder).First())
             .ToDictionaryAsync(m => m.ProductId, m => m.Url, cancellationToken);
@@ -138,6 +140,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
                 product.Description,
                 heroImages.GetValueOrDefault(product.Id),
                 ParseTags(product.TagsJson),
+                product.AttributesJson,
                 price.Value,
                 currency,
                 await _content.ResolveAsync(product.Id, null, cancellationToken),

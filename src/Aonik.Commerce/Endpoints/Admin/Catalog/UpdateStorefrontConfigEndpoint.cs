@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Catalog;
+﻿using Aonik.Commerce.Contracts.Api.Catalog;
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Services.Catalog;
 
@@ -31,7 +31,8 @@ public class UpdateStorefrontConfigEndpoint : Endpoint<UpdateStorefrontConfigReq
                 req.BackToTopTriggerJson,
                 req.DeliveryListAmount,
                 req.DeliveryChargedAmount,
-                req.DefaultBoxSlug),
+                req.DefaultBoxSlug,
+                req.ExtrasCollectionSlug),
             ct);
         await Send.OkAsync(result, ct);
     }

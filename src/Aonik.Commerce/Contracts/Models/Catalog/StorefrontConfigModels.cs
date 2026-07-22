@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Aonik.Commerce.Contracts.Models.Catalog;
 
@@ -17,6 +17,8 @@ public record StorefrontConfigDto(
     JsonElement BackToTopTrigger,
     StorefrontDeliveryDto Delivery,
     string? DefaultBoxSlug,
+    /// Spec 071 — the collection whose members are the add-on extras rail.
+    string? ExtrasCollectionSlug,
     /// The default box bundle's embedded Spec 068 size plan. Null when unset — or until 068 is
     /// live; the two states are indistinguishable by design, and the frontend treats both as
     /// "no box plan to render".
@@ -46,4 +48,5 @@ public record UpdateStorefrontConfigCommand(
     string? BackToTopTriggerJson = null,
     decimal? DeliveryListAmount = null,
     decimal? DeliveryChargedAmount = null,
-    string? DefaultBoxSlug = null);
+    string? DefaultBoxSlug = null,
+    string? ExtrasCollectionSlug = null);
