@@ -48,10 +48,13 @@ public record CreateCollectionCommand(
     int SortOrder = 0);
 
 /// <summary>Null-valued members preserve the stored value — omission must never be able to
-/// deactivate a collection or reorder the homepage as a side effect of a rename.</summary>
+/// deactivate a collection, reorder the homepage, or erase a subtitle as a side effect of a
+/// rename. <c>ClearSubtitle</c> exists because a nullable string alone cannot distinguish
+/// "unchanged" from "remove it".</summary>
 public record UpdateCollectionCommand(
     string Title,
     string? Subtitle = null,
+    bool ClearSubtitle = false,
     string? Kind = null,
     int? SortOrder = null,
     bool? IsActive = null);

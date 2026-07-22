@@ -36,6 +36,10 @@ public interface IProductService
     /// delete. Re-parenting is cycle-checked; omitted members are unchanged.</summary>
     Task<ProductCategoryDto> UpdateCategoryAsync(Guid categoryId, UpdateCategoryCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>Spec 070 A17 — every category including retired ones, flat. The back office needs
+    /// this to rediscover a deactivated category's id; the public tree deliberately cannot.</summary>
+    Task<IReadOnlyList<ProductCategoryDto>> ListCategoriesAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Defines a selection slot on a bundle product (build-your-own-box, §12).</summary>
     Task<BundleSlotDto> AddBundleSlotAsync(AddBundleSlotCommand command, CancellationToken cancellationToken = default);
 }

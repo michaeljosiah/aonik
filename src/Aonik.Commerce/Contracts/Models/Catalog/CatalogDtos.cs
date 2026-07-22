@@ -36,7 +36,9 @@ public record BundleSlotDto(
     int SortOrder,
     IReadOnlyList<BundleSlotOptionDto> Options);
 
-public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder);
+/// <summary>Carries <see cref="IsActive"/> so the back office can see — and therefore reactivate —
+/// a retired category (Spec 070 A17); the public surface uses the active-only tree instead.</summary>
+public record ProductCategoryDto(Guid Id, string Slug, string Name, Guid? ParentCategoryId, int SortOrder, bool IsActive);
 
 /// <summary>Full product detail, including variants, media, (for bundles) selection slots, the
 /// Spec 057 target gross-margin percentage (null = no target set), and the Spec 066 personalisation

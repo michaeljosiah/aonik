@@ -87,7 +87,12 @@ internal static class StorefrontJson
         return element?.ValueKind switch
         {
             JsonValueKind.String => element.Value.GetString(),
-            JsonValueKind.Number => element.Value.GetDecimal().ToString(CultureInfo.InvariantCulture),
+            // TryGetDecimal, never GetDecimal: a value like 1e100 is valid JSON but unrepresentable
+            // as decimal, and a throw here would 500 an anonymous browse. Raw text is still an
+            // honest string form for comparison.
+            JsonValueKind.Number => element.Value.TryGetDecimal(out var number)
+                ? number.ToString(CultureInfo.InvariantCulture)
+                : element.Value.GetRawText(),
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
             _ => null,
@@ -102,7 +107,10 @@ internal static class StorefrontJson
         var element = Traverse(root, path);
         return element?.ValueKind switch
         {
-            JsonValueKind.Number => element.Value.GetDecimal(),
+            // TryGetDecimal, never GetDecimal: 1e100 is valid JSON that decimal cannot represent,
+            // and the defensive-read guarantee (§11) means it matches no band rather than 500ing
+            // the browse — the same treatment unparseable numeric STRINGS already got.
+            JsonValueKind.Number when element.Value.TryGetDecimal(out var number) => number,
             JsonValueKind.String when decimal.TryParse(
                 element.Value.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) => parsed,
             _ => null,

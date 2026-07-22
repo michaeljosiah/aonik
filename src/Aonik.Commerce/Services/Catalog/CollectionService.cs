@@ -145,10 +145,19 @@ internal sealed partial class CollectionService : ICollectionService
             ?? throw new NotFoundException($"Collection '{collectionId}' was not found.");
 
         collection.Title = RequireTitle(command.Title);
-        collection.Subtitle = command.Subtitle;
 
         // Omitted means unchanged: a rename must never be able to deactivate a collection,
-        // reorder the homepage, or re-kind a rail as a side effect.
+        // reorder the homepage, re-kind a rail, or erase a subtitle as a side effect. Clearing
+        // the subtitle is said explicitly — a nullable string cannot carry both meanings.
+        if (command.ClearSubtitle)
+        {
+            collection.Subtitle = null;
+        }
+        else if (command.Subtitle is not null)
+        {
+            collection.Subtitle = command.Subtitle;
+        }
+
         if (command.Kind is not null)
         {
             collection.Kind = NormalizeKind(command.Kind);
@@ -193,6 +202,14 @@ internal sealed partial class CollectionService : ICollectionService
                 $"Rank(s) {string.Join(", ", duplicateRanks)} appear more than once; ranks must be unique so curated order is deterministic.");
         }
 
+        // Ranks are ordinal positions and must be non-negative — which also reserves the negative
+        // space for the index-safe reorder below: phase 1 parks surviving rows on negative ranks
+        // no request can ever collide with.
+        if (lines.Any(l => l.Rank < 0))
+        {
+            throw new StorefrontValidationException("Ranks must be non-negative.");
+        }
+
         // Members must exist in the tenant — any status: Active is enforced at read time, not
         // membership time, so a draft product can be staged before launch (A9).
         var productIds = lines.Select(l => l.ProductId).ToList();
@@ -207,50 +224,103 @@ internal sealed partial class CollectionService : ICollectionService
                 $"Product(s) {string.Join(", ", missing)} do not exist in this tenant.");
         }
 
-        // Full replace over EVERY row including soft-deleted ones: the unique indexes filter
-        // IsDeleted, and a previously removed member must be revived rather than re-inserted —
-        // an insert would collide with the soft-deleted row's (collection, product) key.
-        // IncludeSoftDeleted keeps tenant scoping intact; only the soft-delete filter lifts.
-        var existing = await _dbContext.CollectionItems
-            .IncludeSoftDeleted()
-            .Where(i => i.TenantId == tenantId && i.CollectionId == collectionId)
-            .ToListAsync(cancellationToken);
-
-        var byProduct = existing.ToDictionary(i => i.ProductId);
-
-        foreach (var line in lines)
-        {
-            if (byProduct.TryGetValue(line.ProductId, out var row))
-            {
-                row.Rank = line.Rank;
-                row.IsDeleted = false;
-                row.DeletedAt = null;
-            }
-            else
-            {
-                _dbContext.CollectionItems.Add(new CollectionItem
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenantId,
-                    CollectionId = collectionId,
-                    ProductId = line.ProductId,
-                    Rank = line.Rank,
-                });
-            }
-        }
-
+        // The replacement runs in two index-safe phases inside one transaction, because the
+        // filtered unique index on (TenantId, CollectionId, Rank) is evaluated PER STATEMENT: a
+        // routine swap (A:1,B:2 → A:2,B:1) would otherwise violate it mid-flight when the first
+        // UPDATE lands on a rank its neighbour has not yet vacated — the same per-statement
+        // reality the recommended-default demote-before-promote handles. Phase 1 parks every
+        // surviving row on a negative rank (unreachable by requests, which are validated
+        // non-negative) and soft-deletes removals, emptying the live rank space; phase 2 assigns
+        // final ranks, revives re-added members, and inserts new ones into a vacated index.
+        //
+        // It runs through the execution strategy (EnableRetryOnFailure rejects bare user
+        // transactions), and reloads its working set INSIDE each attempt: a replayed delegate
+        // must re-stage from what the database actually holds, not from flags and ranks a failed
+        // attempt already mutated in memory.
         var requested = productIds.ToHashSet();
-        foreach (var row in existing.Where(i => !i.IsDeleted && !requested.Contains(i.ProductId)))
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(async ct =>
         {
-            _dbContext.CollectionItems.Remove(row);
-        }
+            await _dbContext.Entry(collection).ReloadAsync(ct);
 
-        // Serialize concurrent full-replaces on the collection row: two replaces with disjoint
-        // member sets share no item row, so without this both would commit and the memberships
-        // would merge into a union that is neither caller's "full" replacement.
-        _dbContext.Entry(collection).State = EntityState.Modified;
+            // A replayed attempt must not re-stage inserts a failed attempt left tracked as
+            // Added — they would double-insert against the membership unique index.
+            foreach (var entry in _dbContext.ChangeTracker.Entries<CollectionItem>()
+                .Where(e => e.State == EntityState.Added && e.Entity.CollectionId == collectionId)
+                .ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            // Full replace over EVERY row including soft-deleted ones: a previously removed
+            // member must be revived rather than re-inserted — an insert would collide with the
+            // soft-deleted row's (collection, product) key. IncludeSoftDeleted keeps tenant
+            // scoping intact; only the soft-delete filter lifts.
+            var existing = await _dbContext.CollectionItems
+                .IncludeSoftDeleted()
+                .Where(i => i.TenantId == tenantId && i.CollectionId == collectionId)
+                .ToListAsync(ct);
+
+            foreach (var row in existing)
+            {
+                await _dbContext.Entry(row).ReloadAsync(ct);
+            }
+
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(ct)
+                : null;
+
+            // Serialize concurrent full-replaces on the collection row: two replaces with
+            // disjoint member sets share no item row, so without this both would commit and the
+            // memberships would merge into a union that is neither caller's "full" replacement.
+            _dbContext.Entry(collection).State = EntityState.Modified;
+
+            var byProduct = existing.ToDictionary(i => i.ProductId);
+
+            // Phase 1 — vacate the live rank space.
+            var temp = -1;
+            foreach (var row in existing.Where(i => !i.IsDeleted))
+            {
+                if (requested.Contains(row.ProductId))
+                {
+                    row.Rank = temp--;
+                }
+                else
+                {
+                    _dbContext.CollectionItems.Remove(row);
+                }
+            }
+            await _dbContext.SaveChangesAsync(ct);
+
+            // Phase 2 — final ranks into an emptied index.
+            foreach (var line in lines)
+            {
+                if (byProduct.TryGetValue(line.ProductId, out var row))
+                {
+                    row.Rank = line.Rank;
+                    row.IsDeleted = false;
+                    row.DeletedAt = null;
+                }
+                else
+                {
+                    _dbContext.CollectionItems.Add(new CollectionItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        CollectionId = collectionId,
+                        ProductId = line.ProductId,
+                        Rank = line.Rank,
+                    });
+                }
+            }
+            await _dbContext.SaveChangesAsync(ct);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(ct);
+            }
+        }, cancellationToken);
 
         return await MapAdminAsync(tenantId, collection, cancellationToken);
     }

@@ -85,6 +85,44 @@ public class MerchandisingBrowseTests
     }
 
     [Fact]
+    public async Task ListProducts_Should_NotMatchAnActiveChild_UnderADeactivatedAncestor()
+    {
+        // A17's sharper edge: rice-mains itself stays IsActive, but its PARENT mains is retired.
+        // The public tree hides the child (unreachable), so a stale deep link submitting the
+        // child's own token must not expose the hidden subtree's products through the facet.
+        var (browse, builder, _) = await ArrangeAsync();
+        var facets = builder.Facets;
+        var category = (await facets.ListAdminAsync()).Single(g => g.Key == "category");
+        await facets.UpdateAsync(category.Id, new UpdateFacetGroupCommand(
+            "Category",
+            OptionsJson: """[{"value":"mains","label":"Mains"},{"value":"rice-mains","label":"Rice dishes"},{"value":"soups","label":"Soups"}]"""));
+
+        await builder.Products.UpdateCategoryAsync(builder.MainsId, new UpdateCategoryCommand("Mains", IsActive: false));
+
+        var viaChildToken = await browse(new Dictionary<string, IReadOnlyList<string>> { ["category"] = ["rice-mains"] }, null, null);
+
+        viaChildToken.Items.Should().BeEmpty("an active child under an inactive ancestor is hidden from the public tree, and the facet must agree");
+    }
+
+    [Fact]
+    public async Task ListProducts_Should_NotThrow_When_AnAttributeNumberOverflowsDecimal()
+    {
+        // 1e100 is valid JSON that decimal cannot represent. The defensive-read guarantee means
+        // it matches no band and compares as raw text — never a 500 on an anonymous browse.
+        var (browse, builder, ctx) = await ArrangeWithContextAsync();
+        var ids = await builder.ProductIdsBySlugAsync();
+        var yam = await ctx.Products.FindAsync(ids["pounded-yam"]);
+        yam!.AttributesJson = """{"nutrition":{"kcal":1e100},"spice":1e100}""";
+        await ctx.SaveChangesAsync();
+
+        var byRange = await browse(new Dictionary<string, IReadOnlyList<string>> { ["calories"] = ["under-500", "500-800"] }, null, null);
+        var bySpice = await browse(new Dictionary<string, IReadOnlyList<string>> { ["spice"] = ["hot"] }, null, null);
+
+        byRange.Items.Select(p => p.Slug).Should().NotContain("pounded-yam");
+        bySpice.Items.Select(p => p.Slug).Should().NotContain("pounded-yam");
+    }
+
+    [Fact]
     public async Task ListProducts_Should_Reject_UnknownFacetKeysAndValues()
     {
         // §6 — a storefront bug should be loud: unknown keys/values are 400s, never ignored.

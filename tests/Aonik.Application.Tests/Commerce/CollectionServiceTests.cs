@@ -34,6 +34,41 @@ public class CollectionServiceTests
     }
 
     [Fact]
+    public async Task ReplaceItems_Should_SwapRanks_AndRejectNegativeOnes()
+    {
+        // The swap is the P1 shape: A:1,B:2 → A:2,B:1. InMemory proves the semantics; the
+        // per-statement index safety is proven on LocalDB (two-phase negative-temp staging), and
+        // negative request ranks are rejected because phase 1 owns the negative space.
+        var (builder, _) = await ArrangeAsync();
+        var ids = await builder.ProductIdsBySlugAsync();
+        var collectionId = await builder.WithCollectionAsync("featured", ("jollof", 1), ("egusi", 2));
+
+        var swapped = await builder.Collections.ReplaceItemsAsync(collectionId, new ReplaceCollectionItemsCommand(
+            [new CollectionItemLine(ids["jollof"], 2), new CollectionItemLine(ids["egusi"], 1)]));
+        swapped.Items.OrderBy(i => i.Rank).Select(i => i.Slug).Should().ContainInOrder("egusi", "jollof");
+
+        var negative = () => builder.Collections.ReplaceItemsAsync(collectionId, new ReplaceCollectionItemsCommand(
+            [new CollectionItemLine(ids["jollof"], -1)]));
+        await negative.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Fact]
+    public async Task Update_Should_PreserveTheSubtitle_UnlessExplicitlyCleared()
+    {
+        // A nullable string cannot carry both "unchanged" and "remove"; omission preserves,
+        // ClearSubtitle removes — the same tri-state rule as ClearParent and ClearCategory.
+        var (builder, _) = await ArrangeAsync();
+        var created = await builder.Collections.CreateAsync(new CreateCollectionCommand(
+            "featured", "Featured", Subtitle: "Chef's picks"));
+
+        var renamed = await builder.Collections.UpdateAsync(created.Id, new UpdateCollectionCommand("Renamed"));
+        renamed.Subtitle.Should().Be("Chef's picks", "an omitted subtitle must not erase the stored one");
+
+        var cleared = await builder.Collections.UpdateAsync(created.Id, new UpdateCollectionCommand("Renamed", ClearSubtitle: true));
+        cleared.Subtitle.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ReplaceItems_Should_Reject_DuplicateRanksAndDuplicateProducts()
     {
         // A12 — ties would make curated order nondeterministic.

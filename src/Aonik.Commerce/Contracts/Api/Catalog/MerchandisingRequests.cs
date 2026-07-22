@@ -13,6 +13,7 @@ public record CreateCollectionRequest(
 public record UpdateCollectionRequest(
     string Title,
     string? Subtitle = null,
+    bool ClearSubtitle = false,
     string? Kind = null,
     int? SortOrder = null,
     bool? IsActive = null);

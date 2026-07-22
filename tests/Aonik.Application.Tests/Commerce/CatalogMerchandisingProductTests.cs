@@ -55,6 +55,25 @@ public class CatalogMerchandisingProductTests
     }
 
     [Fact]
+    public async Task UpdateProduct_Should_RejectBlankJsonStrings_OnTheStrictWritePath()
+    {
+        // Reads treat blank as empty for LEGACY rows; a write submitting whitespace is a client
+        // bug that would silently erase stored tags/keywords if accepted.
+        var (builder, _) = await ArrangeAsync();
+        var ids = await builder.ProductIdsBySlugAsync();
+        var id = ids["jollof"];
+
+        var blankTags = () => builder.Products.UpdateProductAsync(id, new UpdateProductCommand(TagsJson: "   "));
+        var blankAttributes = () => builder.Products.UpdateProductAsync(id, new UpdateProductCommand(AttributesJson: ""));
+
+        await blankTags.Should().ThrowAsync<StorefrontValidationException>();
+        await blankAttributes.Should().ThrowAsync<StorefrontValidationException>();
+
+        // The stored values survived the rejected writes.
+        (await builder.Products.GetAdminProductAsync(id))!.TagsJson.Should().Contain("vegan");
+    }
+
+    [Fact]
     public async Task CreateProduct_Should_RejectMalformedJson_Too()
     {
         // §11 extends the hygiene to the create path, which stored arbitrary strings until now.
@@ -133,9 +152,14 @@ public class CatalogMerchandisingProductTests
             [new ProductMediaLine("  ")]));
         var badKind = () => builder.Products.ReplaceProductMediaAsync(ids["jollof"], new ReplaceProductMediaCommand(
             [new ProductMediaLine("https://cdn.example/x.mp4", "video")]));
+        // 1024 is the mapped column bound — a wider service limit would pass validation and then
+        // fail SaveChanges as a 500 on SQL Server.
+        var tooLong = () => builder.Products.ReplaceProductMediaAsync(ids["jollof"], new ReplaceProductMediaCommand(
+            [new ProductMediaLine($"https://cdn.example/{new string('x', 1500)}.jpg")]));
 
         await blankUrl.Should().ThrowAsync<StorefrontValidationException>();
         await badKind.Should().ThrowAsync<StorefrontValidationException>();
+        await tooLong.Should().ThrowAsync<StorefrontValidationException>();
     }
 
     // ─── Categories ──────────────────────────────────────────────────────────

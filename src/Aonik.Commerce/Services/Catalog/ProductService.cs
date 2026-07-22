@@ -321,7 +321,10 @@ internal sealed partial class ProductService : IProductService
 
     /// <summary>Category matching walks the ACTIVE tree only: selecting "Mains" matches products
     /// in Mains and any active descendant. A deactivated category — or one under a deactivated
-    /// ancestor — drops out of the closure, so its products stop matching (A17).</summary>
+    /// ancestor — drops out of the closure, so its products stop matching (A17). The seed set is
+    /// restricted to nodes REACHABLE from active roots: an active child under an inactive parent
+    /// is hidden from the public tree, and a stale deep link naming its slug must not expose the
+    /// hidden subtree's products through the facet either.</summary>
     private async Task<Func<BrowseRow, bool>> BuildCategoryPredicateAsync(
         Guid tenantId, List<string> selectedSlugs, CancellationToken cancellationToken)
     {
@@ -335,9 +338,26 @@ internal sealed partial class ProductService : IProductService
             .Where(c => c.ParentCategoryId is not null)
             .ToLookup(c => c.ParentCategoryId!.Value, c => c.Id);
 
+        // Reachability = the same walk the public tree renders: roots (no parent, active) down
+        // through active children. A node under an inactive parent is never reached.
+        var reachable = new HashSet<Guid>();
+        var walk = new Queue<Guid>(categories.Where(c => c.ParentCategoryId is null).Select(c => c.Id));
+        while (walk.Count > 0)
+        {
+            var id = walk.Dequeue();
+            if (!reachable.Add(id))
+            {
+                continue;
+            }
+            foreach (var child in childrenByParent[id])
+            {
+                walk.Enqueue(child);
+            }
+        }
+
         var closure = new HashSet<Guid>();
         var frontier = new Queue<Guid>(categories
-            .Where(c => selectedSlugs.Contains(c.Slug, StringComparer.OrdinalIgnoreCase))
+            .Where(c => reachable.Contains(c.Id) && selectedSlugs.Contains(c.Slug, StringComparer.OrdinalIgnoreCase))
             .Select(c => c.Id));
 
         while (frontier.Count > 0)
@@ -483,9 +503,11 @@ internal sealed partial class ProductService : IProductService
 
         foreach (var line in lines)
         {
-            if (string.IsNullOrWhiteSpace(line.Url) || line.Url.Length > 2048)
+            // 1024 matches ProductMediaConfiguration's mapped column exactly — a wider service
+            // bound would pass validation and then fail SaveChanges as a 500 on SQL Server.
+            if (string.IsNullOrWhiteSpace(line.Url) || line.Url.Length > 1024)
             {
-                throw new StorefrontValidationException("Every media item requires a URL of at most 2048 characters.");
+                throw new StorefrontValidationException("Every media item requires a URL of at most 1024 characters.");
             }
             if (line.Kind is not (null or "image" or "doc"))
             {
@@ -521,9 +543,16 @@ internal sealed partial class ProductService : IProductService
     }
 
     /// <summary>Strict JSON hygiene for writes (§11): a JSON array of strings, returned in its
-    /// canonical serialized form so equivalent submissions store identically.</summary>
+    /// canonical serialized form so equivalent submissions store identically. Blank input is a
+    /// 400 HERE even though reads treat it as empty — the parser's leniency exists for legacy
+    /// rows, and letting whitespace through a write would silently erase stored values.</summary>
     private static string ValidateStringArrayJson(string json, string field)
     {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new StorefrontValidationException($"{field} must be a JSON array of strings; send [] to clear.");
+        }
+
         var values = StorefrontJson.ParseStringArray(json, out var malformed);
         if (malformed)
         {
@@ -534,6 +563,11 @@ internal sealed partial class ProductService : IProductService
 
     private static string ValidateObjectJson(string json, string field)
     {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new StorefrontValidationException($"{field} must be a JSON object; send {{}} to clear.");
+        }
+
         var element = StorefrontJson.ParseObject(json, out var malformed);
         if (malformed || element is null)
         {
@@ -584,7 +618,21 @@ internal sealed partial class ProductService : IProductService
         _dbContext.ProductCategories.Add(category);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new ProductCategoryDto(category.Id, category.Slug, category.Name, category.ParentCategoryId, category.SortOrder);
+        return new ProductCategoryDto(category.Id, category.Slug, category.Name, category.ParentCategoryId, category.SortOrder, category.IsActive);
+    }
+
+    public async Task<IReadOnlyList<ProductCategoryDto>> ListCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var categories = await _dbContext.ProductCategories
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId)
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Name)
+            .ToListAsync(cancellationToken);
+
+        return categories
+            .Select(c => new ProductCategoryDto(c.Id, c.Slug, c.Name, c.ParentCategoryId, c.SortOrder, c.IsActive))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<CategoryTreeNodeDto>> GetCategoryTreeAsync(CancellationToken cancellationToken = default)
@@ -676,7 +724,7 @@ internal sealed partial class ProductService : IProductService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new ProductCategoryDto(category.Id, category.Slug, category.Name, category.ParentCategoryId, category.SortOrder);
+        return new ProductCategoryDto(category.Id, category.Slug, category.Name, category.ParentCategoryId, category.SortOrder, category.IsActive);
     }
 
     public async Task<BundleSlotDto> AddBundleSlotAsync(AddBundleSlotCommand command, CancellationToken cancellationToken = default)

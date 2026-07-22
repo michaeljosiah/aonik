@@ -212,6 +212,14 @@ public class CommerceMerchandisingEndpointTests : IClassFixture<CustomWebApplica
         update.StatusCode.Should().Be(HttpStatusCode.OK);
 
         (await AnonymousClient(tenantId).GetStringAsync("/commerce/catalog/categories")).Should().NotContain("mains");
+
+        // The retire/reactivate loop must close: the ADMIN read still lists the retired category
+        // with its id and lifecycle state — without it the back office could never find the id
+        // to reactivate (A17).
+        var adminList = await admin.GetFromJsonAsync<List<AdminCategoryResponse>>("/commerce/admin/categories");
+        var retired = adminList.Should().ContainSingle(c => c.Slug == "mains").Which;
+        retired.IsActive.Should().BeFalse();
+        retired.Id.Should().Be(categoryId);
     }
 
     [Fact]
@@ -357,6 +365,8 @@ public class CommerceMerchandisingEndpointTests : IClassFixture<CustomWebApplica
     private sealed record DeliveryResponse(decimal ListAmount, decimal ChargedAmount);
 
     private sealed record AdminCollectionResponse(Guid Id, string Slug);
+
+    private sealed record AdminCategoryResponse(Guid Id, string Slug, string Name, bool IsActive);
 
     private sealed record PublicCollectionResponse(string Slug, string Title, List<MemberResponse> Products);
 

@@ -23,7 +23,7 @@ public class UpdateCollectionEndpoint : Endpoint<UpdateCollectionRequest, AdminC
     {
         var result = await _collections.UpdateAsync(
             Route<Guid>("collectionId"),
-            new UpdateCollectionCommand(req.Title, req.Subtitle, req.Kind, req.SortOrder, req.IsActive),
+            new UpdateCollectionCommand(req.Title, req.Subtitle, req.ClearSubtitle, req.Kind, req.SortOrder, req.IsActive),
             ct);
         await Send.OkAsync(result, ct);
     }
