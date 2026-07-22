@@ -17,15 +17,18 @@ internal sealed partial class ProductOptionService : IProductOptionService
 {
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IProductContentReviewFlagger _contentReview;
     private readonly ILogger<ProductOptionService> _logger;
 
     public ProductOptionService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
+        IProductContentReviewFlagger contentReview,
         ILogger<ProductOptionService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _contentReview = contentReview;
         _logger = logger;
     }
 
@@ -318,7 +321,14 @@ internal sealed partial class ProductOptionService : IProductOptionService
             // narrowed to products that actually inherit it — a product pinned to a still-valid
             // explicit default keeps exactly the preparation it had, so reporting it as changed
             // would send Spec 067 content review chasing products nothing happened to.
-            var affectedProducts = await ProductsInheritingGroupDefaultAsync(tenantId, group, ct);
+            var inheritingIds = await InheritingProductIdsAsync(tenantId, group, ct);
+            var affectedProducts = await SlugsForAsync(tenantId, inheritingIds, ct);
+
+            // Spec 067 §6 — the products whose STANDARD PREPARATION this move changes get their
+            // default content block flagged for review, in the SAME transaction as the move: the
+            // flag changes what resolution returns, so its ContentVersion bump must invalidate
+            // cached content atomically with the default change (067 A18).
+            await _contentReview.StageAsync(inheritingIds, ct);
 
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
@@ -479,6 +489,13 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // Touching the shared group rows makes the two writes contend on the group's concurrency
         // token, so the loser fails with a concurrency conflict instead of silently disagreeing.
         TouchGroups(groups.Where(g => replacements.Any(r => r.OptionGroupId == g.Id)));
+
+        // Spec 067 §6 — a narrowing write can shift this product's effective default
+        // combination (allowed set, explicit default, mode override), making its default content
+        // block describe a preparation that may no longer be the standard one. Flag it in the
+        // same SaveChanges; the belt-and-braces DescribesSelectionJson cross-check would catch a
+        // missed case, but flagged-now beats detected-later.
+        await _contentReview.StageAsync([productId], cancellationToken);
 
         // Serialize against a concurrent FULL REPLACE of the same product. The group rows cannot
         // do this: two replaces with disjoint group sets — or a replace racing an explicit clear —
@@ -752,7 +769,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
     /// recommended default — returned by a default move so dependent capabilities (Spec 067 content
     /// review) know what genuinely changed. Products pinned to a still-resolvable default of their
     /// own keep the preparation they had and are deliberately excluded.</summary>
-    private async Task<IReadOnlyList<string>> ProductsInheritingGroupDefaultAsync(
+    private async Task<List<Guid>> InheritingProductIdsAsync(
         Guid tenantId, OptionGroup group, CancellationToken cancellationToken)
     {
         var narrowings = await _dbContext.ProductOptionGroups
@@ -762,13 +779,11 @@ internal sealed partial class ProductOptionService : IProductOptionService
 
         var activeKeys = ActiveChoiceKeys(group);
 
-        var inheriting = narrowings
+        return narrowings
             .Where(n => !OverrideResolves(n, activeKeys))
             .Select(n => n.ProductId)
             .Distinct()
             .ToList();
-
-        return await SlugsForAsync(tenantId, inheriting, cancellationToken);
     }
 
     private async Task<List<string>> SlugsForAsync(Guid tenantId, List<Guid> productIds, CancellationToken cancellationToken)

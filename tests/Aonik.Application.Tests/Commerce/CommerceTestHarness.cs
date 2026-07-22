@@ -1,4 +1,4 @@
-using Aonik.Commerce.Persistence;
+﻿using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
@@ -29,7 +29,11 @@ internal static class CommerceTestHarness
 
     /// <summary>Spec 066 — the option catalogue/resolution service the catalog reads depend on.</summary>
     public static ProductOptionService NewOptionService(CommerceDbContext ctx, Guid tenantId)
-        => new(ctx, new TestTenantProvider(tenantId), NullLogger<ProductOptionService>.Instance);
+        => new(ctx, new TestTenantProvider(tenantId), new ProductContentReviewFlagger(ctx), NullLogger<ProductOptionService>.Instance);
+
+    /// <summary>Spec 067 — content authoring + exact-selection resolution.</summary>
+    public static ProductContentService NewContentService(CommerceDbContext ctx, Guid tenantId)
+        => new(ctx, new TestTenantProvider(tenantId), NewSelectionService(ctx, tenantId), NewOptionService(ctx, tenantId));
 
     /// <summary>Spec 066 — selection validation, canonicalisation and difference pricing.</summary>
     public static OptionSelectionService NewSelectionService(CommerceDbContext ctx, Guid tenantId)

@@ -92,7 +92,7 @@ public class MarginReportServiceTests
         {
             // ProductService and its Spec 066 option dependency must share one context.
             var ctx = Commerce();
-            return new(ctx, _tenant, new ProductOptionService(ctx, _tenant, NullLogger<ProductOptionService>.Instance), NullLogger<ProductService>.Instance);
+            return new(ctx, _tenant, new ProductOptionService(ctx, _tenant, new ProductContentReviewFlagger(ctx), NullLogger<ProductOptionService>.Instance), NullLogger<ProductService>.Instance);
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, Clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, Clock);

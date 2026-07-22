@@ -62,6 +62,11 @@ public sealed class CommerceModule : IModule
         services.AddScoped<ICollectionService, CollectionService>();
         services.AddScoped<IFacetGroupService, FacetGroupService>();
         services.AddScoped<IStorefrontConfigService, StorefrontConfigService>();
+
+        // Spec 067 - option-dependent product content: authored default block + per-combination
+        // variants, exact-selection resolution, and the default-change review reaction.
+        services.AddScoped<IProductContentService, ProductContentService>();
+        services.AddScoped<IProductContentReviewFlagger, ProductContentReviewFlagger>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICheckoutService, CheckoutService>();

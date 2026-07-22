@@ -1,4 +1,4 @@
-using Aonik.SharedKernel.Abstractions.Multitenancy;
+﻿using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
@@ -125,6 +125,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<Collection> Collections { get; set; } = null!;
     public virtual DbSet<CollectionItem> CollectionItems { get; set; } = null!;
     public virtual DbSet<FacetGroup> FacetGroups { get; set; } = null!;
+
+    // Commerce (Spec 067) — option-dependent product content.
+    public virtual DbSet<ProductContent> ProductContents { get; set; } = null!;
+    public virtual DbSet<ProductContentVariant> ProductContentVariants { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -420,6 +424,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<Collection>(modelBuilder, "Collections");
         MapCommerceTable<CollectionItem>(modelBuilder, "CollectionItems");
         MapCommerceTable<FacetGroup>(modelBuilder, "FacetGroups");
+
+        // Commerce (Spec 067)
+        MapCommerceTable<ProductContent>(modelBuilder, "ProductContents");
+        MapCommerceTable<ProductContentVariant>(modelBuilder, "ProductContentVariants");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");

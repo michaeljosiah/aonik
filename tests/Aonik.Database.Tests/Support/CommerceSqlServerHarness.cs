@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
@@ -22,7 +22,7 @@ internal static class CommerceSqlServerHarness
         => new(db.CreateOptions<CommerceDbContext>(), new TestTenantProvider(tenantId), new TestCurrentUserProvider());
 
     public static ProductOptionService CreateOptionService(CommerceDbContext context, Guid tenantId)
-        => new(context, new TestTenantProvider(tenantId), NullLogger<ProductOptionService>.Instance);
+        => new(context, new TestTenantProvider(tenantId), new ProductContentReviewFlagger(context), NullLogger<ProductOptionService>.Instance);
 
     /// <summary>
     /// Seeds the smallest Spec 066 shape the contention and default-move paths
