@@ -74,6 +74,15 @@ internal sealed class NullSettingProvider : Aonik.SharedKernel.Abstractions.Sett
         => Task.FromResult(new Aonik.SharedKernel.Abstractions.Settings.SettingResolution(key, null, "none"));
 }
 
+internal sealed class GbpTenantCurrencyProvider : Aonik.SharedKernel.Abstractions.ITenantCurrencyProvider
+{
+    public Task<List<string>> GetTenantCurrencyCodesAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<string> { "GBP" });
+
+    public Task<string?> GetTenantDefaultCurrencyAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>("GBP");
+}
+
 /// <summary>R10 threading for tests: every harness cart is party-bound, so the owning access
 /// context is the party principal. Guest-token paths get their own dedicated tests.</summary>
 internal static class CartTestAccess

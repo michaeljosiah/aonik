@@ -32,6 +32,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private readonly IInventoryService _inventory;
     private readonly ITenantSettingStore _settingStore;
     private readonly ISettingProvider _settings;
+    private readonly ITenantCurrencyProvider _tenantCurrency;
 
     public BoxCartService(
         CommerceDbContext dbContext,
@@ -39,7 +40,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         IOptionSelectionService selections,
         IInventoryService inventory,
         ITenantSettingStore settingStore,
-        ISettingProvider settings)
+        ISettingProvider settings,
+        ITenantCurrencyProvider tenantCurrency)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -47,6 +49,18 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         _inventory = inventory;
         _settingStore = settingStore;
         _settings = settings;
+        _tenantCurrency = tenantCurrency;
+    }
+
+    /// <summary>The storefront delivery settings are denominated in the tenant's canonical
+    /// currency (Spec 070 §9). A size plan may deliberately price in another currency — the
+    /// bare amounts must never be relabeled into it (a £10 charge is not $10), so a mismatched
+    /// session quotes and charges zero delivery until Spec 069 binds delivery pricing
+    /// per-currency (L9).</summary>
+    private async Task<bool> DeliveryAppliesAsync(Guid tenantId, string cartCurrency, CancellationToken ct)
+    {
+        var tenantCurrency = await _tenantCurrency.GetTenantDefaultCurrencyAsync(tenantId, ct);
+        return string.Equals(tenantCurrency ?? "GBP", cartCurrency, StringComparison.OrdinalIgnoreCase);
     }
 
     // ─── Create ──────────────────────────────────────────────────────────────
@@ -94,6 +108,22 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // L8 — an A4 currency change could have committed between our plan read and this save:
+        // its open-session count could not see this cart yet, and the session would be born dead
+        // (every later operation fails the currency guard). Verify and unwind instead.
+        var currentCurrency = await _dbContext.BundleSizePlans
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.BundleProductId == product.Id)
+            .Select(x => x.Currency)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!string.Equals(currentCurrency, cart.Currency, StringComparison.Ordinal))
+        {
+            _dbContext.Carts.Remove(cart);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new StorefrontValidationException(
+                "The plan was repriced while this box was being created; try again.");
+        }
 
         return await BuildDtoAsync(tenantId, cart, plan, changes, cart.AnonymousToken, cancellationToken);
     }
@@ -233,12 +263,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }, cancellationToken);
 
     public Task<BoxCartDto> ContinueAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
-        => RunAsync(cartId, access, requireOpen: true, touchCart: false, (ctx, ct) =>
+        => RunAsync(cartId, access, requireOpen: true, touchCart: false, async (ctx, ct) =>
         {
             // R8 — the full-box gate. Advisory UX; checkout independently re-validates (A10).
             // The persisted size is revalidated too: an admin may have shrunk the plan since
             // this session chose its size (J2) — change the size before continuing.
             ValidateSize(ctx.Plan, ctx.Cart.BoxSize!.Value);
+            await ValidateSlotBoundsAsync(ctx.TenantId, ctx.Cart.BoxBundleProductId!.Value,
+                ctx.BoxLines, atGate: true, ct);
             var units = TotalUnits(ctx.BoxLines);
             if (units != ctx.Cart.BoxSize)
             {
@@ -252,7 +284,6 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 throw new StorefrontValidationException(
                     $"R8: {ctx.UnavailableLineIds.Count} line(s) are unavailable — remove them to continue.");
             }
-            return Task.CompletedTask;
         }, cancellationToken);
 
     // ─── The serialized write core (A17) ─────────────────────────────────────
@@ -304,7 +335,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var strategy = _dbContext.Database.CreateExecutionStrategy();
 
-        return await strategy.ExecuteAsync(async ct =>
+        // L2 — only the WRITE lives inside the retrying delegate. Response construction reads
+        // committed state; a transient failure there must not replay an already-committed
+        // mutation (the strategy reruns the whole delegate).
+        var (writtenCart, writtenPlan, writtenChanges) = await strategy.ExecuteAsync(async ct =>
         {
             // A replayed attempt must not resubmit entities a failed attempt added or mutated —
             // and a detached instance must also leave its cart's Items collection, or the fresh
@@ -385,6 +419,15 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             // wrongly flag the surviving lines.
             context.BoxLines.RemoveAll(l =>
                 l.IsDeleted || _dbContext.Entry(l).State == EntityState.Deleted);
+
+            if (mutate is not null && touchCart)
+            {
+                // L3 — slot-affecting writes hold the per-slot bounds; use the cart's full line
+                // set (an add via AddLineCoreAsync lands in cart.Items, not this snapshot list).
+                await ValidateSlotBoundsAsync(tenantId, cart.BoxBundleProductId.Value,
+                    cart.Items.Where(i => i.LineKind == CartLineKinds.BoxDish && i.BoxBundleSlotId is not null),
+                    atGate: false, ct);
+            }
             context.UnavailableLineIds.Clear();
             context.Available.Clear();
             await FlagUnavailableAsync(context, emitChanges: true, ct);
@@ -406,8 +449,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 await transaction.CommitAsync(ct);
             }
 
-            return await BuildDtoAsync(tenantId, context.Cart, plan, context.Changes, cartToken: null, ct);
+            return (context.Cart, plan, context.Changes);
         }, cancellationToken);
+
+        return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, writtenChanges, cartToken: null, cancellationToken);
     }
 
     private async Task<BoxContext> BuildContextAsync(
@@ -728,6 +773,50 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     private static int TotalUnits(IEnumerable<CartItem> boxLines) => (int)boxLines.Sum(l => l.Quantity);
 
+    /// <summary>L3 — the BundleSlot machinery keeps defining what may go in (§4): per-slot
+    /// Max/duplicate bounds hold on every slot-affecting write, and Min bounds at the gates
+    /// (a slot needn't be full mid-build).</summary>
+    private async Task ValidateSlotBoundsAsync(
+        Guid tenantId, Guid boxProductId, IEnumerable<CartItem> boxLines, bool atGate, CancellationToken ct)
+    {
+        var slots = await _dbContext.BundleSlots
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.BundleProductId == boxProductId)
+            .ToListAsync(ct);
+
+        var liveLines = boxLines
+            .Where(l => !l.IsDeleted && _dbContext.Entry(l).State != EntityState.Deleted)
+            .ToList();
+
+        foreach (var slot in slots)
+        {
+            var slotLines = liveLines.Where(l => l.BoxBundleSlotId == slot.Id).ToList();
+            var units = (int)slotLines.Sum(l => l.Quantity);
+
+            if (slot.MaxItems > 0 && units > slot.MaxItems)
+            {
+                throw new StorefrontValidationException(
+                    $"R5: slot '{slot.Name}' holds at most {slot.MaxItems} dish(es); it has {units}.");
+            }
+            if (!slot.AllowDuplicates)
+            {
+                var duplicated = slotLines
+                    .GroupBy(l => l.ProductVariantId)
+                    .FirstOrDefault(g => g.Sum(l => l.Quantity) > 1m);
+                if (duplicated is not null)
+                {
+                    throw new StorefrontValidationException(
+                        $"R5: slot '{slot.Name}' allows each dish once.");
+                }
+            }
+            if (atGate && units < slot.MinItems)
+            {
+                throw new StorefrontValidationException(
+                    $"R8: slot '{slot.Name}' needs at least {slot.MinItems} dish(es); it has {units}.");
+            }
+        }
+    }
+
     // ─── Checkout support (Spec 068 §9) ──────────────────────────────────────
 
     public async Task<BoxCheckoutShape> PrepareForCheckoutAsync(Entities.Cart.Cart cart, CancellationToken cancellationToken = default)
@@ -771,6 +860,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
 
         // R8 — checkout is the enforcement; the continue gate was advisory.
+        await ValidateSlotBoundsAsync(tenantId, cart.BoxBundleProductId!.Value,
+            context.BoxLines, atGate: true, cancellationToken);
         var units = TotalUnits(context.BoxLines);
         if (units != cart.BoxSize)
         {
@@ -781,7 +872,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         var boxPrice = BoxPricing.BoxPrice(plan, cart.BoxSize!.Value);
         var personalisation = context.BoxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
         var surcharges = context.BoxLines.Sum(l => (l.UnitSurcharge ?? 0m) * l.Quantity);
-        var deliveryCharged = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, cancellationToken);
+        var deliveryCharged = await DeliveryAppliesAsync(tenantId, cart.Currency, cancellationToken)
+            ? await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, cancellationToken)
+            : 0m;
 
         // K5 — below-default choices are legitimate (A7) but their aggregate must never drive
         // the goods total to zero or below: Finance would reject the payment only after
@@ -910,7 +1003,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         var size = cart.BoxSize!.Value;
         var personalisation = boxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
         var surcharges = boxLines.Sum(l => (l.UnitSurcharge ?? 0m) * l.Quantity);
-        var deliveryList = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryListAmount, tenantId, ct);
+        var deliveryApplies = await DeliveryAppliesAsync(tenantId, cart.Currency, ct);
+        var deliveryList = deliveryApplies
+            ? await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryListAmount, tenantId, ct)
+            : 0m;
 
         // Frozen view: line snapshots are no longer drift-repaired, so the goods split derives
         // from the recorded subtotal, and delivery is whatever the payment actually included.
@@ -919,7 +1015,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             : BoxPricing.BoxPrice(plan, size);
         var deliveryCharged = summary is not null
             ? summary.Total - (summary.Subtotal - summary.DiscountTotal + summary.TaxTotal)
-            : await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct);
+            : deliveryApplies
+                ? await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct)
+                : 0m;
 
         var components = new List<QuoteComponentDto>
         {

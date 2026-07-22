@@ -193,6 +193,7 @@ public class CommerceBoxCartEndpointTests : IClassFixture<CustomWebApplicationFa
         {
             Id = Guid.NewGuid(), TenantId = tenantId, BundleProductId = bundleId,
             Name = "Pick dishes", MinItems = 0, MaxItems = 99, FromCategoryId = categoryId,
+            AllowDuplicates = true,
         });
 
         var planId = Guid.NewGuid();

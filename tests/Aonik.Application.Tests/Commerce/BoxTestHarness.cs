@@ -62,7 +62,7 @@ internal sealed class BoxTestHarness
     {
         var ctx = Commerce();
         return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider());
     }
 
     /// <summary>CheckoutService and its IBoxCheckoutSupport share ONE context, exactly as the
@@ -74,7 +74,7 @@ internal sealed class BoxTestHarness
         var inventory = new InventoryService(ctx, _tenant, new TenantContext { TenantId = _tenantId }, _clock);
         var boxCarts = new BoxCartService(ctx, _tenant,
             CommerceTestHarness.NewSelectionService(ctx, _tenantId), inventory,
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider());
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
@@ -122,8 +122,11 @@ internal sealed class BoxTestHarness
         var bundle = await products.CreateProductAsync(new CreateProductCommand(
             "meal-box", "Meal Box", CatalogEntities.ProductKinds.Bundle,
             BundlePricingMode: CatalogEntities.BundlePricingModes.SizeTiered));
+        // A meal box legitimately repeats dishes (6 × jollof) — AbbysTable's slot is authored
+        // duplicate-friendly; the restrictive-slot rules get their own dedicated test.
         var slot = await products.AddBundleSlotAsync(new AddBundleSlotCommand(
-            bundle.Id, "Pick dishes", MinItems: 0, MaxItems: 99, FromCategoryId: category.Id));
+            bundle.Id, "Pick dishes", MinItems: 0, MaxItems: 99, FromCategoryId: category.Id,
+            AllowDuplicates: true));
 
         await Plans().UpsertAsync(bundle.Id, new UpsertBundleSizePlanCommand(
             MinSize: 6, MaxSize: 30, BaseSize: 6, BasePrice: 95m, PerSpacePrice: 15m, Currency: "GBP",

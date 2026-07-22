@@ -60,6 +60,15 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
             => Task.FromResult(new Aonik.SharedKernel.Abstractions.Settings.SettingResolution(key, null, "none"));
     }
 
+    private sealed class GbpCurrency : Aonik.SharedKernel.Abstractions.ITenantCurrencyProvider
+    {
+        public Task<List<string>> GetTenantCurrencyCodesAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult(new List<string> { "GBP" });
+
+        public Task<string?> GetTenantDefaultCurrencyAsync(Guid tenantId, CancellationToken ct = default)
+            => Task.FromResult<string?>("GBP");
+    }
+
     private BoxCartService NewBoxCarts(CommerceDbContext context, Guid tenantId)
     {
         var options = CommerceSqlServerHarness.CreateOptionService(context, tenantId);
@@ -71,7 +80,8 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
             new InventoryService(context, new TestTenantProvider(tenantId),
                 new TenantContext { TenantId = tenantId }, new WallClock()),
             settings,
-            settings);
+            settings,
+            new GbpCurrency());
     }
 
     [SkippableFact]
@@ -156,7 +166,7 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
         context.BundleSlots.Add(new BundleSlot
         {
             Id = Guid.NewGuid(), TenantId = tenantId, BundleProductId = bundleId,
-            Name = "Pick", MinItems = 0, MaxItems = 99,
+            Name = "Pick", MinItems = 0, MaxItems = 99, AllowDuplicates = true,
         });
         context.BundleSizePlans.Add(new BundleSizePlan
         {

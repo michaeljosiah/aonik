@@ -55,6 +55,10 @@ internal sealed class CheckoutService : ICheckoutService
     private static readonly JsonSerializerOptions EnvelopeSerializerOptions =
         new(JsonSerializerDefaults.Web);
 
+    /// <summary>The ItemType of a materialised delivery charge (Spec 068 §9) — excluded from
+    /// goods-discount apportionment in reporting.</summary>
+    internal const string DeliveryFeeItemType = "DeliveryFee";
+
     public async Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -109,6 +113,20 @@ internal sealed class CheckoutService : ICheckoutService
         var box = cart.BoxBundleProductId is not null
             ? await _boxCheckout.PrepareForCheckoutAsync(cart, cancellationToken)
             : null;
+
+        // The whole charge breakdown is computable from the cart alone, so it runs BEFORE any
+        // durable side effect: a nonpositive payable (e.g. a 100% coupon with zero delivery)
+        // must reject while there is still nothing to unwind (L4).
+        var subtotal = box?.GoodsTotal ?? cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
+        var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
+        var taxable = subtotal - discount.Amount;
+        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
+        var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
+        if (total <= 0)
+        {
+            throw new StorefrontValidationException(
+                "The payable total for this cart is zero or below; it cannot be checked out.");
+        }
 
         // 1. Reserve stock — fan out bundle lines to their component variants (all-or-nothing).
         // First release any held reservations left by a prior attempt that aborted before stamping
@@ -177,7 +195,7 @@ internal sealed class CheckoutService : ICheckoutService
                 // Materialised, not absorbed — without this the customer would be charged less
                 // than the authoritative quote. Dormant while the setting is zero.
                 orderItems.Add(new OrderItemCommand(
-                    ItemType: "DeliveryFee",
+                    ItemType: DeliveryFeeItemType,
                     ItemIndex: 1,
                     AmountIn: box.DeliveryCharged,
                     CurrencyIn: cart.Currency,
@@ -244,22 +262,7 @@ internal sealed class CheckoutService : ICheckoutService
 
         // 4. Compute the charge breakdown. The order lines stay the goods (subtotal); discount + tax
         //    are payment-side, so Order / Payment / Ledger stay distinct.
-        // For a box order the goods subtotal is the box's goods total — order.AmountIn also
-        // carries the delivery item, and delivery is neither discountable nor taxable here; it
-        // joins the payable total at the end (§9: subtotal − discount + tax + delivery).
-        var subtotal = box?.GoodsTotal ?? order.AmountIn;
-        var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
-        var taxable = subtotal - discount.Amount;
-        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
-        var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
-
-        // K5 — a nonpositive payable amount must never reach payment initiation; Finance would
-        // reject it after the invoice and intent had already been created.
-        if (total <= 0)
-        {
-            throw new StorefrontValidationException(
-                "The payable total for this cart is zero or below; it cannot be checked out.");
-        }
+        // (The charge breakdown was computed and validated before reservation — L4.)
 
         // 5. Optionally raise an invoice (when a Finance customer account is supplied).
         Guid? invoiceId = null;
@@ -329,12 +332,32 @@ internal sealed class CheckoutService : ICheckoutService
         }
         catch (DbUpdateConcurrencyException)
         {
-            // K4 — a cart edit committed between validation and this claim: the created order no
-            // longer describes the cart, and stamping it anyway would fix the customer to a box
-            // they just changed. Unwind the durable side effects (the summary and selection rows
-            // roll back with this failed save) and surface the mapped 409 — a resubmit checks
-            // out the edited cart, and the replay guard never engages because OrderId was never
-            // stamped. The unfunded payment intent expires on its own.
+            // Who won the cart row? Two checkouts share the SAME order via the cart-scoped
+            // idempotency key — if the fresh cart already carries THIS order id, the other
+            // request was a checkout, its claim stands, and cancelling "our" order would cancel
+            // the winner's (L1). Replay its recorded result instead.
+            var fresh = await _dbContext.Carts.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == cart.Id && c.TenantId == tenantId, cancellationToken);
+            if (fresh?.OrderId == order.Id)
+            {
+                var recorded = await _dbContext.OrderChargeSummaries.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.OrderId == order.Id && s.TenantId == tenantId, cancellationToken);
+                if (recorded is not null)
+                {
+                    // This request's extra unfunded intent expires on its own; the winner's hold,
+                    // summary and selection rows are the durable truth.
+                    return new CheckoutResult(
+                        order.Id, recorded.InvoiceId, recorded.PaymentIntentId, recorded.PaymentStatus,
+                        recorded.Subtotal, recorded.DiscountTotal, recorded.TaxTotal, recorded.Total,
+                        recorded.Currency, recorded.PaymentClientSecret, recorded.PaymentCheckoutUrl);
+                }
+            }
+
+            // K4 — a cart EDIT committed between validation and this claim: the created order no
+            // longer describes the cart. Unwind the durable side effects (the summary and
+            // selection rows roll back with this failed save) and surface the mapped 409 — a
+            // resubmit checks out the edited cart, and the replay guard never engages because
+            // OrderId was never stamped. The unfunded payment intent expires on its own.
             await _inventory.ReleaseAsync(cart.Id, cancellationToken);
             await _orders.TransitionAsync(order.Id, OrderStatusCodes.Cancelled,
                 "Checkout lost the cart claim to a concurrent edit.", cancellationToken: cancellationToken);

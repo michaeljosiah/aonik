@@ -436,6 +436,42 @@ public class BoxCartServiceTests
         after.Changes.Should().NotContain(c => c.Reason == "unavailable");
     }
 
+    [Fact]
+    public async Task RestrictiveSlots_Should_EnforceMaxDuplicateAndMinBounds()
+    {
+        // L3 — the BundleSlot machinery keeps defining what may go in: Max/duplicate bounds on
+        // every slot-affecting write, Min bounds at the gates.
+        var (h, f, box) = await ArrangeAsync(6, "jollof", "egusi", "moimoi");
+        await using (var ctx = h.Commerce())
+        {
+            var slot = await ctx.BundleSlots.FirstAsync(s2 => s2.Id == f.SlotId);
+            slot.AllowDuplicates = false;
+            slot.MaxItems = 2;
+            slot.MinItems = 2;
+            await ctx.SaveChangesAsync();
+        }
+        var carts = h.BoxCarts();
+        var access = Token(box);
+
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 1, null), access);
+
+        var duplicateQty = () => carts.AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 1, null), access);
+        (await duplicateQty.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("once");
+
+        var duplicateOtherPersonalisation = () => carts.AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 1, Sel("""{"protein":"salmon"}""")), access);
+        (await duplicateOtherPersonalisation.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("once");
+
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["egusi"], 1, null), access);
+        var overMax = () => carts.AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["moimoi"], 1, null), access);
+        (await overMax.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("at most 2");
+    }
+
     // ─── A6 — abandonment ────────────────────────────────────────────────────
 
     [Fact]

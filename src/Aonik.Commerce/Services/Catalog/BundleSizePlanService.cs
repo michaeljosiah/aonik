@@ -42,6 +42,23 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
                 "a size plan requires SizeTiered — change the pricing mode first.");
         }
 
+        // L6 — amounts persist at decimal(19,4); validating the caller's unrounded values would
+        // accept a plan whose STORED numbers quote zero (0.00001 → 0.0000). Round first, then
+        // validate what will actually be persisted and returned.
+        command = command with
+        {
+            BasePrice = Math.Round(command.BasePrice, 4, MidpointRounding.AwayFromZero),
+            PerSpacePrice = Math.Round(command.PerSpacePrice, 4, MidpointRounding.AwayFromZero),
+            Presets = command.Presets
+                .Select(p => p with
+                {
+                    Price = Math.Round(p.Price, 4, MidpointRounding.AwayFromZero),
+                    SavingAmount = p.SavingAmount is { } saving
+                        ? Math.Round(saving, 4, MidpointRounding.AwayFromZero)
+                        : null,
+                })
+                .ToList(),
+        };
         ValidateStructure(command);
 
         var currency = command.Currency.Trim().ToUpperInvariant();
@@ -83,10 +100,8 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
         plan.MinSize = command.MinSize;
         plan.MaxSize = command.MaxSize;
         plan.BaseSize = command.BaseSize;
-        // K8 — amounts persist at decimal(19,4); storing the caller's unrounded value would make
-        // the admin response disagree with every later read and quote.
-        plan.BasePrice = Math.Round(command.BasePrice, 4, MidpointRounding.AwayFromZero);
-        plan.PerSpacePrice = Math.Round(command.PerSpacePrice, 4, MidpointRounding.AwayFromZero);
+        plan.BasePrice = command.BasePrice;
+        plan.PerSpacePrice = command.PerSpacePrice;
         plan.Currency = currency;
 
         // Full replace, matched by size: same-size rows update in place (a price edit is the
@@ -109,12 +124,10 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
                     TenantId = tenantId,
                     BundleSizePlanId = plan.Id,
                     Size = spec.Size,
-                    Price = Math.Round(spec.Price, 4, MidpointRounding.AwayFromZero),
+                    Price = spec.Price,
                     Badge = spec.Badge,
                     Blurb = spec.Blurb,
-                    SavingAmount = spec.SavingAmount is { } saving
-                        ? Math.Round(saving, 4, MidpointRounding.AwayFromZero)
-                        : null,
+                    SavingAmount = spec.SavingAmount,
                     SortOrder = spec.SortOrder,
                 };
                 // Explicit Add: a pre-set key discovered via navigation fixup from a TRACKED plan
@@ -130,12 +143,10 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
             }
             else
             {
-                existing.Price = Math.Round(spec.Price, 4, MidpointRounding.AwayFromZero);
+                existing.Price = spec.Price;
                 existing.Badge = spec.Badge;
                 existing.Blurb = spec.Blurb;
-                existing.SavingAmount = spec.SavingAmount is { } saving
-                    ? Math.Round(saving, 4, MidpointRounding.AwayFromZero)
-                    : null;
+                existing.SavingAmount = spec.SavingAmount;
                 existing.SortOrder = spec.SortOrder;
             }
         }

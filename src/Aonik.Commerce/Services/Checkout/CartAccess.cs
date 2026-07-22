@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
@@ -15,12 +15,16 @@ namespace Aonik.Commerce.Services.Checkout;
 /// </summary>
 internal static class CartAccess
 {
-    /// <summary>Base64url of 32 random bytes — the length every minted token has, and the floor
-    /// below which a stored token is treated as legacy/weak and fails closed.</summary>
-    public const int MintedTokenLength = 43;
+    /// <summary>Minted tokens are version-prefixed: length alone cannot prove provenance,
+    /// because the pre-mint contract stored arbitrary client-supplied strings — a predictable
+    /// 43-character legacy value must not pass as server entropy (L5).</summary>
+    public const string MintedTokenPrefix = "ct1_";
+
+    /// <summary>Prefix + base64url of 32 random bytes.</summary>
+    public const int MintedTokenLength = 47;
 
     public static string MintToken()
-        => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+        => MintedTokenPrefix + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
@@ -35,7 +39,8 @@ internal static class CartAccess
         }
 
         var stored = cart.AnonymousToken;
-        if (stored is null || stored.Length < MintedTokenLength)
+        if (stored is null || stored.Length < MintedTokenLength
+            || !stored.StartsWith(MintedTokenPrefix, StringComparison.Ordinal))
         {
             return false;
         }
