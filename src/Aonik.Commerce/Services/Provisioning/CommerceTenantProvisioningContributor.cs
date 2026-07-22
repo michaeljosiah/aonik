@@ -1,4 +1,5 @@
-using Aonik.Commerce.Entities.Catalog;
+﻿using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Packs;
@@ -73,6 +74,29 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
         _dbContext.ProductCategories.AddRange(categories);
         await _dbContext.SaveChangesAsync(cancellationToken);
         actions.Add($"Created {categories.Count} default Commerce categories");
+
+        // Spec 069 §10 — seed a PARKED fulfilment calendar (inactive, no delivery days) so the
+        // admin screen has a row to edit rather than a create-from-nothing flow. The tenant's
+        // real cadence is operator data entered in admin, never pack content. Idempotent.
+        var hasCalendar = await _dbContext.FulfilmentCalendars
+            .AnyAsync(c => c.TenantId == context.TenantId, cancellationToken);
+        if (!hasCalendar)
+        {
+            _dbContext.FulfilmentCalendars.Add(new FulfilmentCalendar
+            {
+                Id = Guid.NewGuid(),
+                TenantId = context.TenantId,
+                Timezone = "Europe/London",
+                DeliveryDaysJson = "[]",
+                CutoffLocalTime = new TimeOnly(12, 0),
+                LeadDays = 0,
+                IsActive = false,
+                CreatedAt = context.Now,
+                CreatedBy = context.UserId,
+            });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            actions.Add("Seeded a parked fulfilment calendar (inactive)");
+        }
 
         return new TenantProvisioningContribution(actions);
     }
