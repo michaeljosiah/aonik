@@ -109,6 +109,15 @@ internal sealed class ProductPricingService : IProductPricingService
 
         var mode = product.BundlePricingMode ?? BundlePricingModes.SumOfComponents;
 
+        // Spec 068 — a size-tiered bundle is priced by its size plan (box price by size), not by
+        // its components; the generic bundle path has no size to price. The box cart routes own
+        // these products end to end.
+        if (mode == BundlePricingModes.SizeTiered)
+        {
+            throw new StorefrontValidationException(
+                "Size-tiered bundles are priced by their size plan; use the box cart routes.");
+        }
+
         if (mode == BundlePricingModes.Fixed)
         {
             if (product.BundleFixedAmount is not { } fixedAmount)

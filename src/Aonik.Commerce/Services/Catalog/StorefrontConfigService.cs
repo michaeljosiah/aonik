@@ -21,17 +21,20 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
     private readonly ITenantSettingStore _settingStore;
     private readonly ITenantCurrencyProvider _tenantCurrency;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IBundleSizePlanService _sizePlans;
 
     public StorefrontConfigService(
         ISettingProvider settings,
         ITenantSettingStore settingStore,
         ITenantCurrencyProvider tenantCurrency,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IBundleSizePlanService sizePlans)
     {
         _settings = settings;
         _settingStore = settingStore;
         _tenantCurrency = tenantCurrency;
         _tenantProvider = tenantProvider;
+        _sizePlans = sizePlans;
     }
 
     public async Task<StorefrontConfigDto> GetAsync(CancellationToken cancellationToken = default)
@@ -62,11 +65,24 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
         var boxSlug = await ReadTenantSettingAsync(CommerceSettingNames.StorefrontDefaultBoxProductSlug, tenantId, cancellationToken);
         boxSlug = string.IsNullOrWhiteSpace(boxSlug) ? null : boxSlug.Trim();
 
-        // Box: the default bundle's Spec 068 size plan. 068 is not live yet, so there is no plan
-        // to read and the section is null — exactly the "not yet live" state §9 defines. When 068
-        // lands, its plan read plugs in HERE and nowhere else; the frontend contract is already
-        // shaped for it.
+        // Box: the default bundle's Spec 068 size plan — null (the "not yet live" state §9
+        // defines) until a slug is configured AND that product is an Active bundle with a plan.
         StorefrontBoxPlanDto? box = null;
+        if (boxSlug is not null)
+        {
+            var plan = await _sizePlans.GetBySlugAsync(boxSlug, cancellationToken);
+            if (plan is not null)
+            {
+                box = new StorefrontBoxPlanDto(
+                    plan.MinSize,
+                    plan.MaxSize,
+                    plan.Currency,
+                    plan.PerSpacePrice,
+                    plan.Presets
+                        .Select(p => new StorefrontBoxPresetDto(p.Size, p.Price, p.Badge, p.Blurb, p.SavingAmount))
+                        .ToList());
+            }
+        }
 
         return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, box);
     }
