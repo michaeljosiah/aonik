@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Checkout;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -21,6 +21,10 @@ public interface IBoxCartService
     Task<BoxCartDto> ChangeSizeAsync(Guid cartId, int newSize, CartAccessContext access, CancellationToken cancellationToken = default);
 
     Task<BoxCartDto> AddLineAsync(Guid cartId, AddBoxLineCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
+
+    /// <summary>Spec 071 — add an AddOn line: an ordinary retail product alongside the box,
+    /// consuming no box space, priced at its own retail price (mandatory in the cart currency).</summary>
+    Task<BoxCartDto> AddExtraLineAsync(Guid cartId, AddBoxExtraCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     Task<BoxCartDto> UpdateLineAsync(Guid cartId, Guid lineId, UpdateBoxLineCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 

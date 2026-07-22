@@ -33,6 +33,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private readonly ITenantSettingStore _settingStore;
     private readonly ISettingProvider _settings;
     private readonly ITenantCurrencyProvider _tenantCurrency;
+    private readonly IProductPricingService _pricing;
 
     public BoxCartService(
         CommerceDbContext dbContext,
@@ -41,7 +42,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         IInventoryService inventory,
         ITenantSettingStore settingStore,
         ISettingProvider settings,
-        ITenantCurrencyProvider tenantCurrency)
+        ITenantCurrencyProvider tenantCurrency,
+        IProductPricingService pricing)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -50,6 +52,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         _settingStore = settingStore;
         _settings = settings;
         _tenantCurrency = tenantCurrency;
+        _pricing = pricing;
     }
 
     /// <summary>The storefront delivery settings are denominated in the tenant's canonical
@@ -159,11 +162,78 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             await AddLineCoreAsync(ctx.TenantId, ctx.Cart, ctx.Plan, command, ct);
         }, cancellationToken);
 
+    public Task<BoxCartDto> AddExtraLineAsync(Guid cartId, AddBoxExtraCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
+        => RunAsync(cartId, access, requireOpen: true, touchCart: true, async (ctx, ct) =>
+        {
+            if (command.Quantity < 1)
+            {
+                throw new StorefrontValidationException("R12: quantity must be at least 1.");
+            }
+
+            var variant = await _dbContext.ProductVariants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == command.ProductVariantId && v.TenantId == ctx.TenantId, ct)
+                ?? throw new NotFoundException($"Product variant '{command.ProductVariantId}' was not found.");
+            var product = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == variant.ProductId && p.TenantId == ctx.TenantId, ct)
+                ?? throw new NotFoundException($"Product '{variant.ProductId}' was not found.");
+            if (!variant.IsActive || product.Status != ProductStatuses.Active)
+            {
+                throw new StorefrontValidationException("X2: this extra is not currently available.");
+            }
+
+            // X2 — the retail snapshot is mandatory: an add-on is an ordinary retail purchase.
+            var price = await _pricing.ResolvePriceAsync(variant.Id, ctx.Cart.Currency, null, ct)
+                ?? throw new StorefrontValidationException(
+                    $"X2: '{product.Name}' has no price in {ctx.Cart.Currency} and cannot be added.");
+
+            var priced = await _selections.NormalizeAndPriceAsync(
+                product.Id, command.Personalisation, ctx.Cart.Currency, ct);
+
+            // X5 — availability sums both kinds; X3 — no capacity or slot checks apply.
+            await EnsureAvailabilityAsync(ctx, variant.Id, command.Quantity, ct);
+
+            var target = ctx.AddOnLines.FirstOrDefault(l => l.ProductVariantId == variant.Id
+                && string.Equals(l.PersonalisationJson, priced.CanonicalSelectionJson, StringComparison.Ordinal));
+            if (target is not null)
+            {
+                target.Quantity += command.Quantity;
+                ApplySelection(target, priced);
+                target.UnitPriceSnapshot = price;
+                return;
+            }
+
+            var newLine = new CartItem
+            {
+                Id = Guid.NewGuid(),
+                TenantId = ctx.TenantId,
+                CartId = ctx.Cart.Id,
+                ProductVariantId = variant.Id,
+                LineKind = CartLineKinds.AddOn,
+                BoxBundleSlotId = null,
+                Quantity = command.Quantity,
+                UnitPriceSnapshot = price,
+                Sku = variant.Sku,
+                NameSnapshot = product.Name,
+            };
+            ApplySelection(newLine, priced);
+            _dbContext.CartItems.Add(newLine);
+            if (!ctx.Cart.Items.Contains(newLine))
+            {
+                ctx.Cart.Items.Add(newLine);
+            }
+            ctx.AddOnLines.Add(newLine);
+            ctx.PricedAddOns[newLine.Id] = price;
+        }, cancellationToken);
+
     public Task<BoxCartDto> UpdateLineAsync(Guid cartId, Guid lineId, UpdateBoxLineCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
         => RunAsync(cartId, access, requireOpen: true, touchCart: true, async (ctx, ct) =>
         {
             var line = ctx.BoxLines.FirstOrDefault(l => l.Id == lineId)
+                ?? ctx.AddOnLines.FirstOrDefault(l => l.Id == lineId)
                 ?? throw new NotFoundException($"Cart line '{lineId}' was not found.");
+            var isAddOn = line.LineKind == CartLineKinds.AddOn;
 
             if (command.Quantity is { } quantity)
             {
@@ -182,7 +252,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 if (delta > 0)
                 {
                     await EnsureLineIsAvailableForIncreaseAsync(ctx, line, ct);
-                    EnsureCapacity(ctx, delta);
+                    if (!isAddOn)
+                    {
+                        EnsureCapacity(ctx, delta);   // X3 — add-ons consume no box space
+                    }
                     await EnsureAvailabilityAsync(ctx, line.ProductVariantId, delta, ct);
                 }
                 line.Quantity = quantity;
@@ -206,7 +279,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     return;   // the "new" selection is this line's own — nothing moves
                 }
 
-                var target = ctx.BoxLines.FirstOrDefault(l => l.Id != line.Id
+                var pool = isAddOn ? ctx.AddOnLines : ctx.BoxLines;
+                var target = pool.FirstOrDefault(l => l.Id != line.Id
                     && l.BoxBundleSlotId == line.BoxBundleSlotId
                     && l.ProductVariantId == line.ProductVariantId
                     && string.Equals(l.PersonalisationJson, priced.CanonicalSelectionJson, StringComparison.Ordinal));
@@ -235,6 +309,29 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     {
                         target.Quantity += applyTo;
                     }
+                    else if (isAddOn)
+                    {
+                        var splitAddOn = new CartItem
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = ctx.TenantId,
+                            CartId = ctx.Cart.Id,
+                            ProductVariantId = line.ProductVariantId,
+                            LineKind = CartLineKinds.AddOn,
+                            Quantity = applyTo,
+                            UnitPriceSnapshot = line.UnitPriceSnapshot,
+                            Sku = line.Sku,
+                            NameSnapshot = line.NameSnapshot,
+                        };
+                        ApplySelection(splitAddOn, priced);
+                        _dbContext.CartItems.Add(splitAddOn);
+                        if (!ctx.Cart.Items.Contains(splitAddOn))
+                        {
+                            ctx.Cart.Items.Add(splitAddOn);
+                        }
+                        ctx.AddOnLines.Add(splitAddOn);
+                        ctx.PricedAddOns[splitAddOn.Id] = line.UnitPriceSnapshot;
+                    }
                     else
                     {
                         var split = NewBoxLine(ctx.TenantId, ctx.Cart, line.BoxBundleSlotId!.Value,
@@ -257,6 +354,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         => RunAsync(cartId, access, requireOpen: true, touchCart: true, (ctx, ct) =>
         {
             var line = ctx.BoxLines.FirstOrDefault(l => l.Id == lineId)
+                ?? ctx.AddOnLines.FirstOrDefault(l => l.Id == lineId)
                 ?? throw new NotFoundException($"Cart line '{lineId}' was not found.");
             _dbContext.CartItems.Remove(line);
             return Task.CompletedTask;
@@ -294,6 +392,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         public required Entities.Cart.Cart Cart { get; init; }
         public required BundleSizePlan Plan { get; init; }
         public required List<CartItem> BoxLines { get; init; }
+
+        /// <summary>Spec 071 — AddOn lines: retail products alongside the box. Outside every
+        /// capacity/slot/fullness rule by construction; inside drift, availability and the quote.</summary>
+        public required List<CartItem> AddOnLines { get; init; }
         public required Dictionary<Guid, ProductVariant> Variants { get; init; }
         public required Dictionary<Guid, Product> Products { get; init; }
         public required List<BoxChangeDto> Changes { get; init; }
@@ -302,6 +404,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         /// <summary>Each line's freshly renormalized §12 result — the checkout envelopes.</summary>
         public required Dictionary<Guid, OptionSelectionResult> Priced { get; init; }
+
+        /// <summary>AddOn lines' re-resolved retail unit prices; null = unpriceable (X2).</summary>
+        public required Dictionary<Guid, decimal?> PricedAddOns { get; init; }
     }
 
     private async Task<BoxCartDto> RunAsync(
@@ -419,6 +524,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             // wrongly flag the surviving lines.
             context.BoxLines.RemoveAll(l =>
                 l.IsDeleted || _dbContext.Entry(l).State == EntityState.Deleted);
+            context.AddOnLines.RemoveAll(l =>
+                l.IsDeleted || _dbContext.Entry(l).State == EntityState.Deleted);
 
             if (mutate is not null && touchCart)
             {
@@ -462,8 +569,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             .Where(i => i.LineKind == CartLineKinds.BoxDish && i.BoxBundleSlotId is not null)
             .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
             .ToList();
+        var addOnLines = cart.Items
+            .Where(i => i.LineKind == CartLineKinds.AddOn)
+            .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
+            .ToList();
 
-        var variantIds = boxLines.Select(l => l.ProductVariantId).Distinct().ToList();
+        var variantIds = boxLines.Concat(addOnLines).Select(l => l.ProductVariantId).Distinct().ToList();
         var variants = await _dbContext.ProductVariants
             .AsNoTracking()
             .Where(v => v.TenantId == tenantId && variantIds.Contains(v.Id))
@@ -480,12 +591,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             Cart = cart,
             Plan = plan,
             BoxLines = boxLines,
+            AddOnLines = addOnLines,
             Variants = variants,
             Products = products,
             Changes = [],
             UnavailableLineIds = [],
             Available = [],
             Priced = [],
+            PricedAddOns = [],
         };
     }
 
@@ -493,6 +606,53 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     private async Task ApplyDriftAsync(BoxContext context, CancellationToken ct)
     {
+        // Spec 071 — AddOn lines drift too: their options renormalize like a dish's, and the
+        // retail snapshot re-resolves on every load (R7); a vanished price flags below (X2).
+        foreach (var line in context.AddOnLines.ToList())
+        {
+            if (!context.AddOnLines.Contains(line) || !context.Variants.ContainsKey(line.ProductVariantId))
+            {
+                continue;
+            }
+            var price = await _pricing.ResolvePriceAsync(line.ProductVariantId, context.Cart.Currency, null, ct);
+            line.UnitPriceSnapshot = price ?? 0m;
+            context.PricedAddOns[line.Id] = price;
+
+            if (line.PersonalisationJson is null)
+            {
+                continue;
+            }
+            var variantForLine = context.Variants[line.ProductVariantId];
+            var renormalizedAddOn = await _selections.RenormalizeStoredAsync(
+                variantForLine.ProductId, line.PersonalisationJson, context.Cart.Currency, ct);
+            var addOnResult = renormalizedAddOn.Result;
+            var addOnDelta = addOnResult.Adjustment - (line.PersonalisationAdjustment ?? 0m);
+            foreach (var drift in renormalizedAddOn.Drift)
+            {
+                context.Changes.Add(new BoxChangeDto(
+                    line.Id, drift.GroupKey, drift.FromChoiceKey, drift.ToChoiceKey, drift.Reason,
+                    addOnDelta == 0m ? null : addOnDelta));
+            }
+            context.Priced[line.Id] = addOnResult;
+            var addOnSelectionChanged = !string.Equals(addOnResult.CanonicalSelectionJson, line.PersonalisationJson, StringComparison.Ordinal);
+            ApplySelection(line, addOnResult);
+            line.UnitPriceSnapshot = price ?? 0m;   // ApplySelection does not touch it; keep explicit
+            if (addOnSelectionChanged)
+            {
+                var addOnTarget = context.AddOnLines.FirstOrDefault(l => l.Id != line.Id
+                    && l.ProductVariantId == line.ProductVariantId
+                    && string.Equals(l.PersonalisationJson, addOnResult.CanonicalSelectionJson, StringComparison.Ordinal));
+                if (addOnTarget is not null)
+                {
+                    addOnTarget.Quantity += line.Quantity;
+                    _dbContext.CartItems.Remove(line);
+                    context.AddOnLines.Remove(line);
+                    context.Changes.Add(new BoxChangeDto(
+                        line.Id, null, null, null, BoxChangeReasons.LineMerged, null, addOnTarget.Id));
+                }
+            }
+        }
+
         foreach (var line in context.BoxLines.ToList())
         {
             if (!context.BoxLines.Contains(line))
@@ -545,7 +705,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     private async Task FlagUnavailableAsync(BoxContext context, bool emitChanges, CancellationToken ct)
     {
-        foreach (var line in context.BoxLines.Where(l => !l.IsDeleted).ToList())
+        foreach (var line in context.BoxLines.Concat(context.AddOnLines).Where(l => !l.IsDeleted).ToList())
         {
             var variant = context.Variants.GetValueOrDefault(line.ProductVariantId);
             var product = variant is null ? null : context.Products.GetValueOrDefault(variant.ProductId);
@@ -553,11 +713,20 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             var unavailable = variant is null || !variant.IsActive
                 || product is null || product.Status != ProductStatuses.Active;
 
+            // X2 — an AddOn line whose retail price vanished from the cart currency must never
+            // reach checkout as a free line.
+            if (!unavailable && line.LineKind == CartLineKinds.AddOn
+                && context.PricedAddOns.TryGetValue(line.Id, out var addOnPrice) && addOnPrice is null)
+            {
+                unavailable = true;
+            }
+
             if (!unavailable)
             {
                 var available = await GetAvailableAsync(context, line.ProductVariantId, ct);
-                var cartDemand = context.BoxLines
-                    .Where(l => l.ProductVariantId == line.ProductVariantId)
+                // X5 — dish and add-on demand for the same variant SUM: they draw the same stock.
+                var cartDemand = context.BoxLines.Concat(context.AddOnLines)
+                    .Where(l => l.ProductVariantId == line.ProductVariantId && !l.IsDeleted)
                     .Sum(l => l.Quantity);
                 unavailable = cartDemand > available;
             }
@@ -752,7 +921,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     private async Task EnsureAvailabilityAsync(BoxContext context, Guid variantId, int addedUnits, CancellationToken ct)
     {
-        var cartWide = context.BoxLines.Where(l => l.ProductVariantId == variantId).Sum(l => l.Quantity);
+        var cartWide = context.BoxLines.Concat(context.AddOnLines)
+            .Where(l => l.ProductVariantId == variantId && !l.IsDeleted)
+            .Sum(l => l.Quantity);
         var available = await GetAvailableAsync(context, variantId, ct);
         if (cartWide + addedUnits > available)
         {
@@ -905,6 +1076,17 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             .Select(l => (Line: l, Priced: context.Priced[l.Id]))
             .ToList();
 
+        // Spec 071 — add-on lines materialise as ordinary retail items (X7); the drift pass
+        // re-resolved their prices and flagged unpriceable ones unavailable (X2), which the R8
+        // gate above already rejected.
+        var addOnLines = context.AddOnLines
+            .Select(l => (
+                Line: l,
+                Priced: l.PersonalisationJson is null ? (OptionSelectionResult?)null : context.Priced.GetValueOrDefault(l.Id),
+                ChargedUnitPrice: l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)))
+            .ToList();
+        var addOnGoods = addOnLines.Sum(a => a.ChargedUnitPrice * a.Line.Quantity);
+
         return new BoxCheckoutShape(
             boxPrice + personalisation + surcharges,
             boxPrice,
@@ -914,7 +1096,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             bundleProduct.Slug,
             cart.BoxSize!.Value,
             envelope,
-            lines);
+            lines,
+            addOnLines,
+            addOnGoods);
     }
 
     // ─── Plan, quote and mapping ─────────────────────────────────────────────
@@ -947,8 +1131,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             .Where(i => i.LineKind == CartLineKinds.BoxDish && i.BoxBundleSlotId is not null && !i.IsDeleted)
             .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
             .ToList();
+        var addOnLines = cart.Items
+            .Where(i => i.LineKind == CartLineKinds.AddOn && !i.IsDeleted)
+            .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
+            .ToList();
 
-        var variantIds = boxLines.Select(l => l.ProductVariantId).Distinct().ToList();
+        var variantIds = boxLines.Concat(addOnLines).Select(l => l.ProductVariantId).Distinct().ToList();
         var variants = await _dbContext.ProductVariants
             .AsNoTracking()
             .Where(v => v.TenantId == tenantId && variantIds.Contains(v.Id))
@@ -973,6 +1161,22 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             l.BoxBundleSlotId!.Value,
             unavailableIds.Contains(l.Id))).ToList();
 
+        lines.AddRange(addOnLines.Select(l => new BoxLineDto(
+            l.Id,
+            variants.TryGetValue(l.ProductVariantId, out var v2) ? v2.ProductId : Guid.Empty,
+            l.ProductVariantId,
+            l.NameSnapshot,
+            (int)l.Quantity,
+            ParseSelection(l.PersonalisationJson),
+            l.PersonalisationSummary ?? string.Empty,
+            string.IsNullOrEmpty(l.PersonalisationSummary),
+            l.PersonalisationAdjustment ?? 0m,
+            l.UnitSurcharge ?? 0m,
+            Guid.Empty,
+            unavailableIds.Contains(l.Id),
+            CartLineKinds.AddOn,
+            l.UnitPriceSnapshot)));
+
         // A closed cart's quote pins to its durable charge summary — a later plan price edit
         // must not display a figure different from what was actually charged (J7).
         OrderChargeSummary? summary = null;
@@ -983,7 +1187,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId, ct);
         }
 
-        var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, summary, ct);
+        var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, addOnLines, summary, ct);
 
         return new BoxCartDto(
             new BoxDto(cart.Id, cart.BoxBundleProductId!.Value, cart.BoxSize!.Value, cart.Currency, lines),
@@ -997,6 +1201,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         Entities.Cart.Cart cart,
         BundleSizePlan plan,
         IReadOnlyList<CartItem> boxLines,
+        IReadOnlyList<CartItem> addOnLines,
         OrderChargeSummary? summary,
         CancellationToken ct)
     {
@@ -1010,8 +1215,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         // Frozen view: line snapshots are no longer drift-repaired, so the goods split derives
         // from the recorded subtotal, and delivery is whatever the payment actually included.
+        var frozenAddOns = addOnLines.Where(l => !l.IsDeleted).Sum(l =>
+            (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
         var boxPrice = summary is not null
-            ? summary.Subtotal - personalisation - surcharges
+            ? summary.Subtotal - personalisation - surcharges - frozenAddOns
             : BoxPricing.BoxPrice(plan, size);
         var deliveryCharged = summary is not null
             ? summary.Total - (summary.Subtotal - summary.DiscountTotal + summary.TaxTotal)
@@ -1019,13 +1226,22 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 ? await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct)
                 : 0m;
 
+        // Spec 071 §6 — one component family per line kind: box goods stay BoxDish-scoped;
+        // an add-on's whole cost (retail + adjustment + surcharge) is the addOns component.
+        var addOns = addOnLines.Where(l => !l.IsDeleted).Sum(l =>
+            (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
+
         var components = new List<QuoteComponentDto>
         {
             new(QuoteComponentKeys.BoxPrice, boxPrice),
             new(QuoteComponentKeys.Personalisation, personalisation),
             new(QuoteComponentKeys.UnitSurcharges, surcharges),
-            new(QuoteComponentKeys.DeliveryCharged, deliveryCharged),
         };
+        if (addOns != 0m)
+        {
+            components.Add(new QuoteComponentDto(QuoteComponentKeys.AddOns, addOns));
+        }
+        components.Add(new QuoteComponentDto(QuoteComponentKeys.DeliveryCharged, deliveryCharged));
 
         // K3 — a frozen view must total exactly what was charged: the recorded discount and tax
         // join as components (zero-amount components may be omitted per §7, and clients iterate

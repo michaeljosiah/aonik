@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Aonik.Commerce.Contracts.Models.Checkout;
 
@@ -34,9 +34,14 @@ public record BoxLineDto(
     /// Per unit, signed.
     decimal PersonalisationAdjustment,
     decimal UnitSurcharge,
+    /// Empty for AddOn lines — add-ons fill no slot (Spec 071).
     Guid SlotId,
     /// A13 — flagged (never silently removed); adds/increases reject, continue/checkout block.
-    bool IsUnavailable);
+    bool IsUnavailable,
+    /// BoxDish or AddOn (Spec 071) — additive; pre-071 clients never see AddOn rows.
+    string LineKind = "BoxDish",
+    /// AddOn lines only: the retail unit price (the deliberate no-price-rule exception).
+    decimal? UnitPrice = null);
 
 public record BoxDto(
     Guid CartId,
@@ -106,6 +111,13 @@ public record CreateBoxCartCommand(
     /// The dish-detail → Step 1 handoff: the viewed dish arrives already in the box.
     AddBoxLineCommand? FirstLine = null,
     Guid? BuyerPartyId = null);
+
+/// <summary>Spec 071 — add an ordinary retail product alongside the box. No slot, no capacity;
+/// the retail price in the cart currency is mandatory.</summary>
+public record AddBoxExtraCommand(
+    Guid ProductVariantId,
+    int Quantity,
+    System.Text.Json.JsonElement? Personalisation = null);
 
 /// <summary>Omitted members mean unchanged. Quantity 0 deletes the line; ApplyToUnits (1 ≤ n ≤
 /// line quantity) applies a personalisation change to n units only — split semantics, atomic.</summary>

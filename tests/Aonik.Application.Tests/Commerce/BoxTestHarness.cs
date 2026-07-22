@@ -62,7 +62,7 @@ internal sealed class BoxTestHarness
     {
         var ctx = Commerce();
         return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing());
     }
 
     /// <summary>CheckoutService and its IBoxCheckoutSupport share ONE context, exactly as the
@@ -74,7 +74,7 @@ internal sealed class BoxTestHarness
         var inventory = new InventoryService(ctx, _tenant, new TenantContext { TenantId = _tenantId }, _clock);
         var boxCarts = new BoxCartService(ctx, _tenant,
             CommerceTestHarness.NewSelectionService(ctx, _tenantId), inventory,
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing());
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
@@ -133,6 +133,61 @@ internal sealed class BoxTestHarness
             Presets: new[] { new BundleSizePresetCommand(12, 170m, Badge: "Most popular") }));
 
         return new BoxFixture(bundle.Id, slot.Id, category.Id, variants, dishProducts, builder);
+    }
+
+    /// <summary>Spec 071 — an extra: an ordinary Simple product with a GBP retail price, stock,
+    /// and membership of the "extras" collection. Returns (productId, variantId).</summary>
+    public async Task<(Guid ProductId, Guid VariantId)> AddExtraAsync(
+        string slug, decimal price, bool inExtrasCollection = true, decimal stock = 50m)
+    {
+        var products = Products();
+        var extra = await products.CreateProductAsync(new CreateProductCommand(
+            slug, slug, CatalogEntities.ProductKinds.Simple,
+            Variants: new[] { new CreateVariantLine($"SKU-{slug}", slug) }));
+        var variantId = extra.Variants.Single().Id;
+        if (price > 0)
+        {
+            await Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", price));
+        }
+        await Inventory().SetOnHandAsync(variantId, stock);
+
+        if (inExtrasCollection)
+        {
+            await using var ctx = Commerce();
+            var collection = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .FirstOrDefaultAsync(ctx.Collections, c => c.Slug == "extras");
+            if (collection is null)
+            {
+                collection = new CatalogEntities.Collection
+                {
+                    Id = Guid.NewGuid(), TenantId = _tenantId, Slug = "extras", Title = "Extras",
+                    Kind = CatalogEntities.CollectionKinds.Curated, IsActive = true,
+                };
+                ctx.Collections.Add(collection);
+            }
+            var rank = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .CountAsync(ctx.CollectionItems, i => i.CollectionId == collection.Id);
+            ctx.CollectionItems.Add(new CatalogEntities.CollectionItem
+            {
+                Id = Guid.NewGuid(), TenantId = _tenantId, CollectionId = collection.Id,
+                ProductId = extra.Id, Rank = rank,
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        return (extra.Id, variantId);
+    }
+
+    public ExtrasCatalogService Extras()
+    {
+        var ctx = Commerce();
+        return new ExtrasCatalogService(ctx,
+            _tenant,
+            new DictionaryTenantSettingStore(Settings),
+            new GbpTenantCurrencyProvider(),
+            new ProductPricingService(ctx, _tenant, _clock),
+            CommerceTestHarness.NewOptionService(ctx, _tenantId),
+            CommerceTestHarness.NewContentService(ctx, _tenantId));
     }
 }
 

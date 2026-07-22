@@ -117,7 +117,7 @@ internal sealed class CheckoutService : ICheckoutService
         // The whole charge breakdown is computable from the cart alone, so it runs BEFORE any
         // durable side effect: a nonpositive payable (e.g. a 100% coupon with zero delivery)
         // must reject while there is still nothing to unwind (L4).
-        var subtotal = box?.GoodsTotal ?? cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
+        var subtotal = box is not null ? box.GoodsTotal + box.AddOnGoodsTotal : cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
         var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
         var taxable = subtotal - discount.Amount;
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
@@ -190,13 +190,30 @@ internal sealed class CheckoutService : ICheckoutService
                 ProductId: cart.BoxBundleProductId,
                 Sku: box.BundleSku,
                 DetailsJson: box.EnvelopeJson));
+            // Spec 071 X7 — one ordinary retail item per AddOn line, the spine's existing
+            // shape; the §12 envelope rides DetailsJson when personalised.
+            var nextIndex = 1;
+            foreach (var (line, priced, chargedUnit) in box.AddOnLines)
+            {
+                orderItems.Add(new OrderItemCommand(
+                    ItemType: OrderTypeCodes.ProductPurchase,
+                    ItemIndex: nextIndex++,
+                    AmountIn: chargedUnit * line.Quantity,
+                    CurrencyIn: cart.Currency,
+                    Quantity: line.Quantity,
+                    UnitPrice: chargedUnit,
+                    ProductId: line.ProductVariantId,
+                    Sku: line.Sku,
+                    DetailsJson: priced is null ? null : JsonSerializer.Serialize(priced, EnvelopeSerializerOptions)));
+            }
+
             if (box.DeliveryCharged > 0)
             {
                 // Materialised, not absorbed — without this the customer would be charged less
                 // than the authoritative quote. Dormant while the setting is zero.
                 orderItems.Add(new OrderItemCommand(
                     ItemType: DeliveryFeeItemType,
-                    ItemIndex: 1,
+                    ItemIndex: nextIndex,
                     AmountIn: box.DeliveryCharged,
                     CurrencyIn: cart.Currency,
                     Quantity: 1m,
@@ -276,6 +293,12 @@ internal sealed class CheckoutService : ICheckoutService
                     .Select(i => new InvoiceLineSpec(i.NameSnapshot, i.Quantity, i.UnitPriceSnapshot))
                     .ToList()
                 : new List<InvoiceLineSpec> { new($"{box.Size}-dish box", 1m, box.GoodsTotal) };
+            if (box is not null)
+            {
+                // Add-ons are ordinary retail and may show their prices (Spec 071 §7).
+                lines.AddRange(box.AddOnLines.Select(a =>
+                    new InvoiceLineSpec(a.Line.NameSnapshot, a.Line.Quantity, a.ChargedUnitPrice)));
+            }
             if (box is { DeliveryCharged: > 0 })
             {
                 lines.Add(new InvoiceLineSpec("Delivery", 1m, box.DeliveryCharged));

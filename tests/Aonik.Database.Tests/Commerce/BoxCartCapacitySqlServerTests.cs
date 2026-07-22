@@ -81,7 +81,8 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
                 new TenantContext { TenantId = tenantId }, new WallClock()),
             settings,
             settings,
-            new GbpCurrency());
+            new GbpCurrency(),
+            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()));
     }
 
     [SkippableFact]

@@ -80,6 +80,27 @@ public class AddBoxLineEndpoint : Endpoint<AddBoxLineRequest, BoxCartDto>
             CartRequestAccess.From(HttpContext), ct), ct);
 }
 
+/// <summary>Spec 071 — add an ordinary retail extra alongside the box (AddOn line: no slot,
+/// no capacity, its own retail price).</summary>
+public class AddBoxExtraEndpoint : Endpoint<AddBoxExtraRequest, BoxCartDto>
+{
+    private readonly IBoxCartService _boxCarts;
+    public AddBoxExtraEndpoint(IBoxCartService boxCarts) => _boxCarts = boxCarts;
+
+    public override void Configure()
+    {
+        Post("/commerce/carts/{cartId:guid}/extras");
+        AllowAnonymous();
+        Summary(s => s.Summary = "Add an add-on extra to a box session (Spec 071).");
+    }
+
+    public override async Task HandleAsync(AddBoxExtraRequest req, CancellationToken ct)
+        => await Send.OkAsync(await _boxCarts.AddExtraLineAsync(
+            Route<Guid>("cartId"),
+            new AddBoxExtraCommand(req.ProductVariantId, req.Quantity, req.Personalisation),
+            CartRequestAccess.From(HttpContext), ct), ct);
+}
+
 public class UpdateBoxLineEndpoint : Endpoint<UpdateBoxLineRequest, BoxCartDto>
 {
     private readonly IBoxCartService _boxCarts;
