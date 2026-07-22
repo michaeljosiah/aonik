@@ -73,6 +73,25 @@ public class StorefrontIdentityTests
     }
 
     [Fact]
+    public async Task C5b_Adoption_Rejects_ForTheOwningParty_OnceOrdered()
+    {
+        // The owner's idempotent retry must not outrank Z4: adopt, check out, retry the adopt.
+        var (h, _, box) = await GuestBoxAsync();
+        var party = Guid.NewGuid();
+        await h.Carts().AdoptAsync(box.Box.CartId, party, Token(box));
+        await using (var ctx = h.Commerce())
+        {
+            var cart = await ctx.Carts.FirstAsync(c => c.Id == box.Box.CartId);
+            cart.OrderId = Guid.NewGuid();
+            await ctx.SaveChangesAsync();
+        }
+
+        var retry = () => h.Carts().AdoptAsync(box.Box.CartId, party, CartAccessContext.ForGuest(null));
+
+        (await retry.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("Z4");
+    }
+
+    [Fact]
     public async Task C4_MyOrders_AreScopedToTheParty()
     {
         // Two customers each check out a full box; each sees exactly their own order.
@@ -93,7 +112,8 @@ public class StorefrontIdentityTests
             return result.OrderId;
         }
 
-        var orderA = await CheckoutFor(partyA);
+        var orderA1 = await CheckoutFor(partyA);
+        var orderA2 = await CheckoutFor(partyA);
         var orderB = await CheckoutFor(partyB);
 
         var orders = new StorefrontOrderService(h.Commerce(),
@@ -104,13 +124,21 @@ public class StorefrontIdentityTests
                 new Aonik.TestSupport.Identity.TestCurrentUserProvider()));
 
         var mine = await orders.ListMyOrdersAsync(partyA);
-        mine.Should().ContainSingle(o => o.OrderId == orderA, "only the caller's own orders list");
-        mine.Should().NotContain(o => o.OrderId == orderB);
-        mine.Single().BoxSize.Should().Be(6);
-        mine.Single().Total.Should().Be(95m);
+        mine.TotalCount.Should().Be(2, "only the caller's own orders list");
+        mine.Items.Select(o => o.OrderId).Should().BeEquivalentTo([orderA1, orderA2]);
+        mine.Items.Should().NotContain(o => o.OrderId == orderB);
+        mine.Items.Should().OnlyContain(o => o.BoxSize == 6 && o.Total == 95m);
+
+        // Paging is real: two pages of one, disjoint, same total.
+        var page1 = await orders.ListMyOrdersAsync(partyA, page: 1, pageSize: 1);
+        var page2 = await orders.ListMyOrdersAsync(partyA, page: 2, pageSize: 1);
+        page1.TotalCount.Should().Be(2);
+        page1.Items.Should().ContainSingle();
+        page2.Items.Should().ContainSingle();
+        page1.Items.Single().OrderId.Should().NotBe(page2.Items.Single().OrderId);
 
         (await orders.GetMyOrderAsync(partyA, orderB)).Should().BeNull("Z5 — a foreign order id is a 404, never a 403");
-        var detail = await orders.GetMyOrderAsync(partyA, orderA);
+        var detail = await orders.GetMyOrderAsync(partyA, orderA1);
         detail!.Items.Should().NotBeEmpty();
         detail.Selections.Should().NotBeEmpty("the box's kitchen landing rides the detail");
     }

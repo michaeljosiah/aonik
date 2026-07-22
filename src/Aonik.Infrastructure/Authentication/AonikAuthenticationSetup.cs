@@ -258,6 +258,39 @@ public static class AonikAuthenticationSetup
             tenantId.Value,
             context.HttpContext.RequestAborted);
 
+        // Reject BEFORE populating any per-request identity state. context.Fail() does not stop
+        // an AllowAnonymous endpoint from executing, so anything stamped into ICurrentUserContext
+        // before these checks would let a deactivated user or revoked session keep acting as an
+        // "authenticated" principal wherever anonymous access is allowed (e.g. the Spec 072
+        // current-party resolution on cart routes).
+        if (user.Status != "Active")
+        {
+            logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = $"User account is {user.Status}";
+            context.Fail($"User account is {user.Status}");
+            return;
+        }
+
+        // Spec 026 Part 3 — token revocation. Compares the JWT's
+        // iat ("issued at") claim against the most-recent revoke for
+        // this user (FusionCache-backed; default 30 s TTL). Tokens
+        // issued before the last revoke are rejected with 401; tokens
+        // issued after a revoke are honoured (operator's "kill the
+        // current sessions" intent, not a permanent ban — use
+        // deactivate for ban semantics).
+        var blocklist = context.HttpContext.RequestServices.GetRequiredService<IUserSessionBlocklist>();
+        var tokenIssuedUtc = ResolveTokenIssuedAt(jwtToken, jsonToken, claims);
+        if (await blocklist.IsRevokedAsync(tenantId.Value, user.Id, tokenIssuedUtc, context.HttpContext.RequestAborted))
+        {
+            logger.LogWarning(
+                "User {UserId} attempted login with a revoked-session token (iat={IssuedAt})",
+                user.Id,
+                tokenIssuedUtc);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = "Sessions revoked";
+            context.Fail("User session has been revoked");
+            return;
+        }
+
         var roles = new HashSet<string>(
             ClaimsRoleMapper.ExtractRoles(context.Principal),
             StringComparer.OrdinalIgnoreCase);
@@ -286,34 +319,6 @@ public static class AonikAuthenticationSetup
 
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
             user.Id, tenantId.Value, user.Status);
-
-        if (user.Status != "Active")
-        {
-            logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
-            context.HttpContext.Items[AuthFailureReasonItemKey] = $"User account is {user.Status}";
-            context.Fail($"User account is {user.Status}");
-            return;
-        }
-
-        // Spec 026 Part 3 — token revocation. Compares the JWT's
-        // iat ("issued at") claim against the most-recent revoke for
-        // this user (FusionCache-backed; default 30 s TTL). Tokens
-        // issued before the last revoke are rejected with 401; tokens
-        // issued after a revoke are honoured (operator's "kill the
-        // current sessions" intent, not a permanent ban — use
-        // deactivate for ban semantics).
-        var blocklist = context.HttpContext.RequestServices.GetRequiredService<IUserSessionBlocklist>();
-        var tokenIssuedUtc = ResolveTokenIssuedAt(jwtToken, jsonToken, claims);
-        if (await blocklist.IsRevokedAsync(tenantId.Value, user.Id, tokenIssuedUtc, context.HttpContext.RequestAborted))
-        {
-            logger.LogWarning(
-                "User {UserId} attempted login with a revoked-session token (iat={IssuedAt})",
-                user.Id,
-                tokenIssuedUtc);
-            context.HttpContext.Items[AuthFailureReasonItemKey] = "Sessions revoked";
-            context.Fail("User session has been revoked");
-            return;
-        }
 
         // Intentionally not persisting last-login during token validation.
         // Token validation runs before tenant context middleware, and DB writes here can fail

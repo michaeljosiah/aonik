@@ -5,9 +5,10 @@ using FastEndpoints;
 
 namespace Aonik.Commerce.Endpoints.Public.Checkout;
 
-/// <summary>Spec 072 Y5 — the customer's own orders. Party-scoped at the query (Z5): another
-/// party's order id is a 404, never a 403 oracle. Admits PersonalUser (Z6).</summary>
-public class ListMyOrdersEndpoint : EndpointWithoutRequest<IReadOnlyList<StorefrontOrderSummaryDto>>
+/// <summary>Spec 072 Y5 — the customer's own orders, paged (`page`/`pageSize`, newest first).
+/// Party-scoped at the query (Z5): another party's order id is a 404, never a 403 oracle.
+/// Admits PersonalUser (Z6).</summary>
+public class ListMyOrdersEndpoint : EndpointWithoutRequest<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>>
 {
     private readonly IStorefrontOrderService _orders;
     private readonly ICurrentPartyResolver _parties;
@@ -27,13 +28,16 @@ public class ListMyOrdersEndpoint : EndpointWithoutRequest<IReadOnlyList<Storefr
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        var page = Query<int?>("page", isRequired: false) ?? 1;
+        var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
         var partyId = await _parties.GetCurrentPartyIdAsync(ct);
         if (partyId is null)
         {
-            await Send.OkAsync([], ct);   // an unlinked principal simply has no orders
+            // An unlinked principal simply has no orders.
+            await Send.OkAsync(new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>([], 0, page, pageSize), ct);
             return;
         }
-        await Send.OkAsync(await _orders.ListMyOrdersAsync(partyId.Value, ct), ct);
+        await Send.OkAsync(await _orders.ListMyOrdersAsync(partyId.Value, page, pageSize, ct), ct);
     }
 }
 

@@ -86,7 +86,11 @@ public sealed record ListOrdersQuery(
     int PageNumber = 1,
     int PageSize = 20,
     DateTime? CreatedFromUtc = null,
-    DateTime? CreatedToUtc = null);
+    DateTime? CreatedToUtc = null,
+    /// Restrict to this id set (Spec 072 — additive, like the created-range bounds). Callers that
+    /// already know WHICH orders they need (e.g. a module resolving its own ownership records)
+    /// batch-read them in one query instead of N GetAsync round trips. Null/empty = no restriction.
+    IReadOnlyCollection<Guid>? OrderIds = null);
 
 /// <summary>Links an order to the execution record that fulfils it. Exactly one id must be set,
 /// matching the <c>OrderFulfilmentRef</c> "one-of" CHECK.</summary>

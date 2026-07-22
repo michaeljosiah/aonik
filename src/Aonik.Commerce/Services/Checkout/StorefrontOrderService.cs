@@ -1,4 +1,4 @@
-using Aonik.Commerce.Persistence;
+﻿using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
@@ -12,7 +12,7 @@ namespace Aonik.Commerce.Services.Checkout;
 /// party's order id simply does not resolve — a 404, never a 403 oracle.</summary>
 public interface IStorefrontOrderService
 {
-    Task<IReadOnlyList<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, CancellationToken cancellationToken = default);
+    Task<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
 
     Task<StorefrontOrderDetailDto?> GetMyOrderAsync(Guid partyId, Guid orderId, CancellationToken cancellationToken = default);
 }
@@ -64,38 +64,55 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
         _orders = orders;
     }
 
-    public async Task<IReadOnlyList<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, CancellationToken cancellationToken = default)
+    public async Task<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var carts = await _dbContext.Carts
+
+        // One paged query over the party's checked-out carts joined to their durable charge
+        // summaries (an order created then unwound — the K4 path — has no summary and drops out
+        // of the join). The page is fixed HERE, so an established customer's history never
+        // becomes an unbounded read; the ordering layer is then asked for exactly that page's
+        // orders in ONE batched query, never per-order round trips.
+        var joined = _dbContext.Carts
             .AsNoTracking()
             .Where(c => c.TenantId == tenantId && c.BuyerPartyId == partyId && c.OrderId != null)
-            .Select(c => new { OrderId = c.OrderId!.Value, c.BoxSize })
+            .Join(
+                _dbContext.OrderChargeSummaries.AsNoTracking().Where(s => s.TenantId == tenantId),
+                c => c.OrderId!.Value,
+                s => s.OrderId,
+                (c, s) => new { s.OrderId, c.BoxSize, s.Currency, s.Total, s.CreatedAt });
+
+        var totalCount = await joined.CountAsync(cancellationToken);
+        var rows = await joined
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenBy(x => x.OrderId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
-        if (carts.Count == 0)
+        if (rows.Count == 0)
         {
-            return [];
+            return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>([], totalCount, page, pageSize);
         }
 
-        var orderIds = carts.Select(c => c.OrderId).ToList();
-        var summaries = await _dbContext.OrderChargeSummaries
-            .AsNoTracking()
-            .Where(s => s.TenantId == tenantId && orderIds.Contains(s.OrderId))
-            .ToDictionaryAsync(s => s.OrderId, cancellationToken);
+        var orders = await _orders.ListAsync(
+            new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
+            cancellationToken);
+        var byId = orders.Items.ToDictionary(o => o.Id);
 
-        var results = new List<StorefrontOrderSummaryDto>();
-        foreach (var cart in carts)
+        var results = new List<StorefrontOrderSummaryDto>(rows.Count);
+        foreach (var row in rows)
         {
-            var order = await _orders.GetAsync(cart.OrderId, cancellationToken);
-            if (order is null || !summaries.TryGetValue(cart.OrderId, out var summary))
+            if (!byId.TryGetValue(row.OrderId, out var order))
             {
-                continue;   // an order created then unwound (the K4 path) has no durable summary
+                continue;   // summary outlived its order — serve the rest rather than 500
             }
             results.Add(new StorefrontOrderSummaryDto(
-                order.Id, order.CreatedAt, order.Status, summary.Currency, summary.Total, cart.BoxSize));
+                order.Id, order.CreatedAt, order.Status, row.Currency, row.Total, row.BoxSize));
         }
 
-        return results.OrderByDescending(r => r.PlacedAtUtc).ToList();
+        return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>(results, totalCount, page, pageSize);
     }
 
     public async Task<StorefrontOrderDetailDto?> GetMyOrderAsync(Guid partyId, Guid orderId, CancellationToken cancellationToken = default)
