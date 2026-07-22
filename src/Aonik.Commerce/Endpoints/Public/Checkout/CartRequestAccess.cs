@@ -1,6 +1,7 @@
-using Aonik.Commerce.Contracts.Models.Checkout;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Commerce.Endpoints.Public.Checkout;
 
@@ -15,9 +16,16 @@ internal static class CartRequestAccess
 {
     public const string HeaderName = "X-Cart-Token";
 
-    public static CartAccessContext From(HttpContext httpContext)
+    /// <summary>Both halves (Spec 072 Y2): the guest token from the header, and the
+    /// authenticated principal's party from the platform resolver — null for anonymous callers,
+    /// which leaves guest semantics exactly as they were.</summary>
+    public static async Task<CartAccessContext> FromAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
         var token = httpContext.Request.Headers[HeaderName].FirstOrDefault();
-        return CartAccessContext.ForGuest(string.IsNullOrWhiteSpace(token) ? null : token.Trim());
+        var resolver = httpContext.RequestServices.GetRequiredService<Aonik.SharedKernel.Abstractions.ICurrentPartyResolver>();
+        var partyId = await resolver.GetCurrentPartyIdAsync(cancellationToken);
+        return new CartAccessContext(
+            string.IsNullOrWhiteSpace(token) ? null : token.Trim(),
+            partyId);
     }
 }

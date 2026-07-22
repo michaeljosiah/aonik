@@ -71,6 +71,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IBundleSizePlanService, BundleSizePlanService>();
         services.AddScoped<IExtrasCatalogService, ExtrasCatalogService>();
+        services.AddScoped<IStorefrontOrderService, StorefrontOrderService>();
         services.AddScoped<BoxCartService>();
         services.AddScoped<IBoxCartService>(sp => sp.GetRequiredService<BoxCartService>());
         services.AddScoped<IBoxCheckoutSupport>(sp => sp.GetRequiredService<BoxCartService>());

@@ -179,6 +179,41 @@ internal sealed class CartService : ICartService
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
 
+    public async Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await _dbContext.Carts
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
+
+        // Idempotent for the party that already owns it — a retried adopt is a no-op.
+        if (cart.BuyerPartyId == partyId)
+        {
+            return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+        }
+
+        // Z2 — a cart bound to ANOTHER party, or a wrong/absent guest token, is the same 404 an
+        // unknown cart gets: adoption needs possession AND identity, with no oracle between.
+        if (cart.BuyerPartyId is not null
+            || !CartAccess.IsAuthorized(cart, CartAccessContext.ForGuest(access.GuestToken)))
+        {
+            throw new NotFoundException($"Cart '{cartId}' was not found.");
+        }
+
+        // Z4 — an ordered cart's buyer is fixed with its order, reservation and payment amount.
+        if (cart.Status != CartStatuses.Open || cart.OrderId is not null)
+        {
+            throw new StorefrontValidationException("Z4: this cart has been checked out; its buyer cannot change.");
+        }
+
+        cart.BuyerPartyId = partyId;
+        // Z3 — a leaked pre-adoption token must be dead afterwards.
+        cart.AnonymousToken = null;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+    }
+
     private async Task<Entities.Cart.Cart> ValidateOpenCartAsync(Guid cartId, Guid tenantId, CartAccessContext access, CancellationToken cancellationToken)
     {
         var cart = await _dbContext.Carts.AsNoTracking()

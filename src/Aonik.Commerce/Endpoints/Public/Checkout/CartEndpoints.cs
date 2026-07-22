@@ -32,7 +32,10 @@ public class CreateCartEndpoint : Endpoint<CreateCartRequest, CartDto>
                 "Party-bound carts are not available on this route yet; omit buyerPartyId for a guest cart.");
         }
 
-        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency), ct);
+        // Y3 — an authenticated caller's cart is born party-bound; the principal is the ONLY
+        // source of the party (the body rejection above stands).
+        var principal = await CartRequestAccess.FromAsync(HttpContext, ct);
+        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency, principal.AuthenticatedPartyId), ct);
         await Send.OkAsync(cart, ct);
     }
 }
@@ -67,7 +70,7 @@ public class GetCartEndpoint : EndpointWithoutRequest<object>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var access = CartRequestAccess.From(HttpContext);
+        var access = await CartRequestAccess.FromAsync(HttpContext, ct);
         var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), access, ct);
         if (cart is null)
         {
@@ -100,7 +103,7 @@ public class AddCartItemEndpoint : Endpoint<AddCartItemRequest, CartDto>
     {
         var cart = await _carts.AddItemAsync(
             new AddCartItemCommand(Route<Guid>("cartId"), req.ProductVariantId, req.Quantity),
-            CartRequestAccess.From(HttpContext), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(cart, ct);
     }
 }
@@ -121,7 +124,7 @@ public class AddBundleToCartEndpoint : Endpoint<AddBundleToCartRequest, CartDto>
     {
         var cart = await _carts.AddBundleAsync(
             new AddBundleToCartCommand(Route<Guid>("cartId"), req.BundleProductId, req.Selection),
-            CartRequestAccess.From(HttpContext), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(cart, ct);
     }
 }
