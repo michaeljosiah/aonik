@@ -78,7 +78,16 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
 
         // Validate EVERYTHING before writing ANYTHING — the settings store has no transaction
         // spanning keys, so the only way a failed request leaves the document unchanged is to
-        // front-load every rejection.
+        // front-load every rejection. That includes the store's own 4000-character value bound:
+        // a syntactically valid but oversized value would pass the shape checks, let earlier
+        // keys commit, and then fail its own write as a 500 mid-document.
+        const int settingValueBound = 4000;
+        if (command.RecommendedChoiceLabel is { Length: > settingValueBound }
+            || command.BackToTopTriggerJson is { Length: > settingValueBound })
+        {
+            throw new StorefrontValidationException($"Setting values are at most {settingValueBound} characters.");
+        }
+
         if (command.ResultsPageSize is { } size and (< 1 or > 200))
         {
             throw new StorefrontValidationException($"resultsPageSize must be between 1 and 200; got {size}.");

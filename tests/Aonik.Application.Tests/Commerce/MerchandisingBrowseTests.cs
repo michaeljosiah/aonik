@@ -223,6 +223,28 @@ public class MerchandisingBrowseTests
     }
 
     [Fact]
+    public async Task ListProducts_Should_DegradeTheWholeRow_When_OnlyOneJsonColumnIsMalformed()
+    {
+        // §11 treats the ROW as the unit: attributes-only corruption still clears tags and
+        // excludes the row from every facet match, category included. Partially trusting a row
+        // whose JSON is provably corrupt would let it keep matching tag facets while its
+        // attributes are garbage.
+        var (browse, builder, ctx) = await ArrangeWithContextAsync();
+        var ids = await builder.ProductIdsBySlugAsync();
+        var salad = await ctx.Products.FindAsync(ids["garden-salad"]);
+        salad!.AttributesJson = "[broken";              // only attributes; TagsJson stays valid
+        await ctx.SaveChangesAsync();
+
+        var all = await browse(null, null, null);
+        var vegan = await browse(new Dictionary<string, IReadOnlyList<string>> { ["dietary"] = ["vegan"] }, null, null);
+        var mains = await browse(new Dictionary<string, IReadOnlyList<string>> { ["category"] = ["mains"] }, null, null);
+
+        all.Items.Single(p => p.Slug == "garden-salad").Tags.Should().BeEmpty("row-level degradation clears valid columns too");
+        vegan.Items.Select(p => p.Slug).Should().BeEquivalentTo(["jollof"]);
+        mains.Items.Select(p => p.Slug).Should().NotContain("garden-salad", "the category predicate reads no JSON, so the row-level flag must close it");
+    }
+
+    [Fact]
     public async Task ListProducts_Should_DefaultToRankOrder_WithinACollection_AndLetSortOverride()
     {
         // A16 — collection without sort = curated rank; explicit sort=name overrides;

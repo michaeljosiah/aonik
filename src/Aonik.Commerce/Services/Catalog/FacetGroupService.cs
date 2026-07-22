@@ -58,7 +58,8 @@ internal sealed partial class FacetGroupService : IFacetGroupService
 
         var matchKind = NormalizeMatchKind(command.MatchKind);
         var sourcePath = ValidateSourcePath(matchKind, command.SourcePath);
-        FacetDefinitions.ParseStrict(command.OptionsJson, matchKind);
+        var optionsJson = BoundOptionsJson(command.OptionsJson);
+        FacetDefinitions.ParseStrict(optionsJson, matchKind);
 
         var group = new FacetGroup
         {
@@ -68,7 +69,7 @@ internal sealed partial class FacetGroupService : IFacetGroupService
             Label = RequireLabel(command.Label),
             MatchKind = matchKind,
             SourcePath = sourcePath,
-            OptionsJson = command.OptionsJson,
+            OptionsJson = optionsJson,
             SortOrder = command.SortOrder,
             IsActive = true,
         };
@@ -99,8 +100,9 @@ internal sealed partial class FacetGroupService : IFacetGroupService
 
         if (command.OptionsJson is not null)
         {
-            FacetDefinitions.ParseStrict(command.OptionsJson, group.MatchKind);
-            group.OptionsJson = command.OptionsJson;
+            var optionsJson = BoundOptionsJson(command.OptionsJson);
+            FacetDefinitions.ParseStrict(optionsJson, group.MatchKind);
+            group.OptionsJson = optionsJson;
         }
 
         if (command.SortOrder is { } sortOrder)
@@ -128,8 +130,16 @@ internal sealed partial class FacetGroupService : IFacetGroupService
 
         if (matchKind is FacetMatchKinds.Attribute or FacetMatchKinds.Range)
         {
-            return trimmed ?? throw new StorefrontValidationException(
-                $"A {matchKind} facet group requires a sourcePath naming the attribute it reads.");
+            if (trimmed is null)
+            {
+                throw new StorefrontValidationException(
+                    $"A {matchKind} facet group requires a sourcePath naming the attribute it reads.");
+            }
+            if (trimmed.Length > 128)
+            {
+                throw new StorefrontValidationException("A sourcePath is at most 128 characters.");
+            }
+            return trimmed;
         }
 
         if (trimmed is not null)
@@ -167,9 +177,26 @@ internal sealed partial class FacetGroupService : IFacetGroupService
     }
 
     private static string RequireLabel(string? label)
-        => string.IsNullOrWhiteSpace(label)
-            ? throw new StorefrontValidationException("A label is required.")
-            : label.Trim();
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            throw new StorefrontValidationException("A label is required.");
+        }
+
+        var trimmed = label.Trim();
+        return trimmed.Length <= 128
+            ? trimmed
+            : throw new StorefrontValidationException("A label is at most 128 characters.");
+    }
+
+    /// <summary>4096 is the documented authoring bound (§11). The column itself is nvarchar(max) —
+    /// SQL Server has no nvarchar(4096), so HasMaxLength is metadata there and this check is the
+    /// only real enforcement. Without it every facet read and browse would parse an unbounded
+    /// document forever after one oversized write.</summary>
+    private static string BoundOptionsJson(string optionsJson)
+        => optionsJson.Length <= 4096
+            ? optionsJson
+            : throw new StorefrontValidationException("optionsJson is at most 4096 characters.");
 
     private static FacetGroupDto Map(FacetGroup group) => new(
         group.Id, group.Key, group.Label, group.MatchKind, group.SourcePath, group.SortOrder, group.IsActive,

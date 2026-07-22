@@ -89,6 +89,11 @@ public class StorefrontConfigServiceTests
             () => service.UpdateAsync(new UpdateStorefrontConfigCommand(DefaultBoxSlug: "Not A Slug!")),
             // Valid label alongside an invalid size: the label must NOT land.
             () => service.UpdateAsync(new UpdateStorefrontConfigCommand(RecommendedChoiceLabel: "Sneaky", ResultsPageSize: 999)),
+            // The store's own 4000-character value bound: a syntactically valid but oversized
+            // trigger would otherwise let the label commit first, then 500 mid-document.
+            () => service.UpdateAsync(new UpdateStorefrontConfigCommand(
+                RecommendedChoiceLabel: "Sneaky",
+                BackToTopTriggerJson: $$"""{"type":"cardIndex","note":"{{new string('n', 4200)}}"}""")),
         };
 
         foreach (var act in cases)

@@ -22,7 +22,10 @@ public record CreateProductCommand(
     string? BundlePricingMode = null,
     decimal? BundleFixedAmount = null,
     decimal? BundlePremium = null,
-    string? BundleCurrency = null);
+    string? BundleCurrency = null,
+    // Spec 070 §7 — keywords are part of product authoring; forcing a follow-up PATCH to make a
+    // new product searchable would be a two-request contract for a one-request intent.
+    string? SearchKeywordsJson = null);
 
 public record AddVariantCommand(
     Guid ProductId,

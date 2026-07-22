@@ -177,8 +177,14 @@ public class CollectionServiceTests
 
         var duplicate = () => builder.Collections.CreateAsync(new CreateCollectionCommand("featured", "Again"));
         var badSlug = () => builder.Collections.CreateAsync(new CreateCollectionCommand("Not A Slug!", "X"));
+        // Mapped column bounds enforced at authoring — oversize would otherwise pass validation
+        // and fail SaveChanges as a 500 on SQL Server.
+        var longTitle = () => builder.Collections.CreateAsync(new CreateCollectionCommand("long-title", new string('t', 200)));
+        var longSubtitle = () => builder.Collections.CreateAsync(new CreateCollectionCommand("long-sub", "T", Subtitle: new string('s', 300)));
         await duplicate.Should().ThrowAsync<StorefrontValidationException>();
         await badSlug.Should().ThrowAsync<StorefrontValidationException>();
+        await longTitle.Should().ThrowAsync<StorefrontValidationException>();
+        await longSubtitle.Should().ThrowAsync<StorefrontValidationException>();
 
         // A rename must not re-kind, reorder or deactivate — omitted means unchanged.
         await builder.Collections.UpdateAsync(collectionId, new UpdateCollectionCommand("Featured", Kind: CollectionKinds.Custom, SortOrder: 5));

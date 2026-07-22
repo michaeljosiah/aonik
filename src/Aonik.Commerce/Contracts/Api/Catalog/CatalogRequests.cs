@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Api.Catalog;
+﻿namespace Aonik.Commerce.Contracts.Api.Catalog;
 
 /// <summary>HTTP request bodies for the catalog endpoints (Spec 042). Mapped to service commands.</summary>
 public record CreateProductRequest(
@@ -14,7 +14,8 @@ public record CreateProductRequest(
     decimal? BundleFixedAmount,
     decimal? BundlePremium,
     string? BundleCurrency,
-    IReadOnlyCollection<CreateVariantRequestLine>? Variants);
+    IReadOnlyCollection<CreateVariantRequestLine>? Variants,
+    string? SearchKeywordsJson = null);
 
 public record CreateVariantRequestLine(string Sku, string Name, string? OptionsJson, decimal? WeightGrams);
 

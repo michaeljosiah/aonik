@@ -86,6 +86,28 @@ public class CatalogMerchandisingProductTests
     }
 
     [Fact]
+    public async Task CreateProduct_Should_AcceptSearchKeywords_InOneRequest()
+    {
+        // Keywords are part of product authoring — a new product must be searchable without a
+        // follow-up PATCH.
+        var (builder, _) = await ArrangeAsync();
+
+        var created = await builder.Products.CreateProductAsync(new CreateProductCommand(
+            "moimoi", "Moi Moi", ProductKinds.Simple,
+            SearchKeywordsJson: """["beans","steamed"]"""));
+
+        (await builder.Products.GetAdminProductAsync(created.Id))!
+            .SearchKeywords.Should().BeEquivalentTo(["beans", "steamed"]);
+
+        var found = await builder.Products.ListProductsAsync(new ListProductsQuery(Search: "steamed"));
+        found.Items.Should().ContainSingle(p => p.Slug == "moimoi");
+
+        var badKeywords = () => builder.Products.CreateProductAsync(new CreateProductCommand(
+            "broken-kw", "Broken", ProductKinds.Simple, SearchKeywordsJson: "{nope"));
+        await badKeywords.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Fact]
     public async Task UpdateProduct_Should_ValidateStatusCategoryAndClearCategory()
     {
         var (builder, _) = await ArrangeAsync();

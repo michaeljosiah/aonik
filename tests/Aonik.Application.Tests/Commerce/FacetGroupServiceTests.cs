@@ -102,6 +102,25 @@ public class FacetGroupServiceTests
     }
 
     [Fact]
+    public async Task Create_Should_EnforceLabelAndOptionsBounds()
+    {
+        // Label 128 is the mapped column; OptionsJson 4096 is the documented authoring bound —
+        // and the ONLY enforcement, because SQL Server has no nvarchar(4096): the column is
+        // nvarchar(max) and HasMaxLength is metadata there.
+        var facets = NewService();
+
+        var longLabel = () => facets.CreateAsync(new CreateFacetGroupCommand(
+            "dietary", new string('l', 200), FacetMatchKinds.Tag, """[{"value":"vegan","label":"Vegan"}]"""));
+
+        var hugeOptions = $$"""[{"value":"a","label":"{{new string('x', 4200)}}"}]""";
+        var oversized = () => facets.CreateAsync(new CreateFacetGroupCommand(
+            "dietary", "Dietary", FacetMatchKinds.Tag, hugeOptions));
+
+        await longLabel.Should().ThrowAsync<StorefrontValidationException>();
+        (await oversized.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("4096");
+    }
+
+    [Fact]
     public async Task Create_Should_RejectDuplicateKeys()
     {
         var facets = NewService();

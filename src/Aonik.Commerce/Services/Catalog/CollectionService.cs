@@ -123,7 +123,7 @@ internal sealed partial class CollectionService : ICollectionService
             TenantId = tenantId,
             Slug = slug,
             Title = RequireTitle(command.Title),
-            Subtitle = command.Subtitle,
+            Subtitle = BoundSubtitle(command.Subtitle),
             Kind = NormalizeKind(command.Kind),
             SortOrder = command.SortOrder,
             IsActive = true,
@@ -155,7 +155,7 @@ internal sealed partial class CollectionService : ICollectionService
         }
         else if (command.Subtitle is not null)
         {
-            collection.Subtitle = command.Subtitle;
+            collection.Subtitle = BoundSubtitle(command.Subtitle);
         }
 
         if (command.Kind is not null)
@@ -411,10 +411,26 @@ internal sealed partial class CollectionService : ICollectionService
         return kind;
     }
 
+    /// <summary>Non-blank AND within the mapped column bound — an oversized value would pass
+    /// here and then fail SaveChanges as a 500 on SQL Server, exactly the class the media-URL
+    /// bound fix addressed.</summary>
     private static string RequireTitle(string? title)
-        => string.IsNullOrWhiteSpace(title)
-            ? throw new StorefrontValidationException("A title is required.")
-            : title.Trim();
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new StorefrontValidationException("A title is required.");
+        }
+
+        var trimmed = title.Trim();
+        return trimmed.Length <= 128
+            ? trimmed
+            : throw new StorefrontValidationException("A title is at most 128 characters.");
+    }
+
+    private static string? BoundSubtitle(string? subtitle)
+        => subtitle is { Length: > 256 }
+            ? throw new StorefrontValidationException("A subtitle is at most 256 characters.")
+            : subtitle;
 
     [GeneratedRegex("^[a-z0-9-]{1,64}$")]
     private static partial Regex SlugPattern();

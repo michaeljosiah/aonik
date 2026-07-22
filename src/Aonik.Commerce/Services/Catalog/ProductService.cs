@@ -58,6 +58,9 @@ internal sealed partial class ProductService : IProductService
             // but a 400 at authoring beats a warning-logged half-rendered row later.
             TagsJson = command.TagsJson is null ? "[]" : ValidateStringArrayJson(command.TagsJson, "tagsJson"),
             AttributesJson = command.AttributesJson is null ? "{}" : ValidateObjectJson(command.AttributesJson, "attributesJson"),
+            SearchKeywordsJson = command.SearchKeywordsJson is null
+                ? "[]"
+                : ValidateBoundedKeywords(command.SearchKeywordsJson),
             BundlePricingMode = command.BundlePricingMode,
             BundleFixedAmount = command.BundleFixedAmount,
             BundlePremium = command.BundlePremium,
@@ -141,7 +144,10 @@ internal sealed partial class ProductService : IProductService
         {
             foreach (var predicate in await BuildFacetPredicatesAsync(tenantId, facets, cancellationToken))
             {
-                rows = rows.Where(predicate).ToList();
+                // A malformed row is excluded from EVERY facet match, category included — its
+                // predicate inputs were cleared, and the row-level flag closes the one predicate
+                // (category) that reads no JSON.
+                rows = rows.Where(r => !r.Malformed && predicate(r)).ToList();
             }
         }
 
@@ -182,12 +188,16 @@ internal sealed partial class ProductService : IProductService
 
     /// <summary>A candidate row with its JSON parsed once, defensively: a malformed legacy row
     /// renders with empty tags, drops out of facet matching, and logs a warning — it never 500s
-    /// the public browse (§11 / A13).</summary>
+    /// the public browse (§11 / A13). The degradation is ROW-level: one bad column clears all
+    /// parsed data and sets <see cref="BrowseRow.Malformed"/>, which every facet predicate
+    /// honours — partially trusting a row whose JSON is provably corrupt would let it keep
+    /// matching tag facets while its attributes are garbage.</summary>
     private sealed record BrowseRow(
         Product Product,
         IReadOnlyList<string> Tags,
         JsonElement? Attributes,
-        IReadOnlyList<string> SearchKeywords);
+        IReadOnlyList<string> SearchKeywords,
+        bool Malformed);
 
     private BrowseRow ParseRow(Product product)
     {
@@ -198,9 +208,10 @@ internal sealed partial class ProductService : IProductService
         if (tagsMalformed || attributesMalformed || keywordsMalformed)
         {
             LogMalformedProductJson(_logger, product.Slug, product.Id);
+            return new BrowseRow(product, [], null, [], Malformed: true);
         }
 
-        return new BrowseRow(product, tags, attributes, keywords);
+        return new BrowseRow(product, tags, attributes, keywords, Malformed: false);
     }
 
     private static string ResolveSort(ListProductsQuery query)
@@ -427,15 +438,8 @@ internal sealed partial class ProductService : IProductService
 
         var tags = command.TagsJson is not null ? ValidateStringArrayJson(command.TagsJson, "tagsJson") : null;
         var keywords = command.SearchKeywordsJson is not null
-            ? ValidateStringArrayJson(command.SearchKeywordsJson, "searchKeywordsJson")
+            ? ValidateBoundedKeywords(command.SearchKeywordsJson)
             : null;
-
-        if (keywords is not null && keywords.Length > 1024)
-        {
-            // The column bound is 1024 (§7 — an authoring bound, not a search engine). Rejecting
-            // here beats the DbUpdateException-turned-500 the database would otherwise produce.
-            throw new StorefrontValidationException("searchKeywordsJson exceeds the 1024-character bound.");
-        }
 
         var attributes = command.AttributesJson is not null
             ? ValidateObjectJson(command.AttributesJson, "attributesJson")
@@ -446,6 +450,11 @@ internal sealed partial class ProductService : IProductService
             if (string.IsNullOrWhiteSpace(command.Name))
             {
                 throw new StorefrontValidationException("A product name cannot be blank.");
+            }
+            if (command.Name.Trim().Length > 256)
+            {
+                // 256 is the mapped column bound; anything wider fails SaveChanges as a 500.
+                throw new StorefrontValidationException("A product name is at most 256 characters.");
             }
             product.Name = command.Name.Trim();
         }
@@ -561,6 +570,17 @@ internal sealed partial class ProductService : IProductService
         return JsonSerializer.Serialize(values);
     }
 
+    /// <summary>Keywords hygiene shared by create and PATCH: a valid string array within the 1024
+    /// column bound (§7 — an authoring bound, not a search engine). Rejecting here beats the
+    /// DbUpdateException-turned-500 the database would otherwise produce.</summary>
+    private static string ValidateBoundedKeywords(string json)
+    {
+        var keywords = ValidateStringArrayJson(json, "searchKeywordsJson");
+        return keywords.Length <= 1024
+            ? keywords
+            : throw new StorefrontValidationException("searchKeywordsJson exceeds the 1024-character bound.");
+    }
+
     private static string ValidateObjectJson(string json, string field)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -667,6 +687,10 @@ internal sealed partial class ProductService : IProductService
         if (string.IsNullOrWhiteSpace(command.Name))
         {
             throw new StorefrontValidationException("A category name is required.");
+        }
+        if (command.Name.Trim().Length > 256)
+        {
+            throw new StorefrontValidationException("A category name is at most 256 characters.");
         }
         category.Name = command.Name.Trim();
 
