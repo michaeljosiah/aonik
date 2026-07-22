@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Services.Catalog;
 
@@ -22,6 +22,8 @@ public class GetCatalogProductEndpoint : EndpointWithoutRequest<ProductDto>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        StorefrontCacheHeaders.Apply(HttpContext);
+
         var slug = Route<string>("slug") ?? string.Empty;
         var result = await _products.GetProductBySlugAsync(slug, ct);
         if (result is null || result.Status != ProductStatuses.Active)

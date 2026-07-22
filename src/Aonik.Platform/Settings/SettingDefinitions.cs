@@ -110,6 +110,28 @@ public static class SettingDefinitions
                 CommerceSettingNames.StorefrontRecommendedChoiceLabel,
                 DefaultValue: "Recommended",
                 IsVisibleToClients: true),
+
+            // Spec 070 §9 — the storefront-config document's tunables. Defaults make an
+            // unconfigured storefront serve a valid minimal document rather than 404.
+            [CommerceSettingNames.StorefrontResultsPageSize] = new SettingDefinition(
+                CommerceSettingNames.StorefrontResultsPageSize,
+                DefaultValue: "8",
+                IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontBackToTopTriggerJson] = new SettingDefinition(
+                CommerceSettingNames.StorefrontBackToTopTriggerJson,
+                DefaultValue: """{"type":"cardIndex","value":10}""",
+                IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontDeliveryListAmount] = new SettingDefinition(
+                CommerceSettingNames.StorefrontDeliveryListAmount,
+                DefaultValue: "0",
+                IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontDeliveryChargedAmount] = new SettingDefinition(
+                CommerceSettingNames.StorefrontDeliveryChargedAmount,
+                DefaultValue: "0",
+                IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontDefaultBoxProductSlug] = new SettingDefinition(
+                CommerceSettingNames.StorefrontDefaultBoxProductSlug,
+                IsVisibleToClients: true),
         });
 
     public static SettingDefinition? Get(string key)

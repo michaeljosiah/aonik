@@ -161,4 +161,7 @@ internal sealed class McpTenantCurrencyProvider : ITenantCurrencyProvider
 {
     public Task<List<string>> GetTenantCurrencyCodesAsync(Guid tenantId, CancellationToken cancellationToken = default)
         => Task.FromResult(new List<string> { "USD", "NGN", "GBP", "EUR" });
+
+    public Task<string?> GetTenantDefaultCurrencyAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>("USD");
 }

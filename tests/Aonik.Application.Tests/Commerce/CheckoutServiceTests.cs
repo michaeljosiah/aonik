@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
@@ -84,7 +84,7 @@ public class CheckoutServiceTests
         {
             // ProductService and its Spec 066 option dependency must share one context.
             var ctx = Commerce();
-            return new(ctx, _tenant, new ProductOptionService(ctx, _tenant, NullLogger<ProductOptionService>.Instance));
+            return new(ctx, _tenant, new ProductOptionService(ctx, _tenant, NullLogger<ProductOptionService>.Instance), NullLogger<ProductService>.Instance);
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);

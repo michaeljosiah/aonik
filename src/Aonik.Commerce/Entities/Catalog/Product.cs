@@ -42,6 +42,12 @@ public class Product : AuditableEntity, ITenantScoped
     /// rule V10 checks this against the requested quote currency like any option group.</summary>
     public string? UnitSurchargeCurrency { get; set; }
 
+    /// <summary>Spec 070 §7 — JSON array of hidden search keywords ("goat", "shaki", "party").
+    /// Matched by catalog search, serialized into NO public DTO, ever — a dedicated column
+    /// precisely so it cannot leak through the <see cref="AttributesJson"/> pass-through.
+    /// Editable per product without a release.</summary>
+    public string SearchKeywordsJson { get; set; } = "[]";
+
     public List<ProductVariant> Variants { get; set; } = new();
     public List<ProductMedia> Media { get; set; } = new();
     public List<BundleSlot> BundleSlots { get; set; } = new();

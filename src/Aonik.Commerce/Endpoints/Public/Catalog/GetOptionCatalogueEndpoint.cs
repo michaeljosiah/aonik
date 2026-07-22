@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Services.Catalog;
 
 using FastEndpoints;
@@ -25,6 +25,8 @@ public class GetOptionCatalogueEndpoint : EndpointWithoutRequest<IReadOnlyList<O
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        StorefrontCacheHeaders.Apply(HttpContext);
+
         var result = await _options.GetCatalogueAsync(includeInactive: false, ct);
         await Send.OkAsync(result, ct);
     }

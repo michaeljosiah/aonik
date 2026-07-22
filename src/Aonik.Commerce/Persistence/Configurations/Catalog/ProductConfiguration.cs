@@ -32,6 +32,14 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.UnitSurcharge).HasPrecision(19, 4);
         builder.Property(x => x.UnitSurchargeCurrency).HasMaxLength(3);
 
+        // Spec 070 §7 — hidden search keywords. 1024 is an authoring bound, not a search-engine
+        // substitute. The database default backfills existing rows with a valid empty array when
+        // the column is added, so no row ever holds a non-JSON empty string.
+        builder.Property(x => x.SearchKeywordsJson)
+            .IsRequired()
+            .HasMaxLength(1024)
+            .HasDefaultValue("[]");
+
         builder.HasMany(x => x.Variants)
             .WithOne()
             .HasForeignKey(x => x.ProductId)

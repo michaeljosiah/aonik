@@ -37,5 +37,5 @@ internal static class CommerceTestHarness
 
     /// <summary>Builds a ProductService with its Spec 066 option dependency wired.</summary>
     public static ProductService NewProductService(CommerceDbContext ctx, Guid tenantId)
-        => new(ctx, new TestTenantProvider(tenantId), NewOptionService(ctx, tenantId));
+        => new(ctx, new TestTenantProvider(tenantId), NewOptionService(ctx, tenantId), NullLogger<ProductService>.Instance);
 }

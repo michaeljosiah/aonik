@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Catalog;
+﻿using Aonik.Commerce.Contracts.Api.Catalog;
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Services.Catalog;
@@ -32,6 +32,8 @@ public class GetSelectionQuoteEndpoint : Endpoint<SelectionQuoteRequest, OptionS
 
     public override async Task HandleAsync(SelectionQuoteRequest req, CancellationToken ct)
     {
+        StorefrontCacheHeaders.Apply(HttpContext);
+
         var slug = Route<string>("slug") ?? string.Empty;
         var product = await _products.GetProductBySlugAsync(slug, ct);
         if (product is null || product.Status != ProductStatuses.Active)
