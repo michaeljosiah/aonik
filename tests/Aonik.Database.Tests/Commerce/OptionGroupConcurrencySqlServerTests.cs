@@ -87,13 +87,28 @@ public class OptionGroupConcurrencySqlServerTests : IClassFixture<SqlLocalDbFixt
         (await verify.ProductOptionGroups.AnyAsync(x => x.ProductId == productId)).Should().BeFalse();
     }
 
+    // ── The default-move side of the race ──────────────────────────────────
+    //
+    // PR #258 changed the default move's contract from mechanism to outcome: the
+    // execution-strategy delegate RELOADS the group and its choices at the start
+    // of every attempt and re-runs validation against that snapshot, so a
+    // narrowing that committed BEFORE the attempt is SEEN — absorbed when
+    // compatible, V11-rejected when it would orphan a product — rather than
+    // producing a blind token conflict the operator must retry into the same
+    // answer. Only a write landing between the reload and the save trips the
+    // rowversion (not stageable without fault injection; the two proven halves
+    // compose). These tests assert the two visible halves on the real provider.
+
     [SkippableFact]
-    public async Task SetRecommendedDefault_Should_LoseAndRollBackItsDemote_When_NarrowingCommittedConcurrently()
+    public async Task SetRecommendedDefault_Should_RevalidateAndSucceed_When_ACompatibleNarrowingCommittedFirst()
     {
         RequireSqlServer();
         var tenantId = Guid.NewGuid();
         var (groupId, productId) = await CommerceSqlServerHarness.SeedPortionGroupAndProductAsync(_db, tenantId);
 
+        // The move's context reads the group before the competing writer commits —
+        // the classic stale window. The narrowing pins the product's OWN default
+        // (light), so a group-default move to full orphans nobody.
         await using var staleContext = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         var staleService = CommerceSqlServerHarness.CreateOptionService(staleContext, tenantId);
         _ = await staleContext.OptionGroups.Include(g => g.Choices).SingleAsync(g => g.Id == groupId);
@@ -107,18 +122,56 @@ public class OptionGroupConcurrencySqlServerTests : IClassFixture<SqlLocalDbFixt
                     [new ProductOptionGroupLine("portion", AllowedChoiceKeys: ["light"], DefaultChoiceKey: "light")]));
         }
 
-        var act = () => staleService.SetRecommendedDefaultAsync(groupId, "full");
+        var result = await staleService.SetRecommendedDefaultAsync(groupId, "full");
 
-        await act.Should().ThrowAsync<DbUpdateConcurrencyException>(
-            "the default move validated against the pre-narrowing state and must not commit over it");
+        // The reload made the pre-attempt narrowing visible; revalidation passed
+        // (the product keeps its pinned light), and the move committed cleanly.
+        result.Group.Choices.Single(c => c.Key == "full").IsRecommendedDefault.Should().BeTrue();
+        result.AffectedProductSlugs.Should().BeEmpty("the product inherits nothing — it pinned its own default");
 
-        // The demote runs in its own round trip BEFORE the conflicting group
-        // touch commits — only a real transaction rolls it back. This is the
-        // assertion InMemory structurally cannot make: there, the demote would
-        // stick and the group would be left with zero defaults.
         await using var verify = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         var choices = await verify.OptionChoices.Where(c => c.OptionGroupId == groupId).ToListAsync();
-        choices.Single(c => c.Key == "light").IsRecommendedDefault.Should().BeTrue("the failed move must leave the old default in place");
+        choices.Single(c => c.Key == "full").IsRecommendedDefault.Should().BeTrue();
+        choices.Single(c => c.Key == "light").IsRecommendedDefault.Should().BeFalse();
+        (await verify.ProductOptionGroups.SingleAsync(x => x.ProductId == productId))
+            .DefaultChoiceKey.Should().Be("light", "the narrowing's own default is untouched");
+    }
+
+    [SkippableFact]
+    public async Task SetRecommendedDefault_Should_RejectViaRevalidation_When_TheNarrowingWouldOrphanTheProduct()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var (groupId, productId) = await CommerceSqlServerHarness.SeedPortionGroupAndProductAsync(_db, tenantId);
+
+        await using var staleContext = CommerceSqlServerHarness.CreateContext(_db, tenantId);
+        var staleService = CommerceSqlServerHarness.CreateOptionService(staleContext, tenantId);
+        _ = await staleContext.OptionGroups.Include(g => g.Choices).SingleAsync(g => g.Id == groupId);
+
+        // No override this time: the product narrows to {light} and INHERITS the
+        // group default. Moving that default to full would leave it unresolvable —
+        // exactly what V11 exists to prevent, and what the pre-#258 token conflict
+        // only prevented by making the operator retry into this same rejection.
+        await using (var freshContext = CommerceSqlServerHarness.CreateContext(_db, tenantId))
+        {
+            var freshService = CommerceSqlServerHarness.CreateOptionService(freshContext, tenantId);
+            await freshService.SetProductOptionGroupsAsync(
+                productId,
+                new SetProductOptionGroupsCommand(
+                    [new ProductOptionGroupLine("portion", AllowedChoiceKeys: ["light"])]));
+        }
+
+        var act = () => staleService.SetRecommendedDefaultAsync(groupId, "full");
+
+        (await act.Should().ThrowAsync<Aonik.Commerce.Services.Catalog.OptionValidationException>(
+                "revalidation inside the attempt sees the committed narrowing"))
+            .Which.RuleId.Should().Be("V11");
+
+        // Rejected before any write staged: the old default is intact and the
+        // group is still servable — no half-demoted state exists to roll back.
+        await using var verify = CommerceSqlServerHarness.CreateContext(_db, tenantId);
+        var choices = await verify.OptionChoices.Where(c => c.OptionGroupId == groupId).ToListAsync();
+        choices.Single(c => c.Key == "light").IsRecommendedDefault.Should().BeTrue();
         choices.Single(c => c.Key == "full").IsRecommendedDefault.Should().BeFalse();
     }
 
