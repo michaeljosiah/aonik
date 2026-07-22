@@ -105,6 +105,28 @@ public class MerchandisingBrowseTests
     }
 
     [Fact]
+    public async Task ListProducts_Should_TreatBlankLegacyJson_AsMalformed()
+    {
+        // Pre-070 creates stored arbitrary strings, whitespace included. Blank is not "valid
+        // empty" — the honest empties are "[]"/"{}" — so a blank column takes the same row-level
+        // degradation as syntactically broken JSON: the row must not keep matching facets whose
+        // inputs are unknowable.
+        var (browse, builder, ctx) = await ArrangeWithContextAsync();
+        var ids = await builder.ProductIdsBySlugAsync();
+        var salad = await ctx.Products.FindAsync(ids["garden-salad"]);
+        salad!.AttributesJson = "   ";                  // legacy whitespace; TagsJson stays valid
+        await ctx.SaveChangesAsync();
+
+        var all = await browse(null, null, null);
+        var vegan = await browse(new Dictionary<string, IReadOnlyList<string>> { ["dietary"] = ["vegan"] }, null, null);
+        var mains = await browse(new Dictionary<string, IReadOnlyList<string>> { ["category"] = ["mains"] }, null, null);
+
+        all.Items.Single(p => p.Slug == "garden-salad").Tags.Should().BeEmpty();
+        vegan.Items.Select(p => p.Slug).Should().BeEquivalentTo(["jollof"]);
+        mains.Items.Select(p => p.Slug).Should().NotContain("garden-salad");
+    }
+
+    [Fact]
     public async Task ListProducts_Should_NotThrow_When_AnAttributeNumberOverflowsDecimal()
     {
         // 1e100 is valid JSON that decimal cannot represent. The defensive-read guarantee means

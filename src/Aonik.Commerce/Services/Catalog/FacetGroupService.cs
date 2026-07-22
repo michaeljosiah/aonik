@@ -193,10 +193,19 @@ internal sealed partial class FacetGroupService : IFacetGroupService
     /// SQL Server has no nvarchar(4096), so HasMaxLength is metadata there and this check is the
     /// only real enforcement. Without it every facet read and browse would parse an unbounded
     /// document forever after one oversized write.</summary>
-    private static string BoundOptionsJson(string optionsJson)
-        => optionsJson.Length <= 4096
+    private static string BoundOptionsJson(string? optionsJson)
+    {
+        // Binding can put null into the non-nullable request parameter at runtime; measuring it
+        // would escape as a 500 instead of the documented 400.
+        if (string.IsNullOrWhiteSpace(optionsJson))
+        {
+            throw new StorefrontValidationException("optionsJson is required.");
+        }
+
+        return optionsJson.Length <= 4096
             ? optionsJson
             : throw new StorefrontValidationException("optionsJson is at most 4096 characters.");
+    }
 
     private static FacetGroupDto Map(FacetGroup group) => new(
         group.Id, group.Key, group.Label, group.MatchKind, group.SourcePath, group.SortOrder, group.IsActive,

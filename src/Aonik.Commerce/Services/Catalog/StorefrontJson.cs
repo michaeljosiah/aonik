@@ -15,12 +15,17 @@ internal static class StorefrontJson
     /// whether that is a logged warning (legacy rows) or a 400 (authoring).</summary>
     public static IReadOnlyList<string> ParseStringArray(string? json, out bool malformed)
     {
-        malformed = false;
-
+        // Blank is malformed, not "valid empty": entity defaults are real JSON ("[]"), so a
+        // blank value can only exist via the old unvalidated write path — and a row whose JSON
+        // is unknowable must take the row-level degradation, not keep matching facets. Callers
+        // wanting a benign empty pass "[]"; strict writes reject blank before ever parsing.
         if (string.IsNullOrWhiteSpace(json))
         {
+            malformed = true;
             return [];
         }
+
+        malformed = false;
 
         try
         {
@@ -54,12 +59,15 @@ internal static class StorefrontJson
     /// yields null and <paramref name="malformed"/> = true.</summary>
     public static JsonElement? ParseObject(string? json, out bool malformed)
     {
-        malformed = false;
-
+        // Same rule as ParseStringArray: blank only exists via the legacy unvalidated path and
+        // marks the row malformed ("{}" is the honest empty).
         if (string.IsNullOrWhiteSpace(json))
         {
+            malformed = true;
             return null;
         }
+
+        malformed = false;
 
         try
         {

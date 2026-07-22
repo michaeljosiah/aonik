@@ -112,6 +112,12 @@ public class FacetGroupServiceTests
         var longLabel = () => facets.CreateAsync(new CreateFacetGroupCommand(
             "dietary", new string('l', 200), FacetMatchKinds.Tag, """[{"value":"vegan","label":"Vegan"}]"""));
 
+        // Binding can hand the non-nullable parameter null at runtime; that must be the
+        // documented 400, never a NullReferenceException 500.
+        var nullOptions = () => facets.CreateAsync(new CreateFacetGroupCommand(
+            "dietary2", "Dietary", FacetMatchKinds.Tag, null!));
+        await nullOptions.Should().ThrowAsync<StorefrontValidationException>();
+
         var hugeOptions = $$"""[{"value":"a","label":"{{new string('x', 4200)}}"}]""";
         var oversized = () => facets.CreateAsync(new CreateFacetGroupCommand(
             "dietary", "Dietary", FacetMatchKinds.Tag, hugeOptions));
