@@ -10,8 +10,13 @@ namespace Aonik.Commerce.Endpoints.Public.Catalog;
 public class GetCatalogProductEndpoint : EndpointWithoutRequest<ProductDto>
 {
     private readonly IProductService _products;
+    private readonly IProductContentService _content;
 
-    public GetCatalogProductEndpoint(IProductService products) => _products = products;
+    public GetCatalogProductEndpoint(IProductService products, IProductContentService content)
+    {
+        _products = products;
+        _content = content;
+    }
 
     public override void Configure()
     {
@@ -31,6 +36,16 @@ public class GetCatalogProductEndpoint : EndpointWithoutRequest<ProductDto>
             await Send.NotFoundAsync(ct);
             return;
         }
+
+        // Spec 067 §8 — the product page renders its content panels from this first call: embed
+        // the RESOLVED standard preparation (empty-selection resolution, flags included), never
+        // the raw block. Null when no default block is authored.
+        var content = await _content.ResolveAsync(result.Id, selection: null, ct);
+        if (content is not null)
+        {
+            result = result with { Content = content, ContentVersion = content.ContentVersion };
+        }
+
         await Send.OkAsync(result, ct);
     }
 }

@@ -17,15 +17,18 @@ internal sealed partial class ProductOptionService : IProductOptionService
 {
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IProductContentReviewFlagger _contentReview;
     private readonly ILogger<ProductOptionService> _logger;
 
     public ProductOptionService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
+        IProductContentReviewFlagger contentReview,
         ILogger<ProductOptionService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _contentReview = contentReview;
         _logger = logger;
     }
 
@@ -69,6 +72,37 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .Include(g => g.Choices)
             .FirstOrDefaultAsync(g => g.Id == groupId && g.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Option group '{groupId}' was not found.");
+
+        // Spec 067 §6 — group-level edits that change every inheriting product's all-defaults
+        // selection: an activation flip adds/removes the group from it, and a selection-mode
+        // change alters its canonical SHAPE (key vs [key]) for narrowings without an override.
+        // Label/currency/sort edits change no selection and stage nothing.
+        var activationFlips = command.IsActive is { } newActive && newActive != group.IsActive;
+        var modeChanges = command.SelectionMode is not null
+            && !string.Equals(NormalizeSelectionMode(command.SelectionMode), group.SelectionMode, StringComparison.Ordinal);
+
+        // Only edits that actually change all-defaults selections stage a review: an activation
+        // flip matters only when it changes SERVABILITY (an active-but-unservable group is
+        // already absent from every selection), and a mode change matters only while the group
+        // is servable and only for narrowings without their own override.
+        var wasServable = IsServable(group);
+        var willBeServable = command.IsActive is { } active
+            ? active && !group.IsDeleted && HasServableChoiceSet(group)
+            : wasServable;
+        var servabilityChanges = activationFlips && wasServable != willBeServable;
+        var modeMatters = modeChanges && wasServable;
+
+        if (servabilityChanges || modeMatters)
+        {
+            var affected = await _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                .Where(x => servabilityChanges || x.SelectionModeOverride == null)
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            await _contentReview.StageAsync(affected, cancellationToken);
+        }
 
         group.Label = RequireLabel(command.Label);
         group.HelpText = command.HelpText;
@@ -140,7 +174,29 @@ internal sealed partial class ProductOptionService : IProductOptionService
             IsActive = command.IsActive,
         };
 
+        // Spec 067 §6 — V7 sanctions exactly one add-side default transition (0 to 1), and on an
+        // active group that transition flips SERVABILITY: the group re-enters every offering
+        // product's standard preparation, so all of them are staged in the SAME save (A18) and
+        // their ContentVersion bump invalidates cached ?v=N responses. Computed from the pre-add
+        // snapshot: EF's relationship fixup puts the new choice into group.Choices on Add.
+        var wasServable = IsServable(group);
+        var willBeServable = group.IsActive && !group.IsDeleted
+            && group.Choices.Count(c => c.IsActive && !c.IsDeleted) + (command.IsActive ? 1 : 0) > 0
+            && group.Choices.Count(c => c.IsActive && !c.IsDeleted && c.IsRecommendedDefault)
+                + (command.IsActive && command.IsRecommendedDefault ? 1 : 0) == 1;
+
         _dbContext.OptionChoices.Add(choice);
+
+        if (wasServable != willBeServable)
+        {
+            var affected = await _dbContext.ProductOptionGroups
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            await _contentReview.StageAsync(affected, cancellationToken);
+        }
 
         // A new choice widens the offered set and can turn a half-authored group servable — both
         // things a concurrent narrowing validates against, so it contends on the group's token.
@@ -219,6 +275,53 @@ internal sealed partial class ProductOptionService : IProductOptionService
         if (command.IsActive is { } newActive && choice.IsActive != newActive)
         {
             TouchGroups([group]);
+
+            // Spec 067 §6, two distinct blast radii:
+            //
+            // (a) Group SERVABILITY flips — reactivating the sole recommended default of an
+            //     active group turns it servable, adding it to EVERY offering product's
+            //     all-defaults selection (the symmetric deactivation is V7-blocked for active
+            //     groups, but the reactivation path is real). Every offering product is staged.
+            //
+            // (b) Otherwise, a product whose narrowing pins THIS choice as its explicit default
+            //     changes standard preparation on either flip: deactivation falls it back to the
+            //     group default (V9 allows that when one remains), reactivation restores it.
+            var groupChoices = await _dbContext.OptionChoices
+                .AsNoTracking()
+                .Where(c => c.TenantId == tenantId && c.OptionGroupId == choice.OptionGroupId && c.Id != choice.Id)
+                .ToListAsync(cancellationToken);
+
+            bool ServableWith(bool thisChoiceActive)
+            {
+                var active = groupChoices.Where(c => c.IsActive && !c.IsDeleted).ToList();
+                var activeCount = active.Count + (thisChoiceActive && !choice.IsDeleted ? 1 : 0);
+                var defaultCount = active.Count(c => c.IsRecommendedDefault)
+                    + (thisChoiceActive && !choice.IsDeleted && choice.IsRecommendedDefault ? 1 : 0);
+                return group.IsActive && !group.IsDeleted && activeCount > 0 && defaultCount == 1;
+            }
+
+            var servableNow = ServableWith(choice.IsActive);
+            var servabilityChanges = servableNow != ServableWith(newActive);
+
+            // (b) applies only while the group is servable: a pinned default on an unservable
+            // group is absent from every standard selection, so the flip changes nothing a
+            // customer can observe — the group's own activation path stages when it returns.
+            if (servabilityChanges || servableNow)
+            {
+                var affectedQuery = _dbContext.ProductOptionGroups
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.OptionGroupId == choice.OptionGroupId);
+                if (!servabilityChanges)
+                {
+                    affectedQuery = affectedQuery.Where(x => x.DefaultChoiceKey == choice.Key);
+                }
+
+                var affected = await affectedQuery
+                    .Select(x => x.ProductId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                await _contentReview.StageAsync(affected, cancellationToken);
+            }
         }
 
         choice.Label = RequireLabel(command.Label);
@@ -318,7 +421,34 @@ internal sealed partial class ProductOptionService : IProductOptionService
             // narrowed to products that actually inherit it — a product pinned to a still-valid
             // explicit default keeps exactly the preparation it had, so reporting it as changed
             // would send Spec 067 content review chasing products nothing happened to.
-            var affectedProducts = await ProductsInheritingGroupDefaultAsync(tenantId, group, ct);
+            var inheritingIds = await InheritingProductIdsAsync(tenantId, group, ct);
+            var affectedProducts = await SlugsForAsync(tenantId, inheritingIds, ct);
+
+            // Spec 067 §6 — the products whose STANDARD PREPARATION this move changes get their
+            // default content block flagged for review, in the SAME transaction as the move: the
+            // flag changes what resolution returns, so its ContentVersion bump must invalidate
+            // cached content atomically with the default change (067 A18). What counts as
+            // "changes" follows servability: after the promote the group holds exactly one active
+            // default, so it is servable iff its own flags allow — an INACTIVE group is absent
+            // from every selection before and after (stage nothing), and a move that RESTORES
+            // servability (active group, zero active defaults) re-enters every offering product's
+            // selection, pinned narrowings included (stage them all).
+            var wasServable = IsServable(group);
+            var willBeServable = group.IsActive && !group.IsDeleted;
+            if (willBeServable && !wasServable)
+            {
+                var offering = await _dbContext.ProductOptionGroups
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.OptionGroupId == group.Id)
+                    .Select(x => x.ProductId)
+                    .Distinct()
+                    .ToListAsync(ct);
+                await _contentReview.StageAsync(offering, ct);
+            }
+            else if (willBeServable)
+            {
+                await _contentReview.StageAsync(inheritingIds, ct);
+            }
 
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
@@ -480,6 +610,18 @@ internal sealed partial class ProductOptionService : IProductOptionService
         // token, so the loser fails with a concurrency conflict instead of silently disagreeing.
         TouchGroups(groups.Where(g => replacements.Any(r => r.OptionGroupId == g.Id)));
 
+        // Spec 067 §6 — a narrowing write can shift this product's effective default
+        // combination (offered groups, explicit default, mode override). Flag its content block
+        // in the same SaveChanges — but ONLY when the combination actually changes: an idempotent
+        // save or a sort/allowed-set edit that leaves every effective default intact must not
+        // withhold allergen declarations until an admin performs a pointless review.
+        var signatureBefore = EffectiveDefaultSignature(existing, groups);
+        var signatureAfter = EffectiveDefaultSignature(replacements, groups);
+        if (!string.Equals(signatureBefore, signatureAfter, StringComparison.Ordinal))
+        {
+            await _contentReview.StageAsync([productId], cancellationToken);
+        }
+
         // Serialize against a concurrent FULL REPLACE of the same product. The group rows cannot
         // do this: two replaces with disjoint group sets — or a replace racing an explicit clear —
         // share no group row, so both would commit and the survivors would merge into a union that
@@ -608,6 +750,55 @@ internal sealed partial class ProductOptionService : IProductOptionService
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────
+
+    /// <summary>The choice-set half of servability: at least one active choice and exactly one
+    /// active recommended default. Combined with the group flags by callers previewing a flip.</summary>
+    private static bool HasServableChoiceSet(OptionGroup group)
+    {
+        var active = group.Choices.Where(c => c.IsActive && !c.IsDeleted).ToList();
+        return active.Count > 0 && active.Count(c => c.IsRecommendedDefault) == 1;
+    }
+
+    /// <summary>The product's effective default combination as a comparable string: for each
+    /// SERVABLE offered group (same rules as <see cref="GetEffectiveOptionsAsync"/>), its key,
+    /// effective selection mode and resolved default key. Two narrowing states with equal
+    /// signatures canonicalise the same all-defaults selection, so content review is only staged
+    /// when the signatures differ (Spec 067 §6, precise form).</summary>
+    private static string EffectiveDefaultSignature(
+        IEnumerable<ProductOptionGroup> narrowings, IReadOnlyList<OptionGroup> groups)
+    {
+        var parts = new List<string>();
+        foreach (var narrowing in narrowings)
+        {
+            var group = groups.FirstOrDefault(g => g.Id == narrowing.OptionGroupId);
+            if (group is null || !IsServable(group))
+            {
+                continue;
+            }
+
+            var allowed = DeserializeAllowedKeys(narrowing.AllowedChoiceKeysJson);
+            var choices = group.Choices
+                .Where(c => c.IsActive && !c.IsDeleted)
+                .Where(c => allowed is null || allowed.Contains(c.Key))
+                .ToList();
+            if (choices.Count == 0)
+            {
+                continue;
+            }
+
+            var defaultKey = ResolveDefaultKey(narrowing, choices);
+            if (defaultKey is null)
+            {
+                continue;
+            }
+
+            var mode = narrowing.SelectionModeOverride ?? group.SelectionMode;
+            parts.Add($"{group.Key}:{mode}:{defaultKey}");
+        }
+
+        parts.Sort(StringComparer.Ordinal);
+        return string.Join(";", parts);
+    }
 
     /// <summary>A group is servable only when it is active, has at least one active choice, and has
     /// exactly one active recommended default. Half-authored groups simply do not appear.</summary>
@@ -752,7 +943,7 @@ internal sealed partial class ProductOptionService : IProductOptionService
     /// recommended default — returned by a default move so dependent capabilities (Spec 067 content
     /// review) know what genuinely changed. Products pinned to a still-resolvable default of their
     /// own keep the preparation they had and are deliberately excluded.</summary>
-    private async Task<IReadOnlyList<string>> ProductsInheritingGroupDefaultAsync(
+    private async Task<List<Guid>> InheritingProductIdsAsync(
         Guid tenantId, OptionGroup group, CancellationToken cancellationToken)
     {
         var narrowings = await _dbContext.ProductOptionGroups
@@ -762,13 +953,11 @@ internal sealed partial class ProductOptionService : IProductOptionService
 
         var activeKeys = ActiveChoiceKeys(group);
 
-        var inheriting = narrowings
+        return narrowings
             .Where(n => !OverrideResolves(n, activeKeys))
             .Select(n => n.ProductId)
             .Distinct()
             .ToList();
-
-        return await SlugsForAsync(tenantId, inheriting, cancellationToken);
     }
 
     private async Task<List<string>> SlugsForAsync(Guid tenantId, List<Guid> productIds, CancellationToken cancellationToken)

@@ -67,7 +67,15 @@ public record ProductDto(
     IReadOnlyList<EffectiveOptionGroupDto> EffectiveOptionGroups,
     /// Spec 066 — per-unit surcharge and its denomination; null when the product has none.
     decimal? UnitSurcharge,
-    string? UnitSurchargeCurrency);
+    string? UnitSurchargeCurrency,
+    /// Spec 067 §8 — the RESOLVED standard-preparation content (the §5 resolution of the empty
+    /// selection, carrying its flags), not the raw block: after a default move the variant that
+    /// now describes the standard combination must win, and a suspect block must arrive
+    /// stale-flagged with declarations withheld. Null when no default block is authored, and on
+    /// surfaces that do not compose content (admin detail; content has its own admin reads).
+    ResolvedContentDto? Content = null,
+    /// Spec 067 §8 — the cache-key version the storefront passes back as `v`. Null with Content.
+    int? ContentVersion = null);
 
 /// <summary>The ADMIN product detail (Spec 070 §7): every <see cref="ProductDto"/> field plus the
 /// hidden search keywords, serialized flat. A distinct type on purpose — the public product read
