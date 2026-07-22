@@ -83,8 +83,10 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
         plan.MinSize = command.MinSize;
         plan.MaxSize = command.MaxSize;
         plan.BaseSize = command.BaseSize;
-        plan.BasePrice = command.BasePrice;
-        plan.PerSpacePrice = command.PerSpacePrice;
+        // K8 — amounts persist at decimal(19,4); storing the caller's unrounded value would make
+        // the admin response disagree with every later read and quote.
+        plan.BasePrice = Math.Round(command.BasePrice, 4, MidpointRounding.AwayFromZero);
+        plan.PerSpacePrice = Math.Round(command.PerSpacePrice, 4, MidpointRounding.AwayFromZero);
         plan.Currency = currency;
 
         // Full replace, matched by size: same-size rows update in place (a price edit is the
@@ -107,10 +109,12 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
                     TenantId = tenantId,
                     BundleSizePlanId = plan.Id,
                     Size = spec.Size,
-                    Price = spec.Price,
+                    Price = Math.Round(spec.Price, 4, MidpointRounding.AwayFromZero),
                     Badge = spec.Badge,
                     Blurb = spec.Blurb,
-                    SavingAmount = spec.SavingAmount,
+                    SavingAmount = spec.SavingAmount is { } saving
+                        ? Math.Round(saving, 4, MidpointRounding.AwayFromZero)
+                        : null,
                     SortOrder = spec.SortOrder,
                 };
                 // Explicit Add: a pre-set key discovered via navigation fixup from a TRACKED plan
@@ -126,10 +130,12 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
             }
             else
             {
-                existing.Price = spec.Price;
+                existing.Price = Math.Round(spec.Price, 4, MidpointRounding.AwayFromZero);
                 existing.Badge = spec.Badge;
                 existing.Blurb = spec.Blurb;
-                existing.SavingAmount = spec.SavingAmount;
+                existing.SavingAmount = spec.SavingAmount is { } saving
+                    ? Math.Round(saving, 4, MidpointRounding.AwayFromZero)
+                    : null;
                 existing.SortOrder = spec.SortOrder;
             }
         }
@@ -231,6 +237,16 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
             if (preset.SavingAmount is < 0)
             {
                 throw new StorefrontValidationException($"A5: preset saving for size {preset.Size} cannot be negative.");
+            }
+            // K7 — the mapped columns are nvarchar(64)/nvarchar(256); overlong text must reject
+            // at authoring, not surface as a SQL truncation failure InMemory never sees.
+            if (preset.Badge is { Length: > 64 })
+            {
+                throw new StorefrontValidationException($"A5: preset badge for size {preset.Size} is at most 64 characters.");
+            }
+            if (preset.Blurb is { Length: > 256 })
+            {
+                throw new StorefrontValidationException($"A5: preset blurb for size {preset.Size} is at most 256 characters.");
             }
         }
     }

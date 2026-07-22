@@ -415,6 +415,27 @@ public class BoxCartServiceTests
         after.Changes.Should().NotContain(c => c.Reason == "unavailable");
     }
 
+    [Fact]
+    public async Task DeletingALine_Should_NotCountItsDemand_AgainstTheSurvivors()
+    {
+        // K1 — a deleted line's quantity must leave cart-wide demand before the authoritative
+        // availability pass, or the surviving identical-variant line gets wrongly flagged.
+        var (h, f, box) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 3, null), access);
+        var two = await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(
+            f.DishVariants["jollof"], 3, Sel("""{"protein":"salmon"}""")), access);
+        await h.Inventory().SetOnHandAsync(f.DishVariants["jollof"], 4m);
+
+        var salmonLine = two.Box.Lines.Single(l => !l.IsDefaultPersonalisation);
+        var after = await carts.RemoveLineAsync(box.Box.CartId, salmonLine.LineId, access);
+
+        after.Box.Lines.Single().IsUnavailable.Should().BeFalse("3 remaining units fit availability 4");
+        after.Changes.Should().NotContain(c => c.Reason == "unavailable");
+    }
+
     // ─── A6 — abandonment ────────────────────────────────────────────────────
 
     [Fact]

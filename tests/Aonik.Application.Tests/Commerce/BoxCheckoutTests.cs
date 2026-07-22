@@ -199,6 +199,31 @@ public class BoxCheckoutTests
     }
 
     [Fact]
+    public async Task Checkout_Should_Reject_WhenAdjustmentsDriveTheGoodsTotalNonpositive()
+    {
+        // K5 — below-default choices are legitimate (A7), but their aggregate must never reach
+        // reservation or order creation with a nonpositive total: Finance would reject the
+        // payment only after durable partial state existed.
+        var h = new BoxTestHarness();
+        var f = await h.BuildAsync("jollof");
+        await h.Plans().UpsertAsync(f.BundleProductId, new(
+            MinSize: 6, MaxSize: 30, BaseSize: 6, BasePrice: 10m, PerSpacePrice: 15m, Currency: "GBP", Presets: []));
+        var carts = h.BoxCarts();
+        var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        // side "none" is −2/unit against the wild-rice default: 6 × −2 = −12 against a 10 box.
+        await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(
+            f.DishVariants["jollof"], 6, Sel("""{"side":"none"}""")), Token(box));
+
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("zero or below");
+        h.Payments.Calls.Should().Be(0);
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(0, "nothing may be reserved or created");
+    }
+
+    [Fact]
     public async Task ProductionSheet_Should_GroupByVariantAndPersonalisation()
     {
         // A14 — two Jollof preparations are two demand lines; collapsing them can never be undone.

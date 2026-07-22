@@ -380,6 +380,11 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 await mutate(context, ct);
             }
 
+            // K1 — a line the mutation deleted must leave the working set before the
+            // authoritative pass, or its quantity still counts toward cart-wide demand and can
+            // wrongly flag the surviving lines.
+            context.BoxLines.RemoveAll(l =>
+                l.IsDeleted || _dbContext.Entry(l).State == EntityState.Deleted);
             context.UnavailableLineIds.Clear();
             context.Available.Clear();
             await FlagUnavailableAsync(context, emitChanges: true, ct);
@@ -671,10 +676,16 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private static void ApplySelection(CartItem line, OptionSelectionResult priced)
     {
         line.PersonalisationJson = priced.CanonicalSelectionJson;
-        line.PersonalisationSummary = priced.Summary;
+        line.PersonalisationSummary = TruncateSummary(priced.Summary);
         line.PersonalisationAdjustment = priced.Adjustment;
         line.UnitSurcharge = priced.UnitSurcharge ?? 0m;
     }
+
+    /// <summary>The summary is a bounded display cache (512 per §13); selections themselves are
+    /// unbounded, so a wide multi-select could otherwise fail the write only on SQL Server. The
+    /// full-fidelity text lives in the §12 envelope's display entries.</summary>
+    internal static string TruncateSummary(string summary)
+        => summary.Length <= 512 ? summary : summary[..511] + "\u2026";
 
     // ─── Guards shared by quantity increases ─────────────────────────────────
 
@@ -771,6 +782,15 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         var personalisation = context.BoxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
         var surcharges = context.BoxLines.Sum(l => (l.UnitSurcharge ?? 0m) * l.Quantity);
         var deliveryCharged = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, cancellationToken);
+
+        // K5 — below-default choices are legitimate (A7) but their aggregate must never drive
+        // the goods total to zero or below: Finance would reject the payment only after
+        // reservation and order creation had already left durable partial state.
+        if (boxPrice + personalisation + surcharges <= 0)
+        {
+            throw new StorefrontValidationException(
+                "This box's personalisation reduces its total to zero or below; it cannot be checked out.");
+        }
 
         var envelope = JsonSerializer.Serialize(new
         {
@@ -908,6 +928,18 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             new(QuoteComponentKeys.UnitSurcharges, surcharges),
             new(QuoteComponentKeys.DeliveryCharged, deliveryCharged),
         };
+
+        // K3 — a frozen view must total exactly what was charged: the recorded discount and tax
+        // join as components (zero-amount components may be omitted per §7, and clients iterate
+        // rather than reconstruct, so these are additive).
+        if (summary is not null && summary.DiscountTotal != 0)
+        {
+            components.Add(new QuoteComponentDto("discount", -summary.DiscountTotal));
+        }
+        if (summary is not null && summary.TaxTotal != 0)
+        {
+            components.Add(new QuoteComponentDto("tax", summary.TaxTotal));
+        }
 
         var units = TotalUnits(boxLines);
         return new BoxQuoteDto(

@@ -4,6 +4,8 @@ using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
 
+using Microsoft.AspNetCore.Http;
+
 namespace Aonik.Commerce.Endpoints.Public.Checkout;
 
 public class CreateCartEndpoint : Endpoint<CreateCartRequest, CartDto>
@@ -50,7 +52,17 @@ public class GetCartEndpoint : EndpointWithoutRequest<object>
     {
         Get("/commerce/carts/{cartId:guid}");
         AllowAnonymous();
-        Summary(s => s.Summary = "Get a cart. Box sessions return the Spec 068 §7 box + quote payload.");
+        // K9 — the runtime dispatches CartDto | BoxCartDto by cart kind; publish both success
+        // shapes so generated clients see the concrete models instead of an untyped object.
+        Description(b => b
+            .Produces<CartDto>(200, "application/json")
+            .Produces<BoxCartDto>(200, "application/json"));
+        Summary(s =>
+        {
+            s.Summary = "Get a cart. Box sessions return the Spec 068 §7 box + quote payload.";
+            s.Response<CartDto>(200, "A generic cart.");
+            s.Response<BoxCartDto>(200, "A box session (the §7 box + quote payload).");
+        });
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -4,6 +4,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
@@ -233,7 +234,7 @@ internal sealed class CheckoutService : ICheckoutService
                     Quantity = line.Quantity,
                     Sku = line.Sku,
                     PersonalisationJson = priced.CanonicalSelectionJson,
-                    PersonalisationSummary = priced.Summary,
+                    PersonalisationSummary = BoxCartService.TruncateSummary(priced.Summary),
                     PersonalisationAdjustment = priced.Adjustment,
                     UnitSurcharge = priced.UnitSurcharge ?? 0m,
                     PersonalisationEnvelopeJson = JsonSerializer.Serialize(priced, EnvelopeSerializerOptions),
@@ -251,6 +252,14 @@ internal sealed class CheckoutService : ICheckoutService
         var taxable = subtotal - discount.Amount;
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
         var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
+
+        // K5 — a nonpositive payable amount must never reach payment initiation; Finance would
+        // reject it after the invoice and intent had already been created.
+        if (total <= 0)
+        {
+            throw new StorefrontValidationException(
+                "The payable total for this cart is zero or below; it cannot be checked out.");
+        }
 
         // 5. Optionally raise an invoice (when a Finance customer account is supplied).
         Guid? invoiceId = null;
@@ -314,7 +323,23 @@ internal sealed class CheckoutService : ICheckoutService
             PaymentCheckoutUrl = intent.CheckoutUrl,
         });
         cart.OrderId = order.Id;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // K4 — a cart edit committed between validation and this claim: the created order no
+            // longer describes the cart, and stamping it anyway would fix the customer to a box
+            // they just changed. Unwind the durable side effects (the summary and selection rows
+            // roll back with this failed save) and surface the mapped 409 — a resubmit checks
+            // out the edited cart, and the replay guard never engages because OrderId was never
+            // stamped. The unfunded payment intent expires on its own.
+            await _inventory.ReleaseAsync(cart.Id, cancellationToken);
+            await _orders.TransitionAsync(order.Id, OrderStatusCodes.Cancelled,
+                "Checkout lost the cart claim to a concurrent edit.", cancellationToken: cancellationToken);
+            throw;
+        }
 
         await _discounts.MarkRedeemedAsync(discount.DiscountId, cancellationToken);
 

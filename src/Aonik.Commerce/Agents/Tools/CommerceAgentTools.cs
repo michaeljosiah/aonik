@@ -190,12 +190,13 @@ internal sealed class CommerceAgentTools
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
-    [Description("Creates a shopping cart in the given currency. Returns the new cart.")]
+    [Description("Creates a guest shopping cart in the given currency. Returns the new cart, whose cartToken authorizes every later cart call (R10). Party-bound carts arrive with the storefront identity capability.")]
     public Task<CartDto> CreateCart(
         [Description("ISO 4217 currency code (e.g. NGN, USD)")] string currency,
-        [Description("Optional buyer party id (GUID); omit for a guest cart")] Guid? buyerPartyId = null,
         CancellationToken cancellationToken = default)
-        => _carts.CreateCartAsync(new CreateCartCommand(currency, buyerPartyId), cancellationToken);
+        // K2 — a party-bound cart authorizes only by a party principal these tools cannot
+        // present, so accepting a party id would mint a cart the agent can never touch again.
+        => _carts.CreateCartAsync(new CreateCartCommand(currency), cancellationToken);
 
     [Description("Adds a simple product line to a cart.")]
     public Task<CartDto> AddToCart(
