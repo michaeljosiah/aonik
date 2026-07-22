@@ -179,6 +179,70 @@ internal sealed class CartService : ICartService
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
 
+    public async Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await _dbContext.Carts
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
+
+        // Idempotent for the party that already owns it — but the Z4 state guard still applies:
+        // a retried adopt of a cart that has since been checked out or closed must not read as a
+        // fresh successful adoption. Owner-ness is established first so this Z4 is never an
+        // oracle for anyone else (a foreign party still falls through to the 404 below).
+        if (cart.BuyerPartyId == partyId)
+        {
+            EnsureAdoptable(cart);
+            return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+        }
+
+        // Z2 — a cart bound to ANOTHER party, or a wrong/absent guest token, is the same 404 an
+        // unknown cart gets: adoption needs possession AND identity, with no oracle between.
+        if (cart.BuyerPartyId is not null
+            || !CartAccess.IsAuthorized(cart, CartAccessContext.ForGuest(access.GuestToken)))
+        {
+            throw new NotFoundException($"Cart '{cartId}' was not found.");
+        }
+
+        EnsureAdoptable(cart);
+
+        cart.BuyerPartyId = partyId;
+        // Z3 — a leaked pre-adoption token must be dead afterwards.
+        cart.AnonymousToken = null;
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Two adoptions raced on the Cart row version. Answer from what actually committed:
+            // the same party winning via its other request is the promised idempotent success;
+            // anyone else gets the same 404 as every other unauthorized access (Z2 — losing a
+            // race must not become an oracle that the cart exists and someone claimed it).
+            _dbContext.Entry(cart).State = EntityState.Detached;
+            var winner = await _dbContext.Carts.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
+                ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
+            if (winner.BuyerPartyId != partyId)
+            {
+                throw new NotFoundException($"Cart '{cartId}' was not found.");
+            }
+            EnsureAdoptable(winner);
+        }
+
+        return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+    }
+
+    /// <summary>Z4 — once checkout has stamped an order (or the cart has left Open), the buyer is
+    /// fixed with its order, reservation and payment amount.</summary>
+    private static void EnsureAdoptable(Entities.Cart.Cart cart)
+    {
+        if (cart.Status != CartStatuses.Open || cart.OrderId is not null)
+        {
+            throw new StorefrontValidationException("Z4: this cart has been checked out; its buyer cannot change.");
+        }
+    }
+
     private async Task<Entities.Cart.Cart> ValidateOpenCartAsync(Guid cartId, Guid tenantId, CartAccessContext access, CancellationToken cancellationToken)
     {
         var cart = await _dbContext.Carts.AsNoTracking()

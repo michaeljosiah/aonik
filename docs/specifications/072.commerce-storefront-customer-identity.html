@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 072 - Commerce storefront customer identity</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 072</span>
+  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Modules: Aonik.Commerce, Aonik.Platform, SharedKernel</span>
+  <span class="meta-tag">Depends on: Spec 068 (R10)</span>
+  <span class="meta-tag">2026-07-22</span>
+  <h1>Storefront customer identity — accounts, cart adoption &amp; my orders</h1>
+  <p style="font-size:13px;color:var(--muted)">Fills the R10 party half Spec 068 left waiting: the
+  storefront's login/register pages get their first real contract, a guest box survives signing
+  in, and customers can see their own orders. Registration and login are the platform's EXISTING
+  capabilities — this spec adds the Commerce seam, not a parallel auth stack.</p>
+</header>
+
+<h2 id="summary">1. Summary</h2>
+<p>The platform already owns everything an account needs: <code>POST /v1/registrations/individual</code>
+provisions the IdP user, the platform <code>User</code>, an Individual <code>Party</code> with the
+Customer party role, the <code>UserParty</code> link and the <code>PersonalUser</code> role;
+<code>POST /auth/token</code> exchanges email+password for tokens through the operator-choice IdP
+(ADR-007); <code>POST /auth/forgot-password</code> is enumeration-safe; and the JWT pipeline
+rejects same-tenant tokens for unprovisioned users, so register-before-login is already enforced.
+<strong>Spec 072 adds no auth endpoints.</strong> It adds the Commerce-side seam: a SharedKernel
+party resolver so cart access can honour authenticated principals, guest→account cart adoption,
+authenticated cart creation, and party-scoped order reads.</p>
+
+<h2 id="platform">2. What the storefront calls today (existing platform surface)</h2>
+<table>
+  <tr><th>Concern</th><th>Existing endpoint</th><th>Notes</th></tr>
+  <tr><td>Register</td><td><code>POST /v1/registrations/individual</code></td><td>Anonymous; resolves tenant from body/subdomain/<code>X-Tenant-Id</code>; provisions IdP user + User + Party + PersonalUser role. 409 on duplicate email.</td></tr>
+  <tr><td>Login</td><td><code>POST /auth/token</code> (<code>grantType: "password"</code>)</td><td>Code-complete for Auth0 (password-realm) and Keycloak (direct access grants — enable per Spec 029 §8.6). Deployment prerequisite, not code.</td></tr>
+  <tr><td>Refresh</td><td><code>POST /auth/token</code> (<code>grantType: "refresh_token"</code>)</td><td>Same exchange surface.</td></tr>
+  <tr><td>Forgot password</td><td><code>POST /auth/forgot-password</code></td><td>Silent on unknown email.</td></tr>
+  <tr><td>Who am I</td><td>existing user-info read (<code>UserInfoResponseDto</code> carries <code>PartyId</code>)</td><td>Unchanged.</td></tr>
+</table>
+<div class="callout"><p><strong>Hard gate (already enforced):</strong> a same-tenant JWT whose
+<code>iss</code>+<code>sub</code> is not a provisioned Active <code>User</code> is rejected by
+<code>ResolveOrCreateUserAsync</code> — a login-only flow cannot bootstrap an account. Social
+federation (the storefront's Google button) is the IdP's job per ADR-007 and out of scope here.</p></div>
+
+<h2 id="additions">3. What this spec adds</h2>
+<table>
+  <tr><th>#</th><th>Addition</th></tr>
+  <tr><td>Y1</td><td><strong><code>ICurrentPartyResolver</code></strong> (SharedKernel): <code>Task&lt;Guid?&gt; GetCurrentPartyIdAsync(ct)</code> — null when anonymous or unlinked. Platform implementation: current user id → latest <code>UserParty</code> → <code>PartyId</code> (the <code>GetPrimaryPartyAsync</code> rule). The same cross-module seam shape as <code>ITenantCurrencyProvider</code>.</td></tr>
+  <tr><td>Y2</td><td><strong>Cart access gains its party half</strong>: the cart endpoints build <code>CartAccessContext(guestToken, partyId)</code> from the header AND the resolver — every cart route (generic, box, extras, checkout) presents both. Party-bound carts authorize by principal exactly as R10 declared; guest carts are unchanged.</td></tr>
+  <tr><td>Y3</td><td><strong>Authenticated create binds the caller's party</strong>: when a create request carries a resolvable principal, the cart is born party-bound (<code>BuyerPartyId</code> = resolved party). The body-supplied <code>buyerPartyId</code> STAYS rejected — the principal is the only source. Guest create is unchanged; the token remains guest-cart-only in meaning.</td></tr>
+  <tr><td>Y4</td><td><strong>Guest→account adoption</strong>: <code>POST /commerce/carts/{cartId:guid}/adopt</code> (authenticated, PersonalUser-admitting policy). Requires BOTH halves: the <code>X-Cart-Token</code> proves possession of the guest cart, the principal supplies the party. Sets <code>BuyerPartyId</code>, clears <code>AnonymousToken</code>. Idempotent when the SAME party adopts again; every other mismatch is the R10 404 (no oracle). Open carts only (R9 applies — an ordered cart's buyer is fixed).</td></tr>
+  <tr><td>Y5</td><td><strong>My orders</strong>: <code>GET /commerce/storefront/orders</code> (party-scoped summaries: order id, created, status, currency, total from the charge summary, box size when present) and <code>GET /commerce/storefront/orders/{orderId:guid}</code> (detail incl. items and the box's selection rows). Only the caller's party's orders resolve; everything else 404s.</td></tr>
+</table>
+
+<h2 id="rules">4. Server-enforced rules</h2>
+<table>
+  <tr><th>#</th><th>Rule</th></tr>
+  <tr><td>Z1</td><td>The principal is the only source of a cart's party: body-supplied buyer ids stay rejected on the public routes.</td></tr>
+  <tr><td>Z2</td><td>Adoption needs possession AND identity: absent/wrong token → 404; anonymous caller → 401/403; a cart already bound to ANOTHER party → 404 (indistinguishable).</td></tr>
+  <tr><td>Z3</td><td>Adoption clears the guest token — a leaked pre-adoption token must be dead afterwards.</td></tr>
+  <tr><td>Z4</td><td>R9 bounds adoption: a cart whose OrderId is stamped (or not Open) cannot change its buyer.</td></tr>
+  <tr><td>Z5</td><td>My-orders reads are party-scoped at the query: another party's order id is a 404, never a 403 (no existence oracle).</td></tr>
+  <tr><td>Z6</td><td>The storefront-order reads admit <code>PersonalUser</code> (the platform's B2C role) — no admin role required, no new role invented.</td></tr>
+</table>
+
+<h2 id="persistence">5. Persistence &amp; migration</h2>
+<p><strong>No migration.</strong> <code>Cart.BuyerPartyId</code>, <code>AnonymousToken</code>,
+<code>Order.PayerPartyId</code> and <code>OrderChargeSummary</code> all exist. The resolver is a
+read over <code>UserParty</code>.</p>
+
+<h2 id="testing">6. Testing</h2>
+<ul>
+  <li>Resolver: linked user → party; unlinked/anonymous → null.</li>
+  <li>Adoption: guest→party binds and clears the token (old token 404s after); same-party idempotent; foreign-party/ wrong-token 404; ordered cart rejects (R9).</li>
+  <li>Authenticated create binds the party; body buyerPartyId still rejected; guest create unchanged.</li>
+  <li>My orders: only own orders list; foreign order id 404; detail carries items + selections.</li>
+  <li>API: adopt journey (guest cart → authenticated adopt → party GET works, token GET 404s); my-orders authz (anonymous rejected, PersonalUser admitted).</li>
+</ul>
+
+<h2 id="acceptance">7. Acceptance criteria</h2>
+<table>
+  <tr><th>#</th><th>Given / when / then</th></tr>
+  <tr><td>C1</td><td>Guest builds a box → registers &amp; logs in (platform endpoints) → <code>adopt</code> with both credentials → cart is party-bound, the guest token no longer authorizes, and the party principal does.</td></tr>
+  <tr><td>C2</td><td>Adopt with the right token but no bearer → 401/403; with a bearer but wrong token → 404; adopting a cart already bound to another party → 404.</td></tr>
+  <tr><td>C3</td><td>Authenticated create → cart born party-bound; the same request with a body buyerPartyId → 400 (unchanged rejection).</td></tr>
+  <tr><td>C4</td><td>Two customers each check out a box → each sees exactly their own order in <code>/commerce/storefront/orders</code>; requesting the other's order id → 404.</td></tr>
+  <tr><td>C5</td><td>After checkout, adopt on that cart → rejected (R9); the order's buyer is immutable.</td></tr>
+</table>
+
+<h2 id="open">8. Open decisions</h2>
+<div class="callout open">
+  <p><strong>O1 — Social login.</strong> The storefront's Google button rides the IdP's own
+  federation (Keycloak brokering per ADR-007) via an authorization-code flow the FRONTEND drives;
+  the resulting JWT validates unchanged. No Aonik surface; noted so nobody builds one.</p>
+  <p><strong>O2 — Registration UX composition.</strong> If the storefront wants register+login in
+  one round-trip, a later thin composition endpoint can wrap the two platform calls; deliberately
+  not built until the frontend proves the need.</p>
+</div>
+
+<h2 id="references">9. References</h2>
+<ul>
+  <li>ADR-007 / Spec 029 §8.6 (Keycloak direct access grants) — the login deployment prerequisite</li>
+  <li>Spec 068 R10 — <code>CartAccessContext</code>, the waiting party half, J1's create rejections</li>
+  <li>Spec 026 — invite-accept placeholder linking (the adoption-adjacent precedent)</li>
+  <li>Platform: <code>RegistrationService.RegisterIndividualAsync</code>, <code>IdentityService.TokenAsync</code>, <code>UserProvisioningService.EnsureUserAndCustomerAsync</code>, <code>UserParty</code></li>
+</ul>
+
+</body>
+</html>

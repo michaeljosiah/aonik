@@ -1,4 +1,4 @@
-using Aonik.Platform.Agents;
+﻿using Aonik.Platform.Agents;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using Aonik.Platform.Contracts.Services.Cms;
@@ -110,6 +110,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
         services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.ICurrentPartyResolver, Services.Identity.CurrentPartyResolver>();
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IPermissionService, PermissionService>();

@@ -29,7 +29,7 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
                 req.CancelUrl,
                 req.CustomerAccountId,
                 req.DiscountCode),
-            CartRequestAccess.From(HttpContext), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(result, ct);
     }
 }

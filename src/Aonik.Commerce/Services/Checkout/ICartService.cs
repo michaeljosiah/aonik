@@ -19,4 +19,10 @@ public interface ICartService
     Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CartAccessContext access, CancellationToken cancellationToken = default);
+
+    /// <summary>Spec 072 Y4 — guest→account adoption: the guest token proves possession, the
+    /// principal supplies the party. Sets BuyerPartyId, clears the token (Z3). Idempotent when
+    /// the SAME party adopts again; every other mismatch is the R10 404 (Z2). Open, order-less
+    /// carts only (Z4).</summary>
+    Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default);
 }

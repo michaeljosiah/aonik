@@ -34,12 +34,16 @@ public class CreateBoxCartEndpoint : Endpoint<CreateBoxCartRequest, BoxCartDto>
                 "Party-bound box sessions are not available on this route yet; omit buyerPartyId.");
         }
 
+        // Y3 — an authenticated caller's box session is born party-bound (the body rejection
+        // above stands; the principal is the only source).
+        var principal = await CartRequestAccess.FromAsync(HttpContext, ct);
         var result = await _boxCarts.CreateAsync(new CreateBoxCartCommand(
             req.BundleProductId,
             req.Size,
             req.FirstLine is { } line
                 ? new AddBoxLineCommand(line.ProductVariantId, line.Quantity, line.Personalisation, line.BundleSlotId)
-                : null), ct);
+                : null,
+            principal.AuthenticatedPartyId), ct);
         await Send.OkAsync(result, ct);
     }
 }
@@ -58,7 +62,7 @@ public class ChangeBoxSizeEndpoint : Endpoint<ChangeBoxSizeRequest, BoxCartDto>
 
     public override async Task HandleAsync(ChangeBoxSizeRequest req, CancellationToken ct)
         => await Send.OkAsync(await _boxCarts.ChangeSizeAsync(
-            Route<Guid>("cartId"), req.Size, CartRequestAccess.From(HttpContext), ct), ct);
+            Route<Guid>("cartId"), req.Size, await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 public class AddBoxLineEndpoint : Endpoint<AddBoxLineRequest, BoxCartDto>
@@ -77,7 +81,7 @@ public class AddBoxLineEndpoint : Endpoint<AddBoxLineRequest, BoxCartDto>
         => await Send.OkAsync(await _boxCarts.AddLineAsync(
             Route<Guid>("cartId"),
             new AddBoxLineCommand(req.ProductVariantId, req.Quantity, req.Personalisation, req.BundleSlotId),
-            CartRequestAccess.From(HttpContext), ct), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 /// <summary>Spec 071 — add an ordinary retail extra alongside the box (AddOn line: no slot,
@@ -98,7 +102,7 @@ public class AddBoxExtraEndpoint : Endpoint<AddBoxExtraRequest, BoxCartDto>
         => await Send.OkAsync(await _boxCarts.AddExtraLineAsync(
             Route<Guid>("cartId"),
             new AddBoxExtraCommand(req.ProductVariantId, req.Quantity, req.Personalisation),
-            CartRequestAccess.From(HttpContext), ct), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 public class UpdateBoxLineEndpoint : Endpoint<UpdateBoxLineRequest, BoxCartDto>
@@ -117,7 +121,7 @@ public class UpdateBoxLineEndpoint : Endpoint<UpdateBoxLineRequest, BoxCartDto>
         => await Send.OkAsync(await _boxCarts.UpdateLineAsync(
             Route<Guid>("cartId"), Route<Guid>("lineId"),
             new UpdateBoxLineCommand(req.Quantity, req.Personalisation, req.ApplyToUnits),
-            CartRequestAccess.From(HttpContext), ct), ct);
+            await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 public class RemoveBoxLineEndpoint : EndpointWithoutRequest<BoxCartDto>
@@ -134,7 +138,7 @@ public class RemoveBoxLineEndpoint : EndpointWithoutRequest<BoxCartDto>
 
     public override async Task HandleAsync(CancellationToken ct)
         => await Send.OkAsync(await _boxCarts.RemoveLineAsync(
-            Route<Guid>("cartId"), Route<Guid>("lineId"), CartRequestAccess.From(HttpContext), ct), ct);
+            Route<Guid>("cartId"), Route<Guid>("lineId"), await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 public class QuoteBoxCartEndpoint : EndpointWithoutRequest<BoxCartDto>
@@ -151,7 +155,7 @@ public class QuoteBoxCartEndpoint : EndpointWithoutRequest<BoxCartDto>
 
     public override async Task HandleAsync(CancellationToken ct)
         => await Send.OkAsync(await _boxCarts.QuoteAsync(
-            Route<Guid>("cartId"), CartRequestAccess.From(HttpContext), ct), ct);
+            Route<Guid>("cartId"), await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }
 
 public class ContinueBoxCartEndpoint : EndpointWithoutRequest<BoxCartDto>
@@ -168,7 +172,38 @@ public class ContinueBoxCartEndpoint : EndpointWithoutRequest<BoxCartDto>
 
     public override async Task HandleAsync(CancellationToken ct)
         => await Send.OkAsync(await _boxCarts.ContinueAsync(
-            Route<Guid>("cartId"), CartRequestAccess.From(HttpContext), ct), ct);
+            Route<Guid>("cartId"), await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
+}
+
+/// <summary>Spec 072 Y4 — guest→account adoption: possession (X-Cart-Token) plus identity (the
+/// authenticated principal's party). Works for generic AND box carts — the buyer binding is
+/// cart-kind-agnostic.</summary>
+public class AdoptCartEndpoint : EndpointWithoutRequest<CartDto>
+{
+    private readonly ICartService _carts;
+    private readonly Aonik.SharedKernel.Abstractions.ICurrentPartyResolver _parties;
+
+    public AdoptCartEndpoint(ICartService carts, Aonik.SharedKernel.Abstractions.ICurrentPartyResolver parties)
+    {
+        _carts = carts;
+        _parties = parties;
+    }
+
+    public override void Configure()
+    {
+        Post("/commerce/carts/{cartId:guid}/adopt");
+        Policies("AdminUserWritePolicy");   // admits PersonalUser — B2C self-service writes (Z6)
+        Summary(s => s.Summary = "Bind a guest cart to the authenticated customer's account.");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var partyId = await _parties.GetCurrentPartyIdAsync(ct)
+            ?? throw new Aonik.Commerce.Services.Catalog.StorefrontValidationException(
+                "This account has no customer profile to adopt the cart into.");
+        var access = await CartRequestAccess.FromAsync(HttpContext, ct);
+        await Send.OkAsync(await _carts.AdoptAsync(Route<Guid>("cartId"), partyId, access, ct), ct);
+    }
 }
 
 /// <summary>Generic carts too — closes the Spec 042 gap (the service method existed, the route
@@ -187,5 +222,5 @@ public class RemoveCartItemEndpoint : EndpointWithoutRequest<CartDto>
 
     public override async Task HandleAsync(CancellationToken ct)
         => await Send.OkAsync(await _carts.RemoveItemAsync(
-            Route<Guid>("cartId"), Route<Guid>("itemId"), CartRequestAccess.From(HttpContext), ct), ct);
+            Route<Guid>("cartId"), Route<Guid>("itemId"), await CartRequestAccess.FromAsync(HttpContext, ct), ct), ct);
 }

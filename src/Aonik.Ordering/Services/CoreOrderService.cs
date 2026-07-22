@@ -340,6 +340,10 @@ internal sealed class CoreOrderService : IOrderService
         {
             orders = orders.Where(o => o.CreatedAt < createdToUtc);
         }
+        if (query.OrderIds is { Count: > 0 } orderIds)
+        {
+            orders = orders.Where(o => orderIds.Contains(o.Id));
+        }
 
         return orders;
     }
