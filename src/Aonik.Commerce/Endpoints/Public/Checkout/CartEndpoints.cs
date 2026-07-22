@@ -20,7 +20,17 @@ public class CreateCartEndpoint : Endpoint<CreateCartRequest, CartDto>
 
     public override async Task HandleAsync(CreateCartRequest req, CancellationToken ct)
     {
-        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency, req.BuyerPartyId, req.AnonymousToken), ct);
+        // R10 — a party-bound cart authorizes ONLY by an authenticated principal matching
+        // BuyerPartyId, and these anonymous routes carry no principal-to-party mapping yet (that
+        // arrives with the storefront customer-identity capability). Accepting a party id here
+        // would mint a cart its own creator can never read again — reject it loudly instead.
+        if (req.BuyerPartyId is not null)
+        {
+            throw new Aonik.Commerce.Services.Catalog.StorefrontValidationException(
+                "Party-bound carts are not available on this route yet; omit buyerPartyId for a guest cart.");
+        }
+
+        var cart = await _carts.CreateCartAsync(new CreateCartCommand(req.Currency), ct);
         await Send.OkAsync(cart, ct);
     }
 }

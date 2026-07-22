@@ -204,7 +204,7 @@ public static class ExceptionHandlerConfiguration
                     quote = boxDrift.Refreshed.Quote,
                     changes = boxDrift.Refreshed.Changes,
                 });
-                break;
+                return;
 
             case DbUpdateConcurrencyException:
                 // Writers that guard shared invariants deliberately contend on a row-version token

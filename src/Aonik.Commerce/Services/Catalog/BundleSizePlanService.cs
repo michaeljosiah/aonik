@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
@@ -50,13 +50,16 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
             .Include(p => p.Presets)
             .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.BundleProductId == productId, cancellationToken);
 
-        // A4 — the currency denominates every open box session's quote; repricing them mid-build
-        // is not a thing. Open carts only: CheckedOut carts are done, Abandoned carts are stale
-        // by definition (the A6 sweep exists precisely so they cannot pin authoring forever).
+        // A4 — the currency denominates every open BUILD session's quote; repricing them
+        // mid-build is not a thing. A cart whose OrderId is stamped is excluded: its order,
+        // reservation and payment amount are already fixed, a currency change no longer affects
+        // it — and the A6 sweep deliberately never touches ordered carts, so counting them here
+        // would let one abandoned payment pin plan authoring forever.
         if (plan is not null && !string.Equals(plan.Currency, currency, StringComparison.Ordinal))
         {
             var openSessions = await _dbContext.Carts.CountAsync(
-                c => c.TenantId == tenantId && c.BoxBundleProductId == productId && c.Status == CartStatuses.Open,
+                c => c.TenantId == tenantId && c.BoxBundleProductId == productId
+                    && c.Status == CartStatuses.Open && c.OrderId == null,
                 cancellationToken);
             if (openSessions > 0)
             {
@@ -191,8 +194,11 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
         {
             throw new StorefrontValidationException("A5: PerSpacePrice cannot be negative.");
         }
-        if (string.IsNullOrWhiteSpace(command.Currency) || command.Currency.Trim().Length != 3)
+        var currencyCode = command.Currency?.Trim() ?? string.Empty;
+        if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter))
         {
+            // A malformed code would ride into quotes, orders, invoices and payment initiation
+            // and fail only in a financial integration much later.
             throw new StorefrontValidationException("A5: Currency must be a 3-letter ISO code.");
         }
 

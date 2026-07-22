@@ -140,6 +140,65 @@ public class BoxCheckoutTests
     }
 
     [Fact]
+    public async Task Checkout_Should_Reject_WhenThePlanNoLongerSellsTheSize()
+    {
+        // J2 — an admin shrank the plan after this session chose its size; an out-of-range size
+        // must never reach pricing or payment (below the new minimum the formula can quote <= 0).
+        var (h, f, box) = await ArrangeFullBoxAsync();
+        await h.Plans().UpsertAsync(f.BundleProductId, new(
+            MinSize: 2, MaxSize: 5, BaseSize: 2, BasePrice: 95m, PerSpacePrice: 15m, Currency: "GBP", Presets: []));
+
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("R1");
+        h.Payments.Calls.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Checkout_Should_Reject_WhenTheBoxProductWasWithdrawn()
+    {
+        // J6 — per-line validation covers dishes only; the container must still be sellable.
+        var (h, f, box) = await ArrangeFullBoxAsync();
+        await using (var ctx = h.Commerce())
+        {
+            var bundle = await ctx.Products.FirstAsync(p => p.Id == f.BundleProductId);
+            bundle.Status = Aonik.Commerce.Entities.Catalog.ProductStatuses.Archived;
+            await ctx.SaveChangesAsync();
+        }
+
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+
+        (await act.Should().ThrowAsync<StorefrontValidationException>())
+            .Which.Message.Should().Contain("no longer available");
+        h.Payments.Calls.Should().Be(0, "nothing may be reserved or created for a withdrawn box");
+    }
+
+    [Fact]
+    public async Task CheckedOutCarts_Should_PinTheirQuote_AndSurviveLaterPlanEdits()
+    {
+        // J7 — the frozen view derives from the durable charge summary, so an allowed later
+        // price edit cannot display a figure different from what was charged; J9 — a cart whose
+        // order exists no longer pins the currency, and the historical view survives the change.
+        var (h, f, box) = await ArrangeFullBoxAsync();
+        var paid = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+
+        await h.Plans().UpsertAsync(f.BundleProductId, new(
+            MinSize: 6, MaxSize: 30, BaseSize: 6, BasePrice: 250m, PerSpacePrice: 15m, Currency: "GBP", Presets: []));
+        var afterPriceEdit = await h.BoxCarts().GetAsync(box.Box.CartId, Token(box));
+        afterPriceEdit.Quote.Components.Single(c => c.Key == "boxPrice").Amount
+            .Should().Be(95m, "the paid figure, not the live plan's 250");
+        afterPriceEdit.Quote.Total.Should().Be(paid.Total);
+
+        // The stamped order excludes this cart from the A4 lock (J9)...
+        await h.Plans().UpsertAsync(f.BundleProductId, new(
+            MinSize: 6, MaxSize: 30, BaseSize: 6, BasePrice: 250m, PerSpacePrice: 15m, Currency: "EUR", Presets: []));
+        // ...and the historical view still loads rather than failing the currency guard.
+        var afterCurrencyChange = await h.BoxCarts().GetAsync(box.Box.CartId, Token(box));
+        afterCurrencyChange.Box.Currency.Should().Be("GBP", "the session's own denomination");
+        afterCurrencyChange.Quote.Total.Should().Be(paid.Total);
+    }
+
+    [Fact]
     public async Task ProductionSheet_Should_GroupByVariantAndPersonalisation()
     {
         // A14 — two Jollof preparations are two demand lines; collapsing them can never be undone.

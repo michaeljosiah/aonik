@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Checkout;
+﻿using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 
@@ -25,13 +25,21 @@ public class CreateBoxCartEndpoint : Endpoint<CreateBoxCartRequest, BoxCartDto>
 
     public override async Task HandleAsync(CreateBoxCartRequest req, CancellationToken ct)
     {
+        // R10 — see CreateCartEndpoint: no principal-to-party mapping exists on these anonymous
+        // routes yet, and a party-bound cart ignores the guest token by design, so accepting a
+        // party id would mint a session its creator can never touch again.
+        if (req.BuyerPartyId is not null)
+        {
+            throw new Aonik.Commerce.Services.Catalog.StorefrontValidationException(
+                "Party-bound box sessions are not available on this route yet; omit buyerPartyId.");
+        }
+
         var result = await _boxCarts.CreateAsync(new CreateBoxCartCommand(
             req.BundleProductId,
             req.Size,
             req.FirstLine is { } line
                 ? new AddBoxLineCommand(line.ProductVariantId, line.Quantity, line.Personalisation, line.BundleSlotId)
-                : null,
-            req.BuyerPartyId), ct);
+                : null), ct);
         await Send.OkAsync(result, ct);
     }
 }

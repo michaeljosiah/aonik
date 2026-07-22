@@ -393,6 +393,28 @@ public class BoxCartServiceTests
         await increase.Should().ThrowAsync<StorefrontValidationException>();
     }
 
+    [Fact]
+    public async Task QuantityDecrease_Should_ClearAStaleUnavailableFlag()
+    {
+        // J5 — flags are authoritative for the state the write RETURNS: reducing an
+        // over-demanded line back under availability must not keep reporting it unavailable.
+        var (h, f, box) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+
+        var added = await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
+        await h.Inventory().SetOnHandAsync(f.DishVariants["jollof"], 5m);
+
+        var flagged = await carts.GetAsync(box.Box.CartId, access);
+        flagged.Box.Lines.Single().IsUnavailable.Should().BeTrue("demand 6 exceeds availability 5");
+
+        var after = await carts.UpdateLineAsync(box.Box.CartId, added.Box.Lines.Single().LineId,
+            new UpdateBoxLineCommand(Quantity: 4), access);
+
+        after.Box.Lines.Single().IsUnavailable.Should().BeFalse("demand 4 fits availability 5");
+        after.Changes.Should().NotContain(c => c.Reason == "unavailable");
+    }
+
     // ─── A6 — abandonment ────────────────────────────────────────────────────
 
     [Fact]

@@ -5,6 +5,7 @@ using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Inventory;
@@ -223,7 +224,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }, cancellationToken);
 
     public Task<BoxCartDto> RemoveLineAsync(Guid cartId, Guid lineId, CartAccessContext access, CancellationToken cancellationToken = default)
-        => RunAsync(cartId, access, requireOpen: true, touchCart: false, (ctx, ct) =>
+        => RunAsync(cartId, access, requireOpen: true, touchCart: true, (ctx, ct) =>
         {
             var line = ctx.BoxLines.FirstOrDefault(l => l.Id == lineId)
                 ?? throw new NotFoundException($"Cart line '{lineId}' was not found.");
@@ -235,6 +236,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         => RunAsync(cartId, access, requireOpen: true, touchCart: false, (ctx, ct) =>
         {
             // R8 — the full-box gate. Advisory UX; checkout independently re-validates (A10).
+            // The persisted size is revalidated too: an admin may have shrunk the plan since
+            // this session chose its size (J2) — change the size before continuing.
+            ValidateSize(ctx.Plan, ctx.Cart.BoxSize!.Value);
             var units = TotalUnits(ctx.BoxLines);
             if (units != ctx.Cart.BoxSize)
             {
@@ -346,7 +350,15 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             }
 
             var plan = await LoadPlanAsync(tenantId, cart.BoxBundleProductId.Value, ct);
-            if (!string.Equals(plan.Currency, cart.Currency, StringComparison.Ordinal))
+
+            // §8 — drift repair on every load, but only while the session is still editable: a
+            // checked-out box is a record, not a session, and must not be rewritten under its order.
+            var editable = cart.Status == CartStatuses.Open && cart.OrderId is null;
+
+            // The live-plan currency guard protects EDITABLE sessions from quoting against a
+            // repriced plan; a closed cart's figures are frozen in its charge summary, and an
+            // allowed later currency change must not brick the historical view (J7).
+            if (editable && !string.Equals(plan.Currency, cart.Currency, StringComparison.Ordinal))
             {
                 throw new StorefrontValidationException(
                     $"This box session is denominated in {cart.Currency} but the plan now prices in {plan.Currency}; " +
@@ -354,19 +366,23 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             }
 
             var context = await BuildContextAsync(tenantId, cart, plan, ct);
-
-            // §8 — drift repair on every load, but only while the session is still editable: a
-            // checked-out box is a record, not a session, and must not be rewritten under its order.
-            if (cart.Status == CartStatuses.Open && cart.OrderId is null)
+            if (editable)
             {
                 await ApplyDriftAsync(context, ct);
             }
-            await FlagUnavailableAsync(context, ct);
+            // Guards-only pass: increase guards consult the flags, but the authoritative flags
+            // and change entries are computed AFTER the mutation — a quantity decrease can make
+            // an over-demanded variant available again (J5).
+            await FlagUnavailableAsync(context, emitChanges: false, ct);
 
             if (mutate is not null)
             {
                 await mutate(context, ct);
             }
+
+            context.UnavailableLineIds.Clear();
+            context.Available.Clear();
+            await FlagUnavailableAsync(context, emitChanges: true, ct);
 
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
@@ -477,9 +493,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
     }
 
-    private async Task FlagUnavailableAsync(BoxContext context, CancellationToken ct)
+    private async Task FlagUnavailableAsync(BoxContext context, bool emitChanges, CancellationToken ct)
     {
-        foreach (var line in context.BoxLines)
+        foreach (var line in context.BoxLines.Where(l => !l.IsDeleted).ToList())
         {
             var variant = context.Variants.GetValueOrDefault(line.ProductVariantId);
             var product = variant is null ? null : context.Products.GetValueOrDefault(variant.ProductId);
@@ -499,8 +515,11 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             if (unavailable)
             {
                 context.UnavailableLineIds.Add(line.Id);
-                context.Changes.Add(new BoxChangeDto(
-                    line.Id, null, null, null, BoxChangeReasons.Unavailable));
+                if (emitChanges)
+                {
+                    context.Changes.Add(new BoxChangeDto(
+                        line.Id, null, null, null, BoxChangeReasons.Unavailable));
+                }
             }
         }
     }
@@ -703,11 +722,32 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     public async Task<BoxCheckoutShape> PrepareForCheckoutAsync(Entities.Cart.Cart cart, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // The container itself must still be sellable — the per-line pass checks only dishes,
+        // so a withdrawn box product would otherwise reserve stock and initiate payment (J6).
+        var bundleProduct = await _dbContext.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == cart.BoxBundleProductId && p.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException($"Product '{cart.BoxBundleProductId}' was not found.");
+        if (bundleProduct.Kind != ProductKinds.Bundle
+            || bundleProduct.Status != ProductStatuses.Active
+            || bundleProduct.BundlePricingMode != BundlePricingModes.SizeTiered)
+        {
+            throw new StorefrontValidationException(
+                "This box product is no longer available for checkout.");
+        }
+
         var plan = await LoadPlanAsync(tenantId, cart.BoxBundleProductId!.Value, cancellationToken);
+
+        // An admin may have shrunk the plan since this session chose its size; an out-of-range
+        // size must never reach pricing or payment — below the new minimum the formula can even
+        // quote zero or negative (J2).
+        ValidateSize(plan, cart.BoxSize!.Value);
+
         var context = await BuildContextAsync(tenantId, cart, plan, cancellationToken);
 
         await ApplyDriftAsync(context, cancellationToken);
-        await FlagUnavailableAsync(context, cancellationToken);
+        await FlagUnavailableAsync(context, emitChanges: true, cancellationToken);
 
         // A18 — any drift or unavailable line stops checkout BEFORE anything is reserved or
         // created: persist the repair so the refreshed state is durable, then 409 with it. A
@@ -726,11 +766,6 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             throw new StorefrontValidationException(
                 $"R8: the box has {units}/{cart.BoxSize} dishes; it must be full to check out.");
         }
-
-        var bundleProduct = await _dbContext.Products
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == cart.BoxBundleProductId && p.TenantId == tenantId, cancellationToken)
-            ?? throw new NotFoundException($"Product '{cart.BoxBundleProductId}' was not found.");
 
         var boxPrice = BoxPricing.BoxPrice(plan, cart.BoxSize!.Value);
         var personalisation = context.BoxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
@@ -825,7 +860,17 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             l.BoxBundleSlotId!.Value,
             unavailableIds.Contains(l.Id))).ToList();
 
-        var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, ct);
+        // A closed cart's quote pins to its durable charge summary — a later plan price edit
+        // must not display a figure different from what was actually charged (J7).
+        OrderChargeSummary? summary = null;
+        if (cart.OrderId is { } orderId)
+        {
+            summary = await _dbContext.OrderChargeSummaries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId, ct);
+        }
+
+        var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, summary, ct);
 
         return new BoxCartDto(
             new BoxDto(cart.Id, cart.BoxBundleProductId!.Value, cart.BoxSize!.Value, cart.Currency, lines),
@@ -839,14 +884,22 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         Entities.Cart.Cart cart,
         BundleSizePlan plan,
         IReadOnlyList<CartItem> boxLines,
+        OrderChargeSummary? summary,
         CancellationToken ct)
     {
         var size = cart.BoxSize!.Value;
-        var boxPrice = BoxPricing.BoxPrice(plan, size);
         var personalisation = boxLines.Sum(l => (l.PersonalisationAdjustment ?? 0m) * l.Quantity);
         var surcharges = boxLines.Sum(l => (l.UnitSurcharge ?? 0m) * l.Quantity);
         var deliveryList = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryListAmount, tenantId, ct);
-        var deliveryCharged = await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct);
+
+        // Frozen view: line snapshots are no longer drift-repaired, so the goods split derives
+        // from the recorded subtotal, and delivery is whatever the payment actually included.
+        var boxPrice = summary is not null
+            ? summary.Subtotal - personalisation - surcharges
+            : BoxPricing.BoxPrice(plan, size);
+        var deliveryCharged = summary is not null
+            ? summary.Total - (summary.Subtotal - summary.DiscountTotal + summary.TaxTotal)
+            : await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct);
 
         var components = new List<QuoteComponentDto>
         {

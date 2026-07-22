@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -113,6 +113,24 @@ public class CommerceBoxCartEndpointTests : IClassFixture<CustomWebApplicationFa
 
         (await client.GetAsync("/commerce/catalog/products/no-such/box-plan"))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task HttpCreates_Should_RejectPartyBinding_UntilIdentityLands()
+    {
+        // J1/R10 — these anonymous routes carry no principal-to-party mapping yet; accepting a
+        // party id would mint a cart its own creator can never read again (party carts ignore
+        // the guest token by design). Loud rejection beats a silent lock-out.
+        var tenantId = Guid.NewGuid();
+        var (bundleId, _) = await SeedBoxWorldAsync(tenantId);
+        var client = Client(tenantId);
+
+        (await client.PostAsJsonAsync("/commerce/carts/box",
+            new { bundleProductId = bundleId, size = 6, buyerPartyId = Guid.NewGuid() }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await client.PostAsJsonAsync("/commerce/carts",
+            new { currency = "GBP", buyerPartyId = Guid.NewGuid() }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ─── Seeding ─────────────────────────────────────────────────────────────
