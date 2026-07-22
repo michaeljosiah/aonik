@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Checkout;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -10,7 +10,9 @@ namespace Aonik.Commerce.Services.Checkout;
 /// </summary>
 public interface ICheckoutService
 {
-    Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CancellationToken cancellationToken = default);
+    /// <summary>R10 — checkout presents the cart access context like every other cart
+    /// operation; an unauthorized caller gets the same 404 an unknown cart id gets.</summary>
+    Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// On payment completion for a checkout order (driven by <c>PaymentCompletedEvent</c>), commits

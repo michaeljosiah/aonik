@@ -1,8 +1,9 @@
-using Aonik.Commerce.Contracts.Models.Checkout;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
@@ -31,25 +32,37 @@ internal sealed class CartService : ICartService
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             BuyerPartyId = command.BuyerPartyId,
-            AnonymousToken = command.AnonymousToken,
+            // R10 — server-minted, never client-supplied: the old store-verbatim contract let a
+            // caller register an empty or guessable token. Disclosed exactly once, below.
+            AnonymousToken = CartAccess.MintToken(),
             Status = CartStatuses.Open,
             Currency = command.Currency,
         };
         _dbContext.Carts.Add(cart);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return (await GetCartAsync(cart.Id, cancellationToken))!;
+        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))! with { AnonymousToken = cart.AnonymousToken };
     }
 
-    public async Task<CartDto?> GetCartAsync(Guid cartId, CancellationToken cancellationToken = default)
+    public async Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await _dbContext.Carts.AsNoTracking()
+            .Include(c => c.Items).ThenInclude(i => i.Selections)
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+
+        // R10 — unknown and unauthorized are the same null (→ 404); no oracle.
+        return cart is null || !CartAccess.IsAuthorized(cart, access) ? null : Map(cart);
+    }
+
+    private async Task<CartDto?> LoadDtoAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
+    {
         var cart = await _dbContext.Carts.AsNoTracking()
             .Include(c => c.Items).ThenInclude(i => i.Selections)
             .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
         return cart is null ? null : Map(cart);
     }
 
-    public async Task<CartDto> AddItemAsync(AddCartItemCommand command, CancellationToken cancellationToken = default)
+    public async Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         if (command.Quantity <= 0)
         {
@@ -57,7 +70,7 @@ internal sealed class CartService : ICartService
         }
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var cart = await ValidateOpenCartAsync(command.CartId, tenantId, cancellationToken);
+        var cart = await ValidateOpenCartAsync(command.CartId, tenantId, access, cancellationToken);
 
         var variant = await _dbContext.ProductVariants.AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == command.ProductVariantId && v.TenantId == tenantId, cancellationToken)
@@ -81,10 +94,10 @@ internal sealed class CartService : ICartService
         });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return (await GetCartAsync(cart.Id, cancellationToken))!;
+        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
-    public async Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CancellationToken cancellationToken = default)
+    public async Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         if (command.Selection is null || command.Selection.Count == 0)
         {
@@ -96,7 +109,7 @@ internal sealed class CartService : ICartService
         }
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var cart = await ValidateOpenCartAsync(command.CartId, tenantId, cancellationToken);
+        var cart = await ValidateOpenCartAsync(command.CartId, tenantId, access, cancellationToken);
 
         var product = await _dbContext.Products.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == command.BundleProductId && p.TenantId == tenantId, cancellationToken)
@@ -149,13 +162,13 @@ internal sealed class CartService : ICartService
 
         _dbContext.CartItems.Add(item);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return (await GetCartAsync(cart.Id, cancellationToken))!;
+        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
-    public async Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CancellationToken cancellationToken = default)
+    public async Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        await ValidateOpenCartAsync(cartId, tenantId, cancellationToken);
+        await ValidateOpenCartAsync(cartId, tenantId, access, cancellationToken);
         var item = await _dbContext.CartItems
             .FirstOrDefaultAsync(i => i.Id == cartItemId && i.CartId == cartId && i.TenantId == tenantId, cancellationToken);
         if (item is not null)
@@ -163,14 +176,30 @@ internal sealed class CartService : ICartService
             _dbContext.CartItems.Remove(item);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
-        return (await GetCartAsync(cartId, cancellationToken))!;
+        return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
 
-    private async Task<Entities.Cart.Cart> ValidateOpenCartAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
+    private async Task<Entities.Cart.Cart> ValidateOpenCartAsync(Guid cartId, Guid tenantId, CartAccessContext access, CancellationToken cancellationToken)
     {
         var cart = await _dbContext.Carts.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Cart '{cartId}' was not found.");
+            ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
+
+        // R10 — unauthorized is the same 404 an unknown id gets; no oracle.
+        if (!CartAccess.IsAuthorized(cart, access))
+        {
+            throw new NotFoundException($"Cart '{cartId}' was not found.");
+        }
+
+        // R11 — a box session is writable only through kind-aware routes: a kind-blind insert
+        // would land a line that capacity, slot, personalisation, merge and quote rules cannot
+        // classify. This guards kind-blindness, not add-ons.
+        if (cart.BoxBundleProductId is not null)
+        {
+            throw new StorefrontValidationException(
+                "R11: this cart is a box session — use the box routes (/commerce/carts/{id}/lines).");
+        }
+
         if (cart.Status != CartStatuses.Open)
         {
             throw new InvalidOperationException($"Cart '{cartId}' is {cart.Status}, not Open.");
@@ -192,7 +221,8 @@ internal sealed class CartService : ICartService
             i.Selections.Select(s => new CartItemSelectionDto(
                 s.Id, s.BundleSlotId, s.ProductVariantId, s.Quantity, s.UnitPriceSnapshot, s.Sku, s.NameSnapshot)).ToList())).ToList();
 
-        return new CartDto(cart.Id, cart.BuyerPartyId, cart.AnonymousToken, cart.Status, cart.Currency, cart.OrderId,
+        // R10 — the token is disclosed exactly once, by create; every other read carries null.
+        return new CartDto(cart.Id, cart.BuyerPartyId, null, cart.Status, cart.Currency, cart.OrderId,
             items.Sum(i => i.LineTotal), items);
     }
 }

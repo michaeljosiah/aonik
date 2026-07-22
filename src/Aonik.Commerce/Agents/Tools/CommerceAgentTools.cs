@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
@@ -98,11 +98,12 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _products.GetProductAsync(productId, cancellationToken);
 
-    [Description("Views a cart with its lines and totals by cart id.")]
+    [Description("Views a cart with its lines and totals by cart id. Guest carts require the cart token returned at creation.")]
     public Task<CartDto?> ViewCart(
         [Description("The cart id (GUID)")] Guid cartId,
+        [Description("The guest cart token from the create response; omit for party-bound carts")] string? cartToken = null,
         CancellationToken cancellationToken = default)
-        => _carts.GetCartAsync(cartId, cancellationToken);
+        => _carts.GetCartAsync(cartId, CartAccessContext.ForGuest(cartToken), cancellationToken);
 
     [Description("Checks the available stock for a product variant. Returns the number of units available.")]
     public Task<decimal> CheckInventory(
@@ -201,16 +202,18 @@ internal sealed class CommerceAgentTools
         [Description("The cart id (GUID)")] Guid cartId,
         [Description("The product variant id (GUID)")] Guid productVariantId,
         [Description("Quantity to add")] decimal quantity,
+        [Description("The guest cart token from the create response")] string? cartToken = null,
         CancellationToken cancellationToken = default)
-        => _carts.AddItemAsync(new AddCartItemCommand(cartId, productVariantId, quantity), cancellationToken);
+        => _carts.AddItemAsync(new AddCartItemCommand(cartId, productVariantId, quantity), CartAccessContext.ForGuest(cartToken), cancellationToken);
 
     [Description("Adds a build-your-own-box selection to a cart as a single bundle line. The selection lists the chosen component variants per slot.")]
     public Task<CartDto> AddBundleToCart(
         [Description("The cart id (GUID)")] Guid cartId,
         [Description("The bundle product id (GUID)")] Guid bundleProductId,
         [Description("The chosen components: each item is a bundle slot id, a product variant id, and a quantity")] List<BundleSelectionLine> selection,
+        [Description("The guest cart token from the create response")] string? cartToken = null,
         CancellationToken cancellationToken = default)
-        => _carts.AddBundleAsync(new AddBundleToCartCommand(cartId, bundleProductId, selection), cancellationToken);
+        => _carts.AddBundleAsync(new AddBundleToCartCommand(cartId, bundleProductId, selection), CartAccessContext.ForGuest(cartToken), cancellationToken);
 
     // ── Medium — everyday domain writes + checkout ──────────────────────────────────────────────
 
@@ -247,8 +250,9 @@ internal sealed class CommerceAgentTools
         [Description("The cart id (GUID)")] Guid cartId,
         [Description("The payment provider code (e.g. Stripe, Paystack)")] string provider,
         [Description("The payment method type (e.g. Card, BankTransfer)")] string paymentMethodType,
+        [Description("The guest cart token from the create response")] string? cartToken = null,
         CancellationToken cancellationToken = default)
-        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType), cancellationToken);
+        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType), CartAccessContext.ForGuest(cartToken), cancellationToken);
 
     [Description("Creates an ingredient (raw material) in the tenant's master. The base unit (kg, g, L, ml, or each) is the single unit all recipe quantities for this ingredient use.")]
     public Task<IngredientDto> CreateIngredient(

@@ -1,4 +1,5 @@
-﻿using Aonik.Commerce.Persistence;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
@@ -42,4 +43,12 @@ internal static class CommerceTestHarness
     /// <summary>Builds a ProductService with its Spec 066 option dependency wired.</summary>
     public static ProductService NewProductService(CommerceDbContext ctx, Guid tenantId)
         => new(ctx, new TestTenantProvider(tenantId), NewOptionService(ctx, tenantId), NullLogger<ProductService>.Instance);
+}
+
+/// <summary>R10 threading for tests: every harness cart is party-bound, so the owning access
+/// context is the party principal. Guest-token paths get their own dedicated tests.</summary>
+internal static class CartTestAccess
+{
+    public static CartAccessContext Owner(CartDto cart)
+        => CartAccessContext.ForParty(cart.BuyerPartyId!.Value);
 }

@@ -21,3 +21,13 @@ internal static class BoxPricing
         return preset?.Price ?? plan.BasePrice + (size - plan.BaseSize) * plan.PerSpacePrice;
     }
 }
+
+/// <summary>The §7 quote component keys — ordered, named, additive; the total is their sum.
+/// "addOns" joins this list when the add-on capability lands (§4.1).</summary>
+internal static class QuoteComponentKeys
+{
+    public const string BoxPrice = "boxPrice";
+    public const string Personalisation = "personalisation";
+    public const string UnitSurcharges = "unitSurcharges";
+    public const string DeliveryCharged = "deliveryCharged";
+}

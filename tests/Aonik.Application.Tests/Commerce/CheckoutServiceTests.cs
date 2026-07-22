@@ -21,6 +21,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Tests.Commerce;
 
+using static Aonik.Application.Tests.Commerce.CartTestAccess;
+
 /// <summary>
 /// End-to-end checkout (Spec 042 §11/§12): reserve stock → create a ProductPurchase order via the
 /// SharedKernel Ordering contract → record build-your-own-box contents → initiate funding → link it.
@@ -107,9 +109,9 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
         result.Total.Should().Be(5_000m);
         result.PaymentIntentId.Should().NotBeEmpty();
@@ -128,7 +130,7 @@ public class CheckoutServiceTests
         line.ProductId.Should().Be(variantId);
         (await ordering.OrderFundingRefs.AnyAsync(f => f.OrderId == result.OrderId)).Should().BeTrue();
 
-        (await h.Carts().GetCartAsync(cart.Id))!.OrderId.Should().Be(result.OrderId);
+        (await h.Carts().GetCartAsync(cart.Id, Owner(cart)))!.OrderId.Should().Be(result.OrderId);
     }
 
     [Fact]
@@ -157,10 +159,10 @@ public class CheckoutServiceTests
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         var selection = variantIds.Select(v => new BundleSelectionLine(slot.Id, v)).ToList();
-        var cartDto = await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, selection));
+        var cartDto = await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, selection), Owner(cart));
         cartDto.Total.Should().Be(12_000m);
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         result.Total.Should().Be(12_000m);
 
         await using var ordering = h.Ordering();
@@ -189,9 +191,9 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 1m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
-        var act = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var act = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
         await act.Should().ThrowAsync<InsufficientStockException>();
 
@@ -210,13 +212,13 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
         await h.Checkout().ConfirmPaymentAsync(result.OrderId);
 
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m);
-        (await h.Carts().GetCartAsync(cart.Id))!.Status.Should().Be("CheckedOut");
+        (await h.Carts().GetCartAsync(cart.Id, Owner(cart)))!.Status.Should().Be("CheckedOut");
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
@@ -235,9 +237,9 @@ public class CheckoutServiceTests
             "SAVE10", Aonik.Commerce.Entities.Promotions.DiscountKinds.Percentage, 10m));
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m)); // subtotal 5000
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart)); // subtotal 5000
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: "SAVE10"));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: "SAVE10"), Owner(cart));
 
         result.Subtotal.Should().Be(5_000m);
         result.DiscountTotal.Should().Be(500m);
@@ -263,10 +265,10 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
-        var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
-        var retry = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card")); // double-click
+        var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
+        var retry = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart)); // double-click
 
         // Same order + payment intent replayed; no second order; stock reserved exactly once.
         retry.OrderId.Should().Be(first.OrderId);
@@ -292,15 +294,15 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
         // First attempt aborts at the payment step, after stock was reserved; cart stays Open.
         h.Payments.FailTimes = 1;
-        var firstAttempt = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var firstAttempt = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         await firstAttempt.Should().ThrowAsync<InvalidOperationException>();
 
         // Retry succeeds and must not stack a second hold — release-before-reserve frees the orphan.
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         result.Total.Should().Be(5_000m);
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m); // 10 - 2, not 10 - 4
     }
@@ -316,8 +318,8 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
         // Simulate the failure window: the cart was saved CheckedOut but the order transition never
         // ran, leaving the order short of Complete.
@@ -344,8 +346,8 @@ public class CheckoutServiceTests
         await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
 
-        var zero = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 0m));
-        var negative = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, -1m));
+        var zero = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 0m), Owner(cart));
+        var negative = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, -1m), Owner(cart));
 
         await zero.Should().ThrowAsync<ArgumentException>();
         await negative.Should().ThrowAsync<ArgumentException>();
@@ -362,11 +364,11 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
-        await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
+        await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
         // Cart is still Open (payment pending) but OrderId is stamped — further edits must be rejected.
-        var addAfter = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
+        var addAfter = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
         await addAfter.Should().ThrowAsync<InvalidOperationException>();
     }
 
@@ -381,9 +383,9 @@ public class CheckoutServiceTests
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
-        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()), Owner(cart));
 
         h.Invoices.Calls.Should().Be(1);
         result.InvoiceId.Should().NotBeNull();

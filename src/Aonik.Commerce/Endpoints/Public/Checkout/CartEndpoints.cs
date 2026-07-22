@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Api.Checkout;
+﻿using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 
@@ -39,7 +39,7 @@ public class GetCartEndpoint : EndpointWithoutRequest<CartDto>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), ct);
+        var cart = await _carts.GetCartAsync(Route<Guid>("cartId"), CartRequestAccess.From(HttpContext), ct);
         if (cart is null)
         {
             await Send.NotFoundAsync(ct);
@@ -64,7 +64,8 @@ public class AddCartItemEndpoint : Endpoint<AddCartItemRequest, CartDto>
     public override async Task HandleAsync(AddCartItemRequest req, CancellationToken ct)
     {
         var cart = await _carts.AddItemAsync(
-            new AddCartItemCommand(Route<Guid>("cartId"), req.ProductVariantId, req.Quantity), ct);
+            new AddCartItemCommand(Route<Guid>("cartId"), req.ProductVariantId, req.Quantity),
+            CartRequestAccess.From(HttpContext), ct);
         await Send.OkAsync(cart, ct);
     }
 }
@@ -84,7 +85,8 @@ public class AddBundleToCartEndpoint : Endpoint<AddBundleToCartRequest, CartDto>
     public override async Task HandleAsync(AddBundleToCartRequest req, CancellationToken ct)
     {
         var cart = await _carts.AddBundleAsync(
-            new AddBundleToCartCommand(Route<Guid>("cartId"), req.BundleProductId, req.Selection), ct);
+            new AddBundleToCartCommand(Route<Guid>("cartId"), req.BundleProductId, req.Selection),
+            CartRequestAccess.From(HttpContext), ct);
         await Send.OkAsync(cart, ct);
     }
 }

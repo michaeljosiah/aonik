@@ -1,10 +1,11 @@
-using Aonik.Commerce.Contracts.Models.Checkout;
+﻿using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
@@ -45,14 +46,21 @@ internal sealed class CheckoutService : ICheckoutService
         _tenantProvider = tenantProvider;
     }
 
-    public async Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CancellationToken cancellationToken = default)
+    public async Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var cart = await _dbContext.Carts
             .Include(c => c.Items).ThenInclude(i => i.Selections)
             .FirstOrDefaultAsync(c => c.Id == command.CartId && c.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException($"Cart '{command.CartId}' was not found.");
+            ?? throw new NotFoundException($"Cart '{command.CartId}' was not found.");
+
+        // R10 — money movement begins here; an unauthorized caller gets the same 404 an unknown
+        // cart id gets, before the idempotent replay can leak a prior checkout's figures.
+        if (!CartAccess.IsAuthorized(cart, access))
+        {
+            throw new NotFoundException($"Cart '{command.CartId}' was not found.");
+        }
 
         // Idempotency: a cart stays Open until payment completes, so a retry / double-click re-enters
         // here. If checkout already ran (OrderId stamped), replay the recorded result rather than
