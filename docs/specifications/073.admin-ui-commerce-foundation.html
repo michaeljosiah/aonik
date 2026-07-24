@@ -42,6 +42,7 @@
   <tr><td><code>src/modules/commerce/index.ts</code></td><td><strong>Create.</strong> Exports <code>commerceModule: AdminModule</code> with <code>id: 'commerce'</code>, the <code>routes[]</code> below, and <code>breadcrumbs[]</code> (longest-prefix entries per route). Import page components from the <code>@/pages/commerce</code> barrel.</td></tr>
   <tr><td><code>src/modules/registry.ts</code></td><td><strong>Modify.</strong> Add <code>commerceModule</code> to <code>allModules</code> (after <code>financeModule</code> — order matters for aggregation).</td></tr>
   <tr><td><code>src/pages/commerce/</code></td><td><strong>Create</strong> feature folder with barrel <code>index.ts</code>. Page files land here per Specs 074–084; shared pieces under <code>src/pages/commerce/components/</code>.</td></tr>
+  <tr><td>Server manifest (<code>GetAdminManifestEndpoint</code>)</td><td><strong>Modify (the one backend line in this series).</strong> The manifest endpoint hard-codes its <code>enabledModules</code> list — and in the NORMAL flow the manifest is present, so <code>useModules()</code> would strip every commerce route and the sidebar filter would hide the menu; fail-open only covers a failed request. Add <code>commerce</code> to the served module list (with whatever per-tenant gating that endpoint applies to the others).</td></tr>
 </table>
 <p>Route table this module will carry when the series is complete (each page spec adds its rows):</p>
 <table>
@@ -92,7 +93,7 @@
 <table>
   <tr><th>Component</th><th>Contract</th><th>Used by</th></tr>
   <tr><td><code>SignedAmount.tsx</code></td><td><code>{ amount: number; currency: string }</code> → mono, tabular-nums, signed rendering (<code>+£2.50</code> / <code>−£2.00</code> / <code>included</code> for 0). One formatter for every delta in the series; JetBrains Mono via <code>font-mono</code> tokens.</td><td>074, 075, 076, 082</td></tr>
-  <tr><td><code>MonthGrid.tsx</code></td><td><code>{ monthLabel, cells: Array&lt;{ day: number; kind: 'plain'|'delivery'|'blackout'|'promise' }&gt;, legend? }</code>. Hand-built CSS grid (7 columns, Mon-first) — no calendar library exists and none should be added. Tokens only; blackout cells strike the numeral; the promise cell rings with <code>--color-brand-primary</code>.</td><td>077</td></tr>
+  <tr><td><code>MonthGrid.tsx</code></td><td><code>{ monthLabel, firstWeekday: number /* 0 = Monday … 6 = Sunday, the column of day 1 */, days: Array&lt;{ day: number; kind: 'plain'|'delivery'|'blackout'|'promise' }&gt;, legend? }</code> — the component inserts <code>firstWeekday</code> leading placeholder cells so day 1 lands under the right heading in every month. Hand-built CSS grid (7 columns, Mon-first) — no calendar library exists and none should be added. Tokens only; blackout cells strike the numeral; the promise cell rings with <code>--color-brand-primary</code>.</td><td>077</td></tr>
   <tr><td><code>PriceCurve.tsx</code></td><td><code>{ min, max, formula: (size) =&gt; number, effective: (size) =&gt; number, presets: Array&lt;{size, price}&gt;, currency }</code>. Hand-rolled SVG (the <code>KpiTile</code> sparkline precedent, not recharts — the curve needs preset dots, dashed formula line and saving annotations that recharts fights). Derives x/y scale from the full <code>min..max</code> range and computed price bounds; y-ticks generated, x-ticks thinned to every 4th size plus every preset size.</td><td>076</td></tr>
   <tr><td><code>UnderlineTabs.tsx</code></td><td>Extract of the house detail-page tab bar (the <code>border-b-2</code> button row used inline in <code>CustomerDetailPage</code>): <code>{ tabs: Array&lt;{ key, label, badge? }&gt;, active, onChange }</code>. Reused so the six-plus-tab pages don't hand-roll it again.</td><td>075, 078, 081, 082</td></tr>
 </table>
@@ -108,7 +109,7 @@
 
 <h2>7 · Out of scope</h2>
 <ul>
-  <li>Backend changes of any kind (every endpoint the series consumes is shipped; the two genuine API gaps are called out in Spec 083 as explicit dependencies, not smuggled in here).</li>
+  <li>Backend changes — with exactly one exception: the one-line server-manifest registration above, without which the module cannot render at all. Every endpoint the series consumes is shipped; the genuine API gaps are called out as explicit dependencies in their page specs, not smuggled in here.</li>
   <li>Workspace/Dockview panels — pages are plain routes; <code>WorkspacePanelConfig</code> exposure can follow later per page.</li>
   <li>Component/DOM tests: the repo's vitest environment is <code>node</code>; the series specs logic-level tests only (formatters, scale derivation, state mappers).</li>
 </ul>
