@@ -1198,11 +1198,12 @@ const CS_OPTION_GROUPS = [
 // RecommendedDefaultChangeResult listed these slugs; 067 flagged their blocks.
 const CS_DEFAULT_MOVE = {
   group: 'side', from: 'salad', to: 'plantain', when: 'Yesterday 16:42', by: 'abby@abbystable.co.uk',
-  // Spec 066: only products OFFERING the changed group are affected — pepper
-  // soup (portion+heat) is not. Spec 067 flagged each block; five have been
-  // confirmed since, so today's queue holds suya (this move) + egusi (other).
-  affected: ['jollof-chicken', 'egusi-beef', 'suya-salmon', 'moi-moi-garden', 'ofada-turkey', 'garden-jollof'],
-  confirmed: 5,
+  // Spec 066: affected = products OFFERING the changed group AND inheriting its
+  // default — pepper soup (portion+heat) is out, and moi moi is out because it
+  // pins side=salad. Spec 067 flagged each block; four have been confirmed
+  // since, so today's queue holds suya (this move) + egusi (retired choice).
+  affected: ['jollof-chicken', 'egusi-beef', 'suya-salmon', 'ofada-turkey', 'garden-jollof'],
+  confirmed: 4,
 };
 
 // ── Dishes (products through the storefront lens) ──────────────────────────
@@ -1213,7 +1214,7 @@ const CS_DISHES = [
   { slug: 'jollof-chicken', name: 'Jollof Rice & Chicken', emoji: '🍚', color: '#b3541e', status: 'active',
     attrs: { heatStep: 2, protein: 'Chicken', meal: 'Bowl' }, tags: ['bestseller', 'gluten-free', 'protein-led'], keywords: ['party rice', 'smoky', 'firewood'],
     groups: ['portion', 'protein', 'side', 'heat'],
-    narrow: { protein: { allowed: ['chicken', 'beef', 'salmon'] } }, surcharge: null,
+    narrow: { protein: { allowed: ['chicken', 'beef', 'salmon', 'goat'] } }, surcharge: null,
     content: { state: 'authored', servingLabel: 'Per serving (regular, standard preparation)',
       fig: { kcal: 620, protein: 34, carbs: 71, fat: 22, fibre: 6, sugars: 8, salt: 1.8 },
       ingredients: 'Long-grain rice, chicken thigh, tomato, red pepper, scotch bonnet, onion, groundnut oil, thyme, bay leaf',
@@ -1338,18 +1339,19 @@ const CS_COLLECTIONS = [
       { slug: 'zobo', rank: 4, name: 'Zobo (500 ml)', price: 3.00, emoji: '🧃' },
       { slug: 'plantain-chips', rank: 5, name: 'Plantain Chips', price: 3.00, emoji: '🍌' },
       { slug: 'pepper-sauce', rank: 6, name: "Abby's Pepper Sauce", price: 2.50, emoji: '🌶️' },
-    ], skipped: 1, skippedNote: 'Honey Cake has no GBP retail price — omitted and counted, never silently dropped' },
+      { slug: 'honey-cake', rank: 7, name: 'Honey Cake', price: null, emoji: '🍯' },
+    ], skipped: 1, skippedNote: 'Honey Cake has no GBP retail price — the public read omits and counts it; the admin membership keeps it so it can be repriced, reordered or removed' },
 ];
 const CS_FACETS = [
-  { id: 'fg-protein', key: 'protein', label: 'Protein', match: 'Attribute', source: 'attributes.protein', sort: 0, active: true,
+  { id: 'fg-protein', key: 'protein', label: 'Protein', match: 'Attribute', source: 'protein', sort: 0, active: true,
     options: [{ v: 'Chicken', l: 'Chicken' }, { v: 'Beef', l: 'Beef' }, { v: 'Fish', l: 'Fish' }, { v: 'Turkey', l: 'Turkey' }, { v: 'Plant-based', l: 'Plant-based' }] },
   { id: 'fg-wellness', key: 'wellness', label: 'Wellness goal', match: 'Tag', source: null, sort: 1, active: true,
     options: [{ v: 'carb-conscious', l: 'Carb-conscious' }, { v: 'protein-led', l: 'Protein-led' }, { v: 'plant-led', l: 'Plant-led' }, { v: 'dash', l: 'DASH' }] },
-  { id: 'fg-meal', key: 'meal', label: 'Meal type', match: 'Attribute', source: 'attributes.meal', sort: 2, active: true,
+  { id: 'fg-meal', key: 'meal', label: 'Meal type', match: 'Attribute', source: 'meal', sort: 2, active: true,
     options: [{ v: 'Bowl', l: 'Bowl' }, { v: 'Soup', l: 'Soup' }, { v: 'Stew', l: 'Stew' }, { v: 'Salad', l: 'Salad' }] },
   { id: 'fg-dietary', key: 'dietary', label: 'Dietary', match: 'Tag', source: null, sort: 3, active: true,
     options: [{ v: 'gluten-free', l: 'Gluten-free' }, { v: 'dairy-free', l: 'Dairy-free' }, { v: 'vegan', l: 'Vegan' }, { v: 'high-fibre', l: 'High-fibre' }] },
-  { id: 'fg-heat', key: 'heat', label: 'Heat', match: 'Range', source: 'attributes.heatStep', sort: 4, active: true,
+  { id: 'fg-heat', key: 'heat', label: 'Heat', match: 'Range', source: 'heatStep', sort: 4, active: true,
     options: [{ v: 'mild', l: 'Mild', min: 0, max: 2 }, { v: 'medium', l: 'Medium', min: 2, max: 3 }, { v: 'hot', l: 'Hot', min: 3, max: 4 }] },
 ];
 const CS_CONFIG = {

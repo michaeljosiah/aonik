@@ -94,10 +94,12 @@ function ScreenStorefrontMerch() {
                       <span style={{ fontSize: 15 }}>{it.emoji || (d && d.emoji)}</span>
                       <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{it.name || (d && d.name)}</span>
                     </div>
-                    <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: it.price != null ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{it.price != null ? csMoney(it.price) : ''}</div>
+                    <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: it.price != null ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{it.price != null ? csMoney(it.price) : isExtras ? '—' : ''}</div>
                     <div style={{ textAlign: 'right' }}>
                       {draft
                         ? <Pill tone="warning" size="sm">Draft — staged</Pill>
+                        : isExtras && it.price == null
+                        ? <Pill tone="warning" size="sm">Unpriceable — skipped publicly</Pill>
                         : <Pill tone="success" dot size="sm">Live</Pill>}
                     </div>
                   </div>
@@ -120,7 +122,7 @@ function ScreenStorefrontMerch() {
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '13px 16px' }}>
               <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>Storefront preview — rank order, drafts hidden</div>
               <div style={{ display: 'flex', gap: 10, overflow: 'auto', paddingBottom: 4 }}>
-                {col.items.filter(it => { const d = it.name ? null : csDish(it.slug); return !(d && d.status === 'draft'); }).map(it => {
+                {col.items.filter(it => { const d = it.name ? null : csDish(it.slug); return !(d && d.status === 'draft') && !(isExtras && it.price == null); }).map(it => {
                   const d = it.name ? null : csDish(it.slug);
                   return (
                     <div key={it.slug} style={{ flex: 'none', width: 118, border: '1px solid var(--border-light)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>

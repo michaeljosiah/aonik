@@ -12,7 +12,7 @@
 const CS_CONTENT_STATE = {
   authored: { tone: 'success', label: 'Authored' },
   review:   { tone: 'warning', label: 'Review' },
-  withheld: { tone: 'muted',   label: 'Not published' },
+  withheld: { tone: 'muted',   label: 'Withheld' },
 };
 
 function ScreenStorefrontContent() {
@@ -69,7 +69,7 @@ function ScreenStorefrontContent() {
                 <button className="btn btn-primary btn-sm"><Icon name="check" size={12} /> Confirm review</button>
               </div>
             ))}
-            <InlineProposal agent="Chef" confidence={92} summary="Jollof's figures are unaffected by the side default move — the block can be confirmed as-is. Suya salmon needs a fresh look: plantain adds ~90 kcal to the standard preparation." />
+            <InlineProposal agent="Chef" confidence={92} summary="Egusi's flagged variant points at the retired okra side — retiring that variant clears its block. Suya salmon needs a fresh look before confirming: plantain adds ~90 kcal over the old salad default." />
           </div>
         )}
 
@@ -97,7 +97,7 @@ function ScreenStorefrontContent() {
                 <span><b>Under review</b> — {c.reviewReason}. Customers currently see figures captioned as the standard preparation, with declarations withheld.</span>
               </div>
             )}
-            {c.state === 'withheld' ? (
+            {!c.fig ? (
               <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-medium)', borderRadius: 10, padding: '38px 20px', textAlign: 'center' }}>
                 <Icon name="file" size={22} color="var(--text-tertiary)" />
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>Nothing published for {d.name}</div>
@@ -129,13 +129,15 @@ function ScreenStorefrontContent() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                   <div style={{ padding: '13px 16px', borderRight: '1px solid var(--border-light)' }}>
                     <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 6 }}>Ingredients</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{c.state === 'review' ? <span style={{ color: 'var(--warning)', fontStyle: 'italic' }}>Withheld while under review</span> : c.ingredients}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{c.state === 'review' ? <span style={{ color: 'var(--warning)', fontStyle: 'italic' }}>Withheld while under review</span> : c.ingredients ? c.ingredients : <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Not yet published — figures serve, declarations never substitute</span>}</div>
                   </div>
                   <div style={{ padding: '13px 16px' }}>
                     <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 6 }}>Allergens</div>
                     {c.state === 'review'
                       ? <div style={{ fontSize: 12, color: 'var(--warning)', fontStyle: 'italic' }}>Withheld while under review — never substituted</div>
-                      : <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.allergens}</div>}
+                      : c.allergens
+                      ? <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.allergens}</div>
+                      : <div style={{ fontSize: 12, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Not yet published for this product — exact-authored or absent, never substituted</div>}
                   </div>
                 </div>
 

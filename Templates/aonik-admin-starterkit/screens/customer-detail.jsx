@@ -883,7 +883,7 @@ function ScreenCustomerIndividual() {
             <Card title="Storefront profile">
               {[
                 ['Boxes ordered', '5'],
-                ['Storefront value', '£683.50'],
+                ['Storefront value', '£629.00'],
                 ['Usual size', '8 dishes'],
                 ['Most-ordered item', 'Jollof Rice & Chicken'],
                 ['Active cart', 'None'],

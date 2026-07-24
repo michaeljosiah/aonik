@@ -114,7 +114,7 @@ function ScreenStorefrontOptions() {
                   <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>{CS_DEFAULT_MOVE.when}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
-                  "The standard preparation" just changed for {CS_DEFAULT_MOVE.affected.length} products. Their content blocks are flagged for review — figures keep serving, declarations arrive withheld until each is confirmed. Five have been confirmed since; Suya-Spiced Salmon is still open in the queue.
+                  "The standard preparation" just changed for {CS_DEFAULT_MOVE.affected.length} products. Their content blocks are flagged for review — figures keep serving, declarations arrive withheld until each is confirmed. Four have been confirmed since; Suya-Spiced Salmon is still open in the queue.
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
                   {CS_DEFAULT_MOVE.affected.map(s => {
@@ -190,14 +190,16 @@ function CsNarrowingDrawer({ d, onClose }) {
                   const nr = (d.narrow || {})[g.key] || {};
                   const allowed = nr.allowed || g.choices.map(c => c.key);
                   const effDflt = nr.dflt || (g.choices.find(x => x.dflt) || {}).key;
-                  const gDflt = (g.choices.find(x => x.dflt) || { price: 0 }).price;
+                  // 066 §8 — the baseline is the EFFECTIVE default's absolute price:
+                  // a product-level default override moves the zero point with it.
+                  const baseline = (g.choices.find(x => x.key === effDflt) || { price: 0 }).price;
                   return (
                     <div style={{ marginTop: 9 }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {g.choices.map(c => {
                           const inOffer = allowed.includes(c.key);
                           const isDflt = c.key === effDflt;
-                          const dl = c.price - gDflt;
+                          const dl = c.price - baseline;
                           return (
                             <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: !inOffer ? 'var(--text-tertiary)' : isDflt ? 'var(--brand-primary)' : 'var(--text-secondary)', background: !inOffer ? 'transparent' : isDflt ? 'var(--brand-primary-10)' : 'var(--surface-inset)', border: '1px ' + (inOffer ? 'solid' : 'dashed') + ' ' + (inOffer && isDflt ? 'var(--brand-primary)' : 'var(--border-light)'), borderRadius: 999, padding: '4px 11px', fontWeight: isDflt ? 600 : 500, textDecoration: inOffer ? 'none' : 'line-through', opacity: inOffer ? 1 : 0.6 }}>
                               {isDflt && <Icon name="star" size={10} color="var(--brand-primary)" />}
