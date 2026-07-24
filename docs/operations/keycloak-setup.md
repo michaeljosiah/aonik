@@ -191,8 +191,10 @@ secure path (Key Vault, environment variable from a secret store, etc.).
 
 ## Step 6 — Wire Aonik
 
-Set the following Aonik settings (via admin UI **Settings → Authentication**,
-via direct config, or via your operator's preferred path):
+Set the following Aonik settings. `Auth.*` is a configuration-managed prefix —
+`SettingService` refuses writes to it through the settings APIs and reads it
+from configuration only — so these go in `appsettings.json`, environment
+variables, or your operator's secret store, not the admin UI:
 
 | Setting | Value | Source |
 |---|---|---|
@@ -275,10 +277,21 @@ configured, or the user has no realm roles assigned. See Step 3 + Step 4.
 
 ### `Token issuer not allowed for active provider`
 
-`Auth.Keycloak.Authority` doesn't match the `iss` claim on the token. Most
-common cause: `KC_HOSTNAME` not set on the Keycloak container, so the
-issuer comes back as the container's internal hostname instead of the
-external authority. Set `KC_HOSTNAME` to the externally-reachable host.
+Two distinct causes.
+
+**The authority doesn't match the token's `iss`.** Most common reason:
+`KC_HOSTNAME` not set on the Keycloak container, so the issuer comes back as
+the container's internal hostname instead of the external authority. Set
+`KC_HOSTNAME` to the externally-reachable host.
+
+**The provider is only half-switched.** Two configuration keys resolve the
+active provider and both have to say `Keycloak`: `Auth:Provider` binds
+`AuthOptions` (JWT scheme selection), while `Settings:Auth.Provider` is what
+`GetActiveProviderAsync` reads when it compares the token's issuer against the
+active provider. Set only the first and a valid Keycloak token is rejected with
+this message. Export both (`Auth__Provider=Keycloak` and
+`Settings__Auth.Provider=Keycloak`); the AppHost's `AONIK_AUTH_PROVIDER=Keycloak`
+path already sets both.
 
 ### `Direct-grant disabled` on `KeycloakAuthTokenService.ExchangeAsync`
 

@@ -100,6 +100,7 @@ if (enableKeycloak)
 const string KeycloakAuthority = "http://localhost:8080/realms/aonik";
 const string KeycloakAudience = "aonik-api";
 const string KeycloakSpaClientId = "aonik-spa";
+const string KeycloakSwaggerClientId = "aonik-swagger";
 
 // Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
@@ -127,9 +128,23 @@ if (enableKeycloak)
     // touch user-secrets or appsettings just to try Keycloak. The realm
     // URL matches the container declared above; the audience matches the
     // `aonik-spa` client's audience mapper in infra/keycloak/realm-export.json.
+    //
+    // BOTH provider keys have to move together. `Auth:Provider` binds AuthOptions
+    // and drives JWT scheme selection, while `Settings:Auth.Provider` is what the
+    // settings layer resolves — and `Auth.*` is a configuration-managed key, so
+    // the `Settings.Auth.Provider = Auth0` shipped in appsettings.json wins over
+    // anything the database holds. Overriding only the former leaves
+    // GetActiveProviderAsync answering "Auth0" while the token's issuer says
+    // "Keycloak", so a perfectly valid token is rejected with a 401 that reads
+    // like a bad token ("Token issuer not allowed for active provider").
     api.WithEnvironment("Auth__Provider", "Keycloak")
+        .WithEnvironment("Settings__Auth.Provider", "Keycloak")
         .WithEnvironment("Auth__Keycloak__Authority", KeycloakAuthority)
-        .WithEnvironment("Auth__Keycloak__Audience", KeycloakAudience);
+        .WithEnvironment("Auth__Keycloak__Audience", KeycloakAudience)
+        // Scalar's Authorize action needs a client that exists in the dev realm;
+        // the appsettings default (`swagger-dev-client`) is an Auth0-era
+        // placeholder Keycloak has never heard of.
+        .WithEnvironment("Swagger__ClientId", KeycloakSwaggerClientId);
 }
 
 // Add Worker project with LocalDB connection

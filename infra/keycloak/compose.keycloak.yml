@@ -6,8 +6,15 @@
 #     docker compose -f infra/keycloak/compose.keycloak.yml up -d
 #
 # Then point Aonik at it by setting:
-#     Auth.Provider=Keycloak
-#     Auth.Keycloak.Authority=http://localhost:8080/realms/aonik
+#     Auth__Provider=Keycloak
+#     Settings__Auth.Provider=Keycloak
+#     Auth__Keycloak__Authority=http://localhost:8080/realms/aonik
+#
+# Both provider keys are required: the first binds AuthOptions (JWT scheme
+# selection), the second is the settings-layer value the issuer/provider check
+# compares against, and appsettings.json pins it to Auth0. Setting only one
+# yields a 401 that reads like a bad token. `dotnet run --project
+# src/Aonik.AppHost` with AONIK_AUTH_PROVIDER=Keycloak sets both for you.
 #
 # DEV-ONLY. The default admin credentials (admin / admin) and the in-memory
 # database make this unsuitable for any non-local use. Production Keycloak
