@@ -11,13 +11,21 @@ const CM_PAY  = { paid: { tone: 'success', label: 'Paid' }, pending: { tone: 'wa
 const CM_FULFIL = { fulfilled: { tone: 'success', label: 'Fulfilled' }, unfulfilled: { tone: 'warning', label: 'Unfulfilled' }, partial: { tone: 'pending', label: 'Partial' } };
 
 const CM_CARTS = [
-  { id: 'cart_9f2a', buyer: 'Guest', sub: 'anonymous, just browsing', kind: 'guest', status: 'open', ccy: 'NGN', age: '4m ago', lines: [
+  { id: 'cart_9f2a', buyer: 'Guest', sub: 'anonymous, just browsing', kind: 'guest', status: 'open', ccy: 'NGN', age: '4m ago', boxMeta: { size: 6, filled: 6 }, lines: [
     { box: true, name: 'Build-Your-Own Wellness Box', sku: 'BOX-BYO', qty: 1, unit: 12000, sel: [
       { name: 'Almond & Honey Granola (500 g)', sku: 'GRN-ALM-500', qty: 2 },
       { name: 'Cacao Crunch Granola (500 g)', sku: 'GRN-CAC-500', qty: 2 },
       { name: 'Protein Energy Bar (Cacao)', sku: 'SNK-BAR-CAC', qty: 2 },
     ] },
-    { name: 'Ginger Wellness Shot (6-pack)', sku: 'SHOT-GIN-6', qty: 1, unit: 5000 },
+    { addon: true, name: 'Ginger Wellness Shot (6-pack)', sku: 'SHOT-GIN-6', qty: 1, unit: 5000 },
+  ] },
+  // Spec 068 §8 — a box session blocked by catalogue drift: one line flagged
+  // unavailable; continue and checkout stay disabled until the customer resolves.
+  { id: 'cart_8d44', buyer: 'Guest', sub: 'anonymous', kind: 'guest', status: 'open', ccy: 'NGN', age: '11m ago', boxMeta: { size: 8, filled: 6, drift: true }, lines: [
+    { box: true, name: 'Build-Your-Own Wellness Box', sku: 'BOX-BYO', qty: 1, unit: 14000, sel: [
+      { name: 'Berry Bliss Granola (500 g)', sku: 'GRN-BER-500', qty: 3, pers: 'unavailable — demand exceeds stock' },
+      { name: 'Cold-Brew Coffee (250 ml)', sku: 'DRK-CB-250', qty: 3 },
+    ] },
   ] },
   { id: 'cart_7b10', buyer: 'Adaeze Nwosu', sub: 'returning customer', kind: 'party', status: 'open', ccy: 'NGN', age: '18m ago', lines: [
     { name: 'Almond & Honey Granola (500 g)', sku: 'GRN-ALM-500', qty: 1, unit: 4500 },
@@ -41,14 +49,17 @@ const cmCartTotal = c => c.lines.reduce((a, l) => a + l.qty * l.unit, 0);
 const cmCartItems = c => c.lines.reduce((a, l) => a + l.qty, 0);
 
 const CM_ORDERS = [
+  // The box order carries the Spec 068 kitchen landing: per-selection
+  // personalisation summaries ride the order, and 071 add-on lines are ordinary
+  // retail lines flagged ADD-ON with their own price.
   { id: 'ord_2041', buyer: 'Maya Okonkwo', sub: 'party, Lagos', kind: 'party', date: 'Today 09:14', ccy: 'NGN',
     pay: 'paid', fulfil: 'fulfilled', method: 'Card', intent: 'pi_8c12fa', ship: 'Lekki, Lagos',
     lines: [
       { box: true, name: 'Build-Your-Own Wellness Box', sku: 'BOX-BYO', qty: 1, unit: 12000, sel: [
-        { name: 'Almond & Honey Granola (500 g)', sku: 'GRN-ALM-500', qty: 3 },
-        { name: 'Ginger Wellness Shot (Single)', sku: 'SHOT-GIN-1', qty: 3 },
+        { name: 'Almond & Honey Granola (500 g)', sku: 'GRN-ALM-500', qty: 3, pers: 'no honey · extra almonds' },
+        { name: 'Ginger Wellness Shot (Single)', sku: 'SHOT-GIN-1', qty: 3, pers: 'double ginger' },
       ] },
-      { name: 'Cold-Brew Coffee (250 ml)', sku: 'DRK-CB-250', qty: 2, unit: 1800 },
+      { addon: true, name: 'Cold-Brew Coffee (250 ml)', sku: 'DRK-CB-250', qty: 2, unit: 1800 },
     ],
     charge: { subtotal: 15600, discountCode: 'WELLNESS10', discount: 1560, tax: 0, total: 14040 } },
   { id: 'ord_2037', buyer: 'Guest (J. Adeyemi)', sub: 'guest checkout', kind: 'guest', date: 'Today 08:02', ccy: 'NGN',
@@ -115,15 +126,24 @@ function ScreenCommerceCarts() {
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 70px 110px 110px 90px', gap: 12, padding: '10px 14px', background: 'var(--surface-inset)', borderBottom: '1px solid var(--border-light)', fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)' }}>
-            <div>Cart</div><div>Buyer</div><div style={{ textAlign: 'right' }}>Items</div><div style={{ textAlign: 'right' }}>Value</div><div>Status</div><div style={{ textAlign: 'right' }}>Activity</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 70px 110px 110px 90px', gap: 12, padding: '10px 14px', background: 'var(--surface-inset)', borderBottom: '1px solid var(--border-light)', fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)' }}>
+            <div>Cart</div><div>Buyer</div><div>Box</div><div style={{ textAlign: 'right' }}>Items</div><div style={{ textAlign: 'right' }}>Value</div><div>Status</div><div style={{ textAlign: 'right' }}>Activity</div>
           </div>
           {shown.map((c, i) => (
-            <div key={c.id} className="cm-crow" onClick={() => setSel(c)} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 70px 110px 110px 90px', gap: 12, padding: '11px 14px', alignItems: 'center', borderBottom: i < shown.length - 1 ? '1px solid var(--border-light)' : 'none', fontSize: 12.5, opacity: c.status === 'checkedout' ? 0.7 : 1 }}>
+            <div key={c.id} className="cm-crow" onClick={() => setSel(c)} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 70px 110px 110px 90px', gap: 12, padding: '11px 14px', alignItems: 'center', borderBottom: i < shown.length - 1 ? '1px solid var(--border-light)' : 'none', fontSize: 12.5, opacity: c.status === 'checkedout' ? 0.7 : 1 }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-secondary)' }}>{c.id}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <span style={{ width: 26, height: 26, borderRadius: 999, background: c.kind === 'guest' ? 'var(--surface-inset)' : 'var(--brand-primary-10)', color: c.kind === 'guest' ? 'var(--text-tertiary)' : 'var(--brand-primary)', display: 'grid', placeItems: 'center', flex: 'none' }}><Icon name={c.kind === 'guest' ? 'user' : 'users'} size={13} /></span>
                 <div><div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{c.buyer}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{c.sub}</div></div>
+              </div>
+              <div>
+                {c.boxMeta
+                  ? <div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-primary)', fontWeight: 600 }}>{c.boxMeta.filled}/{c.boxMeta.size}</span>
+                      <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginLeft: 5 }}>filled</span>
+                      {c.boxMeta.drift && <div style={{ fontSize: 10, color: 'var(--warning)', fontWeight: 600 }}>drift — checkout blocked</div>}
+                    </div>
+                  : <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>—</span>}
               </div>
               <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{cmCartItems(c)}</div>
               <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{cmMoney(cmCartTotal(c))}</div>
@@ -146,9 +166,10 @@ function CmLineItems({ lines, ccy }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 100px', gap: 10, padding: '10px 13px', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
               {l.box && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', color: '#7b76b6', background: '#7b76b618', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', flex: 'none' }}>BOX</span>}
+              {l.addon && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--brand-primary)', background: 'var(--brand-primary-10)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', flex: 'none' }}>ADD-ON</span>}
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{l.sku}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{l.sku}{l.addon && <span style={{ marginLeft: 8, fontFamily: 'var(--font-sans)' }}>retail — no box space</span>}</div>
               </div>
             </div>
             <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>×{l.qty}</div>
@@ -156,12 +177,16 @@ function CmLineItems({ lines, ccy }) {
           </div>
           {l.box && l.sel && (
             <div style={{ padding: '0 13px 10px 13px' }}>
+              {/* The kitchen landing — selections + their personalisation ride the order */}
               <div style={{ borderLeft: '2px solid #7b76b633', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {l.sel.map((s, j) => (
-                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                  <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11.5, color: 'var(--text-secondary)' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>×{s.qty}</span>
-                    <span>{s.name}</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>{s.sku}</span>
+                    <span style={{ minWidth: 0 }}>
+                      {s.name}
+                      {s.pers && <span style={{ display: 'block', fontSize: 10.5, color: s.pers.includes('unavailable') ? 'var(--warning)' : 'var(--brand-primary)', fontStyle: 'italic' }}>{s.pers}</span>}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 'auto', flex: 'none' }}>{s.sku}</span>
                   </div>
                 ))}
               </div>

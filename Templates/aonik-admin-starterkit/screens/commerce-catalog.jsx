@@ -294,9 +294,11 @@ function CmProductCard({ p, onClick }) {
 
 // ═══ Product editor drawer (tabbed) ══════════════════════════════════════
 function CommerceProductDrawer({ p, onClose }) {
+  // Storefront tab (Specs 066/067/070): keywords, attribute contract, surcharge,
+  // and link-out chips to the owning Commerce · Storefront screens.
   const tabs = p.kind === 'bundle'
-    ? ['Details', 'Bundle', 'Pricing', 'Media']
-    : ['Details', 'Variants', 'Pricing', 'Media'];
+    ? ['Details', 'Bundle', 'Pricing', 'Media', 'Storefront']
+    : ['Details', 'Variants', 'Pricing', 'Media', 'Storefront'];
   const [tab, setTab] = React.useState('Details');
 
   return (
@@ -329,6 +331,7 @@ function CommerceProductDrawer({ p, onClose }) {
           {tab === 'Pricing'  && <CmTabPricing p={p} />}
           {tab === 'Media'    && <CmTabMedia p={p} />}
           {tab === 'Bundle'   && <CmTabBundle p={p} />}
+          {tab === 'Storefront' && <CmTabStorefront p={p} />}
         </div>
         {/* footer */}
         <div style={{ flex: 'none', padding: '14px 22px', borderTop: '1px solid var(--border-light)', background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -603,6 +606,57 @@ function ScreenCommerceCategories() {
           <Icon name="package" size={12} color={CM_KIND.bundle.color} /> A bundle slot can source its options from any category — e.g. "pick 6 from Granola".
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Storefront tab (Specs 066/067/070) ───────────────────────────────────
+// Search keywords are ADMIN-EYES-ONLY: matched by search, serialized into no
+// public DTO — the read moves to AdminProductDetailDto precisely so an editor
+// can see what must not leak. Attributes carry the storefront contract the
+// facet groups match on. Deep surfaces (options, content, size plan) live on
+// their own Commerce · Storefront screens; this tab shows state and links out.
+function CmTabStorefront({ p }) {
+  const chips = [
+    { l: 'Personalisation', s: '4 groups offered', ok: true, screen: 'Commerce · Storefront · Personalisation' },
+    { l: 'Food content', s: 'authored · 2 combination variants', ok: true, screen: 'Commerce · Storefront · Food content' },
+    { l: 'Size plan', s: p.kind === 'bundle' ? '6–30 · 3 presets' : 'not a bundle', ok: p.kind === 'bundle', screen: 'Commerce · Storefront · Box plans' },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <CmField label="Search keywords" hint="matched by storefront search — never serialized publicly">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '9px 11px', border: '1px solid var(--border-light)', borderRadius: 8, background: 'var(--surface)' }}>
+          {['party rice', 'smoky', 'firewood'].map(k => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--surface-inset)', borderRadius: 999, padding: '3px 10px' }}>{k}<Icon name="close" size={9} color="var(--text-tertiary)" /></span>
+          ))}
+          <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)', padding: '3px 4px' }}>add keyword…</span>
+        </div>
+      </CmField>
+      <CmField label="Storefront attributes" hint="the contract facet groups match on">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          {[['heatStep', '2'], ['protein', 'Chicken'], ['meal', 'Bowl']].map(([k, v]) => (
+            <div key={k} style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '8px 11px' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{k}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2, fontFamily: k === 'heatStep' ? 'var(--font-mono)' : 'var(--font-sans)' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </CmField>
+      <CmField label="Unit surcharge" hint="the one price-like field a product card may show">
+        <input defaultValue="" placeholder="— none" style={{ ...cmInput, fontFamily: 'var(--font-mono)', width: 140 }} />
+      </CmField>
+      <CmField label="Deep surfaces" hint="owned by Commerce · Storefront — status here, editing there">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {chips.map(c => (
+            <div key={c.l} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border-light)', borderRadius: 8, padding: '9px 12px' }}>
+              <Icon name={c.ok ? 'check2' : 'minus'} size={13} color={c.ok ? 'var(--success)' : 'var(--text-tertiary)'} />
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', width: 120 }}>{c.l}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', flex: 1 }}>{c.s}</span>
+              {c.ok && <span style={{ fontSize: 11, color: 'var(--brand-primary)', fontWeight: 600, cursor: 'pointer' }}>Open <Icon name="arrowright" size={10} /></span>}
+            </div>
+          ))}
+        </div>
+      </CmField>
     </div>
   );
 }

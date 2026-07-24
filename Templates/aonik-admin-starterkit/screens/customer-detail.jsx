@@ -682,14 +682,16 @@ function CustomerBeneficiaryList({ beneficiaries }) {
   );
 }
 
-// ─── Individual Customer Detail — Payabo user ─────────────────────
-// Adaeze Nwosu, a senior NHS nurse in London with family in Lagos.
-// Tabs adapted for an individual: Household (instead of Compliance) +
-// Beneficiaries (some of which are household members). KPIs reflect
-// personal finance — monthly inflows, spending, savings, send-home —
-// not corporate concepts like ARR / MRR / Runway.
+// ─── Individual Customer Detail — the unified customer view ───────
+// Adaeze Nwosu, a senior NHS nurse in London with family in Lagos —
+// AND an AbbysTable storefront customer. One party, every lens:
+// domain tabs render per the tenant's enabled modules (config packs),
+// so she shows Commerce + Payabo surfaces while Primrose (billing-only,
+// above) shows neither — never a second customer view. Orders unifies
+// on the order spine (ADR-011): boxes, bill payments and transfers are
+// one list with type chips, because the architecture made them one thing.
 function ScreenCustomerIndividual() {
-  const [tab, setTab] = React.useState('Household');
+  const [tab, setTab] = React.useState('Commerce');
   const c = ADAEZE_CUSTOMER;
 
   return (
@@ -740,9 +742,9 @@ function ScreenCustomerIndividual() {
         ))}
       </div>
 
-      {/* Tabs — Household replaces Compliance; both Household + Beneficiaries visible */}
+      {/* Tabs — domain lenses on ONE customer, gated by enabled modules */}
       <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border-light)', padding: '0 2px' }}>
-        {['Overview', 'Finance', 'Insights', 'Household', 'Beneficiaries', 'Activity'].map(t => {
+        {['Overview', 'Orders', 'Commerce', 'Finance', 'Insights', 'Household', 'Beneficiaries', 'Activity'].map(t => {
           const a = t === tab;
           return (
             <button key={t} onClick={() => setTab(t)} className="btn btn-ghost"
@@ -816,6 +818,102 @@ function ScreenCustomerIndividual() {
                 </div>
               ))}
             </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'Orders' && (
+        <Card title="Every order, one spine" subtitle="ProductPurchase boxes, bill payments and transfers share the Order record — filter by type, never by screen">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ color: 'var(--text-tertiary)', fontSize: 11, letterSpacing: '0.04em', textAlign: 'left' }}>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>ORDER</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>TYPE</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>WHAT</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>DATE</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>STATUS</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500, textAlign: 'right' }}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { id: 'ord_2044', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 8 dishes + 2 extras", d: 'Today',  st: 'Paid',      stone: 'success', amt: '£129.00' },
+                { id: 'ORD-9101', ty: 'MoneyTransfer',   tone: 'pending', w: 'GBP→NGN — to Mum, Lagos',          d: '2d ago', st: 'Settled',   stone: 'success', amt: '£420.00' },
+                { id: 'ord_1990', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 6 dishes",            d: '28 Jul', st: 'Fulfilled', stone: 'success', amt: '£95.00' },
+                { id: 'ORD-9084', ty: 'BillPayment',     tone: 'muted',   w: 'MTN Nigeria — airtime top-up',     d: '21 Jul', st: 'Settled',   stone: 'success', amt: '£24.00' },
+                { id: 'ord_1875', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 12 dishes (party)",   d: '4 Jul',  st: 'Fulfilled', stone: 'success', amt: '£183.50' },
+              ].map((r, i) => (
+                <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--brand-primary)' }}>{r.id}</td>
+                  <td style={{ padding: '10px 8px' }}><Pill tone={r.tone} size="sm">{r.ty}</Pill></td>
+                  <td style={{ padding: '10px 8px', color: 'var(--text-primary)' }}>{r.w}</td>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{r.d}</td>
+                  <td style={{ padding: '10px 8px' }}><Pill tone={r.stone} dot size="sm">{r.st}</Pill></td>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{r.amt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === 'Commerce' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <Card title="Guest → account" subtitle="Spec 072 — how her first box became hers">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 4 }}>
+                {[
+                  { ic: 'cart',     t: 'Built her first box as a guest', s: 'Fri 20:12 · anonymous cart token', done: true },
+                  { ic: 'userplus', t: 'Registered', s: 'Sat 09:05 · adaeze@nwosu.co', done: true },
+                  { ic: 'check2',   t: 'Cart adopted — guest token retired', s: 'the leaked pre-login token died at sign-in', done: true },
+                ].map((s, i, arr) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '26px 1fr', gap: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <span style={{ width: 24, height: 24, borderRadius: 999, background: 'var(--brand-primary-10)', color: 'var(--brand-primary)', display: 'grid', placeItems: 'center', flex: 'none' }}><Icon name={s.ic} size={12}/></span>
+                      {i < arr.length - 1 && <span style={{ width: 2, flex: 1, background: 'var(--brand-primary-20)', minHeight: 14 }}/>}
+                    </div>
+                    <div style={{ paddingBottom: i < arr.length - 1 ? 14 : 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{s.t}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{s.s}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card title="Storefront profile">
+              {[
+                ['Boxes ordered', '5'],
+                ['Storefront value', '£683.50'],
+                ['Usual size', '8 dishes'],
+                ['Most-ordered item', 'Jollof Rice & Chicken'],
+                ['Active cart', 'None'],
+              ].map(([k, v], i) => (
+                <div key={k} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 12, padding: '8px 0', borderBottom: i < 4 ? '1px solid var(--border-light)' : 'none' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{k}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-primary)', fontFamily: k === 'Boxes ordered' || k === 'Storefront value' ? 'var(--font-mono)' : 'inherit', fontWeight: k === 'Storefront value' ? 600 : 400 }}>{v}</span>
+                </div>
+              ))}
+            </Card>
+          </div>
+          <Card title="Box history" subtitle="Party-scoped — exactly what she sees under /account/orders">
+            {[
+              { id: 'ord_2044', d: 'Today',  size: '8-box', extras: 'Puff Puff ×2', total: '£129.00', st: 'Paid',      tone: 'success' },
+              { id: 'ord_1990', d: '28 Jul', size: '6-box', extras: null,           total: '£95.00',  st: 'Fulfilled', tone: 'success' },
+              { id: 'ord_1875', d: '4 Jul',  size: '12-box',extras: 'Zobo ×4',      total: '£183.50', st: 'Fulfilled', tone: 'success' },
+              { id: 'ord_1799', d: '19 Jun', size: '8-box', extras: 'Chin Chin',    total: '£126.50', st: 'Fulfilled', tone: 'success' },
+              { id: 'ord_1701', d: '30 Jan', size: '6-box', extras: null,           total: '£95.00',  st: 'Fulfilled', tone: 'success' },
+            ].map((b, i, arr) => (
+              <div key={b.id} style={{ display: 'grid', gridTemplateColumns: '86px 70px 1fr 90px 84px', gap: 10, alignItems: 'center', padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--brand-primary)' }}>{b.id}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{b.d}</span>
+                <div>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{b.size}</span>
+                  {b.extras && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 8 }}>+ {b.extras}</span>}
+                </div>
+                <div><Pill tone={b.tone} dot size="sm">{b.st}</Pill></div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right' }}>{b.total}</span>
+              </div>
+            ))}
           </Card>
         </div>
       )}

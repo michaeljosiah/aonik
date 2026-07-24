@@ -1,14 +1,21 @@
-// Customers list — parties with stats, KYC state, agent flags
+// Customers — the TOP-LEVEL registry (Transact layer, beside Orders).
+// One customer base for every product a tenant runs: a business selling
+// merchandise and financial services sees ONE list, never two views. Domain
+// lenses (Billing · Storefront · Payabo) are chips here and TABS on the
+// detail, gated by the tenant's enabled modules. KYC/compliance columns moved
+// into the detail's Finance tab — they are domain content, not registry content.
+const CUS_DOMAIN_TONE = { Billing: 'muted', Storefront: 'tint', Payabo: 'pending' };
+
 function ScreenCustomers() {
   const rows = [
-    { id: 'CUS-00142', name: 'Primrose Logistics', type: 'Business',  country: 'NG', kyc: 'Verified',   kycTone: 'success', orders: 48, spend: '$128,430', owner: 'M. Gomez',   flag: 'Key account' },
-    { id: 'CUS-00141', name: 'Apex Fabrication',   type: 'Business',  country: 'GB', kyc: 'Verified',   kycTone: 'success', orders: 12, spend: '$42,100',  owner: 'D. Lynn',    flag: null },
-    { id: 'CUS-00140', name: 'Maria Obi',          type: 'Person',    country: 'NG', kyc: 'Pending',    kycTone: 'warning', orders: 3,  spend: '$8,600',   owner: 'Billing·AI', flag: 'Agent-onboarded' },
-    { id: 'CUS-00139', name: 'Meridian Studio',    type: 'Business',  country: 'US', kyc: 'Verified',   kycTone: 'success', orders: 22, spend: '$54,300',  owner: 'K. Desai',   flag: null },
-    { id: 'CUS-00138', name: 'Northstar Freight',  type: 'Business',  country: 'KE', kyc: 'Re-review',  kycTone: 'pending', orders: 18, spend: '$36,900',  owner: 'Compliance·AI', flag: 'Sanctions flag · review' },
-    { id: 'CUS-00137', name: 'Samuel Okoro',       type: 'Person',    country: 'NG', kyc: 'Verified',   kycTone: 'success', orders: 7,  spend: '$14,200',  owner: 'M. Gomez',   flag: null },
-    { id: 'CUS-00136', name: 'Blue Harbor Co',     type: 'Business',  country: 'ZA', kyc: 'Rejected',   kycTone: 'danger',  orders: 0,  spend: '—',        owner: 'D. Lynn',    flag: null },
-    { id: 'CUS-00135', name: 'Quill & Co',         type: 'Business',  country: 'US', kyc: 'Verified',   kycTone: 'success', orders: 4,  spend: '$9,180',   owner: 'K. Desai',   flag: null },
+    { id: 'CUS-00142', name: 'Primrose Logistics', type: 'Business', country: 'NG', domains: ['Billing'],               orders: 48, spend: '$128,430', flag: 'Key account' },
+    { id: 'CUS-00141', name: 'Apex Fabrication',   type: 'Business', country: 'GB', domains: ['Billing'],               orders: 12, spend: '$42,100',  flag: null },
+    { id: 'CUS-00151', name: 'Adaeze Nwosu',       type: 'Person',   country: 'NG', domains: ['Storefront', 'Payabo'],  orders: 7,  spend: '£812.00',  flag: null },
+    { id: 'CUS-00150', name: 'Femi Adesanya',      type: 'Person',   country: 'GB', domains: ['Storefront'],            orders: 4,  spend: '£505.00',  flag: null },
+    { id: 'CUS-00140', name: 'Maria Obi',          type: 'Person',   country: 'NG', domains: ['Billing'],               orders: 3,  spend: '$8,600',   flag: 'Agent-onboarded' },
+    { id: 'CUS-00138', name: 'Northstar Freight',  type: 'Business', country: 'KE', domains: ['Billing'],               orders: 18, spend: '$36,900',  flag: 'Sanctions flag · review' },
+    { id: 'CUS-00149', name: 'Halima Yusuf',       type: 'Person',   country: 'GB', domains: ['Storefront'],            orders: 2,  spend: '£260.00',  flag: 'Open cart · 8-box' },
+    { id: 'CUS-00137', name: 'Samuel Okoro',       type: 'Person',   country: 'NG', domains: ['Billing'],               orders: 7,  spend: '$14,200',  flag: null },
   ];
 
   const cols = [
@@ -32,20 +39,22 @@ function ScreenCustomers() {
       render: r => <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.type}</span> },
     { key: 'country', label: 'Country', w: '70px',
       render: r => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{r.country}</span> },
-    { key: 'kyc',     label: 'KYC',     w: '120px',
-      render: r => <Pill tone={r.kycTone} dot>{r.kyc}</Pill> },
+    { key: 'domains', label: 'Products', w: '190px',
+      render: r => (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {r.domains.map(d => <Pill key={d} tone={CUS_DOMAIN_TONE[d] || 'muted'} size="sm">{d}</Pill>)}
+        </div>
+      ) },
     { key: 'orders',  label: 'Orders',  w: '70px', align: 'right', mono: true, fontSize: 12 },
-    { key: 'spend',   label: 'Total spend', w: '120px', align: 'right', mono: true, weight: 600 },
-    { key: 'owner',   label: 'Owner',   w: '110px',
-      render: r => <span style={{ fontSize: 11, color: r.owner.includes('AI') ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>{r.owner}</span> },
+    { key: 'spend',   label: 'Total value', w: '120px', align: 'right', mono: true, weight: 600 },
   ];
 
   return (
     <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Customers"
+        eyebrow="Customers"
         title="Customers"
-        subtitle="1,248 total · 42 pending KYC · 3 with open compliance flags"
+        subtitle="1,982 parties across every product line · orders count the whole spine — boxes, bill payments and transfers alike"
         actions={
           <>
             <button className="btn btn-outline btn-sm"><Icon name="upload" size={12}/> Import</button>
@@ -56,10 +65,10 @@ function ScreenCustomers() {
       />
 
       <FilterBar
-        tabs={['All', 'Business', 'Person', 'Pending KYC', 'Flagged']}
+        tabs={['All', 'Business', 'Person', 'Billing', 'Storefront', 'Payabo', 'Flagged']}
         active="All"
-        counts={{ 'Pending KYC': 42, 'Flagged': 3 }}
-        search="Filter by name, ID, ledger ref…"
+        counts={{ 'Storefront': 214, 'Flagged': 3 }}
+        search="Filter by name, ID, email, ledger ref…"
         extra={<button className="btn btn-ghost btn-sm"><Icon name="globe" size={12}/> All countries</button>}
       />
 
@@ -67,7 +76,7 @@ function ScreenCustomers() {
         cols={cols}
         rows={rows}
         rowHighlight={r => r.flag && r.flag.includes('Sanctions') ? '#cc2e2e08' : null}
-        footer={<TableFooter showing="1–8" total="1,248 customers" page={1} pages={156}/>}
+        footer={<TableFooter showing="1–8" total="1,982 customers" page={1} pages={248}/>}
       />
     </div>
   );
