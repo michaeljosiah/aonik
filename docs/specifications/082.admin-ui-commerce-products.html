@@ -35,14 +35,14 @@
   <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
   <tr><td><code>GET /commerce/admin/products?kind=&amp;categoryId=&amp;search=&amp;page=&amp;pageSize=</code></td><td><code>commerceCatalogService.listProducts(query)</code></td><td>Paged <code>ProductSummaryDto</code> rows: <code>{ id, slug, name, status, kind, categoryId?, variantCount, heroImageUrl?, tags[], attributesJson, unitSurcharge? }</code>. Deliberately no retail price on summaries.</td></tr>
   <tr><td><code>GET /commerce/admin/products/{productId}</code></td><td><code>getProduct(id)</code></td><td><code>AdminProductDetailDto</code> — the ONLY read that exposes <code>searchKeywords: string[]</code>: an editor who could not see current keywords would silently erase them on update. The public product read structurally cannot leak them.</td></tr>
-  <tr><td><code>POST /commerce/admin/products</code> · <code>PATCH /commerce/admin/products/{id}</code></td><td><code>createProduct / patchProduct</code></td><td>PATCH is partial with strict JSON hygiene — send only touched members (name, description, status, categoryId, tagsJson, attributesJson, searchKeywords…).</td></tr>
+  <tr><td><code>POST /commerce/admin/products</code> · <code>PATCH /commerce/admin/products/{id}</code></td><td><code>createProduct / patchProduct</code></td><td>PATCH is partial with strict JSON hygiene — send only touched members (name, description, status, categoryId, tagsJson, attributesJson…). <strong>Keywords write as <code>searchKeywordsJson</code></strong>: the shipped request's only keyword member is the JSON string, so the UI serializes the complete edited array into it when touched. Reads expose the parsed <code>searchKeywords: string[]</code> on the admin detail; a mismatch here loses edits silently.</td></tr>
   <tr><td><code>PUT /commerce/admin/products/{id}/media</code></td><td><code>replaceMedia(id, items)</code></td><td>Ordered full-replace of media (url, kind, sortOrder).</td></tr>
   <tr><td>Deep-surface status reads</td><td>(reuse 074/075/076 services)</td><td>Option narrowing (074), content state (075), size plan for bundles (076) — fetched for the opened product only, to power the Storefront tab's status chips.</td></tr>
 </table>
 
 <h2>2 · Page structure</h2>
 <ol>
-  <li><strong>List</strong> — <code>PageHeader</code> + KPI row (products, active, drafts, bundles) + <code>FilterBar</code> (All/Simple/Variant/Bundle tabs + status filter + search) + <code>DataTable</code>: <em>product (hero thumb + name + slug mono) · kind · status pill · variants (mono) · tags · unit surcharge (mono; the one price-like column) · updated</em>. Row click opens the editor.</li>
+  <li><strong>List</strong> — <code>PageHeader</code> + KPI row (products, active, drafts, bundles) + <code>FilterBar</code> (All/Simple/Variant/Bundle tabs + status filter + search) + <code>DataTable</code>: <em>product (hero thumb + name + slug mono) · kind · status pill · variants (mono) · tags · surcharge marker (a dot/pill indicating one exists — the summary DTO carries no surcharge currency and no timestamps, so neither a formatted amount nor an updated column can render truthfully; the amount with its currency shows in the editor)</em>. Row click opens the editor.</li>
   <li><strong>Editor</strong> — a <code>Sheet size:'lg'</code> (route-addressable via <code>/commerce/products/:productId</code> so deep links open it) with the underline tab strip: <em>Details · Media · Storefront</em>.
     <ul>
       <li><em>Details</em>: name, slug (immutable display after create), description, status, category, tags editor, attributes JSON editor (validated client-side; helper: "the attribute contract facet groups match on — paths traverse from this JSON's root").</li>
@@ -55,7 +55,7 @@
 <ul>
   <li><strong>Files:</strong> <code>src/pages/commerce/CommerceProductsPage.tsx</code>; <code>components/ProductEditorSheet.tsx</code> with <code>tabs/DetailsTab.tsx</code>, <code>tabs/MediaTab.tsx</code>, <code>tabs/StorefrontTab.tsx</code>. Routes (list + <code>isDynamic</code> detail) + breadcrumbs in <code>commerceModule</code>.</li>
   <li><strong>Touched-field PATCH</strong> reuses the 079 pattern (<code>lib/configForm.ts</code>-style builder, unit-tested) — an untouched member never appears in the payload.</li>
-  <li><strong>Keywords editor</strong>: chips add/remove bound to <code>searchKeywords</code> from the admin detail; PATCH sends the full replacement array only when touched.</li>
+  <li><strong>Keywords editor</strong>: chips add/remove bound to <code>searchKeywords</code> from the admin detail; when touched, PATCH sends <code>searchKeywordsJson: JSON.stringify(array)</code> — the array member does not exist on the write contract.</li>
   <li><strong>Deep-surface fetches</strong> run lazily when the Storefront tab first opens (three parallel calls, individually error-tolerant — a failed status row shows "unavailable", not a broken tab).</li>
   <li><strong>Route-addressable Sheet</strong>: the list page reads <code>:productId</code> from params; open/close syncs with router navigation so Electron/hash routing works.</li>
 </ul>
@@ -68,7 +68,7 @@
   <li>Opening any product shows ITS keywords/attributes/surcharge/deep-surface statuses; switching products swaps every field (no leakage between products).</li>
   <li>Editing only the name PATCHes one member; keywords untouched survive (verified by re-GET).</li>
   <li>The Storefront tab's three status rows link to 074/075/076 and reflect reality (a bundle without a plan says so; a non-bundle says "not a bundle").</li>
-  <li>Summary rows never render a retail price; the surcharge column is the only price-like cell.</li>
+  <li>Summary rows never render a retail price or a fabricated timestamp; surcharge amounts render only in the editor where the currency is known.</li>
   <li>Deep link <code>/commerce/products/{id}</code> opens the editor directly; close returns to the list URL.</li>
 </ol>
 </body>

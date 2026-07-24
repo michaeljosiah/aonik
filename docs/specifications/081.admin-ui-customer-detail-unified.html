@@ -42,14 +42,14 @@
 
 <h2>2 · The Orders tab — one spine</h2>
 <ul>
-  <li><strong>Source:</strong> the spine list the app already consumes (<code>orderService</code> → <code>GET /orders</code>) filtered to this party and <em>not</em> filtered by type. Columns: <em>order id (mono) · type (<code>Pill</code>: ProductPurchase tint · BillPayment muted · MoneyTransfer pending · other default) · what (human line: box size + extras summary for purchases; counterparty/corridor for payments) · date (mono) · status (<code>Pill</code> dot) · amount (mono, right)</em>.</li>
+  <li><strong>Source:</strong> the spine list the app already consumes (<code>orderService</code> → <code>GET /orders</code>) filtered to this party and <em>not</em> filtered by type. Columns: <em>order id (mono) · type (<code>Pill</code> mapped over the actual open-string <code>OrderTypeCodes</code>: <code>ProductPurchase</code> tint · <code>BillPayment</code> muted · <code>Remittance</code>/<code>BankTransfer</code>/<code>Payout</code> pending · any unknown code default, rendered verbatim — the enum is additive by design) · what (human line: box size + extras summary for purchases; counterparty/corridor for payments) · date (mono) · status (<code>Pill</code> dot) · amount (mono, right)</em>.</li>
   <li><strong>Caption:</strong> "Every order, one spine — boxes, bill payments and transfers share the Order record (ADR-011); filter by type, never by screen." A type filter chip-row is optional v1; the unified list is mandatory.</li>
   <li><strong>Consistency rule (review-hardened):</strong> whatever the registry row (Spec 080) states as order count/value must be derivable from this tab's dataset — both read the spine; the UI must not maintain two divergent totals.</li>
 </ul>
 
 <h2>3 · The Commerce tab — Spec 072 made visible</h2>
 <ol>
-  <li><strong>Guest→account adoption card</strong> — a three-step vertical timeline (built cart as guest → registered → cart adopted, guest token retired) rendered when the party's storefront history includes an adoption; hidden otherwise. This is Spec 072's one clever moment made visible to operators.</li>
+  <li><strong>Guest→account adoption card</strong> — v1 renders <em>recorded facts only</em>: a fact chip ("Guest-built cart adopted — token retired") derived from a party-bound cart whose anonymous token was cleared. The three-step timeline (built → registered → adopted, with timestamps) requires adoption-event persistence that <code>AdoptAsync</code> does not do today — <code>UpdatedAt</code> is not an adoption timestamp and registration time is not on the cart — so timestamps render only if the dependency below also persists an explicit adoption event. Nothing invents a timeline.</li>
   <li><strong>Storefront profile card</strong> — boxes ordered, storefront value (the ProductPurchase subset of the spine — must equal the box history's sum), usual size, most-ordered item, active cart (size + fullness or "None").</li>
   <li><strong>Box history card</strong> — the party's checked-out storefront orders: id (mono) · date · size + extras summary · status pill · total (mono). Caption: "Party-scoped — exactly what the customer sees in their own account."</li>
 </ol>
@@ -59,7 +59,7 @@
   <tr><th>Need</th><th>Source</th></tr>
   <tr><td>Spine orders for the party</td><td><code>GET /orders</code> with the existing party filter (<code>orderService.list({ partyId })</code>-shaped). Shipped.</td></tr>
   <tr><td>Box history + storefront profile</td><td>The party-scoped storefront read exists customer-facing (<code>GET /commerce/storefront/orders</code>, Spec 072) but resolves the <em>caller's</em> party. Admin needs the same scoped read for an arbitrary party.
-    <div class="callout"><strong>Dependency callout.</strong> Requires a small Commerce admin endpoint — <code>GET /commerce/admin/parties/{partyId}/storefront</code> returning <code>{ orders: StorefrontOrderSummaryDto[], activeCart?: { cartId, size, filled }, adoption?: { builtAtUtc, registeredAtUtc, adoptedAtUtc } }</code> — reusing Spec 072's query shapes with an admin policy. Until it ships, the Commerce tab renders from the spine's ProductPurchase subset (history + value) with the adoption/active-cart cards hidden. The tab is implementable now; the two cards light up when the endpoint lands.</div></td></tr>
+    <div class="callout"><strong>Dependency callout.</strong> Requires a small Commerce admin endpoint — <code>GET /commerce/admin/parties/{partyId}/storefront</code> returning <code>{ orders: StorefrontOrderSummaryDto[], activeCart?: { cartId, size, filled }, adopted: boolean }</code> — reusing Spec 072's query shapes with an admin policy. <code>adopted</code> is the recorded fact (party-bound cart with a cleared token); timestamped adoption history additionally requires persisting an adoption event at <code>AdoptAsync</code> time, listed as an optional second backend increment. Until the endpoint ships, the Commerce tab renders from the spine's ProductPurchase subset (history + value) with the adoption/active-cart cards hidden. The tab is implementable now; the cards light up when the endpoint lands.</div></td></tr>
 </table>
 
 <h2>5 · Implementation instructions</h2>
@@ -73,7 +73,7 @@
 <h2>6 · Acceptance</h2>
 <ol>
   <li>A commerce-enabled tenant shows the Commerce tab; disabling the module in the manifest hides it with no dead tab; manifest-absent fails open.</li>
-  <li>The Orders tab lists mixed types with correct chips, and its ProductPurchase subset equals the Commerce tab's box history row-for-row.</li>
+  <li>The Orders tab lists mixed types with chips mapped from the real <code>OrderTypeCodes</code> values (an unknown code renders the default pill with the code verbatim, never breaking), and its ProductPurchase subset equals the Commerce tab's box history row-for-row.</li>
   <li>Storefront value equals the sum of rendered box-history totals (single-currency case) — the two can never diverge by construction.</li>
   <li>Adoption/active-cart cards are hidden until their data source exists; nothing renders placeholder or invented data.</li>
   <li>Existing tabs (Finance, Insights, Documents, Activity) behave exactly as before.</li>

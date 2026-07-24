@@ -34,13 +34,13 @@
 <table>
   <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
   <tr><td><code>GET /commerce/admin/products?kind=Bundle</code></td><td><code>commerceCatalogService.listProducts({ kind: 'Bundle' })</code></td><td>Bundle picker — a tenant can run several bundles; the page edits one plan at a time.</td></tr>
-  <tr><td><code>GET /commerce/catalog/products/{slug}/box-plan</code></td><td><code>commerceStorefrontService.getBoxPlan(slug)</code></td><td><code>BoxPlanDto { bundleProductId, minSize, maxSize, baseSize, basePrice, perSpacePrice, currency, presets: [{ size, price, badge?, blurb?, savingAmount?, sortOrder }] }</code>. 404 = no plan authored yet (an authoring state, not an error).</td></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}/box-plan</code></td><td><code>commerceStorefrontService.getBoxPlan(slug)</code></td><td><code>BoxPlanDto { bundleProductId, minSize, maxSize, baseSize, basePrice, perSpacePrice, currency, presets: [{ size, price, badge?, blurb?, savingAmount?, sortOrder }] }</code>. <strong>Active products only</strong> — a draft bundle's existing plan 404s here, so for an ACTIVE bundle 404 = no plan authored yet (an authoring state, not an error).<div class="callout"><strong>Dependency callout.</strong> Authoring a DRAFT bundle's plan safely needs an admin read by product id (<code>GET /commerce/admin/products/{productId}/size-plan</code>) — without it a hidden existing plan is indistinguishable from a missing one and the full-replace save could overwrite it blind. v1 mitigation: the bundle picker lists <em>active</em> bundles only, with a note that draft bundles become authorable when the admin read ships.</div></td></tr>
   <tr><td><code>PUT /commerce/admin/products/{productId}/size-plan</code></td><td><code>upsertSizePlan(productId, cmd)</code></td><td><code>UpsertBundleSizePlanCommand</code> — <strong>full replace</strong> of formula + presets. Savings are authored display values; the UI never computes one into the payload.</td></tr>
 </table>
 
 <h2>2 · Page structure</h2>
 <ol>
-  <li><strong>Header + bundle picker</strong> — <code>PageHeader</code> with a bundle <code>select</code> in <code>actions</code>; subtitle states the two pricing rules: presets win at their size, and growing a box charges <code>boxPrice(target) − boxPrice(current)</code>, never per-space × spaces.</li>
+  <li><strong>Header + bundle picker</strong> — <code>PageHeader</code> with a bundle <code>select</code> in <code>actions</code> (ACTIVE bundles only — see the dependency callout); subtitle states the two pricing rules: presets win at their size, and growing a box charges <code>boxPrice(target) − boxPrice(current)</code>, never per-space × spaces.</li>
   <li><strong>KPI row</strong> — size range (<code>min–max</code>), base price at base size, per-space price, preset count.</li>
   <li><strong>Price curve card</strong> — the shared <code>PriceCurve</code> component (Spec 073): dashed formula line, solid effective line, preset dots with price labels and a saving annotation where the preset undercuts the formula. <strong>The plotted domain is the whole configured range</strong> (<code>min..max</code>) with derived scales and generated ticks — a preset at size 20 or the formula tail must always be in view (review finding). Below the chart, a marginal-grow strip: three tiles computing <code>effective(b) − effective(a)</code> for representative jumps (base→first preset, between presets, past the last preset), each showing the subtraction so the rule is legible.</li>
   <li><strong>Formula editor card</strong> — min/max/base size, base price, per-space price, currency (read-only display of the plan currency; changing currency is a deliberate act inside the same full-replace form). Inline note: any size without a preset prices as <code>base + (size − baseSize) × perSpace</code>; saving is a full replace.</li>
@@ -60,7 +60,7 @@
 <ol>
   <li>The curve always spans <code>min..max</code>; adding a draft preset at any in-range size shows its dot and bend immediately, pre-save.</li>
   <li>Marginal tiles equal effective-price subtraction and bend around presets (e.g. a discounted mid-preset makes the following jump larger).</li>
-  <li>A 404 plan renders the authoring empty state; saving then produces a working plan and the storefront config's embedded box section (Spec 079's preview) reflects it after reload.</li>
+  <li>For an active bundle, a 404 plan renders the authoring empty state; saving then produces a working plan and the storefront config's embedded box section (Spec 079's preview) reflects it after reload. Draft bundles do not appear in the picker.</li>
   <li>Savings display only when authored; the payload never contains a computed saving.</li>
   <li><code>planCurve.ts</code> unit tests cover tick generation and bounds at min=max edge and a 6–30 range.</li>
 </ol>

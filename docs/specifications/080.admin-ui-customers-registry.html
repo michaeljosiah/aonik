@@ -44,10 +44,10 @@
   <tr><th>Call</th><th>Notes</th></tr>
   <tr><td><code>GET /admin/customers?…</code> (existing, <code>customerService.list</code>)</td><td>The registry keeps its existing paged source. This spec adds two derived needs:
     <ul>
-      <li><strong>Domain chips</strong> — which product lines a party participates in. Preferred source: extend the existing list DTO server-side with <code>domains: string[]</code> (derived from module ownership records: billing accounts, storefront carts/orders via <code>Cart.BuyerPartyId</code>, personal-finance enrolment). <em>Until that lands, the UI derives chips best-effort from fields already present and hides the column when nothing is derivable — the column must degrade, not lie.</em></li>
-      <li><strong>Spine-wide counts</strong> — if the current DTO's counts are finance-scoped, the same server-side extension corrects them; the UI renders whatever the DTO states and the subtitle documents the intended semantics.</li>
+      <li><strong>Registry read-model extension</strong> — the shipped <code>CustomerListItem</code> carries none of the new columns' data: no country, no order count, no total value, no domains. The required server-side extension therefore covers all four: <code>country</code>, <code>domains: string[]</code> (derived from module ownership records: billing accounts, storefront carts/orders via <code>Cart.BuyerPartyId</code>, personal-finance enrolment), spine-wide <code>orderCount</code>, and <code>totalValue</code> reported per currency (<code>[{ currency, amount }]</code> — never a cross-currency sum).</li>
+      <li><strong>Degraded mode</strong> — until the extension ships, every dependency-gated column (Country, Products, Orders, Total value) is hidden entirely; the registry still functions with ID · Customer · Type and the reshaped nav/tabs. Columns degrade by absence, never by placeholder zeros.</li>
     </ul>
-    <div class="callout"><strong>Dependency callout.</strong> The <code>domains</code>/spine-count enrichment is a small Platform read-model addition, not shipped today. This spec is implementable without it (degraded column); the enrichment is listed as a follow-up backend item, deliberately NOT smuggled into a UI spec.</div></td></tr>
+    <div class="callout"><strong>Dependency callout.</strong> The read-model extension above is a Platform addition, not shipped today. The nav move, tab reshape and base columns are implementable now; the four data columns light up when the extension lands. It is listed as a follow-up backend item, deliberately NOT smuggled into a UI spec.</div></td></tr>
 </table>
 
 <h2>3 · Implementation instructions</h2>
@@ -61,9 +61,9 @@
 <h2>4 · Acceptance</h2>
 <ol>
   <li>Customers appears exactly once in the sidebar, in the transact section beside Orders; no billing-nested duplicate remains; deep links to <code>/customers</code> unchanged.</li>
-  <li>A customer active in two domains shows both chips; filtering by a domain tab shows only its participants; the chips column hides gracefully when the DTO carries no domain data.</li>
+  <li>A customer active in two domains shows both chips; filtering by a domain tab shows only its participants; every dependency-gated column (Country, Products, Orders, Total value) is absent until the read-model extension ships — no placeholder data ever renders.</li>
   <li>No KYC/compliance column renders on the registry; flag rows keep their highlight.</li>
-  <li>The subtitle states the spine-wide semantics; counts render exactly what the DTO returns.</li>
+  <li>The subtitle states the spine-wide semantics; counts render exactly what the DTO returns, and per-currency values are never summed across currencies.</li>
   <li><code>tsc -b</code> clean; both themes.</li>
 </ol>
 </body>

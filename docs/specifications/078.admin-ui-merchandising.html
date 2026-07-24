@@ -57,7 +57,7 @@
 <ul>
   <li><strong>Files:</strong> <code>src/pages/commerce/MerchandisingPage.tsx</code>; <code>components/CollectionMembersEditor.tsx</code>, <code>components/RailPreview.tsx</code>, <code>components/FacetGroupSheet.tsx</code>. Route + breadcrumb in <code>commerceModule</code>.</li>
   <li><strong>Membership editing model:</strong> local draft of <code>items[]</code>; every move renumbers ranks 1..n contiguously; Save maps to <code>{ productId, rank }</code> lines and full-replaces, then reloads. Dirty indicator on Save; discard resets to the loaded detail.</li>
-  <li><strong>Preview truth:</strong> the non-extras preview derives client-side (filter drafts) from the admin detail; the extras preview uses the real public read so admin-vs-public divergence (skipped members) is shown from the genuine source, not simulated.</li>
+  <li><strong>Preview truth:</strong> the non-extras preview derives client-side from the admin detail — filtering drafts AND honouring <code>isActive</code>: a parked collection previews as the parked state ("this collection is inactive — the public read serves nothing"), never as live rows. The extras preview uses the real public read so admin-vs-public divergence (skipped members) is shown from the genuine source, not simulated.</li>
   <li><strong>Facet options editor:</strong> chips with add/remove; Range rows expose min/max numeric inputs; serialisation to <code>optionsJson</code> lives in <code>lib/facetOptions.ts</code> with unit tests (band ordering, half-open rendering).</li>
   <li><strong>Errors:</strong> rank-uniqueness or replace conflicts surface as the inline banner (<code>userMessage</code>); create/edit Sheets show <code>formError</code>; successes toast.</li>
 </ul>
@@ -65,7 +65,7 @@
 <h2>4 · Acceptance</h2>
 <ol>
   <li>Reordering members updates the preview strip live; Save round-trips and a fresh load renders the same order (full-replace idempotence).</li>
-  <li>A draft member is ghosted in the editor, absent from the preview, and counted in the admin KPI.</li>
+  <li>A draft member is ghosted in the editor, absent from the preview, and counted in the admin KPI; a parked collection previews as parked, not as live rows.</li>
   <li>An unpriceable extras member stays editable in the table with its warning pill, is absent from the preview, and the skipped strip shows the public read's count.</li>
   <li>A Range facet renders its half-open bands; edit cannot alter key or match kind (fields read-only with the retire-and-replace note).</li>
   <li>The extras collection is identified purely by <code>extrasCollectionSlug</code> from config — renaming the setting rebadges with no code change.</li>
