@@ -191,8 +191,10 @@ secure path (Key Vault, environment variable from a secret store, etc.).
 
 ## Step 6 — Wire Aonik
 
-Set the following Aonik settings (via admin UI **Settings → Authentication**,
-via direct config, or via your operator's preferred path):
+Set the following Aonik settings. `Auth.*` is a configuration-managed prefix —
+`SettingService` refuses writes to it through the settings APIs and reads it
+from configuration only — so these go in `appsettings.json`, environment
+variables, or your operator's secret store, not the admin UI:
 
 | Setting | Value | Source |
 |---|---|---|
@@ -275,10 +277,41 @@ configured, or the user has no realm roles assigned. See Step 3 + Step 4.
 
 ### `Token issuer not allowed for active provider`
 
-`Auth.Keycloak.Authority` doesn't match the `iss` claim on the token. Most
-common cause: `KC_HOSTNAME` not set on the Keycloak container, so the
-issuer comes back as the container's internal hostname instead of the
-external authority. Set `KC_HOSTNAME` to the externally-reachable host.
+Two distinct causes.
+
+**The authority doesn't match the token's `iss`.** Most common reason:
+`KC_HOSTNAME` not set on the Keycloak container, so the issuer comes back as
+the container's internal hostname instead of the external authority. Set
+`KC_HOSTNAME` to the externally-reachable host.
+
+**The provider is only half-switched.** Two configuration keys resolve the
+active provider and both have to say `Keycloak`: `Auth:Provider` binds
+`AuthOptions` (JWT scheme selection), while `Settings:Auth.Provider` is what
+`GetActiveProviderAsync` reads when it compares the token's issuer against the
+active provider. Set only the first and a valid Keycloak token is rejected with
+this message.
+
+Note the dot in `Settings:Auth.Provider`: the environment-variable spelling
+would be `Settings__Auth.Provider`, which a POSIX shell refuses as an invalid
+identifier (`export Settings__Auth.Provider=Keycloak` is a syntax error, and
+`Settings__Auth__Provider` maps to a different key the code never reads). Pass
+both on the command line instead — the colon form needs no escaping anywhere:
+
+```bash
+dotnet run --project src/Aonik.Api -- --Auth:Provider=Keycloak --Settings:Auth.Provider=Keycloak
+```
+
+Or persist them for local work:
+
+```bash
+dotnet user-secrets set "Settings:Auth.Provider" Keycloak --project src/Aonik.Api
+```
+
+If the deployment target only accepts environment variables, quote the whole
+assignment so the shell never parses the name — `env 'Settings__Auth.Provider=Keycloak'
+'Auth__Provider=Keycloak' dotnet …`, or in PowerShell `${env:Settings__Auth.Provider} =
+'Keycloak'`. The AppHost's `AONIK_AUTH_PROVIDER=Keycloak` path needs none of
+this: it sets both through the process API, where the dot is unremarkable.
 
 ### `Direct-grant disabled` on `KeycloakAuthTokenService.ExchangeAsync`
 

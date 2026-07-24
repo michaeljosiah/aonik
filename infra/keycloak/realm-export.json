@@ -10,7 +10,9 @@
   "accessTokenLifespan": 1800,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "_doc": "Spec 029 — pre-seeded local-dev realm. NEVER use in production. See docs/operations/keycloak-setup.md for the production realm runbook.",
+  "attributes": {
+    "aonik.doc": "Spec 029 — pre-seeded local-dev realm. NEVER use in production. See docs/operations/keycloak-setup.md for the production realm runbook."
+  },
   "roles": {
     "realm": [
       { "name": "Aonik.PlatformAdmin", "description": "Platform-wide admin (spec 026 / dev parity with Auth0 namespace claim 'aonik_platform_admin')." },
@@ -70,6 +72,52 @@
       ]
     },
     {
+      "clientId": "aonik-swagger",
+      "name": "Aonik OpenAPI docs UI (Scalar)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://localhost:5001/*",
+        "https://localhost:7269/*",
+        "http://localhost:5049/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "aonik.doc": "Scalar's Authorize action at /scalar. Redirects cover the API's own origins — AppHost pins https://localhost:5001, the launchSettings profiles use 7269/5049. Authorization code + PKCE only; implicit stays off here as on every other client.",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-aonik-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "aonik-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles-flatten",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "aonik-admin",
       "name": "Aonik Admin API client (service-account)",
       "enabled": true,
@@ -78,8 +126,8 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "_doc": "Grants manage-users + view-users + view-realm on the realm-management client. Replace the secret in production — this is checked-in dev placeholder.",
       "attributes": {
+        "aonik.doc": "Grants manage-users + view-users + view-realm on the realm-management client. Replace the secret in production — this is checked-in dev placeholder.",
         "use.refresh.tokens": "false"
       }
     }

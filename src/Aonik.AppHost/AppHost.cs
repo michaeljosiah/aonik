@@ -100,6 +100,13 @@ if (enableKeycloak)
 const string KeycloakAuthority = "http://localhost:8080/realms/aonik";
 const string KeycloakAudience = "aonik-api";
 const string KeycloakSpaClientId = "aonik-spa";
+const string KeycloakSwaggerClientId = "aonik-swagger";
+const string KeycloakRealm = "aonik";
+const string KeycloakAdminClientId = "aonik-admin";
+// DEV-ONLY placeholder, and the same value the `aonik-admin` client carries in
+// infra/keycloak/realm-export.json. Production runs an operator-owned secret out
+// of a secret store — see docs/operations/keycloak-setup.md, Step 5.
+const string KeycloakAdminClientSecret = "aonik-admin-dev-secret";
 
 // Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
@@ -127,9 +134,40 @@ if (enableKeycloak)
     // touch user-secrets or appsettings just to try Keycloak. The realm
     // URL matches the container declared above; the audience matches the
     // `aonik-spa` client's audience mapper in infra/keycloak/realm-export.json.
+    //
+    // BOTH provider keys have to move together. `Auth:Provider` binds AuthOptions
+    // and drives JWT scheme selection, while `Settings:Auth.Provider` is what the
+    // settings layer resolves — and `Auth.*` is a configuration-managed key, so
+    // the `Settings.Auth.Provider = Auth0` shipped in appsettings.json wins over
+    // anything the database holds. Overriding only the former leaves
+    // GetActiveProviderAsync answering "Auth0" while the token's issuer says
+    // "Keycloak", so a perfectly valid token is rejected with a 401 that reads
+    // like a bad token ("Token issuer not allowed for active provider").
+    //
+    // Everything the Keycloak path needs is pinned here rather than left to
+    // appsettings.Development.json, so the block stays true to the comment above
+    // and can't half-work if that file drifts.
     api.WithEnvironment("Auth__Provider", "Keycloak")
+        .WithEnvironment("Settings__Auth.Provider", "Keycloak")
         .WithEnvironment("Auth__Keycloak__Authority", KeycloakAuthority)
-        .WithEnvironment("Auth__Keycloak__Audience", KeycloakAudience);
+        .WithEnvironment("Auth__Keycloak__Audience", KeycloakAudience)
+        .WithEnvironment("Auth__Keycloak__Realm", KeycloakRealm)
+        .WithEnvironment("Auth__Keycloak__ClientId", KeycloakSpaClientId)
+        // The admin-API surfaces (user provisioning, password reset, account
+        // service) resolve these through GetRequiredAsync, and appsettings ships
+        // AdminClientSecret empty — so without this every one of them throws
+        // "Setting 'Auth.Keycloak.AdminClientSecret' is required" before it ever
+        // reaches Keycloak.
+        .WithEnvironment("Auth__Keycloak__AdminClientId", KeycloakAdminClientId)
+        .WithEnvironment("Auth__Keycloak__AdminClientSecret", KeycloakAdminClientSecret)
+        // Scalar's Authorize action needs a client that exists in the dev realm;
+        // the appsettings default (`swagger-dev-client`) is an Auth0-era
+        // placeholder Keycloak has never heard of. Scopes travel with it — the
+        // realm grants openid/profile/email, not Azure's api://.../access_as_user.
+        .WithEnvironment("Swagger__ClientId", KeycloakSwaggerClientId)
+        .WithEnvironment("Swagger__Scopes__0", "openid")
+        .WithEnvironment("Swagger__Scopes__1", "profile")
+        .WithEnvironment("Swagger__Scopes__2", "email");
 }
 
 // Add Worker project with LocalDB connection

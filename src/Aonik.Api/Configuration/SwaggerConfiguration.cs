@@ -27,16 +27,7 @@ public static class SwaggerConfiguration
                 settings.Description = "AONIK Financial Platform API with multi-tenant authentication";
 
                 // Add JWT Bearer security definition
-                settings.AddSecurity("Bearer", new OpenApiSecurityScheme
-                {
-                    Type = OpenApiSecuritySchemeType.OAuth2,
-                    Description = "OAuth2 authentication with JWT Bearer tokens",
-                    Flow = OpenApiOAuth2Flow.Implicit,
-                    Flows = new OpenApiOAuthFlows
-                    {
-                        Implicit = CreateOAuth2Flow(authOptions, swaggerOptions)
-                    }
-                });
+                settings.AddSecurity("Bearer", CreateBearerSecurityScheme(authOptions, swaggerOptions));
 
                 // Apply security requirement globally
                 settings.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("Bearer"));
@@ -75,18 +66,63 @@ public static class SwaggerConfiguration
                 // Configure OAuth2 if a client ID is set
                 if (!string.IsNullOrEmpty(swaggerOptions.ClientId))
                 {
-                    options.AddPreferredSecuritySchemes("Bearer")
-                           .AddImplicitFlow("Bearer", flow =>
-                           {
-                               flow.ClientId = swaggerOptions.ClientId;
-                               flow.SelectedScopes = swaggerOptions.Scopes.ToArray();
-                           });
+                    options.AddPreferredSecuritySchemes("Bearer");
+
+                    if (UsesAuthorizationCodeFlow(configuration["Auth:Provider"]))
+                    {
+                        options.AddAuthorizationCodeFlow("Bearer", flow =>
+                        {
+                            flow.ClientId = swaggerOptions.ClientId;
+                            flow.SelectedScopes = swaggerOptions.Scopes.ToArray();
+                            flow.Pkce = Pkce.Sha256;
+                        });
+                    }
+                    else
+                    {
+                        options.AddImplicitFlow("Bearer", flow =>
+                        {
+                            flow.ClientId = swaggerOptions.ClientId;
+                            flow.SelectedScopes = swaggerOptions.Scopes.ToArray();
+                        });
+                    }
                 }
             }).AllowAnonymous();
         }
 
         return app;
     }
+
+    /// <summary>
+    /// Builds the OAuth2 "Bearer" security definition for the active provider.
+    /// </summary>
+    public static OpenApiSecurityScheme CreateBearerSecurityScheme(
+        AuthOptions authOptions,
+        SwaggerOptions swaggerOptions)
+    {
+        var oauthFlow = CreateOAuth2Flow(authOptions, swaggerOptions);
+        var authorizationCode = UsesAuthorizationCodeFlow(authOptions.Provider);
+
+        return new OpenApiSecurityScheme
+        {
+            Type = OpenApiSecuritySchemeType.OAuth2,
+            Description = "OAuth2 authentication with JWT Bearer tokens",
+            Flow = authorizationCode ? OpenApiOAuth2Flow.AccessCode : OpenApiOAuth2Flow.Implicit,
+            Flows = authorizationCode
+                ? new OpenApiOAuthFlows { AuthorizationCode = oauthFlow }
+                : new OpenApiOAuthFlows { Implicit = oauthFlow }
+        };
+    }
+
+    /// <summary>
+    /// True for providers whose clients speak authorization code + PKCE rather than implicit.
+    /// </summary>
+    /// <remarks>
+    /// Keycloak 26 disables the implicit flow by default, and the checked-in dev clients
+    /// (infra/keycloak/realm-export.json) plus the operator runbook deliberately keep it off —
+    /// so advertising implicit here makes Scalar's <em>Authorize</em> action fail at the realm
+    /// rather than return a token. Auth0 / Azure AD keep their existing implicit flow.
+    /// </remarks>
+    private static bool UsesAuthorizationCodeFlow(string? provider) => provider == "Keycloak";
 
     private static OpenApiOAuthFlow CreateOAuth2Flow(AuthOptions authOptions, SwaggerOptions swaggerOptions)
     {
@@ -106,6 +142,16 @@ public static class SwaggerConfiguration
             var authority = authOptions.Auth0.Authority.TrimEnd('/');
             authorizationUrl = $"{authority}/authorize";
             tokenUrl = $"{authority}/oauth/token";
+        }
+        else if (authOptions.Provider == "Keycloak")
+        {
+            // Spec 029 added Keycloak as the third provider but never taught the
+            // Swagger OAuth flow about it, so selecting it — the documented local
+            // dev path — crashed the API at startup here rather than at a config
+            // boundary. Keycloak's OIDC endpoints hang off the realm authority.
+            var authority = authOptions.Keycloak.Authority.TrimEnd('/');
+            authorizationUrl = $"{authority}/protocol/openid-connect/auth";
+            tokenUrl = $"{authority}/protocol/openid-connect/token";
         }
         else
         {
