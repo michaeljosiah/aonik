@@ -186,6 +186,10 @@ function ScreenCommerceOverview() {
     { icon: 'alertc', tone: 'var(--warning)', label: lowStock + ' products low on stock', sub: 'restock before they sell out', to: 'Inventory' },
     { icon: 'store',  tone: 'var(--text-secondary)', label: abandoned + ' abandoned carts', sub: 'recoverable with a reminder', to: 'Carts' },
     { icon: 'invoice', tone: 'var(--warning)', label: pendingPay + ' order awaiting payment', sub: 'draft intent not yet captured', to: 'Orders' },
+    // Storefront pulse (Specs 067/069/070) — the shop window's own attention items.
+    { icon: 'file', tone: 'var(--warning)', label: '2 content blocks awaiting review', sub: 'declarations withheld until confirmed', to: 'Food content' },
+    { icon: 'calendar', tone: 'var(--brand-primary)', label: 'Delivery promise live — Thu 6 Aug', sub: 'cutoff Tue 18:00 · 1 blackout ahead', to: 'Delivery' },
+    { icon: 'stack', tone: 'var(--text-secondary)', label: '1 draft staged in Featured', sub: 'surfaces when the dish activates', to: 'Merchandising' },
   ];
   // Maker operations (Spec 058 Phase 4) — the make-side pulse on the overview.
   // Active alerts = Open + Acknowledged (the one active set, per landed 052).

@@ -1150,3 +1150,239 @@ window.cmIngAvail = cmIngAvail;
 window.cmAllProducts = cmAllProducts;
 window.cmPrepRows = cmPrepRows;
 window.cmMarginRows = cmMarginRows;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMMERCE · STOREFRONT — Specs 066–072 (AbbysTable, the first storefront tenant)
+   One coherent narrative: Abby's UK meal-box shop on a mock "today" of
+   Tue 4 Aug 2026, 17:20 Europe/London — before this week's Tuesday 18:00 cutoff.
+   Money is GBP via csMoney. Screens read these at render time.
+   NOTE — the canvas deliberately shows TWO demo tenants side by side: the
+   Spec 042/058 wellness shop (CM_*) and AbbysTable (CS_*). Each section is
+   internally consistent; on a live deployment every surface reads one catalog.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const csMoney = a => a == null ? '—' : (a < 0 ? '−£' + Math.abs(a).toFixed(2) : '£' + a.toFixed(2));
+const csSigned = a => a === 0 ? 'included' : (a > 0 ? '+£' + a.toFixed(2) : '−£' + Math.abs(a).toFixed(2));
+
+// ── Spec 066 — option groups (tenant catalogue) ────────────────────────────
+// PUT /commerce/admin/option-groups/{id}/recommended-default reports affected
+// products; that report is what flags Spec 067 content for review.
+const CS_OPTION_GROUPS = [
+  { id: 'og-portion', key: 'portion', label: 'Portion', mode: 'One', ccy: 'GBP', sort: 0, active: true, help: 'Plated size per dish',
+    choices: [
+      { key: 'regular', label: 'Regular', note: '330 g', price: 0,    dflt: true,  active: true },
+      { key: 'large',   label: 'Large',   note: '450 g', price: 2.50, dflt: false, active: true },
+    ] },
+  { id: 'og-protein', key: 'protein', label: 'Protein', mode: 'One', ccy: 'GBP', sort: 1, active: true, help: 'Swap the centre of the dish',
+    choices: [
+      { key: 'chicken', label: 'Chicken',      note: null,        price: 0,    dflt: true,  active: true },
+      { key: 'beef',    label: 'Beef',         note: null,        price: 0,    dflt: false, active: true },
+      { key: 'salmon',  label: 'Suya salmon',  note: 'signature', price: 1.50, dflt: false, active: true },
+      { key: 'tofu',    label: 'Tofu',         note: 'plant',     price: 0,    dflt: false, active: true },
+      { key: 'goat',    label: 'Goat',         note: 'weekend',   price: 2.00, dflt: false, active: true },
+    ] },
+  { id: 'og-side', key: 'side', label: 'Side', mode: 'One', ccy: 'GBP', sort: 2, active: true, help: 'Served alongside',
+    choices: [
+      { key: 'plantain',  label: 'Fried plantain', note: null,  price: 0,     dflt: true,  active: true },
+      { key: 'xplantain', label: 'Extra plantain', note: null,  price: 1.50,  dflt: false, active: true },
+      { key: 'salad',     label: 'Garden salad',   note: null,  price: 0,     dflt: false, active: true },
+      { key: 'noside',    label: 'No side',        note: null,  price: -2.00, dflt: false, active: true },
+    ] },
+  { id: 'og-heat', key: 'heat', label: 'Heat', mode: 'One', ccy: 'GBP', sort: 3, active: true, help: 'Scotch-bonnet scale',
+    choices: [
+      { key: 'none',   label: 'None',   note: null, price: 0, dflt: false, active: true },
+      { key: 'mild',   label: 'Mild',   note: null, price: 0, dflt: false, active: true },
+      { key: 'medium', label: 'Medium', note: null, price: 0, dflt: true,  active: true },
+      { key: 'hot',    label: 'Hot',    note: 'honest heat', price: 0, dflt: false, active: true },
+    ] },
+];
+
+// Yesterday's default move: Side default salad → plantain. The endpoint's
+// RecommendedDefaultChangeResult listed these slugs; 067 flagged their blocks.
+const CS_DEFAULT_MOVE = {
+  group: 'side', from: 'salad', to: 'plantain', when: 'Yesterday 16:42', by: 'abby@abbystable.co.uk',
+  // Spec 066: affected = products OFFERING the changed group AND inheriting its
+  // default — pepper soup (portion+heat) is out, and moi moi is out because it
+  // pins side=salad. Spec 067 flagged each block; four have been confirmed
+  // since, so today's queue holds suya (this move) + egusi (retired choice).
+  affected: ['jollof-chicken', 'egusi-beef', 'suya-salmon', 'ofada-turkey', 'garden-jollof'],
+  confirmed: 4,
+};
+
+// ── Dishes (products through the storefront lens) ──────────────────────────
+// attrs mirror the storefront attribute contract {heatStep, protein, meal};
+// groups = the product's 066 narrowing; surcharge = per-unit signature upgrade.
+// content: state authored | withheld | review;  gaps = single-choice coverage gaps.
+const CS_DISHES = [
+  { slug: 'jollof-chicken', name: 'Jollof Rice & Chicken', emoji: '🍚', color: '#b3541e', status: 'active',
+    attrs: { heatStep: 2, protein: 'Chicken', meal: 'Bowl' }, tags: ['bestseller', 'gluten-free', 'protein-led'], keywords: ['party rice', 'smoky', 'firewood'],
+    groups: ['portion', 'protein', 'side', 'heat'],
+    narrow: { protein: { allowed: ['chicken', 'beef', 'salmon', 'goat'] } }, surcharge: null,
+    content: { state: 'authored', servingLabel: 'Per serving (regular, standard preparation)',
+      fig: { kcal: 620, protein: 34, carbs: 71, fat: 22, fibre: 6, sugars: 8, salt: 1.8 },
+      ingredients: 'Long-grain rice, chicken thigh, tomato, red pepper, scotch bonnet, onion, groundnut oil, thyme, bay leaf',
+      allergens: 'None declared for the standard preparation',
+      heating: [{ m: 'Oven', b: '180°C fan for 18–20 min, covered' }, { m: 'Microwave', b: '900 W for 4 min, rest 1 min' }],
+      variants: [{ sel: 'protein: salmon', note: 'declares Fish' }, { sel: 'portion: large', note: 'figures re-authored' }],
+      gaps: [{ group: 'protein', choice: 'goat' }] } },
+  { slug: 'egusi-beef', name: 'Egusi & Beef', emoji: '🥘', color: '#7a6a1e', status: 'active',
+    attrs: { heatStep: 2, protein: 'Beef', meal: 'Stew' }, tags: ['high-fibre', 'protein-led'], keywords: ['melon seed', 'soup', 'swallow'],
+    groups: ['portion', 'protein', 'side', 'heat'], surcharge: null,
+    content: { state: 'review', reviewReason: 'Variant references retired choice "okra side"',
+      servingLabel: 'Per serving (regular, standard preparation)',
+      fig: { kcal: 710, protein: 41, carbs: 38, fat: 44, fibre: 9, sugars: 5, salt: 2.1 },
+      ingredients: 'Ground egusi (melon seed), beef shin, spinach, palm oil, crayfish, scotch bonnet, onion, locust bean',
+      allergens: 'Crustaceans (crayfish)',
+      heating: [{ m: 'Hob', b: 'Gentle simmer 8–10 min, stir through' }],
+      variants: [{ sel: 'side: okra (retired)', note: 'needs re-author', stale: true }],
+      gaps: [] } },
+  { slug: 'suya-salmon', name: 'Suya-Spiced Salmon Bowl', emoji: '🐟', color: '#a34226', status: 'active',
+    attrs: { heatStep: 3, protein: 'Fish', meal: 'Bowl' }, tags: ['signature', 'dairy-free', 'protein-led'], keywords: ['yaji', 'grilled', 'spice crust'],
+    groups: ['portion', 'side', 'heat'], surcharge: 2.00,
+    content: { state: 'review', reviewReason: 'Side default moved salad → plantain (yesterday)',
+      servingLabel: 'Per serving (regular, standard preparation)',
+      fig: { kcal: 540, protein: 38, carbs: 42, fat: 24, fibre: 5, sugars: 6, salt: 1.6 },
+      ingredients: 'Salmon fillet, yaji (groundnut, ginger, chilli), brown rice, plantain, lime',
+      allergens: 'Fish · Peanuts (yaji crust)',
+      heating: [{ m: 'Oven', b: '170°C fan for 12 min — do not microwave the crust' }],
+      variants: [],
+      gaps: [{ group: 'heat', choice: 'none' }] } },
+  { slug: 'moi-moi-garden', name: 'Moi Moi Garden Plate', emoji: '🫘', color: '#2e6b4f', status: 'active',
+    attrs: { heatStep: 0, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan', 'gluten-free', 'plant-led'], keywords: ['bean pudding', 'steamed'],
+    groups: ['portion', 'side', 'heat'],
+    narrow: { side: { allowed: ['plantain', 'salad', 'noside'], dflt: 'salad' } }, surcharge: null,
+    content: { state: 'authored', servingLabel: 'Per serving (regular)',
+      fig: { kcal: 430, protein: 21, carbs: 52, fat: 14, fibre: 12, sugars: 4, salt: 1.1 },
+      ingredients: 'Black-eyed beans, red pepper, onion, vegetable oil, ginger, greens of the week',
+      allergens: 'None declared',
+      heating: [{ m: 'Steam', b: 'Re-steam 10 min or microwave 3 min covered' }],
+      variants: [],
+      gaps: [{ group: 'portion', choice: 'large' }] } },
+  { slug: 'ofada-turkey', name: 'Ofada Rice & Turkey', emoji: '🍛', color: '#4f5d2e', status: 'active',
+    attrs: { heatStep: 3, protein: 'Turkey', meal: 'Bowl' }, tags: ['bold', 'protein-led'], keywords: ['ayamase sauce', 'local rice'],
+    groups: ['portion', 'protein', 'side', 'heat'], surcharge: null,
+    content: { state: 'withheld', servingLabel: 'Per serving (regular, standard preparation)',
+      fig: { kcal: 680, protein: 36, carbs: 74, fat: 26, fibre: 7, sugars: 5, salt: 2.3 },
+      ingredients: null, allergens: null,
+      heating: [],
+      variants: [],
+      gaps: [] } },
+  { slug: 'catfish-pepper-soup', name: 'Catfish Pepper Soup', emoji: '🍲', color: '#8a3a2a', status: 'active',
+    attrs: { heatStep: 3, protein: 'Fish', meal: 'Soup' }, tags: ['dairy-free', 'low-carb', 'carb-conscious'], keywords: ['point and kill', 'uziza', 'broth'],
+    groups: ['portion', 'heat'], surcharge: null,
+    content: { state: 'authored', servingLabel: 'Per serving (regular)',
+      fig: { kcal: 310, protein: 33, carbs: 9, fat: 15, fibre: 2, sugars: 2, salt: 2.0 },
+      ingredients: 'Catfish, uziza leaf, calabash nutmeg, scotch bonnet, stock',
+      allergens: 'Fish',
+      heating: [{ m: 'Hob', b: 'Bring to a gentle simmer — never boil hard' }],
+      variants: [],
+      gaps: [] } },
+  { slug: 'garden-jollof', name: 'Garden Jollof', emoji: '🥗', color: '#3f7a3a', status: 'active',
+    attrs: { heatStep: 1, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan', 'plant-led'], keywords: ['veg', 'mild'],
+    groups: ['portion', 'side', 'heat'], surcharge: null,
+    content: { state: 'authored', servingLabel: 'Per serving (regular)',
+      fig: { kcal: 480, protein: 12, carbs: 78, fat: 12, fibre: 8, sugars: 9, salt: 1.4 },
+      ingredients: 'Long-grain rice, tomato, red pepper, carrot, green beans, onion, vegetable oil',
+      allergens: 'None declared',
+      heating: [{ m: 'Microwave', b: '900 W for 3½ min, stir halfway' }],
+      variants: [],
+      gaps: [] } },
+  { slug: 'ayamase-designer', name: 'Ayamase Designer Stew', emoji: '🫑', color: '#5a6b2a', status: 'draft',
+    attrs: { heatStep: 3, protein: 'Beef', meal: 'Stew' }, tags: [], keywords: ['ofada sauce', 'green pepper'],
+    groups: [], surcharge: null,
+    content: { state: 'withheld', servingLabel: null, fig: null, ingredients: null, allergens: null, heating: [], variants: [], gaps: [] } },
+];
+const csDish = slug => CS_DISHES.find(d => d.slug === slug) || null;
+const csGroup = key => CS_OPTION_GROUPS.find(g => g.key === key) || null;
+
+// ── Spec 068 — the box size plan (PUT /products/{id}/size-plan) ────────────
+// Presets WIN at their size; every other size prices base + (size − 6) × perSpace.
+// Growing a box always charges boxPrice(target) − boxPrice(current).
+const CS_PLAN = {
+  bundleSlug: 'abbys-box', bundleName: "Abby's Box", ccy: 'GBP',
+  min: 6, max: 30, baseSize: 6, basePrice: 95, perSpace: 15,
+  presets: [
+    { size: 6,  price: 95,  badge: 'Starter',      blurb: 'The classic week',      saving: null, sort: 0 },
+    { size: 8,  price: 120, badge: 'Most popular', blurb: 'Two extra dinners',     saving: 5,    sort: 1 },
+    { size: 12, price: 170, badge: 'Best value',   blurb: 'Feeds the whole table', saving: 15,   sort: 2 },
+  ] };
+const csBoxPrice = size => {
+  const p = CS_PLAN.presets.find(x => x.size === size);
+  return p ? p.price : CS_PLAN.basePrice + (size - CS_PLAN.baseSize) * CS_PLAN.perSpace;
+};
+
+// ── Spec 069 — fulfilment calendar + the promise it computes ───────────────
+const CS_CALENDAR = {
+  timezone: 'Europe/London', deliveryDays: ['Thursday'], cutoffLocal: '18:00', cutoffDayOfWeek: 'Tuesday',
+  leadDays: 2, blackoutDates: ['2026-08-27'], active: true,
+  promise: { date: '2026-08-06', label: 'Thursday 6 August' },
+  // August 2026 for the month grid: the 1st is a Saturday.
+  monthLabel: 'August 2026', firstDow: 6, days: 31,
+};
+
+// ── Spec 070/071 — collections, facet groups, storefront config ────────────
+const CS_COLLECTIONS = [
+  { id: 'col-feat', slug: 'featured', title: 'A taste of the table', subtitle: 'The homepage rail', kind: 'curated', active: true,
+    items: [
+      { slug: 'jollof-chicken', rank: 1 }, { slug: 'suya-salmon', rank: 2 }, { slug: 'egusi-beef', rank: 3 },
+      { slug: 'moi-moi-garden', rank: 4 }, { slug: 'catfish-pepper-soup', rank: 5 }, { slug: 'ofada-turkey', rank: 6 },
+      { slug: 'ayamase-designer', rank: 7 }, // draft — staged invisibly, surfaces on activation
+    ] },
+  { id: 'col-carb', slug: 'carb-conscious', title: 'Carb-conscious', subtitle: 'Homepage category rail', kind: 'curated', active: true,
+    items: [{ slug: 'catfish-pepper-soup', rank: 1 }, { slug: 'moi-moi-garden', rank: 2 }, { slug: 'suya-salmon', rank: 3 }] },
+  { id: 'col-protein', slug: 'protein-led', title: 'Protein-led', subtitle: 'Homepage category rail', kind: 'curated', active: true,
+    items: [{ slug: 'egusi-beef', rank: 1 }, { slug: 'suya-salmon', rank: 2 }, { slug: 'jollof-chicken', rank: 3 }, { slug: 'ofada-turkey', rank: 4 }] },
+  { id: 'col-plant', slug: 'plant-led', title: 'Plant-led', subtitle: 'Homepage category rail', kind: 'curated', active: true,
+    items: [{ slug: 'moi-moi-garden', rank: 1 }, { slug: 'garden-jollof', rank: 2 }] },
+  { id: 'col-extras', slug: 'extras', title: 'Extras', subtitle: 'Add-ons alongside the box (Spec 071)', kind: 'curated', active: true,
+    items: [
+      { slug: 'puff-puff', rank: 1, name: 'Puff Puff (6)', price: 4.50, emoji: '🍩' },
+      { slug: 'suya-skewers', rank: 2, name: 'Beef Suya Skewers (2)', price: 6.50, emoji: '🍢' },
+      { slug: 'chin-chin', rank: 3, name: 'Chin Chin Tub', price: 3.50, emoji: '🍪' },
+      { slug: 'zobo', rank: 4, name: 'Zobo (500 ml)', price: 3.00, emoji: '🧃' },
+      { slug: 'plantain-chips', rank: 5, name: 'Plantain Chips', price: 3.00, emoji: '🍌' },
+      { slug: 'pepper-sauce', rank: 6, name: "Abby's Pepper Sauce", price: 2.50, emoji: '🌶️' },
+      { slug: 'honey-cake', rank: 7, name: 'Honey Cake', price: null, emoji: '🍯' },
+    ], skipped: 1, skippedNote: 'Honey Cake has no GBP retail price — the public read omits and counts it; the admin membership keeps it so it can be repriced, reordered or removed' },
+];
+const CS_FACETS = [
+  { id: 'fg-protein', key: 'protein', label: 'Protein', match: 'Attribute', source: 'protein', sort: 0, active: true,
+    options: [{ v: 'Chicken', l: 'Chicken' }, { v: 'Beef', l: 'Beef' }, { v: 'Fish', l: 'Fish' }, { v: 'Turkey', l: 'Turkey' }, { v: 'Plant-based', l: 'Plant-based' }] },
+  { id: 'fg-wellness', key: 'wellness', label: 'Wellness goal', match: 'Tag', source: null, sort: 1, active: true,
+    options: [{ v: 'carb-conscious', l: 'Carb-conscious' }, { v: 'protein-led', l: 'Protein-led' }, { v: 'plant-led', l: 'Plant-led' }, { v: 'dash', l: 'DASH' }] },
+  { id: 'fg-meal', key: 'meal', label: 'Meal type', match: 'Attribute', source: 'meal', sort: 2, active: true,
+    options: [{ v: 'Bowl', l: 'Bowl' }, { v: 'Soup', l: 'Soup' }, { v: 'Stew', l: 'Stew' }, { v: 'Salad', l: 'Salad' }] },
+  { id: 'fg-dietary', key: 'dietary', label: 'Dietary', match: 'Tag', source: null, sort: 3, active: true,
+    options: [{ v: 'gluten-free', l: 'Gluten-free' }, { v: 'dairy-free', l: 'Dairy-free' }, { v: 'vegan', l: 'Vegan' }, { v: 'high-fibre', l: 'High-fibre' }] },
+  { id: 'fg-heat', key: 'heat', label: 'Heat', match: 'Range', source: 'heatStep', sort: 4, active: true,
+    options: [{ v: 'mild', l: 'Mild', min: 0, max: 2 }, { v: 'medium', l: 'Medium', min: 2, max: 3 }, { v: 'hot', l: 'Hot', min: 3, max: 4 }] },
+];
+const CS_CONFIG = {
+  currency: 'GBP', recommendedChoiceLabel: "Abby's choice", resultsPageSize: 24,
+  backToTopTrigger: { type: 'cardIndex', value: 10 },
+  delivery: { list: 10, charged: 0 },
+  defaultBoxSlug: 'abbys-box', extrasCollectionSlug: 'extras',
+};
+
+// ── Spec 072 — storefront customers (the unified Customers view's commerce lens)
+const CS_CUSTOMERS = [
+  { id: 'party_f3a1', name: 'Femi Adesanya', email: 'femi.a@gmail.com', type: 'Person', domains: ['Storefront'],
+    orders: 4, value: 505, last: 'Today 09:14', since: 'Mar 2026',
+    adoption: { built: 'Built a 6-box as guest · Tue 21:14', signed: 'Registered · Wed 08:40', adopted: 'Cart adopted — guest token retired' },
+    cart: null },
+  { id: 'party_a2c8', name: 'Adaeze Nwosu', email: 'adaeze@nwosu.co', type: 'Person', domains: ['Storefront', 'Payabo'],
+    orders: 7, value: 812, last: 'Yesterday', since: 'Jan 2026', adoption: null, cart: null },
+  { id: 'party_t9b2', name: 'Tunde Bello', email: 'tunde.bello@outlook.com', type: 'Person', domains: ['Storefront'],
+    orders: 1, value: 95, last: '2 weeks ago', since: 'Jul 2026', adoption: null, cart: null },
+  { id: 'party_h5e7', name: 'Halima Yusuf', email: 'halima.y@yahoo.com', type: 'Person', domains: ['Storefront'],
+    orders: 2, value: 260, last: '5 days ago', since: 'May 2026', adoption: null,
+    cart: { id: 'cart_ab12', size: 8, filled: 5, extras: 2 } },
+  { id: 'party_prim', name: 'Primrose Logistics', email: 'accounts@primrose.ng', type: 'Business', domains: ['Billing'],
+    orders: 12, value: 4180, last: 'Today 07:00', since: 'Nov 2025', adoption: null, cart: null },
+];
+
+Object.assign(window, {
+  csMoney, csSigned, csDish, csGroup, csBoxPrice,
+  CS_OPTION_GROUPS, CS_DEFAULT_MOVE, CS_DISHES, CS_PLAN, CS_CALENDAR,
+  CS_COLLECTIONS, CS_FACETS, CS_CONFIG, CS_CUSTOMERS,
+});

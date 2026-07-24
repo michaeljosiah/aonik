@@ -62,10 +62,10 @@
 <script type="text/babel" src="screens/loading.jsx"></script>
 <script type="text/babel" src="screens/login.jsx"></script>
 <script type="text/babel" src="screens/myspace.jsx"></script>
-<script type="text/babel" src="screens/customers-orders.jsx"></script>
+<script type="text/babel" src="screens/customers-orders.jsx?v=2"></script>
 <script type="text/babel" src="screens/invoices-accounts.jsx"></script>
 <script type="text/babel" src="screens/journal-partners.jsx"></script>
-<script type="text/babel" src="screens/customer-detail.jsx?v=4"></script>
+<script type="text/babel" src="screens/customer-detail.jsx?v=5"></script>
 <script type="text/babel" src="screens/ai-pages.jsx"></script>
 <script type="text/babel" src="screens/ai-tasks-policies.jsx"></script>
 <script type="text/babel" src="screens/obs-overview-traces.jsx"></script>
@@ -88,10 +88,16 @@
 <script type="text/babel" src="screens/ai-chat.jsx"></script>
 <script type="text/babel" src="screens/settings.jsx"></script>
 <script type="text/babel" src="screens/billers.jsx?v=3"></script>
-<script type="text/babel" src="screens/commerce-catalog.jsx?v=2"></script>
+<script type="text/babel" src="screens/commerce-catalog.jsx?v=3"></script>
 <script type="text/babel" src="screens/commerce-inventory.jsx?v=2"></script>
-<script type="text/babel" src="screens/commerce-orders.jsx?v=2"></script>
-<script type="text/babel" src="screens/commerce-overview.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-orders.jsx?v=3"></script>
+<script type="text/babel" src="screens/commerce-overview.jsx?v=2"></script>
+<script type="text/babel" src="screens/commerce-storefront-options.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-storefront-content.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-storefront-boxplan.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-storefront-delivery.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-storefront-merch.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-storefront-config.jsx?v=1"></script>
 <script type="text/babel" src="screens/commerce-ingredients.jsx?v=1"></script>
 <script type="text/babel" src="screens/commerce-recipes.jsx?v=1"></script>
 <script type="text/babel" src="screens/commerce-low-stock.jsx?v=1"></script>
@@ -351,15 +357,15 @@ function App() {
           </DCArtboard>
         </DCSection>
 
-        <DCSection id="finance" title="Finance" subtitle="Customers, orders, ledger, billing">
-          <DCArtboard id="customers" label="Customers · list + tiers" width={W} height={H}>
-            {mkShell('customers', ['Finance', 'Customers'], ScreenCustomers)}
+        <DCSection id="finance" title="Transact & Finance" subtitle="Customers (top-level registry — domain lenses are tabs), orders, ledger, billing">
+          <DCArtboard id="customers" label="Customers · top-level registry · domain chips (Billing · Storefront · Payabo) · spine-wide order counts" width={W} height={H}>
+            {mkShell('customers', ['Customers'], ScreenCustomers)}
           </DCArtboard>
-          <DCArtboard id="customer-individual" label="Customer detail · Adaeze Nwosu · Individual · Household tab" width={W} height={H}>
-            {mkShell('customers', ['Finance', 'Customers', 'Adaeze Nwosu'], ScreenCustomerIndividual, 'customer')}
+          <DCArtboard id="customer-individual" label="Customer detail · Adaeze Nwosu · unified view · Commerce tab (adoption + box history) + spine Orders tab" width={W} height={H}>
+            {mkShell('customers', ['Customers', 'Adaeze Nwosu'], ScreenCustomerIndividual, 'customer')}
           </DCArtboard>
           <DCArtboard id="customer-detail" label="Customer detail · Primrose · Corporate · Beneficiaries tab" width={W} height={H}>
-            {mkShell('customers', ['Finance', 'Customers', 'Primrose Logistics'], ScreenCustomerDetail, 'customer')}
+            {mkShell('customers', ['Customers', 'Primrose Logistics'], ScreenCustomerDetail, 'customer')}
           </DCArtboard>
           <DCArtboard id="orders" label="Orders · inline agent proposal on flagged row" width={W} height={H}>
             {mkShell('orders', ['Finance', 'Orders'], ScreenOrders)}
@@ -665,6 +671,27 @@ function App() {
           </DCArtboard>
           <DCArtboard id="cm-margin" label="Margin report · honest aggregate (unknown-COGS surfaced & excluded, never zeroed) · inline target editing" width={W} height={H}>
             {mkShell('cm-margin', ['Commerce', 'Make', 'Margin'], ScreenCommerceMargin)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="commerce-storefront" title="Commerce · Storefront · Specs 066–072" subtitle="The shop window, run as data — AbbysTable's Tuesday: personalisation, food content, box pricing, the delivery promise, merchandising, config. A second demo tenant beside the Spec 042 wellness shop; each section is internally consistent, and on a live deployment every surface reads one catalog">
+          <DCArtboard id="cs-options" label="Personalisation · option groups + signed-delta choices + recommended default · default-move consequence card · per-product narrowing drawer" width={W} height={H}>
+            {mkShell('cs-options', ['Commerce', 'Storefront', 'Personalisation'], ScreenStorefrontOptions)}
+          </DCArtboard>
+          <DCArtboard id="cs-content" label="Food content · the label as the customer reads it · exact-authored-or-withheld · review queue + combination variants + coverage gaps" width={W} height={H}>
+            {mkShell('cs-content', ['Commerce', 'Storefront', 'Food content'], ScreenStorefrontContent)}
+          </DCArtboard>
+          <DCArtboard id="cs-boxplan" label="Box plans · price curve (formula vs presets) · marginal grow costs · authored savings, never computed" width={W} height={H}>
+            {mkShell('cs-boxplan', ['Commerce', 'Storefront', 'Box plans'], ScreenStorefrontBoxPlan)}
+          </DCArtboard>
+          <DCArtboard id="cs-delivery" label="Delivery · fulfilment calendar editor · month grid (delivery days / blackouts / the promise) · honest no-promise state" width={W} height={H}>
+            {mkShell('cs-delivery', ['Commerce', 'Storefront', 'Delivery'], ScreenStorefrontDelivery)}
+          </DCArtboard>
+          <DCArtboard id="cs-merch" label="Merchandising · ranked collections + storefront rail preview + staged drafts · facet groups (Tag / Attribute / Range bands)" width={W} height={H}>
+            {mkShell('cs-merch', ['Commerce', 'Storefront', 'Merchandising'], ScreenStorefrontMerch)}
+          </DCArtboard>
+          <DCArtboard id="cs-config" label="Storefront config · the tunables document ↔ what the customer sees (label badge, £10→Free delivery, Step 1 presets)" width={W} height={H}>
+            {mkShell('cs-config', ['Commerce', 'Storefront', 'Config'], ScreenStorefrontConfig)}
           </DCArtboard>
         </DCSection>
 

@@ -11,12 +11,17 @@ const SIDEBAR_NAV = [
   ]},
 
   // ── TRANSACT — universal verb layer (cross-cutting) ────────────────
+  // Customers sits here deliberately: parties are the universal counterparty
+  // primitive, exactly as Orders is the universal verb. One registry for every
+  // tenant; domain lenses (Billing, Storefront, Payabo) are TABS on the detail,
+  // gated by the tenant's enabled modules — never separate customer views.
   { group: 'Transact', items: [
     { id: 'orders', label: 'Orders', icon: 'receipt', badge: 4, children: [
       { id: 'orders-list',     label: 'All orders',      icon: 'list' },
       { id: 'orders-new',      label: 'New order',       icon: 'plus' },
       { id: 'order-items',     label: 'Item monitor',    icon: 'activity', badge: 2 },
     ]},
+    { id: 'customers', label: 'Customers', icon: 'users2' },
     { id: 'approvals', label: 'Approvals', icon: 'clipcheck', badge: 7 },
   ]},
 
@@ -34,8 +39,9 @@ const SIDEBAR_NAV = [
       { id: 'remit-history', label: 'Recent activity', icon: 'list' },
     ]},
     { id: 'billing', label: 'Billing', icon: 'book', children: [
+      // Customers moved to the top-level Transact layer — the registry is
+      // universal; billing keeps only its own artifacts here.
       { id: 'invoices',   label: 'Invoices',    icon: 'invoice' },
-      { id: 'customers',  label: 'Customers',   icon: 'building' },
       { id: 'accounts',   label: 'Customer accounts', icon: 'users2' },
       { id: 'collections',label: 'Collections', icon: 'arrows', badge: 3 },
       { id: 'ledger',     label: 'Ledger',      icon: 'book2', children: [
@@ -65,6 +71,17 @@ const SIDEBAR_NAV = [
       { id: 'cm-suppliers',   label: 'Suppliers',         icon: 'truck' },
       { id: 'cm-pos',         label: 'Purchase orders',   icon: 'clipboard', badge: 2 },
       { id: 'cm-margin',      label: 'Margin',            icon: 'chart' },
+    ]},
+    // Commerce · Storefront (Specs 066–072) — the shop window: what the
+    // customer can choose, read, and be promised. Third flat sibling per the
+    // Spec 058 §7 one-child-level rule. Badge = content blocks awaiting review.
+    { id: 'cm-storefront', label: 'Commerce · Storefront', icon: 'store', children: [
+      { id: 'cs-options',  label: 'Personalisation',   icon: 'sliders' },
+      { id: 'cs-content',  label: 'Product content',   icon: 'file', badge: 2 },
+      { id: 'cs-boxplan',  label: 'Box plans',         icon: 'box' },
+      { id: 'cs-delivery', label: 'Delivery',          icon: 'calendar' },
+      { id: 'cs-merch',    label: 'Merchandising',     icon: 'stack' },
+      { id: 'cs-config',   label: 'Storefront config', icon: 'cog' },
     ]},
     { id: 'personal-finance', label: 'Personal Finance', icon: 'bank', children: [
       { id: 'wallets',  label: 'Wallets',   icon: 'bank' },
