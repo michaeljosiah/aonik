@@ -12,6 +12,10 @@ function ScreenStorefrontDelivery() {
   const [days, setDays] = React.useState(cal.deliveryDays);
   const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const toggle = d => setDays(x => x.includes(d) ? x.filter(y => y !== d) : [...x, d]);
+  // The committed promise belongs to the SAVED calendar. Any unsaved day edit
+  // makes it stale: the ring comes off the grid and the card says so, until a
+  // save response echoes the recomputed promise (A5).
+  const dirty = days.length !== cal.deliveryDays.length || cal.deliveryDays.some(d => !days.includes(d));
 
   // August 2026 grid: firstDow 6 = Saturday under a Mon-first header (offset 5).
   const cells = [];
@@ -20,7 +24,7 @@ function ScreenStorefrontDelivery() {
   const dowOf = d => weekdays[(5 + d - 1) % 7];
   const isDelivery = d => d && days.includes(dowOf(d));
   const isBlackout = d => d && cal.blackoutDates.includes('2026-08-' + String(d).padStart(2, '0'));
-  const isPromise = d => d === 6;
+  const isPromise = d => d === 6 && !dirty;
 
   const kpis = [
     { l: 'Next delivery', v: 'Thu 6 Aug', s: 'the live promise, ' + cal.timezone },
@@ -102,14 +106,16 @@ function ScreenStorefrontDelivery() {
 
         {/* Month grid + promise echo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: 'var(--brand-primary-10)', border: '1px solid var(--brand-primary)', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--brand-primary)', display: 'grid', placeItems: 'center', flex: 'none' }}><Icon name="calendar" size={19} color="#fff" /></span>
+          <div style={{ background: dirty ? 'var(--warning-light)' : 'var(--brand-primary-10)', border: '1px solid ' + (dirty ? 'var(--warning)' : 'var(--brand-primary)'), borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ width: 42, height: 42, borderRadius: 999, background: dirty ? 'var(--warning)' : 'var(--brand-primary)', display: 'grid', placeItems: 'center', flex: 'none' }}><Icon name={dirty ? 'warn' : 'calendar'} size={19} color="#fff" /></span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--brand-primary)' }}>The storefront promises</div>
-              <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-primary)', marginTop: 1 }}>Earliest delivery {cal.promise.label}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: dirty ? 'var(--warning)' : 'var(--brand-primary)' }}>{dirty ? 'Unsaved changes' : 'The storefront promises'}</div>
+              <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-primary)', marginTop: 1 }}>{dirty ? 'Promise recomputes on save' : 'Earliest delivery ' + cal.promise.label}</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Ordered before <span style={{ fontFamily: 'var(--font-mono)' }}>Tue 18:00</span> makes this week's close.<br />It is now <span style={{ fontFamily: 'var(--font-mono)' }}>Tue 17:20</span> — inside the window.
+              {dirty
+                ? <>The committed calendar still serves <span style={{ fontFamily: 'var(--font-mono)' }}>{cal.promise.label}</span> until you save.</>
+                : <>Ordered before <span style={{ fontFamily: 'var(--font-mono)' }}>Tue 18:00</span> makes this week's close.<br />It is now <span style={{ fontFamily: 'var(--font-mono)' }}>Tue 17:20</span> — inside the window.</>}
             </div>
           </div>
 

@@ -9,12 +9,19 @@
 function ScreenStorefrontBoxPlan() {
   const plan = CS_PLAN;
   const sizes = [];
-  for (let s = 6; s <= 14; s++) sizes.push(s);
+  for (let s = plan.min; s <= plan.max; s++) sizes.push(s);
   const formula = s => plan.basePrice + (s - plan.baseSize) * plan.perSpace;
 
-  // Chart geometry — 660×240 plot, y spans £85–£225.
-  const X = s => 40 + (s - 6) * (600 / 8);
-  const Y = v => 210 - ((v - 85) / 140) * 185;
+  // Chart geometry — 660×240 plot spanning the WHOLE configured range, so a
+  // preset at size 20 or the formula tail can never fall outside the view.
+  const pLo = Math.min(...sizes.map(csBoxPrice)) - 10;
+  const pHi = Math.max(...sizes.map(formula)) + 10;
+  const X = s => 40 + (s - plan.min) * (600 / Math.max(1, plan.max - plan.min));
+  const Y = v => 210 - ((v - pLo) / Math.max(1, pHi - pLo)) * 185;
+  const yStep = Math.max(50, Math.ceil((pHi - pLo) / 5 / 50) * 50);
+  const yTicks = [];
+  for (let v = Math.ceil(pLo / yStep) * yStep; v < pHi; v += yStep) yTicks.push(v);
+  const xTicks = sizes.filter(s => (s - plan.min) % 4 === 0 || plan.presets.some(pr => pr.size === s));
   const fPts = sizes.map(s => X(s) + ',' + Y(formula(s))).join(' ');
   const ePts = sizes.map(s => X(s) + ',' + Y(csBoxPrice(s))).join(' ');
   const grows = [[6, 8], [8, 12], [12, 14]].map(([a, b]) => ({ from: a, to: b, cost: csBoxPrice(b) - csBoxPrice(a) }));
@@ -53,13 +60,13 @@ function ScreenStorefrontBoxPlan() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-tertiary)' }}><span style={{ width: 8, height: 8, borderRadius: 99, background: 'var(--brand-primary)' }} /> preset wins</span>
           </div>
           <svg viewBox="0 0 660 240" style={{ width: '100%', height: 'auto', display: 'block' }}>
-            {[95, 125, 155, 185, 215].map(v => (
+            {yTicks.map(v => (
               <g key={v}>
                 <line x1="40" x2="640" y1={Y(v)} y2={Y(v)} stroke="var(--border-light)" strokeWidth="1" />
                 <text x="34" y={Y(v) + 3.5} textAnchor="end" fontSize="9.5" fill="var(--text-tertiary)" fontFamily="var(--font-mono)">£{v}</text>
               </g>
             ))}
-            {sizes.map(s => (
+            {xTicks.map(s => (
               <text key={s} x={X(s)} y="228" textAnchor="middle" fontSize="10" fill="var(--text-tertiary)" fontFamily="var(--font-mono)">{s}</text>
             ))}
             <polyline points={fPts} fill="none" stroke="var(--border-medium)" strokeWidth="1.8" strokeDasharray="5 4" />

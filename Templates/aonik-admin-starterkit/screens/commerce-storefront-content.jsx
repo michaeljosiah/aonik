@@ -139,17 +139,19 @@ function ScreenStorefrontContent() {
                   </div>
                 </div>
 
-                {c.heating.length > 0 && (
+                {(c.heating.length > 0 || c.state === 'review') && (
                   <div style={{ padding: '13px 16px', borderTop: '1px solid var(--border-light)' }}>
                     <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 8 }}>Heating</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {c.heating.map((h, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', minWidth: 84 }}>{h.m}</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{h.b}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {c.state === 'review'
+                      ? <div style={{ fontSize: 12, color: 'var(--warning)', fontStyle: 'italic' }}>Withheld while under review — the old timings may not fit the new standard combination</div>
+                      : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {c.heating.map((h, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                              <span style={{ fontWeight: 600, color: 'var(--text-primary)', minWidth: 84 }}>{h.m}</span>
+                              <span style={{ color: 'var(--text-secondary)' }}>{h.b}</span>
+                            </div>
+                          ))}
+                        </div>}
                   </div>
                 )}
               </div>

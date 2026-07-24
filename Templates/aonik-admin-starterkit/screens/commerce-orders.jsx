@@ -214,6 +214,13 @@ function CmCartDrawer({ c, onClose }) {
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <CmLineItems lines={c.lines} ccy={c.ccy} />
+          {c.boxMeta && (c.boxMeta.drift || c.boxMeta.filled < c.boxMeta.size) && (
+            <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning)', borderRadius: 8, padding: '9px 12px', fontSize: 11.5, color: 'var(--text-primary)' }}>
+              {c.boxMeta.drift
+                ? 'Catalogue drift — a selection is flagged; continue and checkout stay blocked until the customer resolves it (Spec 068).'
+                : 'The box is ' + c.boxMeta.filled + '/' + c.boxMeta.size + ' filled — continue unlocks when it is full.'}
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 2px' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Subtotal</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{cmMoney(total, c.ccy)}</span>
@@ -224,7 +231,11 @@ function CmCartDrawer({ c, onClose }) {
           {c.status === 'abandoned'
             ? <><button className="btn btn-outline btn-sm" onClick={onClose}>Close</button><button className="btn btn-primary btn-sm"><Icon name="mail" size={12} /> Send recovery link</button></>
             : c.status === 'open'
-            ? <><button className="btn btn-outline btn-sm" onClick={onClose}>Close</button><button className="btn btn-primary btn-sm">Resume checkout <Icon name="arrowright" size={12} /></button></>
+            ? (() => {
+                const blocked = c.boxMeta && (c.boxMeta.drift || c.boxMeta.filled < c.boxMeta.size);
+                const why = !c.boxMeta ? null : c.boxMeta.drift ? 'unresolved catalogue drift' : 'box incomplete (' + c.boxMeta.filled + '/' + c.boxMeta.size + ')';
+                return <><button className="btn btn-outline btn-sm" onClick={onClose}>Close</button><button className="btn btn-primary btn-sm" disabled={blocked} title={blocked ? 'Blocked: ' + why : undefined}>{blocked ? 'Checkout blocked' : 'Resume checkout'} {!blocked && <Icon name="arrowright" size={12} />}</button></>;
+              })()
             : <button className="btn btn-outline btn-sm" onClick={onClose}>View order</button>}
         </div>
       </div>

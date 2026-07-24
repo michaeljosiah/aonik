@@ -15,6 +15,9 @@ function ScreenStorefrontOptions() {
   const [dish, setDish] = React.useState(null);
   const groups = CS_OPTION_GROUPS;
   const g = groups.find(x => x.key === groupKey);
+  // Spec 066 §8 — stored choice prices are ABSOLUTE; the storefront shows the
+  // delta against the recommended default, so we derive it the same way here.
+  const dfltPrice = (g.choices.find(c => c.dflt) || { price: 0 }).price;
   const choiceCount = groups.reduce((a, x) => a + x.choices.length, 0);
   const narrowed = CS_DISHES.filter(d => d.groups.length > 0);
   const surcharged = CS_DISHES.filter(d => d.surcharge != null);
@@ -89,15 +92,16 @@ function ScreenStorefrontOptions() {
                     {c.note && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 8 }}>{c.note}</span>}
                     {c.dflt && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--brand-primary)', background: 'var(--brand-primary-10)', padding: '1.5px 7px', borderRadius: 999, marginLeft: 8 }}>{CS_CONFIG.recommendedChoiceLabel}</span>}
                   </div>
-                  <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: c.price > 0 ? 'var(--text-primary)' : c.price < 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>{csSigned(c.price)}</div>
+                  <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: (c.price - dfltPrice) > 0 ? 'var(--text-primary)' : (c.price - dfltPrice) < 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>{csSigned(c.price - dfltPrice)}</div>
                   <div><Pill tone={c.active ? 'success' : 'muted'} dot size="sm">{c.active ? 'Active' : 'Retired'}</Pill></div>
                   <div style={{ textAlign: 'right' }}>
                     {!c.dflt && <button className="btn btn-ghost btn-sm" title="Move the recommended default here — reports every affected product"><Icon name="star" size={11} /> Make default</button>}
                   </div>
                 </div>
               ))}
-              <div style={{ padding: '9px 16px', borderTop: '1px solid var(--border-light)', background: 'var(--surface-inset)' }}>
+              <div style={{ padding: '9px 16px', borderTop: '1px solid var(--border-light)', background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button className="btn btn-ghost btn-sm"><Icon name="plus" size={11} /> Add choice</button>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Stored prices are absolute (066 §8) — the deltas above derive against the default.</span>
               </div>
             </div>
 
@@ -110,7 +114,7 @@ function ScreenStorefrontOptions() {
                   <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>{CS_DEFAULT_MOVE.when}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
-                  "The standard preparation" just changed for {CS_DEFAULT_MOVE.affected.length} products. Their content blocks are flagged for review — figures keep serving, declarations arrive withheld until each is confirmed.
+                  "The standard preparation" just changed for {CS_DEFAULT_MOVE.affected.length} products. Their content blocks are flagged for review — figures keep serving, declarations arrive withheld until each is confirmed. Five have been confirmed since; Suya-Spiced Salmon is still open in the queue.
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
                   {CS_DEFAULT_MOVE.affected.map(s => {
@@ -179,17 +183,39 @@ function CsNarrowingDrawer({ d, onClose }) {
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{g.label}</span>
                   {!offered && <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>not offered on this product</span>}
                 </div>
-                {offered && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
-                    {g.choices.map(c => (
-                      <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: c.dflt ? 'var(--brand-primary)' : 'var(--text-secondary)', background: c.dflt ? 'var(--brand-primary-10)' : 'var(--surface-inset)', border: '1px solid ' + (c.dflt ? 'var(--brand-primary)' : 'var(--border-light)'), borderRadius: 999, padding: '4px 11px', fontWeight: c.dflt ? 600 : 500 }}>
-                        {c.dflt && <Icon name="star" size={10} color="var(--brand-primary)" />}
-                        {c.label}
-                        {c.price !== 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>{csSigned(c.price)}</span>}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {offered && (() => {
+                  // Spec 066 — narrowing is group inclusion AND the allowed-choice /
+                  // default-override intersection; excluded choices render struck so a
+                  // full-replace save persists exactly what the operator sees.
+                  const nr = (d.narrow || {})[g.key] || {};
+                  const allowed = nr.allowed || g.choices.map(c => c.key);
+                  const effDflt = nr.dflt || (g.choices.find(x => x.dflt) || {}).key;
+                  const gDflt = (g.choices.find(x => x.dflt) || { price: 0 }).price;
+                  return (
+                    <div style={{ marginTop: 9 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {g.choices.map(c => {
+                          const inOffer = allowed.includes(c.key);
+                          const isDflt = c.key === effDflt;
+                          const dl = c.price - gDflt;
+                          return (
+                            <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: !inOffer ? 'var(--text-tertiary)' : isDflt ? 'var(--brand-primary)' : 'var(--text-secondary)', background: !inOffer ? 'transparent' : isDflt ? 'var(--brand-primary-10)' : 'var(--surface-inset)', border: '1px ' + (inOffer ? 'solid' : 'dashed') + ' ' + (inOffer && isDflt ? 'var(--brand-primary)' : 'var(--border-light)'), borderRadius: 999, padding: '4px 11px', fontWeight: isDflt ? 600 : 500, textDecoration: inOffer ? 'none' : 'line-through', opacity: inOffer ? 1 : 0.6 }}>
+                              {isDflt && <Icon name="star" size={10} color="var(--brand-primary)" />}
+                              {c.label}
+                              {inOffer && dl !== 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>{csSigned(dl)}</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {(nr.allowed || nr.dflt) && (
+                        <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                          {nr.allowed ? 'Narrowed — struck choices are excluded from this product; the full-replace save persists exactly this intersection.' : ''}
+                          {nr.dflt ? ' Default overridden for this product.' : ''}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

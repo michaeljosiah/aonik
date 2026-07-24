@@ -38,7 +38,7 @@ const cmCatName = id => (CM_CATEGORIES.find(c => c.id === id) || {}).name || '�
 // ─── Products (wellness-food catalog) ─────────────────────────────────────
 // variant: { sku, opt, weight, active, ngn, gbp, onHand, reserved }
 const CM_PRODUCTS = [
-  { id: 'p-alm', name: 'Almond & Honey Granola', slug: 'almond-honey-granola', cat: 'granola', kind: 'variant', status: 'active', emoji: '🥣', color: '#b4741e', tags: ['bestseller', 'vegan'], media: 4,
+  { id: 'p-alm', name: 'Almond & Honey Granola', slug: 'almond-honey-granola', cat: 'granola', kind: 'variant', status: 'active', emoji: '🥣', color: '#b4741e', tags: ['bestseller', 'vegan'], media: 4, sf: { keywords: ['breakfast', 'honey', 'crunchy'], attrs: { serveStyle: 'ambient' } },
     variants: [
       { sku: 'GRN-ALM-250', opt: '250 g', weight: 250, active: true, ngn: 2800, gbp: 4.50, onHand: 120, reserved: 8 },
       { sku: 'GRN-ALM-500', opt: '500 g', weight: 500, active: true, ngn: 4500, gbp: 7.20, onHand: 86,  reserved: 4 },
@@ -80,7 +80,7 @@ const CM_PRODUCTS = [
   { id: 'p-coco', name: 'Coconut Bites', slug: 'coconut-bites', cat: 'snacks', kind: 'simple', status: 'archived', emoji: '🥥', color: '#8a8a8a', tags: [], media: 1,
     variants: [{ sku: 'SNK-COCO-120', opt: '120 g', weight: 120, active: false, ngn: 1800, gbp: 2.85, onHand: 0, reserved: 0 }] },
   // Bundles (build-your-own-box / composite)
-  { id: 'p-byob', name: 'Build-Your-Own Wellness Box', slug: 'byo-wellness-box', cat: 'boxes', kind: 'bundle', status: 'active', emoji: '📦', color: '#055a60', tags: ['bestseller', 'gift'], media: 3,
+  { id: 'p-byob', name: 'Build-Your-Own Wellness Box', slug: 'byo-wellness-box', cat: 'boxes', kind: 'bundle', status: 'active', emoji: '📦', color: '#055a60', tags: ['bestseller', 'gift'], media: 3, sf: { keywords: ['gift', 'hamper'] },
     variants: [],
     bundle: { mode: 'fixed', fixed: 12000, premium: null, ccy: 'NGN',
       slots: [{ name: 'Pick any 6', min: 6, max: 6, from: 'granola', allowDup: true, src: 'category' }] } },
@@ -617,30 +617,37 @@ function ScreenCommerceCategories() {
 // facet groups match on. Deep surfaces (options, content, size plan) live on
 // their own Commerce · Storefront screens; this tab shows state and links out.
 function CmTabStorefront({ p }) {
+  // Everything here reads the SELECTED product — the Spec 042 wellness catalog
+  // predates 066/067, so most rows honestly report nothing authored yet.
+  const sf = p.sf || {};
+  const kw = sf.keywords || [];
+  const attrs = Object.entries(sf.attrs || {});
   const chips = [
-    { l: 'Personalisation', s: '4 groups offered', ok: true, screen: 'Commerce · Storefront · Personalisation' },
-    { l: 'Food content', s: 'authored · 2 combination variants', ok: true, screen: 'Commerce · Storefront · Food content' },
-    { l: 'Size plan', s: p.kind === 'bundle' ? '6–30 · 3 presets' : 'not a bundle', ok: p.kind === 'bundle', screen: 'Commerce · Storefront · Box plans' },
+    { l: 'Personalisation', s: sf.groups ? sf.groups + ' groups offered' : 'not personalisable — no groups offered', ok: !!sf.groups, screen: 'Commerce · Storefront · Personalisation' },
+    { l: 'Product content', s: sf.content === 'authored' ? 'authored' + (sf.variants ? ' · ' + sf.variants + ' combination variants' : '') : 'not authored — customers see the honest empty state', ok: sf.content === 'authored', screen: 'Commerce · Storefront · Product content' },
+    { l: 'Size plan', s: p.kind === 'bundle' ? 'authorable on this bundle' : 'not a bundle', ok: p.kind === 'bundle', screen: 'Commerce · Storefront · Box plans' },
   ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <CmField label="Search keywords" hint="matched by storefront search — never serialized publicly">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '9px 11px', border: '1px solid var(--border-light)', borderRadius: 8, background: 'var(--surface)' }}>
-          {['party rice', 'smoky', 'firewood'].map(k => (
+          {kw.map(k => (
             <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--surface-inset)', borderRadius: 999, padding: '3px 10px' }}>{k}<Icon name="close" size={9} color="var(--text-tertiary)" /></span>
           ))}
-          <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)', padding: '3px 4px' }}>add keyword…</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)', padding: '3px 4px' }}>{kw.length === 0 ? 'none yet — add keyword…' : 'add keyword…'}</span>
         </div>
       </CmField>
       <CmField label="Storefront attributes" hint="the contract facet groups match on">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[['heatStep', '2'], ['protein', 'Chicken'], ['meal', 'Bowl']].map(([k, v]) => (
-            <div key={k} style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '8px 11px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{k}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2, fontFamily: k === 'heatStep' ? 'var(--font-mono)' : 'var(--font-sans)' }}>{v}</div>
-            </div>
-          ))}
-        </div>
+        {attrs.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-tertiary)', border: '1px dashed var(--border-light)', borderRadius: 8, padding: '10px 12px' }}>No storefront attributes authored — this product simply matches no attribute facet.</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {attrs.map(([k, v]) => (
+                <div key={k} style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '8px 11px' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{k}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{String(v)}</div>
+                </div>
+              ))}
+            </div>}
       </CmField>
       <CmField label="Unit surcharge" hint="the one price-like field a product card may show">
         <input defaultValue="" placeholder="— none" style={{ ...cmInput, fontFamily: 'var(--font-mono)', width: 140 }} />

@@ -50,7 +50,7 @@ function ScreenStorefrontConfig() {
             <Field label="Default box" hint="the bundle Step 1 builds" value={cfg.defaultBoxSlug} mono />
             <Field label="Extras collection" hint="the Spec 071 rail" value={cfg.extrasCollectionSlug} mono />
           </div>
-          <Field label="Back-to-top trigger" hint="served verbatim to the frontend" value={cfg.backToTop} mono wide />
+          <Field label="Back-to-top trigger" hint="typed { type, value } object in the public document; stored internally as a setting string" value={JSON.stringify(cfg.backToTopTrigger)} mono wide />
 
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.55, borderTop: '1px solid var(--border-light)', paddingTop: 11 }}>
             Omitted members leave stored values unchanged; an explicit empty string clears a tenant override back to the default. The public read never 404s — an unconfigured storefront gets a valid minimal document — and serves with <span style={{ fontFamily: 'var(--font-mono)' }}>Vary: X-Tenant-Id</span>.

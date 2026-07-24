@@ -1198,7 +1198,11 @@ const CS_OPTION_GROUPS = [
 // RecommendedDefaultChangeResult listed these slugs; 067 flagged their blocks.
 const CS_DEFAULT_MOVE = {
   group: 'side', from: 'salad', to: 'plantain', when: 'Yesterday 16:42', by: 'abby@abbystable.co.uk',
-  affected: ['jollof-chicken', 'egusi-beef', 'suya-salmon', 'ofada-turkey', 'catfish-pepper-soup'],
+  // Spec 066: only products OFFERING the changed group are affected — pepper
+  // soup (portion+heat) is not. Spec 067 flagged each block; five have been
+  // confirmed since, so today's queue holds suya (this move) + egusi (other).
+  affected: ['jollof-chicken', 'egusi-beef', 'suya-salmon', 'moi-moi-garden', 'ofada-turkey', 'garden-jollof'],
+  confirmed: 5,
 };
 
 // ── Dishes (products through the storefront lens) ──────────────────────────
@@ -1207,8 +1211,9 @@ const CS_DEFAULT_MOVE = {
 // content: state authored | withheld | review;  gaps = single-choice coverage gaps.
 const CS_DISHES = [
   { slug: 'jollof-chicken', name: 'Jollof Rice & Chicken', emoji: '🍚', color: '#b3541e', status: 'active',
-    attrs: { heatStep: 2, protein: 'Chicken', meal: 'Bowl' }, tags: ['bestseller', 'gluten-free'], keywords: ['party rice', 'smoky', 'firewood'],
-    groups: ['portion', 'protein', 'side', 'heat'], surcharge: null,
+    attrs: { heatStep: 2, protein: 'Chicken', meal: 'Bowl' }, tags: ['bestseller', 'gluten-free', 'protein-led'], keywords: ['party rice', 'smoky', 'firewood'],
+    groups: ['portion', 'protein', 'side', 'heat'],
+    narrow: { protein: { allowed: ['chicken', 'beef', 'salmon'] } }, surcharge: null,
     content: { state: 'authored', servingLabel: 'Per serving (regular, standard preparation)',
       fig: { kcal: 620, protein: 34, carbs: 71, fat: 22, fibre: 6, sugars: 8, salt: 1.8 },
       ingredients: 'Long-grain rice, chicken thigh, tomato, red pepper, scotch bonnet, onion, groundnut oil, thyme, bay leaf',
@@ -1217,7 +1222,7 @@ const CS_DISHES = [
       variants: [{ sel: 'protein: salmon', note: 'declares Fish' }, { sel: 'portion: large', note: 'figures re-authored' }],
       gaps: [{ group: 'protein', choice: 'goat' }] } },
   { slug: 'egusi-beef', name: 'Egusi & Beef', emoji: '🥘', color: '#7a6a1e', status: 'active',
-    attrs: { heatStep: 2, protein: 'Beef', meal: 'Stew' }, tags: ['high-fibre'], keywords: ['melon seed', 'soup', 'swallow'],
+    attrs: { heatStep: 2, protein: 'Beef', meal: 'Stew' }, tags: ['high-fibre', 'protein-led'], keywords: ['melon seed', 'soup', 'swallow'],
     groups: ['portion', 'protein', 'side', 'heat'], surcharge: null,
     content: { state: 'review', reviewReason: 'Variant references retired choice "okra side"',
       servingLabel: 'Per serving (regular, standard preparation)',
@@ -1228,7 +1233,7 @@ const CS_DISHES = [
       variants: [{ sel: 'side: okra (retired)', note: 'needs re-author', stale: true }],
       gaps: [] } },
   { slug: 'suya-salmon', name: 'Suya-Spiced Salmon Bowl', emoji: '🐟', color: '#a34226', status: 'active',
-    attrs: { heatStep: 3, protein: 'Fish', meal: 'Bowl' }, tags: ['signature', 'dairy-free'], keywords: ['yaji', 'grilled', 'spice crust'],
+    attrs: { heatStep: 3, protein: 'Fish', meal: 'Bowl' }, tags: ['signature', 'dairy-free', 'protein-led'], keywords: ['yaji', 'grilled', 'spice crust'],
     groups: ['portion', 'side', 'heat'], surcharge: 2.00,
     content: { state: 'review', reviewReason: 'Side default moved salad → plantain (yesterday)',
       servingLabel: 'Per serving (regular, standard preparation)',
@@ -1239,8 +1244,9 @@ const CS_DISHES = [
       variants: [],
       gaps: [{ group: 'heat', choice: 'none' }] } },
   { slug: 'moi-moi-garden', name: 'Moi Moi Garden Plate', emoji: '🫘', color: '#2e6b4f', status: 'active',
-    attrs: { heatStep: 0, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan', 'gluten-free'], keywords: ['bean pudding', 'steamed'],
-    groups: ['portion', 'side', 'heat'], surcharge: null,
+    attrs: { heatStep: 0, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan', 'gluten-free', 'plant-led'], keywords: ['bean pudding', 'steamed'],
+    groups: ['portion', 'side', 'heat'],
+    narrow: { side: { allowed: ['plantain', 'salad', 'noside'], dflt: 'salad' } }, surcharge: null,
     content: { state: 'authored', servingLabel: 'Per serving (regular)',
       fig: { kcal: 430, protein: 21, carbs: 52, fat: 14, fibre: 12, sugars: 4, salt: 1.1 },
       ingredients: 'Black-eyed beans, red pepper, onion, vegetable oil, ginger, greens of the week',
@@ -1249,7 +1255,7 @@ const CS_DISHES = [
       variants: [],
       gaps: [{ group: 'portion', choice: 'large' }] } },
   { slug: 'ofada-turkey', name: 'Ofada Rice & Turkey', emoji: '🍛', color: '#4f5d2e', status: 'active',
-    attrs: { heatStep: 3, protein: 'Turkey', meal: 'Bowl' }, tags: ['bold'], keywords: ['ayamase sauce', 'local rice'],
+    attrs: { heatStep: 3, protein: 'Turkey', meal: 'Bowl' }, tags: ['bold', 'protein-led'], keywords: ['ayamase sauce', 'local rice'],
     groups: ['portion', 'protein', 'side', 'heat'], surcharge: null,
     content: { state: 'withheld', servingLabel: 'Per serving (regular, standard preparation)',
       fig: { kcal: 680, protein: 36, carbs: 74, fat: 26, fibre: 7, sugars: 5, salt: 2.3 },
@@ -1258,7 +1264,7 @@ const CS_DISHES = [
       variants: [],
       gaps: [] } },
   { slug: 'catfish-pepper-soup', name: 'Catfish Pepper Soup', emoji: '🍲', color: '#8a3a2a', status: 'active',
-    attrs: { heatStep: 3, protein: 'Fish', meal: 'Soup' }, tags: ['dairy-free', 'low-carb'], keywords: ['point and kill', 'uziza', 'broth'],
+    attrs: { heatStep: 3, protein: 'Fish', meal: 'Soup' }, tags: ['dairy-free', 'low-carb', 'carb-conscious'], keywords: ['point and kill', 'uziza', 'broth'],
     groups: ['portion', 'heat'], surcharge: null,
     content: { state: 'authored', servingLabel: 'Per serving (regular)',
       fig: { kcal: 310, protein: 33, carbs: 9, fat: 15, fibre: 2, sugars: 2, salt: 2.0 },
@@ -1268,7 +1274,7 @@ const CS_DISHES = [
       variants: [],
       gaps: [] } },
   { slug: 'garden-jollof', name: 'Garden Jollof', emoji: '🥗', color: '#3f7a3a', status: 'active',
-    attrs: { heatStep: 1, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan'], keywords: ['veg', 'mild'],
+    attrs: { heatStep: 1, protein: 'Plant-based', meal: 'Bowl' }, tags: ['vegan', 'plant-led'], keywords: ['veg', 'mild'],
     groups: ['portion', 'side', 'heat'], surcharge: null,
     content: { state: 'authored', servingLabel: 'Per serving (regular)',
       fig: { kcal: 480, protein: 12, carbs: 78, fat: 12, fibre: 8, sugars: 9, salt: 1.4 },
@@ -1335,12 +1341,12 @@ const CS_COLLECTIONS = [
     ], skipped: 1, skippedNote: 'Honey Cake has no GBP retail price — omitted and counted, never silently dropped' },
 ];
 const CS_FACETS = [
-  { id: 'fg-protein', key: 'protein', label: 'Protein', match: 'Tag', source: null, sort: 0, active: true,
-    options: [{ v: 'chicken', l: 'Chicken' }, { v: 'beef', l: 'Beef' }, { v: 'fish', l: 'Fish' }, { v: 'turkey', l: 'Turkey' }, { v: 'plant-based', l: 'Plant-based' }] },
+  { id: 'fg-protein', key: 'protein', label: 'Protein', match: 'Attribute', source: 'attributes.protein', sort: 0, active: true,
+    options: [{ v: 'Chicken', l: 'Chicken' }, { v: 'Beef', l: 'Beef' }, { v: 'Fish', l: 'Fish' }, { v: 'Turkey', l: 'Turkey' }, { v: 'Plant-based', l: 'Plant-based' }] },
   { id: 'fg-wellness', key: 'wellness', label: 'Wellness goal', match: 'Tag', source: null, sort: 1, active: true,
     options: [{ v: 'carb-conscious', l: 'Carb-conscious' }, { v: 'protein-led', l: 'Protein-led' }, { v: 'plant-led', l: 'Plant-led' }, { v: 'dash', l: 'DASH' }] },
   { id: 'fg-meal', key: 'meal', label: 'Meal type', match: 'Attribute', source: 'attributes.meal', sort: 2, active: true,
-    options: [{ v: 'bowl', l: 'Bowl' }, { v: 'soup', l: 'Soup' }, { v: 'stew', l: 'Stew' }, { v: 'salad', l: 'Salad' }] },
+    options: [{ v: 'Bowl', l: 'Bowl' }, { v: 'Soup', l: 'Soup' }, { v: 'Stew', l: 'Stew' }, { v: 'Salad', l: 'Salad' }] },
   { id: 'fg-dietary', key: 'dietary', label: 'Dietary', match: 'Tag', source: null, sort: 3, active: true,
     options: [{ v: 'gluten-free', l: 'Gluten-free' }, { v: 'dairy-free', l: 'Dairy-free' }, { v: 'vegan', l: 'Vegan' }, { v: 'high-fibre', l: 'High-fibre' }] },
   { id: 'fg-heat', key: 'heat', label: 'Heat', match: 'Range', source: 'attributes.heatStep', sort: 4, active: true,
@@ -1348,7 +1354,7 @@ const CS_FACETS = [
 ];
 const CS_CONFIG = {
   currency: 'GBP', recommendedChoiceLabel: "Abby's choice", resultsPageSize: 24,
-  backToTop: '{"type":"cardIndex","value":10}',
+  backToTopTrigger: { type: 'cardIndex', value: 10 },
   delivery: { list: 10, charged: 0 },
   defaultBoxSlug: 'abbys-box', extrasCollectionSlug: 'extras',
 };
