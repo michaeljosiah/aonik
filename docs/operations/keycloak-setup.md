@@ -289,9 +289,29 @@ active provider and both have to say `Keycloak`: `Auth:Provider` binds
 `AuthOptions` (JWT scheme selection), while `Settings:Auth.Provider` is what
 `GetActiveProviderAsync` reads when it compares the token's issuer against the
 active provider. Set only the first and a valid Keycloak token is rejected with
-this message. Export both (`Auth__Provider=Keycloak` and
-`Settings__Auth.Provider=Keycloak`); the AppHost's `AONIK_AUTH_PROVIDER=Keycloak`
-path already sets both.
+this message.
+
+Note the dot in `Settings:Auth.Provider`: the environment-variable spelling
+would be `Settings__Auth.Provider`, which a POSIX shell refuses as an invalid
+identifier (`export Settings__Auth.Provider=Keycloak` is a syntax error, and
+`Settings__Auth__Provider` maps to a different key the code never reads). Pass
+both on the command line instead — the colon form needs no escaping anywhere:
+
+```bash
+dotnet run --project src/Aonik.Api -- --Auth:Provider=Keycloak --Settings:Auth.Provider=Keycloak
+```
+
+Or persist them for local work:
+
+```bash
+dotnet user-secrets set "Settings:Auth.Provider" Keycloak --project src/Aonik.Api
+```
+
+If the deployment target only accepts environment variables, quote the whole
+assignment so the shell never parses the name — `env 'Settings__Auth.Provider=Keycloak'
+'Auth__Provider=Keycloak' dotnet …`, or in PowerShell `${env:Settings__Auth.Provider} =
+'Keycloak'`. The AppHost's `AONIK_AUTH_PROVIDER=Keycloak` path needs none of
+this: it sets both through the process API, where the dot is unremarkable.
 
 ### `Direct-grant disabled` on `KeycloakAuthTokenService.ExchangeAsync`
 
