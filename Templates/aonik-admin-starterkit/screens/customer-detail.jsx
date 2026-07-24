@@ -837,11 +837,16 @@ function ScreenCustomerIndividual() {
             </thead>
             <tbody>
               {[
+                // The complete spine — 7 orders, £1,073.00: five boxes (£629.00,
+                // the Commerce tab's party-scoped subset) + two Payabo orders.
+                // The registry row derives its count and value from this set.
                 { id: 'ord_2044', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 8 dishes + 2 extras", d: 'Today',  st: 'Paid',      stone: 'success', amt: '£129.00' },
                 { id: 'ORD-9101', ty: 'MoneyTransfer',   tone: 'pending', w: 'GBP→NGN — to Mum, Lagos',          d: '2d ago', st: 'Settled',   stone: 'success', amt: '£420.00' },
                 { id: 'ord_1990', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 6 dishes",            d: '28 Jul', st: 'Fulfilled', stone: 'success', amt: '£95.00' },
                 { id: 'ORD-9084', ty: 'BillPayment',     tone: 'muted',   w: 'MTN Nigeria — airtime top-up',     d: '21 Jul', st: 'Settled',   stone: 'success', amt: '£24.00' },
                 { id: 'ord_1875', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 12 dishes (party)",   d: '4 Jul',  st: 'Fulfilled', stone: 'success', amt: '£183.50' },
+                { id: 'ord_1799', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 8 dishes + chin chin", d: '19 Jun', st: 'Fulfilled', stone: 'success', amt: '£126.50' },
+                { id: 'ord_1701', ty: 'ProductPurchase', tone: 'tint',    w: "Abby's Box — 6 dishes",            d: '30 Jan', st: 'Fulfilled', stone: 'success', amt: '£95.00' },
               ].map((r, i) => (
                 <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
                   <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--brand-primary)' }}>{r.id}</td>

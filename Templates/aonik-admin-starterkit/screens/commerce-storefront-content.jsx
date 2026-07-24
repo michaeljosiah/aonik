@@ -19,13 +19,17 @@ function ScreenStorefrontContent() {
   const [slug, setSlug] = React.useState('suya-salmon');
   const d = csDish(slug);
   const c = d.content;
-  const authored = CS_DISHES.filter(x => x.content.state === 'authored');
+  // Published = an active product with a default block serving figures — review
+  // and declarations-withheld states still serve their figures (067), so they
+  // count; drafts are out of the denominator entirely.
+  const activeDishes = CS_DISHES.filter(x => x.status !== 'draft');
+  const published = activeDishes.filter(x => x.content.fig);
   const review = CS_DISHES.filter(x => x.content.state === 'review');
   const variants = CS_DISHES.reduce((a, x) => a + x.content.variants.length, 0);
   const gaps = CS_DISHES.reduce((a, x) => a + x.content.gaps.length, 0);
 
   const kpis = [
-    { l: 'Products published', v: authored.length + ' of ' + CS_DISHES.length, s: 'default blocks serving' },
+    { l: 'Products published', v: published.length + ' of ' + activeDishes.length, s: 'default blocks serving figures' },
     { l: 'Combination variants', v: variants, s: 'exact-authored declarations' },
     { l: 'Coverage gaps', v: gaps, s: 'single-choice combinations unauthored' },
     { l: 'Awaiting review', v: review.length, s: 'default combination changed', warn: true },

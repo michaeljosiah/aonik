@@ -10,7 +10,7 @@ function ScreenCustomers() {
   const rows = [
     { id: 'CUS-00142', name: 'Primrose Logistics', type: 'Business', country: 'NG', domains: ['Billing'],               orders: 48, spend: '$128,430', flag: 'Key account' },
     { id: 'CUS-00141', name: 'Apex Fabrication',   type: 'Business', country: 'GB', domains: ['Billing'],               orders: 12, spend: '$42,100',  flag: null },
-    { id: 'CUS-00151', name: 'Adaeze Nwosu',       type: 'Person',   country: 'NG', domains: ['Storefront', 'Payabo'],  orders: 7,  spend: '£812.00',  flag: null },
+    { id: 'CUS-00151', name: 'Adaeze Nwosu',       type: 'Person',   country: 'NG', domains: ['Storefront', 'Payabo'],  orders: 7,  spend: '£1,073.00', flag: null },
     { id: 'CUS-00150', name: 'Femi Adesanya',      type: 'Person',   country: 'GB', domains: ['Storefront'],            orders: 4,  spend: '£505.00',  flag: null },
     { id: 'CUS-00140', name: 'Maria Obi',          type: 'Person',   country: 'NG', domains: ['Billing'],               orders: 3,  spend: '$8,600',   flag: 'Agent-onboarded' },
     { id: 'CUS-00138', name: 'Northstar Freight',  type: 'Business', country: 'KE', domains: ['Billing'],               orders: 18, spend: '$36,900',  flag: 'Sanctions flag · review' },

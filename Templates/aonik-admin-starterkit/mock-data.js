@@ -1156,6 +1156,9 @@ window.cmMarginRows = cmMarginRows;
    One coherent narrative: Abby's UK meal-box shop on a mock "today" of
    Tue 4 Aug 2026, 17:20 Europe/London — before this week's Tuesday 18:00 cutoff.
    Money is GBP via csMoney. Screens read these at render time.
+   NOTE — the canvas deliberately shows TWO demo tenants side by side: the
+   Spec 042/058 wellness shop (CM_*) and AbbysTable (CS_*). Each section is
+   internally consistent; on a live deployment every surface reads one catalog.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const csMoney = a => a == null ? '—' : (a < 0 ? '−£' + Math.abs(a).toFixed(2) : '£' + a.toFixed(2));

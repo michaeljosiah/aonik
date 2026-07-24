@@ -662,6 +662,9 @@ function CmTabStorefront({ p }) {
               {c.ok && <span style={{ fontSize: 11, color: 'var(--brand-primary)', fontWeight: 600, cursor: 'pointer' }}>Open <Icon name="arrowright" size={10} /></span>}
             </div>
           ))}
+          <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+            Statuses read this tenant's products. On this canvas the Commerce · Storefront artboards render a second demo tenant (AbbysTable) — on a live deployment both surfaces read the same catalog.
+          </div>
         </div>
       </CmField>
     </div>
