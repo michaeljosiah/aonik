@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 081 - Admin UI: unified customer detail</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 081</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Updates existing page</span><span class="meta-tag">Depends: 073, 080</span><span class="meta-tag">Backend: Spec 072, ADR-011</span>
+  <h1>Customer detail — domain lenses as tabs on one party</h1>
+  <p>Updates <code>src/pages/customers/CustomerDetailPage.tsx</code> (<code>/customers/:partyId</code>). Design of record: the unified detail on the starterkit (PR #268). One party, every lens: the tab strip gains <strong>Commerce</strong>, the Orders tab unifies on the <strong>order spine</strong> with type chips, and tabs render per the tenant's enabled modules — a billing-only tenant never sees a Commerce tab, and no second customer view ever exists.</p>
+</header>
+
+<h2>1 · Tab model</h2>
+<table>
+  <tr><th>Tab</th><th>Status</th><th>Gate</th></tr>
+  <tr><td>Overview</td><td>existing, unchanged</td><td>always</td></tr>
+  <tr><td><strong>Orders</strong></td><td>existing tab, re-sourced</td><td>always</td></tr>
+  <tr><td><strong>Commerce</strong></td><td><strong>new</strong></td><td>commerce module enabled (runtime manifest <code>enabledModules</code> via <code>useModules()</code>) — the module-gating pattern; fail-open when the manifest is absent</td></tr>
+  <tr><td>Finance · Insights · Documents · Activity (+ Household/Beneficiaries where present)</td><td>existing, unchanged — KYC/compliance content stays here (Spec 080 moved it off the registry)</td><td>their current conditions</td></tr>
+</table>
+<p>Extend the page's local <code>TabKey</code> union and <code>TABS</code> array; keep the house underline tab-bar markup (or adopt Spec 073's <code>UnderlineTabs</code> extraction — preferred, one implementation).</p>
+
+<h2>2 · The Orders tab — one spine</h2>
+<ul>
+  <li><strong>Source:</strong> the spine list the app already consumes (<code>orderService</code> → <code>GET /orders</code>) filtered to this party and <em>not</em> filtered by type. Columns: <em>order id (mono) · type (<code>Pill</code>: ProductPurchase tint · BillPayment muted · MoneyTransfer pending · other default) · what (human line: box size + extras summary for purchases; counterparty/corridor for payments) · date (mono) · status (<code>Pill</code> dot) · amount (mono, right)</em>.</li>
+  <li><strong>Caption:</strong> "Every order, one spine — boxes, bill payments and transfers share the Order record (ADR-011); filter by type, never by screen." A type filter chip-row is optional v1; the unified list is mandatory.</li>
+  <li><strong>Consistency rule (review-hardened):</strong> whatever the registry row (Spec 080) states as order count/value must be derivable from this tab's dataset — both read the spine; the UI must not maintain two divergent totals.</li>
+</ul>
+
+<h2>3 · The Commerce tab — Spec 072 made visible</h2>
+<ol>
+  <li><strong>Guest→account adoption card</strong> — a three-step vertical timeline (built cart as guest → registered → cart adopted, guest token retired) rendered when the party's storefront history includes an adoption; hidden otherwise. This is Spec 072's one clever moment made visible to operators.</li>
+  <li><strong>Storefront profile card</strong> — boxes ordered, storefront value (the ProductPurchase subset of the spine — must equal the box history's sum), usual size, most-ordered item, active cart (size + fullness or "None").</li>
+  <li><strong>Box history card</strong> — the party's checked-out storefront orders: id (mono) · date · size + extras summary · status pill · total (mono). Caption: "Party-scoped — exactly what the customer sees in their own account."</li>
+</ol>
+
+<h2>4 · API contract + dependency callouts</h2>
+<table>
+  <tr><th>Need</th><th>Source</th></tr>
+  <tr><td>Spine orders for the party</td><td><code>GET /orders</code> with the existing party filter (<code>orderService.list({ partyId })</code>-shaped). Shipped.</td></tr>
+  <tr><td>Box history + storefront profile</td><td>The party-scoped storefront read exists customer-facing (<code>GET /commerce/storefront/orders</code>, Spec 072) but resolves the <em>caller's</em> party. Admin needs the same scoped read for an arbitrary party.
+    <div class="callout"><strong>Dependency callout.</strong> Requires a small Commerce admin endpoint — <code>GET /commerce/admin/parties/{partyId}/storefront</code> returning <code>{ orders: StorefrontOrderSummaryDto[], activeCart?: { cartId, size, filled }, adoption?: { builtAtUtc, registeredAtUtc, adoptedAtUtc } }</code> — reusing Spec 072's query shapes with an admin policy. Until it ships, the Commerce tab renders from the spine's ProductPurchase subset (history + value) with the adoption/active-cart cards hidden. The tab is implementable now; the two cards light up when the endpoint lands.</div></td></tr>
+</table>
+
+<h2>5 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> modify <code>CustomerDetailPage.tsx</code> (TabKey, TABS, gating); create <code>src/pages/customers/commerce/CommerceTab.tsx</code> (+ <code>AdoptionTimeline.tsx</code>, <code>BoxHistoryCard.tsx</code>) mirroring the existing <code>customers/finance/</code> sub-folder pattern; create <code>src/pages/customers/OrdersSpineTab.tsx</code> replacing the old orders tab body.</li>
+  <li><strong>Gating:</strong> <code>const commerceEnabled = useModules().isModuleEnabled?.('commerce') ?? true</code> — follow however <code>useModules</code> exposes enablement; fail open exactly as it does.</li>
+  <li><strong>Derivations</strong> (unit-tested, <code>src/pages/customers/lib/spineDerivations.ts</code>): <code>storefrontSubset(orders)</code>, <code>storefrontValue(orders)</code>, <code>usualSize(orders)</code> — pure functions over the spine list so profile figures can never disagree with the rendered rows.</li>
+  <li><strong>Amounts</strong> per-currency mono (mixed currencies render per-row; totals only within one currency — a mixed-currency profile value shows the dominant currency's subtotal with a "+ n other currencies" note rather than a fake sum).</li>
+</ul>
+
+<h2>6 · Acceptance</h2>
+<ol>
+  <li>A commerce-enabled tenant shows the Commerce tab; disabling the module in the manifest hides it with no dead tab; manifest-absent fails open.</li>
+  <li>The Orders tab lists mixed types with correct chips, and its ProductPurchase subset equals the Commerce tab's box history row-for-row.</li>
+  <li>Storefront value equals the sum of rendered box-history totals (single-currency case) — the two can never diverge by construction.</li>
+  <li>Adoption/active-cart cards are hidden until their data source exists; nothing renders placeholder or invented data.</li>
+  <li>Existing tabs (Finance, Insights, Documents, Activity) behave exactly as before.</li>
+</ol>
+</body>
+</html>

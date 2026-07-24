@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 080 - Admin UI: unified Customers registry</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 080</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Updates existing page</span><span class="meta-tag">Depends: 073</span>
+  <h1>Customers — one top-level registry for every product line</h1>
+  <p>Updates the existing <code>/customers</code> page (<code>src/pages/customers/CustomersListPage.tsx</code>). Design of record: the unified-customers decision recorded in PR #268 and the starterkit registry artboard. Principle: <strong>a tenant selling merchandise and financial services has one customer base</strong> — Customers is the universal counterparty registry beside Orders; domain lenses are chips here and tabs on the detail (Spec 081), never separate customer views.</p>
+</header>
+
+<h2>1 · What changes on a page that already exists</h2>
+<table>
+  <tr><th>Aspect</th><th>Today</th><th>After</th></tr>
+  <tr><td>Nav placement</td><td>Customers sits wherever the finance grouping put it in <code>SIDEBAR_NAV</code></td><td>A top-level item in the <strong>transact</strong> section, directly after Orders: <code>{ id: 'customers', label: 'Customers', icon: 'users', href: '/customers' }</code>. Any duplicate customers entry nested under a billing/finance group is <strong>removed</strong> — one registry, one nav path. (Verify the icon key exists in <code>ICON_PATHS</code>; add if not.)</td></tr>
+  <tr><td>Columns</td><td>Finance-lineage columns (KYC state etc. where present)</td><td>Product-agnostic registry columns: <em>ID (mono) · Customer (avatar + name + flag line) · Type · Country · Products (domain chips) · Orders (mono, right) · Total value (mono, right)</em>. Compliance/KYC columns move to the detail's Finance tab — they are domain content, not registry content. Sanctions-style flags keep their row-highlight treatment.</td></tr>
+  <tr><td>Filters</td><td>Type/KYC-oriented tabs</td><td><code>FilterBar</code> tabs: All · Business · Person · one per active domain (Billing, Storefront, Payabo…) · Flagged. Domain tabs derive from the data (distinct domains present), not a hard-coded list.</td></tr>
+  <tr><td>Semantics</td><td>Orders/spend as the finance lineage computed them</td><td>Order count and total value are <strong>spine-wide</strong> — every OrderType (boxes, bill payments, transfers) counts, matching ADR-011's one-spine model. The subtitle says so.</td></tr>
+</table>
+
+<h2>2 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Notes</th></tr>
+  <tr><td><code>GET /admin/customers?…</code> (existing, <code>customerService.list</code>)</td><td>The registry keeps its existing paged source. This spec adds two derived needs:
+    <ul>
+      <li><strong>Domain chips</strong> — which product lines a party participates in. Preferred source: extend the existing list DTO server-side with <code>domains: string[]</code> (derived from module ownership records: billing accounts, storefront carts/orders via <code>Cart.BuyerPartyId</code>, personal-finance enrolment). <em>Until that lands, the UI derives chips best-effort from fields already present and hides the column when nothing is derivable — the column must degrade, not lie.</em></li>
+      <li><strong>Spine-wide counts</strong> — if the current DTO's counts are finance-scoped, the same server-side extension corrects them; the UI renders whatever the DTO states and the subtitle documents the intended semantics.</li>
+    </ul>
+    <div class="callout"><strong>Dependency callout.</strong> The <code>domains</code>/spine-count enrichment is a small Platform read-model addition, not shipped today. This spec is implementable without it (degraded column); the enrichment is listed as a follow-up backend item, deliberately NOT smuggled into a UI spec.</div></td></tr>
+</table>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> modify <code>src/pages/customers/CustomersListPage.tsx</code> (columns, tabs, subtitle) and <code>src/components/layout/aonik/sidebarNav.ts</code> (transact placement + duplicate removal). Add <code>DomainChips.tsx</code> under <code>src/pages/customers/components/</code>: <code>{ domains: string[] }</code> → <code>Pill</code> per domain with a fixed tone map (Billing muted · Storefront tint · Payabo pending · unknown default).</li>
+  <li><strong>Column defs</strong> via the existing <code>DataTable</code> <code>ColumnDef</code>s; ids/amounts mono; total value right-aligned weight 600. Keep <code>rowHighlight</code> for compliance flags.</li>
+  <li><strong>Row click</strong> keeps navigating to <code>/customers/:partyId</code> (Spec 081's unified detail).</li>
+  <li><strong>Do not break existing consumers:</strong> the page's import/export actions and search behaviour stay as-is; this is a reshape, not a rewrite.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>Customers appears exactly once in the sidebar, in the transact section beside Orders; no billing-nested duplicate remains; deep links to <code>/customers</code> unchanged.</li>
+  <li>A customer active in two domains shows both chips; filtering by a domain tab shows only its participants; the chips column hides gracefully when the DTO carries no domain data.</li>
+  <li>No KYC/compliance column renders on the registry; flag rows keep their highlight.</li>
+  <li>The subtitle states the spine-wide semantics; counts render exactly what the DTO returns.</li>
+  <li><code>tsc -b</code> clean; both themes.</li>
+</ol>
+</body>
+</html>

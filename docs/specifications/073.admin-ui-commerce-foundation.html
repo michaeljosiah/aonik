@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 073 - Admin UI commerce module foundation</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    h3 { font-size:16.5px; margin:26px 0 8px; }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; }
+    pre code { border:none; background:transparent; padding:0; }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 073</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Aonik.AdminUi</span>
+  <h1>Admin UI commerce module foundation</h1>
+  <p>The scaffold every storefront admin page (Specs 074–084) stands on: a new <code>commerce</code> frontend module, its navigation section, service and type layout, and the four shared visual components the page specs reuse. The approved designs live in <code>Templates/aonik-admin-starterkit</code> (PR #268, sections "Commerce · Storefront · Specs 066–072"); this spec turns the app-level plumbing they assume into concrete files.</p>
+</header>
+
+<h2>1 · Why a foundation spec</h2>
+<p>The live Admin UI has <strong>no commerce module</strong>. Its "Catalog" is the bill-payment catalog (billers, services, partners); there are no product, cart, or storefront surfaces of any kind. Every page in Specs 074–084 is therefore greenfield, and they all need the same module registration, nav section, data-layer shape, and a handful of shared components. Building that once, first, keeps the eleven page specs implementable in any order afterwards (each declares its dependency on this spec only).</p>
+
+<h2>2 · Module registration</h2>
+<table>
+  <tr><th>File</th><th>Action</th></tr>
+  <tr><td><code>src/modules/commerce/index.ts</code></td><td><strong>Create.</strong> Exports <code>commerceModule: AdminModule</code> with <code>id: 'commerce'</code>, the <code>routes[]</code> below, and <code>breadcrumbs[]</code> (longest-prefix entries per route). Import page components from the <code>@/pages/commerce</code> barrel.</td></tr>
+  <tr><td><code>src/modules/registry.ts</code></td><td><strong>Modify.</strong> Add <code>commerceModule</code> to <code>allModules</code> (after <code>financeModule</code> — order matters for aggregation).</td></tr>
+  <tr><td><code>src/pages/commerce/</code></td><td><strong>Create</strong> feature folder with barrel <code>index.ts</code>. Page files land here per Specs 074–084; shared pieces under <code>src/pages/commerce/components/</code>.</td></tr>
+</table>
+<p>Route table this module will carry when the series is complete (each page spec adds its rows):</p>
+<table>
+  <tr><th>Path</th><th>Component</th><th>Spec</th></tr>
+  <tr><td><code>/commerce</code></td><td><code>CommerceOverviewPage</code></td><td>084</td></tr>
+  <tr><td><code>/commerce/products</code>, <code>/commerce/products/:productId</code></td><td><code>CommerceProductsPage</code></td><td>082</td></tr>
+  <tr><td><code>/commerce/personalisation</code></td><td><code>PersonalisationPage</code></td><td>074</td></tr>
+  <tr><td><code>/commerce/content</code></td><td><code>ProductContentPage</code></td><td>075</td></tr>
+  <tr><td><code>/commerce/box-plans</code></td><td><code>BoxPlansPage</code></td><td>076</td></tr>
+  <tr><td><code>/commerce/delivery</code></td><td><code>DeliveryCalendarPage</code></td><td>077</td></tr>
+  <tr><td><code>/commerce/merchandising</code></td><td><code>MerchandisingPage</code></td><td>078</td></tr>
+  <tr><td><code>/commerce/storefront-config</code></td><td><code>StorefrontConfigPage</code></td><td>079</td></tr>
+  <tr><td><code>/commerce/orders</code>, <code>/commerce/carts</code></td><td><code>CommerceOrdersPage</code>, <code>CommerceCartsPage</code></td><td>083</td></tr>
+</table>
+
+<h2>3 · Navigation</h2>
+<p>The rendered sidebar reads <code>SIDEBAR_NAV</code> in <code>src/components/layout/aonik/sidebarNav.ts</code> — <em>not</em> the module <code>navigation</code> arrays. Add to the <strong>products</strong> section one nav item with children (one child level is the house pattern):</p>
+<pre><code>{ id: 'commerce', label: 'Commerce', icon: 'cart', href: '/commerce', children: [
+  { id: 'cm-overview',      label: 'Overview',          icon: 'dashboard', href: '/commerce' },
+  { id: 'cm-products',      label: 'Products',          icon: 'box',       href: '/commerce/products' },
+  { id: 'cs-options',       label: 'Personalisation',   icon: 'sliders',   href: '/commerce/personalisation' },
+  { id: 'cs-content',       label: 'Product content',   icon: 'file',      href: '/commerce/content' },
+  { id: 'cs-boxplan',       label: 'Box plans',         icon: 'box',       href: '/commerce/box-plans' },
+  { id: 'cs-delivery',      label: 'Delivery',          icon: 'calendar',  href: '/commerce/delivery' },
+  { id: 'cs-merch',         label: 'Merchandising',     icon: 'stack',     href: '/commerce/merchandising' },
+  { id: 'cs-config',        label: 'Storefront config', icon: 'settings',  href: '/commerce/storefront-config' },
+  { id: 'cm-orders',        label: 'Orders &amp; carts',    icon: 'receipt',   href: '/commerce/orders' },
+]}</code></pre>
+<ul>
+  <li>Icon values are keys into <code>ICON_PATHS</code> in <code>src/components/layout/aonik/AonikTemplateIcon.tsx</code>. <code>calendar</code>, <code>settings</code>, <code>receipt</code> exist; <strong>add</strong> <code>cart</code>, <code>box</code>, <code>sliders</code>, <code>file</code>, <code>stack</code>, <code>dashboard</code> path entries if absent (port the starterkit's SVG paths from <code>Templates/aonik-admin-starterkit/kit/icons-extra.jsx</code>).</li>
+  <li>Audience: <code>'tenant'</code>-visible (default <code>all</code> is fine); the runtime manifest (<code>/api/admin/manifest</code> → <code>enabledModules</code>/<code>disabledNavItems</code>) is the per-tenant gate. The module must render correctly when the manifest is absent (fail-open), matching <code>useModules()</code> behaviour.</li>
+  <li>The generic label is deliberate: this is the product-agnostic storefront engine. Vertical identity (dishes, boxes-of-food) belongs to tenant data and config, per ADR-013 — nav copy never says "food".</li>
+</ul>
+
+<h2>4 · Data layer</h2>
+<p>No react-query and no codegen exist; follow the house pattern (hand-written services returning unwrapped <code>res.data</code> via <code>api.*</code> from <code>src/lib/api.ts</code>, which already attaches <code>Authorization</code> and <code>X-Tenant-Id</code>).</p>
+<table>
+  <tr><th>File</th><th>Contents</th></tr>
+  <tr><td><code>src/types/commerce.ts</code></td><td><strong>Create.</strong> All commerce DTO interfaces, hand-written to mirror the API contracts quoted in Specs 074–084 (camelCase JSON of the C# records — e.g. <code>OptionGroupDto</code>, <code>EffectiveOptionGroupDto</code>, <code>ResolvedContentDto</code>, <code>BoxPlanDto</code>, <code>FulfilmentCalendarDto</code>, <code>AdminCollectionDto</code>, <code>FacetGroupDto</code>, <code>StorefrontConfigDto</code>, <code>AdminProductDetailDto</code>, <code>PagedResult&lt;T&gt;</code> reuse from <code>@/types</code>). Amounts are <code>number</code> decimals in the tenant currency — the admin displays them as-is with the currency code the DTO carries; it never converts.</td></tr>
+  <tr><td><code>src/services/commerceCatalogService.ts</code></td><td><strong>Create.</strong> Products list/detail/patch, media replace, option groups CRUD + choices + recommended-default, product narrowing + surcharge (base path <code>/commerce/admin</code>).</td></tr>
+  <tr><td><code>src/services/commerceContentService.ts</code></td><td><strong>Create.</strong> Content block upsert, confirm-review, content-variants CRUD, coverage.</td></tr>
+  <tr><td><code>src/services/commerceStorefrontService.ts</code></td><td><strong>Create.</strong> Size plan, fulfilment calendar, collections, facet groups, storefront config, public reads used for previews (<code>/commerce/config/storefront</code>, <code>/commerce/config/delivery</code>, <code>/commerce/catalog/extras</code>).</td></tr>
+</table>
+<div class="callout"><strong>Policy reality.</strong> Reads sit behind <code>AdminUserPolicy</code>, writes behind <code>AdminWritePolicy</code> — enforced server-side. The frontend has no permission hook: fire the call and surface the interceptor's <code>userMessage</code> (403 included) exactly as <code>CatalogCategoriesPage</code> does. Do not invent client-side permission checks.</div>
+
+<h2>5 · Shared components (<code>src/pages/commerce/components/</code>)</h2>
+<table>
+  <tr><th>Component</th><th>Contract</th><th>Used by</th></tr>
+  <tr><td><code>SignedAmount.tsx</code></td><td><code>{ amount: number; currency: string }</code> → mono, tabular-nums, signed rendering (<code>+£2.50</code> / <code>−£2.00</code> / <code>included</code> for 0). One formatter for every delta in the series; JetBrains Mono via <code>font-mono</code> tokens.</td><td>074, 075, 076, 082</td></tr>
+  <tr><td><code>MonthGrid.tsx</code></td><td><code>{ monthLabel, cells: Array&lt;{ day: number; kind: 'plain'|'delivery'|'blackout'|'promise' }&gt;, legend? }</code>. Hand-built CSS grid (7 columns, Mon-first) — no calendar library exists and none should be added. Tokens only; blackout cells strike the numeral; the promise cell rings with <code>--color-brand-primary</code>.</td><td>077</td></tr>
+  <tr><td><code>PriceCurve.tsx</code></td><td><code>{ min, max, formula: (size) =&gt; number, effective: (size) =&gt; number, presets: Array&lt;{size, price}&gt;, currency }</code>. Hand-rolled SVG (the <code>KpiTile</code> sparkline precedent, not recharts — the curve needs preset dots, dashed formula line and saving annotations that recharts fights). Derives x/y scale from the full <code>min..max</code> range and computed price bounds; y-ticks generated, x-ticks thinned to every 4th size plus every preset size.</td><td>076</td></tr>
+  <tr><td><code>UnderlineTabs.tsx</code></td><td>Extract of the house detail-page tab bar (the <code>border-b-2</code> button row used inline in <code>CustomerDetailPage</code>): <code>{ tabs: Array&lt;{ key, label, badge? }&gt;, active, onChange }</code>. Reused so the six-plus-tab pages don't hand-roll it again.</td><td>075, 078, 081, 082</td></tr>
+</table>
+
+<h2>6 · Page skeleton convention</h2>
+<p>Every page in the series follows the modern lineage (<code>CustomersListPage</code>/<code>OrdersListPage</code>):</p>
+<ul>
+  <li>Container <code>flex flex-col gap-5 p-6 md:px-8</code>; <code>PageHeader</code> (eyebrow <code>Commerce</code>, page title, one-line subtitle); KPI row of exactly four <code>KpiTile</code>s when the page is a dashboard-like list; content in <code>AonikCard</code>s; <code>DataTable</code> + <code>DataTablePagination</code> for lists; <code>Sheet</code> for create/edit, <code>Dialog</code> for destructive confirms; inline error banner from <code>err.userMessage</code> with Retry; <code>PageLoadingScreen</code> on initial load; <code>sonner</code> toast on successful writes.</li>
+  <li>State: local hooks + <code>loadData</code>/<code>useCallback</code>/<code>useEffect</code> with a <code>requestIdRef</code> race guard — no new state libraries.</li>
+  <li>Theme through <code>var(--color-*)</code> tokens only; ids/amounts in mono; no decorative separators; both themes verified (the <code>[data-theme]</code> mechanism is already global).</li>
+  <li>Visual language per the <code>aonik-design</code> skill: teal primary, coral reserved for agent-apply moments, numbers right-aligned mono.</li>
+</ul>
+
+<h2>7 · Out of scope</h2>
+<ul>
+  <li>Backend changes of any kind (every endpoint the series consumes is shipped; the two genuine API gaps are called out in Spec 083 as explicit dependencies, not smuggled in here).</li>
+  <li>Workspace/Dockview panels — pages are plain routes; <code>WorkspacePanelConfig</code> exposure can follow later per page.</li>
+  <li>Component/DOM tests: the repo's vitest environment is <code>node</code>; the series specs logic-level tests only (formatters, scale derivation, state mappers).</li>
+</ul>
+
+<h2>8 · Acceptance</h2>
+<ol>
+  <li><code>commerceModule</code> registered; all routes above resolve to placeholder-or-real pages without breaking <code>tsc -b</code>.</li>
+  <li>The Commerce nav section renders with working icons in both themes, is hidden when the manifest disables the module, and fails open when the manifest is unreachable.</li>
+  <li><code>src/types/commerce.ts</code> compiles and matches the JSON casing of the shipped DTOs (spot-check against a live <code>GET /commerce/admin/option-groups</code> and <code>GET /commerce/config/storefront</code>).</li>
+  <li>The four shared components exist with the exact props above, render in light and dark, and <code>SignedAmount</code> has unit tests covering positive/negative/zero.</li>
+  <li>Electron/hash-router compatibility: all new links use router navigation (no <code>window.location.pathname</code> reliance).</li>
+</ol>
+</body>
+</html>

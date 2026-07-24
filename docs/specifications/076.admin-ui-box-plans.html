@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 076 - Admin UI: Box plans page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 076</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 068</span>
+  <h1>Box plans — size-tiered bundle pricing</h1>
+  <p><code>/commerce/box-plans</code> · <code>BoxPlansPage</code>. Design of record: artboard <code>cs-boxplan</code> (PR #268). The container pricing behind the storefront's size step: a formula (base + per-space) with merchandised presets that win at their size. The page's signature element is the <strong>price curve</strong> — formula versus effective price with preset overrides and marginal grow costs read straight off the chart.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/products?kind=Bundle</code></td><td><code>commerceCatalogService.listProducts({ kind: 'Bundle' })</code></td><td>Bundle picker — a tenant can run several bundles; the page edits one plan at a time.</td></tr>
+  <tr><td><code>GET /commerce/catalog/products/{slug}/box-plan</code></td><td><code>commerceStorefrontService.getBoxPlan(slug)</code></td><td><code>BoxPlanDto { bundleProductId, minSize, maxSize, baseSize, basePrice, perSpacePrice, currency, presets: [{ size, price, badge?, blurb?, savingAmount?, sortOrder }] }</code>. 404 = no plan authored yet (an authoring state, not an error).</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId}/size-plan</code></td><td><code>upsertSizePlan(productId, cmd)</code></td><td><code>UpsertBundleSizePlanCommand</code> — <strong>full replace</strong> of formula + presets. Savings are authored display values; the UI never computes one into the payload.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>Header + bundle picker</strong> — <code>PageHeader</code> with a bundle <code>select</code> in <code>actions</code>; subtitle states the two pricing rules: presets win at their size, and growing a box charges <code>boxPrice(target) − boxPrice(current)</code>, never per-space × spaces.</li>
+  <li><strong>KPI row</strong> — size range (<code>min–max</code>), base price at base size, per-space price, preset count.</li>
+  <li><strong>Price curve card</strong> — the shared <code>PriceCurve</code> component (Spec 073): dashed formula line, solid effective line, preset dots with price labels and a saving annotation where the preset undercuts the formula. <strong>The plotted domain is the whole configured range</strong> (<code>min..max</code>) with derived scales and generated ticks — a preset at size 20 or the formula tail must always be in view (review finding). Below the chart, a marginal-grow strip: three tiles computing <code>effective(b) − effective(a)</code> for representative jumps (base→first preset, between presets, past the last preset), each showing the subtraction so the rule is legible.</li>
+  <li><strong>Formula editor card</strong> — min/max/base size, base price, per-space price, currency (read-only display of the plan currency; changing currency is a deliberate act inside the same full-replace form). Inline note: any size without a preset prices as <code>base + (size − baseSize) × perSpace</code>; saving is a full replace.</li>
+  <li><strong>Preset table</strong> — columns: size (mono) · price (mono) · formula-at-size (muted mono, computed client-side for comparison only) · authored saving (success tone when present, <code>—</code> otherwise) · badge (<code>Pill</code>) · blurb · sort · actions (edit/remove in-row; presets edit in place, the whole plan saves atomically). Footer caption: "Savings are display values authored here — the storefront never computes one."</li>
+  <li><strong>No-plan state</strong> — when the box-plan read 404s: dashed empty card, "No size plan authored for this bundle — the storefront shows no box section until one exists", CTA seeds the form with sensible blanks (nothing invented: all fields empty, currency defaulted from storefront config's canonical currency).</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/BoxPlansPage.tsx</code>; the curve is Spec 073's <code>PriceCurve.tsx</code> (hand-rolled SVG per the <code>KpiTile</code> precedent — recharts fights the preset-dot/dashed-overlay composition). Route + breadcrumb in <code>commerceModule</code>.</li>
+  <li><strong>Draft-state model:</strong> the page holds a local editable copy of <code>BoxPlanDto</code>; every field edit updates it; the curve and marginal strip render from the <em>draft</em>, so the operator sees the pricing effect before saving — the same cause-and-effect philosophy as the delivery page. A "dirty" indicator on the Save button; Save PUTs the full replace, reloads, toasts.</li>
+  <li><strong>Scale derivation is a pure module</strong>, unit-tested (<code>src/pages/commerce/lib/planCurve.ts</code>): <code>curveModel(plan) → { sizes, xTicks, yTicks, points, presetMarkers, bounds }</code> with y-bounds from computed min/max ±10 and x-ticks thinned to every 4th size plus preset sizes. Validation guards min ≤ base ≤ max and preset sizes within range before enabling Save (client courtesy; the server revalidates).</li>
+  <li><strong>Currency display:</strong> format amounts with the plan's own <code>currency</code> code (a plain <code>Intl.NumberFormat</code> helper in <code>lib/money.ts</code> shared across the series) — no assumption of GBP anywhere.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>The curve always spans <code>min..max</code>; adding a draft preset at any in-range size shows its dot and bend immediately, pre-save.</li>
+  <li>Marginal tiles equal effective-price subtraction and bend around presets (e.g. a discounted mid-preset makes the following jump larger).</li>
+  <li>A 404 plan renders the authoring empty state; saving then produces a working plan and the storefront config's embedded box section (Spec 079's preview) reflects it after reload.</li>
+  <li>Savings display only when authored; the payload never contains a computed saving.</li>
+  <li><code>planCurve.ts</code> unit tests cover tick generation and bounds at min=max edge and a 6–30 range.</li>
+</ol>
+</body>
+</html>

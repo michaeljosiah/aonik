@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 075 - Admin UI: Product content page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 075</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073, 074</span><span class="meta-tag">Backend: Spec 067</span>
+  <h1>Product content — declarations, review queue and coverage</h1>
+  <p><code>/commerce/content</code> · <code>ProductContentPage</code>. Design of record: artboard <code>cs-content</code> (PR #268). Option-dependent declarations — figures, ingredients, allergens, usage/heating steps — rendered exactly as the customer reads them, with Spec 067's safety model as the page's spine: <strong>figures may fall back captioned; declarations are exact-authored or withheld, never substituted</strong>.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/products/{id}</code></td><td><code>commerceCatalogService.getProduct(id)</code></td><td><code>AdminProductDetailDto</code> — for the workbench header; content itself arrives via the resolution shape on the public product read or is edited raw below.</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{id}/content</code></td><td><code>commerceContentService.upsertBlock(id, cmd)</code></td><td><code>UpsertProductContentCommand { servingLabel, kcal?, proteinGrams?, carbsGrams?, fatGrams?, fibreGrams?, sugarsGrams?, saltGrams?, ingredients?, allergens?, heatingJson? }</code>. Nulls are "not published", never zero. Every write bumps <code>contentVersion</code>.</td></tr>
+  <tr><td><code>POST /commerce/admin/products/{id}/content/confirm-review</code></td><td><code>confirmReview(id)</code></td><td>Clears <code>requiresReview</code> after a default-combination change.</td></tr>
+  <tr><td><code>POST /commerce/admin/products/{id}/content-variants</code> · <code>PUT /commerce/admin/content-variants/{variantId}</code> · <code>DELETE …</code></td><td><code>createVariant / updateVariant / retireVariant</code></td><td>A variant is keyed by its complete canonical selection; retire is soft and revivable. Cross-row invariants (a variant must publish every figure the default publishes) surface as 409/422 — show <code>userMessage</code> verbatim.</td></tr>
+  <tr><td><code>GET /commerce/admin/products/{id}/content-coverage</code></td><td><code>getCoverage(id)</code></td><td><code>ContentCoverageDto { productId, authored: [{variantId, selectionJson, isActive}], singleChoiceGaps: [{groupKey, choiceKey, selectionJson}] }</code>. Gaps are computed over the <em>effective</em> offer — an excluded choice can never be a gap.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>KPI row</strong> — products published (<strong>active products whose block serves figures</strong> — review and declarations-withheld states count, drafts leave the denominator; review finding, round 3), combination variants, coverage gaps, awaiting review (warn tone).</li>
+  <li><strong>Review queue card</strong> — every product with <code>requiresReview</code>: row of product, reason, Open (selects it below) and <strong>Confirm review</strong> (POST + reload). While flagged, the copy states declarations serve withheld and figures serve captioned. If an agent surface later proposes confirmations it uses <code>ProposalCard</code> (coral is reserved for agent-apply); this spec ships the queue without agent integration.</li>
+  <li><strong>Product rail + workbench</strong> — left rail lists active products with a state pill: <code>Authored</code> (success) / <code>Review</code> (warning) / <code>Withheld</code> (muted, meaning declarations absent while figures serve). Right, the workbench renders the customer-facing label for the selected product:
+    <ul>
+      <li><strong>No block at all</strong> (nothing authored): a dashed empty state — "Nothing published; the product page shows its explicit not-yet-published state" — with an "Author the default block" CTA. This state is <em>only</em> when no figures exist; it is not the declarations-withheld state (round-2 finding).</li>
+      <li><strong>Figure grid</strong>: seven cells (Energy/Protein/Carbs/Fat/Fibre/Sugars/Salt), mono values, <code>—</code> for null (never 0).</li>
+      <li><strong>Ingredients / Allergens cells</strong>, each with three states: authored text; <em>review</em> → amber italic "Withheld while under review"; <em>absent</em> → muted italic "Not yet published — exact-authored or absent, never substituted".</li>
+      <li><strong>Heating/usage steps</strong>: authored list of <code>{method, body}</code>; in the review state the section renders the withheld notice instead of steps (round-1 finding — heating withholds exactly like the other declarations).</li>
+    </ul></li>
+  <li><strong>Variants + coverage cards</strong> — variants table (selection, note, active, edit/retire) with an "Author a combination" Sheet (same field set as the block, plus the selection built from the product's effective groups via 074's data); coverage card listing single-choice gaps with an "Author" shortcut that pre-fills the Sheet's selection.</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/ProductContentPage.tsx</code>; <code>components/ContentWorkbench.tsx</code> (the label card — reused by 082's product editor preview), <code>components/ContentVariantSheet.tsx</code>. Route + breadcrumb in <code>commerceModule</code>.</li>
+  <li><strong>State derivation is one mapper</strong>, unit-tested (<code>src/pages/commerce/lib/contentState.ts</code>): <code>deriveContentState(block) → 'none' | 'authored' | 'review' | 'withheld'</code> with the precedence <em>no-figures → none</em>, <em>requiresReview → review</em>, <em>declarations null → withheld</em>, else authored — the exact split the review hardened.</li>
+  <li><strong>Forms:</strong> the block/variant Sheet uses number inputs that distinguish empty (null) from 0 — an empty field must POST null. Heating steps as an add/remove row list serialised to <code>heatingJson</code>.</li>
+  <li><strong>Data:</strong> the rail loads the paged product list + per-product coverage lazily (fetch coverage for the selected product only); review queue derives from the product list's content flags. Errors and toasts per the house pattern.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>A product with figures but null declarations renders the figure grid with both declaration cells in the absent state — never the nothing-published empty state.</li>
+  <li>A product under review withholds ingredients, allergens <em>and</em> heating, shows the amber banner, and Confirm review restores authored rendering after reload.</li>
+  <li>An empty nutrition input round-trips as null (the reload shows <code>—</code>, not 0).</li>
+  <li>The published KPI counts figure-serving active products; a draft product changes neither numerator nor denominator.</li>
+  <li>Coverage gaps offer pre-filled variant authoring; an excluded choice never appears as a gap.</li>
+</ol>
+</body>
+</html>

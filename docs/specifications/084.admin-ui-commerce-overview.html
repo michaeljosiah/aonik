@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 084 - Admin UI: Commerce overview page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 084</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073–083</span>
+  <h1>Commerce overview — the storefront's pulse and its attention row</h1>
+  <p><code>/commerce</code> · <code>CommerceOverviewPage</code> — the section landing. Design of record: the overview attention-row update (PR #268), grown into the page the live app never had. Its job is triage: four numbers, recent orders, and an attention list where every row is a real state read from the owning surface with a link-out — never a computed guess.</p>
+</header>
+
+<h2>1 · Data sources (all shipped except where 083's callouts apply)</h2>
+<table>
+  <tr><th>Tile / row</th><th>Source</th></tr>
+  <tr><td>Orders · revenue (paid) · AOV · awaiting fulfilment</td><td><code>GET /orders?orderType=ProductPurchase</code> (existing spine list) aggregated client-side over the loaded window; the caption names the window honestly (e.g. "latest 100 orders") rather than implying all-time.</td></tr>
+  <tr><td>Content awaiting review</td><td>074/075's product list content flags (<code>requiresReview</code> count). Links to <code>/commerce/content</code>.</td></tr>
+  <tr><td>Delivery promise state</td><td><code>GET /commerce/config/delivery</code> — live date (info tone) or <strong>"no promise — customers see no date"</strong> (warn tone) on 404. Links to <code>/commerce/delivery</code>.</td></tr>
+  <tr><td>Drafts staged in collections</td><td>Admin collections membership (Spec 078 data) — count of draft members. Links to <code>/commerce/merchandising</code>.</td></tr>
+  <tr><td>Unpriceable extras skipped</td><td><code>GET /commerce/catalog/extras</code> → <code>skipped</code> when &gt; 0. Links to <code>/commerce/merchandising</code>.</td></tr>
+  <tr><td>Abandoned / drift-blocked carts</td><td>Behind 083's carts admin endpoint — the rows render only when that dependency ships; absent, they are omitted (not zeroed).</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>KPI row</strong> — the four order tiles (<code>KpiTile</code>, mono values).</li>
+  <li><strong>Recent orders card</strong> — last N ProductPurchase orders (id mono · buyer · total mono · payment pill · date), row-click to <code>/commerce/orders</code>'s drawer.</li>
+  <li><strong>Needs attention card</strong> — the storefront pulse rows above, each: icon · statement · sub-line · link-out chevron. Tones: warn for review/skipped/no-promise, info for a live promise, muted for drafts. A row with nothing to report is omitted entirely — an empty attention card renders "All quiet on the storefront."</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/CommerceOverviewPage.tsx</code>; attention rows as a local <code>AttentionRow</code> list component. Route <code>/commerce</code> + breadcrumb <code>Commerce</code> in <code>commerceModule</code>; the nav parent's own <code>href</code> lands here.</li>
+  <li><strong>Loading:</strong> the sources load in parallel and independently — each card/row renders as its data arrives; a failed source renders its row in a degraded "unavailable" state rather than sinking the page (<code>Promise.allSettled</code>).</li>
+  <li><strong>No invented aggregates:</strong> every number is either an API count or an aggregation over data actually loaded, with the window named. Nothing extrapolates.</li>
+  <li><strong>Both themes; numbers mono;</strong> link-outs are router navigations.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>With review items, staged drafts and a skipped extra present, the attention card lists each with the right tone and working link-outs; resolving them (via the owning pages) empties the card to "All quiet".</li>
+  <li>The no-promise state renders the warn row; an active calendar renders the live date row.</li>
+  <li>A failing source degrades only its own row/tile.</li>
+  <li>Order tiles match the loaded window's arithmetic and the caption names the window.</li>
+  <li><code>tsc -b</code> clean; both themes.</li>
+</ol>
+</body>
+</html>

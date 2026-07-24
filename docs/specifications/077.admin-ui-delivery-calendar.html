@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 077 - Admin UI: Delivery calendar page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 077</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 069</span>
+  <h1>Delivery — the fulfilment calendar and the promise it computes</h1>
+  <p><code>/commerce/delivery</code> · <code>DeliveryCalendarPage</code>. Design of record: artboard <code>cs-delivery</code> (PR #268). One screen holding cause and effect: the calendar the operator edits and the earliest-delivery promise the storefront shows. The two review-hardened behaviours are load-bearing: <strong>an unsaved edit makes the committed promise visibly stale</strong>, and <strong>the no-promise state is honest, never a guess</strong>.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/fulfilment-calendar</code></td><td><code>commerceStorefrontService.getCalendar()</code></td><td><code>FulfilmentCalendarDto { timezone, deliveryDays: string[], cutoffLocalTime, cutoffDayOfWeek?, leadDays, blackoutDates: string[], isActive, currentPromise?: { earliestDeliveryDate, timezone } }</code>. <code>currentPromise</code> null when unresolvable.</td></tr>
+  <tr><td><code>PUT /commerce/admin/fulfilment-calendar</code></td><td><code>upsertCalendar(cmd)</code></td><td><strong>Full replace</strong> mirroring <code>UpsertFulfilmentCalendarCommand</code> exactly: <code>{ timezone, deliveryDays, cutoffLocalTime, cutoffDayOfWeek?, leadDays, blackoutDates, isActive }</code>. The response echoes the recomputed <code>currentPromise</code> (069 A5) — render it immediately. Server validates IANA timezone, weekday names, lead 0–60, ISO dates, ≤100 future blackouts; surface 422 <code>userMessage</code> verbatim.</td></tr>
+  <tr><td><code>GET /commerce/config/delivery</code></td><td><code>getPublicPromise()</code></td><td>The public read: <code>{ earliestDeliveryDate, timezone }</code> or <strong>404 = no promise</strong>. Used for the "what the storefront serves right now" confirmation strip.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>KPI row</strong> — next delivery (from committed promise; <code>—</code> in the no-promise state), order cutoff (day + local time), lead days, blackout count (warn when &gt; 0, sub-label naming the nearest date).</li>
+  <li><strong>Calendar editor card</strong> (left) — mirrors the command 1:1: a 7-button weekday toggle row (Mon-first); cutoff time input; cycle-day select (nullable — empty means the cutoff applies every day, i.e. the daily order book); lead-days number input; blackout chips (ISO dates, removable) with an add-date input; active/parked switch; footer note "Expired dates prune on save; capped at 100 future dates" and the Save button.</li>
+  <li><strong>Promise card</strong> (right, the hero) — two visual states:
+    <ul>
+      <li><em>Committed</em> (form pristine): teal, "The storefront promises — Earliest delivery <code>{date, formatted as a calendar date in the calendar's timezone semantics — string-formatted, never routed through the viewer's Date timezone}</code>", plus the cutoff explanation line.</li>
+      <li><em>Stale</em> (any unsaved edit): amber, "Unsaved changes — the promise recomputes on save", naming the still-committed date. The month grid's promise ring disappears in this state; delivery-day shading keeps previewing the edit.</li>
+    </ul></li>
+  <li><strong>Month grid card</strong> — Spec 073's <code>MonthGrid</code> for the promise's month: delivery-day cells tinted from the <em>edited</em> weekday set, blackout cells struck and marked, the committed promise ringed (pristine only). Legend row. Caption explains the walk-forward rule ("a blacked-out delivery day pushes that week's orders to the next allowed date").</li>
+  <li><strong>Honest empty state strip</strong> — a dashed note card, always visible: parked calendar, no delivery days, or an unresolvable timezone all mean the public read 404s and <em>the storefront shows no date anywhere</em>. When the public read (fetched alongside the admin read) actually is 404, the strip upgrades to a solid warning: "Customers currently see no delivery date."</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/DeliveryCalendarPage.tsx</code>; grid from <code>components/MonthGrid.tsx</code>. Route + breadcrumb in <code>commerceModule</code>.</li>
+  <li><strong>Dirty model:</strong> committed DTO in one state slot, editable draft in another; <code>dirty = !deepEqual(draft, committed)</code> (a small comparer in <code>lib/calendarState.ts</code>, unit-tested — day-order-insensitive for <code>deliveryDays</code>). The promise card and grid ring key off <code>dirty</code>; Save replaces committed with the PUT response (including the echoed promise) and clears dirty.</li>
+  <li><strong>Month-grid cells</strong> derive in <code>lib/calendarState.ts</code> too: <code>monthCells(promiseMonth, draftDays, blackoutDates, committedPromise, dirty)</code> — pure and unit-tested (weekday mapping Mon-first, blackout strike, ring suppression when dirty). Date arithmetic uses UTC-safe parsing of ISO date strings (<code>YYYY-MM-DD</code> split, never <code>new Date(string)</code> through the viewer's zone).</li>
+  <li><strong>Timezone field</strong> is a text input validated server-side; on 422 the field error shows the interceptor's message. Do not bundle a timezone-picker dependency.</li>
+  <li><strong>No-calendar 404 on the admin read</strong> = first-run state: render the editor empty with the parked switch off and the empty-state strip solid.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>Toggling any weekday immediately re-shades the grid, flips the promise card to stale, and removes the ring; Save restores the committed presentation with the server-echoed promise.</li>
+  <li>The promise date renders identically regardless of the viewer's OS timezone (string-formatted calendar date).</li>
+  <li>With the calendar parked, the public-read strip reports that customers see no date; activating and saving flips it without a reload beyond <code>loadData</code>.</li>
+  <li>Blackout add/remove round-trips; a blackout on the promised date, once saved, moves the echoed promise forward and the grid shows the struck cell.</li>
+  <li><code>calendarState.ts</code> unit tests cover the dirty comparer and month-cell derivation (including ring suppression).</li>
+</ol>
+</body>
+</html>

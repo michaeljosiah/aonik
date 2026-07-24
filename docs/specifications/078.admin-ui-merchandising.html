@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 078 - Admin UI: Merchandising page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 078</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Specs 070 + 071</span>
+  <h1>Merchandising — collections, the extras rail and facet groups</h1>
+  <p><code>/commerce/merchandising</code> · <code>MerchandisingPage</code>. Design of record: artboard <code>cs-merch</code> (PR #268). What the shop window shows and how the catalogue filters — all of it data. Two tabs: <strong>Collections</strong> (ranked membership with a live rail preview) and <strong>Facet groups</strong> (match semantics as rows, never code).</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/collections</code> · <code>GET …/{collectionId}</code></td><td><code>commerceStorefrontService.listCollections() / getCollection(id)</code></td><td>List rows <code>AdminCollectionSummaryDto { id, slug, title, subtitle?, kind, sortOrder, isActive, itemCount }</code> (<code>itemCount</code> counts every staged member, drafts included — A9). Detail <code>AdminCollectionDto</code> adds <code>items: [{ productId, slug, name, status, rank }]</code>.</td></tr>
+  <tr><td><code>POST /commerce/admin/collections</code> · <code>PUT …/{id}</code></td><td><code>createCollection / updateCollection</code></td><td>Update: null members preserve stored values; <code>clearSubtitle</code> exists because a nullable string can't distinguish "unchanged" from "remove".</td></tr>
+  <tr><td><code>PUT /commerce/admin/collections/{id}/items</code></td><td><code>replaceCollectionItems(id, { items: [{ productId, rank }] })</code></td><td><strong>Full replace</strong> of ranked membership — idempotent reorder. Null items rejected; clearing requires an explicit empty list.</td></tr>
+  <tr><td><code>GET /commerce/catalog/extras</code></td><td><code>getExtrasPublic()</code></td><td>The public extras read: <code>ExtrasListDto { rows: ExtraRowDto[], skipped }</code> — rows carry <code>unitPrice</code>, <code>unitSurcharge?</code>, <code>currency</code>, resolved content and option groups; unpriceable members are omitted and <em>counted</em>. Drives the extras preview + the skipped warning.</td></tr>
+  <tr><td><code>GET /commerce/admin/facet-groups</code> · <code>POST</code> · <code>PUT …/{id}</code></td><td><code>listFacetGroups / createFacetGroup / updateFacetGroup</code></td><td><code>FacetGroupDto { id, key, label, matchKind, sourcePath?, sortOrder, isActive, options: [{ value, label, min?, max? }] }</code>. Create takes <code>optionsJson</code>; update cannot change <code>key</code> or <code>matchKind</code> (retire-and-replace). Range bands are half-open <code>[min, max)</code>. <strong>Attribute/Range <code>sourcePath</code> traverses from the AttributesJson root</strong> (e.g. <code>protein</code>, not <code>attributes.protein</code>) — the round-2 review correction; the create Sheet's helper text must state this.</td></tr>
+  <tr><td><code>GET /commerce/config/storefront</code></td><td><code>getStorefrontConfig()</code></td><td>Supplies <code>extrasCollectionSlug</code> so the page can badge the extras rail collection.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>KPI row</strong> — collections, curated members (Σ itemCount — drafts included, matching the admin semantics), facet groups, drafts staged (computed from collection details' member statuses; show <code>—</code> until details load).</li>
+  <li><strong>Tab strip</strong> (<code>UnderlineTabs</code>): <em>Collections</em> · <em>Facet groups</em>.</li>
+  <li><strong>Collections tab</strong> — left rail of collections (title, slug mono, member count; the collection whose slug equals <code>extrasCollectionSlug</code> carries an <code>EXTRAS RAIL</code> badge). Right, for the selected collection:
+    <ul>
+      <li><strong>Ranked membership editor</strong>: rows <em>drag-handle · rank (mono, 2-digit) · product (name + status) · unit price (extras only) · state pill</em>. State pill logic: draft product → <code>Draft — staged</code> (warning, row ghosted); extras member with null public price → <code>Unpriceable — skipped publicly</code> (warning) — <strong>the member stays in the admin table</strong> so it can be repriced, reordered or removed (round-2 finding); otherwise <code>Live</code>. Reordering is drag-free v1: up/down row actions renumber ranks locally; Save issues the full replace. Add-member opens a product picker Sheet (search over <code>listProducts</code>).</li>
+      <li><strong>Storefront rail preview</strong>: a horizontal card strip rendering the membership in rank order <em>as the public read serves it</em> — drafts hidden, unpriceable extras hidden; extras cards show <code>unitPrice</code>, dish cards show "no standalone price". For the extras collection, source the strip from <code>GET /commerce/catalog/extras</code> (the actual public read) and show the <code>skipped</code> count as a warning strip when &gt; 0, quoting that the public read omits and counts, never silently drops.</li>
+    </ul></li>
+  <li><strong>Facet groups tab</strong> — table: <em>group (label + <code>facet.{key}</code> mono) · match kind (<code>Pill</code>, tint for Range) · source (mono, <code>—</code> for Tag/Category) · options (chips; Range chips append <code>[min,max)</code> mono) · active · edit</em>. Create/edit Sheet with the immutability rule stated: "A live group's key and match kind never change — retire and replace instead." Footer caption: "The storefront submits option values, never labels."</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/MerchandisingPage.tsx</code>; <code>components/CollectionMembersEditor.tsx</code>, <code>components/RailPreview.tsx</code>, <code>components/FacetGroupSheet.tsx</code>. Route + breadcrumb in <code>commerceModule</code>.</li>
+  <li><strong>Membership editing model:</strong> local draft of <code>items[]</code>; every move renumbers ranks 1..n contiguously; Save maps to <code>{ productId, rank }</code> lines and full-replaces, then reloads. Dirty indicator on Save; discard resets to the loaded detail.</li>
+  <li><strong>Preview truth:</strong> the non-extras preview derives client-side (filter drafts) from the admin detail; the extras preview uses the real public read so admin-vs-public divergence (skipped members) is shown from the genuine source, not simulated.</li>
+  <li><strong>Facet options editor:</strong> chips with add/remove; Range rows expose min/max numeric inputs; serialisation to <code>optionsJson</code> lives in <code>lib/facetOptions.ts</code> with unit tests (band ordering, half-open rendering).</li>
+  <li><strong>Errors:</strong> rank-uniqueness or replace conflicts surface as the inline banner (<code>userMessage</code>); create/edit Sheets show <code>formError</code>; successes toast.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>Reordering members updates the preview strip live; Save round-trips and a fresh load renders the same order (full-replace idempotence).</li>
+  <li>A draft member is ghosted in the editor, absent from the preview, and counted in the admin KPI.</li>
+  <li>An unpriceable extras member stays editable in the table with its warning pill, is absent from the preview, and the skipped strip shows the public read's count.</li>
+  <li>A Range facet renders its half-open bands; edit cannot alter key or match kind (fields read-only with the retire-and-replace note).</li>
+  <li>The extras collection is identified purely by <code>extrasCollectionSlug</code> from config — renaming the setting rebadges with no code change.</li>
+</ol>
+</body>
+</html>
