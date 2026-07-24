@@ -107,6 +107,16 @@ public static class SwaggerConfiguration
             authorizationUrl = $"{authority}/authorize";
             tokenUrl = $"{authority}/oauth/token";
         }
+        else if (authOptions.Provider == "Keycloak")
+        {
+            // Spec 029 added Keycloak as the third provider but never taught the
+            // Swagger OAuth flow about it, so selecting it — the documented local
+            // dev path — crashed the API at startup here rather than at a config
+            // boundary. Keycloak's OIDC endpoints hang off the realm authority.
+            var authority = authOptions.Keycloak.Authority.TrimEnd('/');
+            authorizationUrl = $"{authority}/protocol/openid-connect/auth";
+            tokenUrl = $"{authority}/protocol/openid-connect/token";
+        }
         else
         {
             throw new InvalidOperationException($"Unsupported auth provider: {authOptions.Provider}");

@@ -10,7 +10,9 @@
   "accessTokenLifespan": 1800,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "_doc": "Spec 029 — pre-seeded local-dev realm. NEVER use in production. See docs/operations/keycloak-setup.md for the production realm runbook.",
+  "attributes": {
+    "aonik.doc": "Spec 029 — pre-seeded local-dev realm. NEVER use in production. See docs/operations/keycloak-setup.md for the production realm runbook."
+  },
   "roles": {
     "realm": [
       { "name": "Aonik.PlatformAdmin", "description": "Platform-wide admin (spec 026 / dev parity with Auth0 namespace claim 'aonik_platform_admin')." },
@@ -78,8 +80,8 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "_doc": "Grants manage-users + view-users + view-realm on the realm-management client. Replace the secret in production — this is checked-in dev placeholder.",
       "attributes": {
+        "aonik.doc": "Grants manage-users + view-users + view-realm on the realm-management client. Replace the secret in production — this is checked-in dev placeholder.",
         "use.refresh.tokens": "false"
       }
     }

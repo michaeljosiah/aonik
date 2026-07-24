@@ -108,8 +108,22 @@ public static class AonikAuthenticationSetup
             RequireExpirationTime = true,
             RequireSignedTokens = true
         };
-        options.RequireHttpsMetadata = true;
+        // HTTPS metadata is mandatory everywhere EXCEPT a loopback authority.
+        // Spec 029's local-dev Keycloak runs on http://localhost:8080, and OIDC
+        // discovery refuses plain HTTP, so every authenticated endpoint fails
+        // against it while this is unconditionally true.
+        //
+        // Scoping the exception to loopback is what keeps it safe: a deployed
+        // authority is never 127.0.0.1/::1/localhost, so no real configuration
+        // can reach this branch, and an https:// authority still requires HTTPS.
+        options.RequireHttpsMetadata = !IsLoopbackHttp(authority);
     }
+
+    /// <summary>True only for a plain-HTTP authority on the loopback interface.</summary>
+    private static bool IsLoopbackHttp(string? authority) =>
+        Uri.TryCreate(authority, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttp
+        && uri.IsLoopback;
 
     private static void ConfigureTokenValidationEvents(JwtBearerOptions options, AuthOptions authOptions)
     {
