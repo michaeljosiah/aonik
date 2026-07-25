@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 074 - Admin UI: Personalisation page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    h3 { font-size:16.5px; margin:26px 0 8px; }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; }
+    pre code { border:none; background:transparent; padding:0; }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 074</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 066</span>
+  <h1>Personalisation — option groups, defaults and per-product narrowing</h1>
+  <p><code>/commerce/personalisation</code> · <code>PersonalisationPage</code> in <code>src/pages/commerce/</code>. Design of record: starterkit artboard <code>cs-options</code> (PR #268). The tenant's option catalogue, its recommended defaults, and each product's narrowing of it — including the two behaviours the design review hardened: <strong>prices are absolute, deltas are derived</strong>, and <strong>a default move is a consequence surface</strong>.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/option-groups</code></td><td><code>commerceCatalogService.listOptionGroups()</code></td><td><code>OptionGroupDto[]</code>: <code>{ id, key, label, helpText?, selectionMode, currency, sortOrder, isActive, choices: OptionChoiceDto[] }</code>; choice: <code>{ id, key, label, note?, price, isRecommendedDefault, sortOrder, isActive }</code>. <strong><code>price</code> is ABSOLUTE</strong> (066 §8).</td></tr>
+  <tr><td><code>POST /commerce/admin/option-groups</code></td><td><code>createOptionGroup(cmd)</code></td><td><code>{ key, label, helpText?, selectionMode?, currency?, sortOrder? }</code>. Key is immutable after create.</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-groups/{groupId}</code></td><td><code>updateOptionGroup(id, cmd)</code></td><td>Value-typed members omitted = unchanged (the review precedent: an omitted currency must not reset to GBP) — but <code>label</code> is <strong>required on every update</strong> (the service rejects without it), and nullable text (<code>helpText</code>) is assigned as sent, so omitting it clears stored text. Every update therefore carries the full current text state and changes only what the operator touched; Retire/Reactivate sends <code>{ label: current, isActive }</code>.</td></tr>
+  <tr><td><code>POST /commerce/admin/option-groups/{groupId}/choices</code></td><td><code>addChoice(groupId, cmd)</code></td><td>New choices default active.</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-choices/{choiceId}</code></td><td><code>updateChoice(id, cmd)</code></td><td>Same shape: carry the current <code>label</code> (required) and current <code>note</code>; only value-typed omissions mean unchanged.</td></tr>
+  <tr><td><code>PUT /commerce/admin/option-groups/{groupId}/recommended-default</code></td><td><code>moveRecommendedDefault(groupId, { choiceKey })</code></td><td>Returns <code>RecommendedDefaultChangeResult { group, affectedProductSlugs[] }</code> — the payload the consequence dialog renders. A no-op move reports an empty list.</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId}/option-groups</code></td><td><code>replaceProductOptionGroups(productId, { groups: ProductOptionGroupLine[] })</code></td><td><strong>Full replace</strong> of the narrowing: <code>{ groupKey, allowedChoiceKeys?: string[]|null, defaultChoiceKey?, selectionModeOverride?, sortOrder }</code>. Null allowed-keys = every active choice. An empty list makes the product non-personalisable. Concurrency losers get <code>409 concurrency_conflict</code>.</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{productId}/surcharge</code></td><td><code>setSurcharge(productId, { amount?, currency? })</code></td><td>Null clears. The unit surcharge is the one price-like field a product card may show.</td></tr>
+  <tr><td><code>GET /commerce/admin/products?…</code></td><td><code>listProducts(query)</code></td><td>Paged summaries for the narrowing table (kind, status, slug, name). Summaries carry no narrowing data.</td></tr>
+  <tr><td>Raw narrowing read</td><td><code>getProductOptionGroups(productId)</code></td><td><div class="callout"><strong>Dependency callout.</strong> No shipped read returns the STORED <code>ProductOptionGroupLine</code> values — <code>AdminProductDetailDto.effectiveOptionGroups</code> is the resolved intersection and loses whether <code>allowedChoiceKeys</code> was null (inherit every active choice, including future ones) or an explicit list. Editing through the resolved view would silently convert inherited-null into a pinned list. Required: <code>GET /commerce/admin/products/{productId}/option-groups</code> returning the raw lines. The narrowing Sheet and table gate on it; until it ships they render read-only effective offers with editing disabled and this reason shown.</div></td></tr>
+</table>
+
+<h2>2 · Page structure (mirror the artboard)</h2>
+<ol>
+  <li><strong>Header</strong> — <code>PageHeader</code>: eyebrow <code>Commerce</code>, title <em>Personalisation</em>, subtitle stating the delta rule and that the storefront's default label (e.g. "Abby's choice") comes from config — render the live label fetched from <code>GET /commerce/config/storefront</code> (<code>recommendedChoiceLabel</code>) in the subtitle, never a literal.</li>
+  <li><strong>KPI row</strong> (four <code>KpiTile</code>s): option groups, total choices, products narrowed (of active products), unit surcharges set.</li>
+  <li><strong>Group rail + detail</strong> — left: selectable group cards (label, choice count, current default with a star). Right: the selected group's choices table with columns <em>default-star · choice (label + note + config-label badge on the default) · vs default · status · actions</em>. The <em>vs default</em> cell renders <code>SignedAmount(choice.price − defaultChoice.price)</code>; a footer line states "Stored prices are absolute (066 §8) — deltas derive against the default." Row actions: Edit (Sheet), Make default (opens the consequence dialog), Retire/Reactivate.</li>
+  <li><strong>Consequence dialog</strong> (the page's signature moment) — "Make default" opens a <code>Dialog</code>: confirm copy names old → new; on success it renders <code>affectedProductSlugs</code> as chips with the explanation that these products' standard combination changed and their content blocks are now flagged for review (Spec 067), plus a link-out button to <code>/commerce/content</code>. Products that pin their own <code>defaultChoiceKey</code> are absent from the report by definition — the dialog copy must not imply "all products offering the group".</li>
+  <li><strong>Per-product narrowing table</strong> — active products with columns <em>product · offers (group chips; "Not personalisable — panel hidden" when empty) · unit surcharge (mono) · edit</em>. Row click opens the narrowing Sheet.</li>
+  <li><strong>Narrowing Sheet</strong> (<code>size: 'md'</code>) — built from the RAW lines: one section per catalogue group with an include-checkbox; when included, an "All active choices (inherited)" toggle representing <code>allowedChoiceKeys: null</code> — while on, newly added catalogue choices flow to the product automatically and the chips render read-only-solid; switching it off pins the current set as an explicit list the operator then edits chip-by-chip (included solid with <code>SignedAmount</code> deltas against the <em>effective</em> default, excluded dashed/struck), the effective default starred. Saving preserves null-vs-explicit exactly as displayed. The effective default is <code>line.defaultChoiceKey ?? group default</code>; <strong>the delta baseline is the effective default's absolute price</strong> — a product-level override moves the zero point (review finding, round 2). Below the groups: the surcharge input. Footer: "Save offer" performs the full replace with exactly the visible intersection — the caption says so, because a save modelled on anything less silently widens the product.</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/PersonalisationPage.tsx</code>; sub-components <code>components/NarrowingSheet.tsx</code>, <code>components/DefaultMoveDialog.tsx</code>. Register the route in <code>commerceModule.routes</code>; breadcrumb <code>Commerce / Personalisation</code>.</li>
+  <li><strong>Data:</strong> single <code>loadData</code> fetching groups + product page + storefront config concurrently (<code>Promise.all</code>); <code>requestIdRef</code> guard; mutations re-await <code>loadData()</code>. Types in <code>src/types/commerce.ts</code>: <code>OptionGroupDto</code>, <code>OptionChoiceDto</code>, <code>RecommendedDefaultChangeResult</code>, <code>ProductOptionGroupLine</code>.</li>
+  <li><strong>Delta derivation is one function</strong>, unit-tested: <code>choiceDelta(choice, effectiveDefaultChoice)</code> in <code>src/pages/commerce/lib/optionPricing.ts</code> — used by both the table and the Sheet so the two can never disagree.</li>
+  <li><strong>Errors:</strong> inline banner from <code>err.userMessage</code>; 409 concurrency on the narrowing replace shows the banner plus a Reload button (the loser revalidates, per the backend contract). Successful writes: <code>toast.success</code>.</li>
+  <li><strong>Empty states:</strong> no groups yet → <code>DataTable</code> empty state with a "New group" CTA; a group with all choices retired shows a warning pill on its rail card (the backend rejects deactivating a group's recommended default — surface that message verbatim).</li>
+</ul>
+
+<h2>4 · Out of scope</h2>
+<ul><li>Selection-quote preview (066's public quote endpoint) — a future enhancement, not needed to author.</li><li>Multi-select authoring UX beyond what <code>selectionMode</code> exposes today.</li></ul>
+
+<h2>5 · Acceptance</h2>
+<ol>
+  <li>A group whose default choice has a nonzero absolute price displays that choice as <em>included</em> and every other choice as the correct signed difference, in both the table and the Sheet.</li>
+  <li>Moving a recommended default shows the affected-product chips returned by the API (and none when the API reports none), with the review link-out.</li>
+  <li>The narrowing Sheet round-trips: what it displays after save equals what a fresh load renders (full-replace fidelity, excluded chips stay excluded).</li>
+  <li>The default badge text equals <code>recommendedChoiceLabel</code> from config; changing the setting and reloading changes the badge with no code change.</li>
+  <li><code>tsc -b</code> clean; both themes; amounts mono right-aligned.</li>
+</ol>
+</body>
+</html>

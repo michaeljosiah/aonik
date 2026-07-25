@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 082 - Admin UI: Commerce products page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 082</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Specs 042/066/067/068/070</span>
+  <h1>Commerce products — catalog list and editor with the Storefront tab</h1>
+  <p><code>/commerce/products</code> (+ <code>/commerce/products/:productId</code>) · <code>CommerceProductsPage</code>. The live app has no commerce catalog at all, so the host page the starterkit's "Storefront tab" update assumed must be built with it. This spec scopes the products surface to what storefront administration needs — list, core editor, and the Storefront tab — with full Spec 042 parity (variant/pricing/bundle-slot authoring) explicitly out of scope for v1.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/admin/products?kind=&amp;categoryId=&amp;search=&amp;page=&amp;pageSize=</code></td><td><code>commerceCatalogService.listProducts(query)</code></td><td>Paged <code>ProductSummaryDto</code> rows: <code>{ id, slug, name, status, kind, categoryId?, variantCount, heroImageUrl?, tags[], attributesJson, unitSurcharge? }</code>. Deliberately no retail price on summaries.</td></tr>
+  <tr><td><code>GET /commerce/admin/products/{productId}</code></td><td><code>getProduct(id)</code></td><td><code>AdminProductDetailDto</code> — the ONLY read that exposes <code>searchKeywords: string[]</code>: an editor who could not see current keywords would silently erase them on update. The public product read structurally cannot leak them.</td></tr>
+  <tr><td><code>POST /commerce/admin/products</code> · <code>PATCH /commerce/admin/products/{id}</code></td><td><code>createProduct / patchProduct</code></td><td>PATCH is partial with strict JSON hygiene — send only touched members (name, description, status, categoryId, tagsJson, attributesJson…). <strong>Keywords write as <code>searchKeywordsJson</code></strong>: the shipped request's only keyword member is the JSON string, so the UI serializes the complete edited array into it when touched. Reads expose the parsed <code>searchKeywords: string[]</code> on the admin detail; a mismatch here loses edits silently.</td></tr>
+  <tr><td><code>PUT /commerce/admin/products/{id}/media</code></td><td><code>replaceMedia(id, items)</code></td><td>Full replace where <strong>array position IS the order</strong> — the shipped request line carries only <code>url</code> and <code>kind</code>, and the server assigns sort from position. The client type must not include a <code>sortOrder</code> field (a divergent numeric would be silently ignored and persist the wrong order).</td></tr>
+  <tr><td>Deep-surface status reads</td><td>(reuse 074/075/076 services)</td><td>Option narrowing (074), content state (075), size plan for bundles (076) — fetched for the opened product only, to power the Storefront tab's status chips.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>List</strong> — <code>PageHeader</code> + KPI row (products, active, drafts, bundles) + <code>FilterBar</code> (All/Simple/Variant/Bundle tabs + status filter + search) + <code>DataTable</code>: <em>product (hero thumb + name + slug mono) · kind · status pill · variants (mono) · tags · surcharge marker (a dot/pill indicating one exists — the summary DTO carries no surcharge currency and no timestamps, so neither a formatted amount nor an updated column can render truthfully; the amount with its currency shows in the editor)</em>. Row click opens the editor.</li>
+  <li><strong>Editor</strong> — a <code>Sheet size:'lg'</code> (route-addressable via <code>/commerce/products/:productId</code> so deep links open it) with the underline tab strip: <em>Details · Media · Storefront</em>.
+    <ul>
+      <li><em>Details</em>: name, slug (immutable display after create), description, status, category, tags editor, attributes JSON editor (validated client-side; helper: "the attribute contract facet groups match on — paths traverse from this JSON's root").</li>
+      <li><em>Media</em>: ordered thumbnails with reorder + remove + add-by-URL; Save issues the full replace in display order — array position is authoritative, no sort field exists on the wire.</li>
+      <li><em>Storefront</em> (the PR #268 design): (1) <strong>Search keywords</strong> chip editor, helper "matched by storefront search — never serialized publicly; admin-eyes-only by API design"; (2) <strong>Storefront attributes</strong> read-back grid of the parsed attributes JSON (or the honest "no storefront attributes authored — matches no attribute facet" note); (3) <strong>Unit surcharge</strong> — amount input PLUS a currency select (defaulted to the storefront config's canonical currency, which the tab fetches): the service rejects a non-null amount with a blank currency, and a product without a surcharge has both fields null, so first-time creation must supply the pair; clearing sends null amount. Helper: "the one price-like field a product card may show"; (4) <strong>Deep surfaces</strong> — three status rows read from the selected product's real state: Personalisation (n groups offered / not personalisable), Product content (authored·variants / not authored — honest empty state), Size plan (bundles only). Each with an Open link-out to 074/075/076's pages. Statuses always describe <em>this</em> product — never another product's data (the round-1 review finding that shaped this tab).</li>
+    </ul></li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/CommerceProductsPage.tsx</code>; <code>components/ProductEditorSheet.tsx</code> with <code>tabs/DetailsTab.tsx</code>, <code>tabs/MediaTab.tsx</code>, <code>tabs/StorefrontTab.tsx</code>. Routes (list + <code>isDynamic</code> detail) + breadcrumbs in <code>commerceModule</code>.</li>
+  <li><strong>Touched-field PATCH</strong> reuses the 079 pattern (<code>lib/configForm.ts</code>-style builder, unit-tested) — an untouched member never appears in the payload.</li>
+  <li><strong>Keywords editor</strong>: chips add/remove bound to <code>searchKeywords</code> from the admin detail; when touched, PATCH sends <code>searchKeywordsJson: JSON.stringify(array)</code> — the array member does not exist on the write contract.</li>
+  <li><strong>Deep-surface fetches</strong> run lazily when the Storefront tab first opens (three parallel calls, individually error-tolerant — a failed status row shows "unavailable", not a broken tab).</li>
+  <li><strong>Route-addressable Sheet</strong>: the list page reads <code>:productId</code> from params; open/close syncs with router navigation so Electron/hash routing works.</li>
+</ul>
+
+<h2>4 · Out of scope (v1)</h2>
+<ul><li>Variant CRUD, per-variant pricing windows, bundle slot authoring, category-tree management, inventory — Spec 042-scope surfaces to be specified when needed; the DTOs render read-only summaries where they appear.</li></ul>
+
+<h2>5 · Acceptance</h2>
+<ol>
+  <li>Opening any product shows ITS keywords/attributes/surcharge/deep-surface statuses; switching products swaps every field (no leakage between products).</li>
+  <li>Editing only the name PATCHes one member; keywords untouched survive (verified by re-GET).</li>
+  <li>The Storefront tab's three status rows link to 074/075/076 and reflect reality (a bundle without a plan says so; a non-bundle says "not a bundle").</li>
+  <li>Summary rows never render a retail price or a fabricated timestamp; surcharge amounts render only in the editor where the currency is known.</li>
+  <li>Deep link <code>/commerce/products/{id}</code> opens the editor directly; close returns to the list URL.</li>
+</ol>
+</body>
+</html>

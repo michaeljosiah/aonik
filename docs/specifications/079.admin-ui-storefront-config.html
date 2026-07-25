@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 079 - Admin UI: Storefront config page</title>
+  <style>
+    :root { --fg:#1c2730; --muted:#5a6a76; --soft:#f4f6f8; --border:#d9dde2; --accent:#055a60; --code-bg:#f7f9fb; --note-bg:#fff8e6; --note-border:#e8c878; }
+    * { box-sizing: border-box; }
+    html { background:#fafbfc; }
+    body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
+    header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
+    .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
+    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
+    h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
+    a { color:var(--accent); }
+    code { font:13px/1.4 "JetBrains Mono", ui-monospace, monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+    table { border-collapse:collapse; width:100%; margin:12px 0 18px; font-size:14px; }
+    th, td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--muted); font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; border-bottom:2px solid var(--border); }
+    .callout { border-left:3px solid var(--note-border); background:var(--note-bg); border-radius:0 8px 8px 0; padding:12px 16px; margin:14px 0; }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 079</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 070 §9</span>
+  <h1>Storefront config — the tunables document, beside what the customer sees</h1>
+  <p><code>/commerce/storefront-config</code> · <code>StorefrontConfigPage</code>. Design of record: artboard <code>cs-config</code> (PR #268). The single document of values the frontend must never hard-code, edited on the left and rendered on the right <em>exactly as the customer's pages consume it</em> — the same public read, the same values.</p>
+</header>
+
+<h2>1 · API contract</h2>
+<table>
+  <tr><th>Call</th><th>Service method</th><th>Notes</th></tr>
+  <tr><td><code>GET /commerce/config/storefront</code></td><td><code>commerceStorefrontService.getStorefrontConfig()</code></td><td><code>StorefrontConfigDto { currency, recommendedChoiceLabel, resultsPageSize, backToTopTrigger (typed JSON object, served verbatim), delivery: { listAmount, chargedAmount }, defaultBoxSlug?, extrasCollectionSlug?, box?: { minSize, maxSize, currency, perSpacePrice?, presets: [{ size, price, badge?, blurb?, saving? }] } }</code>. <strong>Never 404s</strong>; served with <code>Vary: X-Tenant-Id</code>. <code>box</code> null means no default bundle/plan — indistinguishable from "not yet live" by design.</td></tr>
+  <tr><td><code>PUT /commerce/admin/storefront-config</code></td><td><code>updateStorefrontConfig(cmd)</code></td><td><code>UpdateStorefrontConfigCommand { recommendedChoiceLabel?, resultsPageSize?, backToTopTriggerJson?, deliveryListAmount?, deliveryChargedAmount?, defaultBoxSlug?, extrasCollectionSlug? }</code>. <strong>Null members leave stored settings unchanged; an explicit empty string clears a tenant override back to the default — for STRING members only.</strong> The nullable numeric members (<code>resultsPageSize</code>, both delivery amounts) cannot bind an empty string, and <code>extrasCollectionSlug</code> rejects empty at validation. The form sends only touched fields, and exposes "clear override" solely on the members the wire accepts it for: <code>recommendedChoiceLabel</code>, <code>backToTopTriggerJson</code>, and <code>defaultBoxSlug</code> (the service accepts <code>''</code> there and removes the override). <code>extrasCollectionSlug: ''</code> is REJECTED by slug validation — that selector gets no clear action — and the nullable numerics cannot bind <code>''</code> at all; resetting those awaits backend clear flags (noted inline in the UI, not faked with sentinel values).</td></tr>
+  <tr><td><code>GET /commerce/admin/collections</code></td><td>(reuse)</td><td>Populates the extras-collection select with real slugs.</td></tr>
+  <tr><td><code>GET /commerce/admin/products?kind=Bundle</code></td><td>(reuse)</td><td>Populates the default-box select with bundle slugs.</td></tr>
+</table>
+
+<h2>2 · Page structure</h2>
+<ol>
+  <li><strong>The document card</strong> (left) — one field per command member: recommended-choice label (text); results page size (number); canonical currency (read-only — it comes from <code>Tenant.DefaultCurrency</code>, shown so the operator knows what labels the amounts); delivery list amount and charged amount (numbers; helper "0 renders as free"); default box (select of bundle slugs, clearable); extras collection (select of collection slugs, clearable); back-to-top trigger (raw JSON textarea — <strong>the stored form is a settings string; the public document serves the parsed typed object</strong>, and the helper text says exactly that; validate JSON client-side before enabling Save). Footer note quoting the omission semantics and the <code>Vary: X-Tenant-Id</code> / never-404 behaviour.</li>
+  <li><strong>The preview column</strong> (right) — three cards rendered from the <em>live public read</em>, refetched after every save:
+    <ul>
+      <li><em>The personaliser</em>: a mock option-chip row where the default chip carries a badge whose text is <code>recommendedChoiceLabel</code> — captioned "the badge text is the label configured on the left; every product page follows".</li>
+      <li><em>The order summary's delivery line</em>: list amount struck through, charged amount rendered (or <code>Free</code> in success tone at 0), and a small total row demonstrating the arithmetic.</li>
+      <li><em>The size step</em>: the embedded <code>box</code> presets as cards (size, price, authored saving, badge). When <code>box</code> is null: a dashed "no default box plan — the storefront renders no size step" note (honest, not an error).</li>
+    </ul></li>
+  <li><strong>Dirty flow</strong> — edits accumulate in a touched-fields map; Save PUTs only touched members, then refetches the public read so the preview proves the change landed. Per-field "clear override" buttons exist only on <code>recommendedChoiceLabel</code>, <code>backToTopTriggerJson</code> and <code>defaultBoxSlug</code>, sending the empty string for that member; the extras selector and the numeric fields offer no clear action (the wire would 422 or fail binding).</li>
+</ol>
+
+<h2>3 · Implementation instructions</h2>
+<ul>
+  <li><strong>Files:</strong> <code>src/pages/commerce/StorefrontConfigPage.tsx</code>; <code>components/StorefrontPreview.tsx</code> (the three preview cards — reused nowhere else yet, but kept separate for clarity). Route + breadcrumb in <code>commerceModule</code>.</li>
+  <li><strong>Touched-field model</strong> in <code>lib/configForm.ts</code> (unit-tested): <code>buildCommand(touched, values) → UpdateStorefrontConfigCommand</code> mapping untouched → undefined (omitted from JSON), cleared → <code>''</code>, touched → value. Axios serialises undefined members out — assert that in the test.</li>
+  <li><strong>Amount formatting</strong> via the shared <code>lib/money.ts</code> with the document's <code>currency</code>.</li>
+  <li><strong>Errors:</strong> 422 validation (page size bounds etc.) as inline <code>formError</code>; success toast + preview refetch.</li>
+</ul>
+
+<h2>4 · Acceptance</h2>
+<ol>
+  <li>Editing only the label sends a one-member payload; every other stored setting is untouched (verify via a second GET).</li>
+  <li>"Clear override" on the label sends <code>''</code> and the preview badge falls back to the platform default after refetch.</li>
+  <li>Charged amount 0 renders <code>Free</code> in the preview; nonzero renders the amount; the struck list amount always shows.</li>
+  <li>Invalid JSON in the trigger field disables Save with an inline message; valid JSON round-trips to the typed object in the preview's raw display.</li>
+  <li>With no default box configured the size-step preview shows the honest empty note, not an error; clearing the default box via its clear action round-trips to that state, while the extras selector and numeric fields expose no clear action.</li>
+</ol>
+</body>
+</html>
