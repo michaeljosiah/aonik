@@ -93,6 +93,33 @@ public class BoxAddOnTests
         flagged.Changes.Should().Contain(c => c.Reason == "unavailable");
     }
 
+    // Spec 085 — a freshly-added, in-stock, priceable extra MUST come back available, and the add
+    // response MUST agree with an immediate read (068 §7: the mutation response is what the client
+    // renders without re-reading). The add path put the new line in the working set the
+    // post-mutation availability pass iterates, but not in that pass's variant lookup (built before
+    // the mutation), so the line's variant resolved to null and it was falsely flagged unavailable —
+    // a verdict the read never reproduced. Dishes escaped it by not joining that working set.
+    [Fact]
+    public async Task Spec085_FreshInStockExtra_IsAvailable_AndAddResponseMatchesRead()
+    {
+        var (h, _, box, extraVariant) = await ArrangeAsync();
+        var carts = h.BoxCarts();
+        var access = Token(box);
+
+        var add = await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
+
+        var addedLine = add.Box.Lines.Single(l => l.LineKind == "AddOn");
+        addedLine.IsUnavailable.Should().BeFalse("C1 — the extra is active, priced and 50 in stock");
+        add.Changes.Should().NotContain(c => c.Reason == "unavailable",
+            "no line drifted on a routine add of an available extra");
+
+        // C2 — the add response must not claim a verdict the persisted cart contradicts.
+        var read = await carts.GetAsync(box.Box.CartId, access);
+        read.Box.Lines.Single(l => l.LineKind == "AddOn").IsUnavailable
+            .Should().Be(addedLine.IsUnavailable, "the add response must agree with an immediate read");
+        read.Changes.Should().NotContain(c => c.Reason == "unavailable");
+    }
+
     [Fact]
     public async Task B5_AddOns_MergeAndSplit_LikeAnyLine()
     {

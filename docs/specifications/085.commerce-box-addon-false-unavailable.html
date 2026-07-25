@@ -16,6 +16,7 @@
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
     .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-ok { background: #e6f4ea; color: #1e6b3a; }
     .meta-tag.priority-p1 { background: #fde6cf; color: #8a5a12; }
     .meta-tag.size-small { background: #e7f0fb; color: #2b5b91; }
     .meta-tag.kind-defect { background: var(--p0-bg); color: #8a2a15; }
@@ -48,7 +49,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 085</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-ok">Status: Fixed</span>
   <span class="meta-tag kind-defect">Defect</span>
   <span class="meta-tag priority-p1">Priority: P1</span>
   <span class="meta-tag size-small">Size: Small</span>
@@ -95,6 +96,15 @@ correct. The quote contract (Spec&nbsp;068 §7) is that every mutation returns t
 and changes, and clients render that response rather than re-reading; a spec-conforming client
 therefore surfaces the false alarm and, because the flag gates the gates, can be blocked from
 checking out an order that is in fact placeable.</p>
+
+<div class="callout ok">
+  <p><strong>Fixed on this branch.</strong> Root cause confirmed and corrected in
+  <code>BoxCartService.AddExtraLineAsync</code>; a regression test
+  (<code>BoxAddOnTests.Spec085_FreshInStockExtra_IsAvailable_AndAddResponseMatchesRead</code>)
+  fails on the prior code and passes on the fix. Verified end to end against a live instance — the
+  <code>POST /extras</code> response now returns the added line available with an empty
+  <code>changes[]</code>, agreeing with an immediate <code>GET</code>. See §5.</p>
+</div>
 
 <h2 id="repro">2. Reproduction</h2>
 <p>Captured against a local instance (tenant with the AbbysTable catalog seeded), extra variant with
@@ -172,31 +182,36 @@ disagree about the identical persisted line.</p>
 purely from the persisted cart and returns the correct verdict — so the divergence is in the
 <em>transient state the add path holds</em> when the pass runs, not in the pass's logic against
 stored data.</p>
-<p>Two branches inside the pass can produce an <code>unavailable</code> verdict; the fix should
-confirm which one fires here and why it disagrees with the load path:</p>
-<table>
-  <tr><th>Branch</th><th>Condition</th><th>Why it is a suspect on add</th></tr>
-  <tr>
-    <td>X2 — priceless AddOn</td>
-    <td><code>line.LineKind == AddOn &amp;&amp; PricedAddOns.TryGetValue(line.Id, out p) &amp;&amp; p is null</code></td>
-    <td>The just-added line's <code>PricedAddOns</code> entry must be its resolved retail price at the
-    authoritative pass. The add core sets it (<code>PricedAddOns[newLine.Id] = price</code>) and the
-    finalize clears <code>UnavailableLineIds</code>/<code>Available</code> but not
-    <code>PricedAddOns</code> — verify the new line's entry is non-null at pass time, and that a
-    <code>null</code> price for a merge/split/reprice interleaving cannot leave it null while the
-    persisted <code>UnitPriceSnapshot</code> is correct (which is what the load path reads).</td>
-  </tr>
-  <tr>
-    <td>X5 — aggregate stock</td>
-    <td><code>cartDemand &gt; GetAvailableAsync(variant)</code>, cart demand summing BoxDish + AddOn</td>
-    <td><code>Available</code> is cleared before the authoritative pass, forcing a fresh inventory
-    read — verify that read is not net of this cart's own just-created reservation (a self-count),
-    and that <code>cartDemand</code> does not double-count the new line across the working set.</td>
-  </tr>
-</table>
-<p>The decisive diagnostic for whoever picks this up: run <code>FlagUnavailableAsync</code>'s two
-branches with the add-path context and the load-path context side by side for the same cart; the
-inputs that differ between them are the bug.</p>
+<p><strong>Confirmed root cause — the variant lookup, not X2 or X5.</strong> The pass's very first
+check is <code>var variant = context.Variants.GetValueOrDefault(line.ProductVariantId)</code>
+followed by <code>var unavailable = variant is null || …</code>. <code>context.Variants</code> and
+<code>context.Products</code> are populated by <code>BuildContextAsync</code> from the lines that
+existed <em>before</em> the mutation. <code>AddExtraLineAsync</code> then adds the new line to
+<code>context.AddOnLines</code> — so the pass iterates it — but never registers the new line's
+variant or product in those dictionaries. So <code>GetValueOrDefault</code> returns
+<code>null</code>, the <code>variant is null</code> guard fires, and the line is flagged and a
+change emitted. The X2 and X5 branches never run: the guard short-circuits first.</p>
+<ul>
+  <li><strong>Why dishes escape it.</strong> <code>AddLineCoreAsync</code> appends a new dish only to
+  <code>cart.Items</code>, never to <code>context.BoxLines</code>, so the post-mutation pass never
+  iterates a freshly-added dish — it is validated by its own add-time guards and left out of the
+  re-flag. Extras broke that pattern by joining <code>context.AddOnLines</code>.</li>
+  <li><strong>Why the read is correct.</strong> A <code>GET</code> (and checkout) builds the context
+  from the persisted cart, which already contains the line, so its variant <em>is</em> loaded into
+  <code>context.Variants</code> and the guard passes.</li>
+  <li><strong>Why the split path was already fine.</strong> A split creates a line for a variant
+  already in the cart, so its variant is already in <code>context.Variants</code>; only a
+  brand-new-to-the-cart variant exposed the gap.</li>
+</ul>
+<h3>Resolution</h3>
+<p>The freshly-added line already correctly joins <code>context.AddOnLines</code> (matching the split
+path); the add path now also registers its variant and product in <code>context.Variants</code> /
+<code>context.Products</code>, so the authoritative pass evaluates it on the same footing as every
+other line — active, priced (X2), and in stock (X5) — and finds it available. Purely additive; no
+rule, contract, or genuine unavailability behaviour changes. The alternative — excluding the new
+line from the pass entirely, as dishes are — was rejected as the weaker fix: it leaves the line's
+demand out of the same-request X5 aggregate for a variant it might share, whereas registering the
+variant keeps the pass whole.</p>
 
 <h2 id="required">6. Required behaviour</h2>
 <table>
