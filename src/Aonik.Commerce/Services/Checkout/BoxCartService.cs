@@ -260,6 +260,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             }
             ctx.AddOnLines.Add(newLine);
             ctx.PricedAddOns[newLine.Id] = price;
+            // Spec 085 — the new line joins the working set the post-mutation availability pass
+            // iterates, so its variant and product MUST join that pass's lookups too. BuildContext
+            // populated Variants/Products from the PRE-mutation lines only; without this the
+            // just-added variant resolves to null in FlagUnavailableAsync and the line is falsely
+            // flagged unavailable — a verdict a later load never reproduces, because it rebuilds
+            // these dictionaries from the persisted cart that already includes the line.
+            ctx.Variants[variant.Id] = variant;
+            ctx.Products[product.Id] = product;
         }, cancellationToken);
 
     public Task<BoxCartDto> UpdateLineAsync(Guid cartId, Guid lineId, UpdateBoxLineCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
