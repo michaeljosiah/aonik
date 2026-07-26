@@ -46,7 +46,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     private readonly IStorefrontOrderService _storefrontOrders;
     private readonly Catalog.IProductOptionService _options;
     private readonly Catalog.IOptionSelectionService _selections;
-    private readonly IClock _clock;
+    private readonly Catalog.IProductPricingService _pricing;
 
     public AdminStorefrontService(
         CommerceDbContext dbContext,
@@ -55,7 +55,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         IStorefrontOrderService storefrontOrders,
         Catalog.IProductOptionService options,
         Catalog.IOptionSelectionService selections,
-        IClock clock)
+        Catalog.IProductPricingService pricing)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -63,7 +63,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         _storefrontOrders = storefrontOrders;
         _options = options;
         _selections = selections;
-        _clock = clock;
+        _pricing = pricing;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>> ListOrdersAsync(
@@ -225,18 +225,21 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         }
 
         var totalCount = await carts.CountAsync(cancellationToken);
-        // Activity must reflect LINE writes too: the generic cart line mutations
-        // deliberately do not touch the parent row, so ordering by Cart.UpdatedAt
-        // alone would sort an actively edited cart as stale.
+        // Activity must reflect LINE writes too. Adds/removes stamp the parent
+        // row (CartService.TouchCartAsync) — necessarily so for removals, which
+        // the global soft-delete query filter hides from every per-line
+        // aggregate — and the line-level Max keeps historical rows written
+        // before that stamp existed ordering correctly.
         var pageRows = await carts
             .OrderByDescending(c =>
-                c.Items.Where(i => !i.IsDeleted).Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt)) > (c.UpdatedAt ?? c.CreatedAt)
-                    ? c.Items.Where(i => !i.IsDeleted).Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt))
+                c.Items.Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt)) > (c.UpdatedAt ?? c.CreatedAt)
+                    ? c.Items.Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt))
                     : (c.UpdatedAt ?? c.CreatedAt))
             .ThenBy(c => c.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Include(c => c.Items)
+            .ThenInclude(i => i.Selections)
             .ToListAsync(cancellationToken);
 
         var computed = await ComputeCartStatesAsync(pageRows, cancellationToken);
@@ -266,6 +269,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await _dbContext.Carts.AsNoTracking()
             .Include(c => c.Items)
+            .ThenInclude(i => i.Selections)
             .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == cartId, cancellationToken);
         if (cart is null)
         {
@@ -284,7 +288,8 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                     i.PersonalisationSummary,
                     string.IsNullOrWhiteSpace(i.PersonalisationJson) ? null : i.PersonalisationJson,
                     flags.Unavailable, flags.PriceChanged,
-                    flags.SelectionDrift);
+                    flags.SelectionDrift,
+                    flags.Components);
             })
             .ToList();
 
@@ -346,9 +351,13 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
 
     // ─── Read-only computed state (Spec 083 dependency callout 2) ────────────
 
-    private readonly record struct LineFlags(bool Unavailable, bool PriceChanged, IReadOnlyList<SelectionDrift> SelectionDrift)
+    private readonly record struct LineFlags(
+        bool Unavailable,
+        bool PriceChanged,
+        IReadOnlyList<SelectionDrift> SelectionDrift,
+        IReadOnlyList<AdminCartLineComponentDto> Components)
     {
-        public static LineFlags Clean => new(false, false, []);
+        public static LineFlags Clean => new(false, false, [], []);
     }
 
     private sealed record CartComputed(
@@ -359,17 +368,17 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     private static List<CartItem> LiveLines(Cart cart)
         => cart.Items.Where(i => !i.IsDeleted).ToList();
 
-    /// <summary>Latest write across the cart row AND its live lines — the generic
-    /// cart line mutations deliberately do not touch the parent row.</summary>
+    /// <summary>Latest write across the cart row AND its loaded lines. Removals
+    /// surface through the parent stamp (CartService.TouchCartAsync) because the
+    /// soft-delete query filter hides deleted rows from the navigation.</summary>
     private static DateTime ActivityOf(Cart cart)
     {
         var own = cart.UpdatedAt ?? cart.CreatedAt;
-        var lines = LiveLines(cart);
-        if (lines.Count == 0)
+        if (cart.Items.Count == 0)
         {
             return own;
         }
-        var latestLine = lines.Max(i => i.UpdatedAt ?? i.CreatedAt);
+        var latestLine = cart.Items.Max(i => i.UpdatedAt ?? i.CreatedAt);
         return latestLine > own ? latestLine : own;
     }
 
@@ -402,16 +411,28 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         var editableCarts = carts.Where(IsEditable).Select(c => c.Id).ToHashSet();
 
         // Catalogue state for every referenced variant (editable carts only).
-        var checkVariantIds = carts.Where(c => editableCarts.Contains(c.Id))
+        // A classic BUNDLE line's own ProductVariantId is the bundle PRODUCT id
+        // (Spec 042 carts) — its inventory-bearing variants are the component
+        // selections, so those are what the availability predicate checks.
+        var editableLines = carts.Where(c => editableCarts.Contains(c.Id))
             .SelectMany(c => liveByCart[c.Id])
-            .Select(i => i.ProductVariantId)
+            .ToList();
+        var checkVariantIds = editableLines
+            .SelectMany(i => i.IsBundle
+                ? i.Selections.Where(sel => !sel.IsDeleted).Select(sel => sel.ProductVariantId)
+                : new[] { i.ProductVariantId })
             .Distinct()
             .ToList();
         var variants = await _dbContext.ProductVariants.AsNoTracking()
             .Where(v => v.TenantId == tenantId && checkVariantIds.Contains(v.Id))
             .Select(v => new { v.Id, v.ProductId, v.IsActive })
             .ToDictionaryAsync(v => v.Id, ct);
-        var productIds = variants.Values.Select(v => v.ProductId).Distinct().ToList();
+        var bundleProductIds = editableLines
+            .Where(i => i.IsBundle)
+            .Select(i => i.BundleProductId ?? i.ProductVariantId)
+            .Distinct()
+            .ToList();
+        var productIds = variants.Values.Select(v => v.ProductId).Union(bundleProductIds).Distinct().ToList();
         var products = await _dbContext.Products.AsNoTracking()
             .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id))
             .Select(p => new { p.Id, p.Status, p.UnitSurcharge, p.UnitSurchargeCurrency })
@@ -439,25 +460,13 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             .Distinct()
             .ToList();
         var currentPrices = new Dictionary<(Guid, string), decimal?>();
-        if (priceKeys.Count > 0)
+        foreach (var currencyGroup in priceKeys.GroupBy(k => k.Currency))
         {
-            var priceVariantIds = priceKeys.Select(k => k.ProductVariantId).Distinct().ToList();
-            var priceCurrencies = priceKeys.Select(k => k.Currency).Distinct().ToList();
-            var now = _clock.UtcNow;
-            var priceRows = await _dbContext.ProductPrices.AsNoTracking()
-                .Where(p => p.TenantId == tenantId
-                    && priceVariantIds.Contains(p.ProductVariantId)
-                    && priceCurrencies.Contains(p.Currency)
-                    && p.IsActive
-                    && (p.EffectiveFrom == null || p.EffectiveFrom <= now)
-                    && (p.EffectiveTo == null || p.EffectiveTo > now))
-                .ToListAsync(ct);
-            var latestByKey = priceRows
-                .GroupBy(p => (p.ProductVariantId, p.Currency))
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.EffectiveFrom ?? DateTime.MinValue).First().Amount);
-            foreach (var key in priceKeys)
+            var resolved = await _pricing.ResolvePricesAsync(
+                currencyGroup.Select(k => k.ProductVariantId).ToList(), currencyGroup.Key, null, ct);
+            foreach (var key in currencyGroup)
             {
-                currentPrices[key] = latestByKey.TryGetValue(key, out var amount) ? amount : null;
+                currentPrices[key] = resolved.GetValueOrDefault(key.ProductVariantId);
             }
         }
 
@@ -496,7 +505,16 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             var lines = liveByCart[cart.Id];
             var isEditable = editableCarts.Contains(cart.Id);
             var isBox = cart.BoxBundleProductId is not null;
-            var demand = lines.GroupBy(i => i.ProductVariantId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+            // Demand per inventory-bearing variant: a bundle line draws its
+            // COMPONENT variants' stock (line qty x selection qty); everything
+            // else draws its own.
+            var demand = lines
+                .SelectMany(i => i.IsBundle
+                    ? i.Selections.Where(sel => !sel.IsDeleted)
+                        .Select(sel => (VariantId: sel.ProductVariantId, Quantity: i.Quantity * sel.Quantity))
+                    : new[] { (VariantId: i.ProductVariantId, Quantity: i.Quantity) })
+                .GroupBy(x => x.VariantId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
             var flags = new Dictionary<Guid, LineFlags>(lines.Count);
             foreach (var line in lines)
@@ -504,6 +522,33 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                 if (!isEditable)
                 {
                     flags[line.Id] = LineFlags.Clean;
+                    continue;
+                }
+
+                // Classic bundle line: the line id is the bundle PRODUCT; the
+                // availability verdict resolves through the component selections,
+                // each carrying its own flag for the drawer.
+                if (line.IsBundle)
+                {
+                    var bundleProduct = products.GetValueOrDefault(line.BundleProductId ?? line.ProductVariantId);
+                    var components = line.Selections.Where(sel => !sel.IsDeleted)
+                        .Select(sel =>
+                        {
+                            var compVariant = variants.GetValueOrDefault(sel.ProductVariantId);
+                            var compProduct = compVariant is null ? null : products.GetValueOrDefault(compVariant.ProductId);
+                            var compUnavailable = compVariant is null
+                                || !compVariant.IsActive
+                                || compProduct is null
+                                || compProduct.Status != ProductStatuses.Active
+                                || demand.GetValueOrDefault(sel.ProductVariantId) > levels.GetValueOrDefault(sel.ProductVariantId, 0m);
+                            return new AdminCartLineComponentDto(
+                                sel.ProductVariantId, sel.Sku, sel.NameSnapshot, sel.Quantity, compUnavailable);
+                        })
+                        .ToList();
+                    var bundleUnavailable = bundleProduct is null
+                        || bundleProduct.Status != ProductStatuses.Active
+                        || components.Any(comp => comp.IsUnavailable);
+                    flags[line.Id] = new LineFlags(bundleUnavailable, false, [], components);
                     continue;
                 }
 
@@ -564,7 +609,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                     }
                 }
 
-                flags[line.Id] = new LineFlags(unavailable, priceChanged, selectionDrift);
+                flags[line.Id] = new LineFlags(unavailable, priceChanged, selectionDrift, []);
             }
 
             var drift = isEditable && isBox

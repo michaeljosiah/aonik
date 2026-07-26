@@ -121,6 +121,10 @@ export const commerceStorefrontService = {
   /** Status-agnostic admin read by product id — Draft bundles included. Null-safe 404. */
   getSizePlan: async (productId: string): Promise<BoxPlanDto> =>
     api.get<BoxPlanDto>(`/commerce/admin/products/${productId}/size-plan`),
+  /** The PUBLIC read by slug (Active bundles only) — what the storefront serves,
+   * for the Spec 076 preview; never a substitute for the admin-by-id read. */
+  getPublicBoxPlan: async (slug: string): Promise<BoxPlanDto> =>
+    api.get<BoxPlanDto>(`/commerce/catalog/products/${slug}/box-plan`),
   upsertSizePlan: async (productId: string, data: UpsertBundleSizePlanRequest): Promise<BoxPlanDto> =>
     api.put<BoxPlanDto>(`/commerce/admin/products/${productId}/size-plan`, data),
 

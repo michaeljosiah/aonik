@@ -18,6 +18,8 @@ internal sealed partial class CollectionService : ICollectionService
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<CollectionService> _logger;
+    private readonly ITenantCurrencyProvider _tenantCurrency;
+    private readonly IProductPricingService _pricing;
 
     private readonly IExtrasCatalogService _extras;
 
@@ -25,12 +27,16 @@ internal sealed partial class CollectionService : ICollectionService
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
         ILogger<CollectionService> logger,
-        IExtrasCatalogService extras)
+        IExtrasCatalogService extras,
+        ITenantCurrencyProvider tenantCurrency,
+        IProductPricingService pricing)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _logger = logger;
         _extras = extras;
+        _tenantCurrency = tenantCurrency;
+        _pricing = pricing;
     }
 
     // ─── Public reads ────────────────────────────────────────────────────────
@@ -115,41 +121,55 @@ internal sealed partial class CollectionService : ICollectionService
         // the public rail skips as unpriceable (it omits and counts; the admin
         // keeps and marks). Sourced from the REAL public read, never simulated.
         // A PARKED (inactive) extras collection serves no public rail at all —
-        // GetExtrasAsync would come back empty and every eligible member would
-        // read as a pricing failure. Pricing state is only meaningful while the
-        // rail is live, so an inactive collection keeps every member at null.
+        // pricing state is only meaningful while the rail is live, so an
+        // inactive collection keeps every member at null.
         var extrasSlug = await _extras.GetConfiguredSlugAsync(cancellationToken);
         if (collection.IsActive && string.Equals(collection.Slug, extrasSlug, StringComparison.OrdinalIgnoreCase))
         {
-            var rail = await _extras.GetExtrasAsync(cancellationToken);
-            var byProduct = rail.Rows.ToDictionary(r => r.ProductId);
-
-            // IsPriceable = false is a PRICING verdict — reserve it for members the
-            // rail would serve but for a missing price. An Active member can also be
-            // missing from the rail because it is structurally ineligible (not a
-            // Simple product, or no active variant); those are null, or the operator
-            // would be told to repair pricing when the problem is the product itself.
-            var absentActiveIds = dto.Items
-                .Where(i => i.Status == ProductStatuses.Active && !byProduct.ContainsKey(i.ProductId))
+            // Derived DIRECTLY with bounded batch queries — never by materialising
+            // the public rail, whose per-member content/options resolution is far
+            // more than priceability needs. The rules mirror GetExtrasAsync
+            // exactly: an Active + Simple member with an active variant (the
+            // earliest-created one is the rail's variant) is servable; it is
+            // PRICEABLE when that variant resolves a price in the tenant currency.
+            // IsPriceable=false stays a PRICING verdict; structurally ineligible
+            // members (wrong kind, no active variant) stay null — no price row
+            // could fix them.
+            var activeIds = dto.Items
+                .Where(i => i.Status == ProductStatuses.Active)
                 .Select(i => i.ProductId)
                 .ToList();
-            var eligibleKinds = await _dbContext.Products.AsNoTracking()
-                .Where(p => p.TenantId == tenantId && absentActiveIds.Contains(p.Id) && p.Kind == ProductKinds.Simple)
+            var simpleIds = (await _dbContext.Products.AsNoTracking()
+                .Where(p => p.TenantId == tenantId && activeIds.Contains(p.Id) && p.Kind == ProductKinds.Simple)
                 .Select(p => p.Id)
-                .ToListAsync(cancellationToken);
-            var withActiveVariant = await _dbContext.ProductVariants.AsNoTracking()
-                .Where(v => v.TenantId == tenantId && absentActiveIds.Contains(v.ProductId) && v.IsActive)
-                .Select(v => v.ProductId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-            var unpriceable = eligibleKinds.Intersect(withActiveVariant).ToHashSet();
+                .ToListAsync(cancellationToken)).ToHashSet();
+            var railVariants = await _dbContext.ProductVariants.AsNoTracking()
+                .Where(v => v.TenantId == tenantId && activeIds.Contains(v.ProductId) && v.IsActive)
+                .GroupBy(v => v.ProductId)
+                .Select(g => g.OrderBy(v => v.CreatedAt).First())
+                .ToDictionaryAsync(v => v.ProductId, cancellationToken);
+            var currency = await _tenantCurrency.GetTenantDefaultCurrencyAsync(tenantId, cancellationToken) ?? "GBP";
+            var prices = await _pricing.ResolvePricesAsync(
+                railVariants.Values.Where(v => simpleIds.Contains(v.ProductId)).Select(v => v.Id).ToList(),
+                currency, null, cancellationToken);
 
             dto = dto with
             {
                 Items = dto.Items
-                    .Select(i => byProduct.TryGetValue(i.ProductId, out var row)
-                        ? i with { UnitPrice = row.UnitPrice, Currency = row.Currency, IsPriceable = true }
-                        : i with { IsPriceable = unpriceable.Contains(i.ProductId) ? false : null })
+                    .Select(i =>
+                    {
+                        var eligible = i.Status == ProductStatuses.Active
+                            && simpleIds.Contains(i.ProductId)
+                            && railVariants.TryGetValue(i.ProductId, out _);
+                        if (!eligible)
+                        {
+                            return i with { IsPriceable = (bool?)null };
+                        }
+                        var price = prices.GetValueOrDefault(railVariants[i.ProductId].Id);
+                        return price is null
+                            ? i with { IsPriceable = false }
+                            : i with { UnitPrice = price, Currency = currency, IsPriceable = true };
+                    })
                     .ToList(),
             };
         }

@@ -79,7 +79,10 @@ internal sealed class CartService : ICartService
         var unit = await _pricing.ResolvePriceAsync(variant.Id, cart.Currency, null, cancellationToken)
             ?? throw new InvalidOperationException($"No {cart.Currency} price for variant '{variant.Id}'.");
 
-        // Insert the line directly — the cart parent is never re-tracked/updated (it owns no totals).
+        // Insert the line directly — the cart parent owns no totals; the one
+        // parent write is the activity stamp below, so list surfaces can order
+        // by Cart.UpdatedAt (the soft-delete query filter hides removed lines
+        // from any per-line aggregate).
         _dbContext.CartItems.Add(new CartItem
         {
             Id = Guid.NewGuid(),
@@ -93,6 +96,7 @@ internal sealed class CartService : ICartService
             NameSnapshot = variant.Name,
         });
 
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
@@ -161,6 +165,7 @@ internal sealed class CartService : ICartService
         }
 
         _dbContext.CartItems.Add(item);
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
@@ -174,6 +179,7 @@ internal sealed class CartService : ICartService
         if (item is not null)
         {
             _dbContext.CartItems.Remove(item);
+            await TouchCartAsync(cartId, tenantId, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
@@ -240,6 +246,25 @@ internal sealed class CartService : ICartService
         if (cart.Status != CartStatuses.Open || cart.OrderId is not null)
         {
             throw new StorefrontValidationException("Z4: this cart has been checked out; its buyer cannot change.");
+        }
+    }
+
+    /// <summary>
+    /// Stamps the parent cart's activity inside the SAME unit of work as a line
+    /// write. Line mutations deliberately never carry cart state (the cart owns
+    /// no totals), but a line add/remove IS cart activity — and the soft-delete
+    /// query filter hides removed lines from every per-line aggregate, so
+    /// Cart.UpdatedAt is the only ordering signal a removal can leave behind.
+    /// The cart has no concurrency token; concurrent stamps last-write-win
+    /// harmlessly.
+    /// </summary>
+    private async Task TouchCartAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var tracked = await _dbContext.Carts
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+        if (tracked is not null)
+        {
+            tracked.UpdatedAt = DateTime.UtcNow;
         }
     }
 

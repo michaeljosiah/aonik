@@ -28,7 +28,7 @@ public class AdminStorefrontProjectionTests
             new StorefrontOrderService(h.Commerce(), tenant, spine),
             CommerceTestHarness.NewOptionService(ctx, h.TenantId),
             CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
-            new CommerceTestHarness.TestClock());
+            h.Pricing());
     }
 
     [Fact]
@@ -338,7 +338,7 @@ public class AdminStorefrontProjectionTests
         var collections = new CollectionService(
             ctx, new TestTenantProvider(h.TenantId),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<CollectionService>.Instance,
-            extrasCatalog);
+            extrasCatalog, new GbpTenantCurrencyProvider(), h.Pricing());
 
         var extrasCollectionId = (await ctx.Collections.AsNoTracking().FirstAsync(c => c.Slug == "extras")).Id;
         var adminDetail = await collections.GetAdminAsync(extrasCollectionId);
@@ -420,5 +420,47 @@ public class AdminStorefrontProjectionTests
         var storedLine = await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId);
         storedLine.PersonalisationAdjustment.Should().Be(1.00m);
         storedLine.PersonalisationJson.Should().Contain("hot");
+    }
+
+    [Fact]
+    public async Task CartsAdmin_ResolvesBundleLines_ThroughTheirComponentSelections()
+    {
+        var h = new BoxTestHarness();
+        await h.BuildAsync("jollof");
+        var party = Guid.NewGuid();
+
+        // A classic Spec 042 bundle: the cart line's own id is the bundle
+        // PRODUCT; the inventory-bearing variant lives in the selections.
+        var (_, cakeVariant) = await h.AddExtraAsync("cake", 6.00m, inExtrasCollection: false, stock: 5m);
+        var hamper = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "hamper", "Hamper", Aonik.Commerce.Entities.Catalog.ProductKinds.Bundle,
+            BundlePricingMode: "SumOfComponents"));
+        var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(hamper.Id, "Pick 1", 1, 1));
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: party));
+        var access = CartAccessContext.ForParty(party);
+        await h.Carts().AddBundleAsync(new AddBundleToCartCommand(
+            cart.Id, hamper.Id, [new BundleSelectionLine(slot.Id, cakeVariant)]), access);
+
+        var admin = AdminSvc(h);
+        var line = (await admin.GetCartAsync(cart.Id))!.Lines.Single();
+        line.IsUnavailable.Should().BeFalse(
+            "a bundle line's availability resolves through its COMPONENT variants, never by treating the bundle id as a variant");
+        line.Components.Should().ContainSingle().Which.Should()
+            .Match<AdminCartLineComponentDto>(c => c.ProductVariantId == cakeVariant && !c.IsUnavailable);
+
+        // Kill the component's stock: the component flags and the line follows.
+        await h.Inventory().SetOnHandAsync(cakeVariant, 0m);
+        var starved = (await admin.GetCartAsync(cart.Id))!.Lines.Single();
+        starved.Components.Single().IsUnavailable.Should().BeTrue();
+        starved.IsUnavailable.Should().BeTrue();
+
+        // A REMOVAL is activity too: the soft-deleted row's write must advance
+        // the cart's reported timestamp even though the parent row never moves.
+        var before = (await admin.GetCartAsync(cart.Id))!.UpdatedAtUtc;
+        var removedLineId = (await h.Commerce().CartItems.AsNoTracking()
+            .SingleAsync(i => i.CartId == cart.Id)).Id;
+        await h.Carts().RemoveItemAsync(cart.Id, removedLineId, access);
+        (await admin.GetCartAsync(cart.Id))!.UpdatedAtUtc.Should().BeOnOrAfter(before);
     }
 }

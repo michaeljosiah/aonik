@@ -80,6 +80,41 @@ internal sealed class ProductPricingService : IProductPricingService
         return price?.Amount;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, decimal?>> ResolvePricesAsync(
+        IReadOnlyCollection<Guid> productVariantIds,
+        string currency,
+        DateTime? atUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var at = atUtc ?? _clock.UtcNow;
+        var ids = productVariantIds.Distinct().ToList();
+        var result = ids.ToDictionary(id => id, _ => (decimal?)null);
+        if (ids.Count == 0)
+        {
+            return result;
+        }
+
+        var rows = await _dbContext.ProductPrices
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId
+                && ids.Contains(p.ProductVariantId)
+                && p.Currency == currency
+                && p.IsActive
+                && (p.EffectiveFrom == null || p.EffectiveFrom <= at)
+                && (p.EffectiveTo == null || p.EffectiveTo > at))
+            .ToListAsync(cancellationToken);
+
+        // Latest EffectiveFrom wins, an open-dated row losing to any dated one —
+        // the same ordering the single read applies in SQL.
+        foreach (var group in rows.GroupBy(p => p.ProductVariantId))
+        {
+            result[group.Key] = group.OrderByDescending(p => p.EffectiveFrom ?? DateTime.MinValue).First().Amount;
+        }
+
+        return result;
+    }
+
     public async Task<decimal> ResolveBundlePriceAsync(
         Guid bundleProductId,
         IReadOnlyCollection<BundleSelectionLine> selection,

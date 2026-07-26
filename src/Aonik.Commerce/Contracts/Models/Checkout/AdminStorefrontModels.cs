@@ -114,7 +114,21 @@ public record AdminCartLineDto(
     /// through the SAME Spec 066 rules the box load path applies — option
     /// retired, group added/removed, selection-mode change — so the drawer can
     /// explain WHY a cart is blocked. Empty when nothing drifted.
-    IReadOnlyList<Catalog.SelectionDrift> SelectionDrift);
+    IReadOnlyList<Catalog.SelectionDrift> SelectionDrift,
+    /// A classic BUNDLE line's nested component selections (Spec 042 carts):
+    /// the line's own ProductVariantId is the bundle PRODUCT, so availability
+    /// resolves through THESE — each component carries its own flag. Empty for
+    /// non-bundle lines.
+    IReadOnlyList<AdminCartLineComponentDto> Components);
+
+/// <summary>One component selection inside a classic bundle cart line.</summary>
+public record AdminCartLineComponentDto(
+    Guid ProductVariantId,
+    string Sku,
+    string Name,
+    decimal Quantity,
+    /// Computed read-only, live editable carts only — same predicate as top-level lines.
+    bool IsUnavailable);
 
 public record AdminCartDetailDto(
     Guid CartId,

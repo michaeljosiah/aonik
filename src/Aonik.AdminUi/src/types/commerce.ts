@@ -581,6 +581,18 @@ export interface AdminCartLineDto {
   priceChanged: boolean;
   /** Per-line drift reasons from the Spec 066 renormalisation; empty when nothing drifted. */
   selectionDrift: SelectionDriftDto[];
+  /** Classic bundle lines only — the nested component selections, each with its
+   * own availability flag (the line's own id is the bundle PRODUCT). Empty otherwise. */
+  components: AdminCartLineComponentDto[];
+}
+
+/** One component selection inside a classic bundle cart line. */
+export interface AdminCartLineComponentDto {
+  productVariantId: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  isUnavailable: boolean;
 }
 
 export interface AdminCartDetailDto {
