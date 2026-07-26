@@ -724,6 +724,85 @@ internal sealed class ProductContentService : IProductContentService
         }
     }
 
+    public async Task<AdminProductContentDto> GetAdminAsync(Guid productId, CancellationToken ct = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var exists = await _dbContext.Products.AsNoTracking()
+            .AnyAsync(p => p.Id == productId && p.TenantId == tenantId, ct);
+        if (!exists)
+        {
+            throw new NotFoundException($"Product '{productId}' was not found.");
+        }
+
+        var content = await _dbContext.ProductContents.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ProductId == productId && c.TenantId == tenantId, ct);
+        var variants = await _dbContext.ProductContentVariants.AsNoTracking()
+            .Where(v => v.ProductId == productId && v.TenantId == tenantId)
+            .OrderBy(v => v.CreatedAt)
+            .ToListAsync(ct);
+
+        var isStale = false;
+        if (content is not null)
+        {
+            // The resolver's own predicate (§5/§6): the explicit flag OR a stored
+            // all-defaults binding that no longer matches the current defaults —
+            // computed HERE so no client ever re-implements canonicalisation.
+            var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
+            isStale = content.RequiresReview
+                || !string.Equals(content.DescribesSelectionJson, allDefaults, StringComparison.Ordinal);
+        }
+
+        return new AdminProductContentDto(
+            content is null ? null : MapContent(content),
+            isStale,
+            variants.Select(MapVariant).ToList());
+    }
+
+    public async Task<Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>> ListAdminStatusAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var products = _dbContext.Products.AsNoTracking().Where(p => p.TenantId == tenantId);
+        var totalCount = await products.CountAsync(ct);
+        var pageRows = await products
+            .OrderBy(p => p.Name).ThenBy(p => p.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new { p.Id, p.Slug, p.Name, p.Status })
+            .ToListAsync(ct);
+        var ids = pageRows.Select(p => p.Id).ToList();
+
+        var blocks = await _dbContext.ProductContents.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && ids.Contains(c.ProductId))
+            .ToDictionaryAsync(c => c.ProductId, ct);
+        var variantCounts = await _dbContext.ProductContentVariants.AsNoTracking()
+            .Where(v => v.TenantId == tenantId && ids.Contains(v.ProductId) && v.IsActive)
+            .GroupBy(v => v.ProductId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+
+        var rows = new List<ContentStatusRowDto>(pageRows.Count);
+        foreach (var p in pageRows)
+        {
+            var hasBlock = blocks.TryGetValue(p.Id, out var block);
+            var isStale = false;
+            if (hasBlock)
+            {
+                var allDefaults = (await _selections.NormalizeAsync(p.Id, null, ct)).CanonicalSelectionJson;
+                isStale = block!.RequiresReview
+                    || !string.Equals(block.DescribesSelectionJson, allDefaults, StringComparison.Ordinal);
+            }
+            rows.Add(new ContentStatusRowDto(
+                p.Id, p.Slug, p.Name, p.Status,
+                hasBlock, hasBlock && block!.RequiresReview, isStale,
+                variantCounts.GetValueOrDefault(p.Id)));
+        }
+
+        return new Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>(rows, totalCount, page, pageSize);
+    }
+
     private static ProductContentDto MapContent(ProductContent c) => new(
         c.ProductId,
         c.ServingLabel,

@@ -19,14 +19,18 @@ internal sealed partial class CollectionService : ICollectionService
     private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<CollectionService> _logger;
 
+    private readonly IExtrasCatalogService _extras;
+
     public CollectionService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
-        ILogger<CollectionService> logger)
+        ILogger<CollectionService> logger,
+        IExtrasCatalogService extras)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _logger = logger;
+        _extras = extras;
     }
 
     // ─── Public reads ────────────────────────────────────────────────────────
@@ -104,7 +108,28 @@ internal sealed partial class CollectionService : ICollectionService
             .FirstOrDefaultAsync(c => c.Id == collectionId && c.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Collection '{collectionId}' was not found.");
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        var dto = await MapAdminAsync(tenantId, collection, cancellationToken);
+
+        // Spec 078 dependency — the extras collection is the one place members
+        // carry retail pricing state, so the admin can see WHICH retained member
+        // the public rail skips as unpriceable (it omits and counts; the admin
+        // keeps and marks). Sourced from the REAL public read, never simulated.
+        var extrasSlug = await _extras.GetConfiguredSlugAsync(cancellationToken);
+        if (string.Equals(collection.Slug, extrasSlug, StringComparison.OrdinalIgnoreCase))
+        {
+            var rail = await _extras.GetExtrasAsync(cancellationToken);
+            var byProduct = rail.Rows.ToDictionary(r => r.ProductId);
+            dto = dto with
+            {
+                Items = dto.Items
+                    .Select(i => byProduct.TryGetValue(i.ProductId, out var row)
+                        ? i with { UnitPrice = row.UnitPrice, Currency = row.Currency, IsPriceable = true }
+                        : i with { IsPriceable = i.Status == ProductStatuses.Active ? false : null })
+                    .ToList(),
+            };
+        }
+
+        return dto;
     }
 
     public async Task<AdminCollectionDto> CreateAsync(CreateCollectionCommand command, CancellationToken cancellationToken = default)

@@ -683,6 +683,37 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ProductNarrowingLineDto>> GetNarrowingAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var exists = await _dbContext.Products.AsNoTracking()
+            .AnyAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
+        if (!exists)
+        {
+            throw new NotFoundException($"Product '{productId}' was not found.");
+        }
+
+        var rows = await _dbContext.ProductOptionGroups.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.ProductId == productId)
+            .Join(
+                _dbContext.OptionGroups.AsNoTracking().Where(g => g.TenantId == tenantId),
+                x => x.OptionGroupId,
+                g => g.Id,
+                (x, g) => new { Narrowing = x, g.Key })
+            .OrderBy(r => r.Narrowing.SortOrder)
+            .ThenBy(r => r.Key)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new ProductNarrowingLineDto(
+                r.Key,
+                DeserializeAllowedKeys(r.Narrowing.AllowedChoiceKeysJson)?.ToList(),
+                r.Narrowing.DefaultChoiceKey,
+                r.Narrowing.SelectionModeOverride,
+                r.Narrowing.SortOrder))
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<EffectiveOptionGroupDto>> GetEffectiveOptionsAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();

@@ -1,4 +1,4 @@
-using Aonik.Commerce.Entities.Catalog;
+﻿using Aonik.Commerce.Entities.Catalog;
 
 namespace Aonik.Commerce.Contracts.Models.Catalog;
 
@@ -38,7 +38,21 @@ public record AdminCollectionDto(
     bool IsActive,
     IReadOnlyList<AdminCollectionItemDto> Items);
 
-public record AdminCollectionItemDto(Guid ProductId, string Slug, string Name, string Status, int Rank);
+/// <summary>Admin membership row. The pricing members are populated ONLY for the
+/// configured extras collection (Spec 078 dependency): <c>IsPriceable</c> true =
+/// the public rail serves it at <c>UnitPrice</c>; false = an ACTIVE member the
+/// public read omits-and-counts as unpriceable (the admin keeps it editable);
+/// null = pricing state not applicable (not the extras collection, or the member
+/// is not publicly servable anyway, e.g. a draft).</summary>
+public record AdminCollectionItemDto(
+    Guid ProductId,
+    string Slug,
+    string Name,
+    string Status,
+    int Rank,
+    decimal? UnitPrice = null,
+    string? Currency = null,
+    bool? IsPriceable = null);
 
 public record CreateCollectionCommand(
     string Slug,

@@ -92,6 +92,28 @@ export const SIDEBAR_NAV: NavigationSection[] = [
           },
         ],
       },
+      {
+        // The product-agnostic storefront engine (Specs 066–072). Generic
+        // labels are deliberate per ADR-013 — vertical identity (dishes,
+        // boxes-of-food) lives in tenant data and config, never nav copy.
+        // moduleId gates the whole subtree on the runtime manifest's
+        // enabledModules (absent manifest → render, fail-open).
+        id: 'commerce',
+        label: 'Commerce',
+        icon: 'cart',
+        moduleId: 'commerce',
+        children: [
+          { id: 'cm-overview', label: 'Overview', icon: 'dashboard', href: '/commerce' },
+          { id: 'cm-products', label: 'Products', icon: 'box', href: '/commerce/products' },
+          { id: 'cs-options', label: 'Personalisation', icon: 'sliders', href: '/commerce/personalisation' },
+          { id: 'cs-content', label: 'Product content', icon: 'file', href: '/commerce/content' },
+          { id: 'cs-boxplan', label: 'Box plans', icon: 'box', href: '/commerce/box-plans' },
+          { id: 'cs-delivery', label: 'Delivery', icon: 'calendar', href: '/commerce/delivery' },
+          { id: 'cs-merch', label: 'Merchandising', icon: 'stack', href: '/commerce/merchandising' },
+          { id: 'cs-config', label: 'Storefront config', icon: 'settings', href: '/commerce/storefront-config' },
+          { id: 'cm-orders', label: 'Orders & carts', icon: 'receipt', href: '/commerce/orders' },
+        ],
+      },
       // Personal Finance nav entry intentionally omitted — no dedicated
       // PF admin surfaces exist today (the template's Wallets / Savings /
       // Transfers all routed to /accounts or /orders/activity). Re-add

@@ -50,6 +50,13 @@ const ICON_PATHS: Record<string, string> = {
   terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m6 9 3 3-3 3M12 15h5"/>',
   route: '<circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h4a4 4 0 0 1 4 4v4a4 4 0 0 0 4 4"/>',
   workflow: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a2 2 0 0 0 2 2h4"/><path d="M18 9v3a2 2 0 0 1-2 2h-4"/>',
+  // Commerce nav icons (Spec 073 §3) — ported from the approved starterkit
+  // set (Templates/aonik-admin-starterkit/kit/icons-extra.jsx).
+  cart: '<circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/><path d="M3 4h2l2.4 12h10.2L21 8H6"/>',
+  box: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  sliders: '<path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h.01"/><circle cx="15" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  file: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',
+  stack: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
 };
 
 interface AonikTemplateIconProps extends Omit<SVGProps<SVGSVGElement>, 'color'> {

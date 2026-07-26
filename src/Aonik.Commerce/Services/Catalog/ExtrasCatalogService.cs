@@ -17,6 +17,12 @@ namespace Aonik.Commerce.Services.Catalog;
 public interface IExtrasCatalogService
 {
     Task<ExtrasListDto> GetExtrasAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The collection slug the extras rail reads (tenant setting →
+    /// platform default → "extras") — exposed so the admin merchandising view can
+    /// identify and enrich THE extras collection without re-implementing the
+    /// resolution (Spec 078 dependency).</summary>
+    Task<string> GetConfiguredSlugAsync(CancellationToken cancellationToken = default);
 }
 
 public record ExtraRowDto(
@@ -77,7 +83,7 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
         _content = content;
     }
 
-    public async Task<ExtrasListDto> GetExtrasAsync(CancellationToken cancellationToken = default)
+    public async Task<string> GetConfiguredSlugAsync(CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var slug = (await _settingStore.GetTenantValueAsync(
@@ -88,7 +94,13 @@ internal sealed class ExtrasCatalogService : IExtrasCatalogService
             // default is "extras"); the literal is only the last resort.
             slug = (await _settings.GetAsync(CommerceSettingNames.StorefrontExtrasCollectionSlug, cancellationToken))?.Trim();
         }
-        slug = string.IsNullOrEmpty(slug) ? DefaultSlug : slug;
+        return string.IsNullOrEmpty(slug) ? DefaultSlug : slug;
+    }
+
+    public async Task<ExtrasListDto> GetExtrasAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var slug = await GetConfiguredSlugAsync(cancellationToken);
 
         var collection = await _dbContext.Collections
             .AsNoTracking()

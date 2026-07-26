@@ -1,4 +1,4 @@
-using Aonik.Commerce.Entities.Catalog;
+﻿using Aonik.Commerce.Entities.Catalog;
 
 namespace Aonik.Commerce.Contracts.Models.Catalog;
 
@@ -156,6 +156,17 @@ public record UpdateOptionChoiceCommand(
     decimal? Price = null,
     int? SortOrder = null,
     bool? IsActive = null);
+
+/// <summary>Spec 074 dependency — the STORED narrowing line as authored,
+/// preserving the null-vs-explicit <c>AllowedChoiceKeys</c> distinction the
+/// resolved effective view loses (null = inherit every active choice,
+/// including future ones; a list = pinned).</summary>
+public record ProductNarrowingLineDto(
+    string GroupKey,
+    IReadOnlyList<string>? AllowedChoiceKeys,
+    string? DefaultChoiceKey,
+    string? SelectionModeOverride,
+    int SortOrder);
 
 /// <summary>One group in a product's narrowing.</summary>
 public record ProductOptionGroupLine(

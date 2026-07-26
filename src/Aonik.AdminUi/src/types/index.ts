@@ -19,6 +19,12 @@ export interface NavItem {
   badge?: string;
   children?: NavItem[];
   audience?: 'host' | 'tenant' | 'all';
+  /**
+   * Runtime-manifest gate: when a manifest is present and this id is not in
+   * its enabledModules, the item (and its subtree) does not render. Absent
+   * manifest → render (fail-open, matching useModules()).
+   */
+  moduleId?: string;
   /** Grouped children for flyout menus - takes precedence over children if present */
   childGroups?: NavItemGroup[];
   /** Footer link for the flyout menu (e.g., "View all") */

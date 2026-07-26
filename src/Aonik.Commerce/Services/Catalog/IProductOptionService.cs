@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 
 namespace Aonik.Commerce.Services.Catalog;
 
@@ -44,4 +44,9 @@ public interface IProductOptionService
     /// and selection mode resolved (Spec 066 §6). Empty list = not personalisable.
     /// </summary>
     Task<IReadOnlyList<EffectiveOptionGroupDto>> GetEffectiveOptionsAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>Spec 074 dependency — the RAW stored narrowing (null allowed-keys
+    /// preserved), so a full-replace editor can round-trip without silently
+    /// pinning an inherited set. 404 when the product does not exist.</summary>
+    Task<IReadOnlyList<ProductNarrowingLineDto>> GetNarrowingAsync(Guid productId, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Models.Catalog;
+﻿namespace Aonik.Commerce.Contracts.Models.Catalog;
 
 // ─── Resolution (Spec 067 §5/§7) ────────────────────────────────────────────
 
@@ -97,6 +97,27 @@ public record UpsertContentVariantCommand(
 /// <summary>Every authored combination plus the single-choice-deviation gaps — bounded by
 /// Σ|offered choices| per product, never combinatorial. Multi-choice combinations are authored
 /// on demand and appear in <see cref="Authored"/>.</summary>
+/// <summary>Spec 075 dependency — the RAW authoring read: the block as stored,
+/// its variants, and server-computed staleness via the resolver's own predicate
+/// (<c>RequiresReview</c> OR the stored all-defaults binding no longer matching
+/// the product's current default selection). Editors load THIS, never the
+/// public resolution, which withholds and substitutes by design.</summary>
+public record AdminProductContentDto(
+    ProductContentDto? Block,
+    bool IsStale,
+    IReadOnlyList<ProductContentVariantDto> Variants);
+
+/// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).</summary>
+public record ContentStatusRowDto(
+    Guid ProductId,
+    string Slug,
+    string Name,
+    string ProductStatus,
+    bool HasBlock,
+    bool RequiresReview,
+    bool IsStale,
+    int VariantCount);
+
 public record ContentCoverageDto(
     Guid ProductId,
     IReadOnlyList<ContentCoverageEntryDto> Authored,
