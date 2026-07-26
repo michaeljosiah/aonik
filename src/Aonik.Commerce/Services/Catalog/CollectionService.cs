@@ -114,8 +114,12 @@ internal sealed partial class CollectionService : ICollectionService
         // carry retail pricing state, so the admin can see WHICH retained member
         // the public rail skips as unpriceable (it omits and counts; the admin
         // keeps and marks). Sourced from the REAL public read, never simulated.
+        // A PARKED (inactive) extras collection serves no public rail at all —
+        // GetExtrasAsync would come back empty and every eligible member would
+        // read as a pricing failure. Pricing state is only meaningful while the
+        // rail is live, so an inactive collection keeps every member at null.
         var extrasSlug = await _extras.GetConfiguredSlugAsync(cancellationToken);
-        if (string.Equals(collection.Slug, extrasSlug, StringComparison.OrdinalIgnoreCase))
+        if (collection.IsActive && string.Equals(collection.Slug, extrasSlug, StringComparison.OrdinalIgnoreCase))
         {
             var rail = await _extras.GetExtrasAsync(cancellationToken);
             var byProduct = rail.Rows.ToDictionary(r => r.ProductId);

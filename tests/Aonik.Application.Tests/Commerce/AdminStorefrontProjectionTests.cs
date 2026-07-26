@@ -22,10 +22,13 @@ public class AdminStorefrontProjectionTests
     {
         var tenant = new TestTenantProvider(h.TenantId);
         var spine = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider());
+        var ctx = h.Commerce();
         return new AdminStorefrontService(
-            h.Commerce(), tenant, spine,
+            ctx, tenant, spine,
             new StorefrontOrderService(h.Commerce(), tenant, spine),
-            h.Pricing());
+            CommerceTestHarness.NewOptionService(ctx, h.TenantId),
+            CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
+            new CommerceTestHarness.TestClock());
     }
 
     [Fact]
@@ -57,14 +60,31 @@ public class AdminStorefrontProjectionTests
         row.FulfilmentStatus.Should().Be("Unfulfilled");
         row.Total.Should().Be(95m + 9m, "the box goods total plus two £4.50 add-ons");
 
+        // A PENDING-PAYMENT cart (Open but claimed by an order) is frozen, not a
+        // live session: its charge is fixed and its snapshots are the recorded
+        // truth — a retail price moving AFTER the claim must not flag it (the
+        // customer is mid-payment against the recorded amount).
+        await using (var reprice = h.Commerce())
+        {
+            var price = await reprice.ProductPrices.FirstAsync(p => p.ProductVariantId == extraVariant);
+            price.Amount += 2m;
+            await reprice.SaveChangesAsync();
+        }
+        var pendingRow = (await admin.ListCartsAsync()).Items.Single(r => r.OrderId == checkout.OrderId);
+        pendingRow.Total.Should().Be(95m + 9m, "a claimed cart serves the recorded charge total");
+        pendingRow.BoxMeta!.Drift.Should().BeFalse("a claimed cart is not revalidated against live state");
+        (await admin.GetCartAsync(pendingRow.CartId))!.Lines
+            .Should().OnlyContain(l => !l.IsUnavailable && !l.PriceChanged && l.SelectionDrift.Count == 0);
+
         // Payment completion must converge the DURABLE funding record the
         // projection reads — the at-creation provider status is not the truth
-        // once PaymentCompletedEvent fires — and Complete (the spine's terminal
-        // success state) is what the fulfilment pill derives from.
+        // once PaymentCompletedEvent fires. Fulfilment does NOT flip: payment is
+        // not delivery evidence, so the paid order stays awaiting fulfilment
+        // until a real fulfilment lifecycle records the fact.
         await h.Checkout().ConfirmPaymentAsync(checkout.OrderId);
         var confirmed = (await admin.ListOrdersAsync()).Items.Single();
         confirmed.PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
-        confirmed.FulfilmentStatus.Should().Be("Fulfilled");
+        confirmed.FulfilmentStatus.Should().Be("Unfulfilled");
         (await admin.ListOrdersAsync(paymentStatus: CheckoutPaymentStatuses.Captured))
             .TotalCount.Should().Be(1, "the payment-status filter matches the converged value");
 
@@ -81,7 +101,7 @@ public class AdminStorefrontProjectionTests
         detail.Selections.Should().ContainSingle().Which.Quantity.Should().Be(6m);
         detail.Charge.Total.Should().Be(row.Total);
         detail.PaymentStatus.Should().Be(confirmed.PaymentStatus, "detail and list read the same durable record");
-        detail.FulfilmentStatus.Should().Be("Fulfilled");
+        detail.FulfilmentStatus.Should().Be("Unfulfilled");
     }
 
     [Fact]
@@ -335,5 +355,70 @@ public class AdminStorefrontProjectionTests
         var ineligible = adminDetail.Items.Single(i => i.Slug == "gift-hamper");
         ineligible.IsPriceable.Should().BeNull(
             "false is a PRICING verdict — a structurally ineligible member must not be told to repair pricing");
+
+        // A PARKED (inactive) extras collection serves no public rail at all —
+        // pricing state is meaningless, so no member may be told to repair
+        // pricing that is perfectly valid.
+        await using (var park = h.Commerce())
+        {
+            var extras = await park.Collections.FirstAsync(c => c.Id == extrasCollectionId);
+            extras.IsActive = false;
+            await park.SaveChangesAsync();
+        }
+        var parked = await collections.GetAdminAsync(extrasCollectionId);
+        parked.Items.Should().OnlyContain(i => i.IsPriceable == null && i.UnitPrice == null);
+    }
+
+    [Fact]
+    public async Task CartsAdmin_SurfacesPersonalisationDrift_ThroughTheSpec066Rules()
+    {
+        var h = new BoxTestHarness();
+        var f = await h.BuildAsync("jollof");
+        var product = f.DishProducts["jollof"];
+        var ctx = h.Commerce();
+        var options = CommerceTestHarness.NewOptionService(ctx, h.TenantId);
+
+        // sauce: mild (default, £0) / hot (+£1 absolute) — the customer picks hot.
+        var sauce = await options.CreateGroupAsync(new CreateOptionGroupCommand("sauce", "Sauce"));
+        await options.AddChoiceAsync(sauce.Id, new AddOptionChoiceCommand("mild", "Mild", IsRecommendedDefault: true));
+        var hot = await options.AddChoiceAsync(sauce.Id, new AddOptionChoiceCommand("hot", "Hot", Price: 1.00m));
+        await options.SetProductOptionGroupsAsync(product, new SetProductOptionGroupsCommand(
+            [new ProductOptionGroupLine("sauce", SortOrder: 0)]));
+
+        var carts = h.BoxCarts();
+        var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        var access = CartAccessContext.ForGuest(box.CartToken);
+        using var selection = System.Text.Json.JsonDocument.Parse("""{"sauce":"hot"}""");
+        await carts.AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 2, selection.RootElement), access);
+
+        var admin = AdminSvc(h);
+        (await admin.GetCartAsync(box.Box.CartId))!.Lines.Single()
+            .Should().Match<AdminCartLineDto>(l => !l.PriceChanged && l.SelectionDrift.Count == 0);
+
+        // Retire the chosen option: renormalisation remaps hot → mild, which
+        // both REPORTS the drift and reprices the line (stored +£1 vs £0 now) —
+        // exactly what the customer's next load will do, computed read-only here.
+        await using (var retire = h.Commerce())
+        {
+            var choice = await retire.OptionChoices.FirstAsync(c => c.Id == hot.Id);
+            choice.IsActive = false;
+            await retire.SaveChangesAsync();
+        }
+
+        var line = (await admin.GetCartAsync(box.Box.CartId))!.Lines.Single();
+        line.PriceChanged.Should().BeTrue("the stored +£1 adjustment no longer matches the renormalised £0");
+        line.SelectionDrift.Should().ContainSingle()
+            .Which.Should().Match<Aonik.Commerce.Contracts.Models.Catalog.SelectionDrift>(d =>
+                d.GroupKey == "sauce" && d.FromChoiceKey == "hot" && d.Reason == "option-retired");
+
+        var row = (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId);
+        row.BoxMeta!.Drift.Should().BeTrue("the list row must carry the checkout-blocked signal");
+
+        // Read-only proof: the stored selection and adjustment are untouched.
+        await using var verify = h.Commerce();
+        var storedLine = await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId);
+        storedLine.PersonalisationAdjustment.Should().Be(1.00m);
+        storedLine.PersonalisationJson.Should().Contain("hot");
     }
 }

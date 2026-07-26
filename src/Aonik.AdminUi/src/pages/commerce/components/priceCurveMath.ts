@@ -3,6 +3,9 @@
 export interface PriceCurvePreset {
   size: number;
   price: number;
+  /** AUTHORED display saving (BoxPlanPresetDto.savingAmount) — never computed.
+   * The curve annotates a preset only when this is present (Spec 076). */
+  saving?: number | null;
 }
 
 /** Every integer size in [min, max]. Degenerate ranges collapse to [min]. */

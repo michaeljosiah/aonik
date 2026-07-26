@@ -1,3 +1,4 @@
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
@@ -15,9 +16,10 @@ namespace Aonik.Commerce.Services.Checkout;
 /// payment/fulfilment/buyer facts the spine's generic list cannot supply), the
 /// full storefront order detail, the carts admin read (list + detail, tokens
 /// never serialized — R10), and a party's storefront summary for the unified
-/// customer view. Read-only throughout: the cart availability/price flags and
-/// the boxMeta drift state are computed against current state and never
-/// persisted — drift REPAIR stays the customer load path's job (Spec 068 §8).
+/// customer view. Read-only throughout: the cart availability/price flags, the
+/// per-line selection drift and the boxMeta drift state are computed against
+/// current state and never persisted — drift REPAIR stays the customer load
+/// path's job (Spec 068 §8).
 /// </summary>
 public interface IAdminStorefrontService
 {
@@ -42,20 +44,26 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     private readonly ITenantProvider _tenantProvider;
     private readonly IOrderService _orders;
     private readonly IStorefrontOrderService _storefrontOrders;
-    private readonly Catalog.IProductPricingService _pricing;
+    private readonly Catalog.IProductOptionService _options;
+    private readonly Catalog.IOptionSelectionService _selections;
+    private readonly IClock _clock;
 
     public AdminStorefrontService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
         IOrderService orders,
         IStorefrontOrderService storefrontOrders,
-        Catalog.IProductPricingService pricing)
+        Catalog.IProductOptionService options,
+        Catalog.IOptionSelectionService selections,
+        IClock clock)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _orders = orders;
         _storefrontOrders = storefrontOrders;
-        _pricing = pricing;
+        _options = options;
+        _selections = selections;
+        _clock = clock;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>> ListOrdersAsync(
@@ -217,8 +225,14 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         }
 
         var totalCount = await carts.CountAsync(cancellationToken);
+        // Activity must reflect LINE writes too: the generic cart line mutations
+        // deliberately do not touch the parent row, so ordering by Cart.UpdatedAt
+        // alone would sort an actively edited cart as stale.
         var pageRows = await carts
-            .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
+            .OrderByDescending(c =>
+                c.Items.Where(i => !i.IsDeleted).Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt)) > (c.UpdatedAt ?? c.CreatedAt)
+                    ? c.Items.Where(i => !i.IsDeleted).Max(i => (DateTime?)(i.UpdatedAt ?? i.CreatedAt))
+                    : (c.UpdatedAt ?? c.CreatedAt))
             .ThenBy(c => c.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -241,7 +255,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                 state.Total,
                 state.BoxMeta,
                 c.OrderId,
-                c.UpdatedAt ?? c.CreatedAt);
+                ActivityOf(c));
         }).ToList();
 
         return new Contracts.Models.Catalog.PagedResult<AdminCartRowDto>(results, totalCount, page, pageSize);
@@ -264,10 +278,13 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             .OrderBy(i => i.CreatedAt)
             .Select(i =>
             {
-                var flags = state.LineFlags.GetValueOrDefault(i.Id);
+                var flags = state.LineFlags.GetValueOrDefault(i.Id, LineFlags.Clean);
                 return new AdminCartLineDto(
                     i.Id, i.LineKind, i.NameSnapshot, i.Sku, i.Quantity, i.UnitPriceSnapshot,
-                    i.PersonalisationSummary, flags.Unavailable, flags.PriceChanged);
+                    i.PersonalisationSummary,
+                    string.IsNullOrWhiteSpace(i.PersonalisationJson) ? null : i.PersonalisationJson,
+                    flags.Unavailable, flags.PriceChanged,
+                    flags.SelectionDrift);
             })
             .ToList();
 
@@ -279,7 +296,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             cart.Currency,
             state.BoxMeta,
             cart.OrderId,
-            cart.UpdatedAt ?? cart.CreatedAt,
+            ActivityOf(cart),
             lines);
     }
 
@@ -329,7 +346,10 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
 
     // ─── Read-only computed state (Spec 083 dependency callout 2) ────────────
 
-    private readonly record struct LineFlags(bool Unavailable, bool PriceChanged);
+    private readonly record struct LineFlags(bool Unavailable, bool PriceChanged, IReadOnlyList<SelectionDrift> SelectionDrift)
+    {
+        public static LineFlags Clean => new(false, false, []);
+    }
 
     private sealed record CartComputed(
         decimal Total,
@@ -339,28 +359,50 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     private static List<CartItem> LiveLines(Cart cart)
         => cart.Items.Where(i => !i.IsDeleted).ToList();
 
+    /// <summary>Latest write across the cart row AND its live lines — the generic
+    /// cart line mutations deliberately do not touch the parent row.</summary>
+    private static DateTime ActivityOf(Cart cart)
+    {
+        var own = cart.UpdatedAt ?? cart.CreatedAt;
+        var lines = LiveLines(cart);
+        if (lines.Count == 0)
+        {
+            return own;
+        }
+        var latestLine = lines.Max(i => i.UpdatedAt ?? i.CreatedAt);
+        return latestLine > own ? latestLine : own;
+    }
+
+    /// <summary>A cart is a LIVE editable session only while Open with no order
+    /// claim — the same predicate the box path enforces. A pending-payment cart
+    /// (Open but OrderId stamped) is frozen: its charge is fixed, its own
+    /// inventory hold would read as self-inflicted unavailability, and its
+    /// snapshots are the recorded truth.</summary>
+    private static bool IsEditable(Cart cart)
+        => cart.Status == CartStatuses.Open && cart.OrderId is null;
+
     /// <summary>
     /// Computes, batched across the page, everything the row/detail shapes carry
     /// but nothing persists: per-line availability (the SAME predicate the box
     /// path enforces — missing variant/product, deactivation, a vanished add-on
-    /// price, or cart-wide demand over available stock, where a missing level
-    /// row means ZERO), add-on price drift against the snapshot, the boxMeta
-    /// drift state, and the honest cart value — the recorded charge total once
-    /// checked out, otherwise the box goods value (box price + personalisation
-    /// + surcharges + add-ons; delivery/discount/tax are checkout-time facts).
-    /// Frozen (non-open) carts skip the live checks: their snapshots are the
-    /// recorded truth, not a live session to re-validate.
+    /// price, or cart-wide demand over available DEFAULT-location stock, where a
+    /// missing level row means ZERO), add-on retail drift, per-line selection
+    /// renormalisation through the SAME Spec 066 drift rules (option retired /
+    /// group added / price or surcharge moved), the boxMeta drift state, and the
+    /// honest cart value — the recorded charge total once an order claimed the
+    /// cart, otherwise the box goods value (box price + personalisation +
+    /// surcharges + add-ons; delivery/discount/tax are checkout-time facts).
+    /// Non-editable carts skip the live checks entirely.
     /// </summary>
     private async Task<Dictionary<Guid, CartComputed>> ComputeCartStatesAsync(
         IReadOnlyList<Cart> carts, CancellationToken ct)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var liveByCart = carts.ToDictionary(c => c.Id, LiveLines);
-        var openCarts = carts.Where(c => c.Status == CartStatuses.Open).Select(c => c.Id).ToHashSet();
+        var editableCarts = carts.Where(IsEditable).Select(c => c.Id).ToHashSet();
 
-        // Catalogue state for every referenced variant (open carts only — frozen
-        // carts are not re-validated).
-        var checkVariantIds = carts.Where(c => openCarts.Contains(c.Id))
+        // Catalogue state for every referenced variant (editable carts only).
+        var checkVariantIds = carts.Where(c => editableCarts.Contains(c.Id))
             .SelectMany(c => liveByCart[c.Id])
             .Select(i => i.ProductVariantId)
             .Distinct()
@@ -370,32 +412,70 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             .Select(v => new { v.Id, v.ProductId, v.IsActive })
             .ToDictionaryAsync(v => v.Id, ct);
         var productIds = variants.Values.Select(v => v.ProductId).Distinct().ToList();
-        var productStatus = await _dbContext.Products.AsNoTracking()
+        var products = await _dbContext.Products.AsNoTracking()
             .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Status })
-            .ToDictionaryAsync(p => p.Id, p => p.Status, ct);
+            .Select(p => new { p.Id, p.Status, p.UnitSurcharge, p.UnitSurchargeCurrency })
+            .ToDictionaryAsync(p => p.Id, ct);
+        // Availability reads the DEFAULT stock row (Location == null) — the same
+        // row the checkout path's InventoryService consults; summing location
+        // rows would overstate what the add/checkout guard actually sees.
         var levels = await _dbContext.InventoryLevels.AsNoTracking()
-            .Where(l => l.TenantId == tenantId && l.ProductVariantId != null && checkVariantIds.Contains(l.ProductVariantId.Value))
+            .Where(l => l.TenantId == tenantId
+                && l.Location == null
+                && l.ProductVariantId != null
+                && checkVariantIds.Contains(l.ProductVariantId.Value))
             .GroupBy(l => l.ProductVariantId!.Value)
             .Select(g => new { VariantId = g.Key, Available = g.Sum(l => l.OnHand - l.Reserved) })
             .ToDictionaryAsync(x => x.VariantId, x => x.Available, ct);
 
-        // Current retail for add-on lines, one resolution per distinct
-        // (variant, currency) pair rather than per line.
-        var priceKeys = carts.Where(c => openCarts.Contains(c.Id))
+        // Current retail for add-on lines: ONE bounded query over the page's
+        // (variant, currency) keys, resolved to the latest effective active row
+        // in memory — the same rule as ResolvePriceAsync, without a round trip
+        // per key.
+        var priceKeys = carts.Where(c => editableCarts.Contains(c.Id))
             .SelectMany(c => liveByCart[c.Id]
                 .Where(i => i.LineKind == CartLineKinds.AddOn)
                 .Select(i => (i.ProductVariantId, c.Currency)))
             .Distinct()
             .ToList();
         var currentPrices = new Dictionary<(Guid, string), decimal?>();
-        foreach (var (variantId, currency) in priceKeys)
+        if (priceKeys.Count > 0)
         {
-            currentPrices[(variantId, currency)] = await _pricing.ResolvePriceAsync(variantId, currency, null, ct);
+            var priceVariantIds = priceKeys.Select(k => k.ProductVariantId).Distinct().ToList();
+            var priceCurrencies = priceKeys.Select(k => k.Currency).Distinct().ToList();
+            var now = _clock.UtcNow;
+            var priceRows = await _dbContext.ProductPrices.AsNoTracking()
+                .Where(p => p.TenantId == tenantId
+                    && priceVariantIds.Contains(p.ProductVariantId)
+                    && priceCurrencies.Contains(p.Currency)
+                    && p.IsActive
+                    && (p.EffectiveFrom == null || p.EffectiveFrom <= now)
+                    && (p.EffectiveTo == null || p.EffectiveTo > now))
+                .ToListAsync(ct);
+            var latestByKey = priceRows
+                .GroupBy(p => (p.ProductVariantId, p.Currency))
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.EffectiveFrom ?? DateTime.MinValue).First().Amount);
+            foreach (var key in priceKeys)
+            {
+                currentPrices[key] = latestByKey.TryGetValue(key, out var amount) ? amount : null;
+            }
         }
 
-        // Plans for open box carts (value derivation) and recorded totals for
-        // checked-out ones.
+        // Effective option groups for every product an editable box-cart line
+        // references — the personalisation half of drift runs through the SAME
+        // Spec 066 rules, batched (constant queries per page).
+        var boxLineProductIds = carts
+            .Where(c => editableCarts.Contains(c.Id) && c.BoxBundleProductId is not null)
+            .SelectMany(c => liveByCart[c.Id])
+            .Select(i => variants.GetValueOrDefault(i.ProductVariantId)?.ProductId)
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        var effectiveGroups = await _options.GetEffectiveOptionsBatchAsync(boxLineProductIds, ct);
+
+        // Plans for unclaimed box carts (value derivation) and recorded totals
+        // for claimed ones.
         var planProductIds = carts
             .Where(c => c.BoxBundleProductId is not null && c.OrderId is null)
             .Select(c => c.BoxBundleProductId!.Value)
@@ -414,29 +494,32 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         foreach (var cart in carts)
         {
             var lines = liveByCart[cart.Id];
-            var isOpen = openCarts.Contains(cart.Id);
+            var isEditable = editableCarts.Contains(cart.Id);
+            var isBox = cart.BoxBundleProductId is not null;
             var demand = lines.GroupBy(i => i.ProductVariantId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
 
             var flags = new Dictionary<Guid, LineFlags>(lines.Count);
             foreach (var line in lines)
             {
-                if (!isOpen)
+                if (!isEditable)
                 {
-                    flags[line.Id] = new LineFlags(false, false);
+                    flags[line.Id] = LineFlags.Clean;
                     continue;
                 }
 
                 var variant = variants.GetValueOrDefault(line.ProductVariantId);
+                var product = variant is null ? null : products.GetValueOrDefault(variant.ProductId);
                 var unavailable = variant is null
                     || !variant.IsActive
-                    || productStatus.GetValueOrDefault(variant.ProductId) != ProductStatuses.Active;
+                    || product is null
+                    || product.Status != ProductStatuses.Active;
 
-                decimal? current = null;
+                decimal? currentRetail = null;
                 if (line.LineKind == CartLineKinds.AddOn)
                 {
-                    current = currentPrices.GetValueOrDefault((line.ProductVariantId, cart.Currency));
+                    currentRetail = currentPrices.GetValueOrDefault((line.ProductVariantId, cart.Currency));
                     // X2 — an add-on whose retail price vanished can never check out.
-                    unavailable = unavailable || current is null;
+                    unavailable = unavailable || currentRetail is null;
                 }
                 if (!unavailable)
                 {
@@ -446,17 +529,51 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                 }
 
                 var priceChanged = line.LineKind == CartLineKinds.AddOn
-                    && current is not null
-                    && current.Value != line.UnitPriceSnapshot;
-                flags[line.Id] = new LineFlags(unavailable, priceChanged);
+                    && currentRetail is not null
+                    && currentRetail.Value != line.UnitPriceSnapshot;
+
+                // Personalisation drift — the same renormalisation the box load
+                // path persists, run pure here: retired options remap, gained
+                // groups default, and a moved option price or product surcharge
+                // shows up as a repriced selection vs the stored snapshots.
+                IReadOnlyList<SelectionDrift> selectionDrift = [];
+                if (isBox && variant is not null && product is not null)
+                {
+                    var groups = effectiveGroups.GetValueOrDefault(variant.ProductId, []);
+                    if (groups.Count > 0 || !string.IsNullOrWhiteSpace(line.PersonalisationJson))
+                    {
+                        try
+                        {
+                            var renorm = _selections.RenormalizeStored(
+                                groups, line.PersonalisationJson, cart.Currency,
+                                product.UnitSurcharge, product.UnitSurchargeCurrency);
+                            selectionDrift = renorm.Drift;
+                            var repriced =
+                                renorm.Result.Adjustment != (line.PersonalisationAdjustment ?? 0m)
+                                || (renorm.Result.UnitSurcharge ?? 0m) != (line.UnitSurcharge ?? 0m);
+                            priceChanged = priceChanged || repriced;
+                        }
+                        catch (Catalog.OptionValidationException)
+                        {
+                            // V10 — a group or surcharge re-denominated after the line
+                            // was stored. The box path cannot price this either; it is
+                            // a blocking drift state, not a 500.
+                            unavailable = true;
+                            selectionDrift = [new SelectionDrift(string.Empty, null, null, "currency-mismatch")];
+                        }
+                    }
+                }
+
+                flags[line.Id] = new LineFlags(unavailable, priceChanged, selectionDrift);
             }
 
-            var drift = isOpen && flags.Values.Any(f => f.Unavailable || f.PriceChanged);
+            var drift = isEditable && isBox
+                && flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0);
 
             decimal total;
             if (cart.OrderId is { } orderId && recordedTotals.TryGetValue(orderId, out var recorded))
             {
-                total = recorded;   // the charge summary is the authoritative checked-out value
+                total = recorded;   // the charge summary is the authoritative claimed-cart value
             }
             else if (cart.BoxBundleProductId is { } bundleId
                 && cart.BoxSize is { } size
@@ -489,15 +606,15 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     }
 
     /// <summary>
-    /// Fulfilment derived from the spine's REAL lifecycle values: Complete is the
-    /// spine's terminal success state (converged on payment completion — there is
-    /// no separate persisted fulfilment stage for storefront orders today), and
-    /// Cancelled/Failed/Expired all mean the order will never be fulfilled. When
-    /// a dedicated fulfilment lifecycle lands, this projection re-derives from it.
+    /// Fulfilment derived from the spine's REAL lifecycle values — honestly.
+    /// No storefront fulfilment stage is persisted today, and the spine's
+    /// Complete is converged by PAYMENT completion, which is not evidence of
+    /// delivery — so nothing maps to Fulfilled yet: paid orders stay visible in
+    /// the awaiting-fulfilment view until a real fulfilment lifecycle supplies
+    /// the fact, and Cancelled/Failed/Expired all mean it never will be.
     /// </summary>
     private static string DeriveFulfilment(string orderStatus) => orderStatus switch
     {
-        OrderStatusCodes.Complete => "Fulfilled",
         OrderStatusCodes.Cancelled or OrderStatusCodes.Failed or OrderStatusCodes.Expired => "Cancelled",
         _ => "Unfulfilled",
     };

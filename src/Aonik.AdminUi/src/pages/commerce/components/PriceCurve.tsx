@@ -107,11 +107,11 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
         strokeWidth={2}
       />
 
-      {/* Preset dots + saving annotations (authored saving = effective vs formula gap) */}
+      {/* Preset dots. Saving annotations render ONLY when authored (Spec 076) —
+          the mathematical formula-vs-price gap is never presented as one. */}
       {presets.map((preset) => {
         const cx = scales.x(preset.size);
         const cy = scales.y(preset.price);
-        const saving = formula(preset.size) - preset.price;
         return (
           <g key={`preset-${preset.size}`}>
             <circle
@@ -122,7 +122,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
               stroke="var(--color-brand-primary)"
               strokeWidth={2}
             />
-            {saving > 0.005 && (
+            {preset.saving != null && preset.saving > 0 && (
               <text
                 x={cx}
                 y={cy - 10}
@@ -132,7 +132,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
                 fill="var(--color-success)"
                 fontFamily="var(--font-mono)"
               >
-                −{formatUnsignedAmount(saving, currency)}
+                −{formatUnsignedAmount(preset.saving, currency)}
               </text>
             )}
           </g>

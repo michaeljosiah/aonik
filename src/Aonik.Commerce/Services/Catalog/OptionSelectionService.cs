@@ -40,6 +40,31 @@ internal sealed class OptionSelectionService : IOptionSelectionService
     {
         var stored = CanonicalSelection.ParseStored(canonicalSelectionJson);
         var groups = await _optionService.GetEffectiveOptionsAsync(productId, cancellationToken);
+        var (resolved, drift) = RenormalizeCore(groups, stored);
+        var result = await BuildResultAsync(productId, groups, resolved, currency, cancellationToken);
+        return new StoredSelectionResult(result, drift);
+    }
+
+    public StoredSelectionResult RenormalizeStored(
+        IReadOnlyList<EffectiveOptionGroupDto> groups,
+        string? canonicalSelectionJson,
+        string currency,
+        decimal? unitSurcharge,
+        string? unitSurchargeCurrency)
+    {
+        var stored = string.IsNullOrWhiteSpace(canonicalSelectionJson)
+            ? new Dictionary<string, List<string>>(StringComparer.Ordinal)
+            : CanonicalSelection.ParseStored(canonicalSelectionJson);
+        var (resolved, drift) = RenormalizeCore(groups, stored);
+        var result = BuildResult(groups, resolved, currency, unitSurcharge, unitSurchargeCurrency);
+        return new StoredSelectionResult(result, drift);
+    }
+
+    /// <summary>The drift rules of <see cref="RenormalizeStoredAsync"/>, pure — shared verbatim by
+    /// the async path and the preloaded batch path so the two can never disagree.</summary>
+    private static (Dictionary<string, IReadOnlyList<string>> Resolved, List<SelectionDrift> Drift) RenormalizeCore(
+        IReadOnlyList<EffectiveOptionGroupDto> groups, Dictionary<string, List<string>> stored)
+    {
         var drift = new List<SelectionDrift>();
 
         var resolved = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
@@ -109,8 +134,7 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             resolved[group.Key] = isMulti ? kept : [kept[0]];
         }
 
-        var result = await BuildResultAsync(productId, groups, resolved, currency, cancellationToken);
-        return new StoredSelectionResult(result, drift);
+        return (resolved, drift);
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────
@@ -261,6 +285,19 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Product '{productId}' was not found.");
 
+        return BuildResult(groups, resolved, currency, product.UnitSurcharge, product.UnitSurchargeCurrency);
+    }
+
+    /// <summary>The validation/pricing/canonicalisation tail with its one I/O dependency (the
+    /// product's surcharge facts) passed in — shared by the async path and the preloaded
+    /// batch path.</summary>
+    private static OptionSelectionResult BuildResult(
+        IReadOnlyList<EffectiveOptionGroupDto> groups,
+        Dictionary<string, IReadOnlyList<string>> resolved,
+        string? currency,
+        decimal? unitSurcharge,
+        string? unitSurchargeCurrency)
+    {
         var target = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
 
         // V10 — every involved amount must already be in the requested currency. Nothing is
@@ -277,12 +314,12 @@ internal sealed class OptionSelectionService : IOptionSelectionService
                 }
             }
 
-            if (product.UnitSurcharge is not null &&
-                !string.Equals(product.UnitSurchargeCurrency, target, StringComparison.Ordinal))
+            if (unitSurcharge is not null &&
+                !string.Equals(unitSurchargeCurrency, target, StringComparison.Ordinal))
             {
                 throw new OptionValidationException(
                     "V10",
-                    $"The unit surcharge is denominated in {product.UnitSurchargeCurrency ?? "an unknown currency"}, but the quote currency is {target}.");
+                    $"The unit surcharge is denominated in {unitSurchargeCurrency ?? "an unknown currency"}, but the quote currency is {target}.");
             }
         }
 
@@ -354,8 +391,8 @@ internal sealed class OptionSelectionService : IOptionSelectionService
             isDefault,
             adjustment,
             target,
-            product.UnitSurcharge,
-            product.UnitSurchargeCurrency,
+            unitSurcharge,
+            unitSurchargeCurrency,
             // Differs-from-default only (Step 2 FR-11.4). Presentation convenience — the canonical
             // selection is the truth and Display is the structured form consumers should prefer.
             string.Join(" · ", summaryParts),

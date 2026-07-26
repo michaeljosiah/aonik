@@ -95,15 +95,26 @@ public record AdminCartLineDto(
     decimal Quantity,
     decimal UnitPriceSnapshot,
     string? PersonalisationSummary,
-    /// Computed read-only, open carts only: the variant/product is retired or
-    /// deactivated, an add-on's retail price vanished, or cart-wide demand for
-    /// the variant exceeds available stock right now (a missing stock row is
-    /// ZERO, exactly like the box path). Nothing is persisted; the customer's
+    /// The STORED canonical selection (Spec 066 §7) — the structured form of the
+    /// line's preparation; null when the line is unpersonalised.
+    string? SelectionJson,
+    /// Computed read-only, live editable carts only: the variant/product is
+    /// retired or deactivated, an add-on's retail price vanished, cart-wide
+    /// demand for the variant exceeds available DEFAULT-location stock right
+    /// now (a missing stock row is ZERO, exactly like the box path), or the
+    /// selection can no longer be priced. Nothing is persisted; the customer's
     /// next load runs the real Spec 068 repair.
     bool IsUnavailable,
-    /// AddOn lines only — the current retail price no longer matches the
-    /// snapshot (the A18 stop will fire at the customer's next continue).
-    bool PriceChanged);
+    /// The line's charge would change on the customer's next continue: the
+    /// add-on retail price moved against its snapshot, or the renormalised
+    /// selection reprices (option price or product surcharge moved) — the A18
+    /// stop will fire.
+    bool PriceChanged,
+    /// The per-line drift REASONS from renormalising the stored selection
+    /// through the SAME Spec 066 rules the box load path applies — option
+    /// retired, group added/removed, selection-mode change — so the drawer can
+    /// explain WHY a cart is blocked. Empty when nothing drifted.
+    IReadOnlyList<Catalog.SelectionDrift> SelectionDrift);
 
 public record AdminCartDetailDto(
     Guid CartId,

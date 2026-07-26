@@ -556,6 +556,15 @@ export interface AdminCartRowDto {
   updatedAtUtc: string;
 }
 
+/** One customer-visible change from renormalising a stored selection (Spec 066 §7). */
+export interface SelectionDriftDto {
+  groupKey: string;
+  fromChoiceKey: string | null;
+  toChoiceKey: string | null;
+  /** option-retired | group-removed | group-added | selection-mode-changed | currency-mismatch */
+  reason: string;
+}
+
 export interface AdminCartLineDto {
   lineId: string;
   kind: string;
@@ -564,10 +573,14 @@ export interface AdminCartLineDto {
   quantity: number;
   unitPriceSnapshot: number;
   personalisationSummary: string | null;
-  /** Computed read-only at load time — nothing is persisted. */
+  /** The STORED canonical selection; null when unpersonalised. */
+  selectionJson: string | null;
+  /** Computed read-only at load time (live editable carts only) — nothing is persisted. */
   isUnavailable: boolean;
-  /** AddOn lines only — current retail price no longer matches the snapshot. */
+  /** The line's charge would change on the customer's next continue (retail or personalisation repricing). */
   priceChanged: boolean;
+  /** Per-line drift reasons from the Spec 066 renormalisation; empty when nothing drifted. */
+  selectionDrift: SelectionDriftDto[];
 }
 
 export interface AdminCartDetailDto {

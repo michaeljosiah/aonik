@@ -40,7 +40,9 @@ export interface CreateProductRequest {
   attributesJson?: string;
 }
 
-/** PATCH semantics — omitted members leave the stored value unchanged (Spec 070 §7). */
+/** PATCH semantics — omitted members leave the stored value unchanged (Spec 070 §7).
+ * Target margin is deliberately NOT here: the PATCH endpoint's request has no such
+ * member (the JSON would be silently ignored) — use setTargetMargin. */
 export interface PatchProductRequest {
   name?: string;
   description?: string;
@@ -50,7 +52,12 @@ export interface PatchProductRequest {
   tagsJson?: string;
   attributesJson?: string;
   searchKeywordsJson?: string;
-  targetMarginPct?: number | null;
+}
+
+export interface TargetMarginDto {
+  productId: string;
+  productName: string;
+  targetMarginPct: number | null;
 }
 
 export interface ProductMediaLine {
@@ -165,4 +172,7 @@ export const commerceCatalogService = {
   /** Set or clear the per-unit surcharge; currency required with an amount. */
   setUnitSurcharge: async (productId: string, amount: number | null, currency?: string | null): Promise<void> =>
     api.put<void>(`/commerce/admin/products/${productId}/surcharge`, { amount, currency }),
+  /** Target margin has its own endpoint (Spec 057) — it is NOT a product PATCH member. */
+  setTargetMargin: async (productId: string, targetMarginPct: number | null): Promise<TargetMarginDto> =>
+    api.put<TargetMarginDto>(`/commerce/admin/products/${productId}/target-margin`, { targetMarginPct }),
 };
