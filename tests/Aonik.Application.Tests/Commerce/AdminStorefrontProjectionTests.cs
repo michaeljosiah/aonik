@@ -53,8 +53,20 @@ public class AdminStorefrontProjectionTests
         row.BuyerKind.Should().Be("party");
         row.BuyerPartyId.Should().Be(party);
         row.BoxSize.Should().Be(6);
-        row.PaymentStatus.Should().NotBeNullOrWhiteSpace();
+        row.PaymentStatus.Should().NotBe(CheckoutPaymentStatuses.Captured, "nothing has completed yet");
+        row.FulfilmentStatus.Should().Be("Unfulfilled");
         row.Total.Should().Be(95m + 9m, "the box goods total plus two £4.50 add-ons");
+
+        // Payment completion must converge the DURABLE funding record the
+        // projection reads — the at-creation provider status is not the truth
+        // once PaymentCompletedEvent fires — and Complete (the spine's terminal
+        // success state) is what the fulfilment pill derives from.
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId);
+        var confirmed = (await admin.ListOrdersAsync()).Items.Single();
+        confirmed.PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
+        confirmed.FulfilmentStatus.Should().Be("Fulfilled");
+        (await admin.ListOrdersAsync(paymentStatus: CheckoutPaymentStatuses.Captured))
+            .TotalCount.Should().Be(1, "the payment-status filter matches the converged value");
 
         // D6 — the full storefront detail: aggregate vs add-on separation, the
         // kitchen landing, and a charge envelope that matches the list row.
@@ -68,8 +80,8 @@ public class AdminStorefrontProjectionTests
         addOn.UnitPrice.Should().Be(4.50m);
         detail.Selections.Should().ContainSingle().Which.Quantity.Should().Be(6m);
         detail.Charge.Total.Should().Be(row.Total);
-        detail.PaymentStatus.Should().Be(row.PaymentStatus);
-        detail.FulfilmentStatus.Should().NotBeNullOrWhiteSpace();
+        detail.PaymentStatus.Should().Be(confirmed.PaymentStatus, "detail and list read the same durable record");
+        detail.FulfilmentStatus.Should().Be("Fulfilled");
     }
 
     [Fact]
@@ -93,31 +105,52 @@ public class AdminStorefrontProjectionTests
         row.BoxMeta.Should().NotBeNull();
         row.BoxMeta!.Size.Should().Be(6);
         row.BoxMeta.Filled.Should().Be(4, "add-ons never count toward box fullness");
+        row.BoxMeta.Drift.Should().BeFalse();
         row.ItemCount.Should().Be(5m);
+        row.Total.Should().Be(95m + 3.50m,
+            "an open box cart's value is the box CONTAINER price plus add-ons — dish snapshots are deliberately zero");
 
         var before = await admin.GetCartAsync(box.Box.CartId);
         before!.Lines.Should().OnlyContain(l => !l.IsUnavailable && !l.PriceChanged);
 
-        // Shrink stock below the demanded 4 and bump the add-on's retail price —
-        // the detail must FLAG both without persisting anything.
-        await h.Inventory().SetOnHandAsync(f.DishVariants["jollof"], 2m);
+        // Three distinct legs of the availability/price predicate, none persisted:
+        // the dish's stock ROWS are deleted outright (a missing level row means
+        // ZERO, not unknown), the zobo variant is deactivated (catalogue state,
+        // stock untouched), and chin-chin's retail price is bumped (A18 drift).
+        var (_, chinChinVariant) = await h.AddExtraAsync("chin-chin", 2.00m);
+        await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(chinChinVariant, 1), access);
         await using (var ctx = h.Commerce())
         {
-            var price = await ctx.ProductPrices.FirstAsync(p => p.ProductVariantId == extraVariant);
+            var levels = await ctx.InventoryLevels
+                .Where(l => l.ProductVariantId == f.DishVariants["jollof"]).ToListAsync();
+            ctx.InventoryLevels.RemoveRange(levels);
+            var zobo = await ctx.ProductVariants.SingleAsync(v => v.Id == extraVariant);
+            zobo.IsActive = false;
+            var price = await ctx.ProductPrices.FirstAsync(p => p.ProductVariantId == chinChinVariant);
             price.Amount += 1m;
             await ctx.SaveChangesAsync();
         }
 
         var after = await admin.GetCartAsync(box.Box.CartId);
-        after!.Lines.Single(l => l.Kind == "BoxDish").IsUnavailable.Should().BeTrue();
-        after.Lines.Single(l => l.Kind == "AddOn").PriceChanged.Should().BeTrue();
+        after!.Lines.Single(l => l.Kind == "BoxDish").IsUnavailable.Should().BeTrue(
+            "no stock row at all must read as zero available, exactly like the box path");
+        after.Lines.Single(l => l.Sku.Contains("zobo")).IsUnavailable.Should().BeTrue(
+            "a deactivated variant is unavailable regardless of stock");
+        var chinChin = after.Lines.Single(l => l.Sku.Contains("chin-chin"));
+        chinChin.PriceChanged.Should().BeTrue();
+        chinChin.IsUnavailable.Should().BeFalse();
+
+        // Spec 083's list contract: the row itself carries the checkout-blocked
+        // signal — the carts table must not need a detail call per row.
+        var driftedRow = (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId);
+        driftedRow.BoxMeta!.Drift.Should().BeTrue();
 
         // Read-only proof: the stored add-on snapshot is untouched — the flag was
         // computed against the live price, not written back (repair stays the
         // customer load path's job).
         await using var verify = h.Commerce();
-        (await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId && i.LineKind == "AddOn"))
-            .UnitPriceSnapshot.Should().Be(3.50m);
+        (await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId && i.Sku.Contains("chin-chin")))
+            .UnitPriceSnapshot.Should().Be(2.00m);
     }
 
     [Fact]
@@ -187,16 +220,34 @@ public class AdminStorefrontProjectionTests
         var f = await h.BuildAsync("jollof");
         var product = f.DishProducts["jollof"];
         var ctx = h.Commerce();
+        var options = CommerceTestHarness.NewOptionService(ctx, h.TenantId);
         var content = new ProductContentService(
             ctx, new TestTenantProvider(h.TenantId),
             CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
-            CommerceTestHarness.NewOptionService(ctx, h.TenantId));
+            options);
+
+        // A single-select AND a multi-select group, so the stored binding has both
+        // canonical value shapes (bare string + array) — the list read's batched
+        // canonicalisation must be byte-identical to the write path's.
+        var sauce = await options.CreateGroupAsync(new CreateOptionGroupCommand("sauce", "Sauce"));
+        await options.AddChoiceAsync(sauce.Id, new AddOptionChoiceCommand("mild", "Mild", IsRecommendedDefault: true));
+        var sides = await options.CreateGroupAsync(new CreateOptionGroupCommand(
+            "sides", "Sides", SelectionMode: Aonik.Commerce.Entities.Catalog.OptionSelectionModes.Multi));
+        await options.AddChoiceAsync(sides.Id, new AddOptionChoiceCommand("plantain", "Plantain", IsRecommendedDefault: true));
+        await options.AddChoiceAsync(sides.Id, new AddOptionChoiceCommand("salad", "Salad"));
+        await options.SetProductOptionGroupsAsync(product, new SetProductOptionGroupsCommand(
+        [
+            new ProductOptionGroupLine("sauce", SortOrder: 0),
+            new ProductOptionGroupLine("sides", SortOrder: 1),
+        ]));
 
         await content.UpsertContentAsync(product, new UpsertProductContentCommand("Per serving", Kcal: 400));
 
         var fresh = await content.GetAdminAsync(product);
         fresh.Block.Should().NotBeNull();
         fresh.IsStale.Should().BeFalse();
+        (await content.ListAdminStatusAsync()).Items.Single(r => r.ProductId == product).IsStale
+            .Should().BeFalse("the batched all-defaults canonical form must match the write path byte-for-byte");
 
         // Simulate a default-combination drift the flag write missed: the stored
         // binding no longer matches the current all-defaults selection. The
@@ -239,6 +290,22 @@ public class AdminStorefrontProjectionTests
         await h.AddExtraAsync("zobo", 3.00m);
         await h.AddExtraAsync("honey-cake", 0m);   // no GBP price row — publicly skipped
 
+        // An ACTIVE member that is structurally ineligible for the rail (a Bundle,
+        // not a Simple product): also absent from the rail, but no price row can
+        // fix it — IsPriceable must stay null, never claim a pricing problem.
+        var bundleMember = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "gift-hamper", "Gift Hamper", Aonik.Commerce.Entities.Catalog.ProductKinds.Bundle));
+        await using (var seed = h.Commerce())
+        {
+            var extras = await seed.Collections.FirstAsync(c => c.Slug == "extras");
+            seed.CollectionItems.Add(new Aonik.Commerce.Entities.Catalog.CollectionItem
+            {
+                Id = Guid.NewGuid(), TenantId = h.TenantId, CollectionId = extras.Id,
+                ProductId = bundleMember.Id, Rank = 99,
+            });
+            await seed.SaveChangesAsync();
+        }
+
         var ctx = h.Commerce();
         var extrasCatalog = new ExtrasCatalogService(
             ctx, new TestTenantProvider(h.TenantId),
@@ -264,5 +331,9 @@ public class AdminStorefrontProjectionTests
         var skipped = adminDetail.Items.Single(i => i.Slug == "honey-cake");
         skipped.IsPriceable.Should().BeFalse("an ACTIVE member the public read omits-and-counts stays in the admin membership, marked");
         skipped.UnitPrice.Should().BeNull();
+
+        var ineligible = adminDetail.Items.Single(i => i.Slug == "gift-hamper");
+        ineligible.IsPriceable.Should().BeNull(
+            "false is a PRICING verdict — a structurally ineligible member must not be told to repair pricing");
     }
 }

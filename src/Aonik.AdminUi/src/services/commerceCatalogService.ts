@@ -9,8 +9,11 @@ import type { PagedResult } from '@/types';
 import type {
   AdminProductDetailDto,
   CommercePagedResult,
+  OptionChoiceDto,
   OptionGroupDto,
   ProductCategoryDto,
+  ProductDto,
+  ProductMediaDto,
   ProductNarrowingLineDto,
   ProductSummaryDto,
   RecommendedDefaultChangeResult,
@@ -120,12 +123,15 @@ export const commerceCatalogService = {
   },
   getProduct: async (productId: string): Promise<AdminProductDetailDto> =>
     api.get<AdminProductDetailDto>(`/commerce/admin/products/${productId}`),
-  createProduct: async (data: CreateProductRequest): Promise<AdminProductDetailDto> =>
-    api.post<AdminProductDetailDto>('/commerce/admin/products', data),
+  /** The create endpoint returns the PUBLIC detail shape — no searchKeywords;
+   * editors re-fetch getProduct before editing admin-only fields. */
+  createProduct: async (data: CreateProductRequest): Promise<ProductDto> =>
+    api.post<ProductDto>('/commerce/admin/products', data),
   patchProduct: async (productId: string, data: PatchProductRequest): Promise<AdminProductDetailDto> =>
     api.patch<AdminProductDetailDto>(`/commerce/admin/products/${productId}`, data),
-  replaceProductMedia: async (productId: string, items: ProductMediaLine[]): Promise<AdminProductDetailDto> =>
-    api.put<AdminProductDetailDto>(`/commerce/admin/products/${productId}/media`, { items }),
+  /** Returns the replaced media list, not a product detail. */
+  replaceProductMedia: async (productId: string, items: ProductMediaLine[]): Promise<ProductMediaDto[]> =>
+    api.put<ProductMediaDto[]>(`/commerce/admin/products/${productId}/media`, { items }),
   listCategories: async (): Promise<ProductCategoryDto[]> =>
     api.get<ProductCategoryDto[]>('/commerce/admin/categories'),
 
@@ -136,10 +142,12 @@ export const commerceCatalogService = {
     api.post<OptionGroupDto>('/commerce/admin/option-groups', data),
   updateOptionGroup: async (groupId: string, data: UpdateOptionGroupRequest): Promise<OptionGroupDto> =>
     api.put<OptionGroupDto>(`/commerce/admin/option-groups/${groupId}`, data),
-  addOptionChoice: async (groupId: string, data: AddOptionChoiceRequest): Promise<OptionGroupDto> =>
-    api.post<OptionGroupDto>(`/commerce/admin/option-groups/${groupId}/choices`, data),
-  updateOptionChoice: async (choiceId: string, data: UpdateOptionChoiceRequest): Promise<OptionGroupDto> =>
-    api.put<OptionGroupDto>(`/commerce/admin/option-choices/${choiceId}`, data),
+  /** Both choice mutations return the SINGLE choice — refresh the group list
+   * for the surrounding state rather than trusting a group echo. */
+  addOptionChoice: async (groupId: string, data: AddOptionChoiceRequest): Promise<OptionChoiceDto> =>
+    api.post<OptionChoiceDto>(`/commerce/admin/option-groups/${groupId}/choices`, data),
+  updateOptionChoice: async (choiceId: string, data: UpdateOptionChoiceRequest): Promise<OptionChoiceDto> =>
+    api.put<OptionChoiceDto>(`/commerce/admin/option-choices/${choiceId}`, data),
   /** Moves the group's recommended default; the result names every affected product (Spec 066 §9). */
   setRecommendedDefault: async (groupId: string, choiceKey: string): Promise<RecommendedDefaultChangeResult> =>
     api.put<RecommendedDefaultChangeResult>(

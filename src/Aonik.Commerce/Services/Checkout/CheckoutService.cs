@@ -411,12 +411,28 @@ internal sealed class CheckoutService : ICheckoutService
             return; // not a Commerce checkout order.
         }
 
+        // Converge the durable funding record: the summary's PaymentStatus was stamped with the
+        // provider's at-creation status (normally pending), and it is what the admin projections,
+        // the payment-status filter and paid-revenue KPIs read. Capture is the one producer of
+        // PaymentCompletedEvent, so completion here means Captured. Unconditional (not inside the
+        // cart-status guard) so an earlier partial confirmation still converges on retry.
+        var summary = await _dbContext.OrderChargeSummaries
+            .FirstOrDefaultAsync(s => s.OrderId == orderId && s.TenantId == tenantId, cancellationToken);
+        if (summary is not null
+            && !string.Equals(summary.PaymentStatus, CheckoutPaymentStatuses.Captured, StringComparison.Ordinal))
+        {
+            summary.PaymentStatus = CheckoutPaymentStatuses.Captured;
+        }
+
         // Commit inventory + close the cart exactly once; guarded by cart status so an outbox retry
         // doesn't double-commit stock.
         if (cart.Status != CartStatuses.CheckedOut)
         {
             await _inventory.CommitAsync(cart.Id, cancellationToken);
             cart.Status = CartStatuses.CheckedOut;
+        }
+        if (_dbContext.ChangeTracker.HasChanges())
+        {
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 

@@ -119,12 +119,33 @@ internal sealed partial class CollectionService : ICollectionService
         {
             var rail = await _extras.GetExtrasAsync(cancellationToken);
             var byProduct = rail.Rows.ToDictionary(r => r.ProductId);
+
+            // IsPriceable = false is a PRICING verdict — reserve it for members the
+            // rail would serve but for a missing price. An Active member can also be
+            // missing from the rail because it is structurally ineligible (not a
+            // Simple product, or no active variant); those are null, or the operator
+            // would be told to repair pricing when the problem is the product itself.
+            var absentActiveIds = dto.Items
+                .Where(i => i.Status == ProductStatuses.Active && !byProduct.ContainsKey(i.ProductId))
+                .Select(i => i.ProductId)
+                .ToList();
+            var eligibleKinds = await _dbContext.Products.AsNoTracking()
+                .Where(p => p.TenantId == tenantId && absentActiveIds.Contains(p.Id) && p.Kind == ProductKinds.Simple)
+                .Select(p => p.Id)
+                .ToListAsync(cancellationToken);
+            var withActiveVariant = await _dbContext.ProductVariants.AsNoTracking()
+                .Where(v => v.TenantId == tenantId && absentActiveIds.Contains(v.ProductId) && v.IsActive)
+                .Select(v => v.ProductId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            var unpriceable = eligibleKinds.Intersect(withActiveVariant).ToHashSet();
+
             dto = dto with
             {
                 Items = dto.Items
                     .Select(i => byProduct.TryGetValue(i.ProductId, out var row)
                         ? i with { UnitPrice = row.UnitPrice, Currency = row.Currency, IsPriceable = true }
-                        : i with { IsPriceable = i.Status == ProductStatuses.Active ? false : null })
+                        : i with { IsPriceable = unpriceable.Contains(i.ProductId) ? false : null })
                     .ToList(),
             };
         }

@@ -63,11 +63,18 @@ public record AdminOrderStorefrontDto(
     AdminOrderChargeDto Charge,
     int? BoxSize);
 
-public record AdminCartBoxMetaDto(int Size, int Filled);
+/// <summary>Box state on a cart row (Spec 083 list contract). <see cref="Drift"/>
+/// is the computed, never-persisted "checkout blocked" signal for OPEN box
+/// carts — any line unavailable (retired/deactivated catalogue state, vanished
+/// add-on price, or cart-wide demand over available stock) or any add-on price
+/// changed against its snapshot. Frozen carts always report false: their
+/// snapshots are the recorded truth, not a live session to re-validate.</summary>
+public record AdminCartBoxMetaDto(int Size, int Filled, bool Drift);
 
-/// <summary>Carts admin list row (Spec 083 dependency callout 2). Box drift is
-/// deliberately NOT on the list row — it is a computed, load-time state; the
-/// detail read computes availability/price flags read-only instead.</summary>
+/// <summary>Carts admin list row (Spec 083 dependency callout 2).
+/// <see cref="Total"/> is the recorded charge total once checked out; for open
+/// carts it is the box GOODS value — box price + personalisation + surcharges +
+/// add-on snapshots — delivery/discount/tax are checkout-time facts.</summary>
 public record AdminCartRowDto(
     Guid CartId,
     string BuyerKind,
@@ -88,9 +95,11 @@ public record AdminCartLineDto(
     decimal Quantity,
     decimal UnitPriceSnapshot,
     string? PersonalisationSummary,
-    /// Computed read-only: cart-wide demand for the variant exceeds available
-    /// stock right now. Nothing is persisted; the customer's next load runs
-    /// the real Spec 068 repair.
+    /// Computed read-only, open carts only: the variant/product is retired or
+    /// deactivated, an add-on's retail price vanished, or cart-wide demand for
+    /// the variant exceeds available stock right now (a missing stock row is
+    /// ZERO, exactly like the box path). Nothing is persisted; the customer's
+    /// next load runs the real Spec 068 repair.
     bool IsUnavailable,
     /// AddOn lines only — the current retail price no longer matches the
     /// snapshot (the A18 stop will fire at the customer's next continue).

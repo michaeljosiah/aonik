@@ -1,5 +1,6 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -14,9 +15,9 @@ namespace Aonik.Commerce.Services.Checkout;
 /// payment/fulfilment/buyer facts the spine's generic list cannot supply), the
 /// full storefront order detail, the carts admin read (list + detail, tokens
 /// never serialized — R10), and a party's storefront summary for the unified
-/// customer view. Read-only throughout: the cart detail's availability/price
-/// flags are computed against current state and never persisted — drift REPAIR
-/// stays the customer load path's job (Spec 068 §8).
+/// customer view. Read-only throughout: the cart availability/price flags and
+/// the boxMeta drift state are computed against current state and never
+/// persisted — drift REPAIR stays the customer load path's job (Spec 068 §8).
 /// </summary>
 public interface IAdminStorefrontService
 {
@@ -224,17 +225,24 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             .Include(c => c.Items)
             .ToListAsync(cancellationToken);
 
-        var results = pageRows.Select(c => new AdminCartRowDto(
-            c.Id,
-            c.BuyerPartyId is null ? "guest" : "party",
-            c.BuyerPartyId,
-            c.Status,
-            c.Currency,
-            c.Items.Sum(i => i.Quantity),
-            c.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity),
-            BoxMeta(c),
-            c.OrderId,
-            c.UpdatedAt ?? c.CreatedAt)).ToList();
+        var computed = await ComputeCartStatesAsync(pageRows, cancellationToken);
+
+        var results = pageRows.Select(c =>
+        {
+            var state = computed[c.Id];
+            var lines = LiveLines(c);
+            return new AdminCartRowDto(
+                c.Id,
+                c.BuyerPartyId is null ? "guest" : "party",
+                c.BuyerPartyId,
+                c.Status,
+                c.Currency,
+                lines.Sum(i => i.Quantity),
+                state.Total,
+                state.BoxMeta,
+                c.OrderId,
+                c.UpdatedAt ?? c.CreatedAt);
+        }).ToList();
 
         return new Contracts.Models.Catalog.PagedResult<AdminCartRowDto>(results, totalCount, page, pageSize);
     }
@@ -250,39 +258,18 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             return null;
         }
 
-        // Read-only computed states. Availability: cart-wide demand per variant vs
-        // current available stock (OnHand − Reserved) — the same aggregate rule the
-        // box path enforces, evaluated without persisting anything. Price drift:
-        // add-on snapshots vs the current retail price.
-        var variantIds = cart.Items.Select(i => i.ProductVariantId).Distinct().ToList();
-        var levels = await _dbContext.InventoryLevels.AsNoTracking()
-            .Where(l => l.TenantId == tenantId && l.ProductVariantId != null && variantIds.Contains(l.ProductVariantId.Value))
-            .GroupBy(l => l.ProductVariantId!.Value)
-            .Select(g => new { VariantId = g.Key, Available = g.Sum(l => l.OnHand - l.Reserved) })
-            .ToDictionaryAsync(x => x.VariantId, x => x.Available, cancellationToken);
-        var demand = cart.Items
-            .GroupBy(i => i.ProductVariantId)
-            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+        var state = (await ComputeCartStatesAsync([cart], cancellationToken))[cart.Id];
 
-        var lines = new List<AdminCartLineDto>(cart.Items.Count);
-        foreach (var i in cart.Items.OrderBy(i => i.CreatedAt))
-        {
-            var unavailable = cart.BoxBundleProductId is not null
-                && levels.TryGetValue(i.ProductVariantId, out var available)
-                && demand.TryGetValue(i.ProductVariantId, out var demanded)
-                && demanded > available;
-
-            var priceChanged = false;
-            if (i.LineKind == CartLineKinds.AddOn)
+        var lines = LiveLines(cart)
+            .OrderBy(i => i.CreatedAt)
+            .Select(i =>
             {
-                var current = await _pricing.ResolvePriceAsync(i.ProductVariantId, cart.Currency, null, cancellationToken);
-                priceChanged = current is null || current.Value != i.UnitPriceSnapshot;
-            }
-
-            lines.Add(new AdminCartLineDto(
-                i.Id, i.LineKind, i.NameSnapshot, i.Sku, i.Quantity, i.UnitPriceSnapshot,
-                i.PersonalisationSummary, unavailable, priceChanged));
-        }
+                var flags = state.LineFlags.GetValueOrDefault(i.Id);
+                return new AdminCartLineDto(
+                    i.Id, i.LineKind, i.NameSnapshot, i.Sku, i.Quantity, i.UnitPriceSnapshot,
+                    i.PersonalisationSummary, flags.Unavailable, flags.PriceChanged);
+            })
+            .ToList();
 
         return new AdminCartDetailDto(
             cart.Id,
@@ -290,7 +277,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             cart.BuyerPartyId,
             cart.Status,
             cart.Currency,
-            BoxMeta(cart),
+            state.BoxMeta,
             cart.OrderId,
             cart.UpdatedAt ?? cart.CreatedAt,
             lines);
@@ -301,8 +288,18 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         // Reuse the Spec 072 party-scoped history verbatim — the admin view must
-        // show exactly what the customer sees in their own account.
-        var history = await _storefrontOrders.ListMyOrdersAsync(partyId, 1, 50, cancellationToken);
+        // show exactly what the customer sees in their own account — and walk
+        // every page so the history is COMPLETE: a silent newest-N cap would
+        // understate the party's storefront value without any indication.
+        const int historyPageSize = 100;   // the service clamp's upper bound
+        var firstPage = await _storefrontOrders.ListMyOrdersAsync(partyId, 1, historyPageSize, cancellationToken);
+        var orders = new List<StorefrontOrderSummaryDto>(firstPage.Items);
+        var totalPages = (int)Math.Ceiling(firstPage.TotalCount / (double)historyPageSize);
+        for (var p = 2; p <= totalPages; p++)
+        {
+            var next = await _storefrontOrders.ListMyOrdersAsync(partyId, p, historyPageSize, cancellationToken);
+            orders.AddRange(next.Items);
+        }
 
         var activeCart = await _dbContext.Carts.AsNoTracking()
             .Include(c => c.Items)
@@ -320,27 +317,188 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             .AnyAsync(c => c.TenantId == tenantId && c.BuyerPartyId == partyId && c.AnonymousToken == null, cancellationToken);
 
         return new AdminPartyStorefrontDto(
-            history.Items,
+            orders,
             activeCart is null || activeCart.BoxSize is null
                 ? null
                 : new AdminPartyActiveCartDto(
                     activeCart.Id,
                     activeCart.BoxSize.Value,
-                    (int)activeCart.Items.Where(i => i.LineKind == CartLineKinds.BoxDish).Sum(i => i.Quantity)),
+                    (int)LiveLines(activeCart).Where(i => i.LineKind == CartLineKinds.BoxDish).Sum(i => i.Quantity)),
             adopted);
     }
 
-    private static AdminCartBoxMetaDto? BoxMeta(Cart cart)
-        => cart.BoxBundleProductId is null || cart.BoxSize is null
-            ? null
-            : new AdminCartBoxMetaDto(
-                cart.BoxSize.Value,
-                (int)cart.Items.Where(i => i.LineKind == CartLineKinds.BoxDish).Sum(i => i.Quantity));
+    // ─── Read-only computed state (Spec 083 dependency callout 2) ────────────
 
+    private readonly record struct LineFlags(bool Unavailable, bool PriceChanged);
+
+    private sealed record CartComputed(
+        decimal Total,
+        AdminCartBoxMetaDto? BoxMeta,
+        IReadOnlyDictionary<Guid, LineFlags> LineFlags);
+
+    private static List<CartItem> LiveLines(Cart cart)
+        => cart.Items.Where(i => !i.IsDeleted).ToList();
+
+    /// <summary>
+    /// Computes, batched across the page, everything the row/detail shapes carry
+    /// but nothing persists: per-line availability (the SAME predicate the box
+    /// path enforces — missing variant/product, deactivation, a vanished add-on
+    /// price, or cart-wide demand over available stock, where a missing level
+    /// row means ZERO), add-on price drift against the snapshot, the boxMeta
+    /// drift state, and the honest cart value — the recorded charge total once
+    /// checked out, otherwise the box goods value (box price + personalisation
+    /// + surcharges + add-ons; delivery/discount/tax are checkout-time facts).
+    /// Frozen (non-open) carts skip the live checks: their snapshots are the
+    /// recorded truth, not a live session to re-validate.
+    /// </summary>
+    private async Task<Dictionary<Guid, CartComputed>> ComputeCartStatesAsync(
+        IReadOnlyList<Cart> carts, CancellationToken ct)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var liveByCart = carts.ToDictionary(c => c.Id, LiveLines);
+        var openCarts = carts.Where(c => c.Status == CartStatuses.Open).Select(c => c.Id).ToHashSet();
+
+        // Catalogue state for every referenced variant (open carts only — frozen
+        // carts are not re-validated).
+        var checkVariantIds = carts.Where(c => openCarts.Contains(c.Id))
+            .SelectMany(c => liveByCart[c.Id])
+            .Select(i => i.ProductVariantId)
+            .Distinct()
+            .ToList();
+        var variants = await _dbContext.ProductVariants.AsNoTracking()
+            .Where(v => v.TenantId == tenantId && checkVariantIds.Contains(v.Id))
+            .Select(v => new { v.Id, v.ProductId, v.IsActive })
+            .ToDictionaryAsync(v => v.Id, ct);
+        var productIds = variants.Values.Select(v => v.ProductId).Distinct().ToList();
+        var productStatus = await _dbContext.Products.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Status })
+            .ToDictionaryAsync(p => p.Id, p => p.Status, ct);
+        var levels = await _dbContext.InventoryLevels.AsNoTracking()
+            .Where(l => l.TenantId == tenantId && l.ProductVariantId != null && checkVariantIds.Contains(l.ProductVariantId.Value))
+            .GroupBy(l => l.ProductVariantId!.Value)
+            .Select(g => new { VariantId = g.Key, Available = g.Sum(l => l.OnHand - l.Reserved) })
+            .ToDictionaryAsync(x => x.VariantId, x => x.Available, ct);
+
+        // Current retail for add-on lines, one resolution per distinct
+        // (variant, currency) pair rather than per line.
+        var priceKeys = carts.Where(c => openCarts.Contains(c.Id))
+            .SelectMany(c => liveByCart[c.Id]
+                .Where(i => i.LineKind == CartLineKinds.AddOn)
+                .Select(i => (i.ProductVariantId, c.Currency)))
+            .Distinct()
+            .ToList();
+        var currentPrices = new Dictionary<(Guid, string), decimal?>();
+        foreach (var (variantId, currency) in priceKeys)
+        {
+            currentPrices[(variantId, currency)] = await _pricing.ResolvePriceAsync(variantId, currency, null, ct);
+        }
+
+        // Plans for open box carts (value derivation) and recorded totals for
+        // checked-out ones.
+        var planProductIds = carts
+            .Where(c => c.BoxBundleProductId is not null && c.OrderId is null)
+            .Select(c => c.BoxBundleProductId!.Value)
+            .Distinct()
+            .ToList();
+        var plans = await _dbContext.BundleSizePlans.AsNoTracking()
+            .Include(p => p.Presets)
+            .Where(p => p.TenantId == tenantId && planProductIds.Contains(p.BundleProductId) && !p.IsDeleted)
+            .ToDictionaryAsync(p => p.BundleProductId, ct);
+        var orderIds = carts.Where(c => c.OrderId is not null).Select(c => c.OrderId!.Value).Distinct().ToList();
+        var recordedTotals = await _dbContext.OrderChargeSummaries.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && orderIds.Contains(s.OrderId))
+            .ToDictionaryAsync(s => s.OrderId, s => s.Total, ct);
+
+        var result = new Dictionary<Guid, CartComputed>(carts.Count);
+        foreach (var cart in carts)
+        {
+            var lines = liveByCart[cart.Id];
+            var isOpen = openCarts.Contains(cart.Id);
+            var demand = lines.GroupBy(i => i.ProductVariantId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+            var flags = new Dictionary<Guid, LineFlags>(lines.Count);
+            foreach (var line in lines)
+            {
+                if (!isOpen)
+                {
+                    flags[line.Id] = new LineFlags(false, false);
+                    continue;
+                }
+
+                var variant = variants.GetValueOrDefault(line.ProductVariantId);
+                var unavailable = variant is null
+                    || !variant.IsActive
+                    || productStatus.GetValueOrDefault(variant.ProductId) != ProductStatuses.Active;
+
+                decimal? current = null;
+                if (line.LineKind == CartLineKinds.AddOn)
+                {
+                    current = currentPrices.GetValueOrDefault((line.ProductVariantId, cart.Currency));
+                    // X2 — an add-on whose retail price vanished can never check out.
+                    unavailable = unavailable || current is null;
+                }
+                if (!unavailable)
+                {
+                    // Missing level row = zero stock, exactly like the box path.
+                    var available = levels.GetValueOrDefault(line.ProductVariantId, 0m);
+                    unavailable = demand.GetValueOrDefault(line.ProductVariantId) > available;
+                }
+
+                var priceChanged = line.LineKind == CartLineKinds.AddOn
+                    && current is not null
+                    && current.Value != line.UnitPriceSnapshot;
+                flags[line.Id] = new LineFlags(unavailable, priceChanged);
+            }
+
+            var drift = isOpen && flags.Values.Any(f => f.Unavailable || f.PriceChanged);
+
+            decimal total;
+            if (cart.OrderId is { } orderId && recordedTotals.TryGetValue(orderId, out var recorded))
+            {
+                total = recorded;   // the charge summary is the authoritative checked-out value
+            }
+            else if (cart.BoxBundleProductId is { } bundleId
+                && cart.BoxSize is { } size
+                && plans.TryGetValue(bundleId, out var plan))
+            {
+                // The quote's snapshot arithmetic (Spec 068 §7 / 071 §6): the box is
+                // priced as a container, so BoxDish snapshots are deliberately zero.
+                total = BoxPricing.BoxPrice(plan, size)
+                    + lines.Where(l => l.LineKind == CartLineKinds.BoxDish)
+                        .Sum(l => ((l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity)
+                    + lines.Where(l => l.LineKind == CartLineKinds.AddOn)
+                        .Sum(l => (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
+            }
+            else
+            {
+                total = lines.Sum(l => (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
+            }
+
+            var boxMeta = cart.BoxBundleProductId is null || cart.BoxSize is null
+                ? null
+                : new AdminCartBoxMetaDto(
+                    cart.BoxSize.Value,
+                    (int)lines.Where(i => i.LineKind == CartLineKinds.BoxDish).Sum(i => i.Quantity),
+                    drift);
+
+            result[cart.Id] = new CartComputed(total, boxMeta, flags);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Fulfilment derived from the spine's REAL lifecycle values: Complete is the
+    /// spine's terminal success state (converged on payment completion — there is
+    /// no separate persisted fulfilment stage for storefront orders today), and
+    /// Cancelled/Failed/Expired all mean the order will never be fulfilled. When
+    /// a dedicated fulfilment lifecycle lands, this projection re-derives from it.
+    /// </summary>
     private static string DeriveFulfilment(string orderStatus) => orderStatus switch
     {
-        "Fulfilled" => "Fulfilled",
-        "Cancelled" => "Cancelled",
+        OrderStatusCodes.Complete => "Fulfilled",
+        OrderStatusCodes.Cancelled or OrderStatusCodes.Failed or OrderStatusCodes.Expired => "Cancelled",
         _ => "Unfulfilled",
     };
 }

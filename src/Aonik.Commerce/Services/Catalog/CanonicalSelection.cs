@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Entities.Catalog;
+
 namespace Aonik.Commerce.Services.Catalog;
 
 /// <summary>
@@ -42,6 +45,25 @@ internal static class CanonicalSelection
         }
 
         return json.ToJsonString(SerializerOptions);
+    }
+
+    /// <summary>
+    /// The canonical form of the ALL-DEFAULTS selection for a product's effective groups —
+    /// byte-identical to normalising an empty selection (every group resolves to its single
+    /// default; multi groups keep their array shape), without the per-product composition round
+    /// trips. List surfaces pair this with the batched effective-options read.
+    /// </summary>
+    public static string SerializeAllDefaults(IReadOnlyList<EffectiveOptionGroupDto> groups)
+    {
+        var resolved = groups.ToDictionary(
+            g => g.Key,
+            g => (IReadOnlyList<string>)[g.DefaultChoiceKey],
+            StringComparer.Ordinal);
+        var multiSelectGroups = groups
+            .Where(g => g.SelectionMode == OptionSelectionModes.Multi)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        return Serialize(resolved, multiSelectGroups);
     }
 
     /// <summary>

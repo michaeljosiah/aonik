@@ -40,10 +40,13 @@ public record AdminCollectionDto(
 
 /// <summary>Admin membership row. The pricing members are populated ONLY for the
 /// configured extras collection (Spec 078 dependency): <c>IsPriceable</c> true =
-/// the public rail serves it at <c>UnitPrice</c>; false = an ACTIVE member the
-/// public read omits-and-counts as unpriceable (the admin keeps it editable);
-/// null = pricing state not applicable (not the extras collection, or the member
-/// is not publicly servable anyway, e.g. a draft).</summary>
+/// the public rail serves it at <c>UnitPrice</c>; false = an otherwise-servable
+/// ACTIVE member the public read omits-and-counts specifically for lacking a
+/// price in the tenant currency (a PRICING verdict — the admin keeps it
+/// editable and tells the operator to repair pricing); null = pricing state not
+/// applicable — not the extras collection, the member is not publicly servable
+/// anyway (e.g. a draft), or it is structurally ineligible for the rail (not a
+/// Simple product, or no active variant), which no price row can fix.</summary>
 public record AdminCollectionItemDto(
     Guid ProductId,
     string Slug,

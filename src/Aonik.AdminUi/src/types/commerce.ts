@@ -105,8 +105,9 @@ export interface ProductSummaryDto {
   unitSurcharge: number | null;
 }
 
-/** The admin product detail (Spec 070 §7) — ProductDto plus flat search keywords. */
-export interface AdminProductDetailDto {
+/** The full public product detail — what create/get product endpoints return.
+ * Structurally CANNOT carry search keywords; that is the admin detail's job. */
+export interface ProductDto {
   id: string;
   slug: string;
   name: string;
@@ -127,9 +128,13 @@ export interface AdminProductDetailDto {
   effectiveOptionGroups: EffectiveOptionGroupDto[];
   unitSurcharge: number | null;
   unitSurchargeCurrency: string | null;
-  searchKeywords: string[];
   content: ResolvedContentDto | null;
   contentVersion: number | null;
+}
+
+/** The admin product detail (Spec 070 §7) — ProductDto plus flat search keywords. */
+export interface AdminProductDetailDto extends ProductDto {
+  searchKeywords: string[];
 }
 
 // ─── Catalog: option groups & personalisation (Specs 066/074) ───────────────
@@ -458,8 +463,11 @@ export interface ExtraRowDto {
   attributesJson: string | null;
   unitPrice: number;
   unitSurcharge: number | null;
-  unitSurchargeCurrency: string | null;
   currency: string;
+  /** Resolved standard-preparation content (Spec 067), when authored. */
+  content: ResolvedContentDto | null;
+  /** The product's effective option groups, so the picker renders without a second call. */
+  optionGroups: EffectiveOptionGroupDto[];
 }
 
 export interface ExtrasListDto {
@@ -530,6 +538,9 @@ export interface AdminOrderStorefrontDto {
 export interface AdminCartBoxMetaDto {
   size: number;
   filled: number;
+  /** Computed, never persisted: an OPEN box cart is checkout-blocked right now
+   * (a line unavailable or an add-on price changed). Frozen carts are false. */
+  drift: boolean;
 }
 
 export interface AdminCartRowDto {

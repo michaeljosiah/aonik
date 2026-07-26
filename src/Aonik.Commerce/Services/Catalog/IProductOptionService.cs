@@ -45,6 +45,15 @@ public interface IProductOptionService
     /// </summary>
     Task<IReadOnlyList<EffectiveOptionGroupDto>> GetEffectiveOptionsAsync(Guid productId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// <see cref="GetEffectiveOptionsAsync"/> for a SET of products in a constant number of
+    /// queries — list surfaces (e.g. the Spec 075 content-status board) must not pay one
+    /// composition round trip per row. Every requested id is present in the result; products
+    /// with no narrowing map to an empty list.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<EffectiveOptionGroupDto>>> GetEffectiveOptionsBatchAsync(
+        IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default);
+
     /// <summary>Spec 074 dependency — the RAW stored narrowing (null allowed-keys
     /// preserved), so a full-replace editor can round-trip without silently
     /// pinning an inherited set. 404 when the product does not exist.</summary>

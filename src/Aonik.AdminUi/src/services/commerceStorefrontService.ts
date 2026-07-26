@@ -19,8 +19,8 @@ import type {
   ExtrasListDto,
   FacetGroupDto,
   FulfilmentCalendarDto,
+  FulfilmentPromiseDto,
   StorefrontConfigDto,
-  StorefrontDeliveryDto,
   UpdateStorefrontConfigRequest,
 } from '@/types/commerce';
 import { normalizeCommercePage } from '@/types/commerce';
@@ -156,8 +156,10 @@ export const commerceStorefrontService = {
   // ── Public reads used for previews ────────────────────────────────────────
   getPublicStorefrontConfig: async (): Promise<StorefrontConfigDto> =>
     api.get<StorefrontConfigDto>('/commerce/config/storefront'),
-  getPublicDelivery: async (): Promise<StorefrontDeliveryDto> =>
-    api.get<StorefrontDeliveryDto>('/commerce/config/delivery'),
+  /** The public delivery config is the fulfilment PROMISE (earliest date +
+   * timezone), not the display amounts — those live on the storefront config. */
+  getPublicDelivery: async (): Promise<FulfilmentPromiseDto> =>
+    api.get<FulfilmentPromiseDto>('/commerce/config/delivery'),
   /** What the public extras rail serves right now, plus how many members it skipped. */
   getPublicExtras: async (): Promise<ExtrasListDto> =>
     api.get<ExtrasListDto>('/commerce/catalog/extras'),

@@ -783,6 +783,18 @@ internal sealed class ProductContentService : IProductContentService
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
 
+        // The binding half of the staleness predicate needs each blocked product's
+        // current all-defaults canonical selection. One batched effective-options
+        // read + the shared canonical serializer keeps this page at a constant
+        // number of queries — never one normalization round trip per row — while
+        // staying byte-identical to NormalizeAsync's output. RequiresReview rows
+        // are stale regardless, so their binding is not even computed.
+        var bindingCheckIds = pageRows
+            .Where(p => blocks.TryGetValue(p.Id, out var b) && !b.RequiresReview)
+            .Select(p => p.Id)
+            .ToList();
+        var effectiveByProduct = await _options.GetEffectiveOptionsBatchAsync(bindingCheckIds, ct);
+
         var rows = new List<ContentStatusRowDto>(pageRows.Count);
         foreach (var p in pageRows)
         {
@@ -790,9 +802,11 @@ internal sealed class ProductContentService : IProductContentService
             var isStale = false;
             if (hasBlock)
             {
-                var allDefaults = (await _selections.NormalizeAsync(p.Id, null, ct)).CanonicalSelectionJson;
                 isStale = block!.RequiresReview
-                    || !string.Equals(block.DescribesSelectionJson, allDefaults, StringComparison.Ordinal);
+                    || !string.Equals(
+                        block.DescribesSelectionJson,
+                        CanonicalSelection.SerializeAllDefaults(effectiveByProduct[p.Id]),
+                        StringComparison.Ordinal);
             }
             rows.Add(new ContentStatusRowDto(
                 p.Id, p.Slug, p.Name, p.Status,
