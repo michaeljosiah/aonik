@@ -486,6 +486,88 @@ public class AdminStorefrontProjectionTests
     }
 
     [Fact]
+    public async Task CartsAdmin_FlagsDrift_WhenTheContainerProductIsWithdrawn()
+    {
+        var h = new BoxTestHarness();
+        var f = await h.BuildAsync("jollof");
+
+        var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        await h.BoxCarts().AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken));
+
+        var admin = AdminSvc(h);
+        (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
+            .BoxMeta!.Drift.Should().BeFalse();
+
+        // Withdraw the CONTAINER: the plan is untouched and every dish line is
+        // still perfectly available, but PrepareForCheckoutAsync rejects a cart
+        // whose box product is no longer an Active size-tiered bundle — so the
+        // carts table must not present it as resumable.
+        await using (var withdraw = h.Commerce())
+        {
+            var container = await withdraw.Products.FirstAsync(p => p.Id == f.BundleProductId);
+            container.Status = Aonik.Commerce.Entities.Catalog.ProductStatuses.Draft;
+            await withdraw.SaveChangesAsync();
+        }
+
+        var blocked = (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId);
+        blocked.BoxMeta!.Drift.Should().BeTrue("a withdrawn container blocks checkout on its own");
+        (await admin.GetCartAsync(box.Box.CartId))!.Lines
+            .Should().OnlyContain(l => !l.IsUnavailable, "the BLOCKER is the container, not any line");
+
+        // Re-kinding it away from a size-tiered bundle blocks for the same reason.
+        await using (var restore = h.Commerce())
+        {
+            var container = await restore.Products.FirstAsync(p => p.Id == f.BundleProductId);
+            container.Status = Aonik.Commerce.Entities.Catalog.ProductStatuses.Active;
+            container.BundlePricingMode = Aonik.Commerce.Entities.Catalog.BundlePricingModes.Fixed;
+            await restore.SaveChangesAsync();
+        }
+        (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
+            .BoxMeta!.Drift.Should().BeTrue("a container priced off SizeTiered can no longer price this box");
+    }
+
+    [Fact]
+    public async Task CartsAdmin_FlagsSurchargeDrift_OnAnUnpersonalisedLine()
+    {
+        var h = new BoxTestHarness();
+        var f = await h.BuildAsync("jollof");
+        var options = CommerceTestHarness.NewOptionService(h.Commerce(), h.TenantId);
+
+        // An add-on for a plain product: zero option groups AND a null stored
+        // selection — exactly the pair the old guard skipped. (The harness's
+        // dish products all carry option groups, so they never hit this path.)
+        var (product, extraVariant) = await h.AddExtraAsync("zobo", 3.50m);
+        var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        var access = CartAccessContext.ForGuest(box.CartToken);
+        await h.BoxCarts().AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
+        await h.BoxCarts().AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
+
+        var admin = AdminSvc(h);
+        var baseline = (await admin.GetCartAsync(box.Box.CartId))!.Lines.Single(l => l.Kind == "AddOn");
+        baseline.Should().Match<AdminCartLineDto>(l => !l.PriceChanged && l.SelectionJson == null);
+        (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
+            .BoxMeta!.Drift.Should().BeFalse();
+
+        // Introduce a per-unit surcharge after the line was stored. ApplyDriftAsync
+        // renormalises the equivalent empty selection on the customer path and
+        // stops checkout for the changed charge, so the admin read must agree.
+        await options.SetUnitSurchargeAsync(product, new SetUnitSurchargeCommand(1.50m, "GBP"));
+
+        var line = (await admin.GetCartAsync(box.Box.CartId))!.Lines.Single(l => l.Kind == "AddOn");
+        line.PriceChanged.Should().BeTrue("a surcharge added after the snapshot changes what checkout will charge");
+        (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
+            .BoxMeta!.Drift.Should().BeTrue();
+
+        // Re-denominating the surcharge is a V10 the box path cannot price either:
+        // that is a blocking state, not a silent pass.
+        await options.SetUnitSurchargeAsync(product, new SetUnitSurchargeCommand(1.50m, "USD"));
+        (await admin.GetCartAsync(box.Box.CartId))!.Lines.Single(l => l.Kind == "AddOn")
+            .IsUnavailable.Should().BeTrue("a surcharge in another currency cannot be charged against a GBP cart");
+    }
+
+    [Fact]
     public async Task CartsAdmin_ResolvesBundleLines_ThroughTheirComponentSelections()
     {
         var h = new BoxTestHarness();
