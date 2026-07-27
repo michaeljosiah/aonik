@@ -79,7 +79,10 @@ internal sealed class CartService : ICartService
         var unit = await _pricing.ResolvePriceAsync(variant.Id, cart.Currency, null, cancellationToken)
             ?? throw new InvalidOperationException($"No {cart.Currency} price for variant '{variant.Id}'.");
 
-        // Insert the line directly — the cart parent is never re-tracked/updated (it owns no totals).
+        // Insert the line directly — the cart parent owns no totals; the one
+        // parent write is the activity stamp below, so list surfaces can order
+        // by Cart.UpdatedAt (the soft-delete query filter hides removed lines
+        // from any per-line aggregate).
         _dbContext.CartItems.Add(new CartItem
         {
             Id = Guid.NewGuid(),
@@ -94,6 +97,7 @@ internal sealed class CartService : ICartService
         });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
@@ -162,6 +166,7 @@ internal sealed class CartService : ICartService
 
         _dbContext.CartItems.Add(item);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
@@ -175,6 +180,7 @@ internal sealed class CartService : ICartService
         {
             _dbContext.CartItems.Remove(item);
             await _dbContext.SaveChangesAsync(cancellationToken);
+            await TouchCartAsync(cartId, tenantId, cancellationToken);
         }
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
@@ -240,6 +246,50 @@ internal sealed class CartService : ICartService
         if (cart.Status != CartStatuses.Open || cart.OrderId is not null)
         {
             throw new StorefrontValidationException("Z4: this cart has been checked out; its buyer cannot change.");
+        }
+    }
+
+    /// <summary>
+    /// Stamps the parent cart's activity AFTER the line write has committed, in
+    /// its own unit of work. A line add/remove is cart activity — and the
+    /// soft-delete query filter hides removed lines from every per-line
+    /// aggregate, so Cart.UpdatedAt is the only ordering signal a removal can
+    /// leave behind — but every AuditableEntity carries a row-version token, so
+    /// enlisting the parent in the line's save would turn two legitimate
+    /// parallel line edits into a concurrency conflict that rolls the line
+    /// mutation back. Keeping it separate preserves the independence of child
+    /// writes; a lost race here is retried, and after the bounded attempts the
+    /// stamp is abandoned rather than failing a line mutation that has already
+    /// committed — the ordering falls back to the line-level timestamps the
+    /// admin projection also considers.
+    /// </summary>
+    private async Task TouchCartAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        const int attempts = 3;
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            var tracked = await _dbContext.Carts
+                .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+            if (tracked is null)
+            {
+                return;
+            }
+
+            tracked.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Another writer stamped first. Drop the stale tracked copy and
+                // re-read so the next attempt carries the current row version.
+                foreach (var entry in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>().ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
         }
     }
 

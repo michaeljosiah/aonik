@@ -72,6 +72,8 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IBundleSizePlanService, BundleSizePlanService>();
         services.AddScoped<IExtrasCatalogService, ExtrasCatalogService>();
         services.AddScoped<IStorefrontOrderService, StorefrontOrderService>();
+        // Spec 073 dependency endpoints — the admin storefront projections (083/081).
+        services.AddScoped<IAdminStorefrontService, AdminStorefrontService>();
         services.AddScoped<BoxCartService>();
         services.AddScoped<IBoxCartService>(sp => sp.GetRequiredService<BoxCartService>());
         services.AddScoped<IBoxCheckoutSupport>(sp => sp.GetRequiredService<BoxCartService>());

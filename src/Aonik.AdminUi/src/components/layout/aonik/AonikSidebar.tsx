@@ -924,16 +924,24 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
   const isPortalAdmin = resolvePortalAdmin(navRoles);
   const disabledNavIds = useMemo(() => new Set(manifest?.disabledNavItems ?? []), [manifest]);
   const disabledRoutes = useMemo(() => new Set(manifest?.disabledRoutes ?? []), [manifest]);
+  // Module enablement (Spec 073 §3): null = no manifest (fail-open, render
+  // everything); a Set = only items whose moduleId is enabled render. Items
+  // without a moduleId are unaffected either way.
+  const enabledModules = useMemo(
+    () => (manifest ? new Set(manifest.enabledModules) : null),
+    [manifest],
+  );
 
   const isItemVisible = useCallback(
     (it: NavItem) => {
       if (disabledNavIds.has(it.id)) return false;
       if (it.href && disabledRoutes.has(it.href)) return false;
+      if (it.moduleId && enabledModules && !enabledModules.has(it.moduleId)) return false;
       if (it.audience === 'host') return isPortalAdmin;
       if (it.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
       return true;
     },
-    [disabledNavIds, disabledRoutes, isPortalAdmin, isLoadingNavRoles],
+    [disabledNavIds, disabledRoutes, enabledModules, isPortalAdmin, isLoadingNavRoles],
   );
 
   const filterItems = useCallback(

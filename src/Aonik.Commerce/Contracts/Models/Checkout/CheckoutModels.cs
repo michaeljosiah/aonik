@@ -63,3 +63,15 @@ public record CheckoutResult(
     string Currency,
     string? ClientSecret = null,
     string? CheckoutUrl = null);
+
+/// <summary>
+/// The one storefront payment status Commerce itself writes. OrderChargeSummary.PaymentStatus
+/// starts as the provider's at-creation intent status (pending/requires-action wording varies by
+/// provider); payment completion converges it to <see cref="Captured"/> — the Finance lifecycle's
+/// terminal success value and the single producer of PaymentCompletedEvent. Admin projections,
+/// the payment-status filter and paid-revenue KPIs match on this value.
+/// </summary>
+public static class CheckoutPaymentStatuses
+{
+    public const string Captured = "Captured";
+}

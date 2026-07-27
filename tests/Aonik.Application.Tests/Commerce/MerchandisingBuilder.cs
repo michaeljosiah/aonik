@@ -23,7 +23,11 @@ internal sealed class MerchandisingBuilder
         _ctx = ctx;
         _tenantId = tenantId;
         Products = CommerceTestHarness.NewProductService(ctx, tenantId);
-        Collections = new CollectionService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), NullLogger<CollectionService>.Instance);
+        Collections = new CollectionService(
+            ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId),
+            NullLogger<CollectionService>.Instance, new FakeExtrasCatalog(),
+            new GbpTenantCurrencyProvider(),
+            new ProductPricingService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), new CommerceTestHarness.TestClock()));
         Facets = new FacetGroupService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId));
     }
 

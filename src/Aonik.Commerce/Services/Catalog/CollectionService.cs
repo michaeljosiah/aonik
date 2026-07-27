@@ -18,15 +18,25 @@ internal sealed partial class CollectionService : ICollectionService
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<CollectionService> _logger;
+    private readonly ITenantCurrencyProvider _tenantCurrency;
+    private readonly IProductPricingService _pricing;
+
+    private readonly IExtrasCatalogService _extras;
 
     public CollectionService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
-        ILogger<CollectionService> logger)
+        ILogger<CollectionService> logger,
+        IExtrasCatalogService extras,
+        ITenantCurrencyProvider tenantCurrency,
+        IProductPricingService pricing)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _logger = logger;
+        _extras = extras;
+        _tenantCurrency = tenantCurrency;
+        _pricing = pricing;
     }
 
     // ─── Public reads ────────────────────────────────────────────────────────
@@ -104,7 +114,80 @@ internal sealed partial class CollectionService : ICollectionService
             .FirstOrDefaultAsync(c => c.Id == collectionId && c.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Collection '{collectionId}' was not found.");
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
+    }
+
+    /// <summary>
+    /// The admin detail EVERY endpoint returning that shape must serve — the
+    /// base mapping plus the Spec 078 extras pricing enrichment. Mutations
+    /// return the detail too, so a client applying a create/update/replace
+    /// response would otherwise replace correctly enriched rows with all-null
+    /// pricing state until its next GET.
+    /// </summary>
+    private async Task<AdminCollectionDto> MapAdminEnrichedAsync(
+        Guid tenantId, Collection collection, CancellationToken cancellationToken)
+    {
+        var dto = await MapAdminAsync(tenantId, collection, cancellationToken);
+
+        // Spec 078 dependency — the extras collection is the one place members
+        // carry retail pricing state, so the admin can see WHICH retained member
+        // the public rail skips as unpriceable (it omits and counts; the admin
+        // keeps and marks).
+        // A PARKED (inactive) extras collection serves no public rail at all —
+        // pricing state is only meaningful while the rail is live, so an
+        // inactive collection keeps every member at null.
+        var extrasSlug = await _extras.GetConfiguredSlugAsync(cancellationToken);
+        if (collection.IsActive && string.Equals(collection.Slug, extrasSlug, StringComparison.OrdinalIgnoreCase))
+        {
+            // Derived DIRECTLY with bounded batch queries — never by materialising
+            // the public rail, whose per-member content/options resolution is far
+            // more than priceability needs. The rules mirror GetExtrasAsync
+            // exactly: an Active + Simple member with an active variant (the
+            // earliest-created one is the rail's variant) is servable; it is
+            // PRICEABLE when that variant resolves a price in the tenant currency.
+            // IsPriceable=false stays a PRICING verdict; structurally ineligible
+            // members (wrong kind, no active variant) stay null — no price row
+            // could fix them.
+            var activeIds = dto.Items
+                .Where(i => i.Status == ProductStatuses.Active)
+                .Select(i => i.ProductId)
+                .ToList();
+            var simpleIds = (await _dbContext.Products.AsNoTracking()
+                .Where(p => p.TenantId == tenantId && activeIds.Contains(p.Id) && p.Kind == ProductKinds.Simple)
+                .Select(p => p.Id)
+                .ToListAsync(cancellationToken)).ToHashSet();
+            var railVariants = await _dbContext.ProductVariants.AsNoTracking()
+                .Where(v => v.TenantId == tenantId && activeIds.Contains(v.ProductId) && v.IsActive)
+                .GroupBy(v => v.ProductId)
+                .Select(g => g.OrderBy(v => v.CreatedAt).First())
+                .ToDictionaryAsync(v => v.ProductId, cancellationToken);
+            var currency = await _tenantCurrency.GetTenantDefaultCurrencyAsync(tenantId, cancellationToken) ?? "GBP";
+            var prices = await _pricing.ResolvePricesAsync(
+                railVariants.Values.Where(v => simpleIds.Contains(v.ProductId)).Select(v => v.Id).ToList(),
+                currency, null, cancellationToken);
+
+            dto = dto with
+            {
+                Items = dto.Items
+                    .Select(i =>
+                    {
+                        var eligible = i.Status == ProductStatuses.Active
+                            && simpleIds.Contains(i.ProductId)
+                            && railVariants.TryGetValue(i.ProductId, out _);
+                        if (!eligible)
+                        {
+                            return i with { IsPriceable = (bool?)null };
+                        }
+                        var price = prices.GetValueOrDefault(railVariants[i.ProductId].Id);
+                        return price is null
+                            ? i with { IsPriceable = false }
+                            : i with { UnitPrice = price, Currency = currency, IsPriceable = true };
+                    })
+                    .ToList(),
+            };
+        }
+
+        return dto;
     }
 
     public async Task<AdminCollectionDto> CreateAsync(CreateCollectionCommand command, CancellationToken cancellationToken = default)
@@ -132,7 +215,7 @@ internal sealed partial class CollectionService : ICollectionService
         _dbContext.Collections.Add(collection);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     public async Task<AdminCollectionDto> UpdateAsync(
@@ -172,7 +255,7 @@ internal sealed partial class CollectionService : ICollectionService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     public async Task<AdminCollectionDto> ReplaceItemsAsync(
@@ -322,7 +405,7 @@ internal sealed partial class CollectionService : ICollectionService
             }
         }, cancellationToken);
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────

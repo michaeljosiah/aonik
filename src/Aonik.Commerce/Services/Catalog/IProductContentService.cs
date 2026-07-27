@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 
@@ -21,6 +21,15 @@ public interface IProductContentService
 
     /// <summary>Soft-retire (V-C5) — the row remains for history and reactivation.</summary>
     Task DeactivateVariantAsync(Guid variantId, CancellationToken ct = default);
+
+    /// <summary>Spec 075 dependency — the RAW authoring read (block + variants +
+    /// server-computed staleness). 404 when the product does not exist; a product
+    /// with no block returns <c>Block = null</c>.</summary>
+    Task<AdminProductContentDto> GetAdminAsync(Guid productId, CancellationToken ct = default);
+
+    /// <summary>Spec 075 dependency — paged per-product content flags for the
+    /// admin rail, KPIs and review queue.</summary>
+    Task<Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>> ListAdminStatusAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
 
     // ── Reads ──
     /// <summary>§5 resolution. Null when the product has no default block (a defined state:

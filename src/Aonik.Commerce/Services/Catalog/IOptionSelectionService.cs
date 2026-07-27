@@ -58,4 +58,18 @@ public interface IOptionSelectionService
         string canonicalSelectionJson,
         string currency,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// <see cref="RenormalizeStoredAsync"/> with every input preloaded — the SAME drift rules and
+    /// pricing tail with zero I/O, so batched read surfaces (the Spec 083 admin cart projections)
+    /// can evaluate whole pages at constant query cost. A null/blank stored selection is treated
+    /// as the empty selection (every current group reports <c>group-added</c> drift).
+    /// </summary>
+    /// <exception cref="OptionValidationException">Rule V10 (currency mismatch) only.</exception>
+    StoredSelectionResult RenormalizeStored(
+        IReadOnlyList<EffectiveOptionGroupDto> groups,
+        string? canonicalSelectionJson,
+        string currency,
+        decimal? unitSurcharge,
+        string? unitSurchargeCurrency);
 }

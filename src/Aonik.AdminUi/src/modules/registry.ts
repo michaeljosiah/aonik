@@ -6,6 +6,7 @@ import type { ModuleBreadcrumb, ModuleRouteConfig } from './types';
 
 import { coreModule } from './core';
 import { financeModule } from './finance';
+import { commerceModule } from './commerce';
 import { platformModule } from './platform';
 import { agentCommandCenterModule } from './agent-command-center';
 import { agentExtensionsModule } from './agent-extensions';
@@ -20,6 +21,7 @@ const allModules: AdminModule[] = [
   agentCommandCenterModule,
   agentExtensionsModule,
   financeModule,
+  commerceModule,
   platformModule,
 ];
 

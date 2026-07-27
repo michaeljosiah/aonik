@@ -15,6 +15,18 @@ public interface IProductPricingService
     Task<decimal?> ResolvePriceAsync(Guid productVariantId, string currency, DateTime? atUtc = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// <see cref="ResolvePriceAsync"/> for a SET of variants in one bounded query — the exact same
+    /// rule (active, effective window, latest EffectiveFrom wins) resolved in memory, so list
+    /// surfaces never pay one pricing round trip per row. Every requested id is present in the
+    /// result; a variant with no resolvable price maps to null.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, decimal?>> ResolvePricesAsync(
+        IReadOnlyCollection<Guid> productVariantIds,
+        string currency,
+        DateTime? atUtc = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Computes the line price of a build-your-own-box selection per the bundle's pricing mode
     /// (Fixed | SumOfComponents | SumPlusPremium). Validates the selection against the bundle's slots
     /// (Spec 042 §12).

@@ -683,6 +683,37 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ProductNarrowingLineDto>> GetNarrowingAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var exists = await _dbContext.Products.AsNoTracking()
+            .AnyAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
+        if (!exists)
+        {
+            throw new NotFoundException($"Product '{productId}' was not found.");
+        }
+
+        var rows = await _dbContext.ProductOptionGroups.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.ProductId == productId)
+            .Join(
+                _dbContext.OptionGroups.AsNoTracking().Where(g => g.TenantId == tenantId),
+                x => x.OptionGroupId,
+                g => g.Id,
+                (x, g) => new { Narrowing = x, g.Key })
+            .OrderBy(r => r.Narrowing.SortOrder)
+            .ThenBy(r => r.Key)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new ProductNarrowingLineDto(
+                r.Key,
+                DeserializeAllowedKeys(r.Narrowing.AllowedChoiceKeysJson)?.ToList(),
+                r.Narrowing.DefaultChoiceKey,
+                r.Narrowing.SelectionModeOverride,
+                r.Narrowing.SortOrder))
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<EffectiveOptionGroupDto>> GetEffectiveOptionsAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -704,6 +735,50 @@ internal sealed partial class ProductOptionService : IProductOptionService
             .Where(g => g.TenantId == tenantId && groupIds.Contains(g.Id))
             .ToListAsync(cancellationToken);
 
+        return ComposeEffective(productId, narrowings, groups);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<EffectiveOptionGroupDto>>> GetEffectiveOptionsBatchAsync(
+        IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var ids = productIds.Distinct().ToList();
+        var result = new Dictionary<Guid, IReadOnlyList<EffectiveOptionGroupDto>>(ids.Count);
+        if (ids.Count == 0)
+        {
+            return result;
+        }
+
+        // The single-product read's two queries, widened to the id set — the
+        // per-product composition is the SAME code, so batch and single reads
+        // can never disagree.
+        var narrowings = await _dbContext.ProductOptionGroups
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && ids.Contains(x.ProductId))
+            .ToListAsync(cancellationToken);
+        var groupIds = narrowings.Select(n => n.OptionGroupId).Distinct().ToList();
+        var groups = await _dbContext.OptionGroups
+            .AsNoTracking()
+            .Include(g => g.Choices)
+            .Where(g => g.TenantId == tenantId && groupIds.Contains(g.Id))
+            .ToListAsync(cancellationToken);
+        var narrowingsByProduct = narrowings.GroupBy(n => n.ProductId).ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var id in ids)
+        {
+            result[id] = narrowingsByProduct.TryGetValue(id, out var productNarrowings)
+                ? ComposeEffective(id, productNarrowings, groups)
+                : [];
+        }
+
+        return result;
+    }
+
+    /// <summary>The narrowing → effective-groups composition (Spec 066 §6), shared verbatim by the
+    /// single and batch reads.</summary>
+    private IReadOnlyList<EffectiveOptionGroupDto> ComposeEffective(
+        Guid productId, IReadOnlyList<ProductOptionGroup> narrowings, IReadOnlyList<OptionGroup> groups)
+    {
         var result = new List<EffectiveOptionGroupDto>();
 
         foreach (var narrowing in narrowings.OrderBy(n => n.SortOrder))

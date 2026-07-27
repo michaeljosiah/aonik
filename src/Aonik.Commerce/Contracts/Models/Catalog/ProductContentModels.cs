@@ -1,4 +1,4 @@
-namespace Aonik.Commerce.Contracts.Models.Catalog;
+﻿namespace Aonik.Commerce.Contracts.Models.Catalog;
 
 // ─── Resolution (Spec 067 §5/§7) ────────────────────────────────────────────
 
@@ -97,6 +97,36 @@ public record UpsertContentVariantCommand(
 /// <summary>Every authored combination plus the single-choice-deviation gaps — bounded by
 /// Σ|offered choices| per product, never combinatorial. Multi-choice combinations are authored
 /// on demand and appear in <see cref="Authored"/>.</summary>
+/// <summary>Spec 075 dependency — the RAW authoring read: the block as stored,
+/// its variants, and server-computed staleness via the resolver's own predicate
+/// (<c>RequiresReview</c> OR the stored all-defaults binding no longer matching
+/// the product's current default selection). Editors load THIS, never the
+/// public resolution, which withholds and substitutes by design.</summary>
+public record AdminProductContentDto(
+    ProductContentDto? Block,
+    bool IsStale,
+    IReadOnlyList<ProductContentVariantDto> Variants);
+
+/// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).
+/// Block EXISTENCE is not publication: a block with every figure null serves no
+/// nutrition, and one with neither ingredients nor allergens withholds its
+/// declarations — the rail's Authored/Withheld states and the figure-serving KPI
+/// need both facts, so they are projected here rather than costing a raw-content
+/// request per product.</summary>
+public record ContentStatusRowDto(
+    Guid ProductId,
+    string Slug,
+    string Name,
+    string ProductStatus,
+    bool HasBlock,
+    bool RequiresReview,
+    bool IsStale,
+    int VariantCount,
+    /// At least one nutrition figure is published on the default block.
+    bool HasFigures = false,
+    /// Ingredients and/or allergens are authored on the default block.
+    bool HasDeclarations = false);
+
 public record ContentCoverageDto(
     Guid ProductId,
     IReadOnlyList<ContentCoverageEntryDto> Authored,
