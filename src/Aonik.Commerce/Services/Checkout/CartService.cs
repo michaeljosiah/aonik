@@ -96,8 +96,8 @@ internal sealed class CartService : ICartService
             NameSnapshot = variant.Name,
         });
 
-        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
@@ -165,8 +165,8 @@ internal sealed class CartService : ICartService
         }
 
         _dbContext.CartItems.Add(item);
-        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
@@ -179,8 +179,8 @@ internal sealed class CartService : ICartService
         if (item is not null)
         {
             _dbContext.CartItems.Remove(item);
-            await TouchCartAsync(cartId, tenantId, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
+            await TouchCartAsync(cartId, tenantId, cancellationToken);
         }
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
@@ -250,21 +250,46 @@ internal sealed class CartService : ICartService
     }
 
     /// <summary>
-    /// Stamps the parent cart's activity inside the SAME unit of work as a line
-    /// write. Line mutations deliberately never carry cart state (the cart owns
-    /// no totals), but a line add/remove IS cart activity — and the soft-delete
-    /// query filter hides removed lines from every per-line aggregate, so
-    /// Cart.UpdatedAt is the only ordering signal a removal can leave behind.
-    /// The cart has no concurrency token; concurrent stamps last-write-win
-    /// harmlessly.
+    /// Stamps the parent cart's activity AFTER the line write has committed, in
+    /// its own unit of work. A line add/remove is cart activity — and the
+    /// soft-delete query filter hides removed lines from every per-line
+    /// aggregate, so Cart.UpdatedAt is the only ordering signal a removal can
+    /// leave behind — but every AuditableEntity carries a row-version token, so
+    /// enlisting the parent in the line's save would turn two legitimate
+    /// parallel line edits into a concurrency conflict that rolls the line
+    /// mutation back. Keeping it separate preserves the independence of child
+    /// writes; a lost race here is retried, and after the bounded attempts the
+    /// stamp is abandoned rather than failing a line mutation that has already
+    /// committed — the ordering falls back to the line-level timestamps the
+    /// admin projection also considers.
     /// </summary>
     private async Task TouchCartAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
     {
-        var tracked = await _dbContext.Carts
-            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
-        if (tracked is not null)
+        const int attempts = 3;
+        for (var attempt = 1; attempt <= attempts; attempt++)
         {
+            var tracked = await _dbContext.Carts
+                .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+            if (tracked is null)
+            {
+                return;
+            }
+
             tracked.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Another writer stamped first. Drop the stale tracked copy and
+                // re-read so the next attempt carries the current row version.
+                foreach (var entry in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>().ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
         }
     }
 

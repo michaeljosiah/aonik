@@ -8,6 +8,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -36,7 +37,7 @@ public interface IAdminStorefrontService
     Task<AdminPartyStorefrontDto> GetPartyStorefrontAsync(Guid partyId, CancellationToken cancellationToken = default);
 }
 
-internal sealed class AdminStorefrontService : IAdminStorefrontService
+internal sealed partial class AdminStorefrontService : IAdminStorefrontService
 {
     private const string DeliveryFeeItemType = "DeliveryFee";
 
@@ -47,6 +48,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
     private readonly Catalog.IProductOptionService _options;
     private readonly Catalog.IOptionSelectionService _selections;
     private readonly Catalog.IProductPricingService _pricing;
+    private readonly ILogger<AdminStorefrontService> _logger;
 
     public AdminStorefrontService(
         CommerceDbContext dbContext,
@@ -55,7 +57,8 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         IStorefrontOrderService storefrontOrders,
         Catalog.IProductOptionService options,
         Catalog.IOptionSelectionService selections,
-        Catalog.IProductPricingService pricing)
+        Catalog.IProductPricingService pricing,
+        ILogger<AdminStorefrontService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -64,6 +67,7 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         _options = options;
         _selections = selections;
         _pricing = pricing;
+        _logger = logger;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>> ListOrdersAsync(
@@ -98,56 +102,54 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         }
 
         var totalCount = await joined.CountAsync(cancellationToken);
-        var ordered = joined.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.OrderId);
 
-        // A charge summary whose spine order no longer exists is a data-integrity
-        // anomaly, and it must not silently shorten a page: the row was counted
-        // and consumed a slot, so dropping it post-hoc would serve short (or
-        // empty) pages while still advertising the original total, hiding valid
-        // later orders. Pull forward until the page is FULL, and discount every
-        // confirmed-missing row from the advertised total.
-        var results = new List<AdminStorefrontOrderRowDto>(pageSize);
-        var missing = 0;
-        var offset = (page - 1) * pageSize;
-        while (results.Count < pageSize)
+        // Pagination is by SOURCE position — stable, so no order can duplicate
+        // across pages or be skipped between them. Spine existence is not
+        // filterable here (the orders live in another module behind a contract),
+        // so a charge summary whose order has vanished cannot be excluded from
+        // the count or the offset; pulling later rows forward to fill the gap
+        // would shift every subsequent page boundary and duplicate rows. Such a
+        // row is a data-integrity anomaly: it is LOGGED as a warning — the
+        // operator needs to know a summary outlived its order — and omitted
+        // from its page rather than invented.
+        var rows = await joined
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenBy(x => x.OrderId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+        if (rows.Count == 0)
         {
-            var rows = await ordered.Skip(offset).Take(pageSize - results.Count).ToListAsync(cancellationToken);
-            if (rows.Count == 0)
-            {
-                break;   // source exhausted
-            }
-            offset += rows.Count;
-
-            var spine = await _orders.ListAsync(
-                new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
-                cancellationToken);
-            var byId = spine.Items.ToDictionary(o => o.Id);
-
-            foreach (var row in rows)
-            {
-                if (!byId.TryGetValue(row.OrderId, out var order))
-                {
-                    missing++;   // summary outlived its order — never invent one
-                    continue;
-                }
-                results.Add(new AdminStorefrontOrderRowDto(
-                    order.Id,
-                    row.BuyerPartyId is null ? "guest" : "party",
-                    row.BuyerPartyId,
-                    order.CreatedAt,
-                    order.Status,
-                    row.PaymentStatus,
-                    DeriveFulfilment(order.Status),
-                    row.Currency,
-                    row.Total,
-                    row.BoxSize));
-            }
+            return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>([], totalCount, page, pageSize);
         }
 
-        // Exact whenever the anomaly is absent (the normal case); otherwise it
-        // discounts what THIS page proved missing rather than over-reporting.
-        return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(
-            results, Math.Max(results.Count, totalCount - missing), page, pageSize);
+        var spine = await _orders.ListAsync(
+            new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
+            cancellationToken);
+        var byId = spine.Items.ToDictionary(o => o.Id);
+
+        var results = new List<AdminStorefrontOrderRowDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (!byId.TryGetValue(row.OrderId, out var order))
+            {
+                LogOrphanedChargeSummary(_logger, row.OrderId, tenantId);
+                continue;
+            }
+            results.Add(new AdminStorefrontOrderRowDto(
+                order.Id,
+                row.BuyerPartyId is null ? "guest" : "party",
+                row.BuyerPartyId,
+                order.CreatedAt,
+                order.Status,
+                row.PaymentStatus,
+                DeriveFulfilment(order.Status),
+                row.Currency,
+                row.Total,
+                row.BoxSize));
+        }
+
+        return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(results, totalCount, page, pageSize);
     }
 
     public async Task<AdminOrderStorefrontDto?> GetOrderStorefrontAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -704,4 +706,8 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         OrderStatusCodes.Cancelled or OrderStatusCodes.Failed or OrderStatusCodes.Expired => "Cancelled",
         _ => "Unfulfilled",
     };
+
+    [LoggerMessage(EventId = 8301, Level = LogLevel.Warning,
+        Message = "Storefront order list skipped charge summary for order {OrderId} (tenant {TenantId}): the spine order no longer exists.")]
+    private static partial void LogOrphanedChargeSummary(ILogger logger, Guid orderId, Guid tenantId);
 }

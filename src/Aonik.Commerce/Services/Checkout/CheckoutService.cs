@@ -401,7 +401,7 @@ internal sealed class CheckoutService : ICheckoutService
             subtotal, discount.Amount, tax, total, cart.Currency, intent.ClientSecret, intent.CheckoutUrl);
     }
 
-    public async Task ConfirmPaymentAsync(Guid orderId, CancellationToken cancellationToken = default)
+    public async Task ConfirmPaymentAsync(Guid orderId, Guid? completedPaymentIntentId = null, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await _dbContext.Carts
@@ -414,11 +414,16 @@ internal sealed class CheckoutService : ICheckoutService
         // Converge the durable funding record: the summary's PaymentStatus was stamped with the
         // provider's at-creation status (normally pending), and it is what the admin projections,
         // the payment-status filter and paid-revenue KPIs read. Capture is the one producer of
-        // PaymentCompletedEvent, so completion here means Captured. Unconditional (not inside the
-        // cart-status guard) so an earlier partial confirmation still converges on retry.
+        // PaymentCompletedEvent, so completion means Captured — but ONLY for the intent this
+        // checkout recorded. Finance permits several intents per order, so an unrelated intent
+        // capturing (possibly a different amount or currency) must not mark this charge captured;
+        // an unknown intent id leaves the status alone rather than guessing. Deliberately outside
+        // the cart-status guard so an earlier partial confirmation still converges on retry.
         var summary = await _dbContext.OrderChargeSummaries
             .FirstOrDefaultAsync(s => s.OrderId == orderId && s.TenantId == tenantId, cancellationToken);
         if (summary is not null
+            && completedPaymentIntentId is { } completedIntent
+            && summary.PaymentIntentId == completedIntent
             && !string.Equals(summary.PaymentStatus, CheckoutPaymentStatuses.Captured, StringComparison.Ordinal))
         {
             summary.PaymentStatus = CheckoutPaymentStatuses.Captured;

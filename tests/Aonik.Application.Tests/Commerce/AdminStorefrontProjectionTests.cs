@@ -28,7 +28,8 @@ public class AdminStorefrontProjectionTests
             new StorefrontOrderService(h.Commerce(), tenant, spine),
             CommerceTestHarness.NewOptionService(ctx, h.TenantId),
             CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
-            h.Pricing());
+            h.Pricing(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdminStorefrontService>.Instance);
     }
 
     [Fact]
@@ -76,12 +77,20 @@ public class AdminStorefrontProjectionTests
         (await admin.GetCartAsync(pendingRow.CartId))!.Lines
             .Should().OnlyContain(l => !l.IsUnavailable && !l.PriceChanged && l.SelectionDrift.Count == 0);
 
+        // An UNRELATED intent capturing for the same order must not touch this
+        // checkout's charge: Finance permits several intents per order, and the
+        // summary describes the one checkout recorded.
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, Guid.NewGuid());
+        (await admin.ListOrdersAsync()).Items.Single().PaymentStatus
+            .Should().NotBe(CheckoutPaymentStatuses.Captured,
+                "a different intent's capture says nothing about this checkout's charge");
+
         // Payment completion must converge the DURABLE funding record the
         // projection reads — the at-creation provider status is not the truth
         // once PaymentCompletedEvent fires. Fulfilment does NOT flip: payment is
         // not delivery evidence, so the paid order stays awaiting fulfilment
         // until a real fulfilment lifecycle records the fact.
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
         var confirmed = (await admin.ListOrdersAsync()).Items.Single();
         confirmed.PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
         confirmed.FulfilmentStatus.Should().Be("Unfulfilled");
