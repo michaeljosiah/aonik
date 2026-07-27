@@ -811,7 +811,13 @@ internal sealed class ProductContentService : IProductContentService
             rows.Add(new ContentStatusRowDto(
                 p.Id, p.Slug, p.Name, p.Status,
                 hasBlock, hasBlock && block!.RequiresReview, isStale,
-                variantCounts.GetValueOrDefault(p.Id)));
+                variantCounts.GetValueOrDefault(p.Id),
+                hasBlock && (block!.Kcal is not null || block.ProteinGrams is not null
+                    || block.CarbsGrams is not null || block.FatGrams is not null
+                    || block.FibreGrams is not null || block.SugarsGrams is not null
+                    || block.SaltGrams is not null),
+                hasBlock && (!string.IsNullOrWhiteSpace(block!.Ingredients)
+                    || !string.IsNullOrWhiteSpace(block.Allergens))));
         }
 
         return new Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>(rows, totalCount, page, pageSize);

@@ -98,43 +98,56 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
         }
 
         var totalCount = await joined.CountAsync(cancellationToken);
-        var rows = await joined
-            .OrderByDescending(x => x.CreatedAt)
-            .ThenBy(x => x.OrderId)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-        if (rows.Count == 0)
-        {
-            return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>([], totalCount, page, pageSize);
-        }
+        var ordered = joined.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.OrderId);
 
-        var spine = await _orders.ListAsync(
-            new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
-            cancellationToken);
-        var byId = spine.Items.ToDictionary(o => o.Id);
-
-        var results = new List<AdminStorefrontOrderRowDto>(rows.Count);
-        foreach (var row in rows)
+        // A charge summary whose spine order no longer exists is a data-integrity
+        // anomaly, and it must not silently shorten a page: the row was counted
+        // and consumed a slot, so dropping it post-hoc would serve short (or
+        // empty) pages while still advertising the original total, hiding valid
+        // later orders. Pull forward until the page is FULL, and discount every
+        // confirmed-missing row from the advertised total.
+        var results = new List<AdminStorefrontOrderRowDto>(pageSize);
+        var missing = 0;
+        var offset = (page - 1) * pageSize;
+        while (results.Count < pageSize)
         {
-            if (!byId.TryGetValue(row.OrderId, out var order))
+            var rows = await ordered.Skip(offset).Take(pageSize - results.Count).ToListAsync(cancellationToken);
+            if (rows.Count == 0)
             {
-                continue;   // summary outlived its order — serve the rest rather than 500
+                break;   // source exhausted
             }
-            results.Add(new AdminStorefrontOrderRowDto(
-                order.Id,
-                row.BuyerPartyId is null ? "guest" : "party",
-                row.BuyerPartyId,
-                order.CreatedAt,
-                order.Status,
-                row.PaymentStatus,
-                DeriveFulfilment(order.Status),
-                row.Currency,
-                row.Total,
-                row.BoxSize));
+            offset += rows.Count;
+
+            var spine = await _orders.ListAsync(
+                new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
+                cancellationToken);
+            var byId = spine.Items.ToDictionary(o => o.Id);
+
+            foreach (var row in rows)
+            {
+                if (!byId.TryGetValue(row.OrderId, out var order))
+                {
+                    missing++;   // summary outlived its order — never invent one
+                    continue;
+                }
+                results.Add(new AdminStorefrontOrderRowDto(
+                    order.Id,
+                    row.BuyerPartyId is null ? "guest" : "party",
+                    row.BuyerPartyId,
+                    order.CreatedAt,
+                    order.Status,
+                    row.PaymentStatus,
+                    DeriveFulfilment(order.Status),
+                    row.Currency,
+                    row.Total,
+                    row.BoxSize));
+            }
         }
 
-        return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(results, totalCount, page, pageSize);
+        // Exact whenever the anomaly is absent (the normal case); otherwise it
+        // discounts what THIS page proved missing rather than over-reporting.
+        return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(
+            results, Math.Max(results.Count, totalCount - missing), page, pageSize);
     }
 
     public async Task<AdminOrderStorefrontDto?> GetOrderStorefrontAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -189,10 +202,25 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             })
             .ToList();
 
-        var selections = await _dbContext.OrderBundleSelections.AsNoTracking()
+        // Selections carry their OrderItemIndex so the drawer can nest each one
+        // under its own bundle aggregate (an order may hold several), plus the
+        // resolved variant name the drawer renders — SKU stays the durable
+        // identifier, and a retired variant simply has no name rather than an
+        // invented one.
+        var selectionRows = await _dbContext.OrderBundleSelections.AsNoTracking()
             .Where(s => s.TenantId == tenantId && s.OrderId == orderId)
-            .Select(s => new StorefrontOrderSelectionDto(s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary))
+            .OrderBy(s => s.OrderItemIndex).ThenBy(s => s.Sku)
             .ToListAsync(cancellationToken);
+        var selectionVariantIds = selectionRows.Select(s => s.ProductVariantId).Distinct().ToList();
+        var selectionNames = await _dbContext.ProductVariants.AsNoTracking()
+            .Where(v => v.TenantId == tenantId && selectionVariantIds.Contains(v.Id))
+            .Select(v => new { v.Id, v.Name })
+            .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
+        var selections = selectionRows
+            .Select(s => new StorefrontOrderSelectionDto(
+                s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary,
+                s.OrderItemIndex, selectionNames.GetValueOrDefault(s.ProductVariantId)))
+            .ToList();
 
         return new AdminOrderStorefrontDto(
             order.Id,

@@ -107,7 +107,12 @@ public record AdminProductContentDto(
     bool IsStale,
     IReadOnlyList<ProductContentVariantDto> Variants);
 
-/// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).</summary>
+/// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).
+/// Block EXISTENCE is not publication: a block with every figure null serves no
+/// nutrition, and one with neither ingredients nor allergens withholds its
+/// declarations — the rail's Authored/Withheld states and the figure-serving KPI
+/// need both facts, so they are projected here rather than costing a raw-content
+/// request per product.</summary>
 public record ContentStatusRowDto(
     Guid ProductId,
     string Slug,
@@ -116,7 +121,11 @@ public record ContentStatusRowDto(
     bool HasBlock,
     bool RequiresReview,
     bool IsStale,
-    int VariantCount);
+    int VariantCount,
+    /// At least one nutrition figure is published on the default block.
+    bool HasFigures = false,
+    /// Ingredients and/or allergens are authored on the default block.
+    bool HasDeclarations = false);
 
 public record ContentCoverageDto(
     Guid ProductId,

@@ -36,7 +36,13 @@ public record StorefrontOrderSelectionDto(
     Guid ProductVariantId,
     decimal Quantity,
     string Sku,
-    string? PersonalisationSummary);
+    string? PersonalisationSummary,
+    /// Which order ITEM this selection sits under — an order may carry several
+    /// bundle aggregates, and a flat list cannot say which is whose.
+    int OrderItemIndex = 0,
+    /// Resolved variant display name; null when the variant no longer exists
+    /// (the SKU is the durable identifier — names are never invented).
+    string? Name = null);
 
 public record StorefrontOrderDetailDto(
     Guid OrderId,
@@ -143,7 +149,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             .AsNoTracking()
             .Where(s => s.TenantId == tenantId && s.OrderId == orderId)
             .Select(s => new StorefrontOrderSelectionDto(
-                s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary))
+                s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary, s.OrderItemIndex, null))
             .ToListAsync(cancellationToken);
 
         return new StorefrontOrderDetailDto(

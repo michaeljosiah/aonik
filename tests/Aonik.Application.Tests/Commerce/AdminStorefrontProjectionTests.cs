@@ -98,7 +98,12 @@ public class AdminStorefrontProjectionTests
         var addOn = detail.Items.Single(i => i.IsAddOn);
         addOn.Amount.Should().Be(9m);
         addOn.UnitPrice.Should().Be(4.50m);
-        detail.Selections.Should().ContainSingle().Which.Quantity.Should().Be(6m);
+        var selection = detail.Selections.Should().ContainSingle().Subject;
+        selection.Quantity.Should().Be(6m);
+        selection.Name.Should().NotBeNullOrWhiteSpace("the drawer names each selection, not just its SKU");
+        selection.OrderItemIndex.Should().Be(
+            detail.Items.ToList().FindIndex(i => !i.IsAddOn && !i.IsDeliveryFee),
+            "each selection must say which order ITEM it nests under");
         detail.Charge.Total.Should().Be(row.Total);
         detail.PaymentStatus.Should().Be(confirmed.PaymentStatus, "detail and list read the same durable record");
         detail.FulfilmentStatus.Should().Be("Unfulfilled");
@@ -287,6 +292,18 @@ public class AdminStorefrontProjectionTests
         status.Items.Single(r => r.ProductId == product).Should().Match<ContentStatusRowDto>(
             r => r.HasBlock && r.IsStale && !r.RequiresReview);
         status.Items.Single(r => r.ProductId == f.BundleProductId).HasBlock.Should().BeFalse();
+
+        // Block EXISTENCE is not publication: this block carries a kcal figure
+        // but no declarations, so the rail must be able to tell Authored from
+        // Withheld without a raw-content request per product.
+        var published = status.Items.Single(r => r.ProductId == product);
+        published.HasFigures.Should().BeTrue("a kcal figure was published");
+        published.HasDeclarations.Should().BeFalse("neither ingredients nor allergens were authored");
+
+        await content.UpsertContentAsync(product, new UpsertProductContentCommand(
+            "Per serving", Kcal: 400, Allergens: "Contains celery"));
+        (await content.ListAdminStatusAsync()).Items.Single(r => r.ProductId == product)
+            .HasDeclarations.Should().BeTrue();
     }
 
     [Fact]

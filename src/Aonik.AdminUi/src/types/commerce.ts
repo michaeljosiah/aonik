@@ -273,6 +273,10 @@ export interface ContentStatusRowDto {
   requiresReview: boolean;
   isStale: boolean;
   variantCount: number;
+  /** At least one nutrition figure is published — block existence is not publication. */
+  hasFigures: boolean;
+  /** Ingredients and/or allergens are authored (the rail's Authored vs Withheld state). */
+  hasDeclarations: boolean;
 }
 
 export interface ContentCoverageEntryDto {
@@ -513,12 +517,16 @@ export interface AdminOrderChargeDto {
   currency: string;
 }
 
-/** Kitchen-landing selection snapshot (per box slot line). */
+/** Kitchen-landing selection snapshot (per bundle slot line). */
 export interface StorefrontOrderSelectionDto {
   productVariantId: string;
   quantity: number;
   sku: string;
   personalisationSummary: string | null;
+  /** Which order ITEM this selection nests under — an order may hold several bundle aggregates. */
+  orderItemIndex: number;
+  /** Resolved variant display name; null when the variant no longer exists (SKU is the durable id). */
+  name: string | null;
 }
 
 export interface AdminOrderStorefrontDto {
