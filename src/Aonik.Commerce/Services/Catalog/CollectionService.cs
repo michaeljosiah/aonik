@@ -114,12 +114,25 @@ internal sealed partial class CollectionService : ICollectionService
             .FirstOrDefaultAsync(c => c.Id == collectionId && c.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Collection '{collectionId}' was not found.");
 
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
+    }
+
+    /// <summary>
+    /// The admin detail EVERY endpoint returning that shape must serve — the
+    /// base mapping plus the Spec 078 extras pricing enrichment. Mutations
+    /// return the detail too, so a client applying a create/update/replace
+    /// response would otherwise replace correctly enriched rows with all-null
+    /// pricing state until its next GET.
+    /// </summary>
+    private async Task<AdminCollectionDto> MapAdminEnrichedAsync(
+        Guid tenantId, Collection collection, CancellationToken cancellationToken)
+    {
         var dto = await MapAdminAsync(tenantId, collection, cancellationToken);
 
         // Spec 078 dependency — the extras collection is the one place members
         // carry retail pricing state, so the admin can see WHICH retained member
         // the public rail skips as unpriceable (it omits and counts; the admin
-        // keeps and marks). Sourced from the REAL public read, never simulated.
+        // keeps and marks).
         // A PARKED (inactive) extras collection serves no public rail at all —
         // pricing state is only meaningful while the rail is live, so an
         // inactive collection keeps every member at null.
@@ -202,7 +215,7 @@ internal sealed partial class CollectionService : ICollectionService
         _dbContext.Collections.Add(collection);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     public async Task<AdminCollectionDto> UpdateAsync(
@@ -242,7 +255,7 @@ internal sealed partial class CollectionService : ICollectionService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     public async Task<AdminCollectionDto> ReplaceItemsAsync(
@@ -392,7 +405,7 @@ internal sealed partial class CollectionService : ICollectionService
             }
         }, cancellationToken);
 
-        return await MapAdminAsync(tenantId, collection, cancellationToken);
+        return await MapAdminEnrichedAsync(tenantId, collection, cancellationToken);
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────

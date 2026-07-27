@@ -356,6 +356,17 @@ public class AdminStorefrontProjectionTests
         ineligible.IsPriceable.Should().BeNull(
             "false is a PRICING verdict — a structurally ineligible member must not be told to repair pricing");
 
+        // Every endpoint returning the detail shape serves the SAME enrichment:
+        // a client applying a mutation response must not lose pricing state.
+        var afterReplace = await collections.ReplaceItemsAsync(extrasCollectionId,
+            new ReplaceCollectionItemsCommand(adminDetail.Items.Select(i => new CollectionItemLine(i.ProductId, i.Rank)).ToList()));
+        afterReplace.Items.Single(i => i.Slug == "zobo").Should().Match<AdminCollectionItemDto>(
+            i => i.IsPriceable == true && i.UnitPrice == 3.00m);
+        afterReplace.Items.Single(i => i.Slug == "honey-cake").IsPriceable.Should().BeFalse();
+
+        var afterUpdate = await collections.UpdateAsync(extrasCollectionId, new UpdateCollectionCommand("Extras"));
+        afterUpdate.Items.Single(i => i.Slug == "zobo").IsPriceable.Should().BeTrue();
+
         // A PARKED (inactive) extras collection serves no public rail at all —
         // pricing state is meaningless, so no member may be told to repair
         // pricing that is perfectly valid.
@@ -420,6 +431,32 @@ public class AdminStorefrontProjectionTests
         var storedLine = await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId);
         storedLine.PersonalisationAdjustment.Should().Be(1.00m);
         storedLine.PersonalisationJson.Should().Contain("hot");
+    }
+
+    [Fact]
+    public async Task CartsAdmin_FlagsDrift_WhenThePlanNoLongerAllowsTheChosenSize()
+    {
+        var h = new BoxTestHarness();
+        var f = await h.BuildAsync("jollof");
+
+        var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        await h.BoxCarts().AddLineAsync(box.Box.CartId,
+            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken));
+
+        var admin = AdminSvc(h);
+        (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
+            .BoxMeta!.Drift.Should().BeFalse("a full box on a valid plan is not blocked");
+
+        // Narrow the plan past the cart's chosen size: every line is still
+        // perfectly available, but ContinueAsync would now reject this cart on
+        // ValidateSize — so the carts table must not show it as healthy.
+        await h.Plans().UpsertAsync(f.BundleProductId,
+            new UpsertBundleSizePlanCommand(8, 12, 8, 120m, 12m, "GBP", []));
+
+        var blocked = (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId);
+        blocked.BoxMeta!.Drift.Should().BeTrue("a size the current plan no longer allows is itself a blocker");
+        (await admin.GetCartAsync(box.Box.CartId))!.Lines
+            .Should().OnlyContain(l => !l.IsUnavailable, "the BLOCKER is the plan, not any line");
     }
 
     [Fact]

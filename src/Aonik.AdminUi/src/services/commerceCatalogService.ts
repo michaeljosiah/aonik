@@ -9,6 +9,7 @@ import type { PagedResult } from '@/types';
 import type {
   AdminProductDetailDto,
   CommercePagedResult,
+  EffectiveOptionGroupDto,
   OptionChoiceDto,
   OptionGroupDto,
   ProductCategoryDto,
@@ -74,10 +75,17 @@ export interface CreateOptionGroupRequest {
   sortOrder?: number;
 }
 
-/** Null members preserve the stored value; key is immutable by design (Spec 066). */
+/**
+ * Key is immutable by design (Spec 066). Two different semantics here, and the
+ * distinction is load-bearing: the OPTIONAL members preserve the stored value
+ * when omitted, but `label` and `helpText` are full-text-state — the server
+ * assigns them unconditionally, so an omitted `helpText` binds to null and
+ * ERASES the stored text. Both are therefore required: send the current value.
+ */
 export interface UpdateOptionGroupRequest {
   label: string;
-  helpText?: string | null;
+  /** Required: send the current text (or null to clear) — omitting it erases. */
+  helpText: string | null;
   selectionMode?: string | null;
   currency?: string | null;
   sortOrder?: number | null;
@@ -94,9 +102,12 @@ export interface AddOptionChoiceRequest {
   isActive?: boolean;
 }
 
+/** Same split as the group update: `label`/`note` are full-text-state (assigned
+ * unconditionally server-side), the rest preserve on omission. */
 export interface UpdateOptionChoiceRequest {
   label: string;
-  note?: string | null;
+  /** Required: send the current note (or null to clear) — omitting it erases. */
+  note: string | null;
   price?: number | null;
   sortOrder?: number | null;
   isActive?: boolean | null;
@@ -166,12 +177,21 @@ export const commerceCatalogService = {
   /** The STORED narrowing (null-vs-explicit preserved) — Spec 074's editor read. */
   getProductNarrowing: async (productId: string): Promise<ProductNarrowingLineDto[]> =>
     api.get<ProductNarrowingLineDto[]>(`/commerce/admin/products/${productId}/option-groups`),
-  /** Full replace, idempotent; an empty list makes the product not personalisable. */
-  setProductOptionGroups: async (productId: string, groups: ProductOptionGroupLine[]): Promise<void> =>
-    api.put<void>(`/commerce/admin/products/${productId}/option-groups`, { groups }),
-  /** Set or clear the per-unit surcharge; currency required with an amount. */
-  setUnitSurcharge: async (productId: string, amount: number | null, currency?: string | null): Promise<void> =>
-    api.put<void>(`/commerce/admin/products/${productId}/surcharge`, { amount, currency }),
+  /** Full replace, idempotent; an empty list makes the product not personalisable.
+   * Returns the RESOLVED effective groups — apply them rather than re-fetching. */
+  setProductOptionGroups: async (
+    productId: string,
+    groups: ProductOptionGroupLine[],
+  ): Promise<EffectiveOptionGroupDto[]> =>
+    api.put<EffectiveOptionGroupDto[]>(`/commerce/admin/products/${productId}/option-groups`, { groups }),
+  /** Set or clear the per-unit surcharge; currency required with an amount.
+   * Returns the updated product detail. */
+  setUnitSurcharge: async (
+    productId: string,
+    amount: number | null,
+    currency?: string | null,
+  ): Promise<ProductDto> =>
+    api.put<ProductDto>(`/commerce/admin/products/${productId}/surcharge`, { amount, currency }),
   /** Target margin has its own endpoint (Spec 057) — it is NOT a product PATCH member. */
   setTargetMargin: async (productId: string, targetMarginPct: number | null): Promise<TargetMarginDto> =>
     api.put<TargetMarginDto>(`/commerce/admin/products/${productId}/target-margin`, { targetMarginPct }),

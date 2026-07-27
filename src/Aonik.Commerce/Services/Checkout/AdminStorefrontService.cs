@@ -612,8 +612,18 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
                 flags[line.Id] = new LineFlags(unavailable, priceChanged, selectionDrift, []);
             }
 
+            // The box PLAN is a blocker in its own right: an operator narrowing
+            // MinSize/MaxSize (or retiring the plan) after a cart chose its size
+            // makes ContinueAsync reject that cart via ValidateSize, even with
+            // every line perfectly available. Drift must say so, or the carts
+            // table shows a healthy session that cannot check out.
+            var planInvalid = isEditable && isBox && cart.BoxSize is { } currentSize
+                && (!plans.TryGetValue(cart.BoxBundleProductId!.Value, out var currentPlan)
+                    || !BoxPricing.IsValidSize(currentPlan, currentSize));
+
             var drift = isEditable && isBox
-                && flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0);
+                && (planInvalid
+                    || flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0));
 
             decimal total;
             if (cart.OrderId is { } orderId && recordedTotals.TryGetValue(orderId, out var recorded))
@@ -626,6 +636,9 @@ internal sealed class AdminStorefrontService : IAdminStorefrontService
             {
                 // The quote's snapshot arithmetic (Spec 068 §7 / 071 §6): the box is
                 // priced as a container, so BoxDish snapshots are deliberately zero.
+                // A now-out-of-range size prices by formula extrapolation — the
+                // operator still needs a figure, and `drift` already reports that
+                // this session cannot continue at that size.
                 total = BoxPricing.BoxPrice(plan, size)
                     + lines.Where(l => l.LineKind == CartLineKinds.BoxDish)
                         .Sum(l => ((l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity)
