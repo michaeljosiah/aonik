@@ -462,10 +462,22 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             .Select(i => i.BundleProductId ?? i.ProductVariantId)
             .Distinct()
             .ToList();
-        var productIds = variants.Values.Select(v => v.ProductId).Union(bundleProductIds).Distinct().ToList();
+        // A box cart's CONTAINER product is referenced by the cart, not by any
+        // line, so it must be loaded explicitly — the container's own sellability
+        // is a blocker the per-line pass cannot see.
+        var containerProductIds = carts
+            .Where(c => editableCarts.Contains(c.Id) && c.BoxBundleProductId is not null)
+            .Select(c => c.BoxBundleProductId!.Value)
+            .Distinct()
+            .ToList();
+        var productIds = variants.Values.Select(v => v.ProductId)
+            .Union(bundleProductIds)
+            .Union(containerProductIds)
+            .Distinct()
+            .ToList();
         var products = await _dbContext.Products.AsNoTracking()
             .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Status, p.UnitSurcharge, p.UnitSurchargeCurrency })
+            .Select(p => new { p.Id, p.Kind, p.Status, p.BundlePricingMode, p.UnitSurcharge, p.UnitSurchargeCurrency })
             .ToDictionaryAsync(p => p.Id, ct);
         // Availability reads the DEFAULT stock row (Location == null) — the same
         // row the checkout path's InventoryService consults; summing location
@@ -614,45 +626,60 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 IReadOnlyList<SelectionDrift> selectionDrift = [];
                 if (isBox && variant is not null && product is not null)
                 {
+                    // Unconditional for every box line — including an unpersonalised
+                    // product with zero option groups. ApplyDriftAsync renormalises
+                    // the equivalent empty selection on the customer path, so a
+                    // product surcharge that later moves (or is re-denominated) must
+                    // surface here too; skipping those lines reported a cart as clean
+                    // that checkout would stop on for the changed charge.
                     var groups = effectiveGroups.GetValueOrDefault(variant.ProductId, []);
-                    if (groups.Count > 0 || !string.IsNullOrWhiteSpace(line.PersonalisationJson))
+                    try
                     {
-                        try
-                        {
-                            var renorm = _selections.RenormalizeStored(
-                                groups, line.PersonalisationJson, cart.Currency,
-                                product.UnitSurcharge, product.UnitSurchargeCurrency);
-                            selectionDrift = renorm.Drift;
-                            var repriced =
-                                renorm.Result.Adjustment != (line.PersonalisationAdjustment ?? 0m)
-                                || (renorm.Result.UnitSurcharge ?? 0m) != (line.UnitSurcharge ?? 0m);
-                            priceChanged = priceChanged || repriced;
-                        }
-                        catch (Catalog.OptionValidationException)
-                        {
-                            // V10 — a group or surcharge re-denominated after the line
-                            // was stored. The box path cannot price this either; it is
-                            // a blocking drift state, not a 500.
-                            unavailable = true;
-                            selectionDrift = [new SelectionDrift(string.Empty, null, null, "currency-mismatch")];
-                        }
+                        var renorm = _selections.RenormalizeStored(
+                            groups, line.PersonalisationJson, cart.Currency,
+                            product.UnitSurcharge, product.UnitSurchargeCurrency);
+                        selectionDrift = renorm.Drift;
+                        var repriced =
+                            renorm.Result.Adjustment != (line.PersonalisationAdjustment ?? 0m)
+                            || (renorm.Result.UnitSurcharge ?? 0m) != (line.UnitSurcharge ?? 0m);
+                        priceChanged = priceChanged || repriced;
+                    }
+                    catch (Catalog.OptionValidationException)
+                    {
+                        // V10 — a group or surcharge re-denominated after the line
+                        // was stored. The box path cannot price this either; it is
+                        // a blocking drift state, not a 500.
+                        unavailable = true;
+                        selectionDrift = [new SelectionDrift(string.Empty, null, null, "currency-mismatch")];
                     }
                 }
 
                 flags[line.Id] = new LineFlags(unavailable, priceChanged, selectionDrift, []);
             }
 
-            // The box PLAN is a blocker in its own right: an operator narrowing
-            // MinSize/MaxSize (or retiring the plan) after a cart chose its size
-            // makes ContinueAsync reject that cart via ValidateSize, even with
-            // every line perfectly available. Drift must say so, or the carts
-            // table shows a healthy session that cannot check out.
-            var planInvalid = isEditable && isBox && cart.BoxSize is { } currentSize
-                && (!plans.TryGetValue(cart.BoxBundleProductId!.Value, out var currentPlan)
-                    || !BoxPricing.IsValidSize(currentPlan, currentSize));
+            // The CONTAINER is a blocker in its own right, independently of every
+            // line: PrepareForCheckoutAsync rejects the cart when the box product
+            // stopped being a sellable size-tiered bundle (archived, moved back to
+            // Draft, re-kinded, or re-priced off SizeTiered), and ValidateSize
+            // rejects it when an operator narrowed MinSize/MaxSize past the size
+            // this session chose. Either way the carts table would otherwise show
+            // a healthy, resumable session that cannot check out.
+            var containerBlocked = false;
+            if (isEditable && isBox)
+            {
+                var containerId = cart.BoxBundleProductId!.Value;
+                var container = products.GetValueOrDefault(containerId);
+                containerBlocked = container is null
+                    || container.Kind != ProductKinds.Bundle
+                    || container.Status != ProductStatuses.Active
+                    || container.BundlePricingMode != BundlePricingModes.SizeTiered
+                    || cart.BoxSize is not { } currentSize
+                    || !plans.TryGetValue(containerId, out var currentPlan)
+                    || !BoxPricing.IsValidSize(currentPlan, currentSize);
+            }
 
             var drift = isEditable && isBox
-                && (planInvalid
+                && (containerBlocked
                     || flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0));
 
             decimal total;
