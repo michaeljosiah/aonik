@@ -15,6 +15,11 @@ namespace Aonik.SharedKernel.Tests.Modules;
 /// integration tests boot, so the MCP and migrator hosts can break while everything stays green.
 /// That is exactly how the dependency shipped broken in the first place — hence a wiring test
 /// rather than trusting review to catch the next one.
+///
+/// NOTE this is a source-text scan, so it proves the registration CALL is present, not that the
+/// host compiles: `dotnet test Aonik.sln` does not build projects no test references, so these
+/// hosts are only compiled by `dotnet build Aonik.sln` (and by CI). Both checks are needed —
+/// this test caught the missing registration while the build caught the missing using directive.
 /// </remarks>
 public class PlatformCompositionRootWiringTests
 {

@@ -8,6 +8,7 @@ using Aonik.Finance;
 using Aonik.Finance.Services.Seeding;
 using Aonik.Ai;
 using Aonik.Agents;
+using Aonik.Ordering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
