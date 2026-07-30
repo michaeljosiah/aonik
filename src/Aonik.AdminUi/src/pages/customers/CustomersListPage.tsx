@@ -34,7 +34,14 @@ import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog'
 import { customerService } from '@/services/customerService';
 import type { CustomerDataImportResponse } from '@/services/customerService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
-import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
+import type {
+  CreateCustomerRequest,
+  CustomerListItem,
+  CustomerRegistryCurrencyTotal,
+  PagedResult,
+} from '@/types';
+import { DomainChips } from './components/DomainChips';
+import { presentDomain } from './components/domainPresentation';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -74,19 +81,55 @@ const STATUS_TONE: Record<string, PillTone> = {
   Deactivated: 'muted',
 };
 
-const VERIFICATION_TONE: Record<string, PillTone> = {
-  Verified: 'success',
-  Pending: 'warning',
-  ReReview: 'pending',
-  Rejected: 'danger',
-};
+// The KYC tone map moved with its column: verification is compliance content and belongs on
+// the customer detail's Finance tab, not on the product-agnostic registry (Spec 080).
 
-const STATUS_TABS: FilterBarTab[] = [
+// Party type is a shipped server filter. KYC is NOT a registry filter any more —
+// compliance is domain content and lives on the customer detail's Finance tab (Spec 080).
+const BASE_TABS: FilterBarTab[] = [
   { value: '', label: 'All' },
   { value: 'Business', label: 'Business' },
   { value: 'Person', label: 'Person' },
-  { value: 'Pending', label: 'Pending KYC' },
 ];
+
+/** Domain tabs use a prefix so one tab strip can carry both filter kinds unambiguously. */
+const DOMAIN_TAB_PREFIX = 'domain:';
+
+/**
+ * Lifetime order value, one line per currency. A customer who paid £400 and ₦90,000 shows
+ * both — summing them would require an exchange rate the registry has no business choosing
+ * (Spec 080). Unknown/malformed codes fall back to `CODE amount` rather than throwing.
+ */
+function RegistryTotalValue({ totals }: { totals: CustomerRegistryCurrencyTotal[] }) {
+  if (totals.length === 0) {
+    return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+  }
+
+  return (
+    <span className="flex flex-col items-end gap-0.5">
+      {totals.map((total) => {
+        let text: string;
+        try {
+          text = new Intl.NumberFormat('en-GB', {
+            style: 'currency',
+            currency: total.currency,
+            currencyDisplay: 'narrowSymbol',
+          }).format(total.amount);
+        } catch {
+          text = `${total.currency} ${total.amount.toFixed(2)}`;
+        }
+        return (
+          <span
+            key={total.currency}
+            className="font-[family-name:var(--font-mono)] text-xs font-semibold tabular-nums text-[var(--color-text-primary)]"
+          >
+            {text}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────
 
@@ -106,6 +149,10 @@ export function CustomersListPage() {
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Which product lines have customers at all — the registry only offers tabs that can
+  // return rows, and only when the server actually supports the domain filter.
+  const [registryDomains, setRegistryDomains] = useState<string[]>([]);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CustomerDataImportResponse | null>(null);
@@ -113,7 +160,9 @@ export function CustomersListPage() {
   const requestIdRef = useRef(0);
 
   const partyTypeFilter = activeTab === 'Business' || activeTab === 'Person' ? activeTab : undefined;
-  const statusFilter = activeTab === 'Pending' ? 'Pending' : undefined;
+  const domainFilter = activeTab.startsWith(DOMAIN_TAB_PREFIX)
+    ? activeTab.slice(DOMAIN_TAB_PREFIX.length)
+    : undefined;
 
   const loadCustomers = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -125,7 +174,7 @@ export function CustomersListPage() {
         pageNumber,
         pageSize,
         partyType: partyTypeFilter,
-        status: statusFilter,
+        domain: domainFilter,
         search: searchQuery || undefined,
       });
       if (requestIdRef.current !== requestId) return;
@@ -144,11 +193,28 @@ export function CustomersListPage() {
         setInitialLoad(false);
       }
     }
-  }, [pageNumber, pageSize, partyTypeFilter, statusFilter, searchQuery]);
+  }, [pageNumber, pageSize, partyTypeFilter, domainFilter, searchQuery]);
 
   useEffect(() => {
     void loadCustomers();
   }, [loadCustomers]);
+
+  // Domain tabs are additive: a server without the read-model extension simply serves no
+  // domains, and the registry keeps working with the party-type tabs alone.
+  useEffect(() => {
+    let cancelled = false;
+    customerService
+      .listDomains()
+      .then((result) => {
+        if (!cancelled) setRegistryDomains(result.domains ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRegistryDomains([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Reset to page 1 whenever a filter changes.
   useEffect(() => {
@@ -255,22 +321,6 @@ export function CustomersListPage() {
       className: 'w-[100px]',
     },
     {
-      id: 'kyc',
-      header: 'KYC',
-      accessorFn: (row) => row.verificationStatus ?? '',
-      cell: (row) => {
-        const tone = row.verificationStatus
-          ? VERIFICATION_TONE[row.verificationStatus] ?? 'muted'
-          : 'muted';
-        return (
-          <Pill tone={tone} dot>
-            {row.verificationStatus ?? 'Unverified'}
-          </Pill>
-        );
-      },
-      className: 'w-[140px]',
-    },
-    {
       id: 'status',
       header: 'Status',
       accessorKey: 'status',
@@ -294,6 +344,71 @@ export function CustomersListPage() {
     },
   ];
 
+  // Spec 080 — the read-model columns degrade by ABSENCE, never by placeholder zeros: an
+  // older server that serves none of these fields simply gets the base registry. `domains`
+  // and `totalValue` legitimately arrive empty, so presence is tested against undefined.
+  const supportsRegistryColumns = customers.some(
+    (c) =>
+      c.country !== undefined ||
+      c.domains !== undefined ||
+      c.orderCount !== undefined ||
+      c.totalValue !== undefined,
+  );
+
+  if (supportsRegistryColumns) {
+    columns.splice(
+      3,
+      0,
+      {
+        id: 'country',
+        header: 'Country',
+        accessorFn: (row) => row.country ?? '',
+        cell: (row) => (
+          <span className="text-xs text-[var(--color-text-secondary)]">{row.country || '—'}</span>
+        ),
+        className: 'w-[100px]',
+      },
+      {
+        id: 'domains',
+        header: 'Products',
+        accessorFn: (row) => (row.domains ?? []).join(','),
+        cell: (row) => <DomainChips domains={row.domains ?? []} />,
+        className: 'w-[210px]',
+      },
+      {
+        id: 'orderCount',
+        header: 'Orders',
+        accessorFn: (row) => row.orderCount ?? 0,
+        sortable: true,
+        cell: (row) => (
+          <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
+            {(row.orderCount ?? 0).toLocaleString()}
+          </span>
+        ),
+        className: 'w-[90px] text-right',
+        headerClassName: 'text-right',
+      },
+      {
+        id: 'totalValue',
+        header: 'Total value',
+        // Sorting by a cross-currency figure would rank on an invented exchange rate, so
+        // this column is deliberately not sortable.
+        accessorFn: (row) => (row.totalValue ?? []).length,
+        cell: (row) => <RegistryTotalValue totals={row.totalValue ?? []} />,
+        className: 'w-[150px] text-right',
+        headerClassName: 'text-right',
+      },
+    );
+  }
+
+  const tabs: FilterBarTab[] = [
+    ...BASE_TABS,
+    ...registryDomains.map((domain) => ({
+      value: `${DOMAIN_TAB_PREFIX}${domain}`,
+      label: presentDomain(domain).label,
+    })),
+  ];
+
   const rowActions = (customer: CustomerListItem): DataTableAction[] => [
     {
       label: 'View details',
@@ -307,16 +422,17 @@ export function CustomersListPage() {
     return <PageLoadingScreen message="Loading customers" />;
   }
 
+  // One registry for every product line, and the order figures are spine-wide (ADR-011):
+  // boxes, bill payments and transfers all count, so the subtitle says so rather than
+  // leaving an operator to assume one product line.
   const subtitle = totalCount > 0
-    ? `${totalCount.toLocaleString()} total${
-        statusFilter ? ` · filtered by ${statusFilter}` : ''
-      }`
-    : 'Browse people and businesses connected to this tenant';
+    ? `${totalCount.toLocaleString()} total — orders and value count every product line`
+    : 'Every person and business this tenant transacts with, across all product lines';
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Finance · Customers"
+        eyebrow="Transact · Customers"
         title="Customers"
         subtitle={subtitle}
         actions={
@@ -379,7 +495,7 @@ export function CustomersListPage() {
       )}
 
       <FilterBar
-        tabs={STATUS_TABS}
+        tabs={tabs}
         active={activeTab}
         onTabChange={setActiveTab}
         search={searchQuery}

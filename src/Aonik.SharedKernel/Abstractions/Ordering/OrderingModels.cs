@@ -98,3 +98,19 @@ public sealed record OrderFulfilmentLink(
     Guid? PayoutId = null,
     Guid? PaymentIntentId = null,
     Guid? PartnerBillPaymentId = null);
+
+/// <summary>One party's spine-wide order footprint (Spec 080 registry columns).</summary>
+/// <param name="OrderCount">Orders across every OrderType where this party is the payer.</param>
+/// <param name="TotalByCurrency">
+/// Sum of <c>AmountIn</c> per currency — NEVER a cross-currency total. A customer who paid
+/// £400 and ₦90,000 has two entries, because adding them would invent an exchange rate the
+/// registry has no business choosing. Ordered by currency for stable rendering.
+/// </param>
+public sealed record PartyOrderAggregate(
+    int OrderCount,
+    IReadOnlyList<OrderCurrencyTotal> TotalByCurrency)
+{
+    public static PartyOrderAggregate Empty { get; } = new(0, []);
+}
+
+public sealed record OrderCurrencyTotal(string Currency, decimal Amount);

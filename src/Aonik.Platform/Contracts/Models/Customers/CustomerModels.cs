@@ -5,9 +5,20 @@ public record ListCustomersRequest(
     int PageSize = 20,
     string? Status = null,
     string? PartyType = null,
-    string? Search = null
+    string? Search = null,
+    /// Spec 080 — restrict to participants of one product line (a
+    /// <c>CustomerRegistryDomains</c> key). Applied server-side BEFORE paging: filtering a
+    /// loaded page client-side would both filter and paginate wrongly. An unknown key matches
+    /// nothing rather than silently returning everyone.
+    string? Domain = null
 );
 
+/// <summary>
+/// One row of the unified Customers registry (Spec 080). The registry is product-agnostic: a
+/// tenant selling merchandise and financial services has ONE customer base, so domain-specific
+/// facts live in <see cref="Domains"/> chips here and on the detail's tabs — never in separate
+/// customer views.
+/// </summary>
 public record CustomerListItem(
     Guid PartyId,
     string DisplayName,
@@ -17,8 +28,27 @@ public record CustomerListItem(
     string? PrimaryPhone,
     string? PhotoUrlTiny,
     string? VerificationStatus,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    /// ISO country of the party's primary address; null when none is recorded.
+    string? Country = null,
+    /// The product lines this customer participates in, from each module's own ownership
+    /// records. Empty means the customer exists in the registry but has transacted in no
+    /// domain yet — a real state, not missing data.
+    IReadOnlyList<string>? Domains = null,
+    /// Spine-wide order count (ADR-011: every OrderType counts), payer-scoped.
+    int OrderCount = 0,
+    /// Lifetime order value per currency — NEVER summed across currencies.
+    IReadOnlyList<CustomerRegistryCurrencyTotal>? TotalValue = null
 );
+
+/// <summary>An amount in one currency on a registry row.</summary>
+public record CustomerRegistryCurrencyTotal(string Currency, decimal Amount);
+
+/// <summary>
+/// Which product lines actually have customers in this tenant (Spec 080). Drives the registry's
+/// domain filter tabs — a tenant that never sold a box should not be offered a Storefront tab.
+/// </summary>
+public record CustomerRegistryDomainsResponse(IReadOnlyList<string> Domains);
 
 public record PartyConsentDetail(
     Guid ConsentId,

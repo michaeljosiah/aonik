@@ -210,6 +210,10 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerDataExportProvider, CustomerDataExportProvider>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerDataImportConsumer, CustomerDataImportConsumer>();
 
+        // Spec 080 — PersonalFinance's slice of the unified Customers registry: which parties are
+        // enrolled (a personal profile is the party-keyed enrolment record).
+        services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerRegistryContributor, Services.Customers.PersonalFinanceCustomerRegistryContributor>();
+
         // Spec 028 §15 — Chronicle taxonomy mapper, consumed by Finance's
         // AccountTransactionCategorizer through SharedKernel so neither module
         // needs a project reference on the other once Spec 027 Phase 3 lands.

@@ -142,6 +142,11 @@ public sealed class CommerceModule : IModule
         // Spec 065 — Commerce's first provisioning contribution: seed a starter category taxonomy
         // when a tenant's config pack enables the Commerce module (gated on the manifest, not a type).
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.CommerceTenantProvisioningContributor>();
+
+        // Spec 080 — Commerce's slice of the unified Customers registry: which parties are
+        // storefront customers. Platform aggregates every registered contributor without
+        // knowing any module's tables.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerRegistryContributor, Services.Customers.StorefrontCustomerRegistryContributor>();
         services.AddSingleton<IToolApprovalManifest, CommerceToolApprovalManifest>();
 
         return services;

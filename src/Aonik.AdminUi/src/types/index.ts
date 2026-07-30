@@ -1061,6 +1061,12 @@ export interface CustomerSummary {
   createdAt: string;
 }
 
+/** An amount in one currency on a registry row — never summed across currencies. */
+export interface CustomerRegistryCurrencyTotal {
+  currency: string;
+  amount: number;
+}
+
 export interface CustomerListItem {
   partyId: string;
   displayName: string;
@@ -1071,6 +1077,17 @@ export interface CustomerListItem {
   photoUrlTiny?: string | null;
   verificationStatus?: string | null;
   createdAt: string;
+  /** Spec 080 registry columns. Absent on an older server — the page hides those
+   * columns entirely rather than rendering placeholder zeros. */
+  country?: string | null;
+  domains?: string[];
+  orderCount?: number;
+  totalValue?: CustomerRegistryCurrencyTotal[];
+}
+
+/** The product lines that actually have customers in this tenant (Spec 080). */
+export interface CustomerRegistryDomainsResponse {
+  domains: string[];
 }
 
 export interface PartyConsentDetail {

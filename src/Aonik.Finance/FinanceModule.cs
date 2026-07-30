@@ -118,6 +118,10 @@ public sealed class FinanceModule : IModule
         // Cross-module provisioning contributor
         services.AddScoped<SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.FinanceTenantProvisioningContributor>();
 
+        // Spec 080 — Finance's slice of the unified Customers registry: which parties hold an
+        // invoiceable customer account.
+        services.AddScoped<SharedKernel.Abstractions.ICustomerRegistryContributor, Services.Customers.BillingCustomerRegistryContributor>();
+
         // Cross-module demo-seed contributor + per-phase helpers
         services.AddScoped<Services.Seeding.Phases.PartnerPrefundSeedHelper>();
         services.AddScoped<Services.Seeding.Phases.CatalogUpsertHelper>();
