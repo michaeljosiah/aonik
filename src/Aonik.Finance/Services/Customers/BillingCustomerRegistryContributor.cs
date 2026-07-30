@@ -43,11 +43,4 @@ internal sealed class BillingCustomerRegistryContributor : ICustomerRegistryCont
             .ToListAsync(cancellationToken);
         return found.ToHashSet();
     }
-
-    public async Task<bool> HasAnyParticipantsAsync(CancellationToken cancellationToken = default)
-    {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-        return await _dbContext.CustomerAccounts.AsNoTracking()
-            .AnyAsync(a => a.TenantId == tenantId, cancellationToken);
-    }
 }

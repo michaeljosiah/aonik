@@ -30,12 +30,9 @@ public interface ICustomerRegistryContributor
         IReadOnlyCollection<Guid>? partyIds,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Whether this domain has at least one participant in the current tenant. Backs the
-    /// distinct-domains metadata that decides which filter tabs render, without materialising
-    /// every participant id just to learn a domain is in use.
-    /// </summary>
-    Task<bool> HasAnyParticipantsAsync(CancellationToken cancellationToken = default);
+    // Deliberately NO "does this domain have anyone" shortcut: a module's ownership records do
+    // not all belong to registry customers, so only Platform — which owns the registry
+    // predicate — can decide whether a domain would actually return rows.
 }
 
 /// <summary>The domain keys shipped today. Open by design — a new product line adds its own

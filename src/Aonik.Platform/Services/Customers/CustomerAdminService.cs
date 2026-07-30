@@ -60,15 +60,47 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         _orders = orders;
     }
 
+    /// <summary>
+    /// Who is IN the registry: a tenant-scoped party holding the Customer role. Shared by the
+    /// list and the domain metadata so "this domain has customers" can never mean something
+    /// different from "these rows are listed".
+    /// </summary>
+    private IQueryable<PartyEntity> RegistryCustomerQuery(Guid tenantId) => _dbContext.Parties
+        .AsNoTracking()
+        .Where(party => party.TenantId == tenantId)
+        .Where(party => _dbContext.PartyRoleAssignments.Any(ra =>
+            ra.PartyId == party.Id &&
+            ra.TenantId == tenantId &&
+            ra.Role == PartyRoles.Customer &&
+            ra.ContextType == "Tenant" &&
+            ra.ContextId == tenantId));
+
     public async Task<CustomerRegistryDomainsResponse> GetRegistryDomainsAsync(
         CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Customers.Read", cancellationToken);
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // A domain is "active" only if it has participants that are ALSO registry customers.
+        // A module's ownership records do not all correspond to a customer — the PersonalFinance
+        // seed, for instance, writes profiles with an empty PartyId — and counting them would
+        // advertise a tab that selects to an empty table, because the registry query still
+        // requires the tenant-scoped Customer role assignment. So the check intersects with
+        // exactly the predicate ListCustomersAsync applies.
         var active = new List<string>();
         foreach (var contributor in _registryContributors)
         {
-            if (await contributor.HasAnyParticipantsAsync(cancellationToken))
+            var participants = await contributor.GetParticipantsAsync(null, cancellationToken);
+            if (participants.Count == 0)
+            {
+                continue;
+            }
+
+            var ids = participants.ToList();
+            var hasRegistryCustomer = await RegistryCustomerQuery(tenantId)
+                .AnyAsync(party => ids.Contains(party.Id), cancellationToken);
+            if (hasRegistryCustomer)
             {
                 active.Add(contributor.DomainKey);
             }
@@ -88,15 +120,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
 
-        var query = _dbContext.Parties
-            .AsNoTracking()
-            .Where(party => party.TenantId == tenantId)
-            .Where(party => _dbContext.PartyRoleAssignments.Any(ra =>
-                ra.PartyId == party.Id &&
-                ra.TenantId == tenantId &&
-                ra.Role == PartyRoles.Customer &&
-                ra.ContextType == "Tenant" &&
-                ra.ContextId == tenantId));
+        var query = RegistryCustomerQuery(tenantId);
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {

@@ -1,11 +1,9 @@
-// Customers — 1:1 visual port of
-// templates/aonik-admin-starterkit/screens/customers-orders.jsx (Customers
-// half), wired to the existing /admin/customers list endpoint.
+// Customers — the ONE registry of every counterparty this tenant transacts with, across
+// every product line (Spec 080). Domain-specific facts are chips here and tabs on the
+// detail; there is deliberately no separate customers view per product line.
 //
-// Columns are constrained to fields the backend currently returns
-// (CustomerListItem). The template's Country / Orders / Total spend / Owner
-// columns are left out until the backend exposes them; the row layout still
-// matches the template so the page reads as the same screen.
+// Country / Products / Orders / Total value come from the Spec 080 read-model extension and
+// render only when the server supports it — degrading by absence, never by placeholder zeros.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -81,11 +79,9 @@ const STATUS_TONE: Record<string, PillTone> = {
   Deactivated: 'muted',
 };
 
-// The KYC tone map moved with its column: verification is compliance content and belongs on
-// the customer detail's Finance tab, not on the product-agnostic registry (Spec 080).
-
-// Party type is a shipped server filter. KYC is NOT a registry filter any more —
-// compliance is domain content and lives on the customer detail's Finance tab (Spec 080).
+// Party type is a shipped server filter. KYC is neither a registry column nor a registry
+// filter any more: verification is compliance content and lives on the customer detail's
+// Finance tab (Spec 080).
 const BASE_TABS: FilterBarTab[] = [
   { value: '', label: 'All' },
   { value: 'Business', label: 'Business' },
@@ -113,7 +109,10 @@ function RegistryTotalValue({ totals }: { totals: CustomerRegistryCurrencyTotal[
           text = new Intl.NumberFormat('en-GB', {
             style: 'currency',
             currency: total.currency,
-            currencyDisplay: 'narrowSymbol',
+            // NOT narrowSymbol: it renders USD, CAD and AUD all as "$", so stacked rows
+            // would look like one currency. 'symbol' disambiguates (US$/CA$/A$) while
+            // keeping the common single-currency case clean (£95.00).
+            currencyDisplay: 'symbol',
           }).format(total.amount);
         } catch {
           text = `${total.currency} ${total.amount.toFixed(2)}`;
@@ -141,9 +140,8 @@ export function CustomersListPage() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  // Active tab maps to either a partyType filter ("Business"/"Person") or a
-  // status filter ("Pending" — used for "Pending KYC" until the API exposes
-  // a verificationStatus query). "" means no filter.
+  // Active tab maps to either a partyType filter ("Business"/"Person") or, when prefixed,
+  // a server-side domain filter. "" means no filter.
   const [activeTab, setActiveTab] = useState<string>('');
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -152,6 +150,11 @@ export function CustomersListPage() {
   // Which product lines have customers at all — the registry only offers tabs that can
   // return rows, and only when the server actually supports the domain filter.
   const [registryDomains, setRegistryDomains] = useState<string[]>([]);
+  // Whether the SERVER supports the Spec 080 read model. Sourced from the metadata request
+  // succeeding — never from whether the current page has rows, because an empty tenant, a
+  // no-match search and a page past the end would all masquerade as an older server and make
+  // the table's headers appear and disappear while filtering.
+  const [supportsRegistryColumns, setSupportsRegistryColumns] = useState(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -206,10 +209,16 @@ export function CustomersListPage() {
     customerService
       .listDomains()
       .then((result) => {
-        if (!cancelled) setRegistryDomains(result.domains ?? []);
+        if (cancelled) return;
+        setRegistryDomains(result.domains ?? []);
+        // Reached the endpoint at all ⇒ the read model is present. An empty domain list is a
+        // real state (nobody has transacted yet), not a missing capability.
+        setSupportsRegistryColumns(true);
       })
       .catch(() => {
-        if (!cancelled) setRegistryDomains([]);
+        if (cancelled) return;
+        setRegistryDomains([]);
+        setSupportsRegistryColumns(false);
       });
     return () => {
       cancelled = true;
@@ -344,17 +353,9 @@ export function CustomersListPage() {
     },
   ];
 
-  // Spec 080 — the read-model columns degrade by ABSENCE, never by placeholder zeros: an
-  // older server that serves none of these fields simply gets the base registry. `domains`
-  // and `totalValue` legitimately arrive empty, so presence is tested against undefined.
-  const supportsRegistryColumns = customers.some(
-    (c) =>
-      c.country !== undefined ||
-      c.domains !== undefined ||
-      c.orderCount !== undefined ||
-      c.totalValue !== undefined,
-  );
-
+  // Spec 080 — the read-model columns degrade by ABSENCE against an older server, never by
+  // placeholder zeros. Capability is the metadata request above, so the column set stays
+  // stable across filtering regardless of what any one page returned.
   if (supportsRegistryColumns) {
     columns.splice(
       3,
