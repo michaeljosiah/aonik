@@ -380,7 +380,10 @@ export function CustomersListPage() {
         id: 'orderCount',
         header: 'Orders',
         accessorFn: (row) => row.orderCount ?? 0,
-        sortable: true,
+        // Deliberately NOT sortable: DataTable sorts client-side and the list API takes no
+        // sort field, so "most orders first" would rank the loaded page only — an operator
+        // would sort descending and still find bigger customers on page two. Sorting returns
+        // when the endpoint can order before paging (same reason Total value is unsortable).
         cell: (row) => (
           <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
             {(row.orderCount ?? 0).toLocaleString()}
