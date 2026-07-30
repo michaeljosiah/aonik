@@ -28,6 +28,10 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 // Register domain modules
 builder.Services.AddPlatformModule(builder.Configuration);
+// Ordering supplies the SharedKernel IOrderService that Platform's customer admin service
+// depends on; without it this composition root cannot satisfy Platform under service
+// validation (Spec 080).
+builder.Services.AddOrderingModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
