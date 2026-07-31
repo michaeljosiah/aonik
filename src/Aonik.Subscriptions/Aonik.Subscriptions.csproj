@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.Subscriptions</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Spec 087 — Aonik.Subscriptions owns plans, entitlements, grants and metered usage.
+    It references ONLY SharedKernel: the contracts consumers bind to live in
+    SharedKernel.Abstractions.Subscriptions, and the Finance capabilities this module needs
+    (journal posting, payment mandates, settlement routing) are reached through
+    SharedKernel contracts delivered by Spec 088 — never by referencing Aonik.Finance.
+
+    The canonical migration stream stays in AonikDbContext; SubscriptionsDbContext is runtime
+    DI scoping only and declares no migrations.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" Version="7.1.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+  </ItemGroup>
+
+</Project>

@@ -16,6 +16,9 @@
     <!-- Spec 042: AonikDbContext owns the Commerce DbSets + applies the Commerce EF configs
          (canonical migration stream). -->
     <ProjectReference Include="..\Aonik.Commerce\Aonik.Commerce.csproj" />
+    <!-- Spec 087: AonikDbContext owns the Subscriptions DbSets + applies the Subscriptions EF
+         configs (canonical migration stream). -->
+    <ProjectReference Include="..\Aonik.Subscriptions\Aonik.Subscriptions.csproj" />
     <!--
       Permanent (Spec 027 R8): PersonalFinance entity types now live in
       Aonik.PersonalFinance but AonikDbContext (this project) keeps owning

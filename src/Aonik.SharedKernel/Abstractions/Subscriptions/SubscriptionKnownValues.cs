@@ -115,3 +115,40 @@ public static class SubscriptionPeriodStatuses
     public const string Settled = "settled";
     public const string Failed = "failed";
 }
+
+/// <summary>How often a plan bills (Spec 087 §6). An open string; new intervals are additive.</summary>
+public static class BillingIntervals
+{
+    public const string Month = "month";
+    public const string Year = "year";
+
+    /// <summary>A plan that never bills — the free tier. Its periods settle without payment or ledger postings.</summary>
+    public const string None = "none";
+}
+
+/// <summary>Whether a plan is offerable (Spec 087 §6).</summary>
+public static class PlanStatuses
+{
+    /// <summary>Being authored; cannot be subscribed to.</summary>
+    public const string Draft = "draft";
+
+    /// <summary>Offerable to new subscribers.</summary>
+    public const string Active = "active";
+
+    /// <summary>Withdrawn from sale. Existing subscribers keep it and continue to renew.</summary>
+    public const string Retired = "retired";
+}
+
+/// <summary>
+/// Whether a plan version may still be edited (Spec 087 §6). Only <see cref="Draft"/> is mutable —
+/// once published, price and entitlements are frozen, because a subscription pins the version and
+/// editing it would re-price everyone on it.
+/// </summary>
+public static class PlanVersionStatuses
+{
+    public const string Draft = "draft";
+    public const string Published = "published";
+
+    /// <summary>Replaced by a newer published version. Still pinned by any subscription that has it.</summary>
+    public const string Superseded = "superseded";
+}
