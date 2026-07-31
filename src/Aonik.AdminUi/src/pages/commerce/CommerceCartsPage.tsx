@@ -19,14 +19,14 @@ import {
 import { DataTable, DataTablePagination, type ColumnDef } from '@/components/ui/data-table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDateTime } from '@/lib/format';
 import type { PagedResult } from '@/types';
 import type { AdminCartRowDto } from '@/types/commerce';
 
 import { BuyerLabel } from './components/BuyerLabel';
 import { CartDrawer } from './components/CartDrawer';
 import { CommerceTabs } from './components/CommerceTabs';
-import { cartBlocked, formatBoxFill } from './lib/cartState';
+import { formatBoxFill } from './lib/cartState';
 import { summariseCartWindow } from './lib/cartWindow';
 import { cartStatusTone } from './lib/statusTone';
 
@@ -43,7 +43,13 @@ export function CommerceCartsPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [status, setStatus] = useState('');
-  const [openCartId, setOpenCartId] = useState<string | null>(null);
+  const [openCart, setOpenCart] = useState<AdminCartRowDto | null>(null);
+  // Per-status totals read INDEPENDENTLY of the active filter. Deriving them from the loaded
+  // page made the KPI row collapse under its own filter — picking "Open" forced Abandoned to
+  // zero — which is the opposite of the cross-status overview the row exists to give.
+  const [statusTotals, setStatusTotals] = useState<{ open: number; abandoned: number } | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +100,25 @@ export function CommerceCartsPage() {
     setPageNumber(1);
   }, [status]);
 
+  // One-row probes purely for their pagination totals — the envelope's totalCount is a
+  // whole-store figure per status, which is exactly what a KPI needs and what a page cannot
+  // supply. A failure leaves the tiles reading "—" rather than a fabricated zero.
+  const loadStatusTotals = useCallback(async () => {
+    try {
+      const [open, abandoned] = await Promise.all([
+        commerceStorefrontService.listCarts({ page: 1, pageSize: 1, status: 'Open' }),
+        commerceStorefrontService.listCarts({ page: 1, pageSize: 1, status: 'Abandoned' }),
+      ]);
+      setStatusTotals({ open: open.totalCount, abandoned: abandoned.totalCount });
+    } catch {
+      setStatusTotals(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStatusTotals();
+  }, [loadStatusTotals]);
+
   const summary = useMemo(() => summariseCartWindow(carts), [carts]);
 
   const columns: ColumnDef<AdminCartRowDto>[] = [
@@ -121,21 +146,29 @@ export function CommerceCartsPage() {
       header: 'Box',
       accessorFn: (row) => (row.boxMeta ? row.boxMeta.filled : -1),
       cell: (row) => {
-        const verdict = cartBlocked(row.boxMeta);
+        const box = row.boxMeta;
+        const overFilled = !!box && box.filled > box.size;
         return (
           <span className="flex flex-col">
             <span className="font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-secondary)]">
-              {formatBoxFill(row.boxMeta)}
+              {formatBoxFill(box)}
             </span>
-            {/* Only drift earns the warn line here: an under-filled box is the NORMAL state of
-                a cart still being built, and flagging it would cry wolf on every live session.
-                The drawer states both causes, where the operator is actually diagnosing. */}
-            {row.boxMeta?.drift && (
+            {/* Drift and OVER-fill earn the warn line; an under-filled box does not. Under-fill
+                is the normal state of a cart still being built, so flagging it would cry wolf
+                on every live session — whereas an over-filled box is an anomaly the customer
+                cannot resolve by carrying on. The drawer states every cause, where the
+                operator is actually diagnosing. */}
+            {box?.drift && (
               <span className="text-[11px] text-[var(--color-warning)]">
                 drift — checkout blocked
               </span>
             )}
-            {verdict.blocked && !row.boxMeta?.drift && (
+            {overFilled && !box?.drift && (
+              <span className="text-[11px] text-[var(--color-warning)]">
+                over capacity — checkout blocked
+              </span>
+            )}
+            {!!box && !box.drift && !overFilled && box.filled < box.size && (
               <span className="text-[11px] text-[var(--color-text-tertiary)]">still filling</span>
             )}
           </span>
@@ -180,7 +213,7 @@ export function CommerceCartsPage() {
       accessorFn: (row) => row.updatedAtUtc,
       cell: (row) => (
         <span className="text-[12px] text-[var(--color-text-secondary)]">
-          {formatDate(row.updatedAtUtc)}
+          {formatDateTime(row.updatedAtUtc)}
         </span>
       ),
       className: 'w-[130px]',
@@ -202,20 +235,20 @@ export function CommerceCartsPage() {
       <CommerceTabs active="carts" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* When a status filter is applied the total describes THAT status across all pages;
-            unfiltered it is every cart. The caption says which, rather than leaving the
-            operator to infer it from the filter bar. */}
+        {/* Open and Abandoned come from their OWN status queries, so the row keeps giving a
+            cross-status overview no matter which filter the table is showing. Blocked and
+            open value cannot be counted server-side and stay window-scoped, captioned. */}
         <KpiTile
-          label={status ? `${status} carts` : 'Carts'}
-          value={totalCount.toLocaleString()}
+          label="Open carts"
+          value={statusTotals ? statusTotals.open.toLocaleString() : '—'}
           delta="all pages"
           deltaTone="neutral"
         />
         <KpiTile
-          label="Checkout blocked"
-          value={summary.blocked.toLocaleString()}
-          delta="this page"
-          deltaTone={summary.blocked > 0 ? 'down' : 'neutral'}
+          label="Abandoned"
+          value={statusTotals ? statusTotals.abandoned.toLocaleString() : '—'}
+          delta="all pages"
+          deltaTone={statusTotals && statusTotals.abandoned > 0 ? 'down' : 'neutral'}
         />
         <KpiTile
           label="Open value"
@@ -224,10 +257,10 @@ export function CommerceCartsPage() {
           deltaTone="neutral"
         />
         <KpiTile
-          label="Abandoned"
-          value={summary.abandoned.toLocaleString()}
+          label="Checkout blocked"
+          value={summary.blocked.toLocaleString()}
           delta="this page"
-          deltaTone={summary.abandoned > 0 ? 'down' : 'neutral'}
+          deltaTone={summary.blocked > 0 ? 'down' : 'neutral'}
         />
       </div>
 
@@ -254,7 +287,7 @@ export function CommerceCartsPage() {
               data={carts}
               columns={columns}
               getRowId={(row) => row.cartId}
-              onRowClick={(row) => setOpenCartId(row.cartId)}
+              onRowClick={(row) => setOpenCart(row)}
               emptyTitle="No carts"
               emptyDescription="No carts match this filter."
               showCheckboxes={false}
@@ -273,8 +306,13 @@ export function CommerceCartsPage() {
         )}
       </AonikCard>
 
-      {openCartId && (
-        <CartDrawer key={openCartId} cartId={openCartId} onClose={() => setOpenCartId(null)} />
+      {openCart && (
+        <CartDrawer
+          key={openCart.cartId}
+          cartId={openCart.cartId}
+          total={openCart.total}
+          onClose={() => setOpenCart(null)}
+        />
       )}
     </div>
   );

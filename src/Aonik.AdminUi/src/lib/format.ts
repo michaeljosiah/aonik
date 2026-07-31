@@ -12,6 +12,22 @@ export function formatDate(value?: string | null): string {
 }
 
 /**
+ * Date AND time. Use wherever the question is "how recently did this happen" rather than
+ * "on what day" — cart activity being the case that forced it: several sessions touched on
+ * the same day are indistinguishable by date alone, so a stuck cart looks like a live one.
+ */
+export function formatDateTime(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
  * Money in the given currency at that currency's OWN precision; an unknown code falls back
  * to `CODE 1,234.50`.
  *

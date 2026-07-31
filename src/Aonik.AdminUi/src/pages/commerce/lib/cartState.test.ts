@@ -3,10 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { cartBlocked, formatBoxFill } from './cartState';
 
 describe('cartBlocked', () => {
-  it('blocks a drifted box and says so', () => {
+  it('blocks a drifted box WITHOUT blaming a line', () => {
+    // ComputeCartStatesAsync raises drift for container-level changes too (the box product
+    // going inactive, its size falling outside the plan). Naming lines would send the
+    // operator to inspect rows that are perfectly fine.
     const verdict = cartBlocked({ size: 6, filled: 6, drift: true });
     expect(verdict.blocked).toBe(true);
-    expect(verdict.reason).toMatch(/unavailable or has been repriced/);
+    expect(verdict.reason).toMatch(/changed since it was built/);
+    expect(verdict.reason).not.toMatch(/line/i);
   });
 
   it('blocks an under-filled box and names the shortfall', () => {
@@ -19,7 +23,7 @@ describe('cartBlocked', () => {
     // Reporting only one would have the operator fix it, retry, and meet the other.
     const verdict = cartBlocked({ size: 6, filled: 2, drift: true });
     expect(verdict.blocked).toBe(true);
-    expect(verdict.reason).toMatch(/repriced, and the box is under-filled \(2 of 6\)/);
+    expect(verdict.reason).toMatch(/changed since it was built, and the box is under-filled \(2 of 6\)/);
   });
 
   it('does not block a full, undrifted box', () => {
@@ -48,10 +52,13 @@ describe('cartBlocked', () => {
     }
   });
 
-  it('treats a box filled beyond its size as full, not under-filled', () => {
-    // Capacity is a hard ceiling server-side, so this should be unreachable — but reporting
-    // an over-filled box as "under-filled" would be actively misleading if it ever arrived.
-    expect(cartBlocked({ size: 6, filled: 7, drift: false }).blocked).toBe(false);
+  it('BLOCKS an over-filled box — the server gate is equality, not a minimum', () => {
+    // BoxCartService.cs:416 and :1148 both test `units != BoxSize`, and the server carries
+    // its own "remove N" message, so 7/6 is blocked exactly as 5/6 is. Treating it as full
+    // would offer a resume the rules reject.
+    const verdict = cartBlocked({ size: 6, filled: 7, drift: false });
+    expect(verdict.blocked).toBe(true);
+    expect(verdict.reason).toMatch(/holds more than its size \(7 of 6\) and 1 must be removed/);
   });
 });
 

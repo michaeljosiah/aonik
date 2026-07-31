@@ -12,7 +12,7 @@ import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDateTime } from '@/lib/format';
 import type { AdminCartDetailDto, AdminCartLineDto } from '@/types/commerce';
 
 import { BuyerLabel } from './BuyerLabel';
@@ -23,7 +23,18 @@ const OPEN = 'Open';
 const ABANDONED = 'Abandoned';
 const CHECKED_OUT = 'CheckedOut';
 
-export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () => void }) {
+interface CartDrawerProps {
+  cartId: string;
+  /**
+   * The cart total from the list row. The DETAIL read carries no total, and the per-line
+   * snapshots cannot be summed into one (they exclude personalisation and surcharge), so this
+   * is the only authoritative figure available to the drawer.
+   */
+  total?: number;
+  onClose: () => void;
+}
+
+export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
   const navigate = useNavigate();
   const [cart, setCart] = useState<AdminCartDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,11 +107,23 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
                       </span>
                     </span>
                   )}
-                  <span>Last activity {formatDate(cart.updatedAtUtc)}</span>
+                  <span>Last activity {formatDateTime(cart.updatedAtUtc)}</span>
+                  {total != null && (
+                    <span>
+                      Total{' '}
+                      <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-primary)]">
+                        {formatCurrency(total, cart.currency)}
+                      </span>
+                    </span>
+                  )}
                 </div>
               </AonikCard>
 
-              <AonikCard title="Lines" padding={12}>
+              <AonikCard
+                title="Lines"
+                subtitle="Add-on prices are the retail base; personalisation and surcharges are applied to the cart total, not carried per line by this read"
+                padding={12}
+              >
                 {cart.lines.length === 0 ? (
                   <p className="py-2 text-[12.5px] text-[var(--color-text-secondary)]">
                     This cart is empty.
@@ -205,13 +228,24 @@ function CartLineRow({ line, currency }: { line: AdminCartLineDto; currency: str
           )}
         </div>
 
+        {/* NO computed line total. Checkout charges
+            (snapshot + personalisationAdjustment + unitSurcharge) × quantity, and this read
+            carries only the snapshot — multiplying it out would print a confident number
+            lower than the cart actually charges. A BoxDish snapshot is 0 by design (the box
+            is priced as a container), so even the basis is meaningless there. The cart's own
+            total, which IS authoritative, is shown on the card above. */}
         <div className="flex shrink-0 flex-col items-end">
-          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
-            {formatCurrency(line.unitPriceSnapshot * line.quantity, currency)}
+          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-secondary)]">
+            ×{line.quantity}
           </span>
-          <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
-            {line.quantity} × {formatCurrency(line.unitPriceSnapshot, currency)}
-          </span>
+          {line.kind === 'AddOn' && (
+            <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+              {formatCurrency(line.unitPriceSnapshot, currency)} base
+            </span>
+          )}
+          {line.kind === 'BoxDish' && (
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">priced by the box</span>
+          )}
         </div>
       </div>
 

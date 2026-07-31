@@ -4,7 +4,8 @@ import { summariseCartWindow } from './cartWindow';
 import { summariseOrderWindow } from './orderWindow';
 
 describe('summariseOrderWindow', () => {
-  const gbp = (total: number, paymentStatus = 'Captured') => ({
+  const gbp = (total: number, paymentStatus = 'Captured', orderStatus = 'Complete') => ({
+    orderStatus,
     paymentStatus,
     currency: 'GBP',
     total,
@@ -20,7 +21,7 @@ describe('summariseOrderWindow', () => {
     // Showing the largest currency's figure would silently drop the other.
     const summary = summariseOrderWindow([
       gbp(100),
-      { paymentStatus: 'Captured', currency: 'NGN', total: 45000 },
+      { orderStatus: 'Complete', paymentStatus: 'Captured', currency: 'NGN', total: 45000 },
     ]);
     expect(summary.paidRevenue).toBe('2 currencies');
     expect(summary.averageOrder).toBe('2 currencies');
@@ -37,6 +38,18 @@ describe('summariseOrderWindow', () => {
     const summary = summariseOrderWindow([gbp(80, 'Pending')]);
     expect(summary.paidRevenue).toBe('—');
     expect(summary.averageOrder).toBe('—');
+    expect(summary.awaitingPayment).toBe(1);
+  });
+
+  it('EXCLUDES terminal orders from awaiting payment', () => {
+    // An order can be cancelled while its durable charge summary still reads Pending, so
+    // payment status alone would present work that can never complete as outstanding.
+    const summary = summariseOrderWindow([
+      gbp(80, 'Pending', 'Pending'),
+      gbp(80, 'Pending', 'Cancelled'),
+      gbp(80, 'Pending', 'Failed'),
+      gbp(80, 'Pending', 'Expired'),
+    ]);
     expect(summary.awaitingPayment).toBe(1);
   });
 

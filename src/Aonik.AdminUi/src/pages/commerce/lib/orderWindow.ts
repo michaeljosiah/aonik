@@ -16,10 +16,18 @@
 import { formatCurrency } from '@/lib/format';
 
 export interface OrderWindowRow {
+  orderStatus: string;
   paymentStatus: string;
   currency: string;
   total: number;
 }
+
+/**
+ * Spine statuses after which no payment is coming. An order can be cancelled while its
+ * durable charge summary still reads Pending, so payment status alone would count it as
+ * outstanding work — an action presented as doable that can never complete.
+ */
+const TERMINAL = new Set(['Cancelled', 'Failed', 'Expired']);
 
 export interface OrderWindowSummary {
   /** Formatted total of captured orders, or a currency count when the window is mixed. */
@@ -37,7 +45,9 @@ const NONE = '—';
 
 export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWindowSummary {
   const paid = rows.filter((row) => row.paymentStatus === CAPTURED);
-  const awaitingPayment = rows.length - paid.length;
+  const awaitingPayment = rows.filter(
+    (row) => row.paymentStatus !== CAPTURED && !TERMINAL.has(row.orderStatus),
+  ).length;
 
   const byCurrency = new Map<string, number>();
   for (const row of paid) {

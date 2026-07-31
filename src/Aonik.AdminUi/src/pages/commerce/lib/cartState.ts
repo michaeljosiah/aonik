@@ -19,9 +19,19 @@ export interface CartBlockedVerdict {
 /**
  * Whether checkout is blocked for this cart right now, and why.
  *
- * Two independent causes, both from Spec 068: drift (a line the customer chose is no longer
- * available, or its price moved) and an under-filled box (checkout requires a full box).
- * When both apply the reason names both — the operator would otherwise fix one, retry, and
+ * Two independent causes, both from Spec 068:
+ *
+ *   * FILL. The server gate is `units != BoxSize` (BoxCartService.cs:416 and :1148) — an
+ *     EXACT match, not a minimum. An over-filled box is blocked exactly as an under-filled
+ *     one is, and the server carries its own "remove N" message for it, so treating 7/6 as
+ *     "full" would enable a resume the rules reject.
+ *
+ *   * DRIFT. Reported without attributing a cause, because `ComputeCartStatesAsync` raises it
+ *     for container-level changes too — the box product going inactive, its kind or pricing
+ *     mode changing, the chosen size falling outside the current plan — none of which involve
+ *     a line at all. Naming lines would send the operator to inspect rows that are fine.
+ *
+ * When both apply the reason names both: the operator would otherwise fix one, retry, and
  * meet the other.
  *
  * A NON-BOX cart returns not-blocked: it has no box rule to violate, and inventing a verdict
@@ -30,22 +40,23 @@ export interface CartBlockedVerdict {
 export function cartBlocked(boxMeta: CartBoxMetaLike | null | undefined): CartBlockedVerdict {
   if (!boxMeta) return { blocked: false, reason: null };
 
-  const underFilled = boxMeta.filled < boxMeta.size;
+  const shortfall = boxMeta.size - boxMeta.filled;
   const fill = `${boxMeta.filled} of ${boxMeta.size}`;
+  const fillReason =
+    shortfall > 0
+      ? `the box is under-filled (${fill})`
+      : shortfall < 0
+        ? `the box holds more than its size (${fill}) and ${-shortfall} must be removed`
+        : null;
+  const driftReason = boxMeta.drift
+    ? 'something in this cart has changed since it was built'
+    : null;
 
-  if (boxMeta.drift && underFilled) {
-    return {
-      blocked: true,
-      reason: `A line is unavailable or has been repriced, and the box is under-filled (${fill}).`,
-    };
-  }
-  if (boxMeta.drift) {
-    return { blocked: true, reason: 'A line is unavailable or has been repriced.' };
-  }
-  if (underFilled) {
-    return { blocked: true, reason: `The box is under-filled (${fill}).` };
-  }
-  return { blocked: false, reason: null };
+  const causes = [driftReason, fillReason].filter(Boolean) as string[];
+  if (causes.length === 0) return { blocked: false, reason: null };
+
+  const joined = causes.join(', and ');
+  return { blocked: true, reason: `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.` };
 }
 
 /** The compact list-column form: `3/6`, or `—` where there is no box. */
