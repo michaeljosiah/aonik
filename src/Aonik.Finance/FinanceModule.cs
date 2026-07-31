@@ -66,6 +66,11 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Ledgers.IJournalWriter, Services.Ledger.JournalWriter>();
         services.AddScoped<SharedKernel.Abstractions.Ledgers.ILedgerResolver, Services.Ledger.LedgerResolver>();
 
+        // Spec 088 P4 - standing authorisations. Authoring stays Finance-internal; only the
+        // charging contract is reachable from outside.
+        services.AddScoped<Contracts.Services.Payments.IPaymentMandateService, Services.Payments.PaymentMandateService>();
+        services.AddScoped<SharedKernel.Abstractions.Payments.IRecurringPaymentInitiator, Services.Payments.RecurringPaymentInitiator>();
+
         // Payments
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();

@@ -42,6 +42,7 @@ internal class FinanceDbContext : AonikDbContextBase
 
     /// <summary>Spec 007 — tokenised customer card vault (no PCI data stored).</summary>
     public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
+    public DbSet<PaymentMandate> PaymentMandates { get; set; } = null!;
 
     // Partner integration abstraction (spec 031): payout / collection / bill-payment execution records.
     public DbSet<ExternalPayoutAccount> ExternalPayoutAccounts { get; set; } = null!;

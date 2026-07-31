@@ -497,6 +497,22 @@ public sealed record PostJournalCommand(
         own — worth a spec, not a side effect of this one.
       </td>
     </tr>
+    <tr>
+      <td>O6</td>
+      <td>Off-session semantics at the provider</td>
+      <td>
+        <strong>Delivered in P4:</strong> the mandate supplies the provider and instrument a
+        background job cannot, which is what made unattended renewal possible.
+        <strong>Not delivered:</strong> true off-session <em>provider</em> semantics —
+        merchant-initiated-transaction flags, suppressing the interactive authentication challenge,
+        honouring the provider's own recurring-authorisation token. <code>IPaymentProviderGateway</code>
+        exposes only <code>CreateIntentAsync</code> and <code>CreateSetupIntentAsync</code>, and the
+        one production implementer is simulated, so there is nothing real to express those flags
+        against. <code>ProviderMandateRef</code> is stored ready for it. This is per-adapter work
+        for whichever real gateway is wired, and a live card would likely fail an interactive
+        challenge until it lands.
+      </td>
+    </tr>
   </tbody>
 </table>
 

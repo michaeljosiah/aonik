@@ -509,6 +509,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<Refund>(modelBuilder, "Refunds");
         MapFinanceTable<Chargeback>(modelBuilder, "Chargebacks");
         MapFinanceTable<PaymentMethod>(modelBuilder, "PaymentMethods");
+        // Spec 088 P4 - standing authorisations for unattended charging.
+        MapFinanceTable<PaymentMandate>(modelBuilder, "PaymentMandates");
 
         MapFinanceTable<Invoice>(modelBuilder, "Invoices");
         MapFinanceTable<InvoiceLine>(modelBuilder, "InvoiceLines");
