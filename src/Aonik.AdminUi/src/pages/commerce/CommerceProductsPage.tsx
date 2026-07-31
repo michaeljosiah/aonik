@@ -81,6 +81,11 @@ export function CommerceProductsPage() {
       setTotalCount(result.totalCount);
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
+      // Drop the previous result: the filter controls already show the NEW query, so keeping
+      // the old rows would present them as its results — picking Archived during an outage
+      // would list the previous Active products as archived ones.
+      setProducts([]);
+      setTotalCount(0);
       const message =
         err && typeof err === 'object' && 'userMessage' in err
           ? String((err as { userMessage?: string }).userMessage ?? '')
@@ -121,12 +126,14 @@ export function CommerceProductsPage() {
   const draftCount = products.filter((p) => p.status === 'Draft').length;
   const bundleCount = products.filter((p) => p.kind === 'Bundle').length;
 
+  // No sortable columns: DataTable sorts the loaded page and the products endpoint takes no
+  // sort parameter, so a header click on a multi-page catalogue would reorder 20 rows and
+  // present it as ordering the catalogue. Server-side ordering is the prerequisite.
   const columns: ColumnDef<ProductSummaryDto>[] = [
     {
       id: 'product',
       header: 'Product',
       accessorFn: (row) => row.name,
-      sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2.5">
           {row.heroImageUrl ? (
@@ -162,7 +169,6 @@ export function CommerceProductsPage() {
       id: 'kind',
       header: 'Kind',
       accessorKey: 'kind',
-      sortable: true,
       cell: (row) => <span className="text-xs text-[var(--color-text-secondary)]">{row.kind}</span>,
       className: 'w-[110px]',
     },
@@ -170,7 +176,6 @@ export function CommerceProductsPage() {
       id: 'status',
       header: 'Status',
       accessorKey: 'status',
-      sortable: true,
       cell: (row) => <Pill tone={STATUS_TONE[row.status] ?? 'default'}>{row.status}</Pill>,
       className: 'w-[110px]',
     },
@@ -178,7 +183,6 @@ export function CommerceProductsPage() {
       id: 'variants',
       header: 'Variants',
       accessorFn: (row) => row.variantCount,
-      sortable: true,
       cell: (row) => (
         <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
           {row.variantCount}
@@ -235,7 +239,10 @@ export function CommerceProductsPage() {
       key={productId}
       productId={productId}
       categories={categories}
-      onClose={() => navigate('/commerce/products')}
+      // REPLACE, not push: the detail route is a sheet over this list, so pushing the list
+      // back on would leave history as list → detail → list and Back would reopen the editor
+      // the operator just closed.
+      onClose={() => navigate('/commerce/products', { replace: true })}
       onSaved={() => void load()}
     />
   ) : null;

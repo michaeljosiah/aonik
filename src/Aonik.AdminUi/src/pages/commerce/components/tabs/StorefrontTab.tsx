@@ -25,6 +25,8 @@ type SurfaceState =
 
 interface StorefrontTabProps {
   product: AdminProductDetailDto;
+  /** A save is in flight — the deep-surface links must not carry the operator off the sheet. */
+  frozen?: boolean;
   form: ProductEditorForm;
   onChange: (patch: Partial<ProductEditorForm>) => void;
   /** Surcharge is its own endpoint, not part of the product PATCH. */
@@ -35,6 +37,7 @@ interface StorefrontTabProps {
 
 export function StorefrontTab({
   product,
+  frozen = false,
   form,
   onChange,
   surchargeAmount,
@@ -198,16 +201,31 @@ export function StorefrontTab({
 
       <AonikCard title="Deep surfaces" subtitle="The state of this product on the storefront authoring pages" padding={12}>
         <div className="flex flex-col divide-y divide-[var(--color-border-light)]">
-          <SurfaceRow label="Personalisation" state={personalisation} to="/commerce/personalisation" />
-          <SurfaceRow label="Product content" state={content} to="/commerce/content" />
-          <SurfaceRow label="Size plan" state={sizePlan} to="/commerce/box-plans" />
+          <SurfaceRow
+            label="Personalisation"
+            state={personalisation}
+            to="/commerce/personalisation"
+            frozen={frozen}
+          />
+          <SurfaceRow label="Product content" state={content} to="/commerce/content" frozen={frozen} />
+          <SurfaceRow label="Size plan" state={sizePlan} to="/commerce/box-plans" frozen={frozen} />
         </div>
       </AonikCard>
     </div>
   );
 }
 
-function SurfaceRow({ label, state, to }: { label: string; state: SurfaceState; to: string }) {
+function SurfaceRow({
+  label,
+  state,
+  to,
+  frozen,
+}: {
+  label: string;
+  state: SurfaceState;
+  to: string;
+  frozen: boolean;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <span className="text-[12.5px] text-[var(--color-text-primary)]">{label}</span>
@@ -223,9 +241,13 @@ function SurfaceRow({ label, state, to }: { label: string; state: SurfaceState; 
             {state.summary}
           </Pill>
         )}
-        <Link to={to} className="text-[11px] text-[var(--color-brand-primary)] hover:underline">
-          Open
-        </Link>
+        {frozen ? (
+          <span className="text-[11px] text-[var(--color-text-tertiary)]">Open</span>
+        ) : (
+          <Link to={to} className="text-[11px] text-[var(--color-brand-primary)] hover:underline">
+            Open
+          </Link>
+        )}
       </span>
     </div>
   );

@@ -120,11 +120,16 @@ export function ProductEditorSheet({
   const handleSave = async () => {
     if (!form || !original) return;
 
-    const attributesError = validateAttributesJson(form.attributesJson);
-    if (attributesError) {
-      setError(attributesError);
-      setActiveTab('details');
-      return;
+    // Only validate attributes the operator actually touched. A legacy row may hold malformed
+    // JSON the server still serves; blocking a name-only edit until it is repaired would
+    // defeat the partial update that exists precisely to leave such values alone.
+    if (form.attributesJson !== original.attributesJson) {
+      const attributesError = validateAttributesJson(form.attributesJson);
+      if (attributesError) {
+        setError(attributesError);
+        setActiveTab('details');
+        return;
+      }
     }
 
     const draft = { amount: surchargeAmount, currency: surchargeCurrency };
@@ -146,26 +151,47 @@ export function ProductEditorSheet({
 
     setSaving(true);
     setError(null);
+
+    // Three endpoints means three commit points, not one transaction. Each section that
+    // lands advances its own baseline immediately, so a retry after a later failure sends
+    // only what is still unsaved — otherwise retrying would reissue a media replacement that
+    // already succeeded and clobber whatever another operator changed in between.
+    const persisted: string[] = [];
     try {
       const patch = buildProductPatch(original, form);
       if (!isEmptyPatch(patch)) {
         await commerceCatalogService.patchProduct(productId, patch);
+        setOriginal(form);
+        persisted.push('details');
       }
 
-      const mediaLines = buildMediaReplacement(media);
-      if (JSON.stringify(media) !== originalMedia) {
-        await commerceCatalogService.replaceProductMedia(productId, mediaLines);
+      const mediaSnapshot = JSON.stringify(media);
+      if (mediaSnapshot !== originalMedia) {
+        await commerceCatalogService.replaceProductMedia(productId, buildMediaReplacement(media));
+        setOriginalMedia(mediaSnapshot);
+        persisted.push('media');
       }
 
       if (surchargeTouched) {
         await commerceCatalogService.setUnitSurcharge(productId, parsedAmount, parsedCurrency);
+        setOriginalSurcharge(draft);
+        persisted.push('surcharge');
       }
 
       toast.success('Product saved');
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setError(readMessage(err) || 'Failed to save product.');
+      const message = readMessage(err) || 'Failed to save product.';
+      // Say what did land. "Save failed" alone would be untrue when part of the product has
+      // already changed, and the operator needs that to decide whether to retry or reload.
+      setError(
+        persisted.length > 0
+          ? `${message} Already saved: ${persisted.join(', ')} — retrying will not resend those.`
+          : message,
+      );
+      // A partial write means the list behind the sheet is now stale too.
+      if (persisted.length > 0) onSaved();
     } finally {
       setSaving(false);
     }
@@ -207,7 +233,10 @@ export function ProductEditorSheet({
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            // Frozen while saving: the payloads were built from the state at click time, so
+            // a keystroke or reorder made during a slow save would be silently discarded by
+            // the success path that closes the sheet and reports the product saved.
+            <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
               <UnderlineTabs
                 tabs={[
                   { key: 'details', label: 'Details' },
@@ -234,6 +263,9 @@ export function ProductEditorSheet({
                 <StorefrontTab
                   key={product.id}
                   product={product}
+                  // A fieldset disables controls, not anchors — the deep-surface links need
+                  // to be told separately, or they would navigate away mid-save.
+                  frozen={saving}
                   form={form}
                   onChange={(patch) => setForm({ ...form, ...patch })}
                   surchargeAmount={surchargeAmount}
@@ -244,7 +276,7 @@ export function ProductEditorSheet({
                   }}
                 />
               )}
-            </div>
+            </fieldset>
           )}
         </SheetBody>
 
