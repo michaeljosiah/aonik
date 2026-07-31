@@ -68,11 +68,14 @@ export function ProductContentPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [content, setContent] = useState<AdminProductContentDto | null>(null);
   const [coverage, setCoverage] = useState<ContentCoverageDto | null>(null);
+  const [coverageError, setCoverageError] = useState(false);
   const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>([]);
   /** What the resolver serves for the standard selection — not always the block. */
   const [resolved, setResolved] = useState<ResolvedContentDto | null>(null);
   /** The resolution FAILED (as opposed to reporting no content) — the panel may be wrong. */
   const [resolvedError, setResolvedError] = useState(false);
+  /** The product is not active, so the storefront resolution cannot be asked at all. */
+  const [resolvedUnavailable, setResolvedUnavailable] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState(false);
@@ -85,6 +88,8 @@ export function ProductContentPage() {
   const [error, setError] = useState<string | null>(null);
   const listRequestRef = useRef(0);
   const detailRequestRef = useRef(0);
+  /** The live selection, for async work that must not act on a stale closure value. */
+  const selectedIdRef = useRef<string | null>(null);
 
   const loadRows = useCallback(async () => {
     const requestId = listRequestRef.current + 1;
@@ -103,11 +108,15 @@ export function ProductContentPage() {
       setRows(page.items);
       setRowTotal(page.totalCount);
       setRowsComplete(page.totalCount <= STATUS_PAGE_SIZE);
-      setSelectedId((current) =>
-        current && page.items.some((r) => r.productId === current)
-          ? current
-          : (page.items[0]?.productId ?? null),
-      );
+      setSelectedId((current) => {
+        // A product selected FROM THE QUEUE may legitimately live on another status page, so
+        // "not in this page's rows" is not grounds to move the selection off it. Resetting
+        // there was the root of the cross-product mix-up: the page's idea of the selection and
+        // the content it had loaded could end up describing two different products.
+        if (current && page.items.some((r) => r.productId === current)) return current;
+        if (current && queueRef.current.some((r) => r.productId === current)) return current;
+        return page.items[0]?.productId ?? null;
+      });
     } catch (err: unknown) {
       if (listRequestRef.current !== requestId) return;
       // The last good list is kept: an open editor reading an empty catalogue is how a
@@ -125,7 +134,8 @@ export function ProductContentPage() {
     void loadRows();
   }, [loadRows]);
 
-  const loadDetail = useCallback(async (productId: string, slug: string | null) => {
+  const loadDetail = useCallback(
+    async (productId: string, slug: string | null, isActiveProduct: boolean) => {
     const requestId = detailRequestRef.current + 1;
     detailRequestRef.current = requestId;
     setDetailLoading(true);
@@ -135,7 +145,10 @@ export function ProductContentPage() {
       // per-product reads for the whole rail would be a fan-out on every page load.
       const [admin, cover, product, resolvedContent] = await Promise.all([
         commerceContentService.getAdminContent(productId),
-        commerceContentService.getCoverage(productId).catch(() => null),
+        commerceContentService.getCoverage(productId).then(
+          (c) => ({ ok: true as const, coverage: c }),
+          () => ({ ok: false as const, coverage: null }),
+        ),
         // Tracked as a FAILURE rather than folded into "no groups": an unread offer and a
         // product that genuinely offers nothing look identical downstream, and one of them
         // means combination authoring is broken rather than inapplicable.
@@ -147,52 +160,65 @@ export function ProductContentPage() {
         // detail composes no content by contract, so reading `content` off it always yielded
         // null — the previous fix silently never applied. A 404 here is the honest "no block
         // authored" answer, not a failure.
-        // A 404 is this endpoint's DEFINED "no block authored" answer. Anything else is a
-        // failure, and swallowing it to null sent the workbench back to rendering the raw
-        // block as the customer panel — silently, which is the state this whole thread exists
-        // to prevent.
-        slug
+        // A 404 means "no block authored" ONLY for an active product: the endpoint 404s for a
+        // Draft or Archived product before it resolves anything at all, so reading that as
+        // "no content" would put an operator preparing a draft in front of the raw block while
+        // an exact variant is what would actually serve. Non-active products get an explicit
+        // not-resolvable state instead of a fabricated one.
+        slug && isActiveProduct
           ? commerceContentService.resolveContent(slug).then(
-              (r) => ({ ok: true as const, content: r }),
+              (r) => ({ ok: true as const, content: r, unresolvable: false }),
               (err: unknown) =>
                 httpStatus(err) === 404
-                  ? { ok: true as const, content: null }
-                  : { ok: false as const, content: null },
+                  ? { ok: true as const, content: null, unresolvable: false }
+                  : { ok: false as const, content: null, unresolvable: false },
             )
-          : Promise.resolve({ ok: true as const, content: null }),
+          : Promise.resolve({ ok: true as const, content: null, unresolvable: !isActiveProduct }),
       ]);
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
-      setCoverage(cover);
+      setCoverage(cover.coverage);
+      setCoverageError(!cover.ok);
       setGroups(product.product?.effectiveOptionGroups ?? []);
       setResolved(resolvedContent.content);
       setResolvedError(!resolvedContent.ok);
+      setResolvedUnavailable(resolvedContent.unresolvable);
       setGroupsError(!product.ok);
     } catch (err: unknown) {
       if (detailRequestRef.current !== requestId) return;
       setContent(null);
       setCoverage(null);
+      setCoverageError(false);
       setGroups([]);
       setResolved(null);
       setResolvedError(false);
+      setResolvedUnavailable(false);
       setGroupsError(false);
       setDetailError(readMessage(err) || 'This product’s content could not be read.');
     } finally {
       if (detailRequestRef.current === requestId) setDetailLoading(false);
-    }
-  }, []);
+      }
+    },
+    [],
+  );
 
   // Scanned across pages rather than derived from the rail's CURRENT page. Paging the rail
   // made every product reachable and, in the same move, hid every flagged product that was not
   // on the page in view — a safety queue that disappears when you turn a page is worse than
   // one that admits a bound.
   const [queue, setQueue] = useState<ContentStatusRowDto[]>([]);
+  /** Read inside loadRows, which must not depend on `queue` and re-run on every scan. */
+  const queueRef = useRef<ContentStatusRowDto[]>([]);
   const [queueComplete, setQueueComplete] = useState(true);
   const [queueFailed, setQueueFailed] = useState(false);
 
   const loadQueue = useCallback(async () => {
     const found: ContentStatusRowDto[] = [];
     setQueueFailed(false);
+    // Marked incomplete BEFORE the first await. `queueComplete` starting true meant that while
+    // a multi-page scan was still walking, the KPI read "0 — all products" and the card was
+    // hidden: a false all-clear produced by an in-flight scan rather than a failed one.
+    setQueueComplete(false);
     try {
       let page = 1;
       for (; page <= QUEUE_SCAN_PAGES; page += 1) {
@@ -200,18 +226,24 @@ export function ProductContentPage() {
         found.push(...result.items.filter((r) => r.isStale));
         if (page * STATUS_PAGE_SIZE >= result.totalCount) {
           setQueue(found);
+          queueRef.current = found;
           setQueueComplete(true);
           return;
         }
       }
       setQueue(found);
+      queueRef.current = found;
       setQueueComplete(false);
     } catch {
       // PARTIAL results are kept and the scan is marked failed AND incomplete. My first
       // version only avoided overwriting a previous queue — which on the FIRST load left the
       // initial empty queue with complete=true, i.e. exactly the false all-clear the comment
       // claimed to prevent. An empty queue is only trustworthy if the scan finished.
-      setQueue((current) => (found.length > 0 ? found : current));
+      setQueue((current) => {
+        const next = found.length > 0 ? found : current;
+        queueRef.current = next;
+        return next;
+      });
       setQueueComplete(false);
       setQueueFailed(true);
     }
@@ -231,10 +263,12 @@ export function ProductContentPage() {
     queue.find((r) => r.productId === selectedId) ??
     null;
   const selectedSlug = selectedRowAnywhere?.slug ?? null;
+  const selectedIsActive = selectedRowAnywhere?.productStatus === 'Active';
 
   useEffect(() => {
-    if (selectedId) void loadDetail(selectedId, selectedSlug);
-  }, [selectedId, selectedSlug, loadDetail]);
+    selectedIdRef.current = selectedId;
+    if (selectedId) void loadDetail(selectedId, selectedSlug, selectedIsActive);
+  }, [selectedId, selectedSlug, selectedIsActive, loadDetail]);
 
 
 
@@ -278,7 +312,14 @@ export function ProductContentPage() {
       toast.success('Review confirmed');
       await loadRows();
       await loadQueue();
-      if (productId === selectedId) await loadDetail(productId, selectedSlug);
+      // Compared against the LIVE selection, not the value captured when this handler was
+      // created. The queue scan can take a while, and a detail load fired for a product that
+      // is no longer selected wins the request counter — leaving `content` describing one
+      // product while the page believes another is selected, which the block editor would then
+      // seed from and overwrite.
+      if (selectedIdRef.current === productId) {
+        await loadDetail(productId, selectedSlug, selectedIsActive);
+      }
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The review could not be confirmed.');
     }
@@ -476,6 +517,14 @@ export function ProductContentPage() {
               </AonikCard>
             ) : (
               <>
+                {resolvedUnavailable && (
+                  <p className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                    This product is not active, so the storefront cannot resolve what it would
+                    serve. The panel below is the stored block — once the product is active, an
+                    authored combination may serve instead.
+                  </p>
+                )}
+
                 {resolvedError && (
                   <p className="flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
                     <span className="flex-1">
@@ -484,7 +533,7 @@ export function ProductContentPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => selectedId && void loadDetail(selectedId, selectedSlug)}
+                      onClick={() => selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)}
                       className="shrink-0 underline"
                     >
                       Retry
@@ -541,7 +590,7 @@ export function ProductContentPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => selectedId && void loadDetail(selectedId, selectedSlug)}
+                        onClick={() => selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)}
                         className="shrink-0 underline"
                       >
                         Retry
@@ -622,8 +671,23 @@ export function ProductContentPage() {
                   padding={0}
                 >
                   {!coverage ? (
-                    <p className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
-                      Coverage could not be read for this product.
+                    <p className="flex items-center justify-center gap-2 px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                      <span>
+                        {coverageError
+                          ? 'Coverage could not be read, so gaps are unknown for this product.'
+                          : 'No coverage information for this product.'}
+                      </span>
+                      {coverageError && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)
+                          }
+                          className="underline"
+                        >
+                          Retry
+                        </button>
+                      )}
                     </p>
                   ) : coverage.singleChoiceGaps.length === 0 ? (
                     <p className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
@@ -683,7 +747,7 @@ export function ProductContentPage() {
             // The upsert CLEARS the review flag, so the queue and its KPI are stale the moment
             // a stale block is saved — the same refresh confirmReview already does.
             void loadQueue();
-            void loadDetail(selectedId, selectedSlug);
+            void loadDetail(selectedId, selectedSlug, selectedIsActive);
           }}
         />
       )}
@@ -698,7 +762,7 @@ export function ProductContentPage() {
           onClose={() => setVariantSheet(null)}
           onSaved={() => {
             void loadRows();
-            void loadDetail(selectedId, selectedSlug);
+            void loadDetail(selectedId, selectedSlug, selectedIsActive);
           }}
         />
       )}
@@ -709,7 +773,7 @@ export function ProductContentPage() {
     try {
       await commerceContentService.deleteVariant(variantId);
       toast.success('Combination retired — it can be revived by authoring it again');
-      if (selectedId) await loadDetail(selectedId, selectedSlug);
+      if (selectedId) await loadDetail(selectedId, selectedSlug, selectedIsActive);
       await loadRows();
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The combination could not be retired.');
