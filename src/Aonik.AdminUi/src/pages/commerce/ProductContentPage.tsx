@@ -228,12 +228,23 @@ export function ProductContentPage() {
   const queueRequestRef = useRef(0);
   const [queueComplete, setQueueComplete] = useState(true);
   const [queueFailed, setQueueFailed] = useState(false);
+  /**
+   * A scan is IN FLIGHT — distinct from one that finished bounded, and from one that failed.
+   *
+   * `loadQueue` publishes nothing until it finishes, so deriving "scanning" from the absence of
+   * the other two states put an in-flight scan through the label meant for a completed-but-
+   * bounded one: "Awaiting review 0 — first 1000 scanned", asserting a count nothing had
+   * counted yet. The earlier fix stopped that reading as ALL products; it still read as a
+   * finished scan.
+   */
+  const [queueScanning, setQueueScanning] = useState(true);
 
   const loadQueue = useCallback(async () => {
     const requestId = queueRequestRef.current + 1;
     queueRequestRef.current = requestId;
     const found: ContentStatusRowDto[] = [];
     setQueueFailed(false);
+    setQueueScanning(true);
     // Marked incomplete BEFORE the first await. `queueComplete` starting true meant that while
     // a multi-page scan was still walking, the KPI read "0 — all products" and the card was
     // hidden: a false all-clear produced by an in-flight scan rather than a failed one.
@@ -248,14 +259,17 @@ export function ProductContentPage() {
           setQueue(found);
           queueRef.current = found;
           setQueueComplete(true);
+          setQueueScanning(false);
           return;
         }
       }
       setQueue(found);
       queueRef.current = found;
       setQueueComplete(false);
+      setQueueScanning(false);
     } catch {
       if (queueRequestRef.current !== requestId) return;
+      setQueueScanning(false);
       // PARTIAL results are kept and the scan is marked failed AND incomplete. My first
       // version only avoided overwriting a previous queue — which on the FIRST load left the
       // initial empty queue with complete=true, i.e. exactly the false all-clear the comment
@@ -378,15 +392,19 @@ export function ProductContentPage() {
         />
         <KpiTile
           label="Awaiting review"
-          value={kpis.awaitingReview.toLocaleString()}
+          // An in-flight scan has no count to show. Printing 0 while the pages are still being
+          // walked is the same false all-clear as before, dressed as a finished figure.
+          value={queueScanning ? '—' : kpis.awaitingReview.toLocaleString()}
           delta={
-            queueComplete
-              ? 'all products'
-              : queueFailed
-                ? 'scan incomplete'
-                : `first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} scanned`
+            queueScanning
+              ? 'scanning…'
+              : queueComplete
+                ? 'all products'
+                : queueFailed
+                  ? 'scan incomplete'
+                  : `first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} scanned`
           }
-          deltaTone={kpis.awaitingReview > 0 ? 'down' : 'neutral'}
+          deltaTone={!queueScanning && kpis.awaitingReview > 0 ? 'down' : 'neutral'}
         />
       </div>
 
@@ -400,7 +418,7 @@ export function ProductContentPage() {
         </div>
       )}
 
-      {(reviewQueue.length > 0 || queueFailed) && (
+      {(reviewQueue.length > 0 || queueFailed || queueScanning) && (
         <AonikCard
           title="Awaiting review"
           // NOT "these products withhold their declarations". The queue knows only the BLOCK's
@@ -410,9 +428,11 @@ export function ProductContentPage() {
           subtitle="Each product's default block no longer describes the current standard preparation"
           padding={0}
         >
-          {reviewQueue.length === 0 && queueFailed && (
+          {reviewQueue.length === 0 && (queueFailed || queueScanning) && (
             <p className="px-4 py-3 text-[12px] text-[var(--color-text-secondary)]">
-              The review scan did not finish, so this list is not proof that nothing is flagged.
+              {queueScanning
+                ? 'Scanning every product — this list is not complete yet.'
+                : 'The review scan did not finish, so this list is not proof that nothing is flagged.'}
             </p>
           )}
           <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
@@ -432,20 +452,44 @@ export function ProductContentPage() {
                 <Button variant="outline" size="sm" onClick={() => setSelection(row)}>
                   Open
                 </Button>
-                <Button size="sm" onClick={() => void confirmReview(row.productId)}>
-                  Confirm review
-                </Button>
+                {/*
+                  Confirming REBINDS the block to the current defaults and clears its flag, so
+                  it asserts that the block's own text is still correct for the new standard
+                  preparation. Offered from a queue row, that assertion was made about a block
+                  nobody had looked at.
+
+                  Worse where an exact variant already serves the standard selection: the
+                  workbench shows the VARIANT, so even opening the product does not put the
+                  suspect block on screen. Confirming there clears the flag on text that is
+                  currently invisible and becomes live the moment that variant is retired —
+                  allergens included, with no second review to catch it.
+                */}
+                {row.productId !== selectedId ? (
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                    open it to review
+                  </span>
+                ) : resolved?.matchedVariantSelectionJson ? (
+                  <span className="max-w-[190px] text-[11px] text-[var(--color-text-tertiary)]">
+                    a variant serves the standard preparation — edit the block to review it
+                  </span>
+                ) : (
+                  <Button size="sm" onClick={() => void confirmReview(row.productId)}>
+                    Confirm review
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
-          {!queueComplete && (
+          {(!queueComplete || queueScanning) && (
             <p className="flex items-center gap-2 border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
               <span className="flex-1">
-                {queueFailed
-                  ? 'This scan did not finish, so there may be flagged products it never reached.'
-                  : `Scanned the first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} products; there may be more flagged beyond them.`}
+                {queueScanning
+                  ? 'Still scanning — flagged products may not have been reached yet.'
+                  : queueFailed
+                    ? 'This scan did not finish, so there may be flagged products it never reached.'
+                    : `Scanned the first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} products; there may be more flagged beyond them.`}
               </span>
-              {queueFailed && (
+              {queueFailed && !queueScanning && (
                 <button type="button" onClick={() => void loadQueue()} className="underline">
                   Rescan
                 </button>
