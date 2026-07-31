@@ -22,7 +22,13 @@ public class UpdateContentVariantEndpoint : Endpoint<UpsertContentVariantRequest
     public override async Task HandleAsync(UpsertContentVariantRequest req, CancellationToken ct)
     {
         var result = await _content.UpdateVariantAsync(
-            Route<Guid>("variantId"), AddContentVariantEndpoint.Map(req), ct);
+            Route<Guid>("variantId"),
+            AddContentVariantEndpoint.Map(req),
+            req.ExpectedCanonicalSelectionJson
+                ?? throw new StorefrontValidationException(
+                    "V-C11: expectedCanonicalSelectionJson is required when updating a variant — "
+                    + "an update must name the combination it is meant to land on."),
+            ct);
         await Send.OkAsync(result, ct);
     }
 }

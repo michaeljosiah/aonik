@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Catalog;
@@ -24,7 +24,7 @@ public class ProductContentAuthoringTests
         // through the same exception contract customer input gets.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var act = () => content.AddVariantAsync(productId, Variant("""{"protein":"wagyu"}""", 640));
+        var act = () => AddVariantAsync(content, productId, Variant("""{"protein":"wagyu"}""", 640));
 
         await act.Should().ThrowAsync<OptionValidationException>();
     }
@@ -37,8 +37,8 @@ public class ProductContentAuthoringTests
         // so {"protein":"chicken"} IS the all-defaults selection.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var explicitDefaults = () => content.AddVariantAsync(productId, Variant("""{"protein":"chicken"}""", 640));
-        var empty = () => content.AddVariantAsync(productId, Variant("{}", 640));
+        var explicitDefaults = () => AddVariantAsync(content, productId, Variant("""{"protein":"chicken"}""", 640));
+        var empty = () => AddVariantAsync(content, productId, Variant("{}", 640));
 
         (await explicitDefaults.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C1");
         (await empty.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C1");
@@ -51,7 +51,7 @@ public class ProductContentAuthoringTests
         // later default moves.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        var variant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
 
         variant.SelectionJson.Should().Contain("\"portion\"").And.Contain("\"side\"").And.Contain("\"heat\"");
         variant.SelectionJson.Should().Contain("\"protein\":\"salmon\"");
@@ -66,7 +66,7 @@ public class ProductContentAuthoringTests
         // back door. More is allowed; fewer is not.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var act = () => content.AddVariantAsync(productId, new UpsertContentVariantCommand(
+        var act = () => AddVariantAsync(content, productId, new UpsertContentVariantCommand(
             """{"protein":"salmon"}""", "Salmon", Kcal: 640 /* missing protein/carbs/fat */));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>())
@@ -78,7 +78,7 @@ public class ProductContentAuthoringTests
     {
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var variant = await content.AddVariantAsync(productId, new UpsertContentVariantCommand(
+        var variant = await AddVariantAsync(content, productId, new UpsertContentVariantCommand(
             """{"protein":"salmon"}""", "Salmon",
             Kcal: 640, ProteinGrams: 30, CarbsGrams: 60, FatGrams: 15,
             SugarsGrams: 4 /* the default publishes no sugars — over-publishing is fine */));
@@ -92,12 +92,12 @@ public class ProductContentAuthoringTests
         // A14 — V-C6 names the offenders; the fix is updating them first (or the same batch).
         // Removing a figure the variants still publish succeeds: they may over-publish.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
 
-        var addSugars = () => content.UpsertContentAsync(productId, DefaultBlock() with { SugarsGrams = 6 });
+        var addSugars = () => WriteBlockAsync(content, productId, DefaultBlock() with { SugarsGrams = 6 });
         (await addSugars.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C6");
 
-        var removeFat = await content.UpsertContentAsync(productId, DefaultBlock() with { FatGrams = null });
+        var removeFat = await WriteBlockAsync(content, productId, DefaultBlock() with { FatGrams = null });
         removeFat.Nutrition.FatGrams.Should().BeNull();
     }
 
@@ -108,9 +108,9 @@ public class ProductContentAuthoringTests
     {
         var (content, productId, _, _) = await ArrangeAsync();
 
-        var noLabel = () => content.UpsertContentAsync(productId, DefaultBlock() with { ServingLabel = " " });
-        var negative = () => content.UpsertContentAsync(productId, DefaultBlock() with { Kcal = -500 });
-        var overflow = () => content.UpsertContentAsync(productId, DefaultBlock() with { Kcal = 12_345_678m });
+        var noLabel = () => WriteBlockAsync(content, productId, DefaultBlock() with { ServingLabel = " " });
+        var negative = () => WriteBlockAsync(content, productId, DefaultBlock() with { Kcal = -500 });
+        var overflow = () => WriteBlockAsync(content, productId, DefaultBlock() with { Kcal = 12_345_678m });
 
         (await noLabel.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C3");
         // A13 — SQL would happily store −500 kcal; the service must not.
@@ -126,7 +126,7 @@ public class ProductContentAuthoringTests
         var bareId = await builder.BuildProductAsync("bare");
         await builder.OfferAsync(bareId, new ProductOptionGroupLine("protein"));
 
-        var act = () => content.AddVariantAsync(bareId, Variant("""{"protein":"salmon"}""", 640));
+        var act = () => AddVariantAsync(content, bareId, Variant("""{"protein":"salmon"}""", 640));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C8");
     }
@@ -135,9 +135,9 @@ public class ProductContentAuthoringTests
     public async Task AddVariant_Should_RejectADuplicateActiveCombination()
     {
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
 
-        var duplicate = () => content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 700));
+        var duplicate = () => AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 700));
 
         (await duplicate.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C4");
     }
@@ -153,11 +153,11 @@ public class ProductContentAuthoringTests
 
         var v0 = (await content.ResolveAsync(productId, null))!.ContentVersion;
 
-        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        var variant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
         var v1 = (await content.ResolveAsync(productId, null))!.ContentVersion;
         v1.Should().BeGreaterThan(v0);
 
-        await content.UpdateVariantAsync(variant.Id, Variant("""{"protein":"salmon"}""", 655));
+        await UpdateVariantAsync(content, variant, Variant("""{"protein":"salmon"}""", 655));
         var v2 = (await content.ResolveAsync(productId, null))!.ContentVersion;
         v2.Should().BeGreaterThan(v1);
 
@@ -165,11 +165,11 @@ public class ProductContentAuthoringTests
         var v3 = (await content.ResolveAsync(productId, null))!.ContentVersion;
         v3.Should().BeGreaterThan(v2);
 
-        await content.ConfirmContentReviewAsync(productId);
+        await ConfirmAsync(content, productId);
         var v4 = (await content.ResolveAsync(productId, null))!.ContentVersion;
         v4.Should().BeGreaterThan(v3);
 
-        await content.UpsertContentAsync(productId, DefaultBlock());
+        await WriteBlockAsync(content, productId, DefaultBlock());
         var v5 = (await content.ResolveAsync(productId, null))!.ContentVersion;
         v5.Should().BeGreaterThan(v4);
     }
@@ -249,7 +249,7 @@ public class ProductContentAuthoringTests
         var (content, productId, builder, ctx) = await ArrangeAsync();
         var optionService = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
         await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", DefaultChoiceKey: "salmon"));
-        await content.ConfirmContentReviewAsync(productId); // clear the narrowing-change flag
+        await ConfirmAsync(content, productId); // clear the narrowing-change flag
 
         var salmonId = await builder.ChoiceIdAsync("protein", "salmon");
         await optionService.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", IsActive: false));
@@ -265,14 +265,14 @@ public class ProductContentAuthoringTests
         // the not-yet-published state — the absent ALLERGEN line is the dangerous half. The
         // authored side still serves.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.UpsertContentAsync(productId, DefaultBlock() with { Allergens = null });
+        await WriteBlockAsync(content, productId, DefaultBlock() with { Allergens = null });
 
         var block = await content.ResolveAsync(productId, null);
         block!.Ingredients.Should().NotBeNull();
         block.Allergens.Should().BeNull();
         block.DeclarationsWithheld.Should().BeTrue();
 
-        await content.AddVariantAsync(productId, new UpsertContentVariantCommand(
+        await AddVariantAsync(content, productId, new UpsertContentVariantCommand(
             """{"protein":"salmon"}""", "Salmon",
             Kcal: 640, ProteinGrams: 30, CarbsGrams: 60, FatGrams: 12,
             Ingredients: "Rice, salmon" /* allergens deliberately unauthored */));
@@ -309,7 +309,7 @@ public class ProductContentAuthoringTests
         await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
         await optionService.UpdateChoiceAsync(mediumId, new UpdateOptionChoiceCommand("Medium", IsActive: false));
         await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: true));
-        await content.ConfirmContentReviewAsync(productId);   // clear the flags those staged
+        await ConfirmAsync(content, productId);   // clear the flags those staged
 
         // Reactivating the sole recommended default makes the group servable again → every
         // offering product is staged, pinned-elsewhere narrowings included.
@@ -329,7 +329,7 @@ public class ProductContentAuthoringTests
         var groupId = await builder.GroupIdAsync("heat");
 
         await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
-        await content.ConfirmContentReviewAsync(productId);   // clear the deactivation flag
+        await ConfirmAsync(content, productId);   // clear the deactivation flag
 
         await optionService.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand(
             "Heat", SelectionMode: OptionSelectionModes.Multi));
@@ -345,7 +345,7 @@ public class ProductContentAuthoringTests
         // no usable allergen information, suppressing the storefront's unpublished warning.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        await content.UpsertContentAsync(productId, DefaultBlock() with { Ingredients = "  ", Allergens = "" });
+        await WriteBlockAsync(content, productId, DefaultBlock() with { Ingredients = "  ", Allergens = "" });
 
         var resolved = await content.ResolveAsync(productId, null);
         resolved!.Ingredients.Should().BeNull();
@@ -384,7 +384,7 @@ public class ProductContentAuthoringTests
         before.SingleChoiceGaps.Should().Contain(g => g.GroupKey == "portion" && g.ChoiceKey == "full");
         before.SingleChoiceGaps.Should().NotContain(g => g.ChoiceKey == "chicken", "defaults are not deviations");
 
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
         var after = await content.GetCoverageAsync(productId);
 
         after.SingleChoiceGaps.Should().NotContain(g => g.GroupKey == "protein" && g.ChoiceKey == "salmon");
@@ -403,7 +403,7 @@ public class ProductContentAuthoringTests
         await builder.OfferAllAsync(productId);
 
         var content = CommerceTestHarness.NewContentService(ctx, tenantId);
-        await content.UpsertContentAsync(productId, DefaultBlock());
+        await WriteBlockAsync(content, productId, DefaultBlock());
 
         return (content, productId, builder, ctx);
     }
@@ -430,7 +430,7 @@ public class ProductContentAuthoringTests
         await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
         await options.UpdateChoiceAsync(mediumId, new UpdateOptionChoiceCommand("Medium", IsActive: false));
         await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: true));
-        await content.ConfirmContentReviewAsync(productId);
+        await ConfirmAsync(content, productId);
 
         return (content, productId, ctx, options, groupId);
     }
@@ -475,7 +475,7 @@ public class ProductContentAuthoringTests
         var groupId = await builder.GroupIdAsync("heat");
 
         await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
-        await content.ConfirmContentReviewAsync(productId);
+        await ConfirmAsync(content, productId);
 
         await options.SetRecommendedDefaultAsync(groupId, "high");
 
@@ -500,7 +500,7 @@ public class ProductContentAuthoringTests
             new ProductOptionGroupLine("side", SortOrder: 2),
             new ProductOptionGroupLine("heat", DefaultChoiceKey: "high", SortOrder: 3));
         await options.UpdateGroupAsync(groupId, new UpdateOptionGroupCommand("Heat", IsActive: false));
-        await content.ConfirmContentReviewAsync(productId);
+        await ConfirmAsync(content, productId);
 
         await options.UpdateChoiceAsync(highId, new UpdateOptionChoiceCommand("High", IsActive: false));
 
@@ -517,15 +517,15 @@ public class ProductContentAuthoringTests
         // stays V-C1.
         var (content, productId, builder, ctx) = await ArrangeAsync();
         var options = CommerceTestHarness.NewOptionService(ctx, TenantOf(ctx, productId));
-        var salmonVariant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
-        var prawnVariant = await content.AddVariantAsync(productId, Variant("""{"protein":"prawns"}""", 610));
+        var salmonVariant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
+        var prawnVariant = await AddVariantAsync(content, productId, Variant("""{"protein":"prawns"}""", 610));
 
         await options.SetRecommendedDefaultAsync(await builder.GroupIdAsync("protein"), "salmon");
 
-        var updated = await content.UpdateVariantAsync(salmonVariant.Id, Variant("""{"protein":"salmon"}""", 655));
+        var updated = await UpdateVariantAsync(content, salmonVariant, Variant("""{"protein":"salmon"}""", 655));
         updated.Nutrition.Kcal.Should().Be(655);
 
-        var move = () => content.UpdateVariantAsync(prawnVariant.Id, Variant("""{"protein":"salmon"}""", 700));
+        var move = () => UpdateVariantAsync(content, prawnVariant, Variant("""{"protein":"salmon"}""", 700), salmonVariant.SelectionJson);
         (await move.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C1");
     }
 
@@ -535,10 +535,10 @@ public class ProductContentAuthoringTests
         // Soft-retired rows are history for audit and revival — editing one in place would
         // rewrite that record while staying unservable. Revive goes through the add path.
         var (content, productId, _, _) = await ArrangeAsync();
-        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640));
+        var variant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640));
         await content.DeactivateVariantAsync(variant.Id);
 
-        var act = () => content.UpdateVariantAsync(variant.Id, Variant("""{"protein":"salmon"}""", 650));
+        var act = () => UpdateVariantAsync(content, variant, Variant("""{"protein":"salmon"}""", 650));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("V-C5");
     }
@@ -561,4 +561,47 @@ public class ProductContentAuthoringTests
     private static UpsertContentVariantCommand Variant(string selectionJson, decimal kcal) => new(
         selectionJson, "Variant serving",
         Kcal: kcal, ProteinGrams: 30, CarbsGrams: 60, FatGrams: 15);
+
+    /// <summary>Every content write now states what it was authored against (Spec 075 V-C9/V-C10):
+    /// the standard preparation, and the block it replaces. These helpers read both from the
+    /// service so a test states the ordinary "nothing changed underneath me" case in one call —
+    /// the preconditions themselves are exercised directly where they are the subject.</summary>
+    private static async Task<ProductContentDto> WriteBlockAsync(
+        IProductContentService content, Guid productId, UpsertProductContentCommand command)
+    {
+        var admin = await content.GetAdminAsync(productId);
+        return await content.UpsertContentAsync(
+            productId,
+            command,
+            new BlockWritePrecondition(admin.CurrentDefaultsSelectionJson, admin.Block?.BlockSignature));
+    }
+
+    private static async Task<ProductContentDto> ConfirmAsync(
+        IProductContentService content, Guid productId)
+        => await content.ConfirmContentReviewAsync(
+            productId, (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson);
+
+    /// <summary>The expectation is the variant's STORED selection, which the server already
+    /// canonicalised — not the partial one the command carries. That is exactly what the editor
+    /// holds and echoes back, and getting it wrong here is the same mistake V-C11 exists to
+    /// catch: naming a combination that is not the one the write would land on.</summary>
+    private static async Task<ProductContentVariantDto> UpdateVariantAsync(
+        IProductContentService content, ProductContentVariantDto variant,
+        UpsertContentVariantCommand command, string? expectedCanonical = null)
+        => await content.UpdateVariantAsync(
+            variant.Id, command, expectedCanonical ?? variant.SelectionJson);
+
+
+    /// <summary>Adding a variant asserts the OFFER it was composed against (Spec 075 V-C9): a
+    /// new combination's canonical form cannot be predicted by the caller, so the all-defaults
+    /// binding stands in — a group added underneath changes it.</summary>
+    private static async Task<ProductContentVariantDto> AddVariantAsync(
+        IProductContentService content, Guid productId, UpsertContentVariantCommand command,
+        string? expectedCanonical = null)
+        => await content.AddVariantAsync(
+            productId,
+            command,
+            (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson,
+            expectedCanonical);
+
 }

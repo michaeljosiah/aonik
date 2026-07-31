@@ -239,10 +239,19 @@ export interface ProductContentDto {
   nutrition: NutritionDto;
   ingredients: string | null;
   allergens: string | null;
-  heating: HeatingStepDto[];
+  /** Null when the stored JSON cannot be parsed — customers are shown nothing for it. */
+  heating: HeatingStepDto[] | null;
   describesSelectionJson: string;
   requiresReview: boolean;
   contentVersion: number;
+  /**
+   * Optimistic-concurrency token over the AUTHORED fields.
+   *
+   * `contentVersion` cannot serve: the content write pipeline is shared, so any variant write
+   * bumps it while the block's own text is untouched — versioning the row fabricates conflicts
+   * for unrelated writes, and the only remedy offered discards the operator's draft.
+   */
+  blockSignature: string;
 }
 
 export interface ProductContentVariantDto {
@@ -262,6 +271,8 @@ export interface AdminProductContentDto {
   block: ProductContentDto | null;
   isStale: boolean;
   variants: ProductContentVariantDto[];
+  /** The standard preparation a confirmation would bind this block to — echoed back on confirm. */
+  currentDefaultsSelectionJson: string;
 }
 
 export interface ContentStatusRowDto {

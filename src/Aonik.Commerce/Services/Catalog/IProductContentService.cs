@@ -10,14 +10,32 @@ namespace Aonik.Commerce.Services.Catalog;
 public interface IProductContentService
 {
     // ── Authoring ──
-    Task<ProductContentDto> UpsertContentAsync(Guid productId, UpsertProductContentCommand command, CancellationToken ct = default);
+    Task<ProductContentDto> UpsertContentAsync(
+        Guid productId,
+        UpsertProductContentCommand command,
+        BlockWritePrecondition precondition,
+        CancellationToken ct = default);
 
     /// <summary>Clears <c>RequiresReview</c> without editing ("reviewed, still correct") — like
     /// the upsert, re-captures the block's all-defaults binding.</summary>
-    Task<ProductContentDto> ConfirmContentReviewAsync(Guid productId, CancellationToken ct = default);
+    /// <param name="expectedDefaultsSelectionJson">The all-defaults binding the operator
+    /// actually reviewed, from <see cref="GetAdminAsync"/>. Refused with V-C9 if the standard
+    /// preparation has moved since — confirming is an assertion about what a person looked at,
+    /// and binding to the newest defaults would record it for one nobody inspected.</param>
+    Task<ProductContentDto> ConfirmContentReviewAsync(
+        Guid productId, string expectedDefaultsSelectionJson, CancellationToken ct = default);
 
-    Task<ProductContentVariantDto> AddVariantAsync(Guid productId, UpsertContentVariantCommand command, CancellationToken ct = default);
-    Task<ProductContentVariantDto> UpdateVariantAsync(Guid variantId, UpsertContentVariantCommand command, CancellationToken ct = default);
+    Task<ProductContentVariantDto> AddVariantAsync(
+        Guid productId,
+        UpsertContentVariantCommand command,
+        string expectedDefaultsSelectionJson,
+        string? expectedCanonicalSelectionJson = null,
+        CancellationToken ct = default);
+    Task<ProductContentVariantDto> UpdateVariantAsync(
+        Guid variantId,
+        UpsertContentVariantCommand command,
+        string expectedCanonicalSelectionJson,
+        CancellationToken ct = default);
 
     /// <summary>Soft-retire (V-C5) — the row remains for history and reactivation.</summary>
     Task DeactivateVariantAsync(Guid variantId, CancellationToken ct = default);

@@ -46,10 +46,21 @@ public record ProductContentDto(
     NutritionDto Nutrition,
     string? Ingredients,
     string? Allergens,
-    IReadOnlyList<HeatingStepDto> Heating,
+    /// <summary>Null when the stored JSON cannot be parsed — legacy damage, which the resolver
+    /// WITHHOLDS rather than presenting as an authored "no heating required". The admin read
+    /// reported it as an empty panel, so the two surfaces described the same row differently
+    /// and an operator had no way to see that customers were being shown nothing.</summary>
+    IReadOnlyList<HeatingStepDto>? Heating,
     string DescribesSelectionJson,
     bool RequiresReview,
-    int ContentVersion);
+    int ContentVersion,
+    /// <summary>A token over the AUTHORED fields, for optimistic concurrency on the block.
+    ///
+    /// <see cref="ContentVersion"/> cannot serve: the content write pipeline is shared, so any
+    /// variant create/edit/retire bumps it while the block's own text is untouched — versioning
+    /// the row fabricates conflicts for unrelated writes. This changes when, and only when,
+    /// something a person authored on the block changes.</summary>
+    string BlockSignature);
 
 public record ProductContentVariantDto(
     Guid Id,
@@ -105,7 +116,11 @@ public record UpsertContentVariantCommand(
 public record AdminProductContentDto(
     ProductContentDto? Block,
     bool IsStale,
-    IReadOnlyList<ProductContentVariantDto> Variants);
+    IReadOnlyList<ProductContentVariantDto> Variants,
+    /// <summary>The all-defaults binding as of this read — the standard preparation the block
+    /// WOULD be bound to if the review were confirmed now. Echoed back on confirm so the server
+    /// can refuse a confirmation of a preparation the operator never saw.</summary>
+    string CurrentDefaultsSelectionJson);
 
 /// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).
 /// Block EXISTENCE is not publication: a block with every figure null serves no
@@ -137,3 +152,20 @@ public record ContentCoverageEntryDto(Guid VariantId, string SelectionJson, bool
 /// <summary>One offered non-default choice substituted alone into the standard selection, with
 /// no variant authored for the resulting combination.</summary>
 public record ContentCoverageGapDto(string GroupKey, string ChoiceKey, string SelectionJson);
+
+/// <summary>What a BLOCK write asserts about the world it was authored against (Spec 075).
+///
+/// Both are enforced inside the serialized write, because both describe a read-to-write window
+/// no client-side check can close: whatever the editor verified before sending, the losing side
+/// of a race still arrives at a service that would happily apply it.</summary>
+/// <param name="ExpectedDefaultsSelectionJson">The standard preparation the operator authored
+/// against, from <c>GetAdminAsync</c>. Content is bound to a preparation, so a default that
+/// moved in between means these figures and declarations would publish against one nobody
+/// wrote them for (V-C9).</param>
+/// <param name="ExpectedBlockSignature">The block's authored-field token, or NULL asserting
+/// that no block existed. The upsert is a FULL REPLACE, so a concurrent edit that this write
+/// then overwrites silently erases the other operator's text — a corrected allergen declaration
+/// among it (V-C10).</param>
+public record BlockWritePrecondition(
+    string ExpectedDefaultsSelectionJson,
+    string? ExpectedBlockSignature);

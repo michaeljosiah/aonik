@@ -13,11 +13,16 @@ import type {
   ContentStatusRowDto,
   ProductContentDto,
   ProductContentVariantDto,
+  ResolvedContentDto,
 } from '@/types/commerce';
 import { normalizeCommercePage } from '@/types/commerce';
 
 /** Upsert of the default block. Null figures mean "not published", never zero. */
 export interface UpsertProductContentRequest {
+  /** The standard preparation this content was authored against (V-C9), from the admin read. */
+  expectedDefaultsSelectionJson: string;
+  /** The block this replaces, or null ASSERTING there was none (V-C10) — not an opt-out. */
+  expectedBlockSignature: string | null;
   servingLabel: string;
   kcal?: number | null;
   proteinGrams?: number | null;
@@ -37,6 +42,22 @@ export interface UpsertProductContentRequest {
  * WITHHELD for this combination, never inherited.
  */
 export interface UpsertContentVariantRequest {
+  /**
+   * The offer this combination was composed against, as its all-defaults binding (V-C9).
+   *
+   * Required, and not the same assertion as the one below: a NEW combination's canonical form
+   * cannot be predicted here, so it cannot name where it will land. A group added underneath
+   * changes this binding, which is what makes the absence detectable.
+   */
+  expectedDefaultsSelectionJson: string;
+  /**
+   * The combination this content is authored FOR (V-C11).
+   *
+   * Null only while composing a genuinely new one, where a partial selection completed by
+   * server normalisation is the intent. A prefill — a coverage gap, a retired variant being
+   * revived — came from the server complete and is a promise about identity.
+   */
+  expectedCanonicalSelectionJson?: string | null;
   selectionJson: string;
   servingLabel: string;
   kcal?: number | null;
@@ -68,8 +89,20 @@ export const commerceContentService = {
     api.put<ProductContentDto>(`/commerce/admin/products/${productId}/content`, data),
 
   /** Clears RequiresReview after a human confirms the block still describes the new default. */
-  confirmReview: async (productId: string): Promise<ProductContentDto> =>
-    api.post<ProductContentDto>(`/commerce/admin/products/${productId}/content/confirm-review`),
+  /**
+   * The reviewed standard preparation travels with the request.
+   *
+   * Confirming asserts the block still describes the preparation a PERSON looked at. The server
+   * binds to the defaults current at commit, which is not the same thing — so it refuses (V-C9)
+   * when they have moved since the read this value came from.
+   */
+  confirmReview: async (
+    productId: string,
+    expectedDefaultsSelectionJson: string,
+  ): Promise<ProductContentDto> =>
+    api.post<ProductContentDto>(`/commerce/admin/products/${productId}/content/confirm-review`, {
+      expectedDefaultsSelectionJson,
+    }),
 
   upsertVariant: async (productId: string, data: UpsertContentVariantRequest): Promise<ProductContentVariantDto> =>
     api.post<ProductContentVariantDto>(`/commerce/admin/products/${productId}/content-variants`, data),
@@ -79,6 +112,20 @@ export const commerceContentService = {
 
   deleteVariant: async (variantId: string): Promise<void> =>
     api.delete<void>(`/commerce/admin/content-variants/${variantId}`),
+
+  /**
+   * The §5 RESOLUTION for a selection — what a customer actually receives.
+   *
+   * Deliberately the public catalog route: the admin product detail composes no content
+   * (CatalogDtos.cs:71-76 — "content has its own admin reads"), so reading `content` off it
+   * always yields null. Omitting `selection` resolves the STANDARD preparation, which is what
+   * the workbench previews.
+   */
+  resolveContent: async (slug: string, selectionJson?: string): Promise<ResolvedContentDto> =>
+    api.get<ResolvedContentDto>(
+      `/commerce/catalog/products/${encodeURIComponent(slug)}/content` +
+        (selectionJson ? `?selection=${encodeURIComponent(selectionJson)}` : ''),
+    ),
 
   /** Authored combinations + single-choice-deviation gaps — bounded, never combinatorial. */
   getCoverage: async (productId: string): Promise<ContentCoverageDto> =>
