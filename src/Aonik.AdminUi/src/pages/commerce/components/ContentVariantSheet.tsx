@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
+import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceContentService } from '@/services/commerceContentService';
 import type { EffectiveOptionGroupDto, ProductContentVariantDto } from '@/types/commerce';
 
@@ -60,7 +61,7 @@ interface ContentVariantSheetProps {
 
 export function ContentVariantSheet({
   productId,
-  groups,
+  groups: initialGroups,
   variant,
   initialSelectionJson,
   onClose,
@@ -77,6 +78,16 @@ export function ContentVariantSheet({
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [baseline, setBaseline] = useState<ProductContentVariantDto | null>(variant);
+  /**
+   * The offer the CHIPS are drawn from, seeded by the page and replaced by the fresh read the
+   * save performs.
+   *
+   * Refusing a save because the product gained a group, while still drawing the chips from the
+   * snapshot that predates it, would be a dead end: the operator would be told to pick
+   * something the sheet does not show. Adopting the fresh offer makes the refusal actionable on
+   * the paths where the selection is still editable.
+   */
+  const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>(initialGroups);
 
   // The sheet stays mounted after a conflict, so nothing re-initialises on its own. Without
   // this the operator was left with Save disabled over stale state and no way forward except
@@ -145,26 +156,55 @@ export function ContentVariantSheet({
     //
     // Applies to REVIVE as well as edit: a retired variant re-authored through
     // `initialSelectionJson` has no baseline, and that is the path where a bad save SUCCEEDS.
-    //
-    // `storedIsCanonical` only when EDITING: the selection then came back from the server
-    // complete, so a group it does not name is one the product gained afterwards — the one drift
-    // that is an absence rather than a value, and the one the operator cannot correct here,
-    // because editing an existing variant locks the selection controls. While composing a new
-    // combination a partial selection is the intended input and absence means nothing.
-    const drift = detectSelectionDrift(selection, groups, { storedIsCanonical: !!variant });
-    if (hasDrift(drift)) {
-      setError(
-        `This combination can no longer be expressed against what the product offers — ` +
-          `${describeDrift(drift)}. Saving would move it onto a different combination, so it ` +
-          'cannot be edited. Retire it and author the combination you want instead.',
-      );
-      return;
-    }
-
     setSaving(true);
     setError(null);
     setConflict(false);
     try {
+      // The OFFER is re-read here, not taken from the page-load snapshot this sheet was given.
+      // Whether a save lands on the combination it names is decided by the offer at write time,
+      // and an option write by another operator changes that without touching anything this
+      // sheet versions. Serialisation uses the fresh offer for the same reason: shaping a
+      // payload against a snapshot is how it stops matching.
+      let offer: EffectiveOptionGroupDto[];
+      try {
+        const product = await commerceCatalogService.getProduct(productId);
+        offer = product.effectiveOptionGroups ?? [];
+      } catch {
+        // Fails CLOSED. An unread offer is not an unchanged one, and the whole point of the
+        // check is that a moved offer is invisible in everything else the save can see.
+        setError(
+          'The product’s current options could not be read, so this cannot be saved safely — ' +
+            'the combination it would land on cannot be confirmed. Try again.',
+        );
+        setSaving(false);
+        return;
+      }
+
+      // DRIFT — three ways a stored selection can stop being expressible (removed group,
+      // withdrawn choice, changed shape) plus one that is an ABSENCE: a group the product has
+      // gained, which server normalisation fills with its default.
+      //
+      // `storedIsCanonical` covers every selection that came FROM the server, not only the
+      // editing path. A retired variant revived through `initialSelectionJson` is server-stored
+      // and complete, and the sheet presents it as a specific combination — the prefill is a
+      // promise about identity, and a save that quietly lands elsewhere breaks it just as badly
+      // as one from the edit path. Only a blank start is genuinely partial: nothing has been
+      // promised there, so letting the server complete it is the intent.
+      setGroups(offer);
+      const drift = detectSelectionDrift(selection, offer, {
+        storedIsCanonical: !!variant || !!initialSelectionJson,
+      });
+      if (hasDrift(drift)) {
+        setConflict(true);
+        setError(
+          `This combination can no longer be expressed against what the product offers — ` +
+            `${describeDrift(drift)}. Saving would move it onto a different combination, so it ` +
+            'cannot be saved as it stands.',
+        );
+        setSaving(false);
+        return;
+      }
+
       if (baseline) {
         // The update is a FULL REPLACE and the service reloads the row inside its serialized
         // attempt, so serialization only ORDERS two saves — it does not detect that the second
@@ -193,7 +233,7 @@ export function ContentVariantSheet({
       const payload = {
         // Possibly PARTIAL, and shaped per group mode. The service normalises through Spec 066
         // and stores the complete canonical selection.
-        selectionJson: serialiseSelection(selection, groups),
+        selectionJson: serialiseSelection(selection, offer),
         ...wireFromDraft(draft),
       };
       if (baseline) await commerceContentService.updateVariant(baseline.id, payload);

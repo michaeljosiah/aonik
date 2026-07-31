@@ -764,6 +764,7 @@ export function ProductContentPage() {
           productId={selectedId}
           productName={selectedRow.name}
           block={content?.block ?? null}
+          groups={groups}
           onClose={() => setEditingBlock(false)}
           onSaved={() => {
             void loadRows();

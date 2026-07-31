@@ -20,10 +20,12 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
+import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceContentService } from '@/services/commerceContentService';
-import type { ProductContentDto } from '@/types/commerce';
+import type { EffectiveOptionGroupDto, ProductContentDto } from '@/types/commerce';
 
 import { ContentFields } from './ContentFields';
+import { defaultSignature } from '../lib/offerSignature';
 import {
   draftFromBlock,
   validateDraft,
@@ -35,6 +37,7 @@ export function ContentBlockSheet({
   productId,
   productName,
   block,
+  groups,
   onClose,
   onSaved,
 }: {
@@ -42,6 +45,8 @@ export function ContentBlockSheet({
   productName: string;
   /** Null when authoring the first block for this product. */
   block: ProductContentDto | null;
+  /** The product's effective offer as the page last read it — see `openDefault`. */
+  groups: EffectiveOptionGroupDto[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -49,6 +54,18 @@ export function ContentBlockSheet({
   // passed in and is REPLACED by a conflict reload, so the version comparison below always
   // refers to what the operator can currently see.
   const [baseline, setBaseline] = useState<ProductContentDto | null>(block);
+  /**
+   * The default combination as it stood when this sheet opened — the preparation the operator
+   * believes they are describing.
+   *
+   * `contentVersion` versions the block ROW, and the preparation it describes is not part of
+   * that row: another operator changing the effective default moves what these figures will be
+   * published against without touching anything the version comparison can see. When no block
+   * exists yet there is no row to version at all, so the comparison passes unconditionally and
+   * the first-authoring path — the one where every field is being written from scratch — was
+   * the least guarded of the two.
+   */
+  const [openDefault] = useState(() => defaultSignature(groups));
   const [draft, setDraft] = useState<ContentDraft>(() => draftFromBlock(block));
   const [saving, setSaving] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -93,6 +110,31 @@ export function ContentBlockSheet({
       // Residual, stated rather than hidden: this is read-then-write, so an edit landing
       // inside the remaining window still wins. Closing that needs the upsert to accept the
       // contentVersion it was based on.
+      // Fails CLOSED on an unreadable offer, for the same reason the variant sheet does: an
+      // unread offer is not an unchanged one.
+      let currentDefault: string;
+      try {
+        const product = await commerceCatalogService.getProduct(productId);
+        currentDefault = defaultSignature(product.effectiveOptionGroups ?? []);
+      } catch {
+        setError(
+          'The product’s current options could not be read, so this cannot be saved safely — ' +
+            'the preparation these figures would describe cannot be confirmed. Try again.',
+        );
+        setSaving(false);
+        return;
+      }
+      if (currentDefault !== openDefault) {
+        setConflict(true);
+        setError(
+          'Someone else changed this product’s default combination while this was open, so ' +
+            'these figures would be published against a different preparation than the one ' +
+            'they were written for. Reload before saving.',
+        );
+        setSaving(false);
+        return;
+      }
+
       const fresh = await commerceContentService.getAdminContent(productId);
       if (baseline && fresh.block && fresh.block.contentVersion !== baseline.contentVersion) {
         setConflict(true);
