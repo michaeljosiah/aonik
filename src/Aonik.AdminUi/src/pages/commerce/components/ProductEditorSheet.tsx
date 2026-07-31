@@ -59,9 +59,12 @@ export function ProductEditorSheet({
   const [surchargeAmount, setSurchargeAmount] = useState('');
   const [surchargeCurrency, setSurchargeCurrency] = useState('');
   const [originalSurcharge, setOriginalSurcharge] = useState({ amount: '', currency: '' });
-  // The storefront's canonical quote currency. Null when the config read failed — the one
-  // case where the surcharge currency cannot be constrained, because we do not know to what.
+  // The storefront's canonical quote currency, and whether we know it yet. Without it a
+  // surcharge cannot be edited at all: the write path checks only shape, so an unconstrained
+  // currency saves and then fails quoting (V10). "Loading" is tracked separately from
+  // "failed" so a slow config read does not flash the surcharge card as unavailable.
   const [storefrontCurrency, setStorefrontCurrency] = useState<string | null>(null);
+  const [currencyKnown, setCurrencyKnown] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,19 +113,30 @@ export function ProductEditorSheet({
     commerceStorefrontService
       .getPublicStorefrontConfig()
       .then((config) => {
-        if (cancelled || !config.currency) return;
+        if (cancelled) return;
+        if (!config.currency) {
+          setCurrencyKnown('failed');
+          return;
+        }
         setStorefrontCurrency(config.currency);
-        // Never overwrites a currency the product already carries — a legacy mismatch is
-        // shown as-is so the operator can see and correct it.
-        setSurchargeCurrency((current) => current || config.currency);
+        setCurrencyKnown('ready');
       })
       .catch(() => {
-        /* unknown canonical currency — the field stays free text and the server has the say */
+        // Not knowing the canonical currency closes surcharge editing rather than falling
+        // back to unchecked input — an unconstrained currency is exactly the bug this
+        // control exists to prevent.
+        if (!cancelled) setCurrencyKnown('failed');
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // ONE expression for what the operator sees and what gets saved. Seeding the state instead
+  // races the product read: whichever request lands second wins, so the config could seed the
+  // currency and `load` then blank it — leaving the select showing a currency while the save
+  // reported one missing.
+  const effectiveSurchargeCurrency = surchargeCurrency || storefrontCurrency || '';
 
   const handleSave = async () => {
     if (!form || !original) return;
@@ -139,11 +153,11 @@ export function ProductEditorSheet({
       }
     }
 
-    const draft = { amount: surchargeAmount, currency: surchargeCurrency };
+    const draft = { amount: surchargeAmount, currency: effectiveSurchargeCurrency };
     const surchargeTouched = isSurchargeDirty(originalSurcharge, draft);
     const { amount: parsedAmount, currency: parsedCurrency } = surchargePayload(
       surchargeAmount,
-      surchargeCurrency,
+      effectiveSurchargeCurrency,
     );
     if (surchargeTouched && parsedAmount !== null && !Number.isFinite(parsedAmount)) {
       setError('Surcharge amount must be a number.');
@@ -158,6 +172,18 @@ export function ProductEditorSheet({
     // The surcharge endpoint accepts any three-letter code, but quoting (V10) rejects one
     // that differs from the storefront currency — so a mismatch saves cleanly and then breaks
     // this product's selection quotes and checkout pricing. Caught here, while it is an edit.
+    //
+    // Not knowing the canonical currency BLOCKS the write rather than waving it through: an
+    // unverifiable currency is the same defect as a wrong one. Clearing stays allowed, since
+    // it sends no currency at all and cannot mis-denominate anything.
+    if (surchargeTouched && parsedAmount !== null && !storefrontCurrency) {
+      setError(
+        'The storefront currency could not be read, so a surcharge cannot be set right now — ' +
+          'it would save unverified and then fail quoting. Reopen the product to retry.',
+      );
+      setActiveTab('storefront');
+      return;
+    }
     if (
       surchargeTouched &&
       parsedAmount !== null &&
@@ -292,8 +318,9 @@ export function ProductEditorSheet({
                   form={form}
                   onChange={(patch) => setForm({ ...form, ...patch })}
                   surchargeAmount={surchargeAmount}
-                  surchargeCurrency={surchargeCurrency}
+                  surchargeCurrency={effectiveSurchargeCurrency}
                   storefrontCurrency={storefrontCurrency}
+                  currencyKnown={currencyKnown}
                   onSurchargeChange={(next) => {
                     if (next.amount !== undefined) setSurchargeAmount(next.amount);
                     if (next.currency !== undefined) setSurchargeCurrency(next.currency);

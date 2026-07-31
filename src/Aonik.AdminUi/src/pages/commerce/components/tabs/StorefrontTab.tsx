@@ -32,8 +32,10 @@ interface StorefrontTabProps {
   /** Surcharge is its own endpoint, not part of the product PATCH. */
   surchargeAmount: string;
   surchargeCurrency: string;
-  /** The storefront's canonical quote currency; null when the config read failed. */
+  /** The storefront's canonical quote currency; null until it is known. */
   storefrontCurrency: string | null;
+  /** Whether that currency is known yet — a surcharge cannot be authored without it. */
+  currencyKnown: 'loading' | 'ready' | 'failed';
   onSurchargeChange: (next: { amount?: string; currency?: string }) => void;
 }
 
@@ -45,6 +47,7 @@ export function StorefrontTab({
   surchargeAmount,
   surchargeCurrency,
   storefrontCurrency,
+  currencyKnown,
   onSurchargeChange,
 }: StorefrontTabProps) {
   // A stored currency that is not the storefront's is a real state the operator must be able
@@ -182,6 +185,13 @@ export function StorefrontTab({
       </AonikCard>
 
       <AonikCard title="Unit surcharge" padding={12}>
+        {currencyKnown === 'failed' && (
+          <p className="mb-2 text-[11px] text-[var(--color-error)]">
+            The storefront currency could not be read, so a surcharge cannot be authored here.
+            An amount saved without a verified currency would fail quoting for this product.
+            Reopen the product to retry.
+          </p>
+        )}
         <div className="flex gap-3">
           <Field label="Amount" className="flex-1">
             <input
@@ -189,30 +199,28 @@ export function StorefrontTab({
               onChange={(e) => onSurchargeChange({ amount: e.target.value })}
               inputMode="decimal"
               placeholder="None"
-              className={inputClass}
+              // Editing is closed until the canonical currency is known: without it, an
+              // amount saves unverified and then breaks this product's quotes.
+              disabled={currencyKnown !== 'ready'}
+              className={`${inputClass} disabled:opacity-50`}
             />
           </Field>
           <Field label="Currency" className="w-[140px]">
-            {storefrontCurrency ? (
-              // A CHOICE, not free text: the endpoint takes any three-letter code, but quoting
-              // rejects anything other than the storefront currency, so typing one saves fine
-              // and then breaks this product's checkout pricing.
-              <select
-                value={surchargeCurrency || storefrontCurrency}
-                onChange={(e) => onSurchargeChange({ currency: e.target.value })}
-                className={`${inputClass} font-[family-name:var(--font-mono)]`}
-              >
-                <option value={storefrontCurrency}>{storefrontCurrency}</option>
-                {currencyMismatch && <option value={surchargeCurrency}>{surchargeCurrency}</option>}
-              </select>
-            ) : (
-              <input
-                value={surchargeCurrency}
-                onChange={(e) => onSurchargeChange({ currency: e.target.value.toUpperCase() })}
-                maxLength={3}
-                className={`${inputClass} font-[family-name:var(--font-mono)]`}
-              />
-            )}
+            {/* A CHOICE, never free text: the endpoint takes any three-letter code, but
+                quoting rejects anything other than the storefront currency, so a typed one
+                saves fine and then breaks this product's checkout pricing. With no canonical
+                currency there is nothing to choose from, so the control is empty and closed
+                rather than open and unchecked. */}
+            <select
+              value={surchargeCurrency}
+              onChange={(e) => onSurchargeChange({ currency: e.target.value })}
+              disabled={currencyKnown !== 'ready'}
+              className={`${inputClass} font-[family-name:var(--font-mono)] disabled:opacity-50`}
+            >
+              {!storefrontCurrency && <option value="">—</option>}
+              {storefrontCurrency && <option value={storefrontCurrency}>{storefrontCurrency}</option>}
+              {currencyMismatch && <option value={surchargeCurrency}>{surchargeCurrency}</option>}
+            </select>
           </Field>
         </div>
         {currencyMismatch && (
