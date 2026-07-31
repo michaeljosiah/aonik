@@ -16,7 +16,12 @@ public record CreateInvoiceRequest(
     /// type through this link, and invoice idempotency (§8) keys on it. Before this existed the
     /// column was never written, so both were unimplementable.
     /// </summary>
-    Guid? OrderId = null);
+    Guid? OrderId = null,
+    /// <summary>
+    /// Optional idempotency key (Spec 088 §8). Unique per tenant when present; re-issuing the same
+    /// key returns the original invoice instead of creating a second.
+    /// </summary>
+    string? IdempotencyKey = null);
 
 public record CreateInvoiceLineItemRequest(
     string Description,

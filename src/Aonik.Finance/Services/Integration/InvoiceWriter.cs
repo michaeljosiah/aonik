@@ -29,7 +29,8 @@ internal sealed class InvoiceWriter : IInvoiceWriter
             // Spec 088 §7. Until now OrderId reached this method and was used only to derive an
             // invoice number, so the link itself was never persisted — leaving settlement routing
             // (§9) with no order to read a type from.
-            OrderId: command.OrderId);
+            OrderId: command.OrderId,
+            IdempotencyKey: command.IdempotencyKey);
 
         var response = await _billing.CreateInvoiceAsync(request, cancellationToken);
         return new InvoiceRef(response.Id, response.InvoiceNumber, response.TotalAmount, response.Currency);

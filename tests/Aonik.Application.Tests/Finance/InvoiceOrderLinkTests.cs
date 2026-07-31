@@ -14,8 +14,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Aonik.Application.Tests.Finance;
 
 /// <summary>
-/// Spec 088 P2 acceptance: an order-backed invoice persists its link; a standalone invoice still
-/// persists null.
+/// Spec 088 P2/P3 acceptance: an order-backed invoice persists its link, a standalone invoice
+/// still persists null, and a repeated idempotency key returns the original invoice rather than
+/// billing the customer twice.
 ///
 /// The link was silently dropped before this. <c>InvoiceWriter</c> used <c>command.OrderId</c>
 /// only to derive an invoice number, and <c>CreateInvoiceRequest</c> had no field to carry it, so
@@ -69,14 +70,15 @@ public class InvoiceOrderLinkTests
         return (service, context);
     }
 
-    private static CreateInvoiceRequest Request(Guid? orderId) =>
+    private static CreateInvoiceRequest Request(Guid? orderId, string? idempotencyKey = null) =>
         new(
             CustomerId: Guid.NewGuid(),
             InvoiceNumber: "INV-TEST",
             Currency: "GBP",
             DueUtc: new DateTime(2026, 8, 31, 0, 0, 0, DateTimeKind.Utc),
             LineItems: [new CreateInvoiceLineItemRequest("Family plan, August", 1, 19.99m)],
-            OrderId: orderId);
+            OrderId: orderId,
+            IdempotencyKey: idempotencyKey);
 
     [Fact]
     public async Task CreateInvoiceAsync_Should_PersistTheOrderLink_When_OneIsSupplied()
@@ -136,5 +138,34 @@ public class InvoiceOrderLinkTests
 
         var persisted = await db.Invoices.AsNoTracking().FirstAsync(i => i.Id == reference.InvoiceId);
         persisted.OrderId.Should().Be(orderId);
+    }
+
+    [Fact]
+    public async Task CreateInvoiceAsync_Should_ReturnTheOriginal_When_TheIdempotencyKeyRepeats()
+    {
+        var (service, db) = CreateService();
+        var orderId = Guid.NewGuid();
+
+        var first = await service.CreateInvoiceAsync(Request(orderId, "sub:1:period:7"));
+        var second = await service.CreateInvoiceAsync(Request(orderId, "sub:1:period:7"));
+
+        // A renewal job that dies after raising the invoice but before recording its id retries.
+        // Returning the original is what stops it billing the customer a second time; the filtered
+        // unique index is the backstop for the concurrent case (covered on LocalDB).
+        second.Id.Should().Be(first.Id);
+        (await db.Invoices.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateInvoiceAsync_Should_TreatKeylessRequests_AsDistinct()
+    {
+        var (service, db) = CreateService();
+
+        await service.CreateInvoiceAsync(Request(Guid.NewGuid()));
+        await service.CreateInvoiceAsync(Request(Guid.NewGuid()));
+
+        // Idempotency is opt-in: a caller that supplies no key gets no deduplication, which is how
+        // every existing call site continues to behave.
+        (await db.Invoices.CountAsync()).Should().Be(2);
     }
 }

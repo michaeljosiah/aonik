@@ -37,6 +37,22 @@ internal class BillingService : FinanceServiceBase, IBillingService
         await EnsurePermissionAsync("Invoice.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        // Spec 088 §8 - return the original rather than billing the customer a second time. The
+        // filtered unique index is the authority and catches the concurrent race; this check turns
+        // the ordinary retry into a clean answer instead of a constraint violation.
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            var existing = await _dbContext.Invoices
+                .Include(i => i.Lines)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    i => i.TenantId == tenantId && i.IdempotencyKey == request.IdempotencyKey,
+                    cancellationToken);
+
+            if (existing is not null)
+                return MapToResponse(existing);
+        }
+
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
@@ -44,6 +60,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             // Spec 088 §7 - previously never written, which left settlement routing with no
             // order to read a type from and invoice idempotency with nothing to key on.
             OrderId = request.OrderId,
+            IdempotencyKey = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? null : request.IdempotencyKey,
             CustomerAccountId = request.CustomerId,
             IssueDate = DateTime.UtcNow,
             DueDate = request.DueUtc,

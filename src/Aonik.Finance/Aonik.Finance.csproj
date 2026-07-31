@@ -23,6 +23,8 @@
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <!-- Spec 088 §8: the filtered unique indexes can only be verified against a real engine. -->
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
   </ItemGroup>
 
   <ItemGroup>

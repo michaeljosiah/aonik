@@ -17,6 +17,15 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     public Guid? PayerPartyId { get; set; }
     public Guid? PayeePartyId { get; set; }
     public Guid OrderId { get; set; }
+
+    /// <summary>
+    /// Caller-supplied idempotency key (Spec 088 §8). Unique per tenant when present.
+    ///
+    /// Deliberately the ONLY uniqueness on an intent: several intents per order are legitimate and
+    /// required — an abandoned checkout, a switched payment method, a retried decline — so
+    /// constraining by order would break the public checkout for every product on the platform.
+    /// </summary>
+    public string? IdempotencyKey { get; set; }
     public Guid? InvoiceId { get; set; }
     public string PurposeType { get; set; } = string.Empty;
     public Guid PurposeId { get; set; }

@@ -58,6 +58,17 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         builder.HasIndex(x => new { x.TenantId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.PayerPartyId });
         builder.HasIndex(x => new { x.TenantId, x.OrderId });
+
+        // Spec 088 §8 - idempotency comes from the KEY, never from forbidding retries.
+        // There is deliberately NO unique index on (TenantId, OrderId): PublicPaymentService
+        // permits an order already in PendingFunding and adds another intent, which is what an
+        // abandoned checkout, a switched payment method or a retried decline needs. Filtered
+        // because every intent written before this phase has a null key.
+        builder.Property(x => x.IdempotencyKey).HasMaxLength(200);
+
+        builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.InvoiceId });
         builder.HasIndex(x => new { x.TenantId, x.ClientReference });
         builder.HasIndex(x => new { x.TenantId, x.ProviderReference });
