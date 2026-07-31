@@ -471,6 +471,7 @@ export function PersonalisationPage() {
         <GroupEditorSheet
           key={editingGroup.id}
           group={editingGroup}
+          storefrontCurrency={storefrontCurrency}
           onClose={() => setEditingGroup(null)}
           onSaved={() => void loadData()}
         />
@@ -639,7 +640,12 @@ function ChoicesCard({
                   </td>
                   <td className="px-3 py-2">
                     <span className="flex justify-end gap-2.5">
-                      {!isDefault && choice.isActive && (
+                      {/* Not offered while the GROUP is inactive: the move succeeds but stages
+                          no content review, because the group is absent from every effective
+                          selection — while the API can still return inheriting slugs, so the
+                          consequence dialog would claim those products' standard preparations
+                          changed when nothing of the kind happened. */}
+                      {!isDefault && choice.isActive && group.isActive && (
                         <button
                           type="button"
                           onClick={() => onMoveDefault(choice)}
@@ -671,6 +677,12 @@ function ChoicesCard({
         </table>
       </div>
 
+      {!group.isActive && (
+        <p className="border-t border-[var(--color-border-light)] px-3 py-2 text-[11px] text-[var(--color-warning)]">
+          This group is retired, so it appears on no storefront. Defaults cannot be moved while
+          it is inactive — the move would change nothing customers can see.
+        </p>
+      )}
       <p className="border-t border-[var(--color-border-light)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
         Stored prices are absolute (Spec 066 §8) — the figures above are differences against{' '}
         {baseline ? baseline.label : 'the default'}, derived, never authored.

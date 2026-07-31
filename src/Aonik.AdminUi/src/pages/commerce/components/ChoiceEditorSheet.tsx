@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
+
+import { validateSurchargeAmount } from '../lib/productForm';
 import type { OptionChoiceDto, OptionGroupDto } from '@/types/commerce';
 
 import { choiceDelta, effectiveDefaultChoice } from '../lib/optionPricing';
@@ -62,8 +64,13 @@ export function ChoiceEditorSheet({
       setError('Enter the absolute price. Clearing the field is not the same as pricing it at zero.');
       return;
     }
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      setError('The price must be a number and cannot be negative.');
+    // Same rule as the product surcharge (Spec 082): shape, sign, SCALE and width, decided on
+    // the text. OptionChoice.Price is decimal(19,4), so a fifth decimal is not rejected by the
+    // database — it is rounded, and the sheet would report success for one amount while a
+    // reload showed another.
+    const priceError = validateSurchargeAmount(price);
+    if (priceError) {
+      setError(priceError);
       return;
     }
     setSaving(true);

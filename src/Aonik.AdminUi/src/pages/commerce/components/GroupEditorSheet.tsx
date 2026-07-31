@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/layout/aonik';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
+
+import { validateSurchargeAmount } from '../lib/productForm';
 import type { OptionGroupDto } from '@/types/commerce';
 
 import { SELECTION_MODES } from './selectionModes';
@@ -27,10 +29,13 @@ const CHOICE_KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 export function GroupEditorSheet({
   group,
+  storefrontCurrency,
   onClose,
   onSaved,
 }: {
   group: OptionGroupDto;
+  /** For the reactivation guard; null when the storefront config could not be read. */
+  storefrontCurrency: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -78,7 +83,22 @@ export function GroupEditorSheet({
     }
   };
 
+  // Reactivating a mismatched group re-exposes it on every product that still narrows to it,
+  // and every selection those products take then fails V10 because nothing converts. Same
+  // rule as the narrowing sheet's inclusion guard; retiring is always allowed.
+  const currencyBlocksReactivation =
+    !group.isActive && (storefrontCurrency === null || group.currency !== storefrontCurrency);
+
   const toggleRetired = async () => {
+    if (currencyBlocksReactivation) {
+      setError(
+        storefrontCurrency === null
+          ? 'The storefront currency could not be read, so this group cannot be reactivated yet.'
+          : `This group is priced in ${group.currency} but the storefront quotes in ${storefrontCurrency}. ` +
+            'Reactivating it would break quoting for every product that still offers it.',
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -113,11 +133,14 @@ export function GroupEditorSheet({
       setError('Enter the absolute price for this choice.');
       return;
     }
-    const price = Number(choicePrice);
-    if (!Number.isFinite(price) || price < 0) {
-      setError('The price must be a number and cannot be negative.');
+    // Shape, sign, scale and width, on the text — Price is decimal(19,4), so an over-precise
+    // amount is silently ROUNDED rather than refused.
+    const priceError = validateSurchargeAmount(choicePrice);
+    if (priceError) {
+      setError(priceError);
       return;
     }
+    const price = Number(choicePrice);
 
     setAddingChoice(true);
     setError(null);
@@ -251,7 +274,16 @@ export function GroupEditorSheet({
         </SheetBody>
 
         <SheetFooter>
-          <Button variant="outline" onClick={() => void toggleRetired()} disabled={busy}>
+          <Button
+            variant="outline"
+            onClick={() => void toggleRetired()}
+            disabled={busy || currencyBlocksReactivation}
+            title={
+              currencyBlocksReactivation
+                ? `Priced in ${group.currency}; the storefront quotes in ${storefrontCurrency ?? 'an unknown currency'}`
+                : undefined
+            }
+          >
             {group.isActive ? 'Retire group' : 'Reactivate group'}
           </Button>
           <Button variant="outline" onClick={onClose} disabled={busy}>

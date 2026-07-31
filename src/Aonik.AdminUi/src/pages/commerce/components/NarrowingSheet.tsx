@@ -20,7 +20,11 @@ import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService, type ProductOptionGroupLine } from '@/services/commerceCatalogService';
-import type { OptionGroupDto, ProductSummaryDto } from '@/types/commerce';
+import type {
+  OptionGroupDto,
+  ProductNarrowingLineDto,
+  ProductSummaryDto,
+} from '@/types/commerce';
 
 import { SignedAmount } from './SignedAmount';
 import { choiceDelta, effectiveDefaultChoice } from '../lib/optionPricing';
@@ -68,6 +72,8 @@ export function NarrowingSheet({
   // What the offer looked like when this sheet loaded. A save that would send an identical
   // payload skips the write entirely — see the comment at the replace.
   const [loadedSignature, setLoadedSignature] = useState<string | null>(null);
+  /** Survives the automatic reload that follows a partial save — see the save handler. */
+  const [stickyNotice, setStickyNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +88,10 @@ export function NarrowingSheet({
     generationRef.current = generation;
     const current = () => generationRef.current === generation;
     setLoading(true);
+    // `stickyNotice` is deliberately NOT cleared here: a partial save refreshes the parent,
+    // which rebinds this callback and reloads immediately, and clearing would erase the only
+    // message telling the operator that the option groups committed while the surcharge did
+    // not — leaving them at a freshly reset sheet with no sign anything happened.
     setError(null);
     try {
       // Narrowing AND detail: the raw lines carry the offer, the detail carries the surcharge
@@ -106,7 +116,8 @@ export function NarrowingSheet({
       }
       if (!current()) return;
       setDrafts(next);
-      setLoadedSignature(signatureOf(groups, next));
+      // Captured from the SERVER's own lines so the save-time comparison is like-for-like.
+      setLoadedSignature(signatureOfLines(lines));
       const initial = detail.unitSurcharge != null ? String(detail.unitSurcharge) : '';
       setAmount(initial);
       setOriginalAmount(initial);
@@ -146,8 +157,14 @@ export function NarrowingSheet({
       setError('The surcharge must be a number and cannot be negative.');
       return;
     }
+    // Compared NUMERICALLY, preserving null-vs-zero. Reformatting "1" to "1.00" is not an
+    // edit, and sending it would re-read the product after any concurrent change and restore
+    // the stale amount instead of conflicting with it.
+    const originalParsed = originalAmount.trim() === '' ? null : Number(originalAmount);
+    const surchargeChanged = parsedAmount !== originalParsed;
+
     const surchargeCurrency = storedCurrency ?? storefrontCurrency;
-    if (amount !== originalAmount && parsedAmount !== null && !surchargeCurrency) {
+    if (surchargeChanged && parsedAmount !== null && !surchargeCurrency) {
       setError('A surcharge needs a currency, and none is known for this product yet.');
       return;
     }
@@ -204,11 +221,26 @@ export function NarrowingSheet({
       // land and the surcharge fail, so the error names what already changed rather than
       // reporting a save that partly succeeded as a save that failed.
       if (offerChanged) {
+        // RE-READ before replacing. The signature check alone only protected no-op saves: an
+        // operator editing group B still sent the whole snapshot, reverting a concurrent edit
+        // to group A. The backend cannot detect that — it reads the product row when THIS
+        // request starts, so a payload built before the other write still looks current — so
+        // the staleness has to be established here, against what the server holds now.
+        const serverLines = await commerceCatalogService.getProductNarrowing(product.id);
+        if (signatureOfLines(serverLines) !== loadedSignature) {
+          setConflict(true);
+          setError(
+            'Someone else changed this product’s offer while this was open. Reload to see ' +
+              'their version before saving yours — saving now would replace it.',
+          );
+          setSaving(false);
+          return;
+        }
         await commerceCatalogService.setProductOptionGroups(product.id, lines);
         offerCommitted = true;
       }
 
-      if (amount !== originalAmount) {
+      if (surchargeChanged) {
         await commerceCatalogService.setUnitSurcharge(
           product.id,
           parsedAmount,
@@ -226,13 +258,17 @@ export function NarrowingSheet({
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409 || code === 'concurrency_conflict') setConflict(true);
       const message = readMessage(err) || 'The offer could not be saved.';
-      setError(
-        offerCommitted
-          ? `${message} The option groups were already saved; only the surcharge failed.`
-          : message,
-      );
-      // A committed offer means the list behind the sheet is stale even though this failed.
-      if (offerCommitted) onSaved();
+      if (offerCommitted) {
+        setStickyNotice(
+          `${message} The option groups WERE saved; only the surcharge failed, so the amount ` +
+            'shown below is the one still stored.',
+        );
+        // The list behind the sheet is stale even though this failed. The refresh rebinds and
+        // reloads this sheet, which is why the notice above is sticky rather than an error.
+        onSaved();
+      } else {
+        setError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -244,6 +280,20 @@ export function NarrowingSheet({
         <SheetHeader title={product.name} subtitle={`${product.slug} — what this product offers`} />
 
         <SheetBody>
+          {stickyNotice && (
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
+              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
+              <span className="flex-1">{stickyNotice}</span>
+              <button
+                type="button"
+                onClick={() => setStickyNotice(null)}
+                className="shrink-0 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
               <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
@@ -553,6 +603,22 @@ function GroupSection({
  * at load to tell a real edit from an untouched sheet — the sets are rebuilt on every change,
  * so reference equality says nothing.
  */
+/** The same signature shape, computed from raw server lines. */
+function signatureOfLines(lines: ProductNarrowingLineDto[]): string {
+  return lines
+    .map((line) =>
+      [
+        line.groupKey,
+        line.allowedChoiceKeys === null ? 'inherit' : [...line.allowedChoiceKeys].sort().join(','),
+        line.defaultChoiceKey ?? '',
+        line.selectionModeOverride ?? '',
+        line.sortOrder,
+      ].join('|'),
+    )
+    .sort()
+    .join('\n');
+}
+
 function signatureOf(groups: OptionGroupDto[], drafts: Map<string, GroupDraft>): string {
   return groups
     .filter((group) => drafts.get(group.key)?.included)
