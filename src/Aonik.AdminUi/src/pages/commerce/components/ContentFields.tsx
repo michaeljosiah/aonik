@@ -27,7 +27,12 @@ export function ContentFields({
   // heating entirely. The column is required, so "withheld" is not a state this form can write
   // back — whatever is saved becomes a claim. That makes replacing it a decision rather than a
   // consequence of editing a figure, which is what it silently was.
-  const unreadableHeating = draft.heatingUnreadable && draft.heating.length === 0;
+  // Matched to what validateDraft actually requires: a COMPLETED step. Keying the panel on row
+  // count would hide the acknowledgement the moment an empty row is added, while the save still
+  // demands it — a form asking for something it no longer shows.
+  const unreadableHeating =
+    draft.heatingUnreadable &&
+    draft.heating.filter((s) => s.method.trim() !== '' && s.body.trim() !== '').length === 0;
 
   const setStep = (index: number, patch: Partial<HeatingStep>) =>
     onChange({

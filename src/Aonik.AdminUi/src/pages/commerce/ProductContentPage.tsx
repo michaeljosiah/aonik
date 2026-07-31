@@ -145,7 +145,7 @@ export function ProductContentPage() {
     try {
       // Coverage and the product's effective offer are fetched for the SELECTED product only —
       // per-product reads for the whole rail would be a fan-out on every page load.
-      const [admin, cover, product, resolvedContent] = await Promise.all([
+      const [admin, cover, product] = await Promise.all([
         commerceContentService.getAdminContent(productId),
         commerceContentService.getCoverage(productId).then(
           (c) => ({ ok: true as const, coverage: c }),
@@ -158,25 +158,31 @@ export function ProductContentPage() {
           (p) => ({ ok: true as const, product: p }),
           () => ({ ok: false as const, product: null }),
         ),
-        // The RESOLUTION comes from the public catalog route, not the admin detail. The admin
-        // detail composes no content by contract, so reading `content` off it always yielded
-        // null — the previous fix silently never applied. A 404 here is the honest "no block
-        // authored" answer, not a failure.
-        // A 404 means "no block authored" ONLY for an active product: the endpoint 404s for a
-        // Draft or Archived product before it resolves anything at all, so reading that as
-        // "no content" would put an operator preparing a draft in front of the raw block while
-        // an exact variant is what would actually serve. Non-active products get an explicit
-        // not-resolvable state instead of a fabricated one.
-        slug && isActiveProduct
-          ? commerceContentService.resolveContent(slug).then(
+      ]);
+      if (detailRequestRef.current !== requestId) return;
+
+      // Status and slug come from the PRODUCT read, which is authoritative, not from the list
+      // row this load was called with. A row is a snapshot: another operator activating a
+      // product after it was read leaves the row saying Draft, and gating resolution on that
+      // shows the raw block under a "not active" notice while live customers are being served
+      // something else entirely — figures and allergens included. The row's values remain the
+      // fallback for when the product read itself failed.
+      const liveSlug = product.product?.slug ?? slug;
+      const liveIsActive = product.ok ? product.product?.status === 'Active' : isActiveProduct;
+
+      // Sequenced after the status is known rather than fired alongside it. The public route
+      // 404s for a non-active product before resolving anything, so asking without knowing is
+      // how a "not authored" answer gets fabricated for a product that simply was not live yet.
+      const resolvedContent =
+        liveSlug && liveIsActive
+          ? await commerceContentService.resolveContent(liveSlug).then(
               (r) => ({ ok: true as const, content: r, unresolvable: false }),
               (err: unknown) =>
                 httpStatus(err) === 404
                   ? { ok: true as const, content: null, unresolvable: false }
                   : { ok: false as const, content: null, unresolvable: false },
             )
-          : Promise.resolve({ ok: true as const, content: null, unresolvable: !isActiveProduct }),
-      ]);
+          : { ok: true as const, content: null, unresolvable: !liveIsActive };
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
       setCoverage(cover.coverage);

@@ -230,3 +230,26 @@ describe('withheld heating is not damage', () => {
     );
   });
 });
+
+describe('unreadable heating — what counts as deciding', () => {
+  const damaged = { ...block, heating: null } as ProductContentDto;
+
+  it('a BLANK added row does not satisfy the acknowledgement', () => {
+    // The row makes the array non-empty, but `heatingToWire` filters it out and sends null,
+    // which the block upsert converts to "[]" — publishing the exact panel this guard exists
+    // to make deliberate.
+    const draft = { ...draftFromBlock(damaged), heating: [{ method: '', body: '' }] };
+    expect(validateDraft(draft)).toMatch(/cannot be read/);
+    expect(wireFromDraft(draft).heatingJson).toBeNull();
+  });
+
+  it('a HALF-filled row does not satisfy it either', () => {
+    const draft = { ...draftFromBlock(damaged), heating: [{ method: 'Oven', body: '' }] };
+    expect(validateDraft(draft)).toMatch(/cannot be read/);
+  });
+
+  it('one completed step does', () => {
+    const draft = { ...draftFromBlock(damaged), heating: [{ method: 'Oven', body: '20 min' }] };
+    expect(validateDraft(draft)).toBeNull();
+  });
+});

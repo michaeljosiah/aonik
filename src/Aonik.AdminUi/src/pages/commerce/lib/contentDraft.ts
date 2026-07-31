@@ -109,7 +109,14 @@ export function draftFromVariant(variant: ProductContentVariantDto): ContentDraf
  * save would report success for a panel the store does not hold.
  */
 export function validateDraft(draft: ContentDraft): string | null {
-  if (draft.heatingUnreadable && draft.heating.length === 0 && !draft.heatingReplacementAccepted) {
+  // A COMPLETED step, not a row. Clicking "Add a step" and leaving it blank made the array
+  // non-empty while `heatingToWire` still filtered it out and sent null — which the block
+  // upsert converts to "[]", publishing the explicit empty panel this guard exists to make
+  // deliberate.
+  const authoredSteps = draft.heating.filter(
+    (step) => step.method.trim() !== '' && step.body.trim() !== '',
+  ).length;
+  if (draft.heatingUnreadable && authoredSteps === 0 && !draft.heatingReplacementAccepted) {
     return (
       'This product’s stored heating steps cannot be read, so customers are currently shown ' +
       'nothing for them. Saving would publish an explicit “no heating required” panel — enter ' +
