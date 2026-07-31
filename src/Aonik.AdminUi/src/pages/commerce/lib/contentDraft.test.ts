@@ -203,3 +203,30 @@ describe('unreadable heating', () => {
     expect(validateDraft(draft)).toBeNull();
   });
 });
+
+describe('withheld heating is not damage', () => {
+  it('does not warn about a VARIANT whose heating is null', () => {
+    // A variant's column is nullable, so null is an ordinary withheld panel that round-trips
+    // unchanged — warning about it blocked every unrelated edit behind a false claim of damage.
+    const draft = draftFromVariant({
+      id: 'v1',
+      productId: 'p1',
+      selectionJson: '{}',
+      servingLabel: 'Per 1',
+      nutrition: block.nutrition,
+      ingredients: null,
+      allergens: null,
+      heating: null,
+      isActive: true,
+    } as ProductContentVariantDto);
+    expect(draft.heatingUnreadable).toBe(false);
+    expect(validateDraft(draft)).toBeNull();
+    expect(wireFromDraft(draft).heatingJson).toBeNull();
+  });
+
+  it('still warns about a BLOCK whose heating is null, where the column is required', () => {
+    expect(draftFromBlock({ ...block, heating: null } as ProductContentDto).heatingUnreadable).toBe(
+      true,
+    );
+  });
+});

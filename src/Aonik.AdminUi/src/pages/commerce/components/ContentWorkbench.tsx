@@ -72,7 +72,12 @@ export function ContentWorkbench({
     allergens: block.allergens,
     declarationsWithheld: state === 'review',
     heating: block.heating,
-    heatingWithheld: state === 'review',
+    // `block.heating === null` is the admin read's word for "the stored JSON does not parse",
+    // which the resolver withholds. Deriving this from the review state alone made a healthy
+    // non-stale block with damaged heating claim customers see an explicitly empty panel —
+    // stating the opposite of what they actually get, on the two paths where there is no
+    // resolution to correct it: a Draft or Archived product, and a failed resolution read.
+    heatingWithheld: state === 'review' || block.heating === null,
     isStandardPreparation: true,
     isStale: state === 'review',
     matchedVariantSelectionJson: null,

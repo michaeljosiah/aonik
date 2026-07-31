@@ -70,6 +70,16 @@ function draftFrom(
   source: Pick<ProductContentDto, 'servingLabel' | 'nutrition' | 'ingredients' | 'allergens'> & {
     heating: ProductContentDto['heating'] | null;
   },
+  /**
+   * Null heating means UNREADABLE only for the block.
+   *
+   * The two rows do not represent the same thing with the same value: a variant's HeatingJson
+   * is nullable, so null there is an ordinary withheld panel that `wireFromDraft` sends back
+   * unchanged. The block's column is required, so null can only have come from a parse failure.
+   * Sharing the mapper without sharing this distinction turned every withheld variant into a
+   * warning about damage that does not exist, blocking unrelated edits behind it.
+   */
+  nullHeatingIsDamage: boolean,
 ): ContentDraft {
   return {
     servingLabel: source.servingLabel,
@@ -80,17 +90,17 @@ function draftFrom(
     allergens: source.allergens ?? '',
     heating: (source.heating ?? []).map((step) => ({ method: step.method, body: step.body })),
     heatingAuthoredEmpty: Array.isArray(source.heating) && source.heating.length === 0,
-    heatingUnreadable: source.heating === null,
+    heatingUnreadable: nullHeatingIsDamage && source.heating === null,
     heatingReplacementAccepted: false,
   };
 }
 
 export function draftFromBlock(block: ProductContentDto | null): ContentDraft {
-  return block ? draftFrom(block) : emptyDraft();
+  return block ? draftFrom(block, true) : emptyDraft();
 }
 
 export function draftFromVariant(variant: ProductContentVariantDto): ContentDraft {
-  return draftFrom(variant);
+  return draftFrom(variant, false);
 }
 
 /**
