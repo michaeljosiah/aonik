@@ -164,6 +164,13 @@ export function ProductEditorSheet({
       setActiveTab('storefront');
       return;
     }
+    // Negative is rejected server-side (V6), but by then the details and media writes have
+    // already committed — a partial save caused by an input we could reject up front.
+    if (surchargeTouched && parsedAmount !== null && parsedAmount < 0) {
+      setError('A surcharge cannot be negative.');
+      setActiveTab('storefront');
+      return;
+    }
     if (surchargeTouched && parsedAmount !== null && !parsedCurrency) {
       setError('A surcharge amount needs a currency — the server rejects the pair otherwise.');
       setActiveTab('storefront');

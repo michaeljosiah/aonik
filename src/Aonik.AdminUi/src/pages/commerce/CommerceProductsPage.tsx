@@ -54,7 +54,9 @@ export function CommerceProductsPage() {
   const [categories, setCategories] = useState<ProductCategoryDto[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  // 25, not 20: the pagination control's selectable sizes are 10/25/50/100, and a controlled
+  // value with no matching item renders the size box blank until something else is picked.
+  const [pageSize, setPageSize] = useState(25);
   const [kindTab, setKindTab] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');

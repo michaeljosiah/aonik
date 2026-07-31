@@ -186,10 +186,24 @@ export function StorefrontTab({
 
       <AonikCard title="Unit surcharge" padding={12}>
         {currencyKnown === 'failed' && (
-          <p className="mb-2 text-[11px] text-[var(--color-error)]">
-            The storefront currency could not be read, so a surcharge cannot be authored here.
-            An amount saved without a verified currency would fail quoting for this product.
-            Reopen the product to retry.
+          <p className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-error)]">
+            <span>
+              The storefront currency could not be read, so a surcharge cannot be authored here.
+              An amount saved without a verified currency would fail quoting for this product.
+              Reopen the product to retry.
+            </span>
+            {/* Removal stays open: a clear sends no currency, so it cannot mis-denominate
+                anything — and this is exactly when an operator most wants a bad surcharge
+                gone. Closing authoring must not also close the exit. */}
+            {surchargeAmount.trim() !== '' && (
+              <button
+                type="button"
+                onClick={() => onSurchargeChange({ amount: '' })}
+                className="rounded-md border border-[var(--color-error)] px-2 py-0.5 text-[11px] text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+              >
+                Remove surcharge
+              </button>
+            )}
           </p>
         )}
         <div className="flex gap-3">
