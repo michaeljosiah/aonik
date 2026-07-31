@@ -13,10 +13,17 @@ export function BuyerLabel({
   buyerKind,
   buyerPartyId,
   className,
+  /**
+   * Render the party as plain text instead of a link. Required wherever the label sits inside
+   * another interactive element — an `<a>` nested in a `<button>` is invalid content with
+   * ambiguous focus and activation for keyboard and assistive-technology users.
+   */
+  linkless = false,
 }: {
   buyerKind: string;
   buyerPartyId: string | null;
   className?: string;
+  linkless?: boolean;
 }) {
   const isParty = buyerKind?.toLowerCase() === PARTY && !!buyerPartyId;
   const Icon = isParty ? UserCircle : User;
@@ -29,7 +36,11 @@ export function BuyerLabel({
         }`}
         aria-hidden
       />
-      {isParty ? (
+      {isParty && linkless ? (
+        <span className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
+          {buyerPartyId!.slice(0, 8)}
+        </span>
+      ) : isParty ? (
         <Link
           to={`/customers/${buyerPartyId}`}
           onClick={(e) => e.stopPropagation()}

@@ -4,8 +4,9 @@
 // Two refusals are deliberate:
 //
 //   * MIXED CURRENCIES ARE NOT SUMMED. There is no rate here, so adding GBP to NGN would
-//     invent one. A window spanning several currencies reports the count instead of a total —
-//     showing the largest currency's figure would silently drop the others.
+//     invent one. A window spanning several currencies reports the DOMINANT currency's
+//     aggregate and says how many orders it excludes (the Spec 081/084 rule) — the exclusion
+//     note is what makes it honest, and it beats refusing a number the operator can use.
 //
 //   * "AWAITING FULFILMENT" IS NOT REPORTED. The spec names it, but `DeriveFulfilment`
 //     (AdminStorefrontService.cs:731) returns only "Unfulfilled" or "Cancelled" — there is no
@@ -30,28 +31,46 @@ export interface OrderWindowRow {
 const TERMINAL = new Set(['Cancelled', 'Failed', 'Expired']);
 
 export interface OrderWindowSummary {
-  /** Formatted total of captured orders, or a currency count when the window is mixed. */
+  /** Formatted total of captured orders in the dominant currency. */
   paidRevenue: string;
-  /** Mean captured order, same currency rule. */
+  /** Mean captured order in the dominant currency. */
   averageOrder: string;
-  /** Orders in the window whose payment has not been captured. */
+  /** Orders in the window whose payment has not been captured and can still arrive. */
   awaitingPayment: number;
-  /** Caption for the money tiles — names the window, and the spread when it matters. */
+  /**
+   * Caption for the money tiles. Kept SHORT — it renders inside `KpiTile.delta`, which is a
+   * shrink-0 inline pill, so a sentence here widens the tile past its column and pushes into
+   * its neighbours. The exclusion is reported by `excludedOrders` for the caller to render as
+   * wrappable text instead.
+   */
   moneyCaption: string;
+  /** Captured orders NOT counted in the figures above; 0 in a single-currency window. */
+  excludedOrders: number;
 }
 
 const CAPTURED = 'Captured';
 const NONE = '—';
 
-export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWindowSummary {
+/**
+ * @param windowLabel What the rows ARE, named in the caption. A paged table can say "this
+ * page" because the table below is the page; a dashboard cannot, because its figures cover a
+ * fetch the operator never sees in full — "latest 25 orders" is the only honest phrasing there.
+ */
+export function summariseOrderWindow(
+  rows: readonly OrderWindowRow[],
+  windowLabel = 'this page',
+): OrderWindowSummary {
   const paid = rows.filter((row) => row.paymentStatus === CAPTURED);
   const awaitingPayment = rows.filter(
     (row) => row.paymentStatus !== CAPTURED && !TERMINAL.has(row.orderStatus),
   ).length;
 
-  const byCurrency = new Map<string, number>();
+  // Totals AND counts per currency: the mean must divide by the orders that made up the
+  // total, not by every captured order in the window.
+  const byCurrency = new Map<string, { total: number; count: number }>();
   for (const row of paid) {
-    byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? 0) + row.total);
+    const entry = byCurrency.get(row.currency) ?? { total: 0, count: 0 };
+    byCurrency.set(row.currency, { total: entry.total + row.total, count: entry.count + 1 });
   }
 
   if (byCurrency.size === 0) {
@@ -59,24 +78,23 @@ export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWind
       paidRevenue: NONE,
       averageOrder: NONE,
       awaitingPayment,
-      moneyCaption: 'this page',
+      moneyCaption: windowLabel,
+      excludedOrders: 0,
     };
   }
 
-  if (byCurrency.size > 1) {
-    return {
-      paidRevenue: `${byCurrency.size} currencies`,
-      averageOrder: `${byCurrency.size} currencies`,
-      awaitingPayment,
-      moneyCaption: 'this page — not summed',
-    };
-  }
+  // Dominant = most ORDERS, not the largest total — a single large order in a minor currency
+  // must not relabel the window, and order count is the currency-free comparison.
+  const [currency, { total, count }] = [...byCurrency.entries()].sort(
+    (a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]),
+  )[0];
+  const excludedOrders = paid.length - count;
 
-  const [currency, total] = [...byCurrency.entries()][0];
   return {
     paidRevenue: formatCurrency(total, currency),
-    averageOrder: formatCurrency(total / paid.length, currency),
+    averageOrder: formatCurrency(total / count, currency),
     awaitingPayment,
-    moneyCaption: `this page · ${currency}`,
+    moneyCaption: `${windowLabel} · ${currency}`,
+    excludedOrders,
   };
 }

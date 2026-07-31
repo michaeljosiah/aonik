@@ -17,15 +17,42 @@ describe('summariseOrderWindow', () => {
     expect(summary.awaitingPayment).toBe(1);
   });
 
-  it('REFUSES to sum across currencies rather than inventing a rate', () => {
-    // Showing the largest currency's figure would silently drop the other.
+  it('never sums across currencies — it reports the dominant one and what it EXCLUDES', () => {
     const summary = summariseOrderWindow([
       gbp(100),
+      gbp(50),
       { orderStatus: 'Complete', paymentStatus: 'Captured', currency: 'NGN', total: 45000 },
     ]);
-    expect(summary.paidRevenue).toBe('2 currencies');
-    expect(summary.averageOrder).toBe('2 currencies');
-    expect(summary.moneyCaption).toMatch(/not summed/);
+    expect(summary.paidRevenue).toContain('150');          // GBP only — never 45,150
+    // The exclusion is a COUNT, not prose in the caption: the caption renders inside a
+    // shrink-0 KPI pill, so a sentence there widens the tile past its column.
+    expect(summary.excludedOrders).toBe(1);
+    expect(summary.moneyCaption).toBe('this page · GBP');
+  });
+
+  it('picks the dominant currency by ORDER COUNT, not by total', () => {
+    // One huge order in a minor currency must not relabel the window as that currency.
+    const summary = summariseOrderWindow([
+      gbp(10),
+      gbp(10),
+      { orderStatus: 'Complete', paymentStatus: 'Captured', currency: 'NGN', total: 9_000_000 },
+    ]);
+    expect(summary.moneyCaption).toContain('GBP');
+    expect(summary.paidRevenue).toContain('20');
+  });
+
+  it('averages over the orders that made up the total, not the whole window', () => {
+    // Dividing GBP 150 by 3 captured orders would report an average no order has.
+    const summary = summariseOrderWindow([
+      gbp(100),
+      gbp(50),
+      { orderStatus: 'Complete', paymentStatus: 'Captured', currency: 'NGN', total: 45000 },
+    ]);
+    expect(summary.averageOrder).toContain('75');
+  });
+
+  it('reports nothing excluded in a single-currency window', () => {
+    expect(summariseOrderWindow([gbp(10)]).excludedOrders).toBe(0);
   });
 
   it('averages over captured orders, not the whole window', () => {
