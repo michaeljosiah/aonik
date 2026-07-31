@@ -66,7 +66,11 @@ export function DefaultMoveDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    // Escape and outside-click route through here too, so a dismissal mid-flight would
+    // unmount the one component that reports the blast radius — the move would land and the
+    // operator would never see which products it changed. That is the whole point of the
+    // dialog, so it refuses to close until the request settles.
+    <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>{result ? 'Default moved' : 'Move the recommended default?'}</DialogTitle>

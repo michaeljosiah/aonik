@@ -12,7 +12,7 @@
 // less — sending only touched groups, say — would leave untouched groups intact and quietly
 // widen the product relative to what the operator was looking at.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,13 +33,19 @@ interface GroupDraft {
   /** Only meaningful when `inherit` is false. */
   pinned: Set<string>;
   defaultChoiceKey: string | null;
+  /**
+   * Carried through UNEDITED. This sheet exposes no editor for it, but the save is a full
+   * replace — so a field read and not resent is a field deleted, and dropping it would
+   * quietly revert a multi-select group to the catalogue's mode.
+   */
+  selectionModeOverride: string | null;
   sortOrder: number;
 }
 
 interface NarrowingSheetProps {
   product: ProductSummaryDto;
   groups: OptionGroupDto[];
-  surcharge: { amount: number | null; currency: string | null };
+  /** Default for a FIRST-TIME surcharge only; never overrides a stored denomination. */
   storefrontCurrency: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -48,7 +54,6 @@ interface NarrowingSheetProps {
 export function NarrowingSheet({
   product,
   groups,
-  surcharge,
   storefrontCurrency,
   onClose,
   onSaved,
@@ -56,50 +61,56 @@ export function NarrowingSheet({
   const [drafts, setDrafts] = useState<Map<string, GroupDraft> | null>(null);
   const [amount, setAmount] = useState('');
   const [originalAmount, setOriginalAmount] = useState('');
+  // The stored denomination, read with the product. The list summary carries the surcharge
+  // NUMBER but not its currency, so taking the storefront's would silently redenominate a
+  // product whose surcharge is legitimately held in another.
+  const [storedCurrency, setStoredCurrency] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    commerceCatalogService
-      .getProductNarrowing(product.id)
-      .then((lines) => {
-        if (cancelled) return;
-        const next = new Map<string, GroupDraft>();
-        for (const group of groups) {
-          const line = lines.find((l) => l.groupKey === group.key);
-          next.set(group.key, {
-            included: !!line,
-            // Absent line and inherited line both start with an empty pinned set; `inherit`
-            // is what distinguishes them, and it is read straight from the raw value.
-            inherit: line ? line.allowedChoiceKeys === null : true,
-            pinned: new Set(line?.allowedChoiceKeys ?? []),
-            defaultChoiceKey: line?.defaultChoiceKey ?? null,
-            sortOrder: line?.sortOrder ?? group.sortOrder,
-          });
-        }
-        setDrafts(next);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setDrafts(null);
-        setError(readMessage(err) || 'This product’s options could not be read.');
-      })
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+    try {
+      // Narrowing AND detail: the raw lines carry the offer, the detail carries the surcharge
+      // with its own currency. Both are re-read on a conflict reload.
+      const [lines, detail] = await Promise.all([
+        commerceCatalogService.getProductNarrowing(product.id),
+        commerceCatalogService.getProduct(product.id),
+      ]);
+      const next = new Map<string, GroupDraft>();
+      for (const group of groups) {
+        const line = lines.find((l) => l.groupKey === group.key);
+        next.set(group.key, {
+          included: !!line,
+          // Absent line and inherited line both start with an empty pinned set; `inherit`
+          // is what distinguishes them, and it is read straight from the raw value.
+          inherit: line ? line.allowedChoiceKeys === null : true,
+          pinned: new Set(line?.allowedChoiceKeys ?? []),
+          defaultChoiceKey: line?.defaultChoiceKey ?? null,
+          selectionModeOverride: line?.selectionModeOverride ?? null,
+          sortOrder: line?.sortOrder ?? group.sortOrder,
+        });
+      }
+      setDrafts(next);
+      const initial = detail.unitSurcharge != null ? String(detail.unitSurcharge) : '';
+      setAmount(initial);
+      setOriginalAmount(initial);
+      setStoredCurrency(detail.unitSurchargeCurrency ?? null);
+      setConflict(false);
+    } catch (err: unknown) {
+      setDrafts(null);
+      setError(readMessage(err) || 'This product’s options could not be read.');
+    } finally {
+      setLoading(false);
+    }
   }, [product.id, groups]);
 
   useEffect(() => {
-    const initial = surcharge.amount != null ? String(surcharge.amount) : '';
-    setAmount(initial);
-    setOriginalAmount(initial);
-  }, [surcharge.amount]);
+    void load();
+  }, [load]);
 
   const update = (groupKey: string, patch: Partial<GroupDraft>) => {
     setDrafts((current) => {
@@ -113,6 +124,21 @@ export function NarrowingSheet({
 
   const save = async () => {
     if (!drafts) return;
+
+    // Validated BEFORE the first write. The option replace committed first previously, so a
+    // rejected amount left the offer already changed under an error saying the save failed —
+    // and neither correcting nor cancelling could undo it.
+    const parsedAmount = amount.trim() === '' ? null : Number(amount);
+    if (parsedAmount !== null && (!Number.isFinite(parsedAmount) || parsedAmount < 0)) {
+      setError('The surcharge must be a number and cannot be negative.');
+      return;
+    }
+    const surchargeCurrency = storedCurrency ?? storefrontCurrency;
+    if (amount !== originalAmount && parsedAmount !== null && !surchargeCurrency) {
+      setError('A surcharge needs a currency, and none is known for this product yet.');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setConflict(false);
@@ -126,22 +152,17 @@ export function NarrowingSheet({
             groupKey: group.key,
             allowedChoiceKeys: draft.inherit ? null : [...draft.pinned],
             defaultChoiceKey: draft.defaultChoiceKey,
+            selectionModeOverride: draft.selectionModeOverride,
             sortOrder: draft.sortOrder,
           };
         });
       await commerceCatalogService.setProductOptionGroups(product.id, lines);
 
       if (amount !== originalAmount) {
-        const parsed = amount.trim() === '' ? null : Number(amount);
-        if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
-          setError('The surcharge must be a number and cannot be negative.');
-          setSaving(false);
-          return;
-        }
         await commerceCatalogService.setUnitSurcharge(
           product.id,
-          parsed,
-          parsed === null ? null : (surcharge.currency ?? storefrontCurrency),
+          parsedAmount,
+          parsedAmount === null ? null : surchargeCurrency,
         );
       }
 
@@ -171,7 +192,17 @@ export function NarrowingSheet({
               <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
               <span className="flex-1">{error}</span>
               {conflict && (
-                <button type="button" onClick={onSaved} className="shrink-0 underline">
+                // Re-reads THIS sheet, not only the list behind it. Save stayed enabled while
+                // the refresh was in flight, so a second click resent the stale replace and
+                // overwrote the concurrent winner that caused the conflict.
+                <button
+                  type="button"
+                  onClick={() => {
+                    void load();
+                    onSaved();
+                  }}
+                  className="shrink-0 underline"
+                >
                   Reload
                 </button>
               )}
@@ -211,8 +242,8 @@ export function NarrowingSheet({
                 />
                 <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
                   The one price-like field a product card may show
-                  {surcharge.currency || storefrontCurrency
-                    ? ` — in ${surcharge.currency ?? storefrontCurrency}.`
+                  {(storedCurrency ?? storefrontCurrency)
+                    ? ` — in ${storedCurrency ?? storefrontCurrency}.`
                     : '. A currency is required, and none is known yet.'}
                 </p>
               </AonikCard>
@@ -227,7 +258,7 @@ export function NarrowingSheet({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={saving || loading || !drafts}>
+          <Button onClick={() => void save()} disabled={saving || loading || !drafts || conflict}>
             {saving ? 'Saving…' : 'Save offer'}
           </Button>
         </SheetFooter>
@@ -250,11 +281,22 @@ function GroupSection({
   // the same choice reads differently here than in the catalogue table. Both are correct.
   const baseline = effectiveDefaultChoice(activeChoices, draft.defaultChoiceKey);
 
+  // The choices this product actually offers right now — inherited means all active ones.
+  const offered = draft.inherit
+    ? activeChoices
+    : activeChoices.filter((choice) => draft.pinned.has(choice.key));
+
   const togglePinned = (key: string) => {
     const next = new Set(draft.pinned);
     if (next.has(key)) next.delete(key);
     else next.add(key);
-    onChange({ pinned: next });
+    // Excluding the chip that IS the product default would build a payload whose
+    // defaultChoiceKey is absent from allowedChoiceKeys — which the backend rejects, leaving
+    // the operator with an unsaveable sheet and a mismatch to diagnose. Clear it instead.
+    onChange({
+      pinned: next,
+      defaultChoiceKey: draft.defaultChoiceKey === key && !next.has(key) ? null : draft.defaultChoiceKey,
+    });
   };
 
   return (
@@ -355,7 +397,9 @@ function GroupSection({
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[12px] outline-none"
             >
               <option value="">Follow the group ({group.choices.find((c) => c.isRecommendedDefault)?.label ?? 'none'})</option>
-              {activeChoices.map((choice) => (
+              {/* OFFERED, not every active choice: a default the product does not offer is a
+                  payload the backend rejects. */}
+              {offered.map((choice) => (
                 <option key={choice.key} value={choice.key}>
                   {choice.label}
                 </option>

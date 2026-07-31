@@ -19,7 +19,7 @@ import { AlertCircle, Plus, RefreshCw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card as AonikCard, KpiTile, PageHeader, Pill } from '@/components/layout/aonik';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, DataTablePagination, type ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
@@ -32,13 +32,14 @@ import { NarrowingSheet } from './components/NarrowingSheet';
 import { SignedAmount } from './components/SignedAmount';
 import { choiceDelta, effectiveDefaultChoice, hasNoActiveChoices } from './lib/optionPricing';
 
-/** Products listed for narrowing. Named in the caption; this table is not paged. */
-const PRODUCT_WINDOW = 100;
+/** Page size for the narrowing table. Paged, so no product is unreachable from here. */
+const PRODUCT_PAGE_SIZE = 25;
 
 export function PersonalisationPage() {
   const [groups, setGroups] = useState<OptionGroupDto[]>([]);
   const [products, setProducts] = useState<ProductSummaryDto[]>([]);
   const [productTotal, setProductTotal] = useState(0);
+  const [productPage, setProductPage] = useState(1);
   const [recommendedLabel, setRecommendedLabel] = useState<string | null>(null);
   const [storefrontCurrency, setStorefrontCurrency] = useState<string | null>(null);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
@@ -58,17 +59,28 @@ export function PersonalisationPage() {
     setLoading(true);
     setError(null);
     try {
-      const [groupList, productPage, config] = await Promise.all([
+      const [groupList, page, config] = await Promise.all([
         commerceCatalogService.listOptionGroups(),
-        commerceCatalogService.listProducts({ page: 1, pageSize: PRODUCT_WINDOW, status: 'Active' }),
+        commerceCatalogService.listProducts({
+          page: productPage,
+          pageSize: PRODUCT_PAGE_SIZE,
+          status: 'Active',
+        }),
         // The label is presentation config, so a failure must not sink the page — it degrades
         // to no badge rather than a hardcoded word standing in for the tenant's own.
         commerceStorefrontService.getPublicStorefrontConfig().catch(() => null),
       ]);
       if (requestIdRef.current !== requestId) return;
       setGroups(groupList);
-      setProducts(productPage.items);
-      setProductTotal(productPage.totalCount);
+      // The requested page can stop existing under us when products are deactivated.
+      const lastPage = Math.max(1, Math.ceil(page.totalCount / PRODUCT_PAGE_SIZE));
+      if (productPage > lastPage) {
+        setProductTotal(page.totalCount);
+        setProductPage(lastPage);
+        return;
+      }
+      setProducts(page.items);
+      setProductTotal(page.totalCount);
       setRecommendedLabel(config?.recommendedChoiceLabel ?? null);
       setStorefrontCurrency(config?.currency ?? null);
       setSelectedGroupKey((current) =>
@@ -86,7 +98,7 @@ export function PersonalisationPage() {
         setInitialLoad(false);
       }
     }
-  }, []);
+  }, [productPage]);
 
   useEffect(() => {
     void loadData();
@@ -182,7 +194,7 @@ export function PersonalisationPage() {
         <KpiTile
           label="Unit surcharges set"
           value={kpis.surcharged.toLocaleString()}
-          delta={`of the ${products.length} listed`}
+          delta={`of the ${products.length} on this page`}
           deltaTone="neutral"
         />
       </div>
@@ -277,7 +289,7 @@ export function PersonalisationPage() {
 
           <AonikCard
             title="Per-product offer"
-            subtitle={`Active products — showing ${products.length} of ${productTotal}`}
+            subtitle={`Active products — ${productTotal} in total`}
             padding={0}
           >
             <DataTable
@@ -288,6 +300,15 @@ export function PersonalisationPage() {
               emptyTitle="No active products"
               emptyDescription="Only active products can be offered on the storefront."
               showCheckboxes={false}
+            />
+            <DataTablePagination
+              pageNumber={productPage}
+              pageSize={PRODUCT_PAGE_SIZE}
+              totalCount={productTotal}
+              onPageChange={setProductPage}
+              onPageSizeChange={() => {
+                /* fixed page size — the sheet, not this table, is where the work happens */
+              }}
             />
           </AonikCard>
         </>
@@ -308,7 +329,6 @@ export function PersonalisationPage() {
           key={narrowing.id}
           product={narrowing}
           groups={groups}
-          surcharge={{ amount: narrowing.unitSurcharge ?? null, currency: null }}
           storefrontCurrency={storefrontCurrency}
           onClose={() => setNarrowing(null)}
           onSaved={() => void loadData()}
