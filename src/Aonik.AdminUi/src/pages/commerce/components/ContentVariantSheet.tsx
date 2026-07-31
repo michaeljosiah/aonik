@@ -97,10 +97,33 @@ export function ContentVariantSheet({
    * the paths where the selection is still editable.
    */
   const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>(initialGroups);
+  /**
+   * The offer this sheet composed against (V-C9), replaced by a reload.
+   *
+   * Held in state rather than read from the prop for the same reason the block sheet holds its
+   * own: once the server refuses, the sheet has to be able to ADOPT the current world without
+   * being closed. Retrying with a value that cannot change just repeats the rejection, and the
+   * only other exit discards the draft.
+   */
+  const [reviewedDefaults, setReviewedDefaults] = useState(expectedDefaults);
+
+  /**
+   * The operator has changed the prefilled combination, so this sheet no longer claims it.
+   *
+   * A prefill is a promise about identity, which is why the payload pins it as the expected
+   * landing combination (V-C11). But the chips stay enabled on the coverage-gap and revive
+   * paths — deliberately, since round 8 adopted the fresh offer precisely so a drifted
+   * selection could be CORRECTED here. Pinning the original through an edit made every one of
+   * those corrections unsavable: the UI invited a change the server then refused. Changing the
+   * selection means composing a different combination, so the claim is dropped and V-C9 (the
+   * offer this was composed against) carries the guarantee, exactly as it does for a new one.
+   */
+  const [selectionEdited, setSelectionEdited] = useState(false);
 
   /** Picking clears a drift refusal, so a corrected selection can be tried immediately. */
   const pick = (next: Record<string, SelectionValue>) => {
     setSelection(next);
+    setSelectionEdited(true);
     setError(null);
   };
 
@@ -132,8 +155,21 @@ export function ContentVariantSheet({
         setBaseline(server);
         setDraft(draftFromVariant(server));
         setSelection(parseSelection(server.selectionJson));
-        setConflict(false);
+        setSelectionEdited(false);
       }
+
+      // Adopted on EVERY reload, baseline or not. The add, coverage-gap and revive paths have
+      // no baseline variant to refresh, so a reload that only handled `server` left them with
+      // the stale precondition that caused the refusal — the control appeared to work and
+      // changed nothing. The offer is refreshed with it so the chips show the world the
+      // preconditions are now stated against.
+      setReviewedDefaults(fresh.currentDefaultsSelectionJson);
+      try {
+        setGroups((await commerceCatalogService.getProduct(productId)).effectiveOptionGroups ?? []);
+      } catch {
+        // The save re-reads it too, and the server has the final word either way.
+      }
+      setConflict(false);
       onSaved();
     } catch (err: unknown) {
       setError(readMessage(err) || 'The latest combination could not be read.');
@@ -255,8 +291,9 @@ export function ContentVariantSheet({
         // against one offer and normalised against another lands somewhere the operator never
         // chose; the server refuses that (V-C11) rather than accepting it quietly. Null only
         // for a genuinely new combination, where completion by normalisation IS the intent.
-        expectedCanonicalSelectionJson: variant?.selectionJson ?? initialSelectionJson ?? null,
-        expectedDefaultsSelectionJson: expectedDefaults,
+        expectedCanonicalSelectionJson:
+          variant?.selectionJson ?? (selectionEdited ? null : (initialSelectionJson ?? null)),
+        expectedDefaultsSelectionJson: reviewedDefaults,
         ...wireFromDraft(draft),
       };
       if (baseline) await commerceContentService.updateVariant(baseline.id, payload);
@@ -267,7 +304,12 @@ export function ContentVariantSheet({
     } catch (err: unknown) {
       // V-C2 (a variant must publish every figure the default publishes) and V5 (selection
       // shape) name specifics, so the message is shown verbatim rather than summarised.
-      setError(readMessage(err) || 'The combination could not be saved.');
+      const message = readMessage(err);
+      // V-C9/V-C11 are the server saying the world moved while this was open. Marked reloadable
+      // so the banner offers the one action that can clear them — without it the sheet retries
+      // the same stale precondition forever and the draft is lost on the way out.
+      if (/V-C9|V-C11/.test(message)) setConflict(true);
+      setError(message || 'The combination could not be saved.');
     } finally {
       setSaving(false);
     }
