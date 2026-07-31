@@ -22,6 +22,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 
+import { SELECTION_MODES } from './selectionModes';
+
 const inputClass =
   'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
 
@@ -38,7 +40,7 @@ export function CreateGroupDialog({
 }) {
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
-  const [selectionMode, setSelectionMode] = useState('Single');
+  const [selectionMode, setSelectionMode] = useState(SELECTION_MODES[0].value);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +54,20 @@ export function CreateGroupDialog({
       setError('The group needs a label for the storefront.');
       return;
     }
+    // The endpoint substitutes the LITERAL "GBP" for an omitted currency
+    // (CreateOptionGroupEndpoint.cs:31), so omitting it is not a tenant-aware default — it is
+    // a guess that denominates every absolute price in this group wrongly and then fails
+    // cross-currency validation at quote time. Without a known currency there is nothing safe
+    // to send, so the dialog refuses rather than creating a group that has to be deleted.
+    if (!defaultCurrency) {
+      setError(
+        'The storefront currency could not be read, so a group cannot be created yet — its ' +
+          'prices would be denominated by a fallback rather than by your storefront. Reopen ' +
+          'this page to retry.',
+      );
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -59,10 +75,7 @@ export function CreateGroupDialog({
         key: trimmedKey,
         label: label.trim(),
         selectionMode,
-        // Omitted rather than guessed when the storefront config could not be read: the
-        // server has its own default, and inventing one here is how a group ends up
-        // denominated in a currency nobody chose.
-        ...(defaultCurrency ? { currency: defaultCurrency } : {}),
+        currency: defaultCurrency,
       });
       toast.success('Group created — add its choices next');
       onCreated();
@@ -132,23 +145,32 @@ export function CreateGroupDialog({
               onChange={(e) => setSelectionMode(e.target.value)}
               className={inputClass}
             >
-              <option value="Single">Single — one choice</option>
-              <option value="Multiple">Multiple — any number</option>
+              {SELECTION_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
             </select>
           </label>
 
-          {defaultCurrency && (
-            <p className="text-[11px] text-[var(--color-text-tertiary)]">
-              Prices in {defaultCurrency}, from the storefront configuration.
-            </p>
-          )}
+          <p
+            className={`text-[11px] ${
+              defaultCurrency
+                ? 'text-[var(--color-text-tertiary)]'
+                : 'text-[var(--color-warning)]'
+            }`}
+          >
+            {defaultCurrency
+              ? `Prices in ${defaultCurrency}, from the storefront configuration.`
+              : 'The storefront currency is unknown, so a group cannot be created right now.'}
+          </p>
         </fieldset>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={() => void create()} disabled={saving}>
+          <Button onClick={() => void create()} disabled={saving || !defaultCurrency}>
             {saving ? 'Creating…' : 'Create group'}
           </Button>
         </DialogFooter>

@@ -29,6 +29,7 @@ import type { OptionChoiceDto, OptionGroupDto, ProductSummaryDto } from '@/types
 
 import { ChoiceEditorSheet } from './components/ChoiceEditorSheet';
 import { CreateGroupDialog } from './components/CreateGroupDialog';
+import { GroupEditorSheet } from './components/GroupEditorSheet';
 import { DefaultMoveDialog } from './components/DefaultMoveDialog';
 import { NarrowingSheet } from './components/NarrowingSheet';
 import { SignedAmount } from './components/SignedAmount';
@@ -58,6 +59,7 @@ export function PersonalisationPage() {
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [narrowing, setNarrowing] = useState<ProductSummaryDto | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<OptionGroupDto | null>(null);
   const [editingChoice, setEditingChoice] = useState<{
     group: OptionGroupDto;
     choice: OptionChoiceDto;
@@ -319,7 +321,18 @@ export function PersonalisationPage() {
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-            <AonikCard title="Groups" padding={0}>
+            <AonikCard
+              title="Groups"
+              padding={0}
+              action={
+                // Available whether or not groups exist. The catalogue is deliberately
+                // multi-group — portion, spice, side — so hiding this after the first one
+                // made every axis beyond it unreachable from the admin surface.
+                <Button variant="outline" size="sm" onClick={() => setCreatingGroup(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> New group
+                </Button>
+              }
+            >
               {groups.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                   <p className="text-[12.5px] text-[var(--color-text-secondary)]">
@@ -358,7 +371,7 @@ export function PersonalisationPage() {
                           </span>
                           {hasNoActiveChoices(group.choices) && (
                             <span className="text-[11px] text-[var(--color-warning)]">
-                              every choice retired
+                              {group.choices.length === 0 ? 'no choices yet' : 'every choice retired'}
                             </span>
                           )}
                         </button>
@@ -372,6 +385,7 @@ export function PersonalisationPage() {
             {selectedGroup ? (
               <ChoicesCard
                 group={selectedGroup}
+                onEditGroup={() => setEditingGroup(selectedGroup)}
                 recommendedLabel={recommendedLabel}
                 onMoveDefault={(target) => setDefaultMove({ group: selectedGroup, target })}
                 onEditChoice={(choice) => setEditingChoice({ group: selectedGroup, choice })}
@@ -425,6 +439,15 @@ export function PersonalisationPage() {
         />
       )}
 
+      {editingGroup && (
+        <GroupEditorSheet
+          key={editingGroup.id}
+          group={editingGroup}
+          onClose={() => setEditingGroup(null)}
+          onSaved={() => void loadData()}
+        />
+      )}
+
       {creatingGroup && (
         <CreateGroupDialog
           defaultCurrency={storefrontCurrency}
@@ -462,12 +485,14 @@ function ChoicesCard({
   recommendedLabel,
   onMoveDefault,
   onEditChoice,
+  onEditGroup,
   onChanged,
 }: {
   group: OptionGroupDto;
   recommendedLabel: string | null;
   onMoveDefault: (choice: OptionChoiceDto) => void;
   onEditChoice: (choice: OptionChoiceDto) => void;
+  onEditGroup: () => void;
   onChanged: () => void;
 }) {
   const baseline = effectiveDefaultChoice(group.choices);
@@ -491,7 +516,16 @@ function ChoicesCard({
   };
 
   return (
-    <AonikCard title={group.label} subtitle={group.helpText ?? undefined} padding={0}>
+    <AonikCard
+      title={group.label}
+      subtitle={group.helpText ?? undefined}
+      padding={0}
+      action={
+        <Button variant="outline" size="sm" onClick={onEditGroup}>
+          Edit group
+        </Button>
+      }
+    >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -512,11 +546,15 @@ function ChoicesCard({
           <tbody>
             {group.choices.length === 0 && (
               <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]"
-                >
-                  This group has no choices yet.
+                <td colSpan={5} className="px-4 py-6 text-center">
+                  <span className="flex flex-col items-center gap-2">
+                    <span className="text-[12.5px] text-[var(--color-text-secondary)]">
+                      This group has no choices yet, so the storefront shows it to nobody.
+                    </span>
+                    <Button variant="outline" size="sm" onClick={onEditGroup}>
+                      <Plus className="mr-1 h-3.5 w-3.5" /> Add the first choice
+                    </Button>
+                  </span>
                 </td>
               </tr>
             )}
