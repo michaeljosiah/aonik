@@ -28,8 +28,10 @@ import {
   formFromProduct,
   isEmptyPatch,
   isSurchargeDirty,
+  MEDIA_URL_MAX,
   surchargePayload,
   validateAttributesJson,
+  validateSurchargeAmount,
   type ProductEditorForm,
 } from '../lib/productForm';
 import { DetailsTab } from './tabs/DetailsTab';
@@ -159,15 +161,12 @@ export function ProductEditorSheet({
       surchargeAmount,
       effectiveSurchargeCurrency,
     );
-    if (surchargeTouched && parsedAmount !== null && !Number.isFinite(parsedAmount)) {
-      setError('Surcharge amount must be a number.');
-      setActiveTab('storefront');
-      return;
-    }
-    // Negative is rejected server-side (V6), but by then the details and media writes have
-    // already committed — a partial save caused by an input we could reject up front.
-    if (surchargeTouched && parsedAmount !== null && parsedAmount < 0) {
-      setError('A surcharge cannot be negative.');
+    // Shape, sign and PRECISION up front. The surcharge is written last, so anything the
+    // server rejects — or the column silently rounds — lands after details and media have
+    // already committed.
+    const amountError = surchargeTouched ? validateSurchargeAmount(surchargeAmount) : null;
+    if (amountError) {
+      setError(amountError);
       setActiveTab('storefront');
       return;
     }
@@ -202,6 +201,15 @@ export function ProductEditorSheet({
           'Any other currency saves but then fails quoting for this product.',
       );
       setActiveTab('storefront');
+      return;
+    }
+
+    // Media is written before the surcharge but after the details PATCH, so an over-long URL
+    // would also land as a partial save. Checked here, against the mapped column bound.
+    const oversized = media.find((item) => item.url.trim().length > MEDIA_URL_MAX);
+    if (oversized) {
+      setError(`A media URL is longer than ${MEDIA_URL_MAX} characters and cannot be saved.`);
+      setActiveTab('media');
       return;
     }
 

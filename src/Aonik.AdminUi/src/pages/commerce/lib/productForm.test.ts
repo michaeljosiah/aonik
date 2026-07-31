@@ -11,6 +11,7 @@ import {
   isSurchargeDirty,
   moveItem,
   surchargePayload,
+  validateSurchargeAmount,
   validateAttributesJson,
   type ProductEditorForm,
 } from './productForm';
@@ -237,5 +238,36 @@ describe('cleared attributes', () => {
   it('still sends an authored object verbatim', () => {
     const patch = buildProductPatch(baseForm(), baseForm({ attributesJson: '{"spice":"hot"}' }));
     expect(patch.attributesJson).toBe('{"spice":"hot"}');
+  });
+});
+
+describe('validateSurchargeAmount', () => {
+  it('rejects a fifth decimal, which the decimal(19,4) column would ROUND rather than refuse', () => {
+    // The dangerous case: not an error at all server-side, just a quietly different amount
+    // reported as a successful save.
+    expect(validateSurchargeAmount('1.23456')).toMatch(/4 decimal places/);
+  });
+
+  it('accepts exactly four decimals', () => {
+    expect(validateSurchargeAmount('1.2345')).toBeNull();
+    expect(validateSurchargeAmount('2.50')).toBeNull();
+    expect(validateSurchargeAmount('3')).toBeNull();
+  });
+
+  it('rejects negative, which V6 would only reject after earlier sections committed', () => {
+    expect(validateSurchargeAmount('-1')).toMatch(/negative/);
+  });
+
+  it('rejects a non-number', () => {
+    expect(validateSurchargeAmount('abc')).toMatch(/must be a number/);
+  });
+
+  it('rejects a value wider than the column', () => {
+    expect(validateSurchargeAmount('1000000000000000')).toMatch(/larger than/);
+  });
+
+  it('treats a blank amount as valid — that is a clear, not a value', () => {
+    expect(validateSurchargeAmount('')).toBeNull();
+    expect(validateSurchargeAmount('   ')).toBeNull();
   });
 });

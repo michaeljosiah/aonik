@@ -6,7 +6,7 @@
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { heroImageIndex, moveItem } from '../../lib/productForm';
+import { heroImageIndex, MEDIA_URL_MAX, moveItem } from '../../lib/productForm';
 import { Field, inputClass } from './DetailsTab';
 
 export interface MediaDraft {
@@ -21,12 +21,20 @@ interface MediaTabProps {
 
 export function MediaTab({ items, onChange }: MediaTabProps) {
   const [newUrl, setNewUrl] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
   // The first IMAGE, not the first row — a leading document is not the hero.
   const heroIndex = heroImageIndex(items);
 
   const add = () => {
     const url = newUrl.trim();
     if (!url) return;
+    // Caught at entry, not at save: the media write follows the details PATCH, so an
+    // over-long URL rejected server-side would leave a half-saved product behind.
+    if (url.length > MEDIA_URL_MAX) {
+      setAddError(`A media URL is at most ${MEDIA_URL_MAX} characters — this one is ${url.length}.`);
+      return;
+    }
+    setAddError(null);
     onChange([...items, { url, kind: 'image' }]);
     setNewUrl('');
   };
@@ -120,6 +128,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
             Add
           </button>
         </div>
+        {addError && <p className="mt-1 text-[11px] text-[var(--color-error)]">{addError}</p>}
       </Field>
     </div>
   );

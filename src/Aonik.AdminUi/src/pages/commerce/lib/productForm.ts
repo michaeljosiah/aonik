@@ -144,6 +144,32 @@ export function surchargePayload(amount: string, currency: string): SurchargePay
   return { amount: Number(amount.trim()), currency: currency.trim() || null };
 }
 
+/** The mapped column bound for a media URL — `ProductMediaConfiguration`, enforced server-side. */
+export const MEDIA_URL_MAX = 1024;
+
+/**
+ * Why a client-side rule for a server-side limit: the surcharge is written LAST, so a value
+ * the database silently reshapes is only discovered after the details and media writes have
+ * committed. `UnitSurcharge` is `decimal(19,4)`, so a fifth decimal is not rejected — it is
+ * ROUNDED, changing a financially material amount while the save reports success.
+ *
+ * Returns a message, or null when the amount is storable exactly as typed.
+ */
+export function validateSurchargeAmount(amount: string): string | null {
+  const trimmed = amount.trim();
+  if (trimmed === '') return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return 'Surcharge amount must be a number.';
+  if (parsed < 0) return 'A surcharge cannot be negative.';
+  const decimals = trimmed.includes('.') ? trimmed.split('.')[1].replace(/\s/g, '').length : 0;
+  if (decimals > 4) {
+    return 'A surcharge is stored to 4 decimal places — a longer value would be rounded on save.';
+  }
+  // 19 total digits, 4 of them fractional.
+  if (Math.abs(parsed) >= 10 ** 15) return 'That surcharge is larger than the stored amount allows.';
+  return null;
+}
+
 /** True when saving would change what the server holds for the surcharge. */
 export function isSurchargeDirty(
   original: { amount: string; currency: string },
