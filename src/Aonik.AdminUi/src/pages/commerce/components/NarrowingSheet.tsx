@@ -65,6 +65,9 @@ export function NarrowingSheet({
   // NUMBER but not its currency, so taking the storefront's would silently redenominate a
   // product whose surcharge is legitimately held in another.
   const [storedCurrency, setStoredCurrency] = useState<string | null>(null);
+  // What the offer looked like when this sheet loaded. A save that would send an identical
+  // payload skips the write entirely — see the comment at the replace.
+  const [loadedSignature, setLoadedSignature] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +106,7 @@ export function NarrowingSheet({
       }
       if (!current()) return;
       setDrafts(next);
+      setLoadedSignature(signatureOf(groups, next));
       const initial = detail.unitSurcharge != null ? String(detail.unitSurcharge) : '';
       setAmount(initial);
       setOriginalAmount(initial);
@@ -176,6 +180,13 @@ export function NarrowingSheet({
     setConflict(false);
     let offerCommitted = false;
     try {
+      // SKIPPED when nothing about the offer changed. The replace is unconditional otherwise,
+      // and the backend cannot 409 this sequence — it reads the product row only after the
+      // other write has committed, so a stale payload looks current to it. An operator who
+      // opened this sheet, changed only the surcharge and saved would silently restore the
+      // offer as it was when they opened it, undoing another admin's narrowing.
+      const offerChanged = signatureOf(groups, drafts) !== loadedSignature;
+
       // EXACTLY the visible intersection, every included group, in one replace.
       const lines: ProductOptionGroupLine[] = groups
         .filter((group) => drafts.get(group.key)?.included)
@@ -192,8 +203,10 @@ export function NarrowingSheet({
       // TWO endpoints, so two commit points — there is no composite write. The offer can
       // land and the surcharge fail, so the error names what already changed rather than
       // reporting a save that partly succeeded as a save that failed.
-      await commerceCatalogService.setProductOptionGroups(product.id, lines);
-      offerCommitted = true;
+      if (offerChanged) {
+        await commerceCatalogService.setProductOptionGroups(product.id, lines);
+        offerCommitted = true;
+      }
 
       if (amount !== originalAmount) {
         await commerceCatalogService.setUnitSurcharge(
@@ -276,6 +289,7 @@ export function NarrowingSheet({
                       key={group.key}
                       group={group}
                       draft={draft}
+                      storefrontCurrency={storefrontCurrency}
                       onChange={(patch) => update(group.key, patch)}
                     />
                   ) : null;
@@ -320,10 +334,12 @@ export function NarrowingSheet({
 function GroupSection({
   group,
   draft,
+  storefrontCurrency,
   onChange,
 }: {
   group: OptionGroupDto;
   draft: GroupDraft;
+  storefrontCurrency: string | null;
   onChange: (patch: Partial<GroupDraft>) => void;
 }) {
   const activeChoices = useMemo(() => group.choices.filter((c) => c.isActive), [group.choices]);
@@ -361,10 +377,17 @@ function GroupSection({
   // choice, and EXACTLY ONE active recommended default. A half-authored group with no default
   // is returned by the admin catalogue but dropped from every storefront composition, and an
   // inherited line on one fails V8 at save.
+  // Quoting rejects any priced selection whose currency differs from the quote currency
+  // (V10), and nothing converts. A group denominated differently from the storefront can be
+  // stored on a product and then breaks every quote that product takes — so it is ineligible
+  // for NEW inclusion, as is any group while the storefront currency is unknown.
+  const currencyMatches = storefrontCurrency !== null && group.currency === storefrontCurrency;
+
   const servable =
     group.isActive &&
     activeChoices.length > 0 &&
     activeChoices.filter((c) => c.isRecommendedDefault).length === 1;
+  const eligible = servable && currencyMatches;
 
   const togglePinned = (key: string) => {
     const next = new Set(draft.pinned);
@@ -389,7 +412,7 @@ function GroupSection({
         <input
           type="checkbox"
           checked={draft.included}
-          disabled={!servable && !draft.included}
+          disabled={!eligible && !draft.included}
           onChange={(e) => onChange({ included: e.target.checked })}
         />
         <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
@@ -403,9 +426,13 @@ function GroupSection({
             Retired
           </Pill>
         )}
-        {!servable && !draft.included && (
+        {!eligible && !draft.included && (
           <span className="text-[11px] text-[var(--color-text-tertiary)]">
-            not servable — customers would never see it
+            {!servable
+              ? 'not servable — customers would never see it'
+              : storefrontCurrency === null
+                ? 'storefront currency unknown'
+                : `priced in ${group.currency}, not ${storefrontCurrency} — quotes would fail`}
           </span>
         )}
       </label>
@@ -499,7 +526,13 @@ function GroupSection({
               onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[12px] outline-none"
             >
-              <option value="">Follow the group ({group.choices.find((c) => c.isRecommendedDefault)?.label ?? 'none'})</option>
+              {/* The ACTIVE default, via the same rule as the pricing baseline. A retired
+                  choice keeps its isRecommendedDefault flag (uniqueness is enforced only among
+                  active ones), so an unrestricted find could name the old choice here while
+                  the star, the baseline and the backend all use the new one. */}
+              <option value="">
+                Follow the group ({effectiveDefaultChoice(activeChoices)?.label ?? 'none'})
+              </option>
               {/* OFFERED, not every active choice: a default the product does not offer is a
                   payload the backend rejects. */}
               {offered.map((choice) => (
@@ -513,6 +546,25 @@ function GroupSection({
       )}
     </AonikCard>
   );
+}
+
+/**
+ * A stable string for "what offer would this save send". Compared against the value captured
+ * at load to tell a real edit from an untouched sheet — the sets are rebuilt on every change,
+ * so reference equality says nothing.
+ */
+function signatureOf(groups: OptionGroupDto[], drafts: Map<string, GroupDraft>): string {
+  return groups
+    .filter((group) => drafts.get(group.key)?.included)
+    .map((group) => {
+      const draft = drafts.get(group.key)!;
+      const allowed = draft.inherit ? 'inherit' : [...draft.pinned].sort().join(',');
+      return [group.key, allowed, draft.defaultChoiceKey ?? '', draft.selectionModeOverride ?? '', draft.sortOrder].join(
+        '|',
+      );
+    })
+    .sort()
+    .join('\n');
 }
 
 function readMessage(err: unknown): string {

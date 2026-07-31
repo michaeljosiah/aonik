@@ -166,7 +166,13 @@ export function PersonalisationPage() {
   const kpis = useMemo(
     () => ({
       totalChoices: groups.reduce((sum, group) => sum + group.choices.length, 0),
-      surcharged: products.filter((p) => p.unitSurcharge != null).length,
+      // Same freshness rule as the cell: a successful detail read wins, the summary is used
+      // only for unread rows. Counting the summary here made the tile contradict the column
+      // it sits above when a surcharge changed between the two reads.
+      surcharged: products.filter((p) => {
+        const facts = rowFacts.get(p.id);
+        return (facts ? facts.surcharge : p.unitSurcharge) != null;
+      }).length,
       // Counted over the rows whose detail read SUCCEEDED, and the denominator says so. A
       // missing entry means unread, not "offers nothing" — treating it as zero let a throttled
       // fan-out report "0 of 25 narrowed" for a catalogue that is entirely narrowed.
