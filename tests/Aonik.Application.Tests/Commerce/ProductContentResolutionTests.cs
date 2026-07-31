@@ -236,6 +236,41 @@ public class ProductContentResolutionTests
     /// <summary>Jollof with the 066 catalogue (portion light*/full, protein chicken*/salmon/
     /// prawns, side, heat), all groups offered, plus an authored default block: 450 kcal,
     /// prawn-bearing ingredients, Crustaceans declaration, oven heating.</summary>
+    [Fact]
+    public async Task GetAdminContent_Should_ReportMalformedHeatingAsWithheld_NotAsAnEmptyPanel()
+    {
+        // Legacy damage: the stored JSON does not parse, so ResolveAsync WITHHOLDS heating. The
+        // admin read reported the same row as an empty panel, so the two surfaces described one
+        // row differently — and the editor, seeing an authored-empty panel, resent a valid "[]".
+        // Editing an unrelated figure therefore republished withheld heating as an explicit
+        // "no heating required".
+        var (content, productId, _, ctx) = await ArrangeAsync();
+        var block = ctx.ProductContents.Single(c => c.ProductId == productId);
+        block.HeatingJson = "{ this is not an array";
+        await ctx.SaveChangesAsync();
+
+        var resolved = await content.ResolveAsync(productId, null);
+        var admin = await content.GetAdminAsync(productId);
+
+        resolved!.HeatingWithheld.Should().BeTrue();
+        admin.Block!.Heating.Should().BeNull("the admin read must not assert what the customer surface denies");
+    }
+
+    [Fact]
+    public async Task GetAdminContent_Should_ReportAnAuthoredEmptyPanelAsEmpty_NotAsWithheld()
+    {
+        // The other direction, so the distinction is pinned from both sides: a parseable empty
+        // array IS an authored claim that no heating is required.
+        var (content, productId, _, _) = await ArrangeAsync();
+        // The upsert stores "[]" for a block authored with no steps, so this is the state an
+        // ordinary product reaches — it must stay distinguishable from unreadable damage.
+        await content.UpsertContentAsync(productId, DefaultBlock() with { HeatingJson = null });
+
+        var admin = await content.GetAdminAsync(productId);
+
+        admin.Block!.Heating.Should().NotBeNull().And.BeEmpty();
+    }
+
     private static async Task<(ProductContentService Content, Guid ProductId, OptionCatalogueBuilder Builder, Aonik.Commerce.Persistence.CommerceDbContext Ctx)> ArrangeAsync()
     {
         var (content, productId, builder, ctx, _) = await ArrangeWithTenantAsync();

@@ -239,7 +239,8 @@ export interface ProductContentDto {
   nutrition: NutritionDto;
   ingredients: string | null;
   allergens: string | null;
-  heating: HeatingStepDto[];
+  /** Null when the stored JSON cannot be parsed — customers are shown nothing for it. */
+  heating: HeatingStepDto[] | null;
   describesSelectionJson: string;
   requiresReview: boolean;
   contentVersion: number;

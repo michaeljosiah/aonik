@@ -46,7 +46,11 @@ public record ProductContentDto(
     NutritionDto Nutrition,
     string? Ingredients,
     string? Allergens,
-    IReadOnlyList<HeatingStepDto> Heating,
+    /// <summary>Null when the stored JSON cannot be parsed — legacy damage, which the resolver
+    /// WITHHOLDS rather than presenting as an authored "no heating required". The admin read
+    /// reported it as an empty panel, so the two surfaces described the same row differently
+    /// and an operator had no way to see that customers were being shown nothing.</summary>
+    IReadOnlyList<HeatingStepDto>? Heating,
     string DescribesSelectionJson,
     bool RequiresReview,
     int ContentVersion);

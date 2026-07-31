@@ -32,6 +32,17 @@ export interface ContentDraft {
    * customer-facing change nobody asked for, from a form that shows no heating either way.
    */
   heatingAuthoredEmpty: boolean;
+  /**
+   * The stored heating JSON could not be parsed, so customers are currently shown NOTHING.
+   *
+   * A block's `HeatingJson` column is required, so "withheld" is not a state this form can write
+   * back — the write path always stores valid JSON. The damage therefore cannot be preserved,
+   * which makes it a decision the operator has to make rather than one an unrelated figure edit
+   * makes for them.
+   */
+  heatingUnreadable: boolean;
+  /** The operator has accepted that saving publishes an explicit empty panel. */
+  heatingReplacementAccepted: boolean;
 }
 
 export function emptyDraft(): ContentDraft {
@@ -50,6 +61,8 @@ export function emptyDraft(): ContentDraft {
     allergens: '',
     heating: [],
     heatingAuthoredEmpty: false,
+    heatingUnreadable: false,
+    heatingReplacementAccepted: false,
   };
 }
 
@@ -67,6 +80,8 @@ function draftFrom(
     allergens: source.allergens ?? '',
     heating: (source.heating ?? []).map((step) => ({ method: step.method, body: step.body })),
     heatingAuthoredEmpty: Array.isArray(source.heating) && source.heating.length === 0,
+    heatingUnreadable: source.heating === null,
+    heatingReplacementAccepted: false,
   };
 }
 
@@ -84,6 +99,13 @@ export function draftFromVariant(variant: ProductContentVariantDto): ContentDraf
  * save would report success for a panel the store does not hold.
  */
 export function validateDraft(draft: ContentDraft): string | null {
+  if (draft.heatingUnreadable && draft.heating.length === 0 && !draft.heatingReplacementAccepted) {
+    return (
+      'This product’s stored heating steps cannot be read, so customers are currently shown ' +
+      'nothing for them. Saving would publish an explicit “no heating required” panel — enter ' +
+      'the steps, or confirm below that publishing an empty panel is intended.'
+    );
+  }
   if (!draft.servingLabel.trim()) return 'A serving label is required — it captions every figure.';
   for (const field of FIGURE_FIELDS) {
     const message = validateDecimalInput(draft.figures[field.key as FigureKey], {

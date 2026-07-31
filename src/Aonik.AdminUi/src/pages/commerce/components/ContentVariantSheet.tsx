@@ -89,6 +89,12 @@ export function ContentVariantSheet({
    */
   const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>(initialGroups);
 
+  /** Picking clears a drift refusal, so a corrected selection can be tried immediately. */
+  const pick = (next: Record<string, SelectionValue>) => {
+    setSelection(next);
+    setError(null);
+  };
+
   // The sheet stays mounted after a conflict, so nothing re-initialises on its own. Without
   // this the operator was left with Save disabled over stale state and no way forward except
   // discovering that closing and reopening was the real reload.
@@ -195,7 +201,11 @@ export function ContentVariantSheet({
         storedIsCanonical: !!variant || !!initialSelectionJson,
       });
       if (hasDrift(drift)) {
-        setConflict(true);
+        // NOT a `conflict`. Conflict disables Save permanently and is cleared only by a reload
+        // that re-reads a baseline variant — which a coverage-gap or revive sheet does not have,
+        // so the operator would have been locked out of the very correction the fresh chips
+        // were adopted to make possible. Drift is re-evaluated on the next save attempt, and the
+        // message clears as soon as the selection changes.
         setError(
           `This combination can no longer be expressed against what the product offers — ` +
             `${describeDrift(drift)}. Saving would move it onto a different combination, so it ` +
@@ -295,7 +305,7 @@ export function ContentVariantSheet({
                         value={selection[group.key]}
                         disabled={!!baseline}
                         onToggle={(choiceKey) =>
-                          setSelection({
+                          pick({
                             ...selection,
                             [group.key]: toggleMulti(selection[group.key], choiceKey),
                           })
@@ -309,7 +319,7 @@ export function ContentVariantSheet({
                         <select
                           value={asSingle(selection[group.key])}
                           onChange={(e) =>
-                            setSelection({ ...selection, [group.key]: e.target.value })
+                            pick({ ...selection, [group.key]: e.target.value })
                           }
                           className={inputClass}
                           // The selection IS the key, so editing must not retarget authored

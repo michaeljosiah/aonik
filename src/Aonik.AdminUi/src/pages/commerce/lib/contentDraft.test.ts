@@ -174,3 +174,32 @@ describe('authored-empty heating', () => {
     ]);
   });
 });
+
+describe('unreadable heating', () => {
+  const damaged = { ...block, heating: null } as ProductContentDto;
+
+  it('refuses to save until the operator decides', () => {
+    // The resolver withholds unparseable heating; the admin read used to report it as an empty
+    // panel, so editing a figure silently republished it as "no heating required".
+    const draft = draftFromBlock(damaged);
+    expect(draft.heatingUnreadable).toBe(true);
+    expect(validateDraft(draft)).toMatch(/cannot be read/);
+  });
+
+  it('saves once the replacement is accepted', () => {
+    const draft = { ...draftFromBlock(damaged), heatingReplacementAccepted: true };
+    expect(validateDraft(draft)).toBeNull();
+  });
+
+  it('saves without acknowledgement once real steps are entered', () => {
+    // Entering steps IS the decision — there is nothing left to warn about.
+    const draft = { ...draftFromBlock(damaged), heating: [{ method: 'Oven', body: '20 min' }] };
+    expect(validateDraft(draft)).toBeNull();
+  });
+
+  it('does not warn about a block whose heating is simply empty', () => {
+    const draft = draftFromBlock({ ...block, heating: [] } as ProductContentDto);
+    expect(draft.heatingUnreadable).toBe(false);
+    expect(validateDraft(draft)).toBeNull();
+  });
+});

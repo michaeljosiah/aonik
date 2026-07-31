@@ -14,7 +14,7 @@
 //      people's allergen edits produces a panel neither of them authored, and allergens are
 //      the one field on this page where being wrong is a safety incident rather than a typo.
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceContentService } from '@/services/commerceContentService';
-import type { EffectiveOptionGroupDto, ProductContentDto } from '@/types/commerce';
+import type { ProductContentDto } from '@/types/commerce';
 
 import { ContentFields } from './ContentFields';
 import { defaultSignature } from '../lib/offerSignature';
@@ -37,7 +37,6 @@ export function ContentBlockSheet({
   productId,
   productName,
   block,
-  groups,
   onClose,
   onSaved,
 }: {
@@ -45,8 +44,6 @@ export function ContentBlockSheet({
   productName: string;
   /** Null when authoring the first block for this product. */
   block: ProductContentDto | null;
-  /** The product's effective offer as the page last read it — see `openDefault`. */
-  groups: EffectiveOptionGroupDto[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -55,8 +52,8 @@ export function ContentBlockSheet({
   // refers to what the operator can currently see.
   const [baseline, setBaseline] = useState<ProductContentDto | null>(block);
   /**
-   * The default combination as it stood when this sheet opened — the preparation the operator
-   * believes they are describing.
+   * The default combination as it stood when this sheet established it — the preparation the
+   * operator believes they are describing.
    *
    * `contentVersion` versions the block ROW, and the preparation it describes is not part of
    * that row: another operator changing the effective default moves what these figures will be
@@ -64,13 +61,42 @@ export function ContentBlockSheet({
    * exists yet there is no row to version at all, so the comparison passes unconditionally and
    * the first-authoring path — the one where every field is being written from scratch — was
    * the least guarded of the two.
+   *
+   * The sheet READS it rather than taking the page's snapshot. Seeding from a prop gave the
+   * comparison two different sources and no way to re-establish: a Reload refreshed the block
+   * and left this at its open-time value, so the conflict re-raised on every subsequent save —
+   * an advertised recovery that recovers nothing — and a page whose own offer read had failed
+   * seeded an empty signature that could never match.
    */
-  const [openDefault] = useState(() => defaultSignature(groups));
+  const [openDefault, setOpenDefault] = useState<string | null>(null);
+  const [defaultFailed, setDefaultFailed] = useState(false);
   const [draft, setDraft] = useState<ContentDraft>(() => draftFromBlock(block));
   const [saving, setSaving] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+
+  /**
+   * Establish (or re-establish) the preparation this sheet describes.
+   *
+   * Runs on open and on every Reload, so the recovery the banner offers is a real one.
+   */
+  const establishDefault = useCallback(async () => {
+    setDefaultFailed(false);
+    try {
+      const product = await commerceCatalogService.getProduct(productId);
+      setOpenDefault(defaultSignature(product.effectiveOptionGroups ?? []));
+      return true;
+    } catch {
+      setOpenDefault(null);
+      setDefaultFailed(true);
+      return false;
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    void establishDefault();
+  }, [establishDefault]);
 
   // The sheet stays mounted under the same key after a conflict, so nothing re-initialises on
   // its own: draft, baseline and the conflict flag all have to be reset here or Save stays
@@ -80,6 +106,11 @@ export function ContentBlockSheet({
     setReloading(true);
     setError(null);
     try {
+      const established = await establishDefault();
+      if (!established) {
+        setError('The product’s current options could not be read. Try reloading again.');
+        return;
+      }
       const fresh = await commerceContentService.getAdminContent(productId);
       setBaseline(fresh.block);
       setDraft(draftFromBlock(fresh.block));
@@ -120,6 +151,14 @@ export function ContentBlockSheet({
         setError(
           'The product’s current options could not be read, so this cannot be saved safely — ' +
             'the preparation these figures would describe cannot be confirmed. Try again.',
+        );
+        setSaving(false);
+        return;
+      }
+      if (openDefault === null) {
+        setError(
+          'The preparation these figures describe has not been established yet, so this cannot ' +
+            'be saved safely. Reload and try again.',
         );
         setSaving(false);
         return;
@@ -199,12 +238,19 @@ export function ContentBlockSheet({
 
         <SheetFooter>
           <span className="mr-auto max-w-[280px] text-[11px] text-[var(--color-text-tertiary)]">
-            Saving replaces every field of this block, and clears its review flag.
+            {defaultFailed
+              ? 'The product’s options could not be read, so the preparation these figures describe cannot be confirmed.'
+              : openDefault === null
+                ? 'Confirming which preparation these figures describe…'
+                : 'Saving replaces every field of this block, and clears its review flag.'}
           </span>
           <Button variant="outline" onClick={onClose} disabled={saving || reloading}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={saving || reloading || conflict}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving || reloading || conflict || openDefault === null}
+          >
             {saving ? 'Saving…' : 'Save block'}
           </Button>
         </SheetFooter>

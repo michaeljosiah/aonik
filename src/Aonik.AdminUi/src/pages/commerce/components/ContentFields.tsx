@@ -23,6 +23,12 @@ export function ContentFields({
   const setFigure = (key: FigureKey, value: string) =>
     onChange({ ...draft, figures: { ...draft.figures, [key]: value } });
 
+  // Shown only for legacy damage: the stored JSON does not parse, so the resolver withholds
+  // heating entirely. The column is required, so "withheld" is not a state this form can write
+  // back — whatever is saved becomes a claim. That makes replacing it a decision rather than a
+  // consequence of editing a figure, which is what it silently was.
+  const unreadableHeating = draft.heatingUnreadable && draft.heating.length === 0;
+
   const setStep = (index: number, patch: Partial<HeatingStep>) =>
     onChange({
       ...draft,
@@ -135,6 +141,29 @@ export function ContentFields({
           >
             <Plus className="mr-1 h-3.5 w-3.5" /> Add a step
           </Button>
+          {unreadableHeating && (
+            <div className="rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] p-2.5">
+              <p className="text-[11px] text-[var(--color-text-secondary)]">
+                The stored heating steps for this product cannot be read, so customers are shown
+                nothing for them. They cannot be kept that way — whatever is saved here becomes a
+                claim.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-[11px] text-[var(--color-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={draft.heatingReplacementAccepted}
+                  onChange={(e) =>
+                    onChange({ ...draft, heatingReplacementAccepted: e.target.checked })
+                  }
+                  className="mt-0.5"
+                />
+                <span>
+                  Publish an explicit “no heating required” panel. Leave this unticked and add the
+                  steps instead if the product needs any.
+                </span>
+              </label>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -829,7 +829,11 @@ internal sealed class ProductContentService : IProductContentService
         NutritionOf(c),
         c.Ingredients,
         c.Allergens,
-        ParseHeatingLenient(c.HeatingJson) ?? [],
+        // NOT `?? []`. Collapsing a parse failure into an empty panel made the admin surface
+        // assert what the customer surface denies, and drove a silent republish: the editor read
+        // the damage as an authored empty panel and resent valid "[]", so editing an unrelated
+        // figure turned withheld heating into an explicit "no heating required".
+        ParseHeatingLenient(c.HeatingJson),
         c.DescribesSelectionJson,
         c.RequiresReview,
         c.ContentVersion);
