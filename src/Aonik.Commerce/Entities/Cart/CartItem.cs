@@ -27,8 +27,9 @@ public class CartItem : AuditableEntity, ITenantScoped
     public string NameSnapshot { get; set; } = string.Empty;
 
     /// <summary>Spec 068 §4.1 — what this line IS: a BoxDish fills a box space and is priced by the
-    /// box; an AddOn (reserved, not yet writable) is an ordinary retail line beside the box. Every
-    /// capacity/merge/quote rule states which kind it counts, so a second kind stays additive.</summary>
+    /// box; an AddOn is an ordinary retail line beside the box, priced at its own snapshot and
+    /// consuming no capacity. Every capacity/merge/quote rule states which kind it counts, which is
+    /// what let Spec 071 activate AddOn additively rather than by revisiting those rules.</summary>
     public string LineKind { get; set; } = CartLineKinds.BoxDish;
 
     /// <summary>Spec 068 — the bundle slot this box line fills. Required on BoxDish lines of a box
@@ -51,15 +52,21 @@ public class CartItem : AuditableEntity, ITenantScoped
     public List<CartItemSelection> Selections { get; set; } = new();
 }
 
-/// <summary>Known values for <see cref="CartItem.LineKind"/> (Spec 068 §4.1). Launch ships
-/// <see cref="BoxDish"/> only; <see cref="AddOn"/> is reserved so rules can already state which
-/// kind they count (writes carrying it are rejected until the add-on capability lands — R13).</summary>
+/// <summary>Known values for <see cref="CartItem.LineKind"/> (Spec 068 §4.1). Spec 068 shipped
+/// <see cref="BoxDish"/> and reserved <see cref="AddOn"/> so every capacity/merge/quote rule
+/// already stated which kind it counted; Spec 071 then activated <see cref="AddOn"/> without
+/// revisiting them. Both kinds are live. A null or absent value still reads as
+/// <see cref="BoxDish"/> (R13), which is why the mapped column carries that database
+/// default — see CartItemConfiguration.</summary>
 public static class CartLineKinds
 {
     /// <summary>Fills a box space; personalisable; priced by the box, never individually.</summary>
     public const string BoxDish = "BoxDish";
 
-    /// <summary>An ordinary retail line bought alongside the box at its own price, consuming no
-    /// box space. Reserved — no write path accepts it yet.</summary>
+    /// <summary>An ordinary retail line bought alongside the box at its own retail price snapshot,
+    /// consuming no box capacity — the deliberate exception to the storefront's no-standalone-dish-
+    /// price rule. Added via <c>POST /commerce/carts/{cartId}/extras</c> (Spec 071); contributes the
+    /// quote's <c>addOns</c> component and materialises as one ordinary retail order item per line
+    /// at checkout.</summary>
     public const string AddOn = "AddOn";
 }
