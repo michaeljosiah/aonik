@@ -76,11 +76,27 @@ export function ChoiceEditorSheet({
     setSaving(true);
     setError(null);
     try {
+      const nextNote = note.trim() === '' ? null : note.trim();
+      const labelTouched = label.trim() !== choice.label;
+      const noteTouched = nextNote !== choice.note;
+
+      // `label` and `note` are REQUIRED and assigned unconditionally server-side, so this
+      // write cannot simply omit them the way it omits an unchanged price. Resending the text
+      // this sheet opened with therefore reverts anyone else's edit to it. Untouched fields
+      // are taken from a fresh read instead, so only what the operator actually typed is
+      // imposed and everything else keeps whatever the server now holds.
+      const fresh = (await commerceCatalogService.listOptionGroups())
+        .find((g) => g.id === group.id)
+        ?.choices.find((c) => c.id === choice.id);
+      if (!fresh) {
+        setError('This choice no longer exists — it may have been removed. Reload the page.');
+        setSaving(false);
+        return;
+      }
+
       await commerceCatalogService.updateOptionChoice(choice.id, {
-        label: label.trim(),
-        // Sent as the empty-to-null it is: the server assigns this member unconditionally, so
-        // an omitted note is a deleted note.
-        note: note.trim() === '' ? null : note.trim(),
+        label: labelTouched ? label.trim() : fresh.label,
+        note: noteTouched ? nextNote : fresh.note,
         // Value-typed members preserve on omission, so an UNCHANGED price is left out — a
         // resent one would revert a concurrent repricing by another admin that this sheet
         // never saw.

@@ -227,18 +227,17 @@ export function NarrowingSheet({
       // TWO endpoints, so two commit points — there is no composite write. The offer can
       // land and the surcharge fail, so the error names what already changed rather than
       // reporting a save that partly succeeded as a save that failed.
-      // RE-READ before writing anything. The backend reads the product row when a request
-      // starts, so a payload built before someone else's committed write still looks current
-      // to it — the staleness has to be established here, against what the server holds now.
-      // This guards the SURCHARGE as well as the offer: both are last-writer-wins otherwise,
-      // and I had guarded only the offer.
-      if (offerChanged || surchargeChanged) {
-        const [serverLines, serverDetail] = await Promise.all([
-          commerceCatalogService.getProductNarrowing(product.id),
-          commerceCatalogService.getProduct(product.id),
-        ]);
-
-        if (offerChanged && signatureOfLines(serverLines) !== loadedSignature) {
+      // Each guard sits IMMEDIATELY before the write it protects. Checking both up front left
+      // the surcharge exposed for the whole duration of the offer PUT — a real window, since
+      // that request is the slow one — during which another admin's surcharge change would be
+      // read as current by the guard and then overwritten by this write.
+      //
+      // The backend reads the product row when a request starts, so a payload built before
+      // someone else's committed write still looks current to it. That is why staleness has
+      // to be established here, against what the server holds now.
+      if (offerChanged) {
+        const serverLines = await commerceCatalogService.getProductNarrowing(product.id);
+        if (signatureOfLines(serverLines) !== loadedSignature) {
           setConflict(true);
           setError(
             'Someone else changed this product’s offer while this was open. Reload to see ' +
@@ -247,29 +246,28 @@ export function NarrowingSheet({
           setSaving(false);
           return;
         }
-
-        const serverAmount = serverDetail.unitSurcharge;
-        const serverCurrency = serverDetail.unitSurchargeCurrency ?? null;
-        if (
-          surchargeChanged &&
-          (serverAmount !== originalParsed || serverCurrency !== storedCurrency)
-        ) {
-          setConflict(true);
-          setError(
-            'Someone else changed this product’s surcharge while this was open. Reload before ' +
-              'saving yours.',
-          );
-          setSaving(false);
-          return;
-        }
-      }
-
-      if (offerChanged) {
         await commerceCatalogService.setProductOptionGroups(product.id, lines);
         offerCommitted = true;
       }
 
       if (surchargeChanged) {
+        const serverDetail = await commerceCatalogService.getProduct(product.id);
+        if (
+          serverDetail.unitSurcharge !== originalParsed ||
+          (serverDetail.unitSurchargeCurrency ?? null) !== storedCurrency
+        ) {
+          setConflict(true);
+          setError(
+            (offerCommitted
+              ? 'The option groups were saved, but someone else changed this product’s ' +
+                'surcharge while this was open, so it was left alone. '
+              : 'Someone else changed this product’s surcharge while this was open. ') +
+              'Reload before saving yours.',
+          );
+          if (offerCommitted) onSaved();
+          setSaving(false);
+          return;
+        }
         await commerceCatalogService.setUnitSurcharge(
           product.id,
           parsedAmount,
