@@ -263,6 +263,8 @@ export interface AdminProductContentDto {
   block: ProductContentDto | null;
   isStale: boolean;
   variants: ProductContentVariantDto[];
+  /** The standard preparation a confirmation would bind this block to — echoed back on confirm. */
+  currentDefaultsSelectionJson: string;
 }
 
 export interface ContentStatusRowDto {

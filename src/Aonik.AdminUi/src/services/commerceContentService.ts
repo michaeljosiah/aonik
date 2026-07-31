@@ -69,8 +69,20 @@ export const commerceContentService = {
     api.put<ProductContentDto>(`/commerce/admin/products/${productId}/content`, data),
 
   /** Clears RequiresReview after a human confirms the block still describes the new default. */
-  confirmReview: async (productId: string): Promise<ProductContentDto> =>
-    api.post<ProductContentDto>(`/commerce/admin/products/${productId}/content/confirm-review`),
+  /**
+   * The reviewed standard preparation travels with the request.
+   *
+   * Confirming asserts the block still describes the preparation a PERSON looked at. The server
+   * binds to the defaults current at commit, which is not the same thing — so it refuses (V-C9)
+   * when they have moved since the read this value came from.
+   */
+  confirmReview: async (
+    productId: string,
+    expectedDefaultsSelectionJson: string,
+  ): Promise<ProductContentDto> =>
+    api.post<ProductContentDto>(`/commerce/admin/products/${productId}/content/confirm-review`, {
+      expectedDefaultsSelectionJson,
+    }),
 
   upsertVariant: async (productId: string, data: UpsertContentVariantRequest): Promise<ProductContentVariantDto> =>
     api.post<ProductContentVariantDto>(`/commerce/admin/products/${productId}/content-variants`, data),

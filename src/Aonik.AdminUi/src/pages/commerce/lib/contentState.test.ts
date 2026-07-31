@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  blockSignature,
   countsAsPublished,
   deriveContentState,
   figureToInput,
@@ -136,5 +137,37 @@ describe('heatingToWire', () => {
   it('trims', () => {
     const json = heatingToWire([{ method: '  Oven  ', body: '  hot  ' }]);
     expect(JSON.parse(json!)).toEqual([{ method: 'Oven', body: 'hot' }]);
+  });
+});
+
+describe('blockSignature', () => {
+  const block = {
+    servingLabel: 'Per 350 g',
+    nutrition: { kcal: 520, proteinGrams: null },
+    ingredients: 'Rice',
+    allergens: null,
+    heating: [{ method: 'Oven', body: '20 min' }],
+  };
+
+  it('is unchanged by anything outside the authored fields', () => {
+    // contentVersion moves when a VARIANT is written, because the write pipeline is shared —
+    // so versioning the row reported a block edit that never happened and offered a reload
+    // that would discard the operator's draft.
+    expect(blockSignature({ ...block, contentVersion: 9 } as never)).toBe(blockSignature(block));
+  });
+
+  it('changes when any authored field changes', () => {
+    expect(blockSignature({ ...block, allergens: 'Celery' })).not.toBe(blockSignature(block));
+    expect(blockSignature({ ...block, servingLabel: 'Per 1' })).not.toBe(blockSignature(block));
+    expect(blockSignature({ ...block, heating: [] })).not.toBe(blockSignature(block));
+    expect(blockSignature({ ...block, nutrition: { kcal: 521, proteinGrams: null } })).not.toBe(
+      blockSignature(block),
+    );
+  });
+
+  it('distinguishes a withheld declaration from an empty one', () => {
+    expect(blockSignature({ ...block, ingredients: '' })).not.toBe(
+      blockSignature({ ...block, ingredients: null }),
+    );
   });
 });

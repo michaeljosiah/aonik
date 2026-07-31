@@ -136,12 +136,20 @@ export function ProductContentPage() {
     void loadRows();
   }, [loadRows]);
 
+  // Takes ONLY the id. Slug and status used to arrive from the list row that triggered the
+  // load, and both are read authoritatively from the product below — a parameter that can
+  // disagree with the value actually used is a defect waiting for a caller to supply it.
   const loadDetail = useCallback(
-    async (productId: string, slug: string | null, isActiveProduct: boolean) => {
+    async (productId: string) => {
     const requestId = detailRequestRef.current + 1;
     detailRequestRef.current = requestId;
     setDetailLoading(true);
     setDetailError(null);
+    // Cleared at the START. Left standing, the previous product's gap count sat under the
+    // newly selected product's name for the whole load — a coverage figure attributed to the
+    // wrong product is authoring work aimed somewhere real but wrong.
+    setCoverage(null);
+    setCoverageError(false);
     try {
       // Coverage and the product's effective offer are fetched for the SELECTED product only —
       // per-product reads for the whole rail would be a fan-out on every page load.
@@ -165,24 +173,34 @@ export function ProductContentPage() {
       // row this load was called with. A row is a snapshot: another operator activating a
       // product after it was read leaves the row saying Draft, and gating resolution on that
       // shows the raw block under a "not active" notice while live customers are being served
-      // something else entirely — figures and allergens included. The row's values remain the
-      // fallback for when the product read itself failed.
-      const liveSlug = product.product?.slug ?? slug;
-      const liveIsActive = product.ok ? product.product?.status === 'Active' : isActiveProduct;
-
-      // Sequenced after the status is known rather than fired alongside it. The public route
-      // 404s for a non-active product before resolving anything, so asking without knowing is
-      // how a "not authored" answer gets fabricated for a product that simply was not live yet.
-      const resolvedContent =
-        liveSlug && liveIsActive
-          ? await commerceContentService.resolveContent(liveSlug).then(
+      // something else entirely — figures and allergens included.
+      //
+      // When that read FAILS the answer is unknown, not "use the row". The row can be wrong in
+      // both directions: a Draft→Active transition makes the page skip resolution and caption
+      // the raw block as inactive, and a changed slug turns the old route's 404 into a
+      // confident "nothing authored" — each presenting the block as what customers receive
+      // while an exact variant may be serving different figures and allergens. Failing closed
+      // here costs a panel; guessing costs a false statement about live content.
+      const resolvedContent = !product.ok
+        ? { ok: false as const, content: null, unresolvable: false }
+        : await (async () => {
+            const liveSlug = product.product?.slug ?? null;
+            const liveIsActive = product.product?.status === 'Active';
+            // Sequenced after the status is known rather than fired alongside it. The public
+            // route 404s for a non-active product before resolving anything, so asking without
+            // knowing is how a "not authored" answer gets fabricated for a product that simply
+            // was not live yet.
+            if (!liveSlug || !liveIsActive) {
+              return { ok: true as const, content: null, unresolvable: !liveIsActive };
+            }
+            return await commerceContentService.resolveContent(liveSlug).then(
               (r) => ({ ok: true as const, content: r, unresolvable: false }),
               (err: unknown) =>
                 httpStatus(err) === 404
                   ? { ok: true as const, content: null, unresolvable: false }
                   : { ok: false as const, content: null, unresolvable: false },
-            )
-          : { ok: true as const, content: null, unresolvable: !liveIsActive };
+            );
+          })();
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
       setCoverage(cover.coverage);
@@ -306,7 +324,7 @@ export function ProductContentPage() {
   useEffect(() => {
     selectionRef.current = selection;
     if (selection) {
-      void loadDetail(selection.productId, selection.slug, selection.productStatus === 'Active');
+      void loadDetail(selection.productId);
     }
   }, [selection, loadDetail]);
 
@@ -341,12 +359,14 @@ export function ProductContentPage() {
   }, [rows, queue]);
 
 
-  const confirmReview = async (productId: string) => {
+  const confirmReview = async (productId: string, reviewedDefaults: string) => {
     try {
-      // No client-side staleness re-check here on purpose: ConfirmContentReviewAsync recomputes
-      // the all-defaults binding INSIDE its serialized write attempt, so "still correct" means
-      // current at commit rather than at request parse. A guard here would be theatre.
-      await commerceContentService.confirmReview(productId);
+      // The REVIEWED binding is sent, not just the id. Recomputing the defaults inside the
+      // serialized write makes the result internally consistent, but the assertion being
+      // recorded is about a preparation a person inspected — so the server refuses (V-C9) if
+      // the standard moved between that read and this commit, rather than silently confirming
+      // one nobody saw. A client-side re-check would still be theatre; this is a precondition.
+      await commerceContentService.confirmReview(productId, reviewedDefaults);
       toast.success('Review confirmed');
       await loadRows();
       await loadQueue();
@@ -354,7 +374,7 @@ export function ProductContentPage() {
       // slug loaded one product's raw content beside another's resolved panel.
       const live = selectionRef.current;
       if (live && live.productId === productId) {
-        await loadDetail(live.productId, live.slug, live.productStatus === 'Active');
+        await loadDetail(live.productId);
       }
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The review could not be confirmed.');
@@ -472,8 +492,21 @@ export function ProductContentPage() {
                   <span className="max-w-[190px] text-[11px] text-[var(--color-text-tertiary)]">
                     a variant serves the standard preparation — edit the block to review it
                   </span>
+                ) : // Selection alone is not inspection. When the raw read failed, `content` is
+                // null and `resolved` is null with it, so a gate written against the variant
+                // check falls straight through to the button — re-opening the blind
+                // confirmation from the one direction where NOTHING is on screen.
+                !content?.block || detailLoading ? (
+                  <span className="max-w-[190px] text-[11px] text-[var(--color-text-tertiary)]">
+                    {detailLoading ? 'loading the block…' : 'its block could not be read'}
+                  </span>
                 ) : (
-                  <Button size="sm" onClick={() => void confirmReview(row.productId)}>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void confirmReview(row.productId, content.currentDefaultsSelectionJson)
+                    }
+                  >
                     Confirm review
                   </Button>
                 )}
@@ -853,7 +886,7 @@ export function ProductContentPage() {
    */
   async function reloadSelected() {
     const live = selectionRef.current;
-    if (live) await loadDetail(live.productId, live.slug, live.productStatus === 'Active');
+    if (live) await loadDetail(live.productId);
   }
 
   async function retireVariant(variantId: string) {

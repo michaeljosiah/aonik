@@ -8,8 +8,10 @@
 //      resolution withholds declarations and can resolve to a variant, so saving from it would
 //      overwrite text nobody ever saw.
 //
-//   2. A concurrent edit is REFUSED, not merged. `contentVersion` is re-read immediately
-//      before the write and compared with the version this sheet loaded. Merging is what the
+//   2. A concurrent edit is REFUSED, not merged. The block's AUTHORED FIELDS are re-read
+//      immediately before the write and compared with what this sheet loaded — not
+//      `contentVersion`, which the shared write pipeline bumps for variant writes too, so an
+//      unrelated variant edit would have discarded the operator's draft. Merging is what the
 //      choice editor does for labels, and it would be wrong here: silently combining two
 //      people's allergen edits produces a panel neither of them authored, and allergens are
 //      the one field on this page where being wrong is a safety incident rather than a typo.
@@ -25,6 +27,7 @@ import { commerceContentService } from '@/services/commerceContentService';
 import type { ProductContentDto } from '@/types/commerce';
 
 import { ContentFields } from './ContentFields';
+import { blockSignature } from '../lib/contentState';
 import { defaultSignature } from '../lib/offerSignature';
 import {
   draftFromBlock,
@@ -136,7 +139,8 @@ export function ContentBlockSheet({
     try {
       // Re-read IMMEDIATELY before the write. The service reads the content row when the
       // request starts, so a payload built before someone else's committed edit still looks
-      // current to it — the staleness has to be established here.
+      // current to it — the staleness has to be established here. Compared on the authored
+      // fields, because the version column moves for writes to other rows entirely.
       //
       // Residual, stated rather than hidden: this is read-then-write, so an edit landing
       // inside the remaining window still wins. Closing that needs the upsert to accept the
@@ -175,7 +179,7 @@ export function ContentBlockSheet({
       }
 
       const fresh = await commerceContentService.getAdminContent(productId);
-      if (baseline && fresh.block && fresh.block.contentVersion !== baseline.contentVersion) {
+      if (baseline && fresh.block && blockSignature(fresh.block) !== blockSignature(baseline)) {
         setConflict(true);
         setError(
           'Someone else edited this block while it was open. Reload to see their version — ' +

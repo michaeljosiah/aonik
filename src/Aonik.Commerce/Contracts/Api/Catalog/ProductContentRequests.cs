@@ -29,3 +29,9 @@ public record UpsertContentVariantRequest(
     string? Ingredients = null,
     string? Allergens = null,
     string? HeatingJson = null);
+
+/// <summary>Confirming a review asserts the block still describes the standard preparation the
+/// operator SAW, so that preparation travels with the request.</summary>
+public record ConfirmContentReviewRequest(
+    Guid ProductId,
+    string? ExpectedDefaultsSelectionJson);

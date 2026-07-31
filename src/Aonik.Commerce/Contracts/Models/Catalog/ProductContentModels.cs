@@ -109,7 +109,11 @@ public record UpsertContentVariantCommand(
 public record AdminProductContentDto(
     ProductContentDto? Block,
     bool IsStale,
-    IReadOnlyList<ProductContentVariantDto> Variants);
+    IReadOnlyList<ProductContentVariantDto> Variants,
+    /// <summary>The all-defaults binding as of this read — the standard preparation the block
+    /// WOULD be bound to if the review were confirmed now. Echoed back on confirm so the server
+    /// can refuse a confirmation of a preparation the operator never saw.</summary>
+    string CurrentDefaultsSelectionJson);
 
 /// <summary>One row of the tenant content-status list (Spec 075 rail/KPIs/queue).
 /// Block EXISTENCE is not publication: a block with every figure null serves no

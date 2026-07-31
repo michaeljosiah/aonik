@@ -1,3 +1,4 @@
+using Aonik.Commerce.Contracts.Api.Catalog;
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Services.Catalog;
 
@@ -6,8 +7,12 @@ using FastEndpoints;
 namespace Aonik.Commerce.Endpoints.Admin.Catalog;
 
 /// <summary>"Reviewed, still correct" — clears RequiresReview without editing, re-capturing the
-/// block's all-defaults binding (Spec 067 §6).</summary>
-public class ConfirmContentReviewEndpoint : EndpointWithoutRequest<ProductContentDto>
+/// block's all-defaults binding (Spec 067 §6).
+///
+/// The caller must echo the binding it reviewed. Confirming is an assertion about a preparation
+/// a person looked at, and the defaults can move between the read and this write; without the
+/// precondition the flag would be cleared for a standard nobody inspected.</summary>
+public class ConfirmContentReviewEndpoint : Endpoint<ConfirmContentReviewRequest, ProductContentDto>
 {
     private readonly IProductContentService _content;
 
@@ -20,6 +25,7 @@ public class ConfirmContentReviewEndpoint : EndpointWithoutRequest<ProductConten
         Summary(s => s.Summary = "Confirm the default content block still describes the standard preparation.");
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
-        => await Send.OkAsync(await _content.ConfirmContentReviewAsync(Route<Guid>("productId"), ct), ct);
+    public override async Task HandleAsync(ConfirmContentReviewRequest req, CancellationToken ct)
+        => await Send.OkAsync(
+            await _content.ConfirmContentReviewAsync(req.ProductId, req.ExpectedDefaultsSelectionJson, ct), ct);
 }

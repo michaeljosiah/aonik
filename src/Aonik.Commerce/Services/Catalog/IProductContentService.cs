@@ -14,7 +14,12 @@ public interface IProductContentService
 
     /// <summary>Clears <c>RequiresReview</c> without editing ("reviewed, still correct") — like
     /// the upsert, re-captures the block's all-defaults binding.</summary>
-    Task<ProductContentDto> ConfirmContentReviewAsync(Guid productId, CancellationToken ct = default);
+    /// <param name="expectedDefaultsSelectionJson">The all-defaults binding the operator
+    /// actually reviewed, from <see cref="GetAdminAsync"/>. Refused with V-C9 if the standard
+    /// preparation has moved since — confirming is an assertion about what a person looked at,
+    /// and binding to the newest defaults would record it for one nobody inspected.</param>
+    Task<ProductContentDto> ConfirmContentReviewAsync(
+        Guid productId, string? expectedDefaultsSelectionJson = null, CancellationToken ct = default);
 
     Task<ProductContentVariantDto> AddVariantAsync(Guid productId, UpsertContentVariantCommand command, CancellationToken ct = default);
     Task<ProductContentVariantDto> UpdateVariantAsync(Guid variantId, UpsertContentVariantCommand command, CancellationToken ct = default);

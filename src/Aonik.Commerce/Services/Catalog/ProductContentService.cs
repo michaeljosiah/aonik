@@ -205,7 +205,8 @@ internal sealed class ProductContentService : IProductContentService
         }, ct, MapContent);
     }
 
-    public async Task<ProductContentDto> ConfirmContentReviewAsync(Guid productId, CancellationToken ct = default)
+    public async Task<ProductContentDto> ConfirmContentReviewAsync(
+        Guid productId, string? expectedDefaultsSelectionJson = null, CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -215,6 +216,21 @@ internal sealed class ProductContentService : IProductContentService
             // CURRENT standard preparation — captured inside the attempt so "current" means
             // current at commit, not at request parse.
             var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
+
+            // ...and current at commit is NOT the same as reviewed by a human. Binding to the
+            // newest defaults makes the write internally consistent, but the assertion being
+            // recorded is about a preparation a person looked at. If the defaults moved between
+            // the read and this commit, confirming would clear the flag for a standard nobody
+            // inspected — and the block's declarations, allergens included, become current for
+            // it with the one mechanism that would have caught them already satisfied.
+            if (expectedDefaultsSelectionJson is not null
+                && !string.Equals(expectedDefaultsSelectionJson, allDefaults, StringComparison.Ordinal))
+            {
+                throw new StorefrontValidationException(
+                    "V-C9: the standard preparation changed since this block was reviewed — "
+                    + "reload and review it against the current defaults before confirming.");
+            }
+
             content!.DescribesSelectionJson = allDefaults;
             content.RequiresReview = false;
             return content;
@@ -741,21 +757,19 @@ internal sealed class ProductContentService : IProductContentService
             .OrderBy(v => v.CreatedAt)
             .ToListAsync(ct);
 
-        var isStale = false;
-        if (content is not null)
-        {
-            // The resolver's own predicate (§5/§6): the explicit flag OR a stored
-            // all-defaults binding that no longer matches the current defaults —
-            // computed HERE so no client ever re-implements canonicalisation.
-            var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
-            isStale = content.RequiresReview
-                || !string.Equals(content.DescribesSelectionJson, allDefaults, StringComparison.Ordinal);
-        }
+        // The resolver's own predicate (§5/§6): the explicit flag OR a stored all-defaults
+        // binding that no longer matches the current defaults — computed HERE so no client ever
+        // re-implements canonicalisation.
+        var currentDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
+        var isStale = content is not null
+            && (content.RequiresReview
+                || !string.Equals(content.DescribesSelectionJson, currentDefaults, StringComparison.Ordinal));
 
         return new AdminProductContentDto(
             content is null ? null : MapContent(content),
             isStale,
-            variants.Select(MapVariant).ToList());
+            variants.Select(MapVariant).ToList(),
+            currentDefaults);
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>> ListAdminStatusAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)

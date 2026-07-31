@@ -271,6 +271,46 @@ public class ProductContentResolutionTests
         admin.Block!.Heating.Should().NotBeNull().And.BeEmpty();
     }
 
+    [Fact]
+    public async Task ConfirmReview_Should_Refuse_When_TheStandardPreparationMovedSinceTheRead()
+    {
+        // Binding to the defaults current at commit makes the write internally consistent, but
+        // the assertion being recorded is about a preparation a PERSON inspected. Without a
+        // precondition the flag is cleared for a standard nobody saw, and the block's
+        // declarations become current for it with the review mechanism already satisfied.
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        var act = async () => await content.ConfirmContentReviewAsync(
+            productId, """{"portion":"something-else"}""");
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C9*");
+    }
+
+    [Fact]
+    public async Task ConfirmReview_Should_Succeed_When_TheReviewedPreparationIsStillCurrent()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        var admin = await content.GetAdminAsync(productId);
+
+        var confirmed = await content.ConfirmContentReviewAsync(
+            productId, admin.CurrentDefaultsSelectionJson);
+
+        confirmed.RequiresReview.Should().BeFalse();
+        confirmed.DescribesSelectionJson.Should().Be(admin.CurrentDefaultsSelectionJson);
+    }
+
+    [Fact]
+    public async Task GetAdmin_Should_ReportTheDefaultsAConfirmationWouldBindTo()
+    {
+        // The client cannot re-derive canonicalisation, so the value it echoes back has to come
+        // from the server that will check it.
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        var admin = await content.GetAdminAsync(productId);
+
+        admin.CurrentDefaultsSelectionJson.Should().NotBeNullOrWhiteSpace();
+    }
+
     private static async Task<(ProductContentService Content, Guid ProductId, OptionCatalogueBuilder Builder, Aonik.Commerce.Persistence.CommerceDbContext Ctx)> ArrangeAsync()
     {
         var (content, productId, builder, ctx, _) = await ArrangeWithTenantAsync();
