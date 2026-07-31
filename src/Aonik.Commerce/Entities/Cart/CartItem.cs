@@ -55,9 +55,10 @@ public class CartItem : AuditableEntity, ITenantScoped
 /// <summary>Known values for <see cref="CartItem.LineKind"/> (Spec 068 §4.1). Spec 068 shipped
 /// <see cref="BoxDish"/> and reserved <see cref="AddOn"/> so every capacity/merge/quote rule
 /// already stated which kind it counted; Spec 071 then activated <see cref="AddOn"/> without
-/// revisiting them. Both kinds are live. A null or absent value still reads as
-/// <see cref="BoxDish"/> (R13), which is why the mapped column carries that database
-/// default — see CartItemConfiguration.</summary>
+/// revisiting them. Both kinds are live. R13's classify-as-<see cref="BoxDish"/> rule is the
+/// column's DATABASE DEFAULT, not a read-time fallback: it covers rows that predate the column
+/// and inserts that omit it. The column is NOT NULL, so an explicit null is rejected rather
+/// than normalised, and nothing coalesces one on materialisation.</summary>
 public static class CartLineKinds
 {
     /// <summary>Fills a box space; personalisable; priced by the box, never individually.</summary>

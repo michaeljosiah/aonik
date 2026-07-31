@@ -15,8 +15,9 @@ public class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
         builder.Property(x => x.Sku).HasMaxLength(64);
         builder.Property(x => x.NameSnapshot).HasMaxLength(256);
 
-        // Spec 068 §13 — non-null with a database default so existing rows and generic-cart
-        // writes classify as BoxDish without a backfill (R13 reads null/absent as BoxDish).
+        // Spec 068 §13 — non-null with a database default so rows that predate the column, and
+        // generic-cart inserts that omit it, classify as BoxDish without a backfill. The default
+        // is what R13 means here; it is NOT a null fallback, because the column rejects null.
         builder.Property(x => x.LineKind)
             .IsRequired()
             .HasMaxLength(16)
