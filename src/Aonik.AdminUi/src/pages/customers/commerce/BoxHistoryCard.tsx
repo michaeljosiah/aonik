@@ -4,7 +4,7 @@
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import type { StorefrontOrderSummaryDto } from '@/types/commerce';
 
-import { formatCurrency, formatDate } from '../lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 const STATUS_TONE: Record<string, PillTone> = {
   Complete: 'success',

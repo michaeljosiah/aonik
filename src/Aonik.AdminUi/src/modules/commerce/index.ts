@@ -51,6 +51,9 @@ const routes = [
   { path: '/commerce/merchandising', element: MerchandisingPage },
   { path: '/commerce/storefront-config', element: StorefrontConfigPage },
   { path: '/commerce/orders', element: CommerceOrdersPage },
+  // Route-addressable order drawer (Spec 083 §2) — deep links, including Spec 084's
+  // recent-orders rows, open it directly.
+  { path: '/commerce/orders/:orderId', element: CommerceOrdersPage, isDynamic: true },
   { path: '/commerce/carts', element: CommerceCartsPage },
 ];
 
