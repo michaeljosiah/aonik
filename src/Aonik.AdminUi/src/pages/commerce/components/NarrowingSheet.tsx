@@ -155,7 +155,12 @@ export function NarrowingSheet({
       const draft = drafts.get(group.key);
       if (!draft?.included || draft.inherit) continue;
       const offeredKeys = draft.pinned;
-      if (offeredKeys.size === 0) continue;
+      if (offeredKeys.size === 0) {
+        // An included group offering nothing is rejected outright by the backend, so the
+        // sheet would simply never save. Named here instead.
+        setError(`${group.label}: offer at least one choice, or exclude the group.`);
+        return;
+      }
       const defaultKey =
         draft.defaultChoiceKey ??
         group.choices.find((c) => c.isRecommendedDefault && c.isActive)?.key ??
@@ -169,6 +174,7 @@ export function NarrowingSheet({
     setSaving(true);
     setError(null);
     setConflict(false);
+    let offerCommitted = false;
     try {
       // EXACTLY the visible intersection, every included group, in one replace.
       const lines: ProductOptionGroupLine[] = groups
@@ -183,7 +189,11 @@ export function NarrowingSheet({
             sortOrder: draft.sortOrder,
           };
         });
+      // TWO endpoints, so two commit points — there is no composite write. The offer can
+      // land and the surcharge fail, so the error names what already changed rather than
+      // reporting a save that partly succeeded as a save that failed.
       await commerceCatalogService.setProductOptionGroups(product.id, lines);
+      offerCommitted = true;
 
       if (amount !== originalAmount) {
         await commerceCatalogService.setUnitSurcharge(
@@ -202,7 +212,14 @@ export function NarrowingSheet({
       const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409 || code === 'concurrency_conflict') setConflict(true);
-      setError(readMessage(err) || 'The offer could not be saved.');
+      const message = readMessage(err) || 'The offer could not be saved.';
+      setError(
+        offerCommitted
+          ? `${message} The option groups were already saved; only the surcharge failed.`
+          : message,
+      );
+      // A committed offer means the list behind the sheet is stale even though this failed.
+      if (offerCommitted) onSaved();
     } finally {
       setSaving(false);
     }
@@ -315,8 +332,17 @@ function GroupSection({
   // hiding one made the sheet claim a list it was not sending — and reactivating that choice
   // later would silently put it back on the product without anyone including it.
   const editableChoices = useMemo(
-    () => group.choices.filter((c) => c.isActive || draft.pinned.has(c.key)),
-    [group.choices, draft.pinned],
+    () =>
+      group.choices.filter(
+        (c) =>
+          c.isActive ||
+          draft.pinned.has(c.key) ||
+          // A retired choice held as the explicit default is hidden state too: the payload
+          // resends it, and reactivating that choice would silently make it the product
+          // default again. Shown so the operator decides.
+          draft.defaultChoiceKey === c.key,
+      ),
+    [group.choices, draft.pinned, draft.defaultChoiceKey],
   );
 
   // The baseline is the EFFECTIVE default: a product-level override moves the zero point, so
@@ -331,7 +357,14 @@ function GroupSection({
   // A retired group, or one with nothing active in it, is dropped by ComposeEffective — so
   // including it saves cleanly and shows customers nothing. Already-stored lines stay
   // removable; only NEW inclusion is blocked.
-  const servable = group.isActive && activeChoices.length > 0;
+  // The server's own rule (ProductOptionService.IsServable): active, at least one active
+  // choice, and EXACTLY ONE active recommended default. A half-authored group with no default
+  // is returned by the admin catalogue but dropped from every storefront composition, and an
+  // inherited line on one fails V8 at save.
+  const servable =
+    group.isActive &&
+    activeChoices.length > 0 &&
+    activeChoices.filter((c) => c.isRecommendedDefault).length === 1;
 
   const togglePinned = (key: string) => {
     const next = new Set(draft.pinned);
@@ -391,9 +424,16 @@ function GroupSection({
                   pinned: e.target.checked
                     ? draft.pinned
                     : new Set(activeChoices.map((c) => c.key)),
-                  // Pinning starts from the active set, so a stale explicit default that is no
-                  // longer active does not survive the switch.
-                  defaultChoiceKey: e.target.checked ? draft.defaultChoiceKey : null,
+                  // KEEP a product default that is still valid. Clearing it unconditionally
+                  // moved the product's standard preparation back to the catalogue
+                  // recommendation — and could stage content review — when the operator had
+                  // only asked to stop inheriting FUTURE choices. Only a default that is no
+                  // longer active is dropped, because it could not survive the pin anyway.
+                  defaultChoiceKey:
+                    e.target.checked ||
+                    activeChoices.some((c) => c.key === draft.defaultChoiceKey)
+                      ? draft.defaultChoiceKey
+                      : null,
                 })
               }
             />

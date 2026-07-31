@@ -39,14 +39,27 @@ export function ChoiceEditorSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const baseline = effectiveDefaultChoice(group.choices);
-  const parsed = Number(price);
+  const groupDefault = effectiveDefaultChoice(group.choices);
+  const blankPrice = price.trim() === '';
+  const parsed = blankPrice ? Number.NaN : Number(price);
+  const editingTheDefault = groupDefault?.key === choice.key;
+  // Editing the DEFAULT moves the baseline with it — it is its own zero point, so its own
+  // delta stays 0 no matter what the new price is. Comparing the new price against the old
+  // one would show "+1.50 against" the very choice being edited.
+  const previewBaseline = editingTheDefault ? { price: parsed } : groupDefault;
   const previewDelta =
-    Number.isFinite(parsed) && baseline ? choiceDelta({ price: parsed }, baseline) : null;
+    Number.isFinite(parsed) && previewBaseline ? choiceDelta({ price: parsed }, previewBaseline) : null;
 
   const save = async () => {
     if (!label.trim()) {
       setError('A choice needs a label.');
+      return;
+    }
+    // Checked BEFORE the numeric conversion: Number('') is 0, so a cleared field would pass
+    // a finite/non-negative test and silently reprice the choice to zero — which, on a
+    // recommended default, silently rewrites every derived delta in the catalogue.
+    if (blankPrice) {
+      setError('Enter the absolute price. Clearing the field is not the same as pricing it at zero.');
       return;
     }
     if (!Number.isFinite(parsed) || parsed < 0) {
@@ -61,7 +74,10 @@ export function ChoiceEditorSheet({
         // Sent as the empty-to-null it is: the server assigns this member unconditionally, so
         // an omitted note is a deleted note.
         note: note.trim() === '' ? null : note.trim(),
-        price: parsed,
+        // Value-typed members preserve on omission, so an UNCHANGED price is left out — a
+        // resent one would revert a concurrent repricing by another admin that this sheet
+        // never saw.
+        ...(parsed === choice.price ? {} : { price: parsed }),
       });
       toast.success('Choice saved');
       onSaved();
@@ -121,11 +137,16 @@ export function ChoiceEditorSheet({
               />
               <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
                 This is the ABSOLUTE per-unit price, not the extra (Spec 066 §8).
-                {baseline && previewDelta !== null && (
-                  <>
-                    Against {baseline.label} that reads{' '}
-                    <SignedAmount amount={previewDelta} currency={group.currency} />
-                  </>
+                {editingTheDefault ? (
+                  <>This choice IS the default, so it is its own baseline and always reads 0.</>
+                ) : (
+                  groupDefault &&
+                  previewDelta !== null && (
+                    <>
+                      Against {groupDefault.label} that reads{' '}
+                      <SignedAmount amount={previewDelta} currency={group.currency} />
+                    </>
+                  )
                 )}
               </span>
             </label>

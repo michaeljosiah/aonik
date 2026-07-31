@@ -28,10 +28,18 @@ import { formatCurrency } from '@/lib/format';
 import type { OptionChoiceDto, OptionGroupDto, ProductSummaryDto } from '@/types/commerce';
 
 import { ChoiceEditorSheet } from './components/ChoiceEditorSheet';
+import { CreateGroupDialog } from './components/CreateGroupDialog';
 import { DefaultMoveDialog } from './components/DefaultMoveDialog';
 import { NarrowingSheet } from './components/NarrowingSheet';
 import { SignedAmount } from './components/SignedAmount';
 import { choiceDelta, effectiveDefaultChoice, hasNoActiveChoices } from './lib/optionPricing';
+
+/** What one row's detail read tells us: the EFFECTIVE offer and the denominated surcharge. */
+interface RowFacts {
+  groupLabels: string[];
+  surcharge: number | null;
+  currency: string | null;
+}
 
 /** Page sizes the table offers. The offers column costs one read per row, so the ceiling is
  *  deliberate: a page of 100 is 100 requests, and the operator chooses to pay it. */
@@ -43,13 +51,13 @@ export function PersonalisationPage() {
   const [productTotal, setProductTotal] = useState(0);
   const [productPage, setProductPage] = useState(1);
   const [productPageSize, setProductPageSize] = useState(25);
-  // groupKeys offered per product, for the Offers column. Null while unread; an empty array is
-  // a real answer ("not personalisable") and must not be confused with "not loaded yet".
-  const [offers, setOffers] = useState<Map<string, string[]> | null>(null);
+  /** What each row actually offers and charges. Absent id = unread; never "offers nothing". */
+  const [rowFacts, setRowFacts] = useState<Map<string, RowFacts>>(new Map());
   const [recommendedLabel, setRecommendedLabel] = useState<string | null>(null);
   const [storefrontCurrency, setStorefrontCurrency] = useState<string | null>(null);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [narrowing, setNarrowing] = useState<ProductSummaryDto | null>(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const [editingChoice, setEditingChoice] = useState<{
     group: OptionGroupDto;
     choice: OptionChoiceDto;
@@ -97,34 +105,45 @@ export function PersonalisationPage() {
         current && groupList.some((g) => g.key === current) ? current : (groupList[0]?.key ?? null),
       );
 
-      // One raw-narrowing read per row. There is no batch endpoint, and the summary carries no
-      // option data, so the column is bounded by the page size rather than by a cap that would
-      // leave some rows unexplained. A failure leaves the column reading "unknown", never
-      // "not personalisable" — those are different claims.
+      // One DETAIL read per row. There is no batch endpoint and the summary carries neither
+      // option data nor the surcharge currency, so the column is bounded by the page size.
+      //
+      // The detail's EFFECTIVE groups are what the storefront actually composes — the raw
+      // authoring lines are not: a line for a retired group, or one whose pinned choices have
+      // all gone inactive, is still stored but dropped by ComposeEffective, so counting raw
+      // lines reported products as personalisable whose panel is in fact hidden.
       const entries = await Promise.all(
         page.items.map(async (product) => {
           try {
-            const lines = await commerceCatalogService.getProductNarrowing(product.id);
-            return [product.id, lines.map((line) => line.groupKey)] as const;
+            const detail = await commerceCatalogService.getProduct(product.id);
+            return [
+              product.id,
+              {
+                groupLabels: detail.effectiveOptionGroups.map((g) => g.label ?? g.key),
+                surcharge: detail.unitSurcharge,
+                currency: detail.unitSurchargeCurrency,
+              },
+            ] as const;
           } catch {
             return [product.id, null] as const;
           }
         }),
       );
       if (requestIdRef.current !== requestId) return;
-      setOffers(
+      setRowFacts(
         new Map(
-          entries.filter((e): e is readonly [string, string[]] => e[1] !== null) as Iterable<
-            [string, string[]]
+          entries.filter((e): e is readonly [string, RowFacts] => e[1] !== null) as Iterable<
+            [string, RowFacts]
           >,
         ),
       );
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
-      setGroups([]);
-      setProducts([]);
-      setProductTotal(0);
-      setError(readMessage(err) || 'Personalisation could not be loaded.');
+      // The last good catalogue is KEPT. Clearing it let an open narrowing sheet re-read an
+      // empty group list, build an empty draft map, and save `groups: []` — erasing the
+      // product's whole offer because a refresh happened to fail. A failed refresh means the
+      // data is unknown, not gone; the banner says so and the page keeps what it had.
+      setError(readMessage(err) || 'Personalisation could not be refreshed — showing the last data loaded.');
     } finally {
       if (requestIdRef.current === requestId) {
         setLoading(false);
@@ -143,10 +162,10 @@ export function PersonalisationPage() {
     () => ({
       totalChoices: groups.reduce((sum, group) => sum + group.choices.length, 0),
       surcharged: products.filter((p) => p.unitSurcharge != null).length,
-      // Products with at least one offered group, among those whose offer was actually read.
-      narrowed: products.filter((p) => (offers?.get(p.id)?.length ?? 0) > 0).length,
+      // Products with at least one EFFECTIVE group, among those whose row read succeeded.
+      narrowed: products.filter((p) => (rowFacts.get(p.id)?.groupLabels.length ?? 0) > 0).length,
     }),
-    [groups, products, offers],
+    [groups, products, rowFacts],
   );
 
   const productColumns: ColumnDef<ProductSummaryDto>[] = [
@@ -168,15 +187,15 @@ export function PersonalisationPage() {
     {
       id: 'offers',
       header: 'Offers',
-      accessorFn: (row) => offers?.get(row.id)?.length ?? -1,
+      accessorFn: (row) => rowFacts.get(row.id)?.groupLabels.length ?? -1,
       cell: (row) => {
-        const groupKeys = offers?.get(row.id);
-        if (!groupKeys) {
+        const groupLabels = rowFacts.get(row.id)?.groupLabels;
+        if (!groupLabels) {
           // Unread or failed — NOT "not personalisable". Claiming a product offers nothing
           // because a request failed would send an operator to fix something that is fine.
           return <span className="text-[11px] text-[var(--color-text-tertiary)]">unknown</span>;
         }
-        if (groupKeys.length === 0) {
+        if (groupLabels.length === 0) {
           return (
             <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
               Not personalisable — panel hidden
@@ -185,14 +204,14 @@ export function PersonalisationPage() {
         }
         return (
           <span className="flex flex-wrap gap-1">
-            {groupKeys.slice(0, 3).map((key) => (
-              <Pill key={key} tone="muted" size="sm">
-                {groups.find((g) => g.key === key)?.label ?? key}
+            {groupLabels.slice(0, 3).map((label) => (
+              <Pill key={label} tone="muted" size="sm">
+                {label}
               </Pill>
             ))}
-            {groupKeys.length > 3 && (
+            {groupLabels.length > 3 && (
               <span className="text-[11px] text-[var(--color-text-tertiary)]">
-                +{groupKeys.length - 3}
+                +{groupLabels.length - 3}
               </span>
             )}
           </span>
@@ -203,19 +222,30 @@ export function PersonalisationPage() {
     {
       id: 'surcharge',
       header: 'Unit surcharge',
-      accessorFn: (row) => row.unitSurcharge ?? -1,
-      // A MARKER, not an amount: the summary DTO carries the number but not its currency, and
-      // a bare figure would read as a price in whatever currency the operator assumed. The
-      // Sheet shows the amount, where the currency is known.
-      cell: (row) =>
-        row.unitSurcharge != null ? (
-          <Pill tone="info" size="sm" dot>
-            Set
-          </Pill>
-        ) : (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
-        ),
-      className: 'w-[140px]',
+      accessorFn: (row) => rowFacts.get(row.id)?.surcharge ?? row.unitSurcharge ?? -1,
+      // The AMOUNT, now that the row read carries its currency. A bare number without its
+      // denomination would read as a price in whatever currency the operator assumed, so a
+      // row whose detail failed shows the marker instead of guessing.
+      cell: (row) => {
+        const facts = rowFacts.get(row.id);
+        if (facts?.surcharge != null && facts.currency) {
+          return (
+            <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
+              {formatCurrency(facts.surcharge, facts.currency)}
+            </span>
+          );
+        }
+        if (row.unitSurcharge != null) {
+          return (
+            <Pill tone="info" size="sm" dot>
+              Set
+            </Pill>
+          );
+        }
+        return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+      },
+      className: 'w-[150px] text-right',
+      headerClassName: 'text-right',
     },
     {
       id: 'edit',
@@ -255,16 +285,19 @@ export function PersonalisationPage() {
           delta="catalogue"
           deltaTone="neutral"
         />
-        <KpiTile
-          label="Active products"
-          value={productTotal.toLocaleString()}
-          delta="all pages"
-          deltaTone="neutral"
-        />
+        {/* Both of these are PAGE-scoped and say so. The reads that produce them are per-row,
+            so a tenant-wide figure would mean fetching every active product on page load —
+            and a caption-less number here would be quoted as a whole-catalogue fact. */}
         <KpiTile
           label="Products narrowed"
           value={kpis.narrowed.toLocaleString()}
-          delta={`of the ${products.length} on this page`}
+          delta={`of ${products.length} on this page`}
+          deltaTone="neutral"
+        />
+        <KpiTile
+          label="Unit surcharges set"
+          value={kpis.surcharged.toLocaleString()}
+          delta={`of ${products.length} on this page`}
           deltaTone="neutral"
         />
       </div>
@@ -292,12 +325,7 @@ export function PersonalisationPage() {
                   <p className="text-[12.5px] text-[var(--color-text-secondary)]">
                     No option groups yet — products cannot be personalised until one exists.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled
-                    title="Group authoring is not built yet — create groups with the aonik CLI"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setCreatingGroup(true)}>
                     <Plus className="mr-1 h-3.5 w-3.5" /> New group
                   </Button>
                 </div>
@@ -394,6 +422,14 @@ export function PersonalisationPage() {
           current={effectiveDefaultChoice(defaultMove.group.choices)}
           onClose={() => setDefaultMove(null)}
           onMoved={() => void loadData()}
+        />
+      )}
+
+      {creatingGroup && (
+        <CreateGroupDialog
+          defaultCurrency={storefrontCurrency}
+          onClose={() => setCreatingGroup(false)}
+          onCreated={() => void loadData()}
         />
       )}
 
