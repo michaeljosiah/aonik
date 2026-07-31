@@ -12,7 +12,7 @@
 // less — sending only touched groups, say — would leave untouched groups intact and quietly
 // widen the product relative to what the operator was looking at.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -69,8 +69,15 @@ export function NarrowingSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  // Reload fires load() AND the parent refresh, and the parent replaces `groups` — which
+  // changes this callback and launches a SECOND load. Both used to commit unconditionally, so
+  // an older response built from the previous catalogue could land last and win.
+  const generationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    const current = () => generationRef.current === generation;
     setLoading(true);
     setError(null);
     try {
@@ -94,6 +101,7 @@ export function NarrowingSheet({
           sortOrder: line?.sortOrder ?? group.sortOrder,
         });
       }
+      if (!current()) return;
       setDrafts(next);
       const initial = detail.unitSurcharge != null ? String(detail.unitSurcharge) : '';
       setAmount(initial);
@@ -101,10 +109,11 @@ export function NarrowingSheet({
       setStoredCurrency(detail.unitSurchargeCurrency ?? null);
       setConflict(false);
     } catch (err: unknown) {
+      if (!current()) return;
       setDrafts(null);
       setError(readMessage(err) || 'This product’s options could not be read.');
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [product.id, groups]);
 
@@ -137,6 +146,24 @@ export function NarrowingSheet({
     if (amount !== originalAmount && parsedAmount !== null && !surchargeCurrency) {
       setError('A surcharge needs a currency, and none is known for this product yet.');
       return;
+    }
+
+    // A pinned group whose effective default is not among its offered choices has no
+    // resolvable default, and the backend rejects the whole replace. Caught here, naming the
+    // group, rather than surfacing a payload-level error the operator has to decode.
+    for (const group of groups) {
+      const draft = drafts.get(group.key);
+      if (!draft?.included || draft.inherit) continue;
+      const offeredKeys = draft.pinned;
+      if (offeredKeys.size === 0) continue;
+      const defaultKey =
+        draft.defaultChoiceKey ??
+        group.choices.find((c) => c.isRecommendedDefault && c.isActive)?.key ??
+        null;
+      if (!defaultKey || !offeredKeys.has(defaultKey)) {
+        setError(`${group.label}: pick a default from the choices this product offers.`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -222,14 +249,20 @@ export function NarrowingSheet({
                   There is no option catalogue yet, so there is nothing to offer.
                 </p>
               ) : (
-                groups.map((group) => (
-                  <GroupSection
-                    key={group.key}
-                    group={group}
-                    draft={drafts.get(group.key)!}
-                    onChange={(patch) => update(group.key, patch)}
-                  />
-                ))
+                groups.map((group) => {
+                  // A group added to the catalogue after this sheet loaded has no draft yet;
+                  // rendering it with `undefined` would crash rather than simply waiting for
+                  // the reload that is already on its way.
+                  const draft = drafts.get(group.key);
+                  return draft ? (
+                    <GroupSection
+                      key={group.key}
+                      group={group}
+                      draft={draft}
+                      onChange={(patch) => update(group.key, patch)}
+                    />
+                  ) : null;
+                })
               )}
 
               <AonikCard title="Unit surcharge" padding={12}>
@@ -277,6 +310,15 @@ function GroupSection({
   onChange: (patch: Partial<GroupDraft>) => void;
 }) {
   const activeChoices = useMemo(() => group.choices.filter((c) => c.isActive), [group.choices]);
+
+  // RETIRED choices still pinned are shown, not filtered away. `draft.pinned` resends them, so
+  // hiding one made the sheet claim a list it was not sending — and reactivating that choice
+  // later would silently put it back on the product without anyone including it.
+  const editableChoices = useMemo(
+    () => group.choices.filter((c) => c.isActive || draft.pinned.has(c.key)),
+    [group.choices, draft.pinned],
+  );
+
   // The baseline is the EFFECTIVE default: a product-level override moves the zero point, so
   // the same choice reads differently here than in the catalogue table. Both are correct.
   const baseline = effectiveDefaultChoice(activeChoices, draft.defaultChoiceKey);
@@ -286,17 +328,26 @@ function GroupSection({
     ? activeChoices
     : activeChoices.filter((choice) => draft.pinned.has(choice.key));
 
+  // A retired group, or one with nothing active in it, is dropped by ComposeEffective — so
+  // including it saves cleanly and shows customers nothing. Already-stored lines stay
+  // removable; only NEW inclusion is blocked.
+  const servable = group.isActive && activeChoices.length > 0;
+
   const togglePinned = (key: string) => {
     const next = new Set(draft.pinned);
     if (next.has(key)) next.delete(key);
     else next.add(key);
-    // Excluding the chip that IS the product default would build a payload whose
-    // defaultChoiceKey is absent from allowedChoiceKeys — which the backend rejects, leaving
-    // the operator with an unsaveable sheet and a mismatch to diagnose. Clear it instead.
-    onChange({
-      pinned: next,
-      defaultChoiceKey: draft.defaultChoiceKey === key && !next.has(key) ? null : draft.defaultChoiceKey,
-    });
+
+    // Excluding the effective default leaves the line with no resolvable default, which the
+    // backend rejects. That holds for an INHERITED default too — my first pass only handled an
+    // explicit one — so the check is on the effective key, and a remaining choice takes over.
+    const effectiveKey = draft.defaultChoiceKey ?? baseline?.key ?? null;
+    let defaultChoiceKey = draft.defaultChoiceKey;
+    if (effectiveKey && !next.has(effectiveKey)) {
+      const replacement = activeChoices.find((c) => next.has(c.key));
+      defaultChoiceKey = replacement ? replacement.key : null;
+    }
+    onChange({ pinned: next, defaultChoiceKey });
   };
 
   return (
@@ -305,6 +356,7 @@ function GroupSection({
         <input
           type="checkbox"
           checked={draft.included}
+          disabled={!servable && !draft.included}
           onChange={(e) => onChange({ included: e.target.checked })}
         />
         <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
@@ -317,6 +369,11 @@ function GroupSection({
           <Pill tone="muted" size="sm">
             Retired
           </Pill>
+        )}
+        {!servable && !draft.included && (
+          <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            not servable — customers would never see it
+          </span>
         )}
       </label>
 
@@ -334,6 +391,9 @@ function GroupSection({
                   pinned: e.target.checked
                     ? draft.pinned
                     : new Set(activeChoices.map((c) => c.key)),
+                  // Pinning starts from the active set, so a stale explicit default that is no
+                  // longer active does not survive the switch.
+                  defaultChoiceKey: e.target.checked ? draft.defaultChoiceKey : null,
                 })
               }
             />
@@ -349,7 +409,7 @@ function GroupSection({
           </p>
 
           <div className="flex flex-wrap gap-1.5">
-            {activeChoices.map((choice) => {
+            {editableChoices.map((choice) => {
               const offered = draft.inherit || draft.pinned.has(choice.key);
               const delta = choiceDelta(choice, baseline);
               const isDefault = baseline?.key === choice.key;
@@ -376,6 +436,9 @@ function GroupSection({
                     />
                   )}
                   {choice.label}
+                  {!choice.isActive && (
+                    <span className="text-[10px] text-[var(--color-warning)]">retired</span>
+                  )}
                   {delta !== null && delta !== 0 && (
                     <SignedAmount amount={delta} currency={group.currency} />
                   )}

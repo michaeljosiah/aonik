@@ -27,23 +27,33 @@ import { commerceStorefrontService } from '@/services/commerceStorefrontService'
 import { formatCurrency } from '@/lib/format';
 import type { OptionChoiceDto, OptionGroupDto, ProductSummaryDto } from '@/types/commerce';
 
+import { ChoiceEditorSheet } from './components/ChoiceEditorSheet';
 import { DefaultMoveDialog } from './components/DefaultMoveDialog';
 import { NarrowingSheet } from './components/NarrowingSheet';
 import { SignedAmount } from './components/SignedAmount';
 import { choiceDelta, effectiveDefaultChoice, hasNoActiveChoices } from './lib/optionPricing';
 
-/** Page size for the narrowing table. Paged, so no product is unreachable from here. */
-const PRODUCT_PAGE_SIZE = 25;
+/** Page sizes the table offers. The offers column costs one read per row, so the ceiling is
+ *  deliberate: a page of 100 is 100 requests, and the operator chooses to pay it. */
+const PAGE_SIZES = [10, 25, 50];
 
 export function PersonalisationPage() {
   const [groups, setGroups] = useState<OptionGroupDto[]>([]);
   const [products, setProducts] = useState<ProductSummaryDto[]>([]);
   const [productTotal, setProductTotal] = useState(0);
   const [productPage, setProductPage] = useState(1);
+  const [productPageSize, setProductPageSize] = useState(25);
+  // groupKeys offered per product, for the Offers column. Null while unread; an empty array is
+  // a real answer ("not personalisable") and must not be confused with "not loaded yet".
+  const [offers, setOffers] = useState<Map<string, string[]> | null>(null);
   const [recommendedLabel, setRecommendedLabel] = useState<string | null>(null);
   const [storefrontCurrency, setStorefrontCurrency] = useState<string | null>(null);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [narrowing, setNarrowing] = useState<ProductSummaryDto | null>(null);
+  const [editingChoice, setEditingChoice] = useState<{
+    group: OptionGroupDto;
+    choice: OptionChoiceDto;
+  } | null>(null);
   const [defaultMove, setDefaultMove] = useState<{
     group: OptionGroupDto;
     target: OptionChoiceDto;
@@ -63,7 +73,7 @@ export function PersonalisationPage() {
         commerceCatalogService.listOptionGroups(),
         commerceCatalogService.listProducts({
           page: productPage,
-          pageSize: PRODUCT_PAGE_SIZE,
+          pageSize: productPageSize,
           status: 'Active',
         }),
         // The label is presentation config, so a failure must not sink the page — it degrades
@@ -73,7 +83,7 @@ export function PersonalisationPage() {
       if (requestIdRef.current !== requestId) return;
       setGroups(groupList);
       // The requested page can stop existing under us when products are deactivated.
-      const lastPage = Math.max(1, Math.ceil(page.totalCount / PRODUCT_PAGE_SIZE));
+      const lastPage = Math.max(1, Math.ceil(page.totalCount / productPageSize));
       if (productPage > lastPage) {
         setProductTotal(page.totalCount);
         setProductPage(lastPage);
@@ -85,6 +95,29 @@ export function PersonalisationPage() {
       setStorefrontCurrency(config?.currency ?? null);
       setSelectedGroupKey((current) =>
         current && groupList.some((g) => g.key === current) ? current : (groupList[0]?.key ?? null),
+      );
+
+      // One raw-narrowing read per row. There is no batch endpoint, and the summary carries no
+      // option data, so the column is bounded by the page size rather than by a cap that would
+      // leave some rows unexplained. A failure leaves the column reading "unknown", never
+      // "not personalisable" — those are different claims.
+      const entries = await Promise.all(
+        page.items.map(async (product) => {
+          try {
+            const lines = await commerceCatalogService.getProductNarrowing(product.id);
+            return [product.id, lines.map((line) => line.groupKey)] as const;
+          } catch {
+            return [product.id, null] as const;
+          }
+        }),
+      );
+      if (requestIdRef.current !== requestId) return;
+      setOffers(
+        new Map(
+          entries.filter((e): e is readonly [string, string[]] => e[1] !== null) as Iterable<
+            [string, string[]]
+          >,
+        ),
       );
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
@@ -98,7 +131,7 @@ export function PersonalisationPage() {
         setInitialLoad(false);
       }
     }
-  }, [productPage]);
+  }, [productPage, productPageSize]);
 
   useEffect(() => {
     void loadData();
@@ -110,8 +143,10 @@ export function PersonalisationPage() {
     () => ({
       totalChoices: groups.reduce((sum, group) => sum + group.choices.length, 0),
       surcharged: products.filter((p) => p.unitSurcharge != null).length,
+      // Products with at least one offered group, among those whose offer was actually read.
+      narrowed: products.filter((p) => (offers?.get(p.id)?.length ?? 0) > 0).length,
     }),
-    [groups, products],
+    [groups, products, offers],
   );
 
   const productColumns: ColumnDef<ProductSummaryDto>[] = [
@@ -129,6 +164,41 @@ export function PersonalisationPage() {
       ),
       className: 'pl-4',
       headerClassName: 'pl-4',
+    },
+    {
+      id: 'offers',
+      header: 'Offers',
+      accessorFn: (row) => offers?.get(row.id)?.length ?? -1,
+      cell: (row) => {
+        const groupKeys = offers?.get(row.id);
+        if (!groupKeys) {
+          // Unread or failed — NOT "not personalisable". Claiming a product offers nothing
+          // because a request failed would send an operator to fix something that is fine.
+          return <span className="text-[11px] text-[var(--color-text-tertiary)]">unknown</span>;
+        }
+        if (groupKeys.length === 0) {
+          return (
+            <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+              Not personalisable — panel hidden
+            </span>
+          );
+        }
+        return (
+          <span className="flex flex-wrap gap-1">
+            {groupKeys.slice(0, 3).map((key) => (
+              <Pill key={key} tone="muted" size="sm">
+                {groups.find((g) => g.key === key)?.label ?? key}
+              </Pill>
+            ))}
+            {groupKeys.length > 3 && (
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                +{groupKeys.length - 3}
+              </span>
+            )}
+          </span>
+        );
+      },
+      className: 'w-[260px]',
     },
     {
       id: 'surcharge',
@@ -192,8 +262,8 @@ export function PersonalisationPage() {
           deltaTone="neutral"
         />
         <KpiTile
-          label="Unit surcharges set"
-          value={kpis.surcharged.toLocaleString()}
+          label="Products narrowed"
+          value={kpis.narrowed.toLocaleString()}
           delta={`of the ${products.length} on this page`}
           deltaTone="neutral"
         />
@@ -276,6 +346,7 @@ export function PersonalisationPage() {
                 group={selectedGroup}
                 recommendedLabel={recommendedLabel}
                 onMoveDefault={(target) => setDefaultMove({ group: selectedGroup, target })}
+                onEditChoice={(choice) => setEditingChoice({ group: selectedGroup, choice })}
                 onChanged={() => void loadData()}
               />
             ) : (
@@ -303,11 +374,13 @@ export function PersonalisationPage() {
             />
             <DataTablePagination
               pageNumber={productPage}
-              pageSize={PRODUCT_PAGE_SIZE}
+              pageSize={productPageSize}
               totalCount={productTotal}
+              pageSizeOptions={PAGE_SIZES}
               onPageChange={setProductPage}
-              onPageSizeChange={() => {
-                /* fixed page size — the sheet, not this table, is where the work happens */
+              onPageSizeChange={(size) => {
+                setProductPageSize(size);
+                setProductPage(1);
               }}
             />
           </AonikCard>
@@ -321,6 +394,16 @@ export function PersonalisationPage() {
           current={effectiveDefaultChoice(defaultMove.group.choices)}
           onClose={() => setDefaultMove(null)}
           onMoved={() => void loadData()}
+        />
+      )}
+
+      {editingChoice && (
+        <ChoiceEditorSheet
+          key={editingChoice.choice.id}
+          group={editingChoice.group}
+          choice={editingChoice.choice}
+          onClose={() => setEditingChoice(null)}
+          onSaved={() => void loadData()}
         />
       )}
 
@@ -342,11 +425,13 @@ function ChoicesCard({
   group,
   recommendedLabel,
   onMoveDefault,
+  onEditChoice,
   onChanged,
 }: {
   group: OptionGroupDto;
   recommendedLabel: string | null;
   onMoveDefault: (choice: OptionChoiceDto) => void;
+  onEditChoice: (choice: OptionChoiceDto) => void;
   onChanged: () => void;
 }) {
   const baseline = effectiveDefaultChoice(group.choices);
@@ -461,6 +546,13 @@ function ChoicesCard({
                           Make default
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => onEditChoice(choice)}
+                        className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                      >
+                        Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() => void toggleRetired(choice)}
