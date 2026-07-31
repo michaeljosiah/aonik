@@ -17,8 +17,19 @@ namespace Aonik.SharedKernel.Abstractions.Subscriptions;
 /// </summary>
 public interface ISubscriberAuthorizer
 {
-    /// <summary>The subscriber kinds this authorizer owns, from <see cref="SubscriberKinds"/>.</summary>
-    IReadOnlyCollection<string> SubscriberKinds { get; }
+    /// <summary>
+    /// The subscriber kinds this authorizer owns, from <see cref="Subscriptions.SubscriberKinds"/>.
+    /// </summary>
+    /// <remarks>
+    /// Named <c>SupportedKinds</c> rather than <c>SubscriberKinds</c> deliberately. A property
+    /// sharing its simple name with the constants class shadows that class inside every
+    /// implementer, so the obvious initializer —
+    /// <c>public IReadOnlyCollection&lt;string&gt; SubscriberKinds { get; } = [SubscriberKinds.Group];</c>
+    /// — fails with CS0236: the unqualified name binds to the property being declared, not the
+    /// type. <c>IShareResourceResolver</c> (Spec 086 §6) avoids the same hazard by pairing
+    /// <c>ResourceKinds</c> with <c>ShareResourceKinds</c>.
+    /// </remarks>
+    IReadOnlyCollection<string> SupportedKinds { get; }
 
     /// <summary>
     /// True when the subscriber exists in the current tenant <b>and</b> the current caller may act

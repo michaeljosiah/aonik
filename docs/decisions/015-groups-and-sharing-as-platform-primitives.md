@@ -25,10 +25,10 @@ The generic/domain split is not where inspection would suggest. Measured:
 
 | | Lines | Domain couplings |
 | --- | --- | --- |
-| `HouseholdService` | 963 | **One** — a `PersonalAccounts` guard when removing a member (`HouseholdService.cs:658`). Everything else is invitation lifecycle, roles, ownership transfer, and serializable-transaction race safety. |
+| `HouseholdService` | 963 | **Pervasive, at every lifecycle transition.** Writes `PersonalProfile.HouseholdId` on create and invitation-acceptance (92, 103, 202, 296) and clears it on removal (655); unshares owned `PersonalAccount`s and emits `HouseholdAccountUnsharedEvent` (664–665); invalidates the financial life graph (109, 347, 510, 677). |
 | `CircleService` | 650 | **Pervasive** — `CareEntity`, `PaymentLog` and `Document` projections throughout. Only the grant/invite lifecycle is generic. |
 
-So Household is *already* a generic group-membership service wearing a finance name. Circle is two things in one file.
+So neither moves untouched. Household's *lifecycle* is generic — invitation, roles, ownership transfer, race safety — but every transition carries PersonalFinance side effects that must survive the move. Circle is two things in one file.
 
 ### Three concrete misfits
 
@@ -46,7 +46,7 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 
 **`Party` already models a person without a user.** [`Aonik.Platform/Entities/Party`](../../src/Aonik.Platform/Entities/Party) holds `Party` (open `PartyType`, `DisplayName`, no user coupling), `PartyRelationship`, `PartyConsent`, `PartyAddress` and `PartyContact`. A child is a person party with no login; a guardian edge is a `PartyRelationship`; a delivery address a sharer must not see is a `PartyAddress` on the recipient's party.
 
-**Moving a module costs no data migration.** Every module maps to the same table prefix — [`ModuleTablePrefixes`](../../src/Aonik.SharedKernel/Persistence/ModuleTablePrefixes.cs) sets `Platform = Finance = Ai = Agents = Commerce = "Ank"` — and the runtime schema is `dbo` for all of them. Relocating code between modules changes no table name and touches no row.
+**Moving a module costs no data migration** — which is not the same as costing no schema change; see the trade-offs. Every module maps to the same table prefix — [`ModuleTablePrefixes`](../../src/Aonik.SharedKernel/Persistence/ModuleTablePrefixes.cs) sets `Platform = Finance = Ai = Agents = Commerce = "Ank"` — and the runtime schema is `dbo` for all of them. Relocating code between modules changes no table name and touches no row.
 
 ## Decision
 
@@ -68,9 +68,9 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 | **What is a member?** | A **`Party`**, not a `User`. Users already resolve to parties (`ICurrentPartyResolver`). A child is a party with no user. This is the decision the whole ADR turns on. |
 | **What is shared?** | A **`ResourceKind` + ids** pair, not a typed foreign key. `ResourceKind` is an open string (the `OrderType` / `BusinessType` precedent). Each module registers an `IShareResourceResolver` for the kinds it owns; PersonalFinance registers `care-entity`. |
 | **Where do domain-specific terms go?** | A **`TermsJson`** blob the *owning module* interprets. The platform stores and returns it and never reads it. `NoAmounts` becomes a PersonalFinance term. |
-| **What moves and what stays?** | The **generic lifecycle** moves; **domain projections stay**. Household moves near-wholesale (one seam). Circle splits: grant/invite mechanics move, the shared-care-entity projection stays in PersonalFinance and consumes the platform grant. |
+| **What moves and what stays?** | The **generic lifecycle** moves; **domain side effects and projections stay**, re-attached through the lifecycle contributor. Circle splits: grant/invite mechanics move, the shared-care-entity projection stays in PersonalFinance and consumes the platform grant. |
 | **Naming** | Platform code says `Group` / `ShareGrant`. "Circle", "household" and "family" are **product vocabulary** and stay in product UIs, per [ADR-013](013-product-identity-is-configuration.md). |
-| **Extension seams** | Two, both following the module-contributed `IEnumerable<T>` DI pattern already used for seeding and provisioning: `IGroupMemberRemovalGuard` (the one `PersonalAccounts` check) and `IShareResourceResolver` (resource-kind resolution). |
+| **Extension seams** | Two, both following the module-contributed `IEnumerable<T>` DI pattern already used for seeding and provisioning: **`IGroupLifecycleContributor`** — which must both *veto* and *react* (`VetoAsync` + `OnCommittedAsync`, in-transaction), because a refusal-only interface has nowhere to put the profile-link, account-unshare, event and cache-invalidation side effects that removal performs today — and `IShareResourceResolver` (resource-kind resolution). |
 | **Wire compatibility** | Existing PersonalFinance routes and DTOs are **unchanged**; their services delegate to the platform. Simi's mobile app and the CLI see nothing. This is what makes the extraction safe to do while Simi is live. |
 | **Table names** | **Unchanged in this pass.** Classes are renamed; `ToTable("Households")`, `ToTable("CircleGrants")` and column names are retained by explicit mapping. Renaming is a later, optional migration with no functional content. |
 | **A slice, not a module** | Groups is a vertical slice inside `Aonik.Platform`, which already owns the people layer (Identity, Party). Four entities and two services do not warrant their own module. |
@@ -89,7 +89,7 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 - **One implementation of invite-token security.** The opaque, single-use, expiring bearer capability in `CircleInvite` is the kind of thing that must exist once. Duplicating it per product is how one copy ends up without expiry.
 - **Consent, kinship and addresses come for free.** `PartyConsent`, `PartyRelationship` and `PartyAddress` already exist on the party a member now points at.
 - **Household stops being mis-filed.** A 963-line generic membership service and its integration events currently live in a finance module — the `Household*` events are even declared in `SharedKernel/Events/Integration/FinanceEvents.cs`.
-- **Near-zero migration risk.** No table moves, no row moves; the schema delta is two nullable/added columns.
+- **No data migration.** No table moves and no row moves — every module shares the `Ank` prefix in `dbo`, so relocating code changes no table name. The *schema* delta is larger than an early draft of this ADR claimed: roughly nine operations, including party-id columns added alongside (never replacing) the user-id ones, and — unavoidably — **dropping and replacing the `(TenantId, HouseholdId, UserId)` unique index**, which permits only one NULL per group and would otherwise reject the second member without a login. See [Spec 086 §10.2](../specifications/086.extract-groups-and-sharing-to-platform.html#persistence).
 
 ### Trade-offs
 

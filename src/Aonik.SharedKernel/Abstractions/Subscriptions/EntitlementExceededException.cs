@@ -9,7 +9,7 @@ namespace Aonik.SharedKernel.Abstractions.Subscriptions;
 /// Overage is always an explicit purchase, never an implicit debt: allowance is refused at zero
 /// and never goes negative.
 /// </summary>
-public class EntitlementExceededException : Exception
+public sealed class EntitlementExceededException : Exception
 {
     public EntitlementExceededException(string meterCode, decimal requested, decimal available)
         : base($"Entitlement '{meterCode}' has {available} remaining; {requested} was requested.")
