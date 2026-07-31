@@ -1,7 +1,10 @@
 using Aonik.SharedKernel.Modules;
 using Aonik.Subscriptions.Contracts.Services;
 using Aonik.Subscriptions.Persistence;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Services.Catalogue;
+using Aonik.Subscriptions.Services.Subscriptions;
+using Aonik.Subscriptions.Services.Usage;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,15 @@ public sealed class SubscriptionsModule : IModule
         });
 
         services.AddScoped<ICatalogueService, CatalogueService>();
+
+        // Spec 087 P3 - subscription lifecycle, the free-tier settlement path, and counter usage.
+        services.AddScoped<SubscriberAuthorization>();
+        services.AddScoped<ISubscriberAuthorizer, TenantSubscriberAuthorizer>();
+        services.AddScoped<ISubscriberAuthorizer, PartySubscriberAuthorizer>();
+        services.AddScoped<EntitlementMaterialiser>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddScoped<IEntitlementReader, EntitlementReader>();
+        services.AddScoped<IUsageMeter, UsageMeter>();
 
         return services;
     }

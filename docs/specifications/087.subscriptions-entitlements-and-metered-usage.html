@@ -157,7 +157,7 @@
     <tr>
       <td><code>PersonalFinance.Subscription</code></td>
       <td>A <strong>B2C bill-tracking record</strong>: "this user pays £9.99/month to Netflix". A thing the platform <em>observes</em>.</td>
-      <td>Unrelated. <strong>Direct name collision</strong> — never let the two meet in a <code>using</code>. Namespaces keep them apart; reviewers must too.</td>
+      <td>Unrelated. <strong>Direct name collision, and it bit in P3:</strong> <code>AonikDbContext</code> imports both, so the compiler refused the file until each side was aliased (<code>TrackedSubscriptionEntity</code> vs <code>PlanSubscriptionEntity</code>, following the existing <code>LedgerEntity</code>/<code>PartyEntity</code> precedent). The DbSet name <code>Subscriptions</code> was already taken too, so the SaaS table is <code>AnkPlanSubscriptions</code>.</td>
     </tr>
     <tr>
       <td><code>TenantFeature</code></td>
