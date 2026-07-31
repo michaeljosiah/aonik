@@ -23,9 +23,10 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceContentService } from '@/services/commerceContentService';
-import type { ProductContentDto } from '@/types/commerce';
+import type { EffectiveOptionGroupDto, ProductContentDto } from '@/types/commerce';
 
 import { ContentFields } from './ContentFields';
+import { describePreparation } from '../lib/preparation';
 import {
   draftFromBlock,
   validateDraft,
@@ -38,6 +39,7 @@ export function ContentBlockSheet({
   productName,
   block,
   expectedDefaults,
+  groups,
   isStale,
   onClose,
   onSaved,
@@ -48,6 +50,8 @@ export function ContentBlockSheet({
   block: ProductContentDto | null;
   /** The standard preparation as of the read this sheet opened from (V-C9). */
   expectedDefaults: string;
+  /** Labels for the preparation's choices. Display only — never the precondition's source. */
+  groups: EffectiveOptionGroupDto[];
   /** The block no longer describes the current standard preparation. */
   isStale: boolean;
   onClose: () => void;
@@ -105,11 +109,21 @@ export function ContentBlockSheet({
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setError(readMessage(err) || 'The review could not be confirmed.');
+      const message = readMessage(err);
+      if (/V-C9|V-C10/.test(message)) setConflict(true);
+      setError(message || 'The review could not be confirmed.');
     } finally {
       setConfirming(false);
     }
   };
+
+  // Whether the draft still says what the server holds. Confirming sends NO fields, so with a
+  // dirty draft it would clear the flag against the old text and close — discarding an edit the
+  // operator had made, a corrected allergen declaration among the possibilities.
+  const dirty =
+    JSON.stringify(wireFromDraft(draft)) !== JSON.stringify(wireFromDraft(draftFromBlock(baseline)));
+
+  const preparation = describePreparation(reviewedDefaults, groups);
 
   const save = async () => {
     const invalid = validateDraft(draft);
@@ -160,7 +174,13 @@ export function ContentBlockSheet({
       // Cross-row invariants (V-C6: the block cannot publish a figure an active variant does
       // not) come back as validation errors naming the offending variants. Shown verbatim —
       // paraphrasing a rule this page does not own would send the operator to the wrong place.
-      setError(readMessage(err) || 'The content could not be saved.');
+      const message = readMessage(err);
+      // V-C9/V-C10 are the server saying the world moved. Without marking them reloadable the
+      // banner offers no way out and `reviewedDefaults` stays stale forever, so every later
+      // save — and the confirm beside it — repeats the same rejection until the sheet is
+      // abandoned. The refusal is only useful if the remedy is attached to it.
+      if (/V-C9|V-C10/.test(message)) setConflict(true);
+      setError(message || 'The content could not be saved.');
     } finally {
       setSaving(false);
     }
@@ -192,6 +212,32 @@ export function ContentBlockSheet({
             </div>
           )}
 
+          {/*
+            The preparation these fields publish against, RENDERED — not merely enforced.
+            V-C9 proves the binding did not move during the request; it says nothing about
+            whether a person looked at what they were agreeing to. An operator confirming an old
+            allergen line after a protein default changed needs to see which protein.
+          */}
+          <div className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              These describe the standard preparation
+            </p>
+            {preparation.length === 0 ? (
+              <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">
+                This product offers no options, so there is one preparation.
+              </p>
+            ) : (
+              <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                {preparation.map((line) => (
+                  <li key={line.group} className="text-[12px] text-[var(--color-text-secondary)]">
+                    {line.group}:{' '}
+                    <span className="text-[var(--color-text-primary)]">{line.choice}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <fieldset disabled={saving || reloading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <ContentFields draft={draft} onChange={setDraft} />
           </fieldset>
@@ -212,7 +258,8 @@ export function ContentBlockSheet({
             <Button
               variant="outline"
               onClick={() => void confirmNoChanges()}
-              disabled={saving || reloading || confirming || conflict}
+              disabled={saving || reloading || confirming || conflict || dirty}
+              title={dirty ? 'Save your changes instead — this action sends none of them.' : undefined}
             >
               {confirming ? 'Confirming…' : 'Confirm — no changes needed'}
             </Button>

@@ -28,6 +28,7 @@ public interface IProductContentService
     Task<ProductContentVariantDto> AddVariantAsync(
         Guid productId,
         UpsertContentVariantCommand command,
+        string expectedDefaultsSelectionJson,
         string? expectedCanonicalSelectionJson = null,
         CancellationToken ct = default);
     Task<ProductContentVariantDto> UpdateVariantAsync(

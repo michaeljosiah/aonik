@@ -711,12 +711,15 @@ export function ProductContentPage() {
                             // defaults, so a retired variant whose combination has SINCE become
                             // the standard preparation cannot be revived at all — the default
                             // block is where that content belongs now.
-                            // Requires the standard selection to be KNOWN. For a Draft or
-                            // Archived product the resolution is unavailable, so `resolved` is
-                            // null and an equality test against it would pass for everything —
-                            // re-offering exactly the revive V-C1 forbids.
-                            !!resolved &&
-                            variant.selectionJson !== resolved.canonicalSelectionJson ? (
+                            //
+                            // Compared against the ADMIN read's binding, not the public
+                            // resolution. Both answer "what is the standard preparation", but
+                            // only one of them exists for a Draft or Archived product — gating
+                            // on the resolution told operators to ACTIVATE the product before
+                            // restoring its content, which is advice to publish an incomplete
+                            // storefront to fix an authoring problem. The same false gate hit an
+                            // active product whose resolution read merely failed.
+                            variant.selectionJson !== content.currentDefaultsSelectionJson ? (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -731,11 +734,9 @@ export function ProductContentPage() {
                               </button>
                             ) : (
                               <span className="text-[11px] text-[var(--color-text-tertiary)]">
-                                {!resolved
-                                  ? 'retired — activate the product to revive'
-                                  : variant.selectionJson === resolved.canonicalSelectionJson
-                                    ? 'now the standard — edit the block'
-                                    : 'retired'}
+                                {variant.selectionJson === content?.currentDefaultsSelectionJson
+                                  ? 'now the standard — edit the block'
+                                  : 'retired'}
                               </span>
                             )
                           )}
@@ -822,6 +823,7 @@ export function ProductContentPage() {
           productName={selectedRow.name}
           block={content?.block ?? null}
           expectedDefaults={content?.currentDefaultsSelectionJson ?? ''}
+          groups={groups}
           isStale={!!content?.isStale}
           onClose={() => setEditingBlock(false)}
           onSaved={() => {
@@ -841,6 +843,7 @@ export function ProductContentPage() {
           groups={groups}
           variant={variantSheet.variant}
           initialSelectionJson={variantSheet.selectionJson}
+          expectedDefaults={content?.currentDefaultsSelectionJson ?? ''}
           onClose={() => setVariantSheet(null)}
           onSaved={() => {
             void loadRows();

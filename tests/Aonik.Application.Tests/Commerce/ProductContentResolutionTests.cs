@@ -29,7 +29,7 @@ public class ProductContentResolutionTests
     {
         // A1 — the authored figures return with their own serving label: never default × 2.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Full salmon 400g",
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Full salmon 400g",
             ingredients: "Rice, salmon", allergens: "Fish"));
 
         var resolved = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
@@ -50,8 +50,8 @@ public class ProductContentResolutionTests
         // withheld. Neither partial variant is served — a "closest" pick would present a
         // half-truth as fact.
         var (content, productId, builder, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"portion":"full"}""", kcal: 900, label: "Full table"));
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
+        await AddVariantAsync(content, productId, Variant("""{"portion":"full"}""", kcal: 900, label: "Full table"));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
 
         var resolved = await content.ResolveAsync(productId, Selection("""{"portion":"full","protein":"salmon"}"""));
 
@@ -70,7 +70,7 @@ public class ProductContentResolutionTests
         // A3 — the customer who chose salmon must never read the standard preparation's
         // shellfish declaration under their selection, footnote or not.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon",
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon",
             ingredients: "Rice, salmon", allergens: "Fish"));
 
         var resolved = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
@@ -118,7 +118,7 @@ public class ProductContentResolutionTests
         // are irrelevant to identity.
         var (content, productId, builder, ctx) = await ArrangeAsync();
         await builder.OfferAsync(productId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.Multi));
-        await content.AddVariantAsync(productId, Variant("""{"protein":["salmon","chicken"]}""", kcal: 800, label: "Both"));
+        await AddVariantAsync(content, productId, Variant("""{"protein":["salmon","chicken"]}""", kcal: 800, label: "Both"));
 
         var resolved = await content.ResolveAsync(productId, Selection("""{"protein":["chicken","salmon"]}"""));
 
@@ -133,7 +133,7 @@ public class ProductContentResolutionTests
         // declarations withholds them even though the default block has declarations, and a
         // later default-block edit changes nothing about what the variant serves.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
 
         var before = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
         before!.DeclarationsWithheld.Should().BeTrue();
@@ -149,7 +149,7 @@ public class ProductContentResolutionTests
     {
         // A20 — heating is option-dependent content: substituted timings are unsafe food.
         var (content, productId, _, _) = await ArrangeAsync();
-        await content.AddVariantAsync(productId, Variant("""{"portion":"full"}""", kcal: 900, label: "Full",
+        await AddVariantAsync(content, productId, Variant("""{"portion":"full"}""", kcal: 900, label: "Full",
             heatingJson: """[{"method":"Oven","body":"35 min at 180C"}]"""));
 
         var variantHit = await content.ResolveAsync(productId, Selection("""{"portion":"full"}"""));
@@ -169,7 +169,7 @@ public class ProductContentResolutionTests
         // flagged, so a now-non-default all-chicken selection is stale with declarations
         // withheld until re-upsert or confirm-review.
         var (content, productId, builder, ctx, tenantId) = await ArrangeWithTenantAsync();
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon",
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon",
             ingredients: "Rice, salmon", allergens: "Fish"));
 
         var optionService = CommerceTestHarness.NewOptionService(ctx, tenantId);
@@ -217,14 +217,14 @@ public class ProductContentResolutionTests
         // A9 — deactivation returns the combination to fallback semantics; re-authoring the
         // retired combination revives it with no other write.
         var (content, productId, _, ctx) = await ArrangeAsync();
-        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
+        var variant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 640, label: "Salmon"));
 
         await content.DeactivateVariantAsync(variant.Id);
         var retired = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
         retired!.IsStandardPreparation.Should().BeTrue();
         retired.DeclarationsWithheld.Should().BeTrue();
 
-        var revived = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", kcal: 655, label: "Salmon v2"));
+        var revived = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", kcal: 655, label: "Salmon v2"));
         revived.Id.Should().Be(variant.Id, "the retired row is revived, never duplicated under the unique hash");
 
         var restored = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
@@ -367,7 +367,7 @@ public class ProductContentResolutionTests
         var (content, productId, _, _) = await ArrangeAsync();
         var before = await content.GetAdminAsync(productId);
 
-        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
+        await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
         var after = await content.GetAdminAsync(productId);
 
         after.Block!.BlockSignature.Should().Be(before.Block!.BlockSignature);
@@ -382,7 +382,7 @@ public class ProductContentResolutionTests
         // uses the current one. Naming the landing combination is what stops a shifted offer
         // from moving the variant, carrying content authored for the one it used to be.
         var (content, productId, _, _) = await ArrangeAsync();
-        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
+        var variant = await AddVariantAsync(content, productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
 
         var act = async () => await content.UpdateVariantAsync(
             variant.Id,
@@ -390,6 +390,40 @@ public class ProductContentResolutionTests
             """{"protein":"something-else"}""");
 
         await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C11*");
+    }
+
+    [Fact]
+    public async Task AddVariant_Should_Refuse_When_TheOfferMovedSinceItWasComposed()
+    {
+        // A NEW combination cannot name where it will land — its canonical form is produced by
+        // normalisation. So the offer it was composed against stands in: a group added
+        // underneath is filled with its own default, storing the new variant's allergens for a
+        // preparation the author never saw, and that group also changes this binding.
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        var act = async () => await content.AddVariantAsync(
+            productId,
+            Variant("""{"protein":"salmon"}""", 640, "Salmon"),
+            """{"portion":"gone"}""");
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C9*");
+    }
+
+    [Fact]
+    public async Task Figures_Should_BeStoredAtTheColumnScale_SoTheResponseDescribesTheRow()
+    {
+        // decimal(9,2) ROUNDS an over-precise figure rather than refusing it. Mapping the
+        // response from the un-rounded tracked entity returned a block signature for a row that
+        // was never written — and using it as the baseline for the next legitimate save produced
+        // a false V-C10.
+        var (content, productId, _, ctx) = await ArrangeAsync();
+
+        var written = await WriteBlockAsync(content, productId, DefaultBlock() with { ProteinGrams = 1.234m });
+        var reread = await content.GetAdminAsync(productId);
+
+        written.Nutrition.ProteinGrams.Should().Be(1.23m);
+        written.BlockSignature.Should().Be(reread.Block!.BlockSignature);
+        ctx.ProductContents.Single(c => c.ProductId == productId).ProteinGrams.Should().Be(1.23m);
     }
 
     private static async Task<(ProductContentService Content, Guid ProductId, OptionCatalogueBuilder Builder, Aonik.Commerce.Persistence.CommerceDbContext Ctx)> ArrangeAsync()
@@ -459,5 +493,18 @@ public class ProductContentResolutionTests
         var expected = expectedCanonical ?? command.SelectionJson;
         return await content.UpdateVariantAsync(variantId, command, expected);
     }
+
+
+    /// <summary>Adding a variant asserts the OFFER it was composed against (Spec 075 V-C9): a
+    /// new combination's canonical form cannot be predicted by the caller, so the all-defaults
+    /// binding stands in — a group added underneath changes it.</summary>
+    private static async Task<ProductContentVariantDto> AddVariantAsync(
+        IProductContentService content, Guid productId, UpsertContentVariantCommand command,
+        string? expectedCanonical = null)
+        => await content.AddVariantAsync(
+            productId,
+            command,
+            (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson,
+            expectedCanonical);
 
 }

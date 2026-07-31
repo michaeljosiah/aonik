@@ -30,6 +30,7 @@ public record UpsertProductContentRequest(
 public record UpsertContentVariantRequest(
     string SelectionJson,
     string ServingLabel,
+    string ExpectedDefaultsSelectionJson,
     string? ExpectedCanonicalSelectionJson = null,
     decimal? Kcal = null,
     decimal? ProteinGrams = null,

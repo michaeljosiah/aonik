@@ -44,7 +44,7 @@ public class ProductContentSqlServerTests : IClassFixture<SqlLocalDbFixture>
             "Standard", Kcal: 500, Ingredients: "Rice", Allergens: "None"));
         block.ContentVersion.Should().BeGreaterThan(0);
 
-        var variant = await content.AddVariantAsync(productId, new UpsertContentVariantCommand(
+        var variant = await AddVariantAsync(content, productId, new UpsertContentVariantCommand(
             """{"portion":"full"}""", "Full", Kcal: 900));
         variant.SelectionJson.Should().Contain("\"portion\":\"full\"");
 
@@ -85,5 +85,18 @@ public class ProductContentSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var expected = expectedCanonical ?? command.SelectionJson;
         return await content.UpdateVariantAsync(variantId, command, expected);
     }
+
+
+    /// <summary>Adding a variant asserts the OFFER it was composed against (Spec 075 V-C9): a
+    /// new combination's canonical form cannot be predicted by the caller, so the all-defaults
+    /// binding stands in — a group added underneath changes it.</summary>
+    private static async Task<ProductContentVariantDto> AddVariantAsync(
+        IProductContentService content, Guid productId, UpsertContentVariantCommand command,
+        string? expectedCanonical = null)
+        => await content.AddVariantAsync(
+            productId,
+            command,
+            (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson,
+            expectedCanonical);
 
 }

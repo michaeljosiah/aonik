@@ -199,13 +199,15 @@ internal sealed class ProductContentService : IProductContentService
             }
 
             content.ServingLabel = command.ServingLabel.Trim();
-            content.Kcal = command.Kcal;
-            content.ProteinGrams = command.ProteinGrams;
-            content.CarbsGrams = command.CarbsGrams;
-            content.FatGrams = command.FatGrams;
-            content.FibreGrams = command.FibreGrams;
-            content.SugarsGrams = command.SugarsGrams;
-            content.SaltGrams = command.SaltGrams;
+            // Stored at the COLUMN's scale, so the entity — and the response mapped from it,
+            // block signature included — describes the row that was actually written.
+            content.Kcal = AtColumnScale(command.Kcal);
+            content.ProteinGrams = AtColumnScale(command.ProteinGrams);
+            content.CarbsGrams = AtColumnScale(command.CarbsGrams);
+            content.FatGrams = AtColumnScale(command.FatGrams);
+            content.FibreGrams = AtColumnScale(command.FibreGrams);
+            content.SugarsGrams = AtColumnScale(command.SugarsGrams);
+            content.SaltGrams = AtColumnScale(command.SaltGrams);
             content.Ingredients = ingredients;
             content.Allergens = allergens;
             content.HeatingJson = heatingJson;
@@ -242,6 +244,13 @@ internal sealed class ProductContentService : IProductContentService
         }, ct, MapContent);
     }
 
+    /// <param name="expectedDefaultsSelectionJson">The offer this combination was composed
+    /// against, expressed as its all-defaults binding — REQUIRED, because a new variant's
+    /// canonical form cannot be predicted by the caller and so cannot carry the V-C11 assertion
+    /// that update and revive do. A group added after the offer was read is filled with its own
+    /// default by normalisation, storing the new variant's allergens for a preparation the
+    /// author never saw; that group also changes this binding, which is what makes the absence
+    /// detectable (V-C9).</param>
     /// <param name="expectedCanonicalSelectionJson">The combination this content is authored
     /// FOR, when the caller has one to name — a coverage gap or a retired variant being revived
     /// both come from the server complete. Null while composing a genuinely new combination,
@@ -249,6 +258,7 @@ internal sealed class ProductContentService : IProductContentService
     public async Task<ProductContentVariantDto> AddVariantAsync(
         Guid productId,
         UpsertContentVariantCommand command,
+        string expectedDefaultsSelectionJson,
         string? expectedCanonicalSelectionJson = null,
         CancellationToken ct = default)
     {
@@ -269,6 +279,7 @@ internal sealed class ProductContentService : IProductContentService
             var canonical = (await NormalizeAuthoringSelectionAsync(productId, command.SelectionJson, ct2)).CanonicalSelectionJson;
             RequireExpectedCombination(expectedCanonicalSelectionJson, canonical);
             var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
+            RequireReviewedDefaults(expectedDefaultsSelectionJson, allDefaults);
             if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
             {
                 throw new StorefrontValidationException(
@@ -674,13 +685,13 @@ internal sealed class ProductContentService : IProductContentService
     private static void Apply(ProductContentVariant variant, UpsertContentVariantCommand command, string? heatingJson)
     {
         variant.ServingLabel = command.ServingLabel.Trim();
-        variant.Kcal = command.Kcal;
-        variant.ProteinGrams = command.ProteinGrams;
-        variant.CarbsGrams = command.CarbsGrams;
-        variant.FatGrams = command.FatGrams;
-        variant.FibreGrams = command.FibreGrams;
-        variant.SugarsGrams = command.SugarsGrams;
-        variant.SaltGrams = command.SaltGrams;
+        variant.Kcal = AtColumnScale(command.Kcal);
+        variant.ProteinGrams = AtColumnScale(command.ProteinGrams);
+        variant.CarbsGrams = AtColumnScale(command.CarbsGrams);
+        variant.FatGrams = AtColumnScale(command.FatGrams);
+        variant.FibreGrams = AtColumnScale(command.FibreGrams);
+        variant.SugarsGrams = AtColumnScale(command.SugarsGrams);
+        variant.SaltGrams = AtColumnScale(command.SaltGrams);
         variant.Ingredients = NormalizeDeclaration(command.Ingredients);
         variant.Allergens = NormalizeDeclaration(command.Allergens);
         variant.HeatingJson = heatingJson;
@@ -893,6 +904,17 @@ internal sealed class ProductContentService : IProductContentService
     /// <summary>Scale-independent, so the same stored figure always renders the same way.</summary>
     private static string? Figure(decimal? value)
         => value?.ToString("0.##########", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The value the COLUMN will hold.
+    ///
+    /// Figures are decimal(9,2) and an over-precise input is rounded by the database rather than
+    /// refused, so assigning the raw value left the tracked entity — and therefore the response,
+    /// and the block signature in it — describing a row that was never written. The caller then
+    /// used that token as the baseline for its next legitimate save and got a false V-C10.</summary>
+    private static decimal? AtColumnScale(decimal? value)
+        => value is null ? null : decimal.Round(value.Value, FigureScale, MidpointRounding.AwayFromZero);
+
+    private const int FigureScale = 2;
 
     /// <summary>V-C9 — the reviewed/authored standard preparation is still the current one.</summary>
     private static void RequireReviewedDefaults(string expected, string actual)

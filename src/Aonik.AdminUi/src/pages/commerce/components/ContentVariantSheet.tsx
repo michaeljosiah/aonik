@@ -55,6 +55,14 @@ interface ContentVariantSheetProps {
   variant: ProductContentVariantDto | null;
   /** Pre-filled selection — from a coverage gap, or from a retired variant being revived. */
   initialSelectionJson?: string | null;
+  /**
+   * The offer this sheet composed against, as its all-defaults binding (V-C9).
+   *
+   * A NEW combination's canonical form cannot be predicted here, so it cannot name where it will
+   * land — this is what stands in. A group added underneath changes it, which is what makes an
+   * absence detectable at all.
+   */
+  expectedDefaults: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -64,6 +72,7 @@ export function ContentVariantSheet({
   groups: initialGroups,
   variant,
   initialSelectionJson,
+  expectedDefaults,
   onClose,
   onSaved,
 }: ContentVariantSheetProps) {
@@ -247,6 +256,7 @@ export function ContentVariantSheet({
         // chose; the server refuses that (V-C11) rather than accepting it quietly. Null only
         // for a genuinely new combination, where completion by normalisation IS the intent.
         expectedCanonicalSelectionJson: variant?.selectionJson ?? initialSelectionJson ?? null,
+        expectedDefaultsSelectionJson: expectedDefaults,
         ...wireFromDraft(draft),
       };
       if (baseline) await commerceContentService.updateVariant(baseline.id, payload);

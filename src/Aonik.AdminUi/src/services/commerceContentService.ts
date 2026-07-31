@@ -43,6 +43,14 @@ export interface UpsertProductContentRequest {
  */
 export interface UpsertContentVariantRequest {
   /**
+   * The offer this combination was composed against, as its all-defaults binding (V-C9).
+   *
+   * Required, and not the same assertion as the one below: a NEW combination's canonical form
+   * cannot be predicted here, so it cannot name where it will land. A group added underneath
+   * changes this binding, which is what makes the absence detectable.
+   */
+  expectedDefaultsSelectionJson: string;
+  /**
    * The combination this content is authored FOR (V-C11).
    *
    * Null only while composing a genuinely new one, where a partial selection completed by
