@@ -160,14 +160,20 @@ export function PersonalisationPage() {
 
   const selectedGroup = groups.find((group) => group.key === selectedGroupKey) ?? null;
 
+  /** Rows whose per-product detail actually came back. */
+  const readRows = useMemo(() => products.filter((p) => rowFacts.has(p.id)), [products, rowFacts]);
+
   const kpis = useMemo(
     () => ({
       totalChoices: groups.reduce((sum, group) => sum + group.choices.length, 0),
       surcharged: products.filter((p) => p.unitSurcharge != null).length,
-      // Products with at least one EFFECTIVE group, among those whose row read succeeded.
-      narrowed: products.filter((p) => (rowFacts.get(p.id)?.groupLabels.length ?? 0) > 0).length,
+      // Counted over the rows whose detail read SUCCEEDED, and the denominator says so. A
+      // missing entry means unread, not "offers nothing" — treating it as zero let a throttled
+      // fan-out report "0 of 25 narrowed" for a catalogue that is entirely narrowed.
+      narrowed: readRows.filter((p) => (rowFacts.get(p.id)?.groupLabels.length ?? 0) > 0).length,
+      readRows: readRows.length,
     }),
-    [groups, products, rowFacts],
+    [groups, products, rowFacts, readRows],
   );
 
   const productColumns: ColumnDef<ProductSummaryDto>[] = [
@@ -230,21 +236,33 @@ export function PersonalisationPage() {
       // row whose detail failed shows the marker instead of guessing.
       cell: (row) => {
         const facts = rowFacts.get(row.id);
-        if (facts?.surcharge != null && facts.currency) {
-          return (
+        // A successful detail read WINS over the list summary, including when it reports null.
+        // The list is read first, so a surcharge cleared by another operator in between leaves
+        // the summary holding the old amount — and falling back to it rendered "Set" over a
+        // fresher read that proves it is gone.
+        if (facts) {
+          if (facts.surcharge == null) {
+            return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+          }
+          return facts.currency ? (
             <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
               {formatCurrency(facts.surcharge, facts.currency)}
             </span>
-          );
-        }
-        if (row.unitSurcharge != null) {
-          return (
+          ) : (
+            // An amount with no denomination is the thing the marker exists to avoid.
             <Pill tone="info" size="sm" dot>
               Set
             </Pill>
           );
         }
-        return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+        // Unread: the summary is all there is, and it carries no currency.
+        return row.unitSurcharge != null ? (
+          <Pill tone="info" size="sm" dot>
+            Set
+          </Pill>
+        ) : (
+          <span className="block text-right text-[var(--color-text-tertiary)]">—</span>
+        );
       },
       className: 'w-[150px] text-right',
       headerClassName: 'text-right',
@@ -293,7 +311,11 @@ export function PersonalisationPage() {
         <KpiTile
           label="Products narrowed"
           value={kpis.narrowed.toLocaleString()}
-          delta={`of ${products.length} on this page`}
+          delta={
+            kpis.readRows === products.length
+              ? `of ${products.length} on this page`
+              : `of ${kpis.readRows} read on this page`
+          }
           deltaTone="neutral"
         />
         <KpiTile

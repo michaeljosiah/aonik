@@ -46,7 +46,13 @@ export function GroupEditorSheet({
   const [choicePrice, setChoicePrice] = useState('');
   const [addingChoice, setAddingChoice] = useState(false);
 
-  const hasDefault = group.choices.some((c) => c.isActive && c.isRecommendedDefault);
+  // Tracked LOCALLY, not read from `group` on every render. `onSaved` refreshes the page's
+  // catalogue but not the snapshot this sheet was opened with, so after adding the first
+  // choice the prop still said "no default" — and the next add would be sent as recommended
+  // too, which AddChoiceAsync rejects with V7.
+  const [hasDefault, setHasDefault] = useState(() =>
+    group.choices.some((c) => c.isActive && c.isRecommendedDefault),
+  );
 
   const saveGroup = async () => {
     if (!label.trim()) {
@@ -125,6 +131,7 @@ export function GroupEditorSheet({
         isRecommendedDefault: !hasDefault,
       });
       toast.success(hasDefault ? 'Choice added' : 'Choice added as the recommended default');
+      setHasDefault(true);
       setChoiceKey('');
       setChoiceLabel('');
       setChoicePrice('');
