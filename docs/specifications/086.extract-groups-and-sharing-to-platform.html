@@ -126,14 +126,25 @@
 
 <p>The generic/domain split is not where inspection suggests. Measured against the current tree:</p>
 
+<div class="callout p0">
+  <span class="callout-label">Correction to Rev 1</span>
+  Rev 1 of this spec reported <code>HouseholdService</code> as having <strong>one</strong> domain coupling — a
+  <code>PersonalAccounts</code> "guard" at line 658 — and concluded it moved near-wholesale behind a veto interface.
+  <strong>That measurement was wrong.</strong> It came from a symbol grep whose pattern omitted
+  <code>PersonalProfiles</code> and <code>IFinancialLifeGraphCacheInvalidator</code> altogether, and line 658 is not a
+  guard at all: it is inside a <em>mutation</em> that clears the member's profile, unshares their accounts and emits
+  an integration event. The corrected reading is below, and it changes the seam this spec needs
+  (<a href="#seams">§7.1</a>) from a refusal into a lifecycle hook.
+</div>
+
 <table>
   <thead><tr><th>Service</th><th>Lines</th><th>Domain couplings</th><th>Verdict</th></tr></thead>
   <tbody>
     <tr>
       <td><code>HouseholdService</code></td>
       <td>963</td>
-      <td><strong>One.</strong> A <code>PersonalAccounts</code> guard when removing a member (<code>HouseholdService.cs:658</code>).</td>
-      <td>Moves near-wholesale behind one seam.</td>
+      <td><strong>Pervasive, at every lifecycle transition.</strong> Writes <code>PersonalProfile.HouseholdId</code> on create and on invitation acceptance (lines 92, 103, 202, 296) and clears it on removal (655); unshares owned <code>PersonalAccounts</code> and emits <code>HouseholdAccountUnsharedEvent</code> (664–665); invalidates the financial life graph through <code>IFinancialLifeGraphCacheInvalidator</code> (109, 347, 510, 677).</td>
+      <td>Generic lifecycle moves; the side effects stay, re-attached through hooks.</td>
     </tr>
     <tr>
       <td><code>CircleService</code></td>
@@ -173,7 +184,7 @@
 <ul>
   <li>A <code>Groups</code> vertical slice in <code>Aonik.Platform</code>: <code>Group</code>, <code>GroupMember</code>, <code>ShareGrant</code>, <code>ShareInvite</code> + configurations + services.</li>
   <li>The three model generalisations: party member, resource kind, terms blob.</li>
-  <li>Two extension seams: <code>IGroupMemberRemovalGuard</code> and <code>IShareResourceResolver</code>.</li>
+  <li>Two extension seams: <code>IGroupLifecycleContributor</code> (veto <em>and</em> react) and <code>IShareResourceResolver</code>.</li>
   <li>Contracts in <code>SharedKernel.Abstractions.Groups</code>.</li>
   <li>Rewiring <code>Aonik.PersonalFinance</code> to delegate, keeping every route, DTO and status code identical.</li>
   <li>Relocating the <code>Household*</code> integration events out of <code>FinanceEvents.cs</code>.</li>
@@ -288,12 +299,24 @@ public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code>
   rather than querying <code>CareEntity</code> directly, which is precisely the line the preview already splits along.
 </p>
 
-<div class="callout">
-  <span class="callout-label">Validation</span>
-  A grant whose <code>ResourceKind</code> has <strong>no registered resolver</strong> is rejected at write time. This
-  keeps the open string from becoming a typo sink, and mirrors how <code>ToolNotClassifiedException</code> fails closed
-  in the agent approval gate.
+<div class="callout p0">
+  <span class="callout-label">Validation must check ownership, not just existence</span>
+  Requiring only that a <em>resolver exists</em> is not enough — it would let a caller persist <strong>another
+  party's</strong> resource ids into a grant, and <code>IShareGrantReader</code> would then answer authorisation
+  checks from the stored ids alone. That is a straightforward privilege escalation: share what you do not own, then
+  read it.
 </div>
+
+<p>At grant and invite creation the service:</p>
+<ol>
+  <li>Rejects a <code>ResourceKind</code> with <strong>no registered resolver</strong> — keeping the open string from becoming a typo sink, and failing closed the way <code>ToolNotClassifiedException</code> does in the agent approval gate.</li>
+  <li>Calls that resolver <strong>scoped to <code>OwnerPartyId</code></strong> and rejects the write unless the returned id set <strong>exactly matches</strong> the requested set. A resolver omits ids the owner does not own, so any shortfall is an ownership failure.</li>
+</ol>
+
+<p>
+  Equality is the test, not containment: a resolver returning <em>more</em> than was asked for is a resolver bug, and
+  accepting it silently would defeat the check.
+</p>
 
 <h3>6.1 Terms</h3>
 <p>
@@ -311,17 +334,46 @@ public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code>
 
 <p>Both follow the module-contributed <code>IEnumerable&lt;T&gt;</code> DI pattern already used by the seeding and provisioning contributors.</p>
 
-<h3>7.1 <code>IGroupMemberRemovalGuard</code></h3>
-<p>
-  The one domain coupling in <code>HouseholdService</code> (<code>HouseholdService.cs:658</code>) becomes a contributed
-  guard. PersonalFinance registers the <code>PersonalAccounts</code> check; the platform asks every guard and refuses
-  removal if any objects, surfacing the reason.
-</p>
-<pre><code>public interface IGroupMemberRemovalGuard
+<h3>7.1 <code>IGroupLifecycleContributor</code></h3>
+
+<div class="callout p0">
+  <span class="callout-label">A veto cannot carry a side effect</span>
+  Rev 1 proposed a guard returning "allowed or a reason". That shape <strong>silently drops real behaviour</strong>:
+  removing a member today clears <code>PersonalProfile.HouseholdId</code>, unshares every owned
+  <code>PersonalAccount</code>, emits <code>HouseholdAccountUnsharedEvent</code>, and invalidates the financial life
+  graph — and creation and invitation-acceptance write the profile link too. A refusal interface has nowhere to put
+  any of it, and the existing
+  <code>RemoveMemberAsync_Should_ClearProfileAndUnshareOwnedAccounts</code> test would fail.
+</div>
+
+<p>The seam is therefore a lifecycle contributor: modules both <em>veto</em> and <em>react</em>.</p>
+
+<pre><code>public interface IGroupLifecycleContributor
 {
-    /// &lt;summary&gt;Null when removal is allowed; otherwise a human-readable reason.&lt;/summary&gt;
-    Task&lt;string?&gt; CheckAsync(Guid groupId, Guid memberPartyId, CancellationToken cancellationToken = default);
-}</code></pre>
+    /// &lt;summary&gt;Null when the transition may proceed; otherwise a human-readable reason.&lt;/summary&gt;
+    Task&lt;string?&gt; VetoAsync(GroupTransition transition, CancellationToken cancellationToken = default);
+
+    /// &lt;summary&gt;
+    /// React to a committed transition — profile links, unsharing, cache invalidation, events.
+    /// Runs inside the same transaction as the membership write, so a failure rolls the whole
+    /// transition back rather than leaving a half-applied membership.
+    /// &lt;/summary&gt;
+    Task OnCommittedAsync(GroupTransition transition, CancellationToken cancellationToken = default);
+}
+
+public sealed record GroupTransition(
+    string Kind,          // created | member-added | invite-accepted | member-removed | ownership-transferred
+    Guid GroupId,
+    Guid? MemberPartyId,
+    Guid? MemberUserId,   // null for party-only members — contributors must tolerate this
+    Guid ActorPartyId);</code></pre>
+
+<p>
+  PersonalFinance registers one contributor carrying every side effect listed above. The
+  <code>MemberUserId</code> being nullable is load-bearing: a PersonalFinance profile is user-keyed, so its contributor
+  <strong>skips</strong> party-only members rather than failing on them — a child has no personal-finance profile to
+  link, and that is correct rather than an error.
+</p>
 
 <h3>7.2 <code>IShareResourceResolver</code></h3>
 <p>As <a href="#resources">§6</a>. Registered per module, keyed by <code>ResourceKinds</code>; duplicate ownership of a kind is a startup failure, not a last-writer-wins.</p>
@@ -419,7 +471,7 @@ public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code>
     <tr><td><code>IShareGrantService</code></td><td>Grant create / list / list-shared-with-me / revoke; invite mint / preview / accept.</td></tr>
     <tr><td><code>IShareGrantReader</code></td><td><code>HasGrantAsync(memberPartyId, resourceKind, resourceId)</code> — the authorisation question, answerable without loading the grant.</td></tr>
     <tr><td><code>IShareResourceResolver</code></td><td>Module-contributed, per <a href="#resources">§6</a>.</td></tr>
-    <tr><td><code>IGroupMemberRemovalGuard</code></td><td>Module-contributed, per <a href="#seams">§7.1</a>.</td></tr>
+    <tr><td><code>IGroupLifecycleContributor</code></td><td>Module-contributed, per <a href="#seams">§7.1</a>. Carries both the veto and the committed side effects.</td></tr>
     <tr><td><code>GroupKinds</code>, <code>ShareScopes</code>, <code>ShareResourceKinds</code></td><td>Known-values helpers over open strings.</td></tr>
   </tbody>
 </table>
@@ -445,10 +497,24 @@ Task&lt;GroupMemberDto&gt; AddMemberAsync(
     CancellationToken cancellationToken = default);</code></pre>
 
 <p>
-  The invitation flow is retained unchanged for members who <em>do</em> have a user — it is how an adult joins a group
-  they do not already belong to, and its consent semantics still matter. <code>AddMemberAsync</code> is the
-  owner-authorised path, and the authorisation check is on the caller: a party is added <em>by</em> someone with the
-  right, never by itself.
+  <code>AddMemberAsync</code> is the owner-authorised path, and the authorisation check is on the caller: a party is
+  added <em>by</em> someone with the right, never by itself.
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">Two constraints, or this becomes a consent bypass</span>
+  An unconstrained <code>partyId</code> would let an owner add any <strong>user-backed adult</strong> straight into a
+  group, skipping the invitation whose entire purpose is that person's consent — and would accept a party from
+  <em>another tenant</em> unless the implementation invents an unstated lookup. Both are rejected at the contract:
+  <ul style="margin:6px 0 0">
+    <li>The party <strong>must resolve in the current tenant</strong>; a foreign or unknown id is rejected, not silently accepted.</li>
+    <li>The party <strong>must not be linked to a user</strong>. A party with a login belongs on the invitation path, which is where its consent is recorded.</li>
+  </ul>
+</div>
+
+<p>
+  So the two paths partition cleanly rather than overlapping: <strong>invitation</strong> for anyone who can consent,
+  <strong>direct addition</strong> for anyone who cannot. Neither can be used to do the other's job.
 </p>
 
 <h2 id="persistence">10. Persistence &amp; migration</h2>
@@ -524,7 +590,7 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 <h3>10.3 DbContext registration</h3>
 <ul>
   <li><code>AonikDbContext</code> — the four <code>DbSet</code>s stay (it owns all sets); the mapping helper changes from <code>MapFinanceTable</code> to <code>MapPlatformTable</code>, which is a no-op physically since both prefixes are <code>"Ank"</code>.</li>
-  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>removed</strong>; the module reaches groups through <code>SharedKernel.Abstractions.Groups</code>.</li>
+  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>retained through P2–P6</strong> and removed only in <strong>P7</strong>. They cannot go in P2: the still-deployed <code>HouseholdService</code> and <code>CircleService</code> need their entity sets to dual-write (P3) and to keep serving reads until the P5 cutover, and their facades do not exist until P4/P5. Rev 1 scheduled the removal in both §10.3 and P7, which was self-contradictory.</li>
   <li><code>PlatformDbContext</code> — the four <code>DbSet</code>s are added. Its frozen migration folder is not touched.</li>
 </ul>
 
@@ -632,7 +698,7 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P4</strong> — move Household</td>
-      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to Platform behind <code>IGroupMemberRemovalGuard</code>. PersonalFinance's <code>HouseholdService</code> becomes a delegating facade.</td>
+      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to Platform behind <code>IGroupLifecycleContributor</code>. PersonalFinance registers a contributor carrying its profile-link, account-unshare, event and cache-invalidation side effects; its <code>HouseholdService</code> becomes a delegating facade.</td>
       <td><code>HouseholdServiceTests</code> pass against the moved service; endpoint tests pass unmodified.</td>
     </tr>
     <tr>
@@ -675,7 +741,11 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   <li><strong>Two</strong> party-only members can be added to the same group — the filtered-index case, proven on <strong>LocalDB</strong> (the InMemory provider does not enforce unique indexes and will pass regardless).</li>
   <li>A grant created before the P3 backfill remains listable, revocable and acceptable after the P5 reader cutover.</li>
   <li>A <code>ShareGrant</code> with an unregistered <code>ResourceKind</code> is rejected at write time.</li>
-  <li>Removing a member who owns a shared <code>PersonalAccount</code> is still refused, now through <code>IGroupMemberRemovalGuard</code>, with the same message.</li>
+  <li>A <code>ShareGrant</code> naming a resource the owner does not own is rejected at write time, and never becomes readable through <code>IShareGrantReader</code>.</li>
+  <li><code>AddMemberAsync</code> rejects a party from another tenant, and rejects a party that has a user — the latter must go through the invitation flow.</li>
+  <li>Removing a member still clears <code>PersonalProfile.HouseholdId</code>, unshares owned <code>PersonalAccount</code>s, emits <code>HouseholdAccountUnsharedEvent</code> and invalidates the life-graph cache — proven by the existing <code>RemoveMemberAsync_Should_ClearProfileAndUnshareOwnedAccounts</code> test passing <strong>unmodified</strong>.</li>
+  <li>Creating a group and accepting an invitation still write <code>PersonalProfile.HouseholdId</code>.</li>
+  <li>A lifecycle transition for a <strong>party-only</strong> member runs without the PersonalFinance contributor failing on the absent profile.</li>
   <li>Invite tokens keep their security properties: 256-bit random, opaque, single-use, expiring, unique per tenant, row-as-truth.</li>
   <li><strong><code>CircleEndpointsTests</code>, <code>CliApplicationTests</code>, <code>FakeAonikCliApiClient</code> and <code>UserBriefProjectorTests</code> pass with no edits.</strong> Any required edit is a wire break and must be justified or reverted.</li>
   <li>The generated migration matches <a href="#persistence">§10.2</a> exactly: the additive columns plus the single unique-index drop/replace. No table rename, no column drop, no other operation.</li>
