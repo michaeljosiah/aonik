@@ -24,8 +24,10 @@ describe('summariseOrderWindow', () => {
       { orderStatus: 'Complete', paymentStatus: 'Captured', currency: 'NGN', total: 45000 },
     ]);
     expect(summary.paidRevenue).toContain('150');          // GBP only — never 45,150
+    // The exclusion is a COUNT, not prose in the caption: the caption renders inside a
+    // shrink-0 KPI pill, so a sentence there widens the tile past its column.
     expect(summary.excludedOrders).toBe(1);
-    expect(summary.moneyCaption).toMatch(/GBP only, excluding 1 order in other currencies/);
+    expect(summary.moneyCaption).toBe('this page · GBP');
   });
 
   it('picks the dominant currency by ORDER COUNT, not by total', () => {

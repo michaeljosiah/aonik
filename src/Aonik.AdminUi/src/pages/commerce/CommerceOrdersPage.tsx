@@ -229,6 +229,17 @@ export function CommerceOrdersPage() {
         />
       </div>
 
+      {summary.excludedOrders > 0 && (
+        // Wrappable body text, never the KpiTile delta pill: that pill is shrink-0, so a
+        // sentence inside it widens the tile past its column and shoves its neighbours.
+        <p className="-mt-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+          Money figures cover {summary.moneyCaption.split(' · ').pop()} only —{' '}
+          {summary.excludedOrders} captured order{summary.excludedOrders === 1 ? '' : 's'} in other
+          currencies {summary.excludedOrders === 1 ? 'is' : 'are'} excluded, because there is no
+          rate here to convert them with.
+        </p>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
           <AlertCircle className="h-4 w-4" />

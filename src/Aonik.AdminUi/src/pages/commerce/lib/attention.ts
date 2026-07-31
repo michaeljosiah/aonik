@@ -54,8 +54,8 @@ export interface AttentionSources {
   skippedExtras: SourceState<number>;
   /** Abandoned carts, whole-store from the pagination envelope. */
   abandonedCarts: SourceState<number>;
-  /** Open carts that cannot check out, counted over a named window. */
-  blockedCarts: SourceState<{ count: number; window: number }>;
+  /** Open carts in an anomalous state (drifted or over capacity), over a named window. */
+  blockedCarts: SourceState<{ count: number; window: number; complete: boolean }>;
 }
 
 function unavailable(key: string, what: string, href: string): AttentionRowModel {
@@ -194,13 +194,26 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
   // silence this module exists to refuse, and I had left these two branches out of it.
   if (sources.blockedCarts.kind === 'unavailable') {
     rows.push(unavailable('blocked-carts', 'Open carts', '/commerce/carts'));
-  } else if (sources.blockedCarts.kind === 'ready' && sources.blockedCarts.value.count > 0) {
+  } else if (sources.blockedCarts.kind === 'ready' && sources.blockedCarts.value.count === 0) {
+    if (!sources.blockedCarts.value.complete) {
+      rows.push(
+        partiallyClean(
+          'blocked-carts',
+          'Open carts',
+          `the ${sources.blockedCarts.value.window} most recent`,
+          '/commerce/carts',
+        ),
+      );
+    }
+  } else if (sources.blockedCarts.kind === 'ready') {
     const { count, window } = sources.blockedCarts.value;
     rows.push({
       key: 'blocked-carts',
       tone: 'warn',
-      statement: `${count} open cart${count === 1 ? '' : 's'} cannot check out`,
-      subline: `Drifted or not a full box. Counted over the ${window} most recent open carts.`,
+      // "Stuck", not "cannot check out": an under-filled box also cannot check out, and it is
+      // the normal state of every live session. Only drift and over-capacity count here.
+      statement: `${count} open cart${count === 1 ? '' : 's'} stuck`,
+      subline: `Drifted or over capacity — the customer cannot resolve either by carrying on. Counted over the ${window} most recent open carts.`,
       href: '/commerce/carts',
     });
   }
@@ -218,8 +231,14 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
     });
   }
 
-  return rows;
+  // Sorted by tone, not left in append order. The append order is grouped by SOURCE, which
+  // put a live-promise info row and muted drafts above a skipped-extras warning — the exact
+  // opposite of the triage contract this function claims. Stable within each tone, so the
+  // grouping above still decides ties.
+  return [...rows].sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
 }
+
+const TONE_RANK: Record<AttentionTone, number> = { warn: 0, info: 1, muted: 2 };
 
 /** True once every source has settled — used to tell "all quiet" from "still looking". */
 export function allSettled(sources: AttentionSources): boolean {

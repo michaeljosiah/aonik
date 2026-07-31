@@ -17,7 +17,7 @@ const quiet: AttentionSources = {
   stagedDrafts: { kind: 'ready', value: { count: 0, collectionsInspected: 3, complete: true } },
   skippedExtras: { kind: 'ready', value: 0 },
   abandonedCarts: { kind: 'ready', value: 0 },
-  blockedCarts: { kind: 'ready', value: { count: 0, window: 25 } },
+  blockedCarts: { kind: 'ready', value: { count: 0, window: 25, complete: true } },
 };
 
 function keys(sources: AttentionSources) {
@@ -78,9 +78,11 @@ describe('buildAttentionRows', () => {
   it('names the window a cart count was taken over', () => {
     const rows = buildAttentionRows({
       ...quiet,
-      blockedCarts: { kind: 'ready', value: { count: 2, window: 25 } },
+      blockedCarts: { kind: 'ready', value: { count: 2, window: 25, complete: true } },
     });
     expect(rows.find((r) => r.key === 'blocked-carts')?.subline).toMatch(/25 most recent/);
+    // "stuck", never "cannot check out" — an under-filled box also cannot, and that is normal.
+    expect(rows.find((r) => r.key === 'blocked-carts')?.statement).toMatch(/stuck/);
   });
 
   it('discloses a partial draft count instead of presenting it as complete', () => {
@@ -125,15 +127,16 @@ describe('buildAttentionRows', () => {
       deliveryPromise: { kind: 'ready', value: null },
       stagedDrafts: { kind: 'ready', value: { count: 1, collectionsInspected: 2, complete: true } },
       skippedExtras: { kind: 'ready', value: 1 },
-      blockedCarts: { kind: 'ready', value: { count: 1, window: 25 } },
+      blockedCarts: { kind: 'ready', value: { count: 1, window: 25, complete: true } },
       abandonedCarts: { kind: 'ready', value: 1 },
     });
+    // Tone-sorted: every warn before the muted rows, stable within each tone.
     expect(ordered).toEqual([
       'content',
       'delivery',
-      'drafts',
       'extras',
       'blocked-carts',
+      'drafts',
       'abandoned-carts',
     ]);
   });
@@ -200,5 +203,30 @@ describe('cart sources degrade like every other source', () => {
       abandonedCarts: { kind: 'unavailable' },
     }).find((r) => r.key === 'abandoned-carts');
     expect(row?.statement).toMatch(/could not be read/);
+  });
+});
+
+describe('urgency ordering', () => {
+  it('puts every warn row above the informational and muted ones', () => {
+    // The append order groups by SOURCE, which had a live-promise info row and muted drafts
+    // sitting above a skipped-extras warning — the opposite of the triage contract.
+    const rows = buildAttentionRows({
+      ...quiet,
+      deliveryPromise: { kind: 'ready', value: '2026-08-04' }, // info
+      stagedDrafts: { kind: 'ready', value: { count: 2, collectionsInspected: 3, complete: true } }, // muted
+      skippedExtras: { kind: 'ready', value: 1 }, // warn
+    });
+    expect(rows.map((r) => r.tone)).toEqual(['warn', 'info', 'muted']);
+    expect(rows[0].key).toBe('extras');
+  });
+});
+
+describe('partial open-cart scans', () => {
+  it('reports a zero stuck-cart count that could not see every open cart', () => {
+    const row = buildAttentionRows({
+      ...quiet,
+      blockedCarts: { kind: 'ready', value: { count: 0, window: 25, complete: false } },
+    }).find((r) => r.key === 'blocked-carts');
+    expect(row?.statement).toMatch(/checked as far as the 25 most recent/);
   });
 });

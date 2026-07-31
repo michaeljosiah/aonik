@@ -99,6 +99,20 @@ export function cartAction(cart: {
   return verdict.blocked ? { kind: 'blocked', reason: verdict.reason! } : { kind: 'resume' };
 }
 
+/**
+ * Whether a cart is in an ANOMALOUS state, as opposed to merely not finished.
+ *
+ * `cartBlocked` answers "can this check out right now", which is the correct question for a
+ * footer action but the wrong one for an attention list: an under-filled box is the normal
+ * state of every live shopping session, so counting it would put a warning on the dashboard
+ * whenever customers are actually using the storefront. Drift and over-capacity are different
+ * — the customer cannot resolve either by carrying on shopping.
+ */
+export function cartAnomalous(boxMeta: CartBoxMetaLike | null | undefined): boolean {
+  if (!boxMeta) return false;
+  return boxMeta.drift || boxMeta.filled > boxMeta.size;
+}
+
 /** The compact list-column form: `3/6`, or `—` where there is no box. */
 export function formatBoxFill(boxMeta: CartBoxMetaLike | null | undefined): string {
   return boxMeta ? `${boxMeta.filled}/${boxMeta.size}` : '—';

@@ -31,7 +31,7 @@ import {
   type AttentionSources,
   type SourceState,
 } from './lib/attention';
-import { cartBlocked } from './lib/cartState';
+import { cartAnomalous } from './lib/cartState';
 import { summariseOrderWindow } from './lib/orderWindow';
 import { paymentTone } from './lib/statusTone';
 
@@ -163,8 +163,12 @@ export function CommerceOverviewPage() {
         setBlockedCartsG({
           kind: 'ready',
           value: {
-            count: result.items.filter((cart) => cartBlocked(cart.boxMeta).blocked).length,
+            // ANOMALOUS, not merely blocked: an under-filled box cannot check out either,
+            // and it is the normal state of every live session — the carts page makes the
+            // same distinction, and using the checkout gate here contradicted it.
+            count: result.items.filter((cart) => cartAnomalous(cart.boxMeta)).length,
             window: Math.min(CART_WINDOW, result.totalCount),
+            complete: result.items.length >= result.totalCount,
           },
         }),
       )
@@ -259,6 +263,17 @@ export function CommerceOverviewPage() {
           </>
         )}
       </div>
+
+      {summary.excludedOrders > 0 && (
+        // Wrappable body text, never the KpiTile delta pill: that pill is shrink-0, so a
+        // sentence inside it widens the tile past its column and shoves its neighbours.
+        <p className="-mt-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+          Money figures cover {summary.moneyCaption.split(' · ').pop()} only —{' '}
+          {summary.excludedOrders} captured order{summary.excludedOrders === 1 ? '' : 's'} in other
+          currencies {summary.excludedOrders === 1 ? 'is' : 'are'} excluded, because there is no
+          rate here to convert them with.
+        </p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <AonikCard

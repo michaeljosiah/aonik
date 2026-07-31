@@ -37,7 +37,12 @@ export interface OrderWindowSummary {
   averageOrder: string;
   /** Orders in the window whose payment has not been captured and can still arrive. */
   awaitingPayment: number;
-  /** Caption for the money tiles — names the window, the currency, and what it excludes. */
+  /**
+   * Caption for the money tiles. Kept SHORT — it renders inside `KpiTile.delta`, which is a
+   * shrink-0 inline pill, so a sentence here widens the tile past its column and pushes into
+   * its neighbours. The exclusion is reported by `excludedOrders` for the caller to render as
+   * wrappable text instead.
+   */
   moneyCaption: string;
   /** Captured orders NOT counted in the figures above; 0 in a single-currency window. */
   excludedOrders: number;
@@ -89,12 +94,7 @@ export function summariseOrderWindow(
     paidRevenue: formatCurrency(total, currency),
     averageOrder: formatCurrency(total / count, currency),
     awaitingPayment,
-    moneyCaption:
-      excludedOrders === 0
-        ? `${windowLabel} · ${currency}`
-        : `${windowLabel} · ${currency} only, excluding ${excludedOrders} order${
-            excludedOrders === 1 ? '' : 's'
-          } in other currencies`,
+    moneyCaption: `${windowLabel} · ${currency}`,
     excludedOrders,
   };
 }
