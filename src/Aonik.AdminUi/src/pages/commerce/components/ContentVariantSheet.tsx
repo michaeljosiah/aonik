@@ -70,13 +70,52 @@ export function ContentVariantSheet({
     variant ? draftFromVariant(variant) : emptyDraft(),
   );
   const [saving, setSaving] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [baseline, setBaseline] = useState<ProductContentVariantDto | null>(variant);
+
+  // The sheet stays mounted after a conflict, so nothing re-initialises on its own. Without
+  // this the operator was left with Save disabled over stale state and no way forward except
+  // discovering that closing and reopening was the real reload.
+  const reload = async () => {
+    setReloading(true);
+    setError(null);
+    try {
+      const fresh = await commerceContentService.getAdminContent(productId);
+      const server = baseline ? fresh.variants.find((v) => v.id === baseline.id) : null;
+      if (baseline && !server) {
+        setError('This combination no longer exists. Close the sheet — there is nothing to edit.');
+        return;
+      }
+      if (server) {
+        setBaseline(server);
+        setDraft(draftFromVariant(server));
+        setSelection(parseSelection(server.selectionJson));
+      }
+      setConflict(false);
+      onSaved();
+    } catch (err: unknown) {
+      setError(readMessage(err) || 'The latest combination could not be read.');
+    } finally {
+      setReloading(false);
+    }
+  };
 
   const save = async () => {
     const invalid = validateDraft(draft);
     if (invalid) {
       setError(invalid);
+      return;
+    }
+    if (groups.length === 0) {
+      // Serialising against an empty group list yields `{}`, which the service reads as the
+      // standard preparation and rejects with V-C1 — so an unreadable offer must stop the save
+      // rather than produce a payload that means something else entirely.
+      setError(
+        'This product’s option offer could not be read, so a combination cannot be saved — the ' +
+          'selection would be sent empty. Close and retry once the offer loads.',
+      );
       return;
     }
     if (pickedGroupCount(selection) === 0) {
@@ -88,21 +127,21 @@ export function ContentVariantSheet({
     setError(null);
     setConflict(false);
     try {
-      if (variant) {
+      if (baseline) {
         // The update is a FULL REPLACE and the service reloads the row inside its serialized
         // attempt, so serialization only ORDERS two saves — it does not detect that the second
         // is stale. Without this check a later editor silently erases the first one's figures,
         // allergens or heating. Same guard as the default block, which had it from the start
         // and this path did not.
         const fresh = await commerceContentService.getAdminContent(productId);
-        const server = fresh.variants.find((v) => v.id === variant.id);
+        const server = fresh.variants.find((v) => v.id === baseline.id);
         if (!server) {
           setConflict(true);
           setError('This combination no longer exists — it may have been retired. Reload.');
           setSaving(false);
           return;
         }
-        if (signatureOf(server) !== signatureOf(variant)) {
+        if (signatureOf(server) !== signatureOf(baseline)) {
           setConflict(true);
           setError(
             'Someone else edited this combination while it was open. Reload to see their ' +
@@ -119,9 +158,9 @@ export function ContentVariantSheet({
         selectionJson: serialiseSelection(selection, groups),
         ...wireFromDraft(draft),
       };
-      if (variant) await commerceContentService.updateVariant(variant.id, payload);
+      if (baseline) await commerceContentService.updateVariant(baseline.id, payload);
       else await commerceContentService.upsertVariant(productId, payload);
-      toast.success(variant ? 'Combination saved' : 'Combination authored');
+      toast.success(baseline ? 'Combination saved' : 'Combination authored');
       onSaved();
       onClose();
     } catch (err: unknown) {
@@ -137,7 +176,7 @@ export function ContentVariantSheet({
     <Sheet open onOpenChange={(open) => !open && !saving && onClose()}>
       <SheetContent size="md">
         <SheetHeader
-          title={variant ? 'Edit combination' : 'Author a combination'}
+          title={baseline ? 'Edit combination' : 'Author a combination'}
           subtitle="Declarations left empty are withheld for this combination — never inherited"
         />
 
@@ -147,14 +186,19 @@ export function ContentVariantSheet({
               <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
               <span className="flex-1">{error}</span>
               {conflict && (
-                <button type="button" onClick={onSaved} className="shrink-0 underline">
-                  Reload
+                <button
+                  type="button"
+                  onClick={() => void reload()}
+                  disabled={reloading}
+                  className="shrink-0 underline"
+                >
+                  {reloading ? 'Reloading…' : 'Reload'}
                 </button>
               )}
             </div>
           )}
 
-          <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+          <fieldset disabled={saving || reloading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
                 Combination
@@ -171,7 +215,7 @@ export function ContentVariantSheet({
                         key={group.key}
                         group={group}
                         value={selection[group.key]}
-                        disabled={!!variant}
+                        disabled={!!baseline}
                         onToggle={(choiceKey) =>
                           setSelection({
                             ...selection,
@@ -206,7 +250,7 @@ export function ContentVariantSheet({
                   )}
                 </div>
               )}
-              {variant && (
+              {baseline && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
                   <Pill tone="muted" size="sm">
                     fixed
@@ -222,10 +266,13 @@ export function ContentVariantSheet({
         </SheetBody>
 
         <SheetFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+          <Button variant="outline" onClick={onClose} disabled={saving || reloading}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={saving || conflict}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving || reloading || conflict || groups.length === 0}
+          >
             {saving ? 'Saving…' : 'Save combination'}
           </Button>
         </SheetFooter>

@@ -7,11 +7,11 @@
 // were live tells the operator their allergen line is serving customers when it is not — which
 // is the one mistake a content tool must not make.
 
-import { AlertTriangle, FilePlus } from 'lucide-react';
+import { AlertTriangle, FilePlus, Info } from 'lucide-react';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
-import type { HeatingStepDto, ProductContentDto } from '@/types/commerce';
+import type { HeatingStepDto, ProductContentDto, ResolvedContentDto } from '@/types/commerce';
 
 import {
   FIGURE_FIELDS,
@@ -22,13 +22,27 @@ import {
 
 interface ContentWorkbenchProps {
   block: ProductContentDto | null;
+  /**
+   * What the resolver ACTUALLY serves for the standard selection, when the product read
+   * succeeded. This is the panel customers receive, and it is not always the block: when a
+   * recommended default moves onto a combination that already has an active variant,
+   * ResolveAsync serves that variant. Rendering the raw block as the served panel then shows
+   * the wrong allergens and describes a withholding that is not happening.
+   */
+  resolved?: ResolvedContentDto | null;
   state: ContentState;
   /** Absent in read-only embeddings (Spec 082's product editor preview). */
   onAuthor?: () => void;
   onEdit?: () => void;
 }
 
-export function ContentWorkbench({ block, state, onAuthor, onEdit }: ContentWorkbenchProps) {
+export function ContentWorkbench({
+  block,
+  resolved,
+  state,
+  onAuthor,
+  onEdit,
+}: ContentWorkbenchProps) {
   if (state === 'none' || !block) {
     return (
       <AonikCard padding={0}>
@@ -48,10 +62,26 @@ export function ContentWorkbench({ block, state, onAuthor, onEdit }: ContentWork
     );
   }
 
+  // Prefer the SERVER's resolution wherever it is available: it states declarationsWithheld,
+  // heatingWithheld and which variant matched, rather than leaving this component to infer any
+  // of it. Falling back to the block only when the product read failed.
+  const panel = resolved ?? {
+    servingLabel: block.servingLabel,
+    nutrition: block.nutrition,
+    ingredients: block.ingredients,
+    allergens: block.allergens,
+    declarationsWithheld: state === 'review',
+    heating: block.heating,
+    heatingWithheld: state === 'review',
+    isStandardPreparation: true,
+    matchedVariantSelectionJson: null,
+  };
+  const servedByVariant = !!panel.matchedVariantSelectionJson;
+
   return (
     <AonikCard
-      title="Standard preparation"
-      subtitle={block.servingLabel}
+      title="What customers receive"
+      subtitle={panel.servingLabel}
       padding={0}
       action={
         onEdit && (
@@ -61,7 +91,20 @@ export function ContentWorkbench({ block, state, onAuthor, onEdit }: ContentWork
         )
       }
     >
-      {state === 'review' && (
+      {servedByVariant && (
+        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+          <Info className="mt-px h-4 w-4 shrink-0" aria-hidden />
+          <span>
+            An authored COMBINATION is serving this selection, not the default block — editing
+            the block below will not change what is shown here.{' '}
+            <span className="font-[family-name:var(--font-mono)] text-[11px]">
+              {panel.matchedVariantSelectionJson}
+            </span>
+          </span>
+        </p>
+      )}
+
+      {state === 'review' && !servedByVariant && (
         <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
           <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden />
           <span>
@@ -73,14 +116,22 @@ export function ContentWorkbench({ block, state, onAuthor, onEdit }: ContentWork
       )}
 
       <div className="p-3">
-        <FigureGrid nutrition={block.nutrition} />
+        <FigureGrid nutrition={panel.nutrition} />
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <DeclarationCell label="Ingredients" text={block.ingredients} state={state} />
-          <DeclarationCell label="Allergens" text={block.allergens} state={state} />
+          <DeclarationCell
+            label="Ingredients"
+            text={panel.ingredients}
+            withheld={panel.declarationsWithheld}
+          />
+          <DeclarationCell
+            label="Allergens"
+            text={panel.allergens}
+            withheld={panel.declarationsWithheld}
+          />
         </div>
 
-        <Heating steps={block.heating} state={state} />
+        <Heating steps={panel.heating} withheld={panel.heatingWithheld} />
       </div>
     </AonikCard>
   );
@@ -116,13 +167,14 @@ function FigureGrid({ nutrition }: { nutrition: ProductContentDto['nutrition'] }
 function DeclarationCell({
   label,
   text,
-  state,
+  withheld,
 }: {
   label: string;
   text: string | null;
-  state: ContentState;
+  /** The SERVER's verdict where available — not re-derived here. */
+  withheld: boolean;
 }) {
-  const render = renderDeclaration(text, state);
+  const render = renderDeclaration(text, withheld ? 'review' : 'authored');
   return (
     <div className="rounded-md border border-[var(--color-border-light)] p-2.5">
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
@@ -143,7 +195,7 @@ function DeclarationCell({
   );
 }
 
-function Heating({ steps, state }: { steps: HeatingStepDto[] | null; state: ContentState }) {
+function Heating({ steps, withheld }: { steps: HeatingStepDto[] | null; withheld: boolean }) {
   const hasSteps = !!steps && steps.length > 0;
 
   return (
@@ -151,9 +203,9 @@ function Heating({ steps, state }: { steps: HeatingStepDto[] | null; state: Cont
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
         Heating &amp; usage
       </p>
-      {state === 'review' ? (
-        // Heating withholds exactly like the other declarations under review — it is a usage
-        // instruction, not a figure, so nothing about it may fall back.
+      {withheld ? (
+        // Heating withholds exactly like the other declarations — it is a usage instruction,
+        // not a figure, so nothing about it may fall back. The flag is the SERVER's.
         <p className="text-[12.5px] italic text-[var(--color-warning)]">Withheld while under review</p>
       ) : hasSteps ? (
         <ul className="flex flex-col gap-1">
@@ -167,10 +219,9 @@ function Heating({ steps, state }: { steps: HeatingStepDto[] | null; state: Cont
           ))}
         </ul>
       ) : (
-        // A BLOCK with no steps is an authored EMPTY panel, not a withheld one: the upsert
-        // coerces a null heatingJson to "[]", so the resolver reports heating as not withheld
-        // and the customer receives an explicitly empty panel. Calling that "not yet
-        // published" would tell the operator a gap is being flagged when it is not.
+        // Not withheld and no steps: an authored EMPTY panel. The block upsert coerces a null
+        // heatingJson to "[]", so this is what a block with no steps genuinely serves —
+        // calling it "not yet published" would report a gap that is not being flagged.
         <p className="text-[12.5px] italic text-[var(--color-text-tertiary)]">
           No steps published — customers see an explicitly empty panel, not a withheld one
         </p>

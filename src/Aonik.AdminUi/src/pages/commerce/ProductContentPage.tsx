@@ -26,6 +26,7 @@ import type {
   ContentStatusRowDto,
   EffectiveOptionGroupDto,
   ProductContentVariantDto,
+  ResolvedContentDto,
 } from '@/types/commerce';
 
 import { ContentBlockSheet } from './components/ContentBlockSheet';
@@ -66,6 +67,8 @@ export function ProductContentPage() {
   const [content, setContent] = useState<AdminProductContentDto | null>(null);
   const [coverage, setCoverage] = useState<ContentCoverageDto | null>(null);
   const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>([]);
+  /** What the resolver serves for the standard selection — not always the block. */
+  const [resolved, setResolved] = useState<ResolvedContentDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState(false);
@@ -141,12 +144,14 @@ export function ProductContentPage() {
       setContent(admin);
       setCoverage(cover);
       setGroups(product.product?.effectiveOptionGroups ?? []);
+      setResolved(product.product?.content ?? null);
       setGroupsError(!product.ok);
     } catch (err: unknown) {
       if (detailRequestRef.current !== requestId) return;
       setContent(null);
       setCoverage(null);
       setGroups([]);
+      setResolved(null);
       setGroupsError(false);
       setDetailError(readMessage(err) || 'This product’s content could not be read.');
     } finally {
@@ -367,6 +372,7 @@ export function ProductContentPage() {
               <>
                 <ContentWorkbench
                   block={content?.block ?? null}
+                  resolved={resolved}
                   state={selectedState}
                   onAuthor={selectedId ? () => setEditingBlock(true) : undefined}
                   onEdit={selectedId ? () => setEditingBlock(true) : undefined}
@@ -381,7 +387,11 @@ export function ProductContentPage() {
                     // could not be READ — the sheet would open a workflow whose every save
                     // fails, for two quite different reasons.
                     selectedId &&
-                    groups.length > 0 && (
+                    groups.length > 0 &&
+                    // V-C8: the default block is the baseline every variant validates against,
+                    // so AddVariantAsync rejects the whole sheet without one. Authoring the
+                    // block first is the prerequisite, not a preference.
+                    !!content?.block && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -392,6 +402,12 @@ export function ProductContentPage() {
                     )
                   }
                 >
+                  {selectedId && groups.length > 0 && !content?.block && (
+                    <p className="mx-3 mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                      Author the default block first — it is the baseline every combination is
+                      validated against, so one cannot be saved without it.
+                    </p>
+                  )}
                   {groupsError && (
                     <p className="mx-3 mt-3 flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
                       <span className="flex-1">
@@ -442,18 +458,24 @@ export function ProductContentPage() {
                             // A retired row is history: UpdateVariantAsync rejects every edit
                             // to it with V-C5. Re-authoring the SAME combination is the
                             // supported path and revives the row, so that is what is offered.
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setVariantSheet({
-                                  variant: null,
-                                  selectionJson: variant.selectionJson,
-                                })
-                              }
-                              className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
-                            >
-                              Re-author to revive
-                            </button>
+                            groups.length > 0 && !!content?.block ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setVariantSheet({
+                                    variant: null,
+                                    selectionJson: variant.selectionJson,
+                                  })
+                                }
+                                className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                              >
+                                Re-author to revive
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                                retired
+                              </span>
+                            )
                           )}
                         </li>
                       ))}
@@ -487,15 +509,24 @@ export function ProductContentPage() {
                             </span>{' '}
                             → {gap.choiceKey}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setVariantSheet({ variant: null, selectionJson: gap.selectionJson })
-                            }
-                            className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
-                          >
-                            Author
-                          </button>
+                          {/* Same two gates as the card's CTA: a readable offer, and a default
+                              block to validate against. Without either, the sheet opens a
+                              workflow whose every save is rejected. */}
+                          {groups.length > 0 && !!content?.block ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setVariantSheet({ variant: null, selectionJson: gap.selectionJson })
+                              }
+                              className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                            >
+                              Author
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                              {content?.block ? 'offer unread' : 'needs a default block'}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
