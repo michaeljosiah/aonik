@@ -840,11 +840,11 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
   <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
   <tbody>
     <tr><td><code>IEntitlementReader</code></td><td><code>GetAsync(subscriberRef)</code> → plan, meters, allowance, consumed, remaining. The read a product's UI renders.</td></tr>
-    <tr><td><code>IUsageMeter</code></td><td><code>ReserveAsync</code> / <code>CommitAsync</code> / <code>ReleaseAsync</code> / <code>CheckCeilingAsync</code> / <code>HasFlagAsync</code>.</td></tr>
+    <tr><td><code>IUsageMeter</code></td><td><code>ReserveAsync</code> / <code>CommitAsync</code> / <code>ReleaseAsync</code> for counters; <code>ClaimSlotAsync</code> / <code>ReleaseSlotAsync</code> for ceilings (<a href="#usage">§9.1</a>); <code>HasFlagAsync</code> for flags.</td></tr>
     <tr><td><code>ISubscriptionService</code></td><td>Subscribe, change plan (next period), cancel, resume, read.</td></tr>
     <tr><td><code>ISubscriberAuthorizer</code></td><td>Module-contributed, per <a href="#subscriber">§11</a>. Existence <em>and</em> authority for a subscriber kind; unregistered kinds fail closed.</td></tr>
     <tr><td><code>IEntitlementPurchaseService</code></td><td>Builds an <code>EntitlementPurchase</code> order from server-resolved <code>MeterOffer</code> pricing (<a href="#money">§12.4</a>).</td></tr>
-    <tr><td><code>IEntitlementLedgerContext</code></td><td>Resolves the tenant's subscription-billing <code>LedgerId</code> for <code>IJournalWriter</code> (<a href="#contracts">§14.2</a>).</td></tr>
+    
     <tr><td><code>IMeterDefinitionProvider</code></td><td>Module-contributed <code>IEnumerable&lt;T&gt;</code> supplying a module's <strong>default</strong> meters at provisioning. A <em>seeding</em> contributor — <strong>not</strong> the validator.</td></tr>
     <tr><td><code>MeterKinds</code>, <code>SubscriberKinds</code>, <code>SubscriptionStatuses</code>, <code>ResetPolicies</code></td><td>Known-values helpers over open strings.</td></tr>
   </tbody>
@@ -1011,7 +1011,7 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
 <table>
   <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
   <tbody>
-    <tr><td><strong>P1</strong> — contracts</td><td><code>Abstractions.Subscriptions</code> + <code>IJournalWriter</code>; Finance implements the latter.</td><td>Builds; <code>IJournalWriter</code> posts a balanced entry in a test.</td></tr>
+    <tr><td><strong>P1</strong> — contracts</td><td><code>SharedKernel.Abstractions.Subscriptions</code>: interfaces, records and known-values helpers. No behaviour, no persistence. (<code>IJournalWriter</code> is <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088</a> P1, not this.)</td><td>Solution builds; contracts compile against no implementation; no existing test changes.</td></tr>
     <tr><td><strong>P2</strong> — catalogue</td><td><code>Meter</code>, <code>Plan</code>, <code>PlanVersion</code>, <code>PlanEntitlement</code> + module + admin CRUD.</td><td>A plan with all three entitlement kinds can be authored and read.</td></tr>
     <tr><td><strong>P3</strong> — subscription <em>+ the free-tier slice</em></td><td><code>Subscription</code>, <code>SubscriptionPeriod</code>, subscribe / cancel / read, <code>ISubscriberAuthorizer</code>, the filtered-unique active invariant, the <strong>zero-total settlement path</strong> (<a href="#money">§12.2</a>), and the <strong>minimum grant + counter-usage slice</strong> needed to actually hold and spend an allowance. No payment.</td><td>A £0 plan works end to end — granted <em>and consumable</em>.</td></tr>
     <tr><td><strong>P4</strong> — full usage</td><td>The rest: <code>UsageReservation</code> + allocations, <code>Held</code>, <code>CeilingHolding</code>/<code>CeilingClaim</code>, draw-down ordering, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
