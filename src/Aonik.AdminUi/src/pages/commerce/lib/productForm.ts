@@ -49,7 +49,12 @@ export function buildProductPatch(
   if (edited.name !== original.name) patch.name = edited.name;
   if (edited.description !== original.description) patch.description = edited.description;
   if (edited.status !== original.status) patch.status = edited.status;
-  if (edited.attributesJson !== original.attributesJson) patch.attributesJson = edited.attributesJson;
+
+  // A cleared textarea reads as "no attributes", but the server rejects blank outright and
+  // requires "{}" to clear — so an edit that looks supported would fail at save time.
+  if (edited.attributesJson !== original.attributesJson) {
+    patch.attributesJson = edited.attributesJson.trim() === '' ? '{}' : edited.attributesJson;
+  }
 
   // Category: null is a real value (uncategorised), so "cleared" is its own flag rather
   // than an absent member — an absent member means untouched.
@@ -93,6 +98,17 @@ export function buildMediaReplacement(
     .map((item) => ({ url: item.url.trim(), kind: item.kind ?? null }));
 }
 
+/**
+ * The index the storefront will treat as the hero, or -1 when there is none.
+ *
+ * NOT simply index 0: the media list may hold documents as well as images, and the server
+ * picks the first `image` in sort order for HeroImageUrl. Calling a leading document the hero
+ * would name a different entry than the list and storefront actually use.
+ */
+export function heroImageIndex(items: readonly { url: string; kind?: string | null }[]): number {
+  return items.findIndex((item) => (item.kind ?? 'image').trim().toLowerCase() === 'image');
+}
+
 /** Moves one media entry, returning a new array — position is the order that gets saved. */
 export function moveItem<T>(items: readonly T[], from: number, to: number): T[] {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
@@ -104,10 +120,46 @@ export function moveItem<T>(items: readonly T[], from: number, to: number): T[] 
   return next;
 }
 
+// ─── Unit surcharge ────────────────────────────────────────────────────────
+// Its own endpoint, not part of the product PATCH, and its own dirty rule.
+
+/** What the surcharge endpoint would actually be sent for a given amount/currency pair. */
+export interface SurchargePayload {
+  amount: number | null;
+  currency: string | null;
+}
+
+/**
+ * A blank amount means "no surcharge", and a currency alone is not a value the server stores —
+ * so a lone currency normalises away. This is what keeps a *display* default (seeding the
+ * currency box from the storefront config so the operator need not guess it) from reading as
+ * an edit: without it, merely opening an unsurcharged product and saving would post a clear,
+ * deleting a surcharge another operator added since the page loaded.
+ *
+ * A non-numeric amount yields NaN, which never equals itself — so it always reads as dirty and
+ * reaches the caller's validation rather than being silently dropped as unchanged.
+ */
+export function surchargePayload(amount: string, currency: string): SurchargePayload {
+  if (amount.trim() === '') return { amount: null, currency: null };
+  return { amount: Number(amount.trim()), currency: currency.trim() || null };
+}
+
+/** True when saving would change what the server holds for the surcharge. */
+export function isSurchargeDirty(
+  original: { amount: string; currency: string },
+  edited: { amount: string; currency: string },
+): boolean {
+  const before = surchargePayload(original.amount, original.currency);
+  const after = surchargePayload(edited.amount, edited.currency);
+  return before.amount !== after.amount || before.currency !== after.currency;
+}
+
 /** Client-side attributes validation — the contract facet groups match paths against. */
 export function validateAttributesJson(value: string): string | null {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return null;   // empty is allowed; the caller sends "{}"
+  // Blank is accepted here and normalised to "{}" by buildProductPatch, because the server
+  // rejects blank but treats "{}" as the explicit clear.
+  if (trimmed.length === 0) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(trimmed);

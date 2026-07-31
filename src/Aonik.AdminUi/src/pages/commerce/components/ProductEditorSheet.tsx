@@ -27,6 +27,8 @@ import {
   buildProductPatch,
   formFromProduct,
   isEmptyPatch,
+  isSurchargeDirty,
+  surchargePayload,
   validateAttributesJson,
   type ProductEditorForm,
 } from '../lib/productForm';
@@ -56,7 +58,7 @@ export function ProductEditorSheet({
   const [originalMedia, setOriginalMedia] = useState<string>('[]');
   const [surchargeAmount, setSurchargeAmount] = useState('');
   const [surchargeCurrency, setSurchargeCurrency] = useState('');
-  const [originalSurcharge, setOriginalSurcharge] = useState('');
+  const [originalSurcharge, setOriginalSurcharge] = useState({ amount: '', currency: '' });
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,7 +82,7 @@ export function ProductEditorSheet({
       const currency = detail.unitSurchargeCurrency ?? '';
       setSurchargeAmount(amount);
       setSurchargeCurrency(currency);
-      setOriginalSurcharge(`${amount}|${currency}`);
+      setOriginalSurcharge({ amount, currency });
       setActiveTab('details');
     } catch (err: unknown) {
       setError(readMessage(err) || 'Failed to load product.');
@@ -96,6 +98,9 @@ export function ProductEditorSheet({
   // The storefront config's canonical currency is the sensible default for a FIRST-TIME
   // surcharge — the server rejects an amount with a blank currency, so an operator must not
   // have to guess it. Never overwrites a currency the product already carries.
+  //
+  // Seeding it is a DISPLAY default, not an edit: `isSurchargeDirty` normalises a currency
+  // with no amount away, so opening an unsurcharged product and saving posts nothing here.
   useEffect(() => {
     if (loading || surchargeCurrency) return;
     let cancelled = false;
@@ -122,14 +127,18 @@ export function ProductEditorSheet({
       return;
     }
 
-    const amountTouched = `${surchargeAmount}|${surchargeCurrency}` !== originalSurcharge;
-    const parsedAmount = surchargeAmount.trim() === '' ? null : Number(surchargeAmount);
-    if (amountTouched && parsedAmount !== null && !Number.isFinite(parsedAmount)) {
+    const draft = { amount: surchargeAmount, currency: surchargeCurrency };
+    const surchargeTouched = isSurchargeDirty(originalSurcharge, draft);
+    const { amount: parsedAmount, currency: parsedCurrency } = surchargePayload(
+      surchargeAmount,
+      surchargeCurrency,
+    );
+    if (surchargeTouched && parsedAmount !== null && !Number.isFinite(parsedAmount)) {
       setError('Surcharge amount must be a number.');
       setActiveTab('storefront');
       return;
     }
-    if (amountTouched && parsedAmount !== null && !surchargeCurrency.trim()) {
+    if (surchargeTouched && parsedAmount !== null && !parsedCurrency) {
       setError('A surcharge amount needs a currency — the server rejects the pair otherwise.');
       setActiveTab('storefront');
       return;
@@ -148,12 +157,8 @@ export function ProductEditorSheet({
         await commerceCatalogService.replaceProductMedia(productId, mediaLines);
       }
 
-      if (amountTouched) {
-        await commerceCatalogService.setUnitSurcharge(
-          productId,
-          parsedAmount,
-          parsedAmount === null ? null : surchargeCurrency.trim(),
-        );
+      if (surchargeTouched) {
+        await commerceCatalogService.setUnitSurcharge(productId, parsedAmount, parsedCurrency);
       }
 
       toast.success('Product saved');
@@ -166,8 +171,17 @@ export function ProductEditorSheet({
     }
   };
 
+  // Nothing to edit: the detail read failed (a stale deep link, a 404, a dropped connection).
+  const unloaded = !loading && (!form || !product);
+
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet
+      open
+      // Every dismissal path — Escape, the overlay, the header close button — routes through
+      // here, so a save in flight must block them all. Closing mid-save would look like an
+      // abandoned action while the writes carried on off-screen.
+      onOpenChange={(open) => !open && !saving && onClose()}
+    >
       <SheetContent size="lg">
         <SheetHeader
           title={product?.name ?? 'Product'}
@@ -181,8 +195,17 @@ export function ProductEditorSheet({
             </div>
           )}
 
-          {loading || !form || !product ? (
+          {loading ? (
             <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+          ) : !form || !product ? (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                This product could not be loaded.
+              </p>
+              <Button variant="outline" onClick={() => void load()}>
+                Try again
+              </Button>
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               <UnderlineTabs
@@ -229,7 +252,9 @@ export function ProductEditorSheet({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={() => void handleSave()} disabled={saving || loading}>
+          {/* Save stays disabled when nothing loaded — handleSave would return immediately,
+              so an enabled button would promise an action it cannot perform. */}
+          <Button onClick={() => void handleSave()} disabled={saving || loading || unloaded}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </SheetFooter>

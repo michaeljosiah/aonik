@@ -44,6 +44,8 @@ const STATUS_TONE: Record<string, PillTone> = {
   Archived: 'muted',
 };
 
+const STATUSES = ['Active', 'Draft', 'Archived'];
+
 export function CommerceProductsPage() {
   const navigate = useNavigate();
   const { productId } = useParams<{ productId: string }>();
@@ -54,6 +56,7 @@ export function CommerceProductsPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [kindTab, setKindTab] = useState('');
+  const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -70,6 +73,7 @@ export function CommerceProductsPage() {
         page: pageNumber,
         pageSize,
         kind: kindTab || undefined,
+        status: status || undefined,
         search: search || undefined,
       });
       if (requestIdRef.current !== requestId) return;
@@ -88,7 +92,7 @@ export function CommerceProductsPage() {
         setInitialLoad(false);
       }
     }
-  }, [pageNumber, pageSize, kindTab, search]);
+  }, [pageNumber, pageSize, kindTab, status, search]);
 
   useEffect(() => {
     void load();
@@ -96,7 +100,7 @@ export function CommerceProductsPage() {
 
   useEffect(() => {
     setPageNumber(1);
-  }, [kindTab, search]);
+  }, [kindTab, status, search]);
 
   // Categories label the editor's picker; a failure leaves the picker id-only rather than
   // blocking the page.
@@ -129,6 +133,10 @@ export function CommerceProductsPage() {
             <img
               src={row.heroImageUrl}
               alt=""
+              // Keyed by URL so a repaired image gets a FRESH node: React would otherwise
+              // reuse this one and the hidden-on-error inline style would survive the new src,
+              // leaving a working thumbnail invisible until the page remounted.
+              key={row.heroImageUrl}
               className="h-8 w-8 rounded object-cover"
               onError={(e) => {
                 e.currentTarget.style.visibility = 'hidden';
@@ -220,8 +228,25 @@ export function CommerceProductsPage() {
     },
   ];
 
+  // A deep link to /commerce/products/:id must not wait on the paged list behind it: the two
+  // reads are unrelated, and a slow list would hold a healthy detail read hostage.
+  const editor = productId ? (
+    <ProductEditorSheet
+      key={productId}
+      productId={productId}
+      categories={categories}
+      onClose={() => navigate('/commerce/products')}
+      onSaved={() => void load()}
+    />
+  ) : null;
+
   if (initialLoad) {
-    return <PageLoadingScreen message="Loading products" />;
+    return (
+      <>
+        <PageLoadingScreen message="Loading products" />
+        {editor}
+      </>
+    );
   }
 
   return (
@@ -256,6 +281,25 @@ export function CommerceProductsPage() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search products"
+        // Status is a server-side filter, so it narrows the whole catalogue rather than the
+        // loaded page. The bar's default trailing "Filters" button is hidden because there is
+        // nothing behind it — an inert control reads as a feature that is broken.
+        extra={
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Status"
+            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[12.5px] text-[var(--color-text-primary)] outline-none"
+          >
+            <option value="">Any status</option>
+            {STATUSES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        }
+        hideFilterButton
       />
 
       <AonikCard padding={0}>
@@ -272,27 +316,27 @@ export function CommerceProductsPage() {
               onRowClick={(row) => navigate(`/commerce/products/${row.id}`)}
               emptyTitle="No products"
               emptyDescription="No products match this filter."
+              // No bulk workflow here yet, and a checkbox that cannot change state is worse
+              // than none — it offers a selection the page will never act on.
+              showCheckboxes={false}
             />
             <DataTablePagination
               pageNumber={pageNumber}
               pageSize={pageSize}
               totalCount={totalCount}
               onPageChange={setPageNumber}
-              onPageSizeChange={setPageSize}
+              // A larger page size can put the current page past the new last one, which
+              // returns an empty page against a nonzero total — start again from the first.
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPageNumber(1);
+              }}
             />
           </>
         )}
       </AonikCard>
 
-      {productId && (
-        <ProductEditorSheet
-          key={productId}
-          productId={productId}
-          categories={categories}
-          onClose={() => navigate('/commerce/products')}
-          onSaved={() => void load()}
-        />
-      )}
+      {editor}
     </div>
   );
 }

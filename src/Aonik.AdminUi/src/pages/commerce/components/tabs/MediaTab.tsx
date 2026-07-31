@@ -6,7 +6,7 @@
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { moveItem } from '../../lib/productForm';
+import { heroImageIndex, moveItem } from '../../lib/productForm';
 import { Field, inputClass } from './DetailsTab';
 
 export interface MediaDraft {
@@ -21,6 +21,8 @@ interface MediaTabProps {
 
 export function MediaTab({ items, onChange }: MediaTabProps) {
   const [newUrl, setNewUrl] = useState('');
+  // The first IMAGE, not the first row — a leading document is not the hero.
+  const heroIndex = heroImageIndex(items);
 
   const add = () => {
     const url = newUrl.trim();
@@ -33,6 +35,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
     <div className="flex flex-col gap-4">
       <p className="text-[11px] text-[var(--color-text-tertiary)]">
         Order is position — the first image is the hero. Saving replaces the whole list.
+        {heroIndex === -1 && items.length > 0 && ' No image here, so the storefront has no hero.'}
       </p>
 
       {items.length === 0 ? (
@@ -59,7 +62,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
               <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
                 {item.url}
               </span>
-              {index === 0 && (
+              {index === heroIndex && (
                 <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-secondary)]">
                   Hero
                 </span>

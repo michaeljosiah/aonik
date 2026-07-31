@@ -77,6 +77,12 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
             className={inputClass}
           >
             <option value="">Uncategorised</option>
+            {/* When the category list failed to load, the product's own category is still a
+                fact — showing only "Uncategorised" would misreport stored state and let a
+                save silently clear it. Falls back to the raw id until labels arrive. */}
+            {form.categoryId && !categories.some((c) => c.id === form.categoryId) && (
+              <option value={form.categoryId}>{form.categoryId}</option>
+            )}
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}

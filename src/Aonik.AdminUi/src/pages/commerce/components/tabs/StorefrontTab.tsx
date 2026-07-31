@@ -69,8 +69,12 @@ export function StorefrontTab({
           groups.length === 0
             ? { kind: 'ready', summary: 'Not personalisable', tone: 'muted' }
             : {
+                // "configured", not "offered": these are the stored narrowing rows. A group
+                // that has since been deactivated still has a row here but is dropped from
+                // the effective composition the storefront shows, so claiming it is offered
+                // would overstate what a shopper actually sees.
                 kind: 'ready',
-                summary: `${groups.length} group${groups.length === 1 ? '' : 's'} offered`,
+                summary: `${groups.length} group${groups.length === 1 ? '' : 's'} configured`,
                 tone: 'info',
               },
         );
@@ -109,8 +113,17 @@ export function StorefrontTab({
             tone: 'info',
           });
         })
-        // A bundle with no plan authored 404s — that is an honest "no plan", not an error.
-        .catch(() => !isStale() && setSizePlan({ kind: 'ready', summary: 'No plan authored', tone: 'warning' }));
+        // ONLY a 404 means "no plan authored" — the endpoint says so by absence. A 403,
+        // timeout or 500 must degrade to unavailable instead, or an outage would be reported
+        // to the operator as an authoring gap they need to go and fix.
+        .catch((err: unknown) => {
+          if (isStale()) return;
+          setSizePlan(
+            httpStatus(err) === 404
+              ? { kind: 'ready', summary: 'No plan authored', tone: 'warning' }
+              : { kind: 'unavailable' },
+          );
+        });
     }
   }, [productId, isBundle]);
 
@@ -216,6 +229,13 @@ function SurfaceRow({ label, state, to }: { label: string; state: SurfaceState; 
       </span>
     </div>
   );
+}
+
+/** The HTTP status of a rejected api call, or undefined for a transport-level failure. */
+function httpStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object' || !('response' in err)) return undefined;
+  const response = (err as { response?: { status?: number } }).response;
+  return typeof response?.status === 'number' ? response.status : undefined;
 }
 
 /** Flattened `path → value` pairs; null when the JSON is not a usable object. */

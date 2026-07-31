@@ -6,8 +6,11 @@ import {
   buildMediaReplacement,
   buildProductPatch,
   formFromProduct,
+  heroImageIndex,
   isEmptyPatch,
+  isSurchargeDirty,
   moveItem,
+  surchargePayload,
   validateAttributesJson,
   type ProductEditorForm,
 } from './productForm';
@@ -164,5 +167,75 @@ describe('validateAttributesJson', () => {
     expect(validateAttributesJson('[1,2]')).toMatch(/object/);
     expect(validateAttributesJson('"text"')).toMatch(/object/);
     expect(validateAttributesJson('null')).toMatch(/object/);
+  });
+});
+
+describe('surcharge dirty rule', () => {
+  it('is not dirty when only the display default currency was seeded', () => {
+    // The regression this exists for: opening an unsurcharged product seeds the currency box
+    // from the storefront config, and without normalisation Save posted a clear — deleting a
+    // surcharge another operator had added since the page loaded.
+    expect(isSurchargeDirty({ amount: '', currency: '' }, { amount: '', currency: 'GBP' })).toBe(
+      false,
+    );
+  });
+
+  it('normalises a currency with no amount away entirely', () => {
+    expect(surchargePayload('', 'GBP')).toEqual({ amount: null, currency: null });
+    expect(surchargePayload('   ', 'NGN')).toEqual({ amount: null, currency: null });
+  });
+
+  it('is dirty when an amount is added, changed, or cleared', () => {
+    expect(isSurchargeDirty({ amount: '', currency: 'GBP' }, { amount: '2.50', currency: 'GBP' }))
+      .toBe(true);
+    expect(isSurchargeDirty({ amount: '2.50', currency: 'GBP' }, { amount: '3', currency: 'GBP' }))
+      .toBe(true);
+    expect(isSurchargeDirty({ amount: '2.50', currency: 'GBP' }, { amount: '', currency: 'GBP' }))
+      .toBe(true);
+  });
+
+  it('is dirty when a stored surcharge is re-denominated', () => {
+    expect(isSurchargeDirty({ amount: '2.50', currency: 'GBP' }, { amount: '2.50', currency: 'NGN' }))
+      .toBe(true);
+  });
+
+  it('treats a non-numeric amount as dirty so validation can reject it', () => {
+    // NaN never equals itself, so this reaches the caller's check instead of being dropped
+    // as "unchanged" and silently ignored.
+    expect(isSurchargeDirty({ amount: '2.50', currency: 'GBP' }, { amount: 'abc', currency: 'GBP' }))
+      .toBe(true);
+  });
+});
+
+describe('heroImageIndex', () => {
+  it('skips a leading document — the server picks the first image', () => {
+    expect(
+      heroImageIndex([
+        { url: 'a.pdf', kind: 'doc' },
+        { url: 'b.jpg', kind: 'image' },
+      ]),
+    ).toBe(1);
+  });
+
+  it('treats an unspecified kind as an image', () => {
+    expect(heroImageIndex([{ url: 'b.jpg' }])).toBe(0);
+    expect(heroImageIndex([{ url: 'b.jpg', kind: null }])).toBe(0);
+  });
+
+  it('reports none when the list holds no image at all', () => {
+    expect(heroImageIndex([{ url: 'a.pdf', kind: 'doc' }])).toBe(-1);
+    expect(heroImageIndex([])).toBe(-1);
+  });
+});
+
+describe('cleared attributes', () => {
+  it('sends {} rather than a blank string, which the server rejects', () => {
+    const patch = buildProductPatch(baseForm(), baseForm({ attributesJson: '   ' }));
+    expect(patch.attributesJson).toBe('{}');
+  });
+
+  it('still sends an authored object verbatim', () => {
+    const patch = buildProductPatch(baseForm(), baseForm({ attributesJson: '{"spice":"hot"}' }));
+    expect(patch.attributesJson).toBe('{"spice":"hot"}');
   });
 });
