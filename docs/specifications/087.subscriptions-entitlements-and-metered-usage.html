@@ -187,6 +187,8 @@
   <li>Two new order types: <code>SubscriptionRenewal</code>, <code>EntitlementPurchase</code>.</li>
   <li>New ledger accounts and postings, contributed at provisioning.</li>
   <li><code>SharedKernel.Abstractions.Subscriptions</code> contracts, plus a new <code>IJournalWriter</code> to close the cross-module ledger gap.</li>
+  <li><strong>Changes inside Finance that this spec depends on and must therefore deliver:</strong> order-type-aware revenue routing in <code>LedgerPostingService</code> (<a href="#ledger">§13.1</a>); an <code>IRecurringPaymentInitiator</code> for background renewal (<a href="#money">§12.3</a>); idempotency keys and unique <code>(TenantId, OrderId)</code> indexes on the invoice and payment-intent writers (<a href="#money">§12.5</a>).</li>
+  <li>A <strong>subscription dunning job</strong> — payment retry does not exist in the tree today (<a href="#money">§12.4</a>).</li>
 </ul>
 
 <h3>4.2 Out of scope</h3>
@@ -197,7 +199,7 @@
   <li>Post-paid / arrears usage billing (bill what was consumed). v1 is pre-paid allowance only.</li>
   <li>Seat-based per-user pricing (a <code>ceiling</code> meter covers "up to N profiles" without per-seat billing).</li>
   <li>Resellers, marketplaces, partner revenue share.</li>
-  <li>Dunning changes — the existing <code>DunningPlan</code> is used as-is.</li>
+  <li>General-purpose dunning for <em>all</em> invoice types, and any use of the <code>DunningPlan</code> entity. This spec adds subscription payment retry only (<a href="#money">§12.4</a>); wiring <code>DunningPlan</code> into a platform-wide collections engine is separate work.</li>
   <li>Any product-specific meter definition. Meters are data; Arke Kids' meters belong to its config pack.</li>
 </ul>
 
@@ -259,14 +261,22 @@
   <tbody>
     <tr>
       <td><code>Subscription</code> <span class="tag new">new</span></td>
-      <td><code>TenantId</code>, <code>SubscriberKind</code>, <code>SubscriberId</code>, <code>PlanVersionId</code>, <code>Status</code>, <code>CurrentPeriodStart</code>, <code>CurrentPeriodEnd</code>, <code>CancelAtPeriodEnd</code>, <code>StartedAt</code>, <code>EndedAt</code></td>
+      <td><code>TenantId</code>, <code>SubscriberKind</code>, <code>SubscriberId</code>, <code>PlanVersionId</code>, <code>PendingPlanVersionId?</code>, <code>PendingEffectiveAt?</code>, <code>Status</code>, <code>CurrentPeriodStart</code>, <code>CurrentPeriodEnd</code>, <code>CancelAtPeriodEnd</code>, <code>PaymentMandateId?</code>, <code>StartedAt</code>, <code>EndedAt</code></td>
     </tr>
     <tr>
       <td><code>SubscriptionPeriod</code> <span class="tag new">new</span></td>
-      <td><code>SubscriptionId</code>, <code>Sequence</code>, <code>StartsAt</code>, <code>EndsAt</code>, <code>OrderId?</code>, <code>InvoiceId?</code>, <code>Status</code></td>
+      <td><code>SubscriptionId</code>, <code>Sequence</code>, <code>StartsAt</code>, <code>EndsAt</code>, <code>OrderId?</code>, <code>InvoiceId?</code>, <code>PaymentIntentId?</code>, <code>Status</code>, <code>AttemptCount</code>, <code>NextAttemptAt?</code></td>
     </tr>
   </tbody>
 </table>
+
+<div class="callout">
+  <span class="callout-label">Pending plan changes need somewhere to live</span>
+  <a href="#scope">§4.2</a> promises that a plan change takes effect at the next period boundary. With a single
+  <code>PlanVersionId</code> there is nowhere to record that intent: overwriting it changes the <em>current</em>
+  subscription immediately (the opposite of what was promised) and not writing it loses the request before renewal.
+  <code>PendingPlanVersionId</code> + <code>PendingEffectiveAt</code> hold it; renewal applies and clears them.
+</div>
 
 <p>
   <code>SubscriptionPeriod</code> is not bookkeeping for its own sake: it is the <strong>idempotency anchor</strong>
@@ -284,22 +294,51 @@
 </p>
 
 <pre><code>EntitlementGrant
-    SubscriptionId, PeriodId?, MeterCode
+    SubscriberKind, SubscriberId    // the grant's OWNER — not the subscription
+    SubscriptionId?, PeriodId?      // set for plan grants; null for purchases
+    MeterCode
     Source          plan | purchase | adjustment
     Allowance       decimal
     Consumed        decimal
-    ExpiresAt       DateTime?     // set for plan grants, null for purchases
-    RowVersion      byte[]        // optimistic concurrency — see §15
-    SourceOrderId?  Guid?         // purchases and adjustments trace to their order</code></pre>
+    Held            decimal         // reserved, not yet committed — see §9
+    ExpiresAt       DateTime?       // derived from the entitlement's ResetPolicy
+    Status          open | closed
+    ClosedAt        DateTime?
+    RowVersion      byte[]          // optimistic concurrency — see §15
+    SourceOrderId?  Guid?           // purchases and adjustments trace to their order</code></pre>
 
 <table>
   <thead><tr><th>Source</th><th>Created by</th><th>Expires</th><th>Refundable liability</th></tr></thead>
   <tbody>
-    <tr><td><code>plan</code></td><td>Period activation</td><td>At <code>PeriodEnd</code></td><td>No — the subscriber bought the plan, not the units</td></tr>
+    <tr><td><code>plan</code></td><td>Period activation</td><td>At <code>PeriodEnd</code> — <strong>unless the entitlement's <code>ResetPolicy</code> is <code>never</code></strong></td><td>No — the subscriber bought the plan, not the units</td></tr>
     <tr><td><code>purchase</code></td><td>An <code>EntitlementPurchase</code> order</td><td>Never</td><td><strong>Yes</strong> — deferred revenue until consumed</td></tr>
     <tr><td><code>adjustment</code></td><td>An operator, with a reason</td><td>Operator's choice</td><td>No</td></tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">Expiry follows the reset policy, not the source</span>
+  <code>PlanEntitlement.ResetPolicy</code> supports <code>never</code> — a plan allowance that accumulates rather than
+  refreshing. Deriving <code>ExpiresAt</code> from <code>Source = plan</code> alone would silently discard exactly that
+  allowance at every renewal. <strong><code>ExpiresAt</code> is set from the originating entitlement's
+  <code>ResetPolicy</code>:</strong> <code>period</code> → <code>PeriodEnd</code>, <code>never</code> → null.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">Grants belong to the subscriber, not the subscription</span>
+  A purchased grant never expires, so it must outlive the subscription it was bought under. Keyed by
+  <code>SubscriptionId</code>, a cancel-and-resubscribe would strand paid, non-expiring units on the old
+  subscription — invisible to draw-down while their deferred-revenue liability stays on the ledger, which is both a
+  broken promise and a misstated balance sheet. Grants are keyed by
+  <strong><code>(SubscriberKind, SubscriberId)</code></strong>; <code>SubscriptionId</code>/<code>PeriodId</code> are
+  provenance on plan grants, not the ownership key. Draw-down queries by subscriber.
+</div>
+
+<p>
+  <code>Status</code> exists so <code>GrantExpirySweepJob</code> has a transition it can actually persist: expired
+  grants move <code>open → closed</code> with a <code>ClosedAt</code>. Without it the job has nothing to write and
+  expiry is query-derived only, which makes "how much did we break?" unanswerable.
+</p>
 
 <div class="callout">
   <span class="callout-label">The question this answers on day one</span>
@@ -326,14 +365,43 @@
   <tbody>
     <tr>
       <td><code>UsageReservation</code> <span class="tag new">new</span></td>
-      <td><code>SubscriptionId</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>Status</code> (<code>held</code> | <code>committed</code> | <code>released</code> | <code>expired</code>), <code>ExpiresAt</code>, <code>IdempotencyKey</code>, <code>RowVersion</code></td>
+      <td><code>SubscriberKind</code>, <code>SubscriberId</code>, <code>SubscriptionId?</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>Status</code> (<code>held</code> | <code>committed</code> | <code>released</code> | <code>expired</code>), <code>ExpiresAt</code>, <code>IdempotencyKey</code>, <code>RowVersion</code></td>
+    </tr>
+    <tr>
+      <td><code>UsageReservationAllocation</code> <span class="tag new">new</span></td>
+      <td><code>ReservationId</code>, <code>GrantId</code>, <code>Quantity</code> — <strong>one row per grant the hold draws on</strong></td>
     </tr>
     <tr>
       <td><code>UsageRecord</code> <span class="tag new">new</span></td>
-      <td><code>SubscriptionId</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>AllocationsJson</code>, <code>OccurredAt</code>, <code>SourceType</code>, <code>SourceId</code>, <code>ProviderCost?</code>, <code>ProviderCostCurrency?</code></td>
+      <td><code>SubscriberKind</code>, <code>SubscriberId</code>, <code>SubscriptionId?</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>AllocationsJson</code>, <code>OccurredAt</code>, <code>SourceType</code>, <code>SourceId</code>, <code>ProviderCost?</code>, <code>ProviderCostCurrency?</code></td>
     </tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">A reservation must hold against specific grants</span>
+  A reservation carrying only a <em>total</em> quantity cannot work either way round. If <code>ReserveAsync</code>
+  leaves grants untouched, nothing changes their <code>RowVersion</code> and two concurrent reservations both
+  succeed against the last unit — the optimistic concurrency in <a href="#concurrency">§15</a> never engages. If it
+  instead writes <code>Consumed</code> directly, then a release, an expiry, or a commit at a <em>lower</em> actual
+  quantity has no record of which grants to restore, and the returned units land on the wrong ones.
+</div>
+
+<p>So the hold is explicit and per-grant:</p>
+
+<table>
+  <thead><tr><th>Call</th><th>Effect on the grant</th><th>Effect on allocations</th></tr></thead>
+  <tbody>
+    <tr><td><code>ReserveAsync</code></td><td><code>Held += qty</code> (bumps <code>RowVersion</code>, so the race is caught)</td><td>One <code>UsageReservationAllocation</code> per grant drawn on</td></tr>
+    <tr><td><code>CommitAsync(actual)</code></td><td><code>Held -= held</code>, <code>Consumed += actual</code></td><td>Allocations trimmed pro-rata when <code>actual &lt; held</code>; copied to the <code>UsageRecord</code></td></tr>
+    <tr><td><code>ReleaseAsync</code> / sweep</td><td><code>Held -= held</code></td><td>Allocations resolved, hold returned to the exact grants it came from</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Available allowance on a grant is therefore <code>Allowance − Consumed − Held</code>, and a commit above the reserved
+  quantity re-checks availability rather than assuming the hold covers it.
+</p>
 
 <p>
   <code>AllocationsJson</code> records <em>which grants</em> the usage drew from and how much from each. Without it,
@@ -347,10 +415,34 @@
   the reason usage lands in the ledger rather than a counter table (<a href="#ledger">§13</a>).
 </p>
 
-<h3>9.1 Ceilings and flags need no reservation</h3>
+<h3>9.1 Ceilings need a claim; flags are a read</h3>
+
+<div class="callout p0">
+  <span class="callout-label">A point-in-time count cannot enforce a ceiling</span>
+  Two requests creating a profile at one slot below the limit both read the current count, both see room, and both
+  create — neither is visible to the other until it commits. A check that takes no lock and writes no row is a
+  check-then-act race, and it will over-admit under exactly the conditions a ceiling exists for.
+</div>
+
+<p>Ceilings get a counted row with the same optimistic-concurrency treatment as grants:</p>
+
+<pre><code>CeilingHolding
+    SubscriberKind, SubscriberId, MeterCode
+    Held        int          // slots currently claimed
+    RowVersion  byte[]
+
+ClaimSlotAsync(meter, holderRef)     // compare-and-increment against the ceiling; throws if full
+ReleaseSlotAsync(meter, holderRef)   // decrement when the object is deleted</code></pre>
+
 <p>
-  <code>ceiling</code> is a point-in-time check (<code>CheckCeilingAsync(meter, currentCount)</code>) and
-  <code>flag</code> is a read. Only <code>counter</code> uses the reservation lifecycle.
+  The claim and the object's creation share one transaction, so a failed create returns the slot and a claimed slot
+  always corresponds to a real object. <code>ReleaseSlotAsync</code> is what makes deleting a child profile return its
+  slot — the behaviour <a href="#shapes">§5</a> distinguishes from a counter.
+</p>
+
+<p>
+  <code>flag</code> remains a pure read (<code>HasFlagAsync</code>) — nothing to reserve, nothing to race. Only
+  <code>counter</code> uses the reserve/commit lifecycle.
 </p>
 
 <h2 id="drawdown">10. Draw-down order</h2>
@@ -423,14 +515,89 @@
 
 <h3>12.1 Renewal flow</h3>
 <ol>
-  <li>Renewal job selects subscriptions with <code>CurrentPeriodEnd &lt;= now</code> and <code>Status = active</code>.</li>
+  <li>
+    Renewal job selects subscriptions with <code>CurrentPeriodEnd &lt;= now</code> and <code>Status = active</code>
+    <strong>and <code>CancelAtPeriodEnd = false</code></strong>. A subscription with the flag set is
+    <strong>closed</strong> (<code>Status = cancelled</code>, <code>EndedAt = CurrentPeriodEnd</code>), not renewed.
+  </li>
+  <li>Apply any <code>PendingPlanVersionId</code> due at this boundary, then clear it.</li>
   <li>Create <code>SubscriptionPeriod</code> for <code>Sequence + 1</code> (the idempotency anchor).</li>
   <li><code>IOrderService.CreateAsync</code> with <code>IdempotencyKey = "sub:{subscriptionId}:period:{sequence}"</code>.</li>
-  <li><code>IInvoiceWriter.CreateForOrderAsync</code>.</li>
-  <li><code>IPaymentInitiator</code> → <code>PaymentIntent</code>; <code>IOrderService.LinkFundingAsync</code>.</li>
-  <li>On capture: post the ledger, materialise this period's <code>plan</code> grants, advance <code>CurrentPeriodStart/End</code>, set period <code>Status = settled</code>.</li>
-  <li>On failure: <code>Status = past_due</code>. Existing <code>DunningPlan</code> takes over. <strong>Grants are not materialised</strong> — an unpaid period confers no allowance.</li>
+  <li><strong>If the period total is zero, go to step 8.</strong> Otherwise <code>IInvoiceWriter.CreateForOrderAsync</code> — <em>skipped if <code>Period.InvoiceId</code> is already set</em>.</li>
+  <li>Resolve the subscription's <code>PaymentMandateId</code> → recurring <code>PaymentIntent</code>; <code>IOrderService.LinkFundingAsync</code>. <em>Skipped if <code>Period.PaymentIntentId</code> is already set.</em> Each id is persisted on the period <strong>immediately</strong> after its writer returns.</li>
+  <li>On capture: post the ledger.</li>
+  <li>Materialise this period's <code>plan</code> grants, advance <code>CurrentPeriodStart/End</code>, set period <code>Status = settled</code>.</li>
+  <li>On payment failure: <code>Status = past_due</code>, <code>AttemptCount++</code>, <code>NextAttemptAt</code> set from the retry schedule. <strong>Grants are not materialised</strong> — an unpaid period confers no allowance.</li>
 </ol>
+
+<div class="callout p0">
+  <span class="callout-label">Cancelling must actually stop the charging</span>
+  <code>CancelAtPeriodEnd</code> is the whole point of a graceful cancel. Selecting on <code>Status = active</code>
+  alone leaves a cancelled subscription matching the renewal query forever, so the subscriber is billed again after
+  explicitly cancelling. The flag is checked <em>first</em>, before a period is created.
+</div>
+
+<h4>12.2 Zero-price periods bypass payment entirely</h4>
+<div class="callout p0">
+  <span class="callout-label">The free tier cannot go through capture</span>
+  <code>LedgerPostingService</code> rejects non-positive amounts outright
+  (<em>"Cannot post a non-positive amount"</em>), so a £0 plan routed through invoice → intent → capture can
+  <strong>never settle</strong> and never receives its allowance — breaking
+  <a href="#acceptance">criterion 2</a> and phase P3, whose entire point is that a £0 plan works end to end.
+</div>
+<p>
+  A period whose total is zero creates its order (the record of what was granted and when), then settles directly:
+  <strong>no invoice, no <code>PaymentIntent</code>, no ledger posting</strong>, straight to grant materialisation.
+  Nothing was earned and nothing moved, so there is nothing to post — the order alone carries the audit trail.
+</p>
+
+<h4>12.3 Recurring payment needs a stored mandate</h4>
+<div class="callout p0">
+  <span class="callout-label">The existing initiator cannot serve a background job</span>
+  <code>IPaymentInitiator</code> exposes only <code>CreateGuestIntentForOrderAsync</code> — a <em>guest</em> intent on
+  "the permission-free public payment path", requiring a <code>Provider</code> and <code>PaymentMethodType</code>
+  supplied per call. A renewal job running at 3am has neither, and a guest intent is the wrong semantic for a
+  recurring charge against a saved instrument.
+</div>
+<p>
+  <code>Subscription.PaymentMandateId</code> references a stored, reusable funding instrument (vaulted method +
+  provider + the customer's authorisation to charge it on a recurring basis). A new
+  <code>IRecurringPaymentInitiator.CreateIntentForMandateAsync</code> in
+  <code>SharedKernel.Abstractions.Payments</code> resolves it. <strong>This contract does not exist and is required
+  work in this spec</strong>; a subscription with no valid mandate cannot renew and is surfaced for re-authorisation
+  rather than silently failing.
+</p>
+
+<h4>12.4 Dunning: a retry path, because none exists today</h4>
+<div class="callout p0">
+  <span class="callout-label">Correcting an earlier claim</span>
+  An earlier draft said "the existing <code>DunningPlan</code> takes over". It does not. A repo-wide search finds
+  <code>DunningPlan</code> only as an <em>entity</em> and its <code>DbSet</code> registrations — there is no service
+  and no job. Handing off to it would strand every failed subscription permanently in <code>past_due</code>, invisible
+  to the renewal selector.
+</div>
+<p>
+  <code>SubscriptionDunningJob</code> retries periods in <code>past_due</code> whose <code>NextAttemptAt</code> has
+  passed, re-using the same period, order and — if already created — invoice and intent. After a bounded number of
+  attempts the subscription moves to <code>expired</code> with its grants left to lapse naturally
+  (<a href="#open">O1</a>). Attempt count and schedule live on the period, so the state is inspectable rather than
+  inferred.
+</p>
+
+<h4>12.5 Idempotency of the side effects, not just the anchor</h4>
+<div class="callout p0">
+  <span class="callout-label">The period anchor alone is not enough</span>
+  If the job dies after creating an invoice but before persisting its id, a retry reuses the <em>order</em> (which is
+  idempotency-keyed) but calls <code>IInvoiceWriter</code> and the payment initiator again. In the current tree
+  <code>InvoiceConfiguration</code>'s <code>(TenantId, OrderId)</code> index is <strong>non-unique</strong> and neither
+  writer accepts an idempotency key — so the retry produces a duplicate invoice and a second collectible intent.
+</div>
+<p>Required, and in scope:</p>
+<ul>
+  <li>Persist <code>InvoiceId</code> / <code>PaymentIntentId</code> on the period immediately, and check them before each call.</li>
+  <li>Add a unique index on <code>(TenantId, OrderId)</code> for invoices, and the equivalent for payment intents, so a duplicate fails loudly at the database rather than silently double-billing.</li>
+  <li>Extend <code>IInvoiceWriter</code> and the recurring initiator to accept an idempotency key, matching <code>IOrderService</code>'s existing behaviour.</li>
+</ul>
 
 <div class="callout p0">
   <span class="callout-label">Order ≠ Payment ≠ Ledger</span>
@@ -457,20 +624,49 @@
   </tbody>
 </table>
 
-<h3>13.1 Postings</h3>
+<h3>13.1 Settlement routing is required work, not an assumption</h3>
+
+<div class="callout p0">
+  <span class="callout-label">Today every invoice credits 4000</span>
+  <code>LedgerPostingService</code> declares <code>private const string RevenueAccountCode = "4000"</code> and
+  <code>PostInvoiceSettlementAsync</code> credits it <strong>unconditionally</strong>. A subscription or entitlement
+  invoice settled through the existing flow therefore cannot land in 4100 or 2210, and adding a second posting
+  alongside it would <em>double-recognise</em> the invoice.
+</div>
+
+<p>
+  So this spec must change Finance, not merely add accounts: <code>PostInvoiceSettlementAsync</code> resolves its
+  revenue leg from the funding <strong>order's type</strong> rather than a constant —
+  <code>SubscriptionRenewal</code> → 4100, <code>EntitlementPurchase</code> → 2210 (a liability, not revenue, until
+  consumed), everything else → 4000 as today. The mapping is a resolver so a new order type does not mean editing a
+  <code>switch</code> in the posting service.
+</p>
+
+<h3>13.2 Postings</h3>
 <table>
   <thead><tr><th>Event</th><th>Debit</th><th>Credit</th></tr></thead>
   <tbody>
-    <tr><td>Subscription period settled</td><td colspan="2">Cash/AR and clearing handled by the existing invoice-settlement posting; the revenue leg lands in <strong>4100</strong></td></tr>
+    <tr><td>Subscription period settled</td><td colspan="2">Cash/AR and clearing as today; the revenue leg routes to <strong>4100</strong> (§13.1)</td></tr>
     <tr><td>Entitlement purchase settled</td><td>(existing cash leg)</td><td><strong>2210</strong> Deferred Revenue</td></tr>
     <tr><td>Purchased units consumed</td><td><strong>2210</strong></td><td><strong>4110</strong> Entitlement Revenue</td></tr>
     <tr><td>Provider cost incurred on a run</td><td><strong>5100</strong></td><td>2000 Accounts Payable (or clearing)</td></tr>
+    <tr><td>Zero-total period</td><td colspan="2"><strong>Nothing posts</strong> — see <a href="#money">§12.2</a></td></tr>
   </tbody>
 </table>
 
+<h3>13.3 Every line carries its meter</h3>
+
+<div class="callout p0">
+  <span class="callout-label">Without a dimension, margin is tenant-wide</span>
+  All meters post into the same 4110 and 5100. Subtracting two account balances therefore yields <em>aggregate</em>
+  margin, not margin per meter — and <a href="#acceptance">criterion 11</a> asks for the latter from the ledger alone.
+</div>
+
 <p>
-  <strong>Margin per meter = 4110 − 5100</strong>, by construction, from the ledger — not from a spreadsheet. That is
-  the whole reason usage posts here.
+  <code>JournalEntryLine</code> already carries <code>DimensionsJson</code>; the mistake was omitting it from the write
+  contract. <code>JournalLineSpec</code> carries it too (<a href="#contracts">§14.2</a>), and every entitlement posting
+  sets <code>{"meterCode": "..."}</code>. <strong>Margin per meter = 4110 − 5100 filtered on that dimension</strong>,
+  from the ledger, with no join back to usage data.
 </p>
 
 <div class="callout">
@@ -491,10 +687,21 @@
     <tr><td><code>IEntitlementReader</code></td><td><code>GetAsync(subscriberRef)</code> → plan, meters, allowance, consumed, remaining. The read a product's UI renders.</td></tr>
     <tr><td><code>IUsageMeter</code></td><td><code>ReserveAsync</code> / <code>CommitAsync</code> / <code>ReleaseAsync</code> / <code>CheckCeilingAsync</code> / <code>HasFlagAsync</code>.</td></tr>
     <tr><td><code>ISubscriptionService</code></td><td>Subscribe, change plan (next period), cancel, resume, read.</td></tr>
-    <tr><td><code>IMeterDefinitionProvider</code></td><td>Module-contributed <code>IEnumerable&lt;T&gt;</code>: the meters a module owns, so <code>MeterCode</code> validates at write time and an unknown meter <strong>fails closed</strong>.</td></tr>
+    <tr><td><code>IMeterDefinitionProvider</code></td><td>Module-contributed <code>IEnumerable&lt;T&gt;</code> supplying a module's <strong>default</strong> meters at provisioning. A <em>seeding</em> contributor — <strong>not</strong> the validator.</td></tr>
     <tr><td><code>MeterKinds</code>, <code>SubscriberKinds</code>, <code>SubscriptionStatuses</code>, <code>ResetPolicies</code></td><td>Known-values helpers over open strings.</td></tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">The tenant Meter table is the authority</span>
+  Making code-registered providers authoritative would contradict this spec's own premise: a meter delivered by a
+  config pack has no owning module registration, so it would fail validation — and
+  <a href="#acceptance">criterion 1</a> requires a pricing table to be expressible <em>as data, with no code change</em>.
+  <strong><code>MeterCode</code> validates against tenant-scoped <code>Meter</code> rows.</strong> Those rows arrive
+  from two directions — a config pack (<a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a>) or
+  a module's <code>IMeterDefinitionProvider</code> defaults at provisioning — and both write the same table. An
+  unknown code still fails closed; it just fails against data rather than against compiled registrations.
+</div>
 
 <h3>14.2 New: <code>Abstractions.Ledger.IJournalWriter</code></h3>
 <p>
@@ -507,7 +714,13 @@
     Task&lt;JournalEntryRef&gt; PostAsync(PostJournalCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed record JournalLineSpec(string AccountCode, string Direction, decimal Amount, string Currency, string? Narration = null);
+public sealed record JournalLineSpec(
+    string AccountCode,
+    string Direction,
+    decimal Amount,
+    string Currency,
+    string? Narration = null,
+    string? DimensionsJson = null);   // e.g. {"meterCode":"animated-videos"} — see §13.3
 
 public sealed record PostJournalCommand(
     string SourceType,
@@ -539,11 +752,15 @@ public sealed record PostJournalCommand(
 
 <p>Required LocalDB tests:</p>
 <ul>
+  <li>Concurrent <strong>reservations</strong> against a grant with one unit remaining: exactly one succeeds. (This is the case a total-only reservation would have missed entirely — the grant's <code>Held</code> is what makes <code>RowVersion</code> engage.)</li>
   <li>Concurrent commits against a grant with one unit remaining: exactly one succeeds.</li>
-  <li>A reservation cannot be committed twice (idempotency key + status guard).</li>
-  <li>Commit spanning two grants allocates correctly and records both in <code>AllocationsJson</code>.</li>
+  <li>A reservation cannot be committed twice (tenant-scoped idempotency key + status guard).</li>
+  <li>Reserve spanning two grants writes one allocation row per grant; release returns the hold to <em>those</em> grants and no others.</li>
+  <li>Commit at a lower actual quantity than reserved trims allocations pro-rata and returns the remainder.</li>
   <li>An expired reservation cannot be committed.</li>
   <li>Renewal is idempotent on <code>(SubscriptionId, Sequence)</code> under concurrent job execution.</li>
+  <li><strong>Filtered unique indexes</strong> (<a href="#persistence">§17.1</a>): duplicate period-grant materialisation fails; a second active subscription for one subscriber fails; two <em>cancelled</em> subscriptions for the same subscriber are permitted.</li>
+  <li>Concurrent <code>ClaimSlotAsync</code> at one slot below a ceiling: exactly one succeeds.</li>
 </ul>
 
 <h2 id="jobs">16. Jobs</h2>
@@ -551,9 +768,10 @@ public sealed record PostJournalCommand(
 <table>
   <thead><tr><th>Job</th><th>Does</th><th>Precedent</th></tr></thead>
   <tbody>
-    <tr><td><code>SubscriptionRenewalJob</code></td><td>Mints period + order + invoice + payment for due subscriptions</td><td><code>ScheduledJobDefinitions</code> registration pattern</td></tr>
-    <tr><td><code>UsageReservationSweepJob</code></td><td>Expires stale <code>held</code> reservations and returns the hold</td><td><code>InventoryReservationSweepJob</code> — same shape, reuse it</td></tr>
-    <tr><td><code>GrantExpirySweepJob</code></td><td>Closes <code>plan</code> grants past <code>ExpiresAt</code></td><td>—</td></tr>
+    <tr><td><code>SubscriptionRenewalJob</code></td><td>Closes cancel-pending subscriptions; mints period + order + invoice + payment for the rest</td><td><code>ScheduledJobDefinitions</code> registration pattern</td></tr>
+    <tr><td><code>SubscriptionDunningJob</code> <span class="tag new">new</span></td><td>Retries <code>past_due</code> periods whose <code>NextAttemptAt</code> has passed; moves to <code>expired</code> after the bounded attempt count (<a href="#money">§12.4</a>)</td><td>None — nothing retries payments today</td></tr>
+    <tr><td><code>UsageReservationSweepJob</code></td><td>Expires stale <code>held</code> reservations, returning each hold to the exact grants its allocations name</td><td><code>InventoryReservationSweepJob</code> — same shape, reuse it</td></tr>
+    <tr><td><code>GrantExpirySweepJob</code></td><td>Moves grants past <code>ExpiresAt</code> from <code>open</code> to <code>closed</code>, stamping <code>ClosedAt</code></td><td>—</td></tr>
   </tbody>
 </table>
 
@@ -565,9 +783,63 @@ public sealed record PostJournalCommand(
   <li>All nine entities are <strong>new tables</strong>, <code>Ank</code>-prefixed in <code>dbo</code> like everything else. No existing table is modified.</li>
   <li><code>DbSet</code>s added to <code>AonikDbContext</code> (which owns all sets) and to a new <code>SubscriptionsDbContext</code> for module scoping. <strong>Migrations generated only against <code>AonikDbContext</code></strong>, CLI-only, per <code>CLAUDE.md</code>.</li>
   <li>Entity configurations as <code>IEntityTypeConfiguration&lt;T&gt;</code> under <code>Aonik.Subscriptions/Persistence/Configurations/</code>.</li>
-  <li>Indexes: <code>(SubscriptionId, MeterCode, ExpiresAt)</code> on grants — this is the draw-down query and it runs on every commit. Unique on <code>(SubscriptionId, Sequence)</code> for periods, and on <code>IdempotencyKey</code> for reservations.</li>
+  <li><strong>Indexes and uniqueness</strong> — see the table below. Getting these wrong is how the invariants stated elsewhere in this spec silently fail to hold.</li>
   <li><code>OrderTypeCodes</code> (SharedKernel) and the Finance <code>OrderType</code> enum both gain the two new values, <strong>kept in lockstep</strong> as their own comments require.</li>
 </ul>
+
+<h3>17.1 Indexes and uniqueness</h3>
+
+<table>
+  <thead><tr><th>Table</th><th>Index</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>EntitlementGrant</code></td>
+      <td><code>(TenantId, SubscriberKind, SubscriberId, MeterCode, Status, ExpiresAt)</code></td>
+      <td>The draw-down query, on every commit. Keyed by <strong>subscriber</strong> so purchased grants survive a resubscribe (<a href="#grants">§8</a>).</td>
+    </tr>
+    <tr>
+      <td><code>EntitlementGrant</code></td>
+      <td><strong>unique</strong> <code>(PeriodId, MeterCode, Source) WHERE PeriodId IS NOT NULL</code></td>
+      <td>One plan grant set per period, enforced by the database.</td>
+    </tr>
+    <tr>
+      <td><code>EntitlementGrant</code></td>
+      <td><strong>unique</strong> <code>(SourceOrderId, MeterCode) WHERE SourceOrderId IS NOT NULL</code></td>
+      <td>One purchased grant per order line.</td>
+    </tr>
+    <tr>
+      <td><code>Subscription</code></td>
+      <td><strong>filtered unique</strong> <code>(TenantId, SubscriberKind, SubscriberId) WHERE Status IN ('trialing','active','past_due')</code></td>
+      <td>The one-active-subscription invariant, in storage rather than in a service check.</td>
+    </tr>
+    <tr><td><code>SubscriptionPeriod</code></td><td><strong>unique</strong> <code>(SubscriptionId, Sequence)</code></td><td>The renewal anchor.</td></tr>
+    <tr><td><code>UsageReservation</code></td><td><strong>unique</strong> <code>(TenantId, IdempotencyKey)</code></td><td>Tenant-scoped — see below.</td></tr>
+    <tr><td><code>UsageReservationAllocation</code></td><td><code>(ReservationId)</code>, <code>(GrantId)</code></td><td>Release and sweep resolve holds by either side.</td></tr>
+    <tr><td><code>CeilingHolding</code></td><td><strong>unique</strong> <code>(TenantId, SubscriberKind, SubscriberId, MeterCode)</code></td><td>One counter row per subscriber per ceiling.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Two invariants that must be in the database</span>
+  <p style="margin:6px 0 0">
+    <strong>Grant materialisation.</strong> Payment completion is at-least-once. A status check alone lets a retried
+    or concurrently-handled event materialise the same period's grants twice — the subscriber silently gets double
+    allowance. The unique key on <code>(PeriodId, MeterCode, Source)</code> makes the second attempt fail rather than
+    duplicate.
+  </p>
+  <p style="margin:6px 0 0">
+    <strong>One active subscription.</strong> <a href="#open">O4</a> says the service enforces one active per
+    subscriber. Two concurrent <code>Subscribe</code> calls both pass that check and both insert, and the subscriber
+    is then renewed — and charged — twice. The filtered unique index is what actually holds.
+  </p>
+</div>
+
+<div class="callout">
+  <span class="callout-label">Idempotency keys are tenant-scoped</span>
+  A globally unique <code>IdempotencyKey</code> lets one tenant's client-generated key collide with another's, and the
+  second tenant's insert fails against a row its query filters cannot even see. <code>(TenantId, IdempotencyKey)</code>
+  matches how the rest of the repository scopes idempotency.
+</div>
 
 <div class="callout">
   <span class="callout-label">Note for the implementer</span>
@@ -583,10 +855,10 @@ public sealed record PostJournalCommand(
   <tbody>
     <tr><td><strong>P1</strong> — contracts</td><td><code>Abstractions.Subscriptions</code> + <code>IJournalWriter</code>; Finance implements the latter.</td><td>Builds; <code>IJournalWriter</code> posts a balanced entry in a test.</td></tr>
     <tr><td><strong>P2</strong> — catalogue</td><td><code>Meter</code>, <code>Plan</code>, <code>PlanVersion</code>, <code>PlanEntitlement</code> + module + admin CRUD.</td><td>A plan with all three entitlement kinds can be authored and read.</td></tr>
-    <tr><td><strong>P3</strong> — subscription</td><td><code>Subscription</code>, <code>SubscriptionPeriod</code>, subscribe / cancel / read. No money yet.</td><td>A £0 plan works end to end — which is the whole free tier.</td></tr>
-    <tr><td><strong>P4</strong> — grants &amp; usage</td><td><code>EntitlementGrant</code>, <code>UsageReservation</code>, <code>UsageRecord</code>, reserve/commit/release, draw-down, ceilings, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
-    <tr><td><strong>P5</strong> — money</td><td>Two order types, renewal flow, <code>EntitlementPurchase</code>, dunning handover.</td><td>A paid period renews idempotently; a failed payment yields <code>past_due</code> and no grants.</td></tr>
-    <tr><td><strong>P6</strong> — ledger</td><td>Provisioning contributor for the four accounts; the four postings.</td><td>Margin per meter is derivable from the ledger alone.</td></tr>
+    <tr><td><strong>P3</strong> — subscription</td><td><code>Subscription</code>, <code>SubscriptionPeriod</code>, subscribe / cancel / read, the filtered-unique active invariant, and the <strong>zero-total settlement path</strong> (<a href="#money">§12.2</a>). No payment yet.</td><td>A £0 plan works end to end — which is the whole free tier.</td></tr>
+    <tr><td><strong>P4</strong> — grants &amp; usage</td><td><code>EntitlementGrant</code> (with <code>Held</code>), <code>UsageReservation</code> + allocations, <code>UsageRecord</code>, <code>CeilingHolding</code>, reserve/commit/release, draw-down, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
+    <tr><td><strong>P5</strong> — money</td><td>Two order types; <code>IRecurringPaymentInitiator</code> + payment mandate; renewal flow with per-side-effect idempotency; <code>EntitlementPurchase</code>; <code>SubscriptionDunningJob</code>.</td><td>A paid period renews idempotently; a failed payment yields <code>past_due</code>, retries on schedule, and materialises no grants.</td></tr>
+    <tr><td><strong>P6</strong> — ledger</td><td>Provisioning contributor for the four accounts; <strong>order-type-aware settlement routing in <code>LedgerPostingService</code></strong> (<a href="#ledger">§13.1</a>); the postings, with meter dimensions.</td><td>Margin per <em>meter</em> is derivable from the ledger alone, and a non-subscription invoice still credits 4000 exactly as before.</td></tr>
     <tr><td><strong>P7</strong> — jobs &amp; admin</td><td>Three jobs; Admin UI for plans, subscriptions and usage.</td><td>Full solution build + <code>dotnet test Aonik.sln</code> + LocalDB lane green.</td></tr>
   </tbody>
 </table>
@@ -608,8 +880,14 @@ public sealed record PostJournalCommand(
   <li>Concurrent commits against one remaining unit: exactly one succeeds, on <strong>LocalDB</strong>.</li>
   <li>A crashed dispatch's reservation is swept and the hold returned.</li>
   <li>Deleting a <code>ceiling</code>-metered object returns the slot; deleting a <code>counter</code>-metered one does not return allowance.</li>
-  <li>Renewal run twice produces one order, one invoice, one set of grants.</li>
-  <li>A failed renewal payment leaves <code>past_due</code> with <strong>no</strong> grants materialised.</li>
+  <li>Renewal run twice produces one order, one invoice, one payment intent and one set of grants — including when the first run is killed <em>between</em> creating the invoice and persisting its id.</li>
+  <li>A failed renewal payment leaves <code>past_due</code> with <strong>no</strong> grants materialised, and is retried by <code>SubscriptionDunningJob</code> rather than stranded.</li>
+  <li>A subscription with <code>CancelAtPeriodEnd</code> is <strong>not</strong> billed again; it closes at the period boundary.</li>
+  <li>A £0 period settles and materialises grants without creating an invoice, a payment intent or a journal entry.</li>
+  <li>A purchased grant remains usable after the subscriber cancels and resubscribes.</li>
+  <li>A plan entitlement with <code>ResetPolicy = never</code> accumulates across renewals rather than being discarded.</li>
+  <li>A pending plan change applies at the next boundary and not before.</li>
+  <li>A settled non-subscription invoice still credits 4000, unchanged.</li>
   <li>Raising a plan's price does not re-price existing subscribers.</li>
   <li>An unregistered <code>MeterCode</code> is rejected at write time.</li>
   <li>Margin for a meter over a period is derivable from ledger accounts 4110 and 5100 alone.</li>
@@ -640,12 +918,12 @@ public sealed record PostJournalCommand(
     <tr>
       <td>O4</td>
       <td>Can one subscriber hold two active subscriptions?</td>
-      <td>Model allows it; v1 service enforces one active per <code>(SubscriberKind, SubscriberId)</code>. Relaxing later is additive; tightening later is not.</td>
+      <td><strong>Settled:</strong> no. Enforced by a filtered unique index (<a href="#persistence">§17.1</a>), not only by a service check — a service-level check loses the concurrent-<code>Subscribe</code> race and double-charges. Relaxing later is additive; tightening later is not.</td>
     </tr>
     <tr>
       <td>O5</td>
       <td>Where do meters get defined — <code>Meter</code> rows, or code constants?</td>
-      <td>Rows, seeded by a config pack (<a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a>), validated by module-contributed <code>IMeterDefinitionProvider</code>. Meters are product identity, and per <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> that is configuration.</td>
+      <td><strong>Settled:</strong> tenant-scoped <code>Meter</code> rows are the validator. They are written both by config packs (<a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a>) and by module <code>IMeterDefinitionProvider</code> defaults at provisioning; neither is privileged. Meters are product identity, and per <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> that is configuration.</td>
     </tr>
     <tr>
       <td>O6</td>

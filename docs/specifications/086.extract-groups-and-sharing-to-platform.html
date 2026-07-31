@@ -117,8 +117,9 @@
   <span class="callout-label">Why this is cheaper than it looks</span>
   Every module maps to the same table prefix (<code>ModuleTablePrefixes</code> sets
   <code>Platform = Finance = Ai = Agents = Commerce = "Ank"</code>) and the runtime schema is <code>dbo</code> for all
-  of them. <strong>Relocating code between modules changes no table name and moves no row.</strong> The entire schema
-  delta in this spec is two added columns and one nullability change.
+  of them. <strong>Relocating code between modules changes no table name and moves no row.</strong> The schema delta is
+  a handful of added columns, one nullability change, and — unavoidably — one unique-index replacement, because the
+  existing index would reject a second member without a login (<a href="#persistence">§10.2</a>).
 </div>
 
 <h2 id="current">2. Current state, measured</h2>
@@ -176,7 +177,7 @@
   <li>Contracts in <code>SharedKernel.Abstractions.Groups</code>.</li>
   <li>Rewiring <code>Aonik.PersonalFinance</code> to delegate, keeping every route, DTO and status code identical.</li>
   <li>Relocating the <code>Household*</code> integration events out of <code>FinanceEvents.cs</code>.</li>
-  <li>Schema: <code>PartyId</code> added, <code>UserId</code> made nullable, <code>ResourceKind</code> and <code>TermsJson</code> added; backfills.</li>
+  <li>Schema: party-id columns added alongside (never replacing) the user-id columns, <code>UserId</code> made nullable, the unique index replaced with filtered equivalents, <code>ResourceKind</code> and <code>TermsJson</code> added; backfill plus a dual-write window.</li>
 </ul>
 
 <h3>3.2 Out of scope</h3>
@@ -413,7 +414,7 @@ public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code>
 <table>
   <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
   <tbody>
-    <tr><td><code>IGroupService</code></td><td>Create, read, invite, accept, decline, role change, ownership transfer, remove.</td></tr>
+    <tr><td><code>IGroupService</code></td><td>Create, read, invite, accept, decline, role change, ownership transfer, remove — <strong>and <code>AddMemberAsync</code></strong> (see below).</td></tr>
     <tr><td><code>IGroupReader</code></td><td>Read-only projection for other modules (my groups, members of a group).</td></tr>
     <tr><td><code>IShareGrantService</code></td><td>Grant create / list / list-shared-with-me / revoke; invite mint / preview / accept.</td></tr>
     <tr><td><code>IShareGrantReader</code></td><td><code>HasGrantAsync(memberPartyId, resourceKind, resourceId)</code> — the authorisation question, answerable without loading the grant.</td></tr>
@@ -422,6 +423,33 @@ public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code>
     <tr><td><code>GroupKinds</code>, <code>ShareScopes</code>, <code>ShareResourceKinds</code></td><td>Known-values helpers over open strings.</td></tr>
   </tbody>
 </table>
+
+<h3 id="addmember">9.1 Adding a member who has no login</h3>
+
+<div class="callout p0">
+  <span class="callout-label">Without this, criterion 4 is unreachable</span>
+  Every existing membership path is an <strong>invitation</strong>, and an invitation is accepted by an authenticated
+  principal. A child party has no login and can never accept one — so with the invite flow alone there is no way to
+  put a party-only member into a group at all, and the central acceptance criterion of this spec cannot be met
+  through the cross-module contract.
+</div>
+
+<pre><code>/// &lt;summary&gt;
+/// Add a party directly as a member — no invitation, because the party may have no user to accept one.
+/// Authorised against the CALLER's ownership/admin role in the group, never against the added party.
+/// &lt;/summary&gt;
+Task&lt;GroupMemberDto&gt; AddMemberAsync(
+    Guid groupId,
+    Guid partyId,
+    string role,
+    CancellationToken cancellationToken = default);</code></pre>
+
+<p>
+  The invitation flow is retained unchanged for members who <em>do</em> have a user — it is how an adult joins a group
+  they do not already belong to, and its consent semantics still matter. <code>AddMemberAsync</code> is the
+  owner-authorised path, and the authorisation check is on the caller: a party is added <em>by</em> someone with the
+  right, never by itself.
+</p>
 
 <h2 id="persistence">10. Persistence &amp; migration</h2>
 
@@ -448,16 +476,39 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     <tr><td><code>AnkHouseholds</code></td><td>add <code>Kind nvarchar</code></td><td><code>'household'</code></td></tr>
     <tr><td><code>AnkHouseholdMembers</code></td><td>add <code>PartyId uniqueidentifier NULL</code></td><td>resolved from <code>UserId</code></td></tr>
     <tr><td><code>AnkHouseholdMembers</code></td><td><code>UserId</code> → nullable</td><td>—</td></tr>
+    <tr><td><code>AnkHouseholdMembers</code></td><td><strong>drop</strong> unique <code>(TenantId, HouseholdId, UserId)</code>; <strong>add</strong> filtered unique <code>(TenantId, GroupId, UserId) WHERE UserId IS NOT NULL</code></td><td>—</td></tr>
+    <tr><td><code>AnkHouseholdMembers</code></td><td><strong>add</strong> filtered unique <code>(TenantId, GroupId, PartyId) WHERE PartyId IS NOT NULL</code></td><td>—</td></tr>
+    <tr><td><code>AnkCircleGrants</code></td><td>add <code>OwnerPartyId</code>, <code>MemberPartyId</code> (both NULL)</td><td>resolved from the <code>*UserId</code> columns</td></tr>
     <tr><td><code>AnkCircleGrants</code></td><td>add <code>ResourceKind nvarchar</code></td><td><code>'care-entity'</code></td></tr>
     <tr><td><code>AnkCircleGrants</code></td><td>add <code>TermsJson nvarchar(max)</code></td><td>from <code>NoAmounts</code></td></tr>
-    <tr><td><code>AnkCircleInvites</code></td><td>add <code>ResourceKind</code>, <code>TermsJson</code></td><td>as above</td></tr>
+    <tr><td><code>AnkCircleInvites</code></td><td>add <code>OwnerPartyId</code>, <code>ResourceKind</code>, <code>TermsJson</code></td><td>as above</td></tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">The index is not additive — and it would break child members</span>
+  <code>HouseholdMemberConfiguration</code> declares
+  <code>HasIndex(TenantId, HouseholdId, UserId).IsUnique()</code>. SQL Server treats <code>NULL</code> as a value in a
+  unique index and permits only <strong>one</strong> per key, so the moment <code>UserId</code> goes nullable a
+  <em>second</em> party-only member in the same group fails to insert — the exact case
+  <a href="#acceptance">criterion 4</a> requires. The unique index must be <strong>dropped and replaced</strong> with a
+  filtered one, plus party-based uniqueness. This spec therefore performs one non-additive index change; §16's
+  migration criterion is written accordingly.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">Party ids are new columns, not re-pointed ones</span>
+  An earlier draft re-pointed <code>OwnerUserId</code>/<code>MemberUserId</code> in place. That is <strong>not
+  rollback-safe and breaks production between phases</strong>: the deployed <code>CircleService</code> compares those
+  columns against the authenticated <em>user</em> id (<code>CircleService.cs</code> lines 82, 92, 102, 128, 238, 319),
+  so a P3 backfill writing party ids would make every grant and invite vanish — unrevocable, unacceptable — until the
+  P5 reader cutover shipped. Instead: <strong>add separate party columns, dual-write both through the transition, cut
+  readers over in P5</strong>, and drop the user columns in a later spec once no reader remains.
+</div>
+
 <p>
-  <code>NoAmounts</code> is <strong>retained</strong> through phase one so a rollback needs no data recovery; the
-  service reads terms and writes both. Owner/member id columns keep their names
-  (<code>OwnerUserId</code>, <code>MemberUserId</code>) and are re-pointed to party ids by the same backfill, mapped to
-  <code>OwnerPartyId</code>/<code>MemberPartyId</code> properties.
+  <code>NoAmounts</code> is likewise <strong>retained</strong> through the transition so a rollback needs no data
+  recovery; the service reads terms and writes both.
 </p>
 
 <div class="callout p0">
@@ -507,6 +558,40 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   separate decision with subscriber impact, and there is no reason to bundle it here.
 </p>
 
+<h3>12.1 Party-based events are additive, not a rename</h3>
+
+<div class="callout p0">
+  <span class="callout-label">The old payloads cannot describe the new model</span>
+  Every <code>Household*</code> event carries a <code>UserId</code>. A party-only member <strong>has no user</strong>,
+  so a platform operation that adds, removes or transfers ownership to one has no legal payload to publish — the
+  moved contracts literally cannot represent the lifecycle this spec introduces.
+</div>
+
+<p>Both sets exist, with a clear division:</p>
+
+<table>
+  <thead><tr><th>Event set</th><th>Published by</th><th>Carries</th><th>Audience</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Household*</code> <span class="tag existing">unchanged</span></td>
+      <td>The PersonalFinance compatibility facade</td>
+      <td><code>UserId</code></td>
+      <td>Existing subscribers. Emitted only when the member <em>has</em> a user, preserving today's contract exactly.</td>
+    </tr>
+    <tr>
+      <td><code>GroupMember*</code> <span class="tag new">new</span></td>
+      <td>The Platform group service</td>
+      <td><code>PartyId</code> (+ <code>UserId?</code>)</td>
+      <td>New consumers. Emitted for <strong>every</strong> membership change, user-backed or not.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  A user-backed change therefore emits both — the generic event for new consumers and the legacy event for existing
+  ones. That duplication is the price of not breaking a live subscriber, and it ends when the legacy set is retired.
+</p>
+
 <h2 id="seeding">13. Seeding &amp; demo data</h2>
 
 <ul>
@@ -537,13 +622,13 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P2</strong> — entities + schema</td>
-      <td>Create the Groups slice with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Register in the three contexts.</td>
-      <td>Migration reviewed, contains only the six additive changes, applies cleanly locally.</td>
+      <td>Create the Groups slice with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Replace the unique index (<a href="#persistence">§10.2</a>). Register in the three contexts.</td>
+      <td>Migration reviewed, matches <a href="#persistence">§10.2</a> exactly — the additive columns plus the one index drop/replace, nothing else — and applies cleanly locally.</td>
     </tr>
     <tr>
-      <td><strong>P3</strong> — backfill</td>
-      <td>Idempotent Worker job: <code>PartyId</code> from <code>UserId</code>, <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans.</td>
-      <td>Zero unbackfilled rows in every environment.</td>
+      <td><strong>P3</strong> — backfill + dual-write</td>
+      <td>Idempotent Worker job: <code>PartyId</code>/<code>OwnerPartyId</code>/<code>MemberPartyId</code> from the user columns, plus <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans. Writers begin <strong>dual-writing</strong> user and party columns; <strong>readers still use the user columns</strong>.</td>
+      <td>Zero unbackfilled rows in every environment, and no reader has changed.</td>
     </tr>
     <tr>
       <td><strong>P4</strong> — move Household</td>
@@ -552,8 +637,8 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P5</strong> — split Circle</td>
-      <td><code>ShareGrantService</code> + <code>ShareInvitePreviewLimiter</code> to Platform. PersonalFinance registers the <code>care-entity</code> resolver and keeps the projection.</td>
-      <td><code>CircleEndpointsTests</code> and <code>CircleServiceTests</code> pass; CLI tests unmodified.</td>
+      <td><code>ShareGrantService</code> + <code>ShareInvitePreviewLimiter</code> to Platform. PersonalFinance registers the <code>care-entity</code> resolver and keeps the projection. <strong>Reader cutover: grants and invites are now resolved by party id.</strong> Dual-write continues; the user columns are dropped by a later spec.</td>
+      <td><code>CircleEndpointsTests</code> and <code>CircleServiceTests</code> pass; CLI tests unmodified; a grant created before P3 is still listable, revocable and acceptable after cutover.</td>
     </tr>
     <tr>
       <td><strong>P6</strong> — events, seeding, config</td>
@@ -574,8 +659,10 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   <code>Application.Tests</code>, because the new contributed-<code>IEnumerable&lt;T&gt;</code> registrations and the
   moved services are exactly the kind of change that leaves unit tests green while the app fails to boot. Run
   <code>dotnet build Aonik.sln</code> too: <code>dotnet test</code> does not compile the Migrator/Mcp hosts, and this
-  change touches composition roots. <code>HouseholdService</code>'s serializable transaction means the
-  <code>Aonik.Database.Tests</code> LocalDB lane must run — the InMemory provider is structurally unable to fail on it.
+  change touches composition roots. <code>HouseholdService</code>'s serializable transaction <strong>and the filtered
+  unique indexes in <a href="#persistence">§10.2</a></strong> both mean the <code>Aonik.Database.Tests</code> LocalDB
+  lane must run — the InMemory provider is non-relational and enforces neither, so it is structurally unable to fail
+  on either. A second-child-member test that passes only on InMemory has proven nothing.
 </div>
 
 <h2 id="acceptance">16. Acceptance criteria</h2>
@@ -584,12 +671,14 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>, <code>CircleGrant</code> or <code>CircleInvite</code> entity, and no <code>DbSet</code> for them.</li>
   <li>No module has a project reference to <code>Aonik.Platform</code> added by this change; all access is via <code>SharedKernel.Abstractions.Groups</code>.</li>
   <li><code>GroupMember.PartyId</code> is populated for every row; <code>UserId</code> is nullable and still populated (phase one).</li>
-  <li>A <code>Group</code> can hold a member whose <code>Party</code> has <strong>no</strong> <code>User</code>, end to end, proven by a test.</li>
+  <li>A <code>Group</code> can hold a member whose <code>Party</code> has <strong>no</strong> <code>User</code>, added through <code>AddMemberAsync</code>, end to end, proven by a test.</li>
+  <li><strong>Two</strong> party-only members can be added to the same group — the filtered-index case, proven on <strong>LocalDB</strong> (the InMemory provider does not enforce unique indexes and will pass regardless).</li>
+  <li>A grant created before the P3 backfill remains listable, revocable and acceptable after the P5 reader cutover.</li>
   <li>A <code>ShareGrant</code> with an unregistered <code>ResourceKind</code> is rejected at write time.</li>
   <li>Removing a member who owns a shared <code>PersonalAccount</code> is still refused, now through <code>IGroupMemberRemovalGuard</code>, with the same message.</li>
   <li>Invite tokens keep their security properties: 256-bit random, opaque, single-use, expiring, unique per tenant, row-as-truth.</li>
   <li><strong><code>CircleEndpointsTests</code>, <code>CliApplicationTests</code>, <code>FakeAonikCliApiClient</code> and <code>UserBriefProjectorTests</code> pass with no edits.</strong> Any required edit is a wire break and must be justified or reverted.</li>
-  <li>The generated migration contains only the six additive changes in <a href="#persistence">§10.2</a> — no table rename, no drop, no unexpected operation.</li>
+  <li>The generated migration matches <a href="#persistence">§10.2</a> exactly: the additive columns plus the single unique-index drop/replace. No table rename, no column drop, no other operation.</li>
   <li>The demo seed still applies and reverses cleanly with households present.</li>
   <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> green, plus the LocalDB lane.</li>
 </ol>
