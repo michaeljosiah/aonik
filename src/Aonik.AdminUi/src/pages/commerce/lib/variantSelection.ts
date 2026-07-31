@@ -87,6 +87,80 @@ export function toggleMulti(current: SelectionValue | undefined, choiceKey: stri
   return list.includes(choiceKey) ? list.filter((k) => k !== choiceKey) : [...list, choiceKey];
 }
 
+/**
+ * Ways a STORED selection can no longer be expressed against the product's current offer.
+ *
+ * All three are silent otherwise: `serialiseSelection` iterates the current groups and coerces
+ * shapes, so a removed group is dropped, a withdrawn choice is passed through to be rejected,
+ * and a Multi→One mode change TRUNCATES a multi-choice selection to its first member. The last
+ * is the worst — every group and choice remains valid, so nothing looks wrong, and the update
+ * API accepts selection changes: the variant moves onto the single-choice combination carrying
+ * figures and allergens authored for the multi-choice one.
+ */
+export interface SelectionDrift {
+  /** Groups the product no longer offers at all. */
+  missingGroups: string[];
+  /** `group.choice` pairs whose choice is no longer offered. */
+  withdrawnChoices: string[];
+  /** Groups whose selection mode can no longer represent what is stored. */
+  shapeChanged: string[];
+}
+
+export interface DriftGroup extends SelectionGroup {
+  choices: readonly { key: string }[];
+}
+
+export function detectSelectionDrift(
+  selection: Record<string, SelectionValue>,
+  groups: readonly DriftGroup[],
+): SelectionDrift {
+  const missingGroups: string[] = [];
+  const withdrawnChoices: string[] = [];
+  const shapeChanged: string[] = [];
+
+  for (const [key, value] of Object.entries(selection)) {
+    if (isEmptySelection(value)) continue;
+    const group = groups.find((g) => g.key === key);
+    if (!group) {
+      missingGroups.push(key);
+      continue;
+    }
+    const picked = Array.isArray(value) ? value : [value];
+    for (const choiceKey of picked) {
+      if (!group.choices.some((c) => c.key === choiceKey)) {
+        withdrawnChoices.push(`${key}.${choiceKey}`);
+      }
+    }
+    // More than one choice stored for a group that is now single-select cannot survive
+    // serialisation — and would survive it QUIETLY, as a different combination.
+    if (!isMulti(group) && picked.length > 1) shapeChanged.push(key);
+  }
+
+  return { missingGroups, withdrawnChoices, shapeChanged };
+}
+
+export function hasDrift(drift: SelectionDrift): boolean {
+  return (
+    drift.missingGroups.length > 0 ||
+    drift.withdrawnChoices.length > 0 ||
+    drift.shapeChanged.length > 0
+  );
+}
+
+export function describeDrift(drift: SelectionDrift): string {
+  const parts: string[] = [];
+  if (drift.missingGroups.length > 0) {
+    parts.push(`${drift.missingGroups.join(', ')} (no longer offered)`);
+  }
+  if (drift.withdrawnChoices.length > 0) {
+    parts.push(`${drift.withdrawnChoices.join(', ')} (choice withdrawn)`);
+  }
+  if (drift.shapeChanged.length > 0) {
+    parts.push(`${drift.shapeChanged.join(', ')} (now single-select, but several are stored)`);
+  }
+  return parts.join('; ');
+}
+
 /** How many groups the operator has actually picked something for. */
 export function pickedGroupCount(selection: Record<string, SelectionValue>): number {
   return Object.values(selection).filter((value) => !isEmptySelection(value)).length;

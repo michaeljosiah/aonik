@@ -137,3 +137,40 @@ describe('validateDraft', () => {
     expect(validateDraft({ ...emptyDraft(), servingLabel: 'Per 1', allergens: 'Celery' })).toBeNull();
   });
 });
+
+describe('authored-empty heating', () => {
+  const variantWith = (heating: { method: string; body: string }[] | null) =>
+    ({
+      id: 'v1',
+      productId: 'p1',
+      selectionJson: '{}',
+      servingLabel: 'Per 1',
+      nutrition: block.nutrition,
+      ingredients: null,
+      allergens: null,
+      heating,
+      isActive: true,
+    }) as ProductContentVariantDto;
+
+  it('resends [] for a variant that authored an EMPTY panel', () => {
+    // `[]` resolves with heatingWithheld false; `null` with true. Collapsing them meant
+    // editing an unrelated figure silently converted "no heating required" into "withheld".
+    const draft = draftFromVariant(variantWith([]));
+    expect(draft.heatingAuthoredEmpty).toBe(true);
+    expect(wireFromDraft(draft).heatingJson).toBe('[]');
+  });
+
+  it('sends null for a variant whose heating was withheld', () => {
+    const draft = draftFromVariant(variantWith(null));
+    expect(draft.heatingAuthoredEmpty).toBe(false);
+    expect(wireFromDraft(draft).heatingJson).toBeNull();
+  });
+
+  it('sends real steps once any are added, whatever the source state', () => {
+    const draft = draftFromVariant(variantWith([]));
+    draft.heating = [{ method: 'Oven', body: 'hot' }];
+    expect(JSON.parse(wireFromDraft(draft).heatingJson!)).toEqual([
+      { method: 'Oven', body: 'hot' },
+    ]);
+  });
+});

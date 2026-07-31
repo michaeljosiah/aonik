@@ -32,7 +32,9 @@ import {
   type ContentDraft,
 } from '../lib/contentDraft';
 import {
-  isEmptySelection,
+  describeDrift,
+  detectSelectionDrift,
+  hasDrift,
   isMulti,
   parseSelection,
   pickedGroupCount,
@@ -134,24 +136,21 @@ export function ContentVariantSheet({
       setError('Pick at least one choice — a variant is identified by the combination it describes.');
       return;
     }
-    // DRIFT: the stored selection names a group this product no longer offers. Serialising
-    // iterates the CURRENT offer, so that group is silently dropped — and because the update
-    // accepts selection changes, the variant would MOVE onto whatever combination remains,
-    // publishing its figures and allergens against one nobody authored them for. The sheet
-    // says the identity is fixed; this is what makes that true.
-    const dropped = Object.keys(selection).filter(
-      (key) => !isEmptySelection(selection[key]) && !groups.some((g) => g.key === key),
-    );
-    // Applies to REVIVE as well as edit. A retired variant re-authored through
-    // `initialSelectionJson` has no baseline, so my first guard skipped it entirely — and the
-    // outcome there is the same: the removed group is dropped and AddVariantAsync happily
-    // authors the remaining combination, publishing freshly entered allergens against one the
-    // operator never chose.
-    if (dropped.length > 0) {
+    // DRIFT — three ways a STORED selection can no longer be expressed, all silent otherwise:
+    // a removed group is dropped by serialisation, a withdrawn choice is passed through to be
+    // rejected, and a group that changed Multi→One truncates a multi-choice selection to its
+    // first member. The last is the worst because nothing looks wrong: every group and choice
+    // is still valid, the update accepts selection changes, and the variant lands on a
+    // different combination carrying content authored for the original one.
+    //
+    // Applies to REVIVE as well as edit: a retired variant re-authored through
+    // `initialSelectionJson` has no baseline, and that is the path where a bad save SUCCEEDS.
+    const drift = detectSelectionDrift(selection, groups);
+    if (hasDrift(drift)) {
       setError(
-        `This combination names ${dropped.join(', ')}, which this product no longer offers. ` +
-          'Saving would move it onto a different combination, so it cannot be edited — retire ' +
-          'it and author the combination you want instead.',
+        `This combination can no longer be expressed against what the product offers — ` +
+          `${describeDrift(drift)}. Saving would move it onto a different combination, so it ` +
+          'cannot be edited. Retire it and author the combination you want instead.',
       );
       return;
     }

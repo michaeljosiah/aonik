@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  describeDrift,
+  detectSelectionDrift,
+  hasDrift,
   isEmptySelection,
   isMulti,
   parseSelection,
@@ -111,5 +114,53 @@ describe('emptiness helpers', () => {
   it('identifies multi groups by mode', () => {
     expect(isMulti(multi)).toBe(true);
     expect(isMulti(single)).toBe(false);
+  });
+});
+
+describe('detectSelectionDrift', () => {
+  const offer = [
+    { key: 'spice', selectionMode: 'One', choices: [{ key: 'hot' }, { key: 'mild' }] },
+    { key: 'sides', selectionMode: 'Multi', choices: [{ key: 'rice' }, { key: 'plantain' }] },
+  ];
+
+  it('detects a group the product no longer offers', () => {
+    const drift = detectSelectionDrift({ gone: 'x', spice: 'hot' }, offer);
+    expect(drift.missingGroups).toEqual(['gone']);
+    expect(hasDrift(drift)).toBe(true);
+  });
+
+  it('detects a WITHDRAWN choice inside a group that still exists', () => {
+    // The group survives, so a group-level check sees nothing wrong — and the server then
+    // rejects every edit with V2/V3.
+    const drift = detectSelectionDrift({ spice: 'nuclear' }, offer);
+    expect(drift.withdrawnChoices).toEqual(['spice.nuclear']);
+  });
+
+  it('detects a MULTI→ONE mode change that would silently truncate', () => {
+    // The nastiest of the three: every group and choice is still valid, so nothing looks
+    // wrong, and serialisation quietly keeps the first member — moving the variant onto a
+    // different combination while carrying content authored for the original.
+    const tightened = [
+      { key: 'sides', selectionMode: 'One', choices: [{ key: 'rice' }, { key: 'plantain' }] },
+    ];
+    const drift = detectSelectionDrift({ sides: ['rice', 'plantain'] }, tightened);
+    expect(drift.shapeChanged).toEqual(['sides']);
+    expect(describeDrift(drift)).toMatch(/now single-select/);
+  });
+
+  it('does NOT flag a single-choice multi selection against a tightened group', () => {
+    // One stored choice still expresses the same combination after the mode narrows.
+    const tightened = [{ key: 'sides', selectionMode: 'One', choices: [{ key: 'rice' }] }];
+    expect(hasDrift(detectSelectionDrift({ sides: ['rice'] }, tightened))).toBe(false);
+  });
+
+  it('reports a clean selection as undrifted', () => {
+    const drift = detectSelectionDrift({ spice: 'hot', sides: ['rice', 'plantain'] }, offer);
+    expect(hasDrift(drift)).toBe(false);
+    expect(describeDrift(drift)).toBe('');
+  });
+
+  it('ignores groups with nothing picked', () => {
+    expect(hasDrift(detectSelectionDrift({ gone: '', other: [] }, offer))).toBe(false);
   });
 });

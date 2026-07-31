@@ -23,6 +23,15 @@ export interface ContentDraft {
   ingredients: string;
   allergens: string;
   heating: HeatingStep[];
+  /**
+   * The source stored an AUTHORED EMPTY heating panel (`[]`), not a withheld one (`null`).
+   *
+   * A variant preserves that difference and the resolver reports it: `[]` resolves with
+   * heatingWithheld false, `null` with true. Collapsing both into "no rows" meant editing an
+   * unrelated figure silently converted an authored empty panel into a withheld one — a
+   * customer-facing change nobody asked for, from a form that shows no heating either way.
+   */
+  heatingAuthoredEmpty: boolean;
 }
 
 export function emptyDraft(): ContentDraft {
@@ -40,6 +49,7 @@ export function emptyDraft(): ContentDraft {
     ingredients: '',
     allergens: '',
     heating: [],
+    heatingAuthoredEmpty: false,
   };
 }
 
@@ -56,6 +66,7 @@ function draftFrom(
     ingredients: source.ingredients ?? '',
     allergens: source.allergens ?? '',
     heating: (source.heating ?? []).map((step) => ({ method: step.method, body: step.body })),
+    heatingAuthoredEmpty: Array.isArray(source.heating) && source.heating.length === 0,
   };
 }
 
@@ -104,6 +115,8 @@ export function wireFromDraft(draft: ContentDraft) {
     ) as Record<FigureKey, number | null>),
     ingredients: draft.ingredients.trim() === '' ? null : draft.ingredients.trim(),
     allergens: draft.allergens.trim() === '' ? null : draft.allergens.trim(),
-    heatingJson: heatingToWire(draft.heating),
+    // An authored-empty panel is resent as `[]` rather than null, so an edit elsewhere on the
+    // form does not turn "no heating required" into "heating withheld".
+    heatingJson: heatingToWire(draft.heating) ?? (draft.heatingAuthoredEmpty ? '[]' : null),
   };
 }

@@ -65,7 +65,8 @@ export function ProductContentPage() {
   const [rowsComplete, setRowsComplete] = useState(true);
   /** Set when the product's effective offer could not be read — variants need it. */
   const [groupsError, setGroupsError] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Identity AND metadata together — see the note where the derived values are read. */
+  const [selection, setSelection] = useState<ContentStatusRowDto | null>(null);
   const [content, setContent] = useState<AdminProductContentDto | null>(null);
   const [coverage, setCoverage] = useState<ContentCoverageDto | null>(null);
   const [coverageError, setCoverageError] = useState(false);
@@ -89,7 +90,7 @@ export function ProductContentPage() {
   const listRequestRef = useRef(0);
   const detailRequestRef = useRef(0);
   /** The live selection, for async work that must not act on a stale closure value. */
-  const selectedIdRef = useRef<string | null>(null);
+  const selectionRef = useRef<ContentStatusRowDto | null>(null);
 
   const loadRows = useCallback(async () => {
     const requestId = listRequestRef.current + 1;
@@ -108,14 +109,15 @@ export function ProductContentPage() {
       setRows(page.items);
       setRowTotal(page.totalCount);
       setRowsComplete(page.totalCount <= STATUS_PAGE_SIZE);
-      setSelectedId((current) => {
+      setSelection((current) => {
         // A product selected FROM THE QUEUE may legitimately live on another status page, so
-        // "not in this page's rows" is not grounds to move the selection off it. Resetting
-        // there was the root of the cross-product mix-up: the page's idea of the selection and
-        // the content it had loaded could end up describing two different products.
-        if (current && page.items.some((r) => r.productId === current)) return current;
-        if (current && queueRef.current.some((r) => r.productId === current)) return current;
-        return page.items[0]?.productId ?? null;
+        // "not in this page's rows" is not grounds to move the selection off it. The object
+        // carries its own metadata, so it survives even when no list still holds its row.
+        if (!current) return page.items[0] ?? null;
+        const refreshed = page.items.find((r) => r.productId === current.productId);
+        if (refreshed) return refreshed;
+        if (queueRef.current.some((r) => r.productId === current.productId)) return current;
+        return page.items[0] ?? null;
       });
     } catch (err: unknown) {
       if (listRequestRef.current !== requestId) return;
@@ -255,20 +257,27 @@ export function ProductContentPage() {
 
   const reviewQueue = queue;
 
-  // Falls back to the QUEUE row: a flagged product can live on a status page the rail is not
-  // showing, and deriving these from `rows` alone left slug and name null — which skipped the
-  // resolution and blocked the block sheet, on exactly the products most in need of editing.
-  const selectedRowAnywhere =
+  // The selection is ONE object, captured when the operator picks a product, not four values
+  // derived from lists that change underneath. Deriving them separately produced two distinct
+  // defects: async work paired a live id with a stale slug, and a successful queue refresh
+  // could remove the only row describing the current selection — leaving the id and its loaded
+  // content in place while the metadata vanished, so the editor could mount for one product
+  // holding another's block.
+  const selectedSlug = selection?.slug ?? null;
+  const selectedIsActive = selection?.productStatus === 'Active';
+  const selectedId = selection?.productId ?? null;
+  const selectedRow =
     rows.find((r) => r.productId === selectedId) ??
     queue.find((r) => r.productId === selectedId) ??
+    selection ??
     null;
-  const selectedSlug = selectedRowAnywhere?.slug ?? null;
-  const selectedIsActive = selectedRowAnywhere?.productStatus === 'Active';
 
   useEffect(() => {
-    selectedIdRef.current = selectedId;
-    if (selectedId) void loadDetail(selectedId, selectedSlug, selectedIsActive);
-  }, [selectedId, selectedSlug, selectedIsActive, loadDetail]);
+    selectionRef.current = selection;
+    if (selection) {
+      void loadDetail(selection.productId, selection.slug, selection.productStatus === 'Active');
+    }
+  }, [selection, loadDetail]);
 
 
 
@@ -282,8 +291,6 @@ export function ProductContentPage() {
       ),
     [],
   );
-
-  const selectedRow = selectedRowAnywhere;
 
   const selectedState = content
     ? deriveContentState(content.block, content.isStale)
@@ -312,13 +319,11 @@ export function ProductContentPage() {
       toast.success('Review confirmed');
       await loadRows();
       await loadQueue();
-      // Compared against the LIVE selection, not the value captured when this handler was
-      // created. The queue scan can take a while, and a detail load fired for a product that
-      // is no longer selected wins the request counter — leaving `content` describing one
-      // product while the page believes another is selected, which the block editor would then
-      // seed from and overwrite.
-      if (selectedIdRef.current === productId) {
-        await loadDetail(productId, selectedSlug, selectedIsActive);
+      // Re-read WHOLE from the ref, not just the id. Pairing a live id with a closure-captured
+      // slug loaded one product's raw content beside another's resolved panel.
+      const live = selectionRef.current;
+      if (live && live.productId === productId) {
+        await loadDetail(live.productId, live.slug, live.productStatus === 'Active');
       }
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The review could not be confirmed.');
@@ -407,7 +412,7 @@ export function ProductContentPage() {
                     {' — open it to see what customers currently receive'}
                   </span>
                 </span>
-                <Button variant="outline" size="sm" onClick={() => setSelectedId(row.productId)}>
+                <Button variant="outline" size="sm" onClick={() => setSelection(row)}>
                   Open
                 </Button>
                 <Button size="sm" onClick={() => void confirmReview(row.productId)}>
@@ -452,7 +457,7 @@ export function ProductContentPage() {
                     <li key={row.productId}>
                       <button
                         type="button"
-                        onClick={() => setSelectedId(row.productId)}
+                        onClick={() => setSelection(row)}
                         className={`flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--color-surface-inset)] ${
                           row.productId === selectedId ? 'bg-[var(--color-surface-inset)]' : ''
                         }`}
@@ -533,7 +538,7 @@ export function ProductContentPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)}
+                      onClick={() => selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)}
                       className="shrink-0 underline"
                     >
                       Retry
@@ -590,7 +595,7 @@ export function ProductContentPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)}
+                        onClick={() => selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)}
                         className="shrink-0 underline"
                       >
                         Retry
@@ -638,7 +643,12 @@ export function ProductContentPage() {
                             // defaults, so a retired variant whose combination has SINCE become
                             // the standard preparation cannot be revived at all — the default
                             // block is where that content belongs now.
-                            variant.selectionJson !== resolved?.canonicalSelectionJson ? (
+                            // Requires the standard selection to be KNOWN. For a Draft or
+                            // Archived product the resolution is unavailable, so `resolved` is
+                            // null and an equality test against it would pass for everything —
+                            // re-offering exactly the revive V-C1 forbids.
+                            !!resolved &&
+                            variant.selectionJson !== resolved.canonicalSelectionJson ? (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -653,9 +663,11 @@ export function ProductContentPage() {
                               </button>
                             ) : (
                               <span className="text-[11px] text-[var(--color-text-tertiary)]">
-                                {variant.selectionJson === resolved?.canonicalSelectionJson
-                                  ? 'now the standard — edit the block'
-                                  : 'retired'}
+                                {!resolved
+                                  ? 'retired — activate the product to revive'
+                                  : variant.selectionJson === resolved.canonicalSelectionJson
+                                    ? 'now the standard — edit the block'
+                                    : 'retired'}
                               </span>
                             )
                           )}
@@ -681,7 +693,7 @@ export function ProductContentPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            selectedId && void loadDetail(selectedId, selectedSlug, selectedIsActive)
+                            selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)
                           }
                           className="underline"
                         >
