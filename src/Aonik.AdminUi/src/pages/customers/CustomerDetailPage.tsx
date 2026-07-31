@@ -31,6 +31,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { useModules } from '@/modules';
+import { formatCurrency, formatDate } from './lib/format';
+import { OrdersSpineTab } from './OrdersSpineTab';
+import { CommerceTab } from './commerce/CommerceTab';
 import { customerService } from '@/services/customerService';
 import type {
   CustomerActivityEntry,
@@ -70,13 +74,18 @@ const VERIFICATION_TONE: Record<string, PillTone> = {
   Rejected: 'danger',
 };
 
-type TabKey = 'overview' | 'finance' | 'insights' | 'documents' | 'orders' | 'activity';
+type TabKey = 'overview' | 'finance' | 'orders' | 'commerce' | 'insights' | 'documents' | 'activity';
 type FinanceSubKey = 'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph';
 
-const TABS: Array<{ value: TabKey; label: string }> = [
+const ORDERS_PAGE_SIZE = 25;
+
+// One party, every lens (Spec 081). Commerce is module-gated at render — a billing-only
+// tenant never sees it, and there is never a second customer view.
+const TABS: Array<{ value: TabKey; label: string; module?: string }> = [
   { value: 'overview', label: 'Overview' },
   { value: 'finance', label: 'Finance' },
   { value: 'orders', label: 'Orders' },
+  { value: 'commerce', label: 'Commerce', module: 'commerce' },
   { value: 'insights', label: 'Insights' },
   { value: 'documents', label: 'Documents' },
   { value: 'activity', label: 'Activity' },
@@ -90,14 +99,6 @@ const FINANCE_SUBS: Array<{ value: FinanceSubKey; label: string }> = [
   { value: 'graph', label: 'Financial graph' },
 ];
 
-function formatDate(value?: string | null): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
@@ -123,17 +124,6 @@ function formatRelative(value?: string | null): string {
   return formatDate(value);
 }
 
-function formatCurrency(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${Math.round(amount).toLocaleString()}`;
-  }
-}
 
 function summariseAmounts(amounts?: CurrencyAmount[] | null): string {
   if (!amounts || amounts.length === 0) return '—';
@@ -159,6 +149,17 @@ function deriveInitials(name?: string | null): string {
 
 export function CustomerDetailPage() {
   const navigate = useNavigate();
+  const { manifest } = useModules();
+
+  // Module gating: a manifest that omits commerce hides the tab entirely (no dead tab);
+  // an absent manifest fails OPEN, matching useModules' own degradation.
+  const isTabVisible = useCallback(
+    (tab: { module?: string }) =>
+      !tab.module || !manifest || manifest.enabledModules.includes(tab.module),
+    [manifest],
+  );
+  const visibleTabs = TABS.filter(isTabVisible);
+  const commerceVisible = isTabVisible({ module: 'commerce' });
   const { partyId } = useParams<{ partyId: string }>();
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -180,6 +181,7 @@ export function CustomerDetailPage() {
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -243,17 +245,22 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
-  const loadOrders = useCallback(async () => {
+  // Paged, and APPENDING — the Commerce tab's box history walks the party's whole
+  // storefront record, so a spine capped at one page would show fewer purchases than the
+  // box history beside it and break the row-for-row consistency Spec 081 requires. The
+  // tab can now reach every order.
+  const loadOrders = useCallback(async (page = 1) => {
     if (!partyId) return;
     setOrdersLoading(true);
     setOrdersError(null);
     try {
       const result = await orderService.listOrders({
         payerPartyId: partyId,
-        pageNumber: 1,
-        pageSize: 25,
+        pageNumber: page,
+        pageSize: ORDERS_PAGE_SIZE,
       });
-      setOrders(result.items);
+      setOrders((previous) => (page === 1 ? result.items : [...previous, ...result.items]));
+      setOrdersPage(page);
       setOrdersTotal(result.totalCount);
     } catch (err: unknown) {
       const message =
@@ -310,7 +317,7 @@ export function CustomerDetailPage() {
   useEffect(() => {
     if (activeTab === 'documents') void loadDocuments();
     if (activeTab === 'insights') void loadInsights();
-    if (activeTab === 'orders') void loadOrders();
+    if (activeTab === 'orders') void loadOrders(1);
     if (activeTab === 'overview' || activeTab === 'activity') void loadActivity();
   }, [activeTab, loadDocuments, loadInsights, loadOrders, loadActivity]);
 
@@ -523,7 +530,7 @@ export function CustomerDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-[var(--color-border-light)] px-0.5">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.value;
           return (
             <button
@@ -583,8 +590,12 @@ export function CustomerDetailPage() {
         />
       )}
 
+      {activeTab === 'commerce' && commerceVisible && partyId && <CommerceTab partyId={partyId} />}
+
       {activeTab === 'orders' && (
-        <OrdersTab
+        <OrdersSpineTab
+          hasMore={orders.length < ordersTotal}
+          onLoadMore={() => void loadOrders(ordersPage + 1)}
           orders={orders}
           totalCount={ordersTotal}
           loading={ordersLoading}
@@ -1139,126 +1150,6 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
 
 // ─── Orders tab ──────────────────────────────────────────────────────────
 
-const ORDER_STATUS_TONE: Record<string, PillTone> = {
-  Complete: 'success',
-  Settled: 'success',
-  Captured: 'success',
-  Submitted: 'info',
-  Active: 'info',
-  Pending: 'warning',
-  AwaitingFunds: 'warning',
-  Cancelled: 'muted',
-  Failed: 'danger',
-  Expired: 'muted',
-};
-
-interface OrdersTabProps {
-  orders: OrderListItem[];
-  totalCount: number;
-  loading: boolean;
-  error: string | null;
-  onView: (orderId: string) => void;
-  onReload: () => void;
-}
-
-function OrdersTab({ orders, totalCount, loading, error, onView, onReload }: OrdersTabProps) {
-  return (
-    <AonikCard
-      title="Orders"
-      subtitle={
-        totalCount > 0
-          ? `${totalCount.toLocaleString()} total · most recent ${Math.min(orders.length, totalCount)}`
-          : 'Bill payments, payouts, and collections from this customer'
-      }
-      action={
-        <button
-          type="button"
-          onClick={onReload}
-          className="text-xs text-[var(--color-brand-primary)] hover:underline"
-        >
-          Refresh
-        </button>
-      }
-    >
-      {error && (
-        <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center py-6">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="py-6 text-center">
-          <FileText className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            No orders recorded for this customer yet.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
-                <th className="px-2 py-2.5">Order</th>
-                <th className="px-2 py-2.5">Date</th>
-                <th className="px-2 py-2.5">Type</th>
-                <th className="px-2 py-2.5">Status</th>
-                <th className="px-2 py-2.5 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order, idx) => {
-                const isLast = idx === orders.length - 1;
-                const tone = ORDER_STATUS_TONE[order.status] ?? 'default';
-                return (
-                  <tr
-                    key={order.orderId}
-                    onClick={() => onView(order.orderId)}
-                    className={
-                      'cursor-pointer transition-colors hover:bg-[var(--color-surface-inset)] ' +
-                      (isLast ? '' : 'border-b border-[var(--color-border-light)]')
-                    }
-                  >
-                    <td className="px-2 py-2.5">
-                      <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
-                        ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
-                        {formatDate(order.createdAt)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <span className="text-[12.5px] text-[var(--color-text-primary)]">
-                        {order.orderType}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <Pill tone={tone} dot size="sm">
-                        {order.status}
-                      </Pill>
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-[var(--color-text-primary)]">
-                        {formatCurrency(order.totalAmountIn, order.originCurrency)}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </AonikCard>
-  );
-}
-
-// ─── Activity feed ───────────────────────────────────────────────────────
 
 const ACTIVITY_KIND_VISUAL: Record<
   string,
