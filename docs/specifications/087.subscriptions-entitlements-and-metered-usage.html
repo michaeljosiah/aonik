@@ -62,7 +62,7 @@
   <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Priority: P1</span>
-  <span class="meta-tag">Domain: Subscriptions (new) / Finance / Ordering / SharedKernel</span>
+  <span class="meta-tag">Domain: Subscriptions (new) / Ordering / SharedKernel</span>
   <h1>Subscriptions, entitlements and metered usage</h1>
   <p style="margin-top:6px; color: var(--muted);">
     A new <code>Aonik.Subscriptions</code> module: <strong>plans</strong> (what you sell),
@@ -70,8 +70,9 @@
     balance), <strong>grants</strong> (allowance materialised per period, or bought outright), and
     <strong>metered usage</strong> with a reserve → commit lifecycle so an allowance can be enforced before work
     runs and settled at its true cost afterwards. It sits on the rails that already exist — an
-    <code>Order</code> per billing period, an <code>Invoice</code> via <code>IInvoiceWriter</code>, funding via a
-    <code>PaymentIntent</code>, and truth in the ledger. The platform can bill an invoice today but cannot sell a
+    <code>Order</code> per billing period, an <code>Invoice</code>, funding via a <code>PaymentIntent</code>, and truth
+    in the ledger — extended by <a href="088.finance-prerequisites-for-recurring-billing.html">Spec&nbsp;088</a>, which
+    carries the six Finance changes recurring billing needs and this spec consumes. The platform can bill an invoice today but cannot sell a
     subscription; this closes that.
   </p>
 </header>
@@ -187,11 +188,9 @@
   <li>Two new order types: <code>SubscriptionRenewal</code>, <code>EntitlementPurchase</code>.</li>
   <li>New ledger accounts and postings, contributed at provisioning.</li>
   <li><code>SharedKernel.Abstractions.Subscriptions</code> contracts, plus a new <code>IJournalWriter</code> to close the cross-module ledger gap.</li>
-  <li><strong>Changes inside Finance that this spec depends on and must therefore deliver:</strong> order-type-aware revenue routing in <code>LedgerPostingService</code> (<a href="#ledger">§13.1</a>); an <code>IRecurringPaymentInitiator</code> for background renewal (<a href="#money">§12.3</a>); idempotency keys and unique <code>(TenantId, OrderId)</code> indexes on the invoice and payment-intent writers (<a href="#money">§12.5</a>).</li>
   <li>A <strong>subscription dunning job</strong> — payment retry does not exist in the tree today (<a href="#money">§12.5</a>).</li>
-  <li>A Finance-owned <strong><code>PaymentMandate</code></strong> model and lifecycle — none exists (<a href="#money">§12.3</a>).</li>
-  <li><strong><code>MeterOffer</code></strong> pricing and a purchase service, so top-up prices are resolved server-side (<a href="#money">§12.4</a>).</li>
-  <li>Persisting <strong><code>Invoice.OrderId</code></strong>, which the current writer drops (<a href="#money">§12.9</a>).</li>
+  <li><code>MeterOffer</code> pricing and <code>IEntitlementPurchaseService</code>, so top-up prices resolve server-side (<a href="#money">§12.4</a>).</li>
+  <li>A resolver registering this module's ledger accounts and order-type mapping into Finance's settlement seam (<a href="#ledger">§13.1</a>).</li>
 </ul>
 
 <h3>4.2 Out of scope</h3>
@@ -205,6 +204,17 @@
   <li>General-purpose dunning for <em>all</em> invoice types, and any use of the <code>DunningPlan</code> entity. This spec adds subscription payment retry only (<a href="#money">§12.4</a>); wiring <code>DunningPlan</code> into a platform-wide collections engine is separate work.</li>
   <li>Any product-specific meter definition. Meters are data; Arke Kids' meters belong to its config pack.</li>
 </ul>
+
+<div class="callout p0">
+  <span class="callout-label">Hard dependency on Spec 088</span>
+  Six Finance capabilities this spec needs do not exist: cross-module journal posting, ledger identity, a reusable
+  payment mandate, invoice order-link persistence, writer idempotency, and order-type-aware settlement routing. They
+  were originally specified inline here, which made this document two specs wearing one name. They are now
+  <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088</a>.
+  <strong>088 P1–P5 must land before this spec's P5.</strong> Everything up to and including P4 here — catalogue,
+  subscription lifecycle, the free tier, grants and metering — has <em>no</em> dependency on 088 and can proceed in
+  parallel.
+</div>
 
 <h2 id="shapes">5. Three entitlement shapes</h2>
 
@@ -625,44 +635,20 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
 </p>
 
 <h4>12.3 Recurring payment needs a stored mandate</h4>
-<div class="callout p0">
-  <span class="callout-label">The existing initiator cannot serve a background job</span>
+<p>
   <code>IPaymentInitiator</code> exposes only <code>CreateGuestIntentForOrderAsync</code> — a <em>guest</em> intent on
-  "the permission-free public payment path", requiring a <code>Provider</code> and <code>PaymentMethodType</code>
-  supplied per call. A renewal job running at 3am has neither, and a guest intent is the wrong semantic for a
-  recurring charge against a saved instrument.
+  the public payment path, requiring a <code>Provider</code> and <code>PaymentMethodType</code> per call. A renewal job
+  running unattended has neither, and no <code>PaymentMandate</code> exists in the tree.
+</p>
+<div class="callout open">
+  <span class="callout-label">Specified in <a href="088.finance-prerequisites-for-recurring-billing.html">Spec&nbsp;088</a></span>
+  The mandate model, its lifecycle (creation, revocation, expiry, audit) and
+  <code>IRecurringPaymentInitiator</code> are Finance concerns and are specified in
+  <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 §6</a>. This spec only <em>consumes</em>
+  them: <code>Subscription.PaymentMandateId</code> references one, and a subscription whose mandate is missing,
+  revoked or expired moves to <code>past_due</code> with a <strong>distinct, non-retryable</strong> reason and is
+  surfaced for re-authorisation — retrying cannot fix a withdrawn authorisation.
 </div>
-<p>
-  <code>Subscription.PaymentMandateId</code> references a stored, reusable funding instrument. <strong>No
-  <code>PaymentMandate</code> entity or service exists in the tree</strong> — a repo-wide search finds nothing — so
-  naming the field was not enough. The model is Finance-owned and specified here:
-</p>
-
-<pre><code>PaymentMandate                       // Aonik.Finance, alongside PaymentMethod
-    TenantId, PartyId                // who authorised it — authorisation is a party's, not a subscription's
-    Provider                         // the provider that holds the vaulted instrument
-    PaymentMethodId                  // the vaulted method
-    ProviderMandateRef               // the provider's own recurring-authorisation token
-    Status        active | revoked | expired
-    AuthorisedAt, ExpiresAt?, RevokedAt?
-    RowVersion</code></pre>
-
-<table>
-  <thead><tr><th>Concern</th><th>Rule</th></tr></thead>
-  <tbody>
-    <tr><td>Ownership</td><td>Tenant + <strong>party</strong>. One party may hold several mandates; a subscription references one. A mandate is never shared across parties.</td></tr>
-    <tr><td>Creation</td><td>At first successful interactive payment, or an explicit "save for future payments" consent. Never minted by a background job.</td></tr>
-    <tr><td>Revocation</td><td>Explicit, and cascades: subscriptions referencing a revoked mandate cannot renew and are surfaced for re-authorisation.</td></tr>
-    <tr><td>Expiry</td><td>Card expiry or provider mandate expiry sets <code>expired</code>; the renewal job treats it exactly as revoked.</td></tr>
-    <tr><td>Resolution</td><td><code>IRecurringPaymentInitiator.CreateIntentForMandateAsync(mandateId, orderId, amount, currency, idempotencyKey)</code> — new contract in <code>SharedKernel.Abstractions.Payments</code>.</td></tr>
-  </tbody>
-</table>
-
-<p>
-  A subscription whose mandate is missing, revoked or expired <strong>does not renew and does not silently fail</strong>:
-  it moves to <code>past_due</code> with a distinct reason and is surfaced for re-authorisation, because no amount of
-  retrying fixes a withdrawn authorisation.
-</p>
 
 <h4>12.4 Entitlement purchases need a priced catalogue</h4>
 <div class="callout p0">
@@ -718,34 +704,20 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
 <div class="callout p0">
   <span class="callout-label">The period anchor alone is not enough</span>
   If the job dies after creating an invoice but before persisting its id, a retry reuses the <em>order</em> (which is
-  idempotency-keyed) but calls <code>IInvoiceWriter</code> and the payment initiator again. In the current tree
-  <code>InvoiceConfiguration</code>'s <code>(TenantId, OrderId)</code> index is <strong>non-unique</strong> and neither
-  writer accepts an idempotency key — so the retry produces a duplicate invoice and a second collectible intent.
+  idempotency-keyed) but calls the invoice and payment writers again — producing a duplicate invoice and a second
+  collectible intent.
 </div>
-<p>Required, and in scope:</p>
+<p>This spec owns the renewal-side half:</p>
 <ul>
-  <li>Persist <code>InvoiceId</code> / <code>PaymentIntentId</code> on the period immediately, and check them before each call.</li>
-  <li>Add a <strong>filtered</strong> unique index <code>(TenantId, OrderId) WHERE OrderId IS NOT NULL</code> for invoices.</li>
-  <li>Extend <code>IInvoiceWriter</code> and the recurring initiator to accept an idempotency key, matching <code>IOrderService</code>'s existing behaviour, and make <strong>that</strong> the uniqueness key for payment intents.</li>
-  <li><strong>Persist <code>Invoice.OrderId</code></strong> — see below. Without it neither the index nor settlement routing has anything to work with.</li>
+  <li>Persist <code>InvoiceId</code> / <code>PaymentIntentId</code> on the period <strong>immediately</strong> after each writer returns, and check them before calling again.</li>
+  <li>Pass a deterministic idempotency key derived from <code>(SubscriptionId, Sequence, attempt)</code>.</li>
 </ul>
-
-<div class="callout p0">
-  <span class="callout-label">Two ways the naive index breaks production</span>
-  <p style="margin:6px 0 0">
-    <strong>Invoices.</strong> <code>Invoice.OrderId</code> is <code>Guid?</code> and standalone invoices are valid.
-    An <em>unfiltered</em> unique index permits one NULL per tenant, so the second standalone invoice any tenant ever
-    raises would fail — the same NULL-in-a-unique-index trap as
-    <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a>'s membership index. Hence the filter.
-  </p>
-  <p style="margin:6px 0 0">
-    <strong>Payment intents.</strong> Uniqueness on <code>(TenantId, OrderId)</code> would break the existing public
-    checkout outright: <code>PublicPaymentService</code> explicitly permits an order already in
-    <code>PendingFunding</code> and unconditionally adds another intent (lines 95 and 177) — which is exactly what an
-    abandoned checkout or a switched payment method needs. Forbidding historical attempts would fail every product's
-    second attempt, not just subscriptions. Idempotency comes from the <strong>key</strong>, not from forbidding
-    retries.
-  </p>
+<div class="callout open">
+  <span class="callout-label">Specified in <a href="088.finance-prerequisites-for-recurring-billing.html">Spec&nbsp;088</a></span>
+  The writer-side half — idempotency keys on <code>IInvoiceWriter</code> and the recurring initiator, the
+  <strong>filtered</strong> unique invoice index, and the deliberate <em>absence</em> of order-scoped uniqueness on
+  payment intents — is <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 §8</a>. Both halves are
+  needed: the period check avoids the common retry, the database constraint catches the race.
 </div>
 
 <div class="callout p0">
@@ -774,22 +746,13 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
   order already completed and makes no change.
 </p>
 
-<h4>12.9 The invoice writer must persist the order link</h4>
-<div class="callout p0">
-  <span class="callout-label">Invoice.OrderId is never written today</span>
-  <code>InvoiceWriter.CreateForOrderAsync</code> uses <code>command.OrderId</code> only to build the invoice number
-  (<code>GenerateInvoiceNumber(command.OrderId)</code>) and then calls <code>BillingService.CreateInvoiceAsync</code>,
-  whose request carries no order field — so the persisted <code>Invoice.OrderId</code> stays <strong>null</strong>.
-  Order-type-aware settlement routing (<a href="#ledger">§13.1</a>) would therefore have no order to read a type from,
-  and the filtered unique index above would never bind. Extending the billing request and adapter to persist the link
-  is a prerequisite of both, and is in scope.
-</div>
-
-<div class="callout p0">
-  <span class="callout-label">Order ≠ Payment ≠ Ledger</span>
-  Rule 2 holds here exactly as elsewhere. The <em>order</em> is the request to transact, the <em>payment intent</em>
-  funds it, the <em>ledger</em> records what happened, and the <em>grant</em> is what the subscriber can then use.
-  Four distinct records. A renewal that collapses any two of them will not survive its first refund.
+<h4>12.9 The invoice must remember its order</h4>
+<div class="callout open">
+  <span class="callout-label">Specified in <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088</a></span>
+  <code>InvoiceWriter</code> uses <code>command.OrderId</code> only to build the invoice number, so
+  <code>Invoice.OrderId</code> persists as null — which would leave settlement routing with no order to read a type
+  from. Persisting the link is <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 §7</a> and is a
+  hard prerequisite of <a href="#ledger">§13</a>.
 </div>
 
 <h2 id="ledger">13. Ledger accounts &amp; postings</h2>
@@ -810,22 +773,18 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
   </tbody>
 </table>
 
-<h3>13.1 Settlement routing is required work, not an assumption</h3>
-
-<div class="callout p0">
-  <span class="callout-label">Today every invoice credits 4000</span>
-  <code>LedgerPostingService</code> declares <code>private const string RevenueAccountCode = "4000"</code> and
-  <code>PostInvoiceSettlementAsync</code> credits it <strong>unconditionally</strong>. A subscription or entitlement
-  invoice settled through the existing flow therefore cannot land in 4100 or 2210, and adding a second posting
-  alongside it would <em>double-recognise</em> the invoice.
+<h3>13.1 Routing comes from Finance; the mapping is ours</h3>
+<div class="callout open">
+  <span class="callout-label">Seam in <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088</a></span>
+  <code>PostInvoiceSettlementAsync</code> credits a hard-coded 4000 as a single line, so these accounts could not
+  receive anything. The <strong>seam</strong> that fixes it — <code>ISettlementRevenueResolver</code> plus per-line
+  splitting — is <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 §9</a>.
 </div>
-
 <p>
-  So this spec must change Finance, not merely add accounts: <code>PostInvoiceSettlementAsync</code> resolves its
-  revenue leg from the funding <strong>order's type</strong> rather than a constant —
-  <code>SubscriptionRenewal</code> → 4100, <code>EntitlementPurchase</code> → 2210 (a liability, not revenue, until
-  consumed), everything else → 4000 as today. The mapping is a resolver so a new order type does not mean editing a
-  <code>switch</code> in the posting service.
+  What belongs here is the <strong>mapping</strong>: this module registers a resolver claiming
+  <code>SubscriptionRenewal</code> → <strong>4100</strong> and <code>EntitlementPurchase</code> →
+  <strong>2210</strong> (a liability, not revenue, until consumed), and supplies the <code>meterCode</code> dimension
+  per line. Order types we do not claim are untouched and still credit 4000.
 </p>
 
 <h3>13.2 Postings</h3>
@@ -902,47 +861,18 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
   unknown code still fails closed; it just fails against data rather than against compiled registrations.
 </div>
 
-<h3>14.2 New: <code>Abstractions.Ledger.IJournalWriter</code></h3>
-<p>
-  <code>ILedgerService</code> lives in <code>Aonik.Finance.Contracts</code>, so no other module can post. This mirrors
-  <code>IInvoiceWriter</code> — described in its own XML doc as <em>"the write mirror of the ADR-006 read
-  contracts"</em> — and is implemented by <code>Aonik.Finance</code>:
-</p>
-<pre><code>public interface IJournalWriter
-{
-    Task&lt;JournalEntryRef&gt; PostAsync(PostJournalCommand command, CancellationToken cancellationToken = default);
-}
-
-public sealed record JournalLineSpec(
-    string AccountCode,
-    string Direction,
-    decimal Amount,
-    string Currency,
-    string? Narration = null,
-    string? DimensionsJson = null);   // e.g. {"meterCode":"animated-videos"} — see §13.3
-
-public sealed record PostJournalCommand(
-    Guid LedgerId,                    // REQUIRED — see below
-    string SourceType,
-    Guid SourceId,
-    IReadOnlyList&lt;JournalLineSpec&gt; Lines,
-    DateTime? TimestampUtc = null);</code></pre>
-
-<div class="callout p0">
-  <span class="callout-label">Account codes are only unique within a ledger</span>
-  A tenant may hold several <code>Ledger</code> rows — <code>ILedgerService.CreateLedgerAsync</code> exists and is
-  used — and <code>LedgerAccount.Code</code> is unique per ledger, not tenant-wide. A code-only command would force
-  Finance into a <code>FirstOrDefault</code> guess, which can post a financially material entry into the wrong
-  ledger with the wrong base currency. There is no safe default here, so <code>LedgerId</code> is
-  <strong>required</strong>.
+<h3>14.2 Ledger writing</h3>
+<div class="callout open">
+  <span class="callout-label">Specified in <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088</a></span>
+  <code>ILedgerService</code> lives in <code>Aonik.Finance.Contracts</code> and no other module can post.
+  <code>IJournalWriter</code> — with its required <code>LedgerId</code>, its <code>DimensionsJson</code> line field, and
+  <code>ILedgerResolver</code> for callers that do not track ledgers — is
+  <a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 §5</a>.
 </div>
-
 <p>
-  Callers obtain it from <code>IEntitlementLedgerContext</code>, which resolves the subscription-billing ledger for a
-  tenant once and caches it. Within that ledger, accounts are still addressed <strong>by code</strong> — a caller
-  should not have to resolve a chart of accounts. Finance validates balance (debits = credits), rejects an unknown
-  code, and rejects a <code>LedgerId</code> outside the current tenant. The contract is generally useful and arguably
-  overdue; Commerce will want it too.
+  This module consumes it: usage postings carry <code>{"meterCode": "..."}</code> as their dimension, and the ledger
+  is resolved once per tenant through <code>ILedgerResolver</code>. Margin per meter is then
+  <strong>4110 − 5100 filtered on that dimension</strong>, from the ledger alone.
 </p>
 
 <h2 id="concurrency">15. Concurrency &amp; correctness</h2>
@@ -1085,8 +1015,8 @@ public sealed record PostJournalCommand(
     <tr><td><strong>P2</strong> — catalogue</td><td><code>Meter</code>, <code>Plan</code>, <code>PlanVersion</code>, <code>PlanEntitlement</code> + module + admin CRUD.</td><td>A plan with all three entitlement kinds can be authored and read.</td></tr>
     <tr><td><strong>P3</strong> — subscription <em>+ the free-tier slice</em></td><td><code>Subscription</code>, <code>SubscriptionPeriod</code>, subscribe / cancel / read, <code>ISubscriberAuthorizer</code>, the filtered-unique active invariant, the <strong>zero-total settlement path</strong> (<a href="#money">§12.2</a>), and the <strong>minimum grant + counter-usage slice</strong> needed to actually hold and spend an allowance. No payment.</td><td>A £0 plan works end to end — granted <em>and consumable</em>.</td></tr>
     <tr><td><strong>P4</strong> — full usage</td><td>The rest: <code>UsageReservation</code> + allocations, <code>Held</code>, <code>CeilingHolding</code>/<code>CeilingClaim</code>, draw-down ordering, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
-    <tr><td><strong>P5</strong> — ledger <em>(moved before paid money)</em></td><td>Provisioning contributor for the four accounts; <code>IJournalWriter</code> + <code>IEntitlementLedgerContext</code>; <strong>order-type-aware, per-line settlement routing</strong> (<a href="#ledger">§13.1</a>); <code>Invoice.OrderId</code> persistence (<a href="#money">§12.9</a>).</td><td>A subscription invoice credits 4100 and an entitlement purchase 2210, each dimensioned by meter; a non-subscription invoice still credits 4000 exactly as before.</td></tr>
-    <tr><td><strong>P6</strong> — paid money</td><td>Two order types; <code>PaymentMandate</code> + <code>IRecurringPaymentInitiator</code>; <code>MeterOffer</code> + <code>IEntitlementPurchaseService</code>; renewal with per-side-effect idempotency and order completion; <code>SubscriptionDunningJob</code>.</td><td>A paid period renews idempotently onto the correct accounts; a failed payment yields <code>past_due</code>, retries with a fresh intent, and materialises no grants.</td></tr>
+    <tr><td><strong>P5</strong> — ledger <em>(before paid money)</em></td><td><strong>Requires Spec 088 P1–P5.</strong> Provisioning contributor for the four accounts; register the settlement resolver (<a href="#ledger">§13.1</a>); post usage entries through <code>IJournalWriter</code> with meter dimensions.</td><td>A subscription invoice credits 4100 and an entitlement purchase 2210, each dimensioned by meter.</td></tr>
+    <tr><td><strong>P6</strong> — paid money</td><td><strong>Requires Spec 088 P4.</strong> Two order types; <code>MeterOffer</code> + <code>IEntitlementPurchaseService</code>; renewal against a stored mandate with per-side-effect idempotency and order completion; <code>SubscriptionDunningJob</code>.</td><td>A paid period renews idempotently onto the correct accounts; a failed payment yields <code>past_due</code>, retries with a fresh intent, and materialises no grants.</td></tr>
     <tr><td><strong>P7</strong> — jobs &amp; admin</td><td><strong>Four</strong> jobs (renewal, dunning, reservation sweep, grant expiry); Admin UI for plans, subscriptions, offers, mandates and usage.</td><td>Full solution build + <code>dotnet test Aonik.sln</code> + LocalDB lane green.</td></tr>
   </tbody>
 </table>
@@ -1130,15 +1060,12 @@ public sealed record PostJournalCommand(
   <li>A purchased grant remains usable after the subscriber cancels and resubscribes.</li>
   <li>A plan entitlement with <code>ResetPolicy = never</code> accumulates across renewals rather than being discarded.</li>
   <li>A pending plan change applies at the next boundary and not before.</li>
-  <li>A settled non-subscription invoice still credits 4000, unchanged.</li>
   <li>A short commit spanning plan and purchased grants consumes the <strong>plan</strong> units and returns the purchased ones — never a pro-rata split.</li>
   <li>A retried ceiling claim for the same holder does not consume a second slot; a retried release does not free one twice.</li>
-  <li>A tenant can raise two standalone invoices with no order — the filtered unique index does not block the second.</li>
-  <li>An abandoned public checkout can still create a replacement payment intent for the same order.</li>
   <li>A hard-declined renewal is retried with a <strong>new</strong> intent and eventually settles.</li>
   <li>A published <code>PlanVersion</code> cannot have its price or entitlements edited; the attempt is rejected.</li>
   <li>An entitlement purchase with a client-supplied unit price is rejected; pricing comes from the server-resolved <code>MeterOffer</code>.</li>
-  <li>A multi-meter entitlement purchase produces one dimensioned 2210 credit <em>per line</em>.</li>
+  <li>A multi-meter entitlement purchase produces one dimensioned 2210 credit <em>per line</em> (relies on Spec 088 §9.2).</li>
   <li>A caller cannot subscribe, cancel, read or consume for a subscriber they are not authorised to act for, within the same tenant.</li>
   <li>A failed renewal on a pending upgrade confers <strong>no</strong> new flags and no higher ceiling.</li>
   <li>Both free and paid settled periods leave their order in a completed status, never <code>Draft</code>.</li>
@@ -1196,6 +1123,7 @@ public sealed record PostJournalCommand(
   <li><a href="../decisions/014-business-type-configuration-packs.md">ADR-014 — Business-Type Configuration Packs</a> (how plans and meters are delivered)</li>
   <li><a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015 — Groups and Sharing Are Platform Primitives</a> (the <code>group</code> subscriber kind)</li>
   <li><a href="086.extract-groups-and-sharing-to-platform.html">Spec 086 — Extract groups and sharing to Platform</a></li>
+  <li><a href="088.finance-prerequisites-for-recurring-billing.html">Spec 088 — Finance prerequisites for recurring billing</a> (<strong>hard dependency</strong>)</li>
   <li><a href="041.unified-order-spine-ordering-layer.html">Spec 041 — Unified order spine</a></li>
   <li><a href="060.ai-route-policy-cost-governance.html">Spec 060 — AI route-policy cost governance</a></li>
 </ul>

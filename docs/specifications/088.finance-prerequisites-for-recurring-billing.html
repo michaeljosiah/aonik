@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 088 - Finance prerequisites for recurring billing</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 088</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P1</span>
+  <span class="meta-tag">Domain: Finance / SharedKernel</span>
+  <h1>Finance prerequisites for recurring billing</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Six changes inside <code>Aonik.Finance</code> that any module must have before it can bill recurring revenue
+    correctly: a cross-module <strong>journal-writing contract</strong>, a <strong>payment mandate</strong> so a
+    background job can charge a saved instrument, an <strong>invoice that remembers its order</strong>, idempotency on
+    the invoice and payment-intent writers, and <strong>settlement that routes revenue by order type and splits per
+    line</strong>. Carved out of <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec&nbsp;087</a>,
+    which needs all six but is the wrong place to specify them — none is subscription-specific, and Commerce wants
+    most of them already.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#why">Why this is its own spec</a></li>
+    <li><a href="#gaps">The six gaps, verified</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#journal">Journal writing across modules</a></li>
+    <li><a href="#mandate">Payment mandates</a></li>
+    <li><a href="#orderlink">The invoice must remember its order</a></li>
+    <li><a href="#idempotency">Idempotency without forbidding retries</a></li>
+    <li><a href="#routing">Settlement routing</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> set out to add subscriptions on top of
+  the existing order, invoice, payment and ledger rails. Review found that six things it assumed those rails already
+  did, they do not. Each is a change <em>inside Finance</em>, none is subscription-specific, and together they were
+  turning 087 into two specs wearing one name.
+</p>
+
+<p>They are separated here so each is specified properly, reviewed as Finance work, and reusable by anything else.</p>
+
+<div class="callout ok">
+  <span class="callout-label">The through-line</span>
+  Every one of these is the same shape of gap: a capability that exists for the <strong>interactive, single-payment,
+  storefront</strong> path and was never needed for a <strong>background, recurring, multi-line</strong> one. None is
+  a defect in what exists; each is the cost of a second use case.
+</div>
+
+<h2 id="why">2. Why this is its own spec</h2>
+
+<table>
+  <thead><tr><th>Reason</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>None of it is about subscriptions</strong></td>
+      <td>A payment mandate, an invoice that knows its order, and revenue routing by order type are all things a
+      one-off <code>ProductPurchase</code> or a Commerce checkout can want. Specifying them inside a subscriptions
+      spec buries generic capability under one consumer's requirements.</td>
+    </tr>
+    <tr>
+      <td><strong>Different reviewers</strong></td>
+      <td>These change money-touching paths — settlement postings, invoice writes, payment intents. That is Finance
+      review, and it should not arrive as an appendix to a spec about plans and meters.</td>
+    </tr>
+    <tr>
+      <td><strong>Different risk</strong></td>
+      <td>Settlement routing edits a method every existing invoice already flows through. Getting it wrong misposts
+      revenue for products that have nothing to do with subscriptions, so it needs its own acceptance criteria and its
+      own regression bar.</td>
+    </tr>
+    <tr>
+      <td><strong>087 stops being a mixed spec</strong></td>
+      <td>What remains there is coherent: catalogue, subscription lifecycle, entitlements, grants, metering. It
+      consumes this spec through contracts and owns none of it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="gaps">3. The six gaps, verified</h2>
+
+<p>Each verified against the tree rather than inferred:</p>
+
+<table>
+  <thead><tr><th>#</th><th>Gap</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>No module outside Finance can post to the ledger</td>
+      <td><code>ILedgerService</code> lives in <code>Aonik.Finance.Contracts</code>. <code>IInvoiceWriter</code> and <code>IPaymentInitiator</code> have SharedKernel mirrors; journal posting has none.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Account codes cannot be resolved from a code alone</td>
+      <td>A tenant may hold several <code>Ledger</code> rows (<code>ILedgerService.CreateLedgerAsync</code>), and <code>LedgerAccount.Code</code> is unique per ledger, not tenant-wide.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>No reusable funding instrument</td>
+      <td><code>IPaymentInitiator</code> exposes only <code>CreateGuestIntentForOrderAsync</code> — a guest intent on "the permission-free public payment path", requiring <code>Provider</code> and <code>PaymentMethodType</code> per call. No <code>PaymentMandate</code> entity exists anywhere in the tree.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><code>Invoice.OrderId</code> is never persisted</td>
+      <td><code>InvoiceWriter.CreateForOrderAsync</code> uses <code>command.OrderId</code> only for <code>GenerateInvoiceNumber(...)</code>; <code>BillingService.CreateInvoiceAsync</code>'s request has no order field, so the column stays null.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Neither writer is idempotent</td>
+      <td><code>InvoiceConfiguration.cs:55</code> indexes <code>(TenantId, OrderId)</code> <em>non-uniquely</em>, and neither <code>IInvoiceWriter</code> nor <code>IPaymentInitiator</code> accepts an idempotency key.</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Settlement credits one hard-coded account, as one line</td>
+      <td><code>LedgerPostingService</code> declares <code>private const string RevenueAccountCode = "4000"</code>; <code>PostInvoiceSettlementAsync</code> credits it unconditionally and posts <code>invoice.Total</code> as a single line.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+
+<h3>4.1 In scope</h3>
+<ul>
+  <li><code>SharedKernel.Abstractions.Ledger.IJournalWriter</code>, implemented by Finance.</li>
+  <li>A canonical-ledger concept so a caller can name the ledger it means.</li>
+  <li>A Finance-owned <code>PaymentMandate</code> entity and lifecycle, plus <code>IRecurringPaymentInitiator</code>.</li>
+  <li>Persisting <code>Invoice.OrderId</code> end to end.</li>
+  <li>Idempotency keys on the invoice and payment-intent write paths, with the right uniqueness constraints.</li>
+  <li>Order-type-aware, per-line settlement routing behind a resolver seam.</li>
+</ul>
+
+<h3>4.2 Out of scope</h3>
+<ul>
+  <li>Anything about plans, entitlements, meters or usage — that is <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a>.</li>
+  <li>The subscription-specific ledger accounts (2210, 4100, 4110, 5100) and their order-type mapping. This spec provides the <em>seam</em>; 087 registers its accounts into it.</li>
+  <li>General-purpose dunning, or any use of the <code>DunningPlan</code> entity.</li>
+  <li>Refunds and reversals against consumer-specific accounts.</li>
+  <li>Changing how the existing interactive checkout behaves in any observable way.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The regression bar</span>
+  Every existing money path must behave <strong>identically</strong> after this spec. A non-subscription invoice still
+  credits 4000, as one line. A guest checkout still creates its intent, and can still create a replacement one. This is
+  additive capability, not a change of behaviour, and the acceptance criteria are written to prove that rather than
+  assume it.
+</div>
+
+<h2 id="journal">5. Journal writing across modules</h2>
+
+<pre><code>public interface IJournalWriter
+{
+    Task&lt;JournalEntryRef&gt; PostAsync(PostJournalCommand command, CancellationToken cancellationToken = default);
+}
+
+public sealed record JournalLineSpec(
+    string AccountCode,
+    string Direction,
+    decimal Amount,
+    string Currency,
+    string? Narration = null,
+    string? DimensionsJson = null);
+
+public sealed record PostJournalCommand(
+    Guid LedgerId,
+    string SourceType,
+    Guid SourceId,
+    IReadOnlyList&lt;JournalLineSpec&gt; Lines,
+    DateTime? TimestampUtc = null);</code></pre>
+
+<p>
+  This mirrors <code>IInvoiceWriter</code>, whose own documentation calls it <em>"the write mirror of the ADR-006 read
+  contracts"</em>. Finance validates that debits equal credits, that every code resolves <strong>within the named
+  ledger</strong>, and that the ledger belongs to the current tenant.
+</p>
+
+<h3>5.1 <code>LedgerId</code> is required, not defaulted</h3>
+<div class="callout p0">
+  <span class="callout-label">There is no safe default</span>
+  Account codes are unique per ledger, not per tenant. A code-only command would force Finance into a
+  <code>FirstOrDefault</code>, which can post a financially material entry into the wrong ledger — and, because a
+  ledger carries its own <code>BaseCurrency</code>, in the wrong currency. Guessing silently is worse than making the
+  caller say what it means.
+</div>
+
+<p>
+  Callers that do not track ledgers resolve one through <code>ILedgerResolver.GetCanonicalAsync(tenantId)</code>. A
+  tenant with exactly one ledger resolves to it; a tenant with several must have one marked canonical, and resolution
+  <strong>throws</strong> if none is. Marking a canonical ledger is a small additive flag on <code>Ledger</code>.
+</p>
+
+<h3>5.2 Dimensions</h3>
+<p>
+  <code>JournalEntryLine</code> already carries <code>DimensionsJson</code>, so this only surfaces it on the contract.
+  It is what lets a consumer post several lines into one account and still separate them afterwards — per meter, per
+  product line, per whatever the consumer's analytic unit is. Finance stores it and never interprets it.
+</p>
+
+<h2 id="mandate">6. Payment mandates</h2>
+
+<div class="callout p0">
+  <span class="callout-label">A background job cannot use the guest path</span>
+  <code>CreateGuestIntentForOrderAsync</code> requires a <code>Provider</code> and a <code>PaymentMethodType</code>
+  supplied per call, and creates a <em>guest</em> intent designed for anonymous storefront checkout. A job running
+  unattended has neither value to supply, and "guest" is the wrong semantic for charging a saved instrument under a
+  standing authorisation.
+</div>
+
+<pre><code>PaymentMandate                       // Aonik.Finance, alongside PaymentMethod
+    TenantId, PartyId                // the authorisation belongs to a PARTY
+    Provider                         // who holds the vaulted instrument
+    PaymentMethodId                  // the vaulted method
+    ProviderMandateRef               // the provider's recurring-authorisation token
+    Status        active | revoked | expired
+    AuthorisedAt, ExpiresAt?, RevokedAt?
+    RowVersion</code></pre>
+
+<table>
+  <thead><tr><th>Concern</th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr><td>Ownership</td><td>Tenant + party. A party may hold several; a consumer references one. Never shared across parties.</td></tr>
+    <tr><td>Creation</td><td>At a successful interactive payment, or an explicit "save for future payments" consent. <strong>Never minted by a background job</strong> — a mandate records a human's authorisation, so it must originate in one.</td></tr>
+    <tr><td>Revocation</td><td>Explicit and immediate. Consumers referencing a revoked mandate cannot charge and must surface re-authorisation.</td></tr>
+    <tr><td>Expiry</td><td>Card or provider-mandate expiry sets <code>expired</code>, treated exactly as revoked.</td></tr>
+    <tr><td>Audit</td><td>Creation, revocation and expiry are audit-logged. A standing authorisation to take money is exactly the thing that must be answerable after the fact.</td></tr>
+  </tbody>
+</table>
+
+<pre><code>public interface IRecurringPaymentInitiator
+{
+    /// &lt;summary&gt;
+    /// Charge a stored mandate for an order. Throws if the mandate is revoked, expired,
+    /// or belongs to another tenant. Idempotent on idempotencyKey.
+    /// &lt;/summary&gt;
+    Task&lt;PaymentIntentRef&gt; CreateIntentForMandateAsync(
+        Guid mandateId,
+        Guid orderId,
+        decimal amount,
+        string currency,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+}</code></pre>
+
+<p>
+  A missing, revoked or expired mandate is a <strong>distinct, non-retryable failure</strong>. Retrying cannot fix a
+  withdrawn authorisation, so a consumer must be able to tell that case apart from a soft decline and route the
+  customer to re-authorise rather than looping.
+</p>
+
+<h2 id="orderlink">7. The invoice must remember its order</h2>
+
+<p>
+  <code>Invoice.OrderId</code> exists on the entity and is never written.
+  <code>InvoiceWriter.CreateForOrderAsync</code> takes an <code>OrderId</code>, uses it to build the invoice number,
+  and then calls a billing request that has no field to carry it.
+</p>
+
+<p>Two things depend on fixing that, and neither can work until it is:</p>
+<ul>
+  <li><strong>Settlement routing</strong> (<a href="#routing">§9</a>) reads the funding order's type. With a null link there is no order to read.</li>
+  <li><strong>Invoice idempotency</strong> (<a href="#idempotency">§8</a>) keys on the order. With a null link the key is never distinct.</li>
+</ul>
+
+<p>
+  So <code>CreateInvoiceRequest</code> and <code>BillingService.CreateInvoiceAsync</code> gain the order link and
+  persist it. Invoices raised without an order keep a null <code>OrderId</code>, which stays valid.
+</p>
+
+<h2 id="idempotency">8. Idempotency without forbidding retries</h2>
+
+<p>
+  Both writers accept an idempotency key, matching <code>IOrderService</code>'s existing behaviour. The uniqueness
+  constraints differ, and the difference is load-bearing.
+</p>
+
+<table>
+  <thead><tr><th>Writer</th><th>Constraint</th><th>Why this one</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Invoice</td>
+      <td><strong>filtered</strong> unique <code>(TenantId, OrderId) WHERE OrderId IS NOT NULL</code>, plus unique <code>(TenantId, IdempotencyKey)</code></td>
+      <td>One invoice per order is a real invariant. The filter is mandatory because <code>Invoice.OrderId</code> is nullable and standalone invoices are valid — an unfiltered unique index permits only one NULL per tenant and would fail every tenant's second standalone invoice.</td>
+    </tr>
+    <tr>
+      <td>Payment intent</td>
+      <td>unique <code>(TenantId, IdempotencyKey)</code> <strong>only</strong> — explicitly <em>not</em> unique per order</td>
+      <td>Multiple intents per order are legitimate and required. <code>PublicPaymentService</code> permits an order already in <code>PendingFunding</code> and unconditionally adds another intent (lines 95, 177) — abandoned checkout, a switched method, a retried decline. Constraining by order would break the second attempt for every product on the platform.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Failed intents are terminal, so retries must replace</span>
+  <code>PaymentService</code> enforces its state machine explicitly — capture requires <code>Authorized</code>
+  (<code>if (currentStatus != PaymentStatus.Authorized)</code>), authorisation requires <code>Pending</code>, and
+  <code>Failed</code> is terminal. A consumer retrying a hard decline therefore <strong>must</strong> create a new
+  intent rather than reuse the failed one. That is the second, independent reason intent uniqueness cannot be keyed on
+  the order.
+</div>
+
+<h2 id="routing">9. Settlement routing</h2>
+
+<p>
+  <code>PostInvoiceSettlementAsync</code> today credits <code>RevenueAccountCode = "4000"</code> unconditionally, and
+  posts <code>invoice.Total</code> as a single line. Two changes, both behind seams, so that adding a consumer never
+  means editing a <code>switch</code> in the posting service.
+</p>
+
+<h3>9.1 Route by order type</h3>
+<pre><code>public interface ISettlementRevenueResolver
+{
+    /// &lt;summary&gt;Order types this resolver claims.&lt;/summary&gt;
+    IReadOnlyCollection&lt;string&gt; OrderTypes { get; }
+
+    /// &lt;summary&gt;The account a settled line credits. May be a liability, not revenue.&lt;/summary&gt;
+    string ResolveCreditAccountCode(string orderType, SettlementLineContext line);
+}</code></pre>
+
+<p>
+  Finance resolves the funding order's type from the now-persisted <code>Invoice.OrderId</code> and asks the registered
+  resolver. <strong>An order type with no registered resolver falls back to 4000</strong> — today's behaviour,
+  unchanged, which is what keeps every existing product unaffected.
+</p>
+
+<div class="callout">
+  <span class="callout-label">A credit is not always revenue</span>
+  A consumer may route to a <em>liability</em> account when cash has been received but nothing earned — prepaid units,
+  deposits, gift balances. The resolver returns an account code and the posting service does not assume its type.
+</div>
+
+<h3>9.2 Split per line</h3>
+<p>
+  A single credit for <code>invoice.Total</code> cannot carry a truthful per-line dimension when an order has several
+  lines of different kinds — two different prepaid meters in one checkout, or mixed goods and services. Settlement
+  therefore emits <strong>one credit line per invoice line</strong>, each with the dimension its consumer supplies.
+</p>
+<p>A single-line invoice produces exactly one credit line, identical to today. The debit side is unchanged.</p>
+
+<h2 id="persistence">10. Persistence &amp; migration</h2>
+
+<table>
+  <thead><tr><th>Table</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>AnkPaymentMandates</code></td><td><strong>new</strong>, <code>Ank</code>-prefixed in <code>dbo</code> like everything else</td></tr>
+    <tr><td><code>AnkInvoices</code></td><td>add <code>IdempotencyKey</code>; add filtered unique <code>(TenantId, OrderId) WHERE OrderId IS NOT NULL</code>; add unique <code>(TenantId, IdempotencyKey)</code></td></tr>
+    <tr><td><code>AnkPaymentIntents</code></td><td>add <code>IdempotencyKey</code>; add unique <code>(TenantId, IdempotencyKey)</code>. <strong>No order-scoped uniqueness.</strong></td></tr>
+    <tr><td><code>AnkLedgers</code></td><td>add <code>IsCanonical bit</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Migration rules</span>
+  CLI-generated only, against <code>AonikDbContext</code>, per <code>CLAUDE.md</code>. The <code>IsCanonical</code>
+  backfill runs as an <strong>idempotent Worker job</strong>, not as hand-written SQL in a migration body, and
+  <strong>fails loudly</strong> for any tenant holding several ledgers with none marked — that is a decision for an
+  operator, not a default for a script to invent.
+</div>
+
+<h2 id="phasing">11. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>P1</strong></td><td><code>IJournalWriter</code>, <code>ILedgerResolver</code>, <code>Ledger.IsCanonical</code> + backfill.</td><td>Another module posts a balanced, dimensioned entry to a named ledger; an ambiguous tenant throws rather than guessing.</td></tr>
+    <tr><td><strong>P2</strong></td><td><code>Invoice.OrderId</code> persistence through the writer and billing service.</td><td>An order-backed invoice persists its link; a standalone invoice still persists null.</td></tr>
+    <tr><td><strong>P3</strong></td><td>Idempotency keys and the three indexes.</td><td>Duplicate writes fail at the database; two standalone invoices and a replacement guest intent both still succeed.</td></tr>
+    <tr><td><strong>P4</strong></td><td><code>PaymentMandate</code> + <code>IRecurringPaymentInitiator</code>.</td><td>A stored mandate funds an order unattended; a revoked one fails distinctly and non-retryably.</td></tr>
+    <tr><td><strong>P5</strong></td><td><code>ISettlementRevenueResolver</code> + per-line splitting.</td><td>An unregistered order type still credits 4000 as one line; a registered one routes and splits.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Test lanes</span>
+  The filtered and unique indexes here can only fail on <strong>LocalDB</strong> — the InMemory provider is
+  non-relational and does not enforce unique indexes, so a duplicate-write test passing there proves nothing.
+  <code>tests/Aonik.Database.Tests</code> coverage is mandatory for §8. Run the full solution too:
+  <code>Aonik.Api.Tests</code> boots the whole container, and this adds contributed
+  <code>IEnumerable&lt;T&gt;</code> registrations.
+</div>
+
+<h2 id="acceptance">12. Acceptance criteria</h2>
+
+<p>The first four are regression criteria, and they matter more than the new capability:</p>
+<ol>
+  <li>A settled non-subscription invoice credits <strong>4000</strong>, as a <strong>single</strong> line, exactly as today.</li>
+  <li>A guest checkout creates its intent unchanged, and can still create a <strong>replacement</strong> intent for an order already in <code>PendingFunding</code>.</li>
+  <li>A tenant can raise <strong>two standalone invoices</strong> with no order.</li>
+  <li>No existing Finance test requires modification.</li>
+  <li>A module outside Finance posts a balanced, dimensioned journal entry to a named ledger.</li>
+  <li>A <code>PostJournalCommand</code> naming a ledger from another tenant is rejected.</li>
+  <li><code>ILedgerResolver</code> throws for a tenant with several ledgers and no canonical one, rather than choosing.</li>
+  <li>An order-backed invoice persists <code>OrderId</code>; a standalone invoice persists null.</li>
+  <li>Duplicate invoice and intent writes with the same idempotency key are rejected — on <strong>LocalDB</strong>.</li>
+  <li>A stored mandate funds an order with no interactive input.</li>
+  <li>A revoked or expired mandate fails with a reason distinguishable from a soft decline.</li>
+  <li>A registered order type routes its credit to the resolved account, one line per invoice line, each dimensioned.</li>
+  <li><code>dotnet build Aonik.sln</code>, <code>dotnet test Aonik.sln</code>, and the LocalDB lane green.</li>
+</ol>
+
+<h2 id="open">13. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td>Should <code>ILedgerResolver</code> infer a canonical ledger when a tenant has exactly one?</td><td>Yes at backfill, no at runtime. Inferring at runtime means the answer silently changes the day a second ledger appears.</td></tr>
+    <tr><td>O2</td><td>Does a mandate belong to a party or to a payment method?</td><td>Party. A method can be replaced (a reissued card) while the customer's authorisation persists; tying the mandate to the method forces re-authorisation for a bank's administrative act.</td></tr>
+    <tr><td>O3</td><td>Should settlement splitting apply to the debit side too?</td><td>Not in v1. The cash leg is genuinely one movement; only the credit side carries analytic meaning.</td></tr>
+    <tr><td>O4</td><td>Should <code>IJournalWriter</code> support reversal entries?</td><td>Not here. Refunds and reversals against consumer-specific accounts deserve their own spec, with the ledger's immutability rules stated explicitly.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="refs">14. References</h2>
+<ul>
+  <li><a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087 — Subscriptions, entitlements and metered usage</a> (the consumer this was carved out of)</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> (the read/write contract-mirror pattern)</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> (order types are additive)</li>
+  <li><a href="041.unified-order-spine-ordering-layer.html">Spec 041 — Unified order spine</a></li>
+</ul>
+
+<footer>
+  Spec 088 · Finance prerequisites for recurring billing · Draft Rev 1 · 2026-07-31
+</footer>
+
+</body>
+</html>
