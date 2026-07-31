@@ -259,15 +259,41 @@ describe('validateSurchargeAmount', () => {
   });
 
   it('rejects a non-number', () => {
-    expect(validateSurchargeAmount('abc')).toMatch(/must be a number/);
+    expect(validateSurchargeAmount('abc')).toMatch(/plain number/);
   });
 
   it('rejects a value wider than the column', () => {
-    expect(validateSurchargeAmount('1000000000000000')).toMatch(/larger than/);
+    expect(validateSurchargeAmount('1000000000000000')).toMatch(/sent exactly/);
   });
 
   it('treats a blank amount as valid — that is a clear, not a value', () => {
     expect(validateSurchargeAmount('')).toBeNull();
     expect(validateSurchargeAmount('   ')).toBeNull();
+  });
+});
+
+describe('validateSurchargeAmount — text, never Number()', () => {
+  it('rejects exponent notation, which has no decimal point but five decimals', () => {
+    // Number('1e-5') is finite and the string contains no ".", so a scale check derived from
+    // the coerced number sees zero decimals and lets 0.00001 through to be stored as 0.0000.
+    expect(validateSurchargeAmount('1e-5')).toMatch(/plain number/);
+    expect(validateSurchargeAmount('1E5')).toMatch(/plain number/);
+    expect(validateSurchargeAmount('1.5e2')).toMatch(/plain number/);
+  });
+
+  it('rejects other things Number() happily coerces', () => {
+    expect(validateSurchargeAmount('0x10')).toMatch(/plain number/);
+    expect(validateSurchargeAmount('Infinity')).toMatch(/plain number/);
+    expect(validateSurchargeAmount('1_000')).toMatch(/plain number/);
+  });
+
+  it('rejects a literal too wide to survive the trip as a double', () => {
+    // 19 digits fits decimal(19,4) but not a double — it is already rounded before it is sent.
+    expect(validateSurchargeAmount('100000000000000.0001')).toMatch(/sent exactly/);
+  });
+
+  it('counts SIGNIFICANT digits, so leading zeros do not consume the budget', () => {
+    expect(validateSurchargeAmount('0.0001')).toBeNull();
+    expect(validateSurchargeAmount('000000000002.5000')).toBeNull();
   });
 });

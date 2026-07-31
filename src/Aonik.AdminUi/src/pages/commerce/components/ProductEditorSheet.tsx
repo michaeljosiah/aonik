@@ -134,6 +134,19 @@ export function ProductEditorSheet({
     };
   }, []);
 
+  // Leaving the APP mid-save gets the browser's own confirmation. In-app navigation cannot be
+  // blocked the same way here: `useBlocker` needs a data router and this app mounts a plain
+  // BrowserRouter/HashRouter (App.tsx:71), and driving `history` directly under a non-data
+  // router desynchronises the router's own location. So an interrupted save is contained
+  // rather than prevented — each section commits independently and advances its baseline, so
+  // what landed is knowable on reopen instead of half-applied.
+  useEffect(() => {
+    if (!saving) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [saving]);
+
   // ONE expression for what the operator sees and what gets saved. Seeding the state instead
   // races the product read: whichever request lands second wins, so the config could seed the
   // currency and `load` then blank it — leaving the select showing a currency while the save

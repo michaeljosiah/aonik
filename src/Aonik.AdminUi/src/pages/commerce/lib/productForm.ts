@@ -147,26 +147,40 @@ export function surchargePayload(amount: string, currency: string): SurchargePay
 /** The mapped column bound for a media URL — `ProductMediaConfiguration`, enforced server-side. */
 export const MEDIA_URL_MAX = 1024;
 
+/** Plain fixed-point only. Deliberately excludes `1e-5`, `0x10`, `Infinity` and whitespace. */
+const FIXED_POINT = /^-?\d+(\.\d+)?$/;
+
 /**
  * Why a client-side rule for a server-side limit: the surcharge is written LAST, so a value
  * the database silently reshapes is only discovered after the details and media writes have
  * committed. `UnitSurcharge` is `decimal(19,4)`, so a fifth decimal is not rejected — it is
  * ROUNDED, changing a financially material amount while the save reports success.
  *
+ * Everything here is decided on the TEXT, never on `Number(text)`. Coercing first loses the
+ * two facts being checked: `1e-5` has no decimal point yet carries five decimals, and a
+ * 19-digit literal is already rounded by the time it is a double. The digit cap is 15 rather
+ * than the column's 19 for the same reason — a decimal of at most 15 significant digits is
+ * the shortest string that round-trips through a double, so what the operator typed is what
+ * gets transmitted.
+ *
  * Returns a message, or null when the amount is storable exactly as typed.
  */
 export function validateSurchargeAmount(amount: string): string | null {
   const trimmed = amount.trim();
   if (trimmed === '') return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return 'Surcharge amount must be a number.';
-  if (parsed < 0) return 'A surcharge cannot be negative.';
-  const decimals = trimmed.includes('.') ? trimmed.split('.')[1].replace(/\s/g, '').length : 0;
-  if (decimals > 4) {
+  if (!FIXED_POINT.test(trimmed)) {
+    return 'Surcharge amount must be a plain number, like 2.50 — exponent notation is not stored exactly.';
+  }
+  if (trimmed.startsWith('-')) return 'A surcharge cannot be negative.';
+
+  const [whole, fraction = ''] = trimmed.split('.');
+  if (fraction.length > 4) {
     return 'A surcharge is stored to 4 decimal places — a longer value would be rounded on save.';
   }
-  // 19 total digits, 4 of them fractional.
-  if (Math.abs(parsed) >= 10 ** 15) return 'That surcharge is larger than the stored amount allows.';
+  const significant = (whole + fraction).replace(/^0+/, '').length;
+  if (significant > 15) {
+    return 'That surcharge has more digits than can be sent exactly — use at most 15.';
+  }
   return null;
 }
 
