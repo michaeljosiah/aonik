@@ -11,15 +11,25 @@ export function formatDate(value?: string | null): string {
   });
 }
 
-/** Whole-unit money in the given currency; an unknown code falls back to `CODE 1,234`. */
+/**
+ * Money in the given currency at that currency's OWN precision; an unknown code falls back
+ * to `CODE 1,234.50`.
+ *
+ * Deliberately no `maximumFractionDigits: 0`. Commerce totals carry real minor units —
+ * fractional prices, discounts and tax — so rounding rendered GBP 95.50 as "£96", reporting
+ * an amount the order does not have. Intl already omits decimals for zero-decimal
+ * currencies like JPY, so the default is right for both.
+ */
 export function formatCurrency(amount: number, currency: string): string {
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
-      maximumFractionDigits: 0,
     }).format(amount);
   } catch {
-    return `${currency} ${Math.round(amount).toLocaleString()}`;
+    return `${currency} ${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
 }

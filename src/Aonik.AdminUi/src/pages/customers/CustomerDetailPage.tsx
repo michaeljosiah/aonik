@@ -77,6 +77,8 @@ const VERIFICATION_TONE: Record<string, PillTone> = {
 type TabKey = 'overview' | 'finance' | 'orders' | 'commerce' | 'insights' | 'documents' | 'activity';
 type FinanceSubKey = 'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph';
 
+const ORDERS_PAGE_SIZE = 25;
+
 // One party, every lens (Spec 081). Commerce is module-gated at render — a billing-only
 // tenant never sees it, and there is never a second customer view.
 const TABS: Array<{ value: TabKey; label: string; module?: string }> = [
@@ -151,9 +153,13 @@ export function CustomerDetailPage() {
 
   // Module gating: a manifest that omits commerce hides the tab entirely (no dead tab);
   // an absent manifest fails OPEN, matching useModules' own degradation.
-  const visibleTabs = TABS.filter(
-    (tab) => !tab.module || !manifest || manifest.enabledModules.includes(tab.module),
+  const isTabVisible = useCallback(
+    (tab: { module?: string }) =>
+      !tab.module || !manifest || manifest.enabledModules.includes(tab.module),
+    [manifest],
   );
+  const visibleTabs = TABS.filter(isTabVisible);
+  const commerceVisible = isTabVisible({ module: 'commerce' });
   const { partyId } = useParams<{ partyId: string }>();
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -175,6 +181,7 @@ export function CustomerDetailPage() {
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -238,17 +245,22 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
-  const loadOrders = useCallback(async () => {
+  // Paged, and APPENDING — the Commerce tab's box history walks the party's whole
+  // storefront record, so a spine capped at one page would show fewer purchases than the
+  // box history beside it and break the row-for-row consistency Spec 081 requires. The
+  // tab can now reach every order.
+  const loadOrders = useCallback(async (page = 1) => {
     if (!partyId) return;
     setOrdersLoading(true);
     setOrdersError(null);
     try {
       const result = await orderService.listOrders({
         payerPartyId: partyId,
-        pageNumber: 1,
-        pageSize: 25,
+        pageNumber: page,
+        pageSize: ORDERS_PAGE_SIZE,
       });
-      setOrders(result.items);
+      setOrders((previous) => (page === 1 ? result.items : [...previous, ...result.items]));
+      setOrdersPage(page);
       setOrdersTotal(result.totalCount);
     } catch (err: unknown) {
       const message =
@@ -305,7 +317,7 @@ export function CustomerDetailPage() {
   useEffect(() => {
     if (activeTab === 'documents') void loadDocuments();
     if (activeTab === 'insights') void loadInsights();
-    if (activeTab === 'orders') void loadOrders();
+    if (activeTab === 'orders') void loadOrders(1);
     if (activeTab === 'overview' || activeTab === 'activity') void loadActivity();
   }, [activeTab, loadDocuments, loadInsights, loadOrders, loadActivity]);
 
@@ -578,10 +590,12 @@ export function CustomerDetailPage() {
         />
       )}
 
-      {activeTab === 'commerce' && partyId && <CommerceTab partyId={partyId} />}
+      {activeTab === 'commerce' && commerceVisible && partyId && <CommerceTab partyId={partyId} />}
 
       {activeTab === 'orders' && (
         <OrdersSpineTab
+          hasMore={orders.length < ordersTotal}
+          onLoadMore={() => void loadOrders(ordersPage + 1)}
           orders={orders}
           totalCount={ordersTotal}
           loading={ordersLoading}

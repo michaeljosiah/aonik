@@ -31,6 +31,9 @@ interface OrdersSpineTabProps {
   error: string | null;
   onView: (orderId: string) => void;
   onReload: () => void;
+  /** More orders exist beyond what is loaded — the list is a window, not the whole record. */
+  hasMore: boolean;
+  onLoadMore: () => void;
 }
 
 export function OrdersSpineTab({
@@ -40,13 +43,15 @@ export function OrdersSpineTab({
   error,
   onView,
   onReload,
+  hasMore,
+  onLoadMore,
 }: OrdersSpineTabProps) {
   return (
     <AonikCard
       title="Orders"
       subtitle={
         totalCount > 0
-          ? `${totalCount.toLocaleString()} total · orders this customer pays for`
+          ? `Showing ${orders.length.toLocaleString()} of ${totalCount.toLocaleString()} · orders this customer pays for`
           : 'Orders this customer pays for'
       }
       action={
@@ -70,7 +75,9 @@ export function OrdersSpineTab({
         </div>
       )}
 
-      {loading ? (
+      {/* Full-page spinner only on the FIRST load — an append must not blank the table the
+          operator is reading; the Load more button disables itself instead. */}
+      {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-6">
           <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
         </div>
@@ -137,6 +144,19 @@ export function OrdersSpineTab({
               })}
             </tbody>
           </table>
+
+          {hasMore && (
+            <div className="pt-3 text-center">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loading}
+                className="text-xs text-[var(--color-brand-primary)] hover:underline disabled:opacity-50"
+              >
+                Load more
+              </button>
+            </div>
+          )}
         </div>
       )}
     </AonikCard>
