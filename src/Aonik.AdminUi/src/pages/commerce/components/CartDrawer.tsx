@@ -16,25 +16,10 @@ import { formatCurrency, formatDateTime } from '@/lib/format';
 import type { AdminCartDetailDto, AdminCartLineDto } from '@/types/commerce';
 
 import { BuyerLabel } from './BuyerLabel';
-import { cartBlocked } from '../lib/cartState';
+import { cartAction, cartBlocked } from '../lib/cartState';
 import { cartStatusTone } from '../lib/statusTone';
 
-const OPEN = 'Open';
-const ABANDONED = 'Abandoned';
-const CHECKED_OUT = 'CheckedOut';
-
-interface CartDrawerProps {
-  cartId: string;
-  /**
-   * The cart total from the list row. The DETAIL read carries no total, and the per-line
-   * snapshots cannot be summed into one (they exclude personalisation and surcharge), so this
-   * is the only authoritative figure available to the drawer.
-   */
-  total?: number;
-  onClose: () => void;
-}
-
-export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
+export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () => void }) {
   const navigate = useNavigate();
   const [cart, setCart] = useState<AdminCartDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +47,9 @@ export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
   }, [load]);
 
   const verdict = cartBlocked(cart?.boxMeta);
+  const action = cart
+    ? cartAction({ status: cart.status, orderId: cart.orderId, boxMeta: cart.boxMeta })
+    : ({ kind: 'none' } as const);
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -82,6 +70,14 @@ export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              {action.kind === 'view-order' && action.note && (
+                // Why the cart cannot be resumed even though it looks complete. Without this
+                // the disappearance of the resume action would read as a bug.
+                <p className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                  {action.note}
+                </p>
+              )}
+
               {verdict.blocked && (
                 <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2">
                   <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-[var(--color-warning)]" />
@@ -108,14 +104,12 @@ export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
                     </span>
                   )}
                   <span>Last activity {formatDateTime(cart.updatedAtUtc)}</span>
-                  {total != null && (
-                    <span>
-                      Total{' '}
-                      <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-primary)]">
-                        {formatCurrency(total, cart.currency)}
-                      </span>
+                  <span>
+                    Total{' '}
+                    <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-primary)]">
+                      {formatCurrency(cart.total, cart.currency)}
                     </span>
-                  )}
+                  </span>
                 </div>
               </AonikCard>
 
@@ -140,40 +134,41 @@ export function CartDrawer({ cartId, total, onClose }: CartDrawerProps) {
           )}
         </SheetBody>
 
+        {/* ONE action, from one derivation — see `cartAction`. Deciding it here from status
+            alone is what let a claimed-but-Open cart offer a resume the server refuses. */}
         <SheetFooter>
-          {cart?.status === ABANDONED && (
+          {action.kind === 'recover' && (
             // Recovery has no backend flow for commerce yet; the action renders and says so
             // rather than pretending to send something.
             <Button
               variant="outline"
-              onClick={() =>
-                toast.info('Cart recovery is not wired yet — no message was sent.')
-              }
+              onClick={() => toast.info('Cart recovery is not wired yet — no message was sent.')}
             >
               Send recovery link
             </Button>
           )}
 
-          {cart?.status === OPEN &&
-            (verdict.blocked ? (
-              <Button variant="outline" disabled title={verdict.reason ?? undefined}>
-                Checkout blocked
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  toast.info('Checkout is the customer’s action — this cart is ready for it.')
-                }
-              >
-                Resume checkout
-              </Button>
-            ))}
+          {action.kind === 'blocked' && (
+            <Button variant="outline" disabled title={action.reason}>
+              Checkout blocked
+            </Button>
+          )}
 
-          {cart?.status === CHECKED_OUT && cart.orderId && (
+          {action.kind === 'resume' && (
             <Button
               variant="outline"
-              onClick={() => navigate(`/commerce/orders/${cart.orderId}`)}
+              onClick={() =>
+                toast.info('Checkout is the customer’s action — this cart is ready for it.')
+              }
+            >
+              Resume checkout
+            </Button>
+          )}
+
+          {action.kind === 'view-order' && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/commerce/orders/${action.orderId}`)}
             >
               View order
             </Button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cartBlocked, formatBoxFill } from './cartState';
+import { cartAction, cartBlocked, formatBoxFill } from './cartState';
 
 describe('cartBlocked', () => {
   it('blocks a drifted box WITHOUT blaming a line', () => {
@@ -66,5 +66,47 @@ describe('formatBoxFill', () => {
   it('renders the fill for a box cart and a dash otherwise', () => {
     expect(formatBoxFill({ size: 6, filled: 3, drift: false })).toBe('3/6');
     expect(formatBoxFill(null)).toBe('—');
+  });
+});
+
+describe('cartAction', () => {
+  const full = { size: 6, filled: 6, drift: false };
+
+  it('directs a CLAIMED open cart to its order instead of offering resume', () => {
+    // Checkout stamps OrderId while leaving the cart Open until payment confirms
+    // (CheckoutService.cs:358 vs :437). The cart is full and undrifted, so cartBlocked passes
+    // it — but the service boundary rejects further cart operations once an order claims it.
+    const action = cartAction({ status: 'Open', orderId: 'order-1', boxMeta: full });
+    expect(action.kind).toBe('view-order');
+    expect(action.kind === 'view-order' && action.note).toMatch(/awaiting payment/);
+  });
+
+  it('offers resume only for an unclaimed, unblocked open cart', () => {
+    expect(cartAction({ status: 'Open', orderId: null, boxMeta: full }).kind).toBe('resume');
+  });
+
+  it('blocks an open cart that cannot check out, carrying the reason', () => {
+    const action = cartAction({
+      status: 'Open',
+      orderId: null,
+      boxMeta: { size: 6, filled: 4, drift: false },
+    });
+    expect(action.kind).toBe('blocked');
+    expect(action.kind === 'blocked' && action.reason).toMatch(/under-filled/);
+  });
+
+  it('offers recovery for an abandoned cart', () => {
+    expect(cartAction({ status: 'Abandoned', orderId: null, boxMeta: null }).kind).toBe('recover');
+  });
+
+  it('links a checked-out cart to its order', () => {
+    expect(cartAction({ status: 'CheckedOut', orderId: 'order-9', boxMeta: null }).kind).toBe(
+      'view-order',
+    );
+  });
+
+  it('offers nothing for a cart in a status this page has no action for', () => {
+    // Expired, or any status added server-side later — silence beats a guessed action.
+    expect(cartAction({ status: 'Expired', orderId: null, boxMeta: null }).kind).toBe('none');
   });
 });

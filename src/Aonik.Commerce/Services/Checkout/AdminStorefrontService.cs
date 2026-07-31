@@ -332,6 +332,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             state.BoxMeta,
             cart.OrderId,
             ActivityOf(cart),
+            state.Total,
             lines);
     }
 

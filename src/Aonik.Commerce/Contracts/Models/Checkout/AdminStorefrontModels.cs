@@ -139,6 +139,13 @@ public record AdminCartDetailDto(
     AdminCartBoxMetaDto? BoxMeta,
     Guid? OrderId,
     DateTime UpdatedAtUtc,
+    /// <summary>
+    /// The cart's charged total, computed with the lines rather than derivable from them: a
+    /// line carries only its price snapshot, while the charge adds the personalisation
+    /// adjustment and unit surcharge, and a BoxDish snapshot is 0 because the box is priced
+    /// as a container. A caller summing the lines would understate every personalised cart.
+    /// </summary>
+    decimal Total,
     IReadOnlyList<AdminCartLineDto> Lines);
 
 public record AdminPartyActiveCartDto(Guid CartId, int Size, int Filled);

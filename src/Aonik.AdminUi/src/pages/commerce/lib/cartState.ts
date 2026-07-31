@@ -59,6 +59,46 @@ export function cartBlocked(boxMeta: CartBoxMetaLike | null | undefined): CartBl
   return { blocked: true, reason: `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.` };
 }
 
+/** What the drawer footer may offer for a cart. */
+export type CartAction =
+  | { kind: 'view-order'; orderId: string; note: string }
+  | { kind: 'blocked'; reason: string }
+  | { kind: 'resume' }
+  | { kind: 'recover' }
+  | { kind: 'none' };
+
+/**
+ * The single action a cart supports right now.
+ *
+ * `orderId` is checked FIRST and independently of status, because checkout stamps it while
+ * deliberately leaving the cart Open until payment confirms (`CheckoutService.cs:358`; the
+ * status only moves to CheckedOut later, at :437). Such a cart is full, undrifted and
+ * therefore passes `cartBlocked` — but the service boundary rejects further cart operations
+ * because an order has already claimed it. Offering "Resume checkout" there would promise an
+ * operation the server refuses, which is the same class of error as ignoring a drift flag.
+ */
+export function cartAction(cart: {
+  status: string;
+  orderId: string | null;
+  boxMeta: CartBoxMetaLike | null;
+}): CartAction {
+  if (cart.orderId) {
+    return {
+      kind: 'view-order',
+      orderId: cart.orderId,
+      note:
+        cart.status === 'Open'
+          ? 'An order has claimed this cart and is awaiting payment — the cart itself can no longer be changed.'
+          : '',
+    };
+  }
+  if (cart.status === 'Abandoned') return { kind: 'recover' };
+  if (cart.status !== 'Open') return { kind: 'none' };
+
+  const verdict = cartBlocked(cart.boxMeta);
+  return verdict.blocked ? { kind: 'blocked', reason: verdict.reason! } : { kind: 'resume' };
+}
+
 /** The compact list-column form: `3/6`, or `—` where there is no box. */
 export function formatBoxFill(boxMeta: CartBoxMetaLike | null | undefined): string {
   return boxMeta ? `${boxMeta.filled}/${boxMeta.size}` : '—';

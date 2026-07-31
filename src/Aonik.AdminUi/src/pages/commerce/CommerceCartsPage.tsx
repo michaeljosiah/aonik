@@ -310,7 +310,6 @@ export function CommerceCartsPage() {
         <CartDrawer
           key={openCart.cartId}
           cartId={openCart.cartId}
-          total={openCart.total}
           onClose={() => setOpenCart(null)}
         />
       )}
