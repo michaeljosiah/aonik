@@ -244,6 +244,14 @@ export interface ProductContentDto {
   describesSelectionJson: string;
   requiresReview: boolean;
   contentVersion: number;
+  /**
+   * Optimistic-concurrency token over the AUTHORED fields.
+   *
+   * `contentVersion` cannot serve: the content write pipeline is shared, so any variant write
+   * bumps it while the block's own text is untouched — versioning the row fabricates conflicts
+   * for unrelated writes, and the only remedy offered discards the operator's draft.
+   */
+  blockSignature: string;
 }
 
 export interface ProductContentVariantDto {

@@ -139,7 +139,7 @@ public class ProductContentResolutionTests
         before!.DeclarationsWithheld.Should().BeTrue();
         before.Allergens.Should().BeNull("inheritance from the block is exactly the §2 incident");
 
-        await content.UpsertContentAsync(productId, DefaultBlock(allergens: "Crustaceans, Celery"));
+        await WriteBlockAsync(content, productId, DefaultBlock(allergens: "Crustaceans, Celery"));
         var after = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
         after!.Allergens.Should().BeNull("the block edit must not alter what the variant serves");
     }
@@ -188,7 +188,7 @@ public class ProductContentResolutionTests
         chicken.DeclarationsWithheld.Should().BeTrue();
 
         // Confirm-review clears the flag and re-captures the binding.
-        await content.ConfirmContentReviewAsync(productId);
+        await ConfirmAsync(content, productId);
         var afterConfirm = await content.ResolveAsync(productId, Selection("""{"protein":"chicken"}"""));
         afterConfirm!.IsStale.Should().BeFalse();
     }
@@ -264,7 +264,7 @@ public class ProductContentResolutionTests
         var (content, productId, _, _) = await ArrangeAsync();
         // The upsert stores "[]" for a block authored with no steps, so this is the state an
         // ordinary product reaches — it must stay distinguishable from unreadable damage.
-        await content.UpsertContentAsync(productId, DefaultBlock() with { HeatingJson = null });
+        await WriteBlockAsync(content, productId, DefaultBlock() with { HeatingJson = null });
 
         var admin = await content.GetAdminAsync(productId);
 
@@ -311,6 +311,87 @@ public class ProductContentResolutionTests
         admin.CurrentDefaultsSelectionJson.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task ConfirmReview_Should_RequireTheBinding_RatherThanAcceptingItsAbsence()
+    {
+        // An OPTIONAL precondition is one a non-UI caller can decline, which is the same as not
+        // having one — the parameter is non-nullable so omitting it is a compile error, and an
+        // empty value is refused rather than treated as "no opinion".
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        var act = async () => await content.ConfirmContentReviewAsync(productId, "");
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C9*");
+    }
+
+    [Fact]
+    public async Task UpsertContent_Should_Refuse_When_TheBlockChangedUnderneath()
+    {
+        // V-C10 — the upsert is a FULL REPLACE, so the loser of a race silently erases the
+        // winner's text. Enforced in the serialized write because the editor's own re-read
+        // cannot close its own read-to-write window.
+        var (content, productId, _, _) = await ArrangeAsync();
+        var admin = await content.GetAdminAsync(productId);
+        await WriteBlockAsync(content, productId, DefaultBlock("Molluscs"));
+
+        var act = async () => await content.UpsertContentAsync(
+            productId,
+            DefaultBlock("Celery"),
+            new BlockWritePrecondition(admin.CurrentDefaultsSelectionJson, admin.Block!.BlockSignature));
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C10*");
+    }
+
+    [Fact]
+    public async Task UpsertContent_Should_Refuse_When_ItClaimsNoBlockExisted()
+    {
+        // Null is an ASSERTION that there was no block, not an opt-out — first authoring states
+        // its own precondition in the same currency as an edit.
+        var (content, productId, _, _) = await ArrangeAsync();
+
+        var act = async () => await content.UpsertContentAsync(
+            productId,
+            DefaultBlock(),
+            new BlockWritePrecondition(
+                (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson, null));
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C10*");
+    }
+
+    [Fact]
+    public async Task BlockSignature_Should_NotMove_When_AVariantIsWritten()
+    {
+        // ContentVersion cannot serve as the block's token: the write pipeline is shared, so a
+        // variant write bumps it while the block's own text is untouched — which fabricated a
+        // conflict and offered a reload that discarded the operator's draft.
+        var (content, productId, _, _) = await ArrangeAsync();
+        var before = await content.GetAdminAsync(productId);
+
+        await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
+        var after = await content.GetAdminAsync(productId);
+
+        after.Block!.BlockSignature.Should().Be(before.Block!.BlockSignature);
+        after.Block.ContentVersion.Should().BeGreaterThan(before.Block.ContentVersion,
+            "the shared pipeline still versions the row — which is exactly why it cannot be the block's token");
+    }
+
+    [Fact]
+    public async Task UpdateVariant_Should_Refuse_When_ItWouldLandOnAnotherCombination()
+    {
+        // V-C11 — the payload is SHAPED against an offer read before the request; normalisation
+        // uses the current one. Naming the landing combination is what stops a shifted offer
+        // from moving the variant, carrying content authored for the one it used to be.
+        var (content, productId, _, _) = await ArrangeAsync();
+        var variant = await content.AddVariantAsync(productId, Variant("""{"protein":"salmon"}""", 640, "Salmon"));
+
+        var act = async () => await content.UpdateVariantAsync(
+            variant.Id,
+            Variant("""{"protein":"salmon"}""", 655, "Salmon"),
+            """{"protein":"something-else"}""");
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C11*");
+    }
+
     private static async Task<(ProductContentService Content, Guid ProductId, OptionCatalogueBuilder Builder, Aonik.Commerce.Persistence.CommerceDbContext Ctx)> ArrangeAsync()
     {
         var (content, productId, builder, ctx, _) = await ArrangeWithTenantAsync();
@@ -327,7 +408,7 @@ public class ProductContentResolutionTests
         await builder.OfferAllAsync(productId);
 
         var content = CommerceTestHarness.NewContentService(ctx, tenantId);
-        await content.UpsertContentAsync(productId, DefaultBlock());
+        await WriteBlockAsync(content, productId, DefaultBlock());
 
         return (content, productId, builder, ctx, tenantId);
     }
@@ -351,4 +432,32 @@ public class ProductContentResolutionTests
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
     }
+
+    /// <summary>Every content write now states what it was authored against (Spec 075 V-C9/V-C10):
+    /// the standard preparation, and the block it replaces. These helpers read both from the
+    /// service so a test states the ordinary "nothing changed underneath me" case in one call —
+    /// the preconditions themselves are exercised directly where they are the subject.</summary>
+    private static async Task<ProductContentDto> WriteBlockAsync(
+        IProductContentService content, Guid productId, UpsertProductContentCommand command)
+    {
+        var admin = await content.GetAdminAsync(productId);
+        return await content.UpsertContentAsync(
+            productId,
+            command,
+            new BlockWritePrecondition(admin.CurrentDefaultsSelectionJson, admin.Block?.BlockSignature));
+    }
+
+    private static async Task<ProductContentDto> ConfirmAsync(
+        IProductContentService content, Guid productId)
+        => await content.ConfirmContentReviewAsync(
+            productId, (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson);
+
+    private static async Task<ProductContentVariantDto> UpdateVariantAsync(
+        IProductContentService content, Guid variantId, UpsertContentVariantCommand command,
+        string? expectedCanonical = null)
+    {
+        var expected = expectedCanonical ?? command.SelectionJson;
+        return await content.UpdateVariantAsync(variantId, command, expected);
+    }
+
 }

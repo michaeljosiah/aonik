@@ -171,19 +171,18 @@ export function ContentVariantSheet({
       // and an option write by another operator changes that without touching anything this
       // sheet versions. Serialisation uses the fresh offer for the same reason: shaping a
       // payload against a snapshot is how it stops matching.
-      let offer: EffectiveOptionGroupDto[];
+      // Read for a BETTER MESSAGE, not for safety. The write below names the combination it
+      // must land on and the service refuses (V-C11) if normalisation would put it anywhere
+      // else — so an unreadable offer no longer has to block the save. It used to fail closed
+      // because this check was the only thing standing between a shifted offer and a silently
+      // retargeted variant; with the precondition enforced where the write happens, refusing on
+      // a transient read failure would cost the operator their work for nothing.
+      let offer = groups;
       try {
-        const product = await commerceCatalogService.getProduct(productId);
-        offer = product.effectiveOptionGroups ?? [];
+        offer = (await commerceCatalogService.getProduct(productId)).effectiveOptionGroups ?? [];
+        setGroups(offer);
       } catch {
-        // Fails CLOSED. An unread offer is not an unchanged one, and the whole point of the
-        // check is that a moved offer is invisible in everything else the save can see.
-        setError(
-          'The product’s current options could not be read, so this cannot be saved safely — ' +
-            'the combination it would land on cannot be confirmed. Try again.',
-        );
-        setSaving(false);
-        return;
+        // Keep the snapshot and let the server have the final word.
       }
 
       // DRIFT — three ways a stored selection can stop being expressible (removed group,
@@ -196,7 +195,6 @@ export function ContentVariantSheet({
       // promise about identity, and a save that quietly lands elsewhere breaks it just as badly
       // as one from the edit path. Only a blank start is genuinely partial: nothing has been
       // promised there, so letting the server complete it is the intent.
-      setGroups(offer);
       const drift = detectSelectionDrift(selection, offer, {
         storedIsCanonical: !!variant || !!initialSelectionJson,
       });
@@ -244,6 +242,11 @@ export function ContentVariantSheet({
         // Possibly PARTIAL, and shaped per group mode. The service normalises through Spec 066
         // and stores the complete canonical selection.
         selectionJson: serialiseSelection(selection, offer),
+        // ...which is why the landing combination is named separately. A selection shaped
+        // against one offer and normalised against another lands somewhere the operator never
+        // chose; the server refuses that (V-C11) rather than accepting it quietly. Null only
+        // for a genuinely new combination, where completion by normalisation IS the intent.
+        expectedCanonicalSelectionJson: variant?.selectionJson ?? initialSelectionJson ?? null,
         ...wireFromDraft(draft),
       };
       if (baseline) await commerceContentService.updateVariant(baseline.id, payload);

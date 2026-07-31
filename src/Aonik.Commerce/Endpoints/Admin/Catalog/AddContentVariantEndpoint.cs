@@ -24,7 +24,8 @@ public class AddContentVariantEndpoint : Endpoint<UpsertContentVariantRequest, P
 
     public override async Task HandleAsync(UpsertContentVariantRequest req, CancellationToken ct)
     {
-        var result = await _content.AddVariantAsync(Route<Guid>("productId"), Map(req), ct);
+        var result = await _content.AddVariantAsync(
+            Route<Guid>("productId"), Map(req), req.ExpectedCanonicalSelectionJson, ct);
         await Send.OkAsync(result, ct);
     }
 

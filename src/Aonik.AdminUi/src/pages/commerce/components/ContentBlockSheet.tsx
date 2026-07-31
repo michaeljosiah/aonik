@@ -16,19 +16,16 @@
 //      people's allergen edits produces a panel neither of them authored, and allergens are
 //      the one field on this page where being wrong is a safety incident rather than a typo.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
-import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceContentService } from '@/services/commerceContentService';
 import type { ProductContentDto } from '@/types/commerce';
 
 import { ContentFields } from './ContentFields';
-import { blockSignature } from '../lib/contentState';
-import { defaultSignature } from '../lib/offerSignature';
 import {
   draftFromBlock,
   validateDraft,
@@ -40,6 +37,8 @@ export function ContentBlockSheet({
   productId,
   productName,
   block,
+  expectedDefaults,
+  isStale,
   onClose,
   onSaved,
 }: {
@@ -47,6 +46,10 @@ export function ContentBlockSheet({
   productName: string;
   /** Null when authoring the first block for this product. */
   block: ProductContentDto | null;
+  /** The standard preparation as of the read this sheet opened from (V-C9). */
+  expectedDefaults: string;
+  /** The block no longer describes the current standard preparation. */
+  isStale: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -55,51 +58,21 @@ export function ContentBlockSheet({
   // refers to what the operator can currently see.
   const [baseline, setBaseline] = useState<ProductContentDto | null>(block);
   /**
-   * The default combination as it stood when this sheet established it — the preparation the
-   * operator believes they are describing.
+   * The standard preparation this draft is being written against.
    *
-   * `contentVersion` versions the block ROW, and the preparation it describes is not part of
-   * that row: another operator changing the effective default moves what these figures will be
-   * published against without touching anything the version comparison can see. When no block
-   * exists yet there is no row to version at all, so the comparison passes unconditionally and
-   * the first-authoring path — the one where every field is being written from scratch — was
-   * the least guarded of the two.
-   *
-   * The sheet READS it rather than taking the page's snapshot. Seeding from a prop gave the
-   * comparison two different sources and no way to re-establish: a Reload refreshed the block
-   * and left this at its open-time value, so the conflict re-raised on every subsequent save —
-   * an advertised recovery that recovers nothing — and a page whose own offer read had failed
-   * seeded an empty signature that could never match.
+   * Sent with the write and enforced THERE (V-C9). It is the server's own canonical binding,
+   * from the same read that produced the block — not a signature this client derives from an
+   * offer it fetches separately, which needed a second read, could fail on its own, and
+   * compared a value the server never sees. A conflict reload replaces it, because the operator
+   * is then looking at the newer preparation.
    */
-  const [openDefault, setOpenDefault] = useState<string | null>(null);
-  const [defaultFailed, setDefaultFailed] = useState(false);
+  const [reviewedDefaults, setReviewedDefaults] = useState(expectedDefaults);
+  const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState<ContentDraft>(() => draftFromBlock(block));
   const [saving, setSaving] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
-
-  /**
-   * Establish (or re-establish) the preparation this sheet describes.
-   *
-   * Runs on open and on every Reload, so the recovery the banner offers is a real one.
-   */
-  const establishDefault = useCallback(async () => {
-    setDefaultFailed(false);
-    try {
-      const product = await commerceCatalogService.getProduct(productId);
-      setOpenDefault(defaultSignature(product.effectiveOptionGroups ?? []));
-      return true;
-    } catch {
-      setOpenDefault(null);
-      setDefaultFailed(true);
-      return false;
-    }
-  }, [productId]);
-
-  useEffect(() => {
-    void establishDefault();
-  }, [establishDefault]);
 
   // The sheet stays mounted under the same key after a conflict, so nothing re-initialises on
   // its own: draft, baseline and the conflict flag all have to be reset here or Save stays
@@ -109,20 +82,32 @@ export function ContentBlockSheet({
     setReloading(true);
     setError(null);
     try {
-      const established = await establishDefault();
-      if (!established) {
-        setError('The product’s current options could not be read. Try reloading again.');
-        return;
-      }
       const fresh = await commerceContentService.getAdminContent(productId);
       setBaseline(fresh.block);
       setDraft(draftFromBlock(fresh.block));
+      setReviewedDefaults(fresh.currentDefaultsSelectionJson);
       setConflict(false);
       onSaved();
     } catch (err: unknown) {
       setError(readMessage(err) || 'The latest content could not be read.');
     } finally {
       setReloading(false);
+    }
+  };
+
+  /** "Reviewed, still correct" — available only with the block's own text in view. */
+  const confirmNoChanges = async () => {
+    setConfirming(true);
+    setError(null);
+    try {
+      await commerceContentService.confirmReview(productId, reviewedDefaults);
+      toast.success('Review confirmed');
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      setError(readMessage(err) || 'The review could not be confirmed.');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -145,57 +130,29 @@ export function ContentBlockSheet({
       // Residual, stated rather than hidden: this is read-then-write, so an edit landing
       // inside the remaining window still wins. Closing that needs the upsert to accept the
       // contentVersion it was based on.
-      // Fails CLOSED on an unreadable offer, for the same reason the variant sheet does: an
-      // unread offer is not an unchanged one.
-      let currentDefault: string;
-      try {
-        const product = await commerceCatalogService.getProduct(productId);
-        currentDefault = defaultSignature(product.effectiveOptionGroups ?? []);
-      } catch {
-        setError(
-          'The product’s current options could not be read, so this cannot be saved safely — ' +
-            'the preparation these figures would describe cannot be confirmed. Try again.',
-        );
-        setSaving(false);
-        return;
-      }
-      if (openDefault === null) {
-        setError(
-          'The preparation these figures describe has not been established yet, so this cannot ' +
-            'be saved safely. Reload and try again.',
-        );
-        setSaving(false);
-        return;
-      }
-      if (currentDefault !== openDefault) {
-        setConflict(true);
-        setError(
-          'Someone else changed this product’s default combination while this was open, so ' +
-            'these figures would be published against a different preparation than the one ' +
-            'they were written for. Reload before saving.',
-        );
-        setSaving(false);
-        return;
-      }
-
+      // A COURTESY check, not the guard. It turns the common race into a clear message without
+      // a round trip, but the write below carries both preconditions and the service enforces
+      // them inside its serialized attempt — which is the only place a racing writer cannot get
+      // in front of. Everything this compares was read before the request; the window between
+      // that read and the write is exactly what the server-side check closes.
       const fresh = await commerceContentService.getAdminContent(productId);
-      if (baseline && fresh.block && blockSignature(fresh.block) !== blockSignature(baseline)) {
+      if ((fresh.block?.blockSignature ?? null) !== (baseline?.blockSignature ?? null)) {
         setConflict(true);
         setError(
-          'Someone else edited this block while it was open. Reload to see their version — ' +
-            'saving now would replace every field, including any declarations they added.',
+          baseline
+            ? 'Someone else edited this block while it was open. Reload to see their version — ' +
+              'saving now would replace every field, including any declarations they added.'
+            : 'Someone else authored this block while this was open. Reload before saving.',
         );
         setSaving(false);
         return;
       }
-      if (!baseline && fresh.block) {
-        setConflict(true);
-        setError('Someone else authored this block while this was open. Reload before saving.');
-        setSaving(false);
-        return;
-      }
 
-      await commerceContentService.upsertContent(productId, wireFromDraft(draft));
+      await commerceContentService.upsertContent(productId, {
+        ...wireFromDraft(draft),
+        expectedDefaultsSelectionJson: reviewedDefaults,
+        expectedBlockSignature: baseline?.blockSignature ?? null,
+      });
       toast.success('Content saved');
       onSaved();
       onClose();
@@ -242,19 +199,28 @@ export function ContentBlockSheet({
 
         <SheetFooter>
           <span className="mr-auto max-w-[280px] text-[11px] text-[var(--color-text-tertiary)]">
-            {defaultFailed
-              ? 'The product’s options could not be read, so the preparation these figures describe cannot be confirmed.'
-              : openDefault === null
-                ? 'Confirming which preparation these figures describe…'
-                : 'Saving replaces every field of this block, and clears its review flag.'}
+            Saving replaces every field of this block, and clears its review flag.
           </span>
+          {/*
+            Confirming lives HERE, not on the queue row, because this is the only place the
+            declarations being confirmed are on screen. The workbench prefers the resolved
+            panel, which withholds ingredients and allergens precisely while a block is stale —
+            so a confirm button beside it published unseen stored text, and the operator could
+            not have inspected it even if they wanted to.
+          */}
+          {isStale && baseline && (
+            <Button
+              variant="outline"
+              onClick={() => void confirmNoChanges()}
+              disabled={saving || reloading || confirming || conflict}
+            >
+              {confirming ? 'Confirming…' : 'Confirm — no changes needed'}
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose} disabled={saving || reloading}>
             Cancel
           </Button>
-          <Button
-            onClick={() => void save()}
-            disabled={saving || reloading || conflict || openDefault === null}
-          >
+          <Button onClick={() => void save()} disabled={saving || reloading || confirming || conflict}>
             {saving ? 'Saving…' : 'Save block'}
           </Button>
         </SheetFooter>

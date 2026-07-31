@@ -1,4 +1,4 @@
-using Aonik.Commerce.Contracts.Models.Catalog;
+﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -275,7 +275,7 @@ public class AdminStorefrontProjectionTests
             new ProductOptionGroupLine("sides", SortOrder: 1),
         ]));
 
-        await content.UpsertContentAsync(product, new UpsertProductContentCommand("Per serving", Kcal: 400));
+        await WriteBlockAsync(content, product, new UpsertProductContentCommand("Per serving", Kcal: 400));
 
         var fresh = await content.GetAdminAsync(product);
         fresh.Block.Should().NotBeNull();
@@ -309,7 +309,7 @@ public class AdminStorefrontProjectionTests
         published.HasFigures.Should().BeTrue("a kcal figure was published");
         published.HasDeclarations.Should().BeFalse("neither ingredients nor allergens were authored");
 
-        await content.UpsertContentAsync(product, new UpsertProductContentCommand(
+        await WriteBlockAsync(content, product, new UpsertProductContentCommand(
             "Per serving", Kcal: 400, Allergens: "Contains celery"));
         (await content.ListAdminStatusAsync()).Items.Single(r => r.ProductId == product)
             .HasDeclarations.Should().BeTrue();
@@ -608,4 +608,32 @@ public class AdminStorefrontProjectionTests
         await h.Carts().RemoveItemAsync(cart.Id, removedLineId, access);
         (await admin.GetCartAsync(cart.Id))!.UpdatedAtUtc.Should().BeOnOrAfter(before);
     }
+
+    /// <summary>Every content write now states what it was authored against (Spec 075 V-C9/V-C10):
+    /// the standard preparation, and the block it replaces. These helpers read both from the
+    /// service so a test states the ordinary "nothing changed underneath me" case in one call —
+    /// the preconditions themselves are exercised directly where they are the subject.</summary>
+    private static async Task<ProductContentDto> WriteBlockAsync(
+        IProductContentService content, Guid productId, UpsertProductContentCommand command)
+    {
+        var admin = await content.GetAdminAsync(productId);
+        return await content.UpsertContentAsync(
+            productId,
+            command,
+            new BlockWritePrecondition(admin.CurrentDefaultsSelectionJson, admin.Block?.BlockSignature));
+    }
+
+    private static async Task<ProductContentDto> ConfirmAsync(
+        IProductContentService content, Guid productId)
+        => await content.ConfirmContentReviewAsync(
+            productId, (await content.GetAdminAsync(productId)).CurrentDefaultsSelectionJson);
+
+    private static async Task<ProductContentVariantDto> UpdateVariantAsync(
+        IProductContentService content, Guid variantId, UpsertContentVariantCommand command,
+        string? expectedCanonical = null)
+    {
+        var expected = expectedCanonical ?? command.SelectionJson;
+        return await content.UpdateVariantAsync(variantId, command, expected);
+    }
+
 }

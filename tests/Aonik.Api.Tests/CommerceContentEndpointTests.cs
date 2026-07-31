@@ -1,4 +1,5 @@
-using System.Net;
+﻿using System.Net;
+using System.Text.Json;
 using System.Net.Http.Json;
 
 using Aonik.Commerce.Entities.Catalog;
@@ -37,12 +38,12 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
         (await anonymous.GetFromJsonAsync<ProductResponse>("/commerce/catalog/products/jollof"))!
             .Content.Should().BeNull("no default block is authored yet");
 
-        var upsert = await admin.PutAsJsonAsync($"/commerce/admin/products/{productId}/content", new
+        var upsert = await PutBlockAsync(admin, productId, new()
         {
-            servingLabel = "Standard 300g",
-            kcal = 500m,
-            ingredients = "Rice",
-            allergens = "None",
+            ["servingLabel"] = "Standard 300g",
+            ["kcal"] = 500m,
+            ["ingredients"] = "Rice",
+            ["allergens"] = "None",
         });
         upsert.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -63,10 +64,10 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
         await SeedTenantAsync(tenantId);
         var productId = await SeedProductAsync(tenantId, "jollof");
         var admin = await AdminClient(tenantId);
-        await admin.PutAsJsonAsync($"/commerce/admin/products/{productId}/content", new
+        await PutBlockAsync(admin, productId, new()
         {
-            servingLabel = "Standard 300g",
-            kcal = 500m,
+            ["servingLabel"] = "Standard 300g",
+            ["kcal"] = 500m,
         });
         var anonymous = AnonymousClient(tenantId);
 
@@ -116,12 +117,12 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
         var admin = await AdminClient(tenantId);
         var anonymous = AnonymousClient(tenantId);
 
-        await admin.PutAsJsonAsync($"/commerce/admin/products/{productId}/content",
-            new { servingLabel = "Standard 300g", allergens = "None" });
+        await PutBlockAsync(admin, productId,
+            new() { ["servingLabel"] = "Standard 300g", ["allergens"] = "None" });
         var v1 = (await anonymous.GetFromJsonAsync<ProductResponse>("/commerce/catalog/products/jollof"))!.ContentVersion;
 
-        await admin.PutAsJsonAsync($"/commerce/admin/products/{productId}/content",
-            new { servingLabel = "Standard 300g", allergens = "Mustard" });
+        await PutBlockAsync(admin, productId,
+            new() { ["servingLabel"] = "Standard 300g", ["allergens"] = "Mustard" });
         var v2 = (await anonymous.GetFromJsonAsync<ProductResponse>("/commerce/catalog/products/jollof"))!.ContentVersion;
 
         v2.Should().BeGreaterThan(v1!.Value);
@@ -199,4 +200,22 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
     private sealed record ProductResponse(string Slug, ContentResponse? Content, int? ContentVersion);
 
     private sealed record ContentResponse(string ServingLabel, bool IsStandardPreparation, int ContentVersion);
+
+    /// <summary>Block writes now state what they were authored against (Spec 075 V-C9/V-C10), so
+    /// the ordinary "nothing changed underneath me" case reads both from the admin endpoint
+    /// first. Anonymous callers are still rejected before any of this matters.</summary>
+    private static async Task<HttpResponseMessage> PutBlockAsync(
+        HttpClient admin, Guid productId, Dictionary<string, object?> body)
+    {
+        var current = await admin.GetFromJsonAsync<JsonElement>(
+            $"/commerce/admin/products/{productId}/content");
+        body["expectedDefaultsSelectionJson"] =
+            current.GetProperty("currentDefaultsSelectionJson").GetString();
+        body["expectedBlockSignature"] =
+            current.TryGetProperty("block", out var block) && block.ValueKind == JsonValueKind.Object
+                ? block.GetProperty("blockSignature").GetString()
+                : null;
+        return await admin.PutAsJsonAsync($"/commerce/admin/products/{productId}/content", body);
+    }
+
 }

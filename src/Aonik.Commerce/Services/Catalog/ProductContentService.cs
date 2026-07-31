@@ -131,7 +131,10 @@ internal sealed class ProductContentService : IProductContentService
     // ─── Authoring (§7/§9) ───────────────────────────────────────────────────
 
     public async Task<ProductContentDto> UpsertContentAsync(
-        Guid productId, UpsertProductContentCommand command, CancellationToken ct = default)
+        Guid productId,
+        UpsertProductContentCommand command,
+        BlockWritePrecondition precondition,
+        CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await RequireProductAsync(tenantId, productId, ct);
@@ -149,6 +152,14 @@ internal sealed class ProductContentService : IProductContentService
             // write committing between an outside capture and this write would store a binding
             // that was stale at birth (M4-class staleness).
             var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
+
+            // ...and capturing it here is what makes the WRITE consistent, not what makes it
+            // right. Binding a draft to whatever the defaults happen to be at commit publishes
+            // figures and declarations against a preparation the author never saw. Both
+            // preconditions are checked here rather than in the editor because this is the only
+            // place a racing writer cannot get in front of.
+            RequireReviewedDefaults(precondition.ExpectedDefaultsSelectionJson, allDefaults);
+            RequireExpectedBlock(precondition.ExpectedBlockSignature, content);
 
             // V-C6 — a figure the default newly publishes must be published by every ACTIVE
             // variant, or a resolved panel could mix default and variant figures by the back
@@ -206,7 +217,7 @@ internal sealed class ProductContentService : IProductContentService
     }
 
     public async Task<ProductContentDto> ConfirmContentReviewAsync(
-        Guid productId, string? expectedDefaultsSelectionJson = null, CancellationToken ct = default)
+        Guid productId, string expectedDefaultsSelectionJson, CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -223,13 +234,7 @@ internal sealed class ProductContentService : IProductContentService
             // the read and this commit, confirming would clear the flag for a standard nobody
             // inspected — and the block's declarations, allergens included, become current for
             // it with the one mechanism that would have caught them already satisfied.
-            if (expectedDefaultsSelectionJson is not null
-                && !string.Equals(expectedDefaultsSelectionJson, allDefaults, StringComparison.Ordinal))
-            {
-                throw new StorefrontValidationException(
-                    "V-C9: the standard preparation changed since this block was reviewed — "
-                    + "reload and review it against the current defaults before confirming.");
-            }
+            RequireReviewedDefaults(expectedDefaultsSelectionJson, allDefaults);
 
             content!.DescribesSelectionJson = allDefaults;
             content.RequiresReview = false;
@@ -237,8 +242,15 @@ internal sealed class ProductContentService : IProductContentService
         }, ct, MapContent);
     }
 
+    /// <param name="expectedCanonicalSelectionJson">The combination this content is authored
+    /// FOR, when the caller has one to name — a coverage gap or a retired variant being revived
+    /// both come from the server complete. Null while composing a genuinely new combination,
+    /// where a partial selection completed by normalisation IS the intent (V-C11).</param>
     public async Task<ProductContentVariantDto> AddVariantAsync(
-        Guid productId, UpsertContentVariantCommand command, CancellationToken ct = default)
+        Guid productId,
+        UpsertContentVariantCommand command,
+        string? expectedCanonicalSelectionJson = null,
+        CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await RequireProductAsync(tenantId, productId, ct);
@@ -255,6 +267,7 @@ internal sealed class ProductContentService : IProductContentService
             // variant for a now-invalid combination, or one that now shadows the default block.
             // 066's V1–V5 throw here exactly as they do for customer input.
             var canonical = (await NormalizeAuthoringSelectionAsync(productId, command.SelectionJson, ct2)).CanonicalSelectionJson;
+            RequireExpectedCombination(expectedCanonicalSelectionJson, canonical);
             var allDefaults = (await _selections.NormalizeAsync(productId, null, ct2)).CanonicalSelectionJson;
             if (string.Equals(canonical, allDefaults, StringComparison.Ordinal))
             {
@@ -320,7 +333,10 @@ internal sealed class ProductContentService : IProductContentService
     }
 
     public async Task<ProductContentVariantDto> UpdateVariantAsync(
-        Guid variantId, UpsertContentVariantCommand command, CancellationToken ct = default)
+        Guid variantId,
+        UpsertContentVariantCommand command,
+        string expectedCanonicalSelectionJson,
+        CancellationToken ct = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var variant = await _dbContext.ProductContentVariants
@@ -347,6 +363,11 @@ internal sealed class ProductContentService : IProductContentService
             }
 
             var canonical = (await NormalizeAuthoringSelectionAsync(variant.ProductId, command.SelectionJson, ct2)).CanonicalSelectionJson;
+            // The payload was SHAPED against an offer read before this request. Normalisation
+            // here uses the current one, so a group added in between is filled with its default
+            // and the variant silently moves — carrying figures and allergens authored for the
+            // combination it used to be. The caller names where it must land.
+            RequireExpectedCombination(expectedCanonicalSelectionJson, canonical);
             var hash = HashSelection(canonical);
             var selectionChanges = !string.Equals(hash, variant.SelectionHash, StringComparison.Ordinal);
 
@@ -850,7 +871,72 @@ internal sealed class ProductContentService : IProductContentService
         ParseHeatingLenient(c.HeatingJson),
         c.DescribesSelectionJson,
         c.RequiresReview,
-        c.ContentVersion);
+        c.ContentVersion,
+        BlockSignatureOf(c));
+
+    /// <summary>The authored fields, as a comparable token — see ProductContentDto.BlockSignature.
+    ///
+    /// Figures are normalised rather than serialized as-is: SQL Server returns a decimal at the
+    /// COLUMN's scale, so a value just written in memory as <c>500</c> reads back as
+    /// <c>500.0000</c> and a raw serialization makes the same block compare unequal to itself.
+    /// (InMemory returns what it was handed, so only the SQL Server lane can fail on it.)</summary>
+    private static string BlockSignatureOf(ProductContent c) => JsonSerializer.Serialize(new[]
+    {
+        c.ServingLabel,
+        Figure(c.Kcal), Figure(c.ProteinGrams), Figure(c.CarbsGrams), Figure(c.FatGrams),
+        Figure(c.FibreGrams), Figure(c.SugarsGrams), Figure(c.SaltGrams),
+        c.Ingredients,
+        c.Allergens,
+        c.HeatingJson,
+    });
+
+    /// <summary>Scale-independent, so the same stored figure always renders the same way.</summary>
+    private static string? Figure(decimal? value)
+        => value?.ToString("0.##########", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>V-C9 — the reviewed/authored standard preparation is still the current one.</summary>
+    private static void RequireReviewedDefaults(string expected, string actual)
+    {
+        if (!string.Equals(expected, actual, StringComparison.Ordinal))
+        {
+            throw new StorefrontValidationException(
+                "V-C9: the standard preparation changed while this was open — reload and check "
+                + "the content against the current defaults before saving.");
+        }
+    }
+
+    /// <summary>V-C10 — the block being replaced is the one the caller read.
+    ///
+    /// A null expectation asserts there was NO block, which is how first authoring states its
+    /// own precondition rather than opting out of one.</summary>
+    private static void RequireExpectedBlock(string? expected, ProductContent? current)
+    {
+        var actual = current is null ? null : BlockSignatureOf(current);
+        if (string.Equals(expected, actual, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        throw new StorefrontValidationException(
+            expected is null
+                ? "V-C10: someone else authored this block while this was open. Reload before saving."
+                : "V-C10: someone else edited this block while this was open — saving now would "
+                  + "replace every field, including any declarations they added. Reload first.");
+    }
+
+    /// <summary>V-C11 — the combination this write lands on is the one the caller named.</summary>
+    private static void RequireExpectedCombination(string? expected, string canonical)
+    {
+        if (expected is null || string.Equals(expected, canonical, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        throw new StorefrontValidationException(
+            "V-C11: the product's options changed while this was open, so this content would be "
+            + "stored against a different combination than the one it was authored for. Reload "
+            + "and check the combination before saving.");
+    }
 
     private static ProductContentVariantDto MapVariant(ProductContentVariant v) => new(
         v.Id,

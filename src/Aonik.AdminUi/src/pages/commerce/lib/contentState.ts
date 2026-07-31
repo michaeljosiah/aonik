@@ -165,29 +165,3 @@ export function incompleteHeatingRows(steps: readonly HeatingStep[]): number[] {
 export function blockHeatingIsWithheld(): boolean {
   return false;
 }
-
-/**
- * The block's AUTHORED fields, as a comparable value.
- *
- * Not `contentVersion`. That column is bumped by the shared content-write pipeline, so
- * creating, editing or retiring any VARIANT increments it while the block's own text is
- * untouched — and the sheet then reported a concurrent block edit, disabled Save, and offered
- * only a Reload that would replace the operator's draft with a server block identical to the
- * one they started from. Losing real work to an unrelated write is worse than the race the
- * check exists for.
- */
-export function blockSignature(block: {
-  servingLabel: string;
-  nutrition: unknown;
-  ingredients: string | null;
-  allergens: string | null;
-  heating: unknown;
-}): string {
-  return JSON.stringify([
-    block.servingLabel,
-    block.nutrition,
-    block.ingredients,
-    block.allergens,
-    block.heating,
-  ]);
-}

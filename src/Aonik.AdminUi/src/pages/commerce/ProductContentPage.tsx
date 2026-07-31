@@ -261,6 +261,8 @@ export function ProductContentPage() {
     const requestId = queueRequestRef.current + 1;
     queueRequestRef.current = requestId;
     const found: ContentStatusRowDto[] = [];
+    /** Every product this scan actually looked at — the only rows it may speak for. */
+    const scannedIds: string[] = [];
     setQueueFailed(false);
     setQueueScanning(true);
     // Marked incomplete BEFORE the first await. `queueComplete` starting true meant that while
@@ -271,6 +273,7 @@ export function ProductContentPage() {
       let page = 1;
       for (; page <= QUEUE_SCAN_PAGES; page += 1) {
         const result = await commerceContentService.listContentStatus(page, STATUS_PAGE_SIZE);
+        scannedIds.push(...result.items.map((r) => r.productId));
         found.push(...result.items.filter((r) => r.isStale));
         if (queueRequestRef.current !== requestId) return;
         if (page * STATUS_PAGE_SIZE >= result.totalCount) {
@@ -288,12 +291,16 @@ export function ProductContentPage() {
     } catch {
       if (queueRequestRef.current !== requestId) return;
       setQueueScanning(false);
-      // PARTIAL results are kept and the scan is marked failed AND incomplete. My first
-      // version only avoided overwriting a previous queue — which on the FIRST load left the
-      // initial empty queue with complete=true, i.e. exactly the false all-clear the comment
-      // claimed to prevent. An empty queue is only trustworthy if the scan finished.
+      // PARTIAL results are MERGED with what was already known, not swapped for them. A scan
+      // that reaches page 3 and fails has refreshed pages 1-3 and learned nothing about the
+      // rest, so replacing the queue with `found` deletes flagged products a previous scan did
+      // find — actionable work removed from the operator's list by a failure, which is the
+      // opposite of what a failure should do. Rows the partial scan DID revisit are taken from
+      // it, so a review cleared in between still disappears.
       setQueue((current) => {
-        const next = found.length > 0 ? found : current;
+        const scanned = new Set(scannedIds);
+        const carried = current.filter((r) => !scanned.has(r.productId));
+        const next = [...found, ...carried];
         queueRef.current = next;
         return next;
       });
@@ -359,27 +366,6 @@ export function ProductContentPage() {
   }, [rows, queue]);
 
 
-  const confirmReview = async (productId: string, reviewedDefaults: string) => {
-    try {
-      // The REVIEWED binding is sent, not just the id. Recomputing the defaults inside the
-      // serialized write makes the result internally consistent, but the assertion being
-      // recorded is about a preparation a person inspected — so the server refuses (V-C9) if
-      // the standard moved between that read and this commit, rather than silently confirming
-      // one nobody saw. A client-side re-check would still be theatre; this is a precondition.
-      await commerceContentService.confirmReview(productId, reviewedDefaults);
-      toast.success('Review confirmed');
-      await loadRows();
-      await loadQueue();
-      // Re-read WHOLE from the ref, not just the id. Pairing a live id with a closure-captured
-      // slug loaded one product's raw content beside another's resolved panel.
-      const live = selectionRef.current;
-      if (live && live.productId === productId) {
-        await loadDetail(live.productId);
-      }
-    } catch (err: unknown) {
-      toast.error(readMessage(err) || 'The review could not be confirmed.');
-    }
-  };
 
   if (initialLoad) return <PageLoadingScreen message="Loading product content" />;
 
@@ -473,43 +459,15 @@ export function ProductContentPage() {
                   Open
                 </Button>
                 {/*
-                  Confirming REBINDS the block to the current defaults and clears its flag, so
-                  it asserts that the block's own text is still correct for the new standard
-                  preparation. Offered from a queue row, that assertion was made about a block
-                  nobody had looked at.
-
-                  Worse where an exact variant already serves the standard selection: the
-                  workbench shows the VARIANT, so even opening the product does not put the
-                  suspect block on screen. Confirming there clears the flag on text that is
-                  currently invisible and becomes live the moment that variant is retired —
-                  allergens included, with no second review to catch it.
+                  Confirming lives in the block EDITOR, not here. This row cannot show the text
+                  being confirmed, and neither can the workbench: it prefers the resolved panel,
+                  which withholds ingredients and allergens precisely while a block is stale. A
+                  button here published unseen declarations — and the operator had no way to
+                  inspect them even if they wanted to. Opening the editor is the review.
                 */}
-                {row.productId !== selectedId ? (
-                  <span className="text-[11px] text-[var(--color-text-tertiary)]">
-                    open it to review
-                  </span>
-                ) : resolved?.matchedVariantSelectionJson ? (
-                  <span className="max-w-[190px] text-[11px] text-[var(--color-text-tertiary)]">
-                    a variant serves the standard preparation — edit the block to review it
-                  </span>
-                ) : // Selection alone is not inspection. When the raw read failed, `content` is
-                // null and `resolved` is null with it, so a gate written against the variant
-                // check falls straight through to the button — re-opening the blind
-                // confirmation from the one direction where NOTHING is on screen.
-                !content?.block || detailLoading ? (
-                  <span className="max-w-[190px] text-[11px] text-[var(--color-text-tertiary)]">
-                    {detailLoading ? 'loading the block…' : 'its block could not be read'}
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      void confirmReview(row.productId, content.currentDefaultsSelectionJson)
-                    }
-                  >
-                    Confirm review
-                  </Button>
-                )}
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                  {row.productId === selectedId ? 'edit the block to review it' : 'open it to review'}
+                </span>
               </li>
             ))}
           </ul>
@@ -603,8 +561,24 @@ export function ProductContentPage() {
 
           <div className="flex flex-col gap-4">
             {detailError && (
-              <p className="rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-                {detailError}
+              <p className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                {/*
+                  Retry lives HERE because the shared catch clears every other piece of detail
+                  state, so the resolution, offer and coverage retries are all unmounted when
+                  this fires. Re-clicking the rail row usually hands `setSelection` the same row
+                  object, which React treats as no change — so without this the operator has to
+                  navigate to another product, or reload the page, before the block they were
+                  asked to review can be read at all.
+                */}
+                <span className="flex-1">{detailError}</span>
+                <button
+                  type="button"
+                  onClick={() => void reloadSelected()}
+                  disabled={detailLoading}
+                  className="shrink-0 underline"
+                >
+                  {detailLoading ? 'Retrying…' : 'Retry'}
+                </button>
               </p>
             )}
 
@@ -847,11 +821,13 @@ export function ProductContentPage() {
           productId={selectedId}
           productName={selectedRow.name}
           block={content?.block ?? null}
+          expectedDefaults={content?.currentDefaultsSelectionJson ?? ''}
+          isStale={!!content?.isStale}
           onClose={() => setEditingBlock(false)}
           onSaved={() => {
             void loadRows();
-            // The upsert CLEARS the review flag, so the queue and its KPI are stale the moment
-            // a stale block is saved — the same refresh confirmReview already does.
+            // Saving OR confirming clears the review flag, so the queue and its KPI are stale
+            // the moment either happens.
             void loadQueue();
             void reloadSelected();
           }}

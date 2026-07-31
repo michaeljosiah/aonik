@@ -19,6 +19,10 @@ import { normalizeCommercePage } from '@/types/commerce';
 
 /** Upsert of the default block. Null figures mean "not published", never zero. */
 export interface UpsertProductContentRequest {
+  /** The standard preparation this content was authored against (V-C9), from the admin read. */
+  expectedDefaultsSelectionJson: string;
+  /** The block this replaces, or null ASSERTING there was none (V-C10) — not an opt-out. */
+  expectedBlockSignature: string | null;
   servingLabel: string;
   kcal?: number | null;
   proteinGrams?: number | null;
@@ -38,6 +42,14 @@ export interface UpsertProductContentRequest {
  * WITHHELD for this combination, never inherited.
  */
 export interface UpsertContentVariantRequest {
+  /**
+   * The combination this content is authored FOR (V-C11).
+   *
+   * Null only while composing a genuinely new one, where a partial selection completed by
+   * server normalisation is the intent. A prefill — a coverage gap, a retired variant being
+   * revived — came from the server complete and is a promise about identity.
+   */
+  expectedCanonicalSelectionJson?: string | null;
   selectionJson: string;
   servingLabel: string;
   kcal?: number | null;
