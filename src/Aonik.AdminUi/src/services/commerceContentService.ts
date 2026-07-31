@@ -13,6 +13,7 @@ import type {
   ContentStatusRowDto,
   ProductContentDto,
   ProductContentVariantDto,
+  ResolvedContentDto,
 } from '@/types/commerce';
 import { normalizeCommercePage } from '@/types/commerce';
 
@@ -79,6 +80,20 @@ export const commerceContentService = {
 
   deleteVariant: async (variantId: string): Promise<void> =>
     api.delete<void>(`/commerce/admin/content-variants/${variantId}`),
+
+  /**
+   * The §5 RESOLUTION for a selection — what a customer actually receives.
+   *
+   * Deliberately the public catalog route: the admin product detail composes no content
+   * (CatalogDtos.cs:71-76 — "content has its own admin reads"), so reading `content` off it
+   * always yields null. Omitting `selection` resolves the STANDARD preparation, which is what
+   * the workbench previews.
+   */
+  resolveContent: async (slug: string, selectionJson?: string): Promise<ResolvedContentDto> =>
+    api.get<ResolvedContentDto>(
+      `/commerce/catalog/products/${encodeURIComponent(slug)}/content` +
+        (selectionJson ? `?selection=${encodeURIComponent(selectionJson)}` : ''),
+    ),
 
   /** Authored combinations + single-choice-deviation gaps — bounded, never combinatorial. */
   getCoverage: async (productId: string): Promise<ContentCoverageDto> =>

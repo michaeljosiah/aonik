@@ -74,9 +74,19 @@ export function ContentWorkbench({
     heating: block.heating,
     heatingWithheld: state === 'review',
     isStandardPreparation: true,
+    isStale: state === 'review',
     matchedVariantSelectionJson: null,
   };
   const servedByVariant = !!panel.matchedVariantSelectionJson;
+
+  // `declarationsWithheld` is an AGGREGATE: true when at least one declaration is absent,
+  // including for a healthy block that authored ingredients and no allergens. Feeding it to
+  // each cell made an authored, SERVED ingredient read "Withheld while under review".
+  //
+  // The per-field truth is already in the payload: text present = served, text null = absent.
+  // Review is the only thing that withholds AUTHORED text, so it is the single condition that
+  // overrides a field's own value.
+  const underReview = resolved ? resolved.isStale : state === 'review';
 
   return (
     <AonikCard
@@ -119,19 +129,11 @@ export function ContentWorkbench({
         <FigureGrid nutrition={panel.nutrition} />
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <DeclarationCell
-            label="Ingredients"
-            text={panel.ingredients}
-            withheld={panel.declarationsWithheld}
-          />
-          <DeclarationCell
-            label="Allergens"
-            text={panel.allergens}
-            withheld={panel.declarationsWithheld}
-          />
+          <DeclarationCell label="Ingredients" text={panel.ingredients} underReview={underReview} />
+          <DeclarationCell label="Allergens" text={panel.allergens} underReview={underReview} />
         </div>
 
-        <Heating steps={panel.heating} withheld={panel.heatingWithheld} />
+        <Heating steps={panel.heating} underReview={underReview} />
       </div>
     </AonikCard>
   );
@@ -167,14 +169,14 @@ function FigureGrid({ nutrition }: { nutrition: ProductContentDto['nutrition'] }
 function DeclarationCell({
   label,
   text,
-  withheld,
+  underReview,
 }: {
   label: string;
   text: string | null;
-  /** The SERVER's verdict where available — not re-derived here. */
-  withheld: boolean;
+  /** Review withholds authored text; absence is the field's own null, not a flag. */
+  underReview: boolean;
 }) {
-  const render = renderDeclaration(text, withheld ? 'review' : 'authored');
+  const render = renderDeclaration(text, underReview ? 'review' : 'authored');
   return (
     <div className="rounded-md border border-[var(--color-border-light)] p-2.5">
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
@@ -195,7 +197,7 @@ function DeclarationCell({
   );
 }
 
-function Heating({ steps, withheld }: { steps: HeatingStepDto[] | null; withheld: boolean }) {
+function Heating({ steps, underReview }: { steps: HeatingStepDto[] | null; underReview: boolean }) {
   const hasSteps = !!steps && steps.length > 0;
 
   return (
@@ -203,9 +205,9 @@ function Heating({ steps, withheld }: { steps: HeatingStepDto[] | null; withheld
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
         Heating &amp; usage
       </p>
-      {withheld ? (
-        // Heating withholds exactly like the other declarations — it is a usage instruction,
-        // not a figure, so nothing about it may fall back. The flag is the SERVER's.
+      {underReview ? (
+        // Heating withholds like the other declarations under review. Outside review, no
+        // steps simply means none were authored — not that anything is being withheld.
         <p className="text-[12.5px] italic text-[var(--color-warning)]">Withheld while under review</p>
       ) : hasSteps ? (
         <ul className="flex flex-col gap-1">

@@ -32,6 +32,7 @@ import {
   type ContentDraft,
 } from '../lib/contentDraft';
 import {
+  isEmptySelection,
   isMulti,
   parseSelection,
   pickedGroupCount,
@@ -88,12 +89,23 @@ export function ContentVariantSheet({
         setError('This combination no longer exists. Close the sheet — there is nothing to edit.');
         return;
       }
+      if (server && !server.isActive) {
+        // The admin read RETAINS retired rows, so finding one is not proof it is editable.
+        // UpdateVariantAsync rejects every edit to an inactive row with V-C5, so clearing the
+        // conflict here would re-enable a Save that can only fail.
+        setError(
+          'This combination was retired while the sheet was open. Close it and use ' +
+            '\u201cRe-author to revive\u201d — retired rows are history and cannot be edited.',
+        );
+        onSaved();
+        return;
+      }
       if (server) {
         setBaseline(server);
         setDraft(draftFromVariant(server));
         setSelection(parseSelection(server.selectionJson));
+        setConflict(false);
       }
-      setConflict(false);
       onSaved();
     } catch (err: unknown) {
       setError(readMessage(err) || 'The latest combination could not be read.');
@@ -120,6 +132,22 @@ export function ContentVariantSheet({
     }
     if (pickedGroupCount(selection) === 0) {
       setError('Pick at least one choice — a variant is identified by the combination it describes.');
+      return;
+    }
+    // DRIFT: the stored selection names a group this product no longer offers. Serialising
+    // iterates the CURRENT offer, so that group is silently dropped — and because the update
+    // accepts selection changes, the variant would MOVE onto whatever combination remains,
+    // publishing its figures and allergens against one nobody authored them for. The sheet
+    // says the identity is fixed; this is what makes that true.
+    const dropped = Object.keys(selection).filter(
+      (key) => !isEmptySelection(selection[key]) && !groups.some((g) => g.key === key),
+    );
+    if (baseline && dropped.length > 0) {
+      setError(
+        `This combination names ${dropped.join(', ')}, which this product no longer offers. ` +
+          'Saving would move it onto a different combination, so it cannot be edited — retire ' +
+          'it and author the combination you want instead.',
+      );
       return;
     }
 

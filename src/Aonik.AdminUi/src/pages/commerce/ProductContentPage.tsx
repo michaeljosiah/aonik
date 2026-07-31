@@ -41,6 +41,8 @@ import {
 
 /** Status rows per page. The rail is PAGED — every product must be reachable for authoring. */
 const STATUS_PAGE_SIZE = 50;
+/** Pages the review scan will walk before admitting it stopped. Bounded, and disclosed. */
+const QUEUE_SCAN_PAGES = 20;
 
 const STATE_TONE: Record<ContentState, PillTone> = {
   authored: 'success',
@@ -121,7 +123,7 @@ export function ProductContentPage() {
     void loadRows();
   }, [loadRows]);
 
-  const loadDetail = useCallback(async (productId: string) => {
+  const loadDetail = useCallback(async (productId: string, slug: string | null) => {
     const requestId = detailRequestRef.current + 1;
     detailRequestRef.current = requestId;
     setDetailLoading(true);
@@ -129,7 +131,7 @@ export function ProductContentPage() {
     try {
       // Coverage and the product's effective offer are fetched for the SELECTED product only —
       // per-product reads for the whole rail would be a fan-out on every page load.
-      const [admin, cover, product] = await Promise.all([
+      const [admin, cover, product, resolvedContent] = await Promise.all([
         commerceContentService.getAdminContent(productId),
         commerceContentService.getCoverage(productId).catch(() => null),
         // Tracked as a FAILURE rather than folded into "no groups": an unread offer and a
@@ -139,12 +141,19 @@ export function ProductContentPage() {
           (p) => ({ ok: true as const, product: p }),
           () => ({ ok: false as const, product: null }),
         ),
+        // The RESOLUTION comes from the public catalog route, not the admin detail. The admin
+        // detail composes no content by contract, so reading `content` off it always yielded
+        // null — the previous fix silently never applied. A 404 here is the honest "no block
+        // authored" answer, not a failure.
+        slug
+          ? commerceContentService.resolveContent(slug).catch(() => null)
+          : Promise.resolve(null),
       ]);
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
       setCoverage(cover);
       setGroups(product.product?.effectiveOptionGroups ?? []);
-      setResolved(product.product?.content ?? null);
+      setResolved(resolvedContent);
       setGroupsError(!product.ok);
     } catch (err: unknown) {
       if (detailRequestRef.current !== requestId) return;
@@ -159,9 +168,11 @@ export function ProductContentPage() {
     }
   }, []);
 
+  const selectedSlug = rows.find((r) => r.productId === selectedId)?.slug ?? null;
+
   useEffect(() => {
-    if (selectedId) void loadDetail(selectedId);
-  }, [selectedId, loadDetail]);
+    if (selectedId) void loadDetail(selectedId, selectedSlug);
+  }, [selectedId, selectedSlug, loadDetail]);
 
   const selectedRow = rows.find((r) => r.productId === selectedId) ?? null;
 
@@ -182,17 +193,50 @@ export function ProductContentPage() {
       ? stateOf(selectedRow)
       : 'none';
 
+  // Scanned across pages rather than derived from the rail's CURRENT page. Paging the rail
+  // made every product reachable and, in the same move, hid every flagged product that was not
+  // on the page in view — a safety queue that disappears when you turn a page is worse than
+  // one that admits a bound.
+  const [queue, setQueue] = useState<ContentStatusRowDto[]>([]);
+  const [queueComplete, setQueueComplete] = useState(true);
+
+  const loadQueue = useCallback(async () => {
+    const found: ContentStatusRowDto[] = [];
+    try {
+      let page = 1;
+      for (; page <= QUEUE_SCAN_PAGES; page += 1) {
+        const result = await commerceContentService.listContentStatus(page, STATUS_PAGE_SIZE);
+        found.push(...result.items.filter((r) => r.isStale));
+        if (page * STATUS_PAGE_SIZE >= result.totalCount) {
+          setQueue(found);
+          setQueueComplete(true);
+          return;
+        }
+      }
+      setQueue(found);
+      setQueueComplete(false);
+    } catch {
+      // Leaves the previous queue rather than emptying it: "no reviews outstanding" is the one
+      // conclusion a failed read must never produce on a safety surface.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadQueue();
+  }, [loadQueue]);
+
+  const reviewQueue = queue;
+
   const kpis = useMemo(() => {
     const denominator = rows.filter(isPublishedDenominator).length;
     return {
       published: rows.filter(countsAsPublished).length,
       denominator,
       variants: rows.reduce((sum, r) => sum + r.variantCount, 0),
-      awaitingReview: rows.filter((r) => r.isStale).length,
+      awaitingReview: queue.length,
     };
-  }, [rows]);
+  }, [rows, queue]);
 
-  const reviewQueue = useMemo(() => rows.filter((r) => r.isStale), [rows]);
 
   const confirmReview = async (productId: string) => {
     try {
@@ -200,9 +244,10 @@ export function ProductContentPage() {
       // the all-defaults binding INSIDE its serialized write attempt, so "still correct" means
       // current at commit rather than at request parse. A guard here would be theatre.
       await commerceContentService.confirmReview(productId);
-      toast.success('Review confirmed — declarations serve again');
+      toast.success('Review confirmed');
       await loadRows();
-      if (productId === selectedId) await loadDetail(productId);
+      await loadQueue();
+      if (productId === selectedId) await loadDetail(productId, selectedSlug);
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The review could not be confirmed.');
     }
@@ -240,7 +285,7 @@ export function ProductContentPage() {
         <KpiTile
           label="Awaiting review"
           value={kpis.awaitingReview.toLocaleString()}
-          delta={rowsComplete ? 'all products' : `${rows.length} on this page`}
+          delta={queueComplete ? 'all products' : `first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} scanned`}
           deltaTone={kpis.awaitingReview > 0 ? 'down' : 'neutral'}
         />
       </div>
@@ -258,7 +303,11 @@ export function ProductContentPage() {
       {reviewQueue.length > 0 && (
         <AonikCard
           title="Awaiting review"
-          subtitle="While flagged, these products serve figures captioned and withhold every declaration"
+          // NOT "these products withhold their declarations". The queue knows only the BLOCK's
+          // status, and when a default moves onto a combination that already has an active
+          // variant the resolver serves that variant and withholds nothing. Asserting the
+          // withholding here repeated, at tenant scale, the exact error the workbench had.
+          subtitle="Each product's default block no longer describes the current standard preparation"
           padding={0}
         >
           <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
@@ -272,6 +321,7 @@ export function ProductContentPage() {
                     {row.requiresReview
                       ? 'The recommended default moved underneath this block'
                       : 'The block describes a combination that is no longer the standard preparation'}
+                    {' — open it to see what customers currently receive'}
                   </span>
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setSelectedId(row.productId)}>
@@ -283,6 +333,12 @@ export function ProductContentPage() {
               </li>
             ))}
           </ul>
+          {!queueComplete && (
+            <p className="border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+              Scanned the first {QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} products; there may be more
+              flagged beyond them.
+            </p>
+          )}
         </AonikCard>
       )}
 
@@ -416,7 +472,7 @@ export function ProductContentPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => selectedId && void loadDetail(selectedId)}
+                        onClick={() => selectedId && void loadDetail(selectedId, selectedSlug)}
                         className="shrink-0 underline"
                       >
                         Retry
@@ -547,7 +603,7 @@ export function ProductContentPage() {
           onClose={() => setEditingBlock(false)}
           onSaved={() => {
             void loadRows();
-            void loadDetail(selectedId);
+            void loadDetail(selectedId, selectedSlug);
           }}
         />
       )}
@@ -562,7 +618,7 @@ export function ProductContentPage() {
           onClose={() => setVariantSheet(null)}
           onSaved={() => {
             void loadRows();
-            void loadDetail(selectedId);
+            void loadDetail(selectedId, selectedSlug);
           }}
         />
       )}
@@ -573,7 +629,7 @@ export function ProductContentPage() {
     try {
       await commerceContentService.deleteVariant(variantId);
       toast.success('Combination retired — it can be revived by authoring it again');
-      if (selectedId) await loadDetail(selectedId);
+      if (selectedId) await loadDetail(selectedId, selectedSlug);
       await loadRows();
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The combination could not be retired.');
