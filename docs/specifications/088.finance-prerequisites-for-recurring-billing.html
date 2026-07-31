@@ -187,7 +187,7 @@
 
 <h3>4.1 In scope</h3>
 <ul>
-  <li><code>SharedKernel.Abstractions.Ledger.IJournalWriter</code>, implemented by Finance.</li>
+  <li><code>SharedKernel.Abstractions.<strong>Ledgers</strong>.IJournalWriter</code>, implemented by Finance. Plural deliberately: <code>Ledger</code> is already both a type and a namespace in Finance — the codebase aliases <code>LedgerEntity</code> in three places because of it — and a third colliding name in SharedKernel would push that onto every cross-module consumer.</li>
   <li>A canonical-ledger concept so a caller can name the ledger it means.</li>
   <li>A Finance-owned <code>PaymentMandate</code> entity and lifecycle, plus <code>IRecurringPaymentInitiator</code>.</li>
   <li>Persisting <code>Invoice.OrderId</code> end to end.</li>
@@ -255,7 +255,18 @@ public sealed record PostJournalCommand(
   <strong>throws</strong> if none is. Marking a canonical ledger is a small additive flag on <code>Ledger</code>.
 </p>
 
-<h3>5.2 Dimensions</h3>
+<h3>5.2 Idempotency comes free</h3>
+<div class="callout ok">
+  <span class="callout-label">Already enforced</span>
+  <code>JournalEntryConfiguration</code> already carries a <strong>filtered unique index</strong> on
+  <code>(TenantId, SourceType, SourceId)</code> with filter <code>[SourceType] &lt;&gt; 'Manual'</code>, added for
+  <code>LedgerService</code>'s own idempotency check. <code>IJournalWriter</code> inherits it: a retried business event
+  returns the existing entry (<code>AlreadyExisted: true</code>) rather than double-posting. The writer
+  <strong>rejects the reserved <code>"Manual"</code> source type</strong>, because manual entries all share
+  <code>SourceId = Guid.Empty</code> and are excluded from that index — accepting it would silently drop the guarantee.
+</div>
+
+<h3>5.3 Dimensions</h3>
 <p>
   <code>JournalEntryLine</code> already carries <code>DimensionsJson</code>, so this only surfaces it on the contract.
   It is what lets a consumer post several lines into one account and still separate them afterwards — per meter, per

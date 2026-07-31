@@ -61,6 +61,11 @@ public sealed class FinanceModule : IModule
         // mirroring the PartnerPrefundSeedHelper direct-write pattern.
         services.AddScoped<Services.Ledger.LedgerPostingService>();
 
+        // Spec 088 P1 - cross-module ledger write path. ILedgerService stays Finance-internal;
+        // these are the SharedKernel-facing mirrors, alongside IInvoiceWriter/IPaymentInitiator.
+        services.AddScoped<SharedKernel.Abstractions.Ledgers.IJournalWriter, Services.Ledger.JournalWriter>();
+        services.AddScoped<SharedKernel.Abstractions.Ledgers.ILedgerResolver, Services.Ledger.LedgerResolver>();
+
         // Payments
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
