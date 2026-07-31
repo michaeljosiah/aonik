@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 087 - Subscriptions, entitlements and metered usage</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 087</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Priority: P1</span>
+  <span class="meta-tag">Domain: Subscriptions (new) / Finance / Ordering / SharedKernel</span>
+  <h1>Subscriptions, entitlements and metered usage</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A new <code>Aonik.Subscriptions</code> module: <strong>plans</strong> (what you sell),
+    <strong>entitlements</strong> (what a plan confers, as <em>named meters</em> rather than a single credit
+    balance), <strong>grants</strong> (allowance materialised per period, or bought outright), and
+    <strong>metered usage</strong> with a reserve → commit lifecycle so an allowance can be enforced before work
+    runs and settled at its true cost afterwards. It sits on the rails that already exist — an
+    <code>Order</code> per billing period, an <code>Invoice</code> via <code>IInvoiceWriter</code>, funding via a
+    <code>PaymentIntent</code>, and truth in the ledger. The platform can bill an invoice today but cannot sell a
+    subscription; this closes that.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#exists">What exists, what doesn't</a></li>
+    <li><a href="#notthis">What this is <em>not</em></a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#shapes">Three entitlement shapes</a></li>
+    <li><a href="#catalogue">The catalogue</a></li>
+    <li><a href="#subscription">The subscription</a></li>
+    <li><a href="#grants">Grants: one entity, two behaviours</a></li>
+    <li><a href="#usage">Metered usage</a></li>
+    <li><a href="#drawdown">Draw-down order</a></li>
+    <li><a href="#subscriber">Who holds a subscription</a></li>
+    <li><a href="#money">Orders, invoices, payments</a></li>
+    <li><a href="#ledger">Ledger accounts &amp; postings</a></li>
+    <li><a href="#contracts">Contracts in SharedKernel</a></li>
+    <li><a href="#concurrency">Concurrency &amp; correctness</a></li>
+    <li><a href="#jobs">Jobs</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK is a multi-product platform whose products are sold on subscription, but the platform has no notion of a
+  plan, a subscription, an entitlement or a usage meter. Every product that wants to charge recurring money would
+  have to invent them.
+</p>
+
+<p>The design turns on one decision, stated up front because everything else follows from it:</p>
+
+<div class="callout ok">
+  <span class="callout-label">Named meters, not a credit balance</span>
+  An entitlement is a <strong>named meter with an allowance</strong> — <code>stories</code> 6/month,
+  <code>animated-videos</code> 2/month, <code>child-profiles</code> max 3, <code>hd-styles</code> on. A single
+  general-purpose "credit balance" is <em>one meter shape among several</em>, not the model. Building the balance
+  first and bolting quotas on afterwards is the mistake this spec exists to avoid, and it is not retrofittable —
+  a balance has no per-unit reset policy, no ceiling semantics, and no way to sell "one more video" without
+  selling fungible currency.
+</div>
+
+<h2 id="exists">2. What exists, what doesn't</h2>
+
+<table>
+  <thead><tr><th>Capability</th><th>State</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td>Invoice, lines, customer account, dunning, allocations</td><td><span class="tag existing">exists</span></td><td><code>Aonik.Finance/Entities/Billing</code></td></tr>
+    <tr><td>Order spine, open <code>OrderType</code>, idempotency key, funding + fulfilment links</td><td><span class="tag existing">exists</span></td><td><code>Aonik.Ordering</code>, <code>IOrderService</code></td></tr>
+    <tr><td>Payment intents, capture, refund</td><td><span class="tag existing">exists</span></td><td><code>Aonik.Finance/Entities/Payments</code></td></tr>
+    <tr><td>Double-entry ledger, chart of accounts at provisioning, posting service</td><td><span class="tag existing">exists</span></td><td><code>Aonik.Finance/Entities/Ledger</code>, <code>LedgerPostingService</code></td></tr>
+    <tr><td>Write contract for invoicing from another module</td><td><span class="tag existing">exists</span></td><td><code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code></td></tr>
+    <tr><td>Write contract for <em>posting to the ledger</em> from another module</td><td><span class="tag gap">gap</span></td><td><code>ILedgerService</code> lives in <code>Aonik.Finance.Contracts</code> — unreachable cross-module</td></tr>
+    <tr><td><strong>Plan</strong></td><td><span class="tag gap">absent</span></td><td>—</td></tr>
+    <tr><td><strong>Subscription</strong> (recurring commercial agreement)</td><td><span class="tag gap">absent</span></td><td>—</td></tr>
+    <tr><td><strong>Entitlement</strong> / allowance</td><td><span class="tag gap">absent</span></td><td>—</td></tr>
+    <tr><td><strong>Usage meter</strong> / enforcement</td><td><span class="tag gap">absent</span></td><td>—</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The nearest thing to metering is <code>AiRun.CostEstimate</code> — a single <code>decimal</code> — and
+  <code>AiRoutePolicy</code>, which selects a model and carries no budget or cap at all.
+</p>
+
+<h2 id="notthis">3. What this is <em>not</em></h2>
+
+<p>Four things in the tree sound like this spec and are not. Confusing any of them with an entitlement will produce a wrong design.</p>
+
+<table>
+  <thead><tr><th>Existing thing</th><th>What it actually is</th><th>Relationship</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>PersonalFinance.Subscription</code></td>
+      <td>A <strong>B2C bill-tracking record</strong>: "this user pays £9.99/month to Netflix". A thing the platform <em>observes</em>.</td>
+      <td>Unrelated. <strong>Direct name collision</strong> — never let the two meet in a <code>using</code>. Namespaces keep them apart; reviewers must too.</td>
+    </tr>
+    <tr>
+      <td><code>TenantFeature</code></td>
+      <td>Tenant-scoped capability toggle with optional expiry — what a <em>tenant</em> may do.</td>
+      <td>Different layer. A plan entitlement is <strong>subscriber</strong>-scoped. In a one-tenant-many-families product, tenant flags cannot express per-family limits. Both stay.</td>
+    </tr>
+    <tr>
+      <td><code>FeatureFlags</code></td>
+      <td>Compile-time <code>const string</code> capability names.</td>
+      <td>Not plan data. A plan may <em>reference</em> a flag name in a <code>flag</code> entitlement; it does not replace the constants.</td>
+    </tr>
+    <tr>
+      <td><code>AiCostGuardJob</code></td>
+      <td>A telemetry-driven <strong>alarm</strong> on <em>our</em> provider spend ("did we just burn £10 of OpenAI credit").</td>
+      <td>Opposite direction: it watches our cost, entitlements enforce the subscriber's allowance. Both stay; neither replaces the other.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+
+<h3>4.1 In scope</h3>
+<ul>
+  <li>A new <code>Aonik.Subscriptions</code> module: catalogue, subscription, grant, usage.</li>
+  <li>Three entitlement shapes (<a href="#shapes">§5</a>) covering counters, ceilings and flags.</li>
+  <li>Reserve → commit → release usage lifecycle with expiry sweeping.</li>
+  <li>Renewal producing an <code>Order</code> + <code>Invoice</code> + <code>PaymentIntent</code> on existing rails.</li>
+  <li>Two new order types: <code>SubscriptionRenewal</code>, <code>EntitlementPurchase</code>.</li>
+  <li>New ledger accounts and postings, contributed at provisioning.</li>
+  <li><code>SharedKernel.Abstractions.Subscriptions</code> contracts, plus a new <code>IJournalWriter</code> to close the cross-module ledger gap.</li>
+</ul>
+
+<h3>4.2 Out of scope</h3>
+<ul>
+  <li><strong>Proration</strong> and mid-period plan changes. v1: a change takes effect at the next period boundary.</li>
+  <li><strong>Trials.</strong> A £0 plan is a plan — the Arke Kids "Peek, free forever" tier needs no trial machinery. Time-boxed trials are a later, separate mechanism.</li>
+  <li>Coupons, discounts, tax calculation, multi-currency price books.</li>
+  <li>Post-paid / arrears usage billing (bill what was consumed). v1 is pre-paid allowance only.</li>
+  <li>Seat-based per-user pricing (a <code>ceiling</code> meter covers "up to N profiles" without per-seat billing).</li>
+  <li>Resellers, marketplaces, partner revenue share.</li>
+  <li>Dunning changes — the existing <code>DunningPlan</code> is used as-is.</li>
+  <li>Any product-specific meter definition. Meters are data; Arke Kids' meters belong to its config pack.</li>
+</ul>
+
+<h2 id="shapes">5. Three entitlement shapes</h2>
+
+<p>Every limit in a real pricing table is one of three things. Modelling all three now costs almost nothing; modelling one costs a rewrite.</p>
+
+<table>
+  <thead><tr><th>Kind</th><th>Semantics</th><th>Consumed?</th><th>Resets?</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>counter</code></td><td>An allowance drawn down by usage</td><td>Yes</td><td>Per period, or never</td><td>6 stories / month · 2 videos / month · 500 credits</td></tr>
+    <tr><td><code>ceiling</code></td><td>A maximum concurrently held; checked, not consumed</td><td>No</td><td>n/a</td><td>Up to 3 child profiles · 5 worlds</td></tr>
+    <tr><td><code>flag</code></td><td>A capability that is on or off</td><td>No</td><td>n/a</td><td>Every art style in HD · faster helpers · early access</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Why ceiling is not a counter</span>
+  Deleting a child profile must return the slot; deleting a story must not return the month's allowance. A single
+  "consumed" model cannot express both, and conflating them is how a subscriber loses allowance by tidying up.
+</div>
+
+<h2 id="catalogue">6. The catalogue</h2>
+
+<div class="ascii-diagram">Plan ──< PlanVersion ──< PlanEntitlement
+ code       version, price,      meterCode, kind,
+ name       effectiveFrom        allowance, resetPolicy</div>
+
+<table>
+  <thead><tr><th>Entity</th><th>Fields</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Plan</code> <span class="tag new">new</span></td>
+      <td><code>TenantId</code>, <code>Code</code>, <code>Name</code>, <code>Description</code>, <code>BillingInterval</code>, <code>Status</code>, <code>SortOrder</code></td>
+      <td><code>BillingInterval</code> and <code>Status</code> are open strings with known-values helpers, per the <code>OrderType</code> / <code>BusinessType</code> precedent.</td>
+    </tr>
+    <tr>
+      <td><code>PlanVersion</code> <span class="tag new">new</span></td>
+      <td><code>PlanId</code>, <code>Version</code>, <code>Price</code>, <code>Currency</code>, <code>EffectiveFrom</code>, <code>Status</code></td>
+      <td><strong>Grandfathering.</strong> A <code>Subscription</code> pins a <code>PlanVersionId</code>, so raising a price never silently re-prices existing subscribers. New signups take the current version.</td>
+    </tr>
+    <tr>
+      <td><code>PlanEntitlement</code> <span class="tag new">new</span></td>
+      <td><code>PlanVersionId</code>, <code>MeterCode</code>, <code>Kind</code>, <code>Allowance</code>, <code>ResetPolicy</code>, <code>Unit</code></td>
+      <td><code>MeterCode</code> is an open string owned by the product, validated against registered meters (<a href="#contracts">§14</a>).</td>
+    </tr>
+    <tr>
+      <td><code>Meter</code> <span class="tag new">new</span></td>
+      <td><code>TenantId</code>, <code>Code</code>, <code>DisplayName</code>, <code>Unit</code>, <code>Kind</code></td>
+      <td>The registry that makes <code>MeterCode</code> a typo-proof open string. Seeded by a config pack (<a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a>) — meters are <em>data</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="subscription">7. The subscription</h2>
+
+<table>
+  <thead><tr><th>Entity</th><th>Fields</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Subscription</code> <span class="tag new">new</span></td>
+      <td><code>TenantId</code>, <code>SubscriberKind</code>, <code>SubscriberId</code>, <code>PlanVersionId</code>, <code>Status</code>, <code>CurrentPeriodStart</code>, <code>CurrentPeriodEnd</code>, <code>CancelAtPeriodEnd</code>, <code>StartedAt</code>, <code>EndedAt</code></td>
+    </tr>
+    <tr>
+      <td><code>SubscriptionPeriod</code> <span class="tag new">new</span></td>
+      <td><code>SubscriptionId</code>, <code>Sequence</code>, <code>StartsAt</code>, <code>EndsAt</code>, <code>OrderId?</code>, <code>InvoiceId?</code>, <code>Status</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <code>SubscriptionPeriod</code> is not bookkeeping for its own sake: it is the <strong>idempotency anchor</strong>
+  for renewal. The renewal job keys on <code>(SubscriptionId, Sequence)</code>, so a job that runs twice, or a
+  process that dies between minting the order and taking payment, cannot double-bill.
+</p>
+
+<p>Status values (open strings, known-values helper): <code>trialing</code>, <code>active</code>, <code>past_due</code>, <code>cancelled</code>, <code>expired</code>.</p>
+
+<h2 id="grants">8. Grants: one entity, two behaviours</h2>
+
+<p>
+  Plan allowance and purchased top-ups are the same shape with different expiry, so they are one entity with a
+  <code>Source</code> discriminator rather than two tables that drift.
+</p>
+
+<pre><code>EntitlementGrant
+    SubscriptionId, PeriodId?, MeterCode
+    Source          plan | purchase | adjustment
+    Allowance       decimal
+    Consumed        decimal
+    ExpiresAt       DateTime?     // set for plan grants, null for purchases
+    RowVersion      byte[]        // optimistic concurrency — see §15
+    SourceOrderId?  Guid?         // purchases and adjustments trace to their order</code></pre>
+
+<table>
+  <thead><tr><th>Source</th><th>Created by</th><th>Expires</th><th>Refundable liability</th></tr></thead>
+  <tbody>
+    <tr><td><code>plan</code></td><td>Period activation</td><td>At <code>PeriodEnd</code></td><td>No — the subscriber bought the plan, not the units</td></tr>
+    <tr><td><code>purchase</code></td><td>An <code>EntitlementPurchase</code> order</td><td>Never</td><td><strong>Yes</strong> — deferred revenue until consumed</td></tr>
+    <tr><td><code>adjustment</code></td><td>An operator, with a reason</td><td>Operator's choice</td><td>No</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">The question this answers on day one</span>
+  <em>"Do my unused plan credits roll over?"</em> — No: plan grants expire at period end. <em>"Do the ones I bought
+  expire?"</em> — No. That asymmetry is deliberate, commercially standard, and must be visible in the model rather
+  than living in a service's <code>if</code>.
+</div>
+
+<h2 id="usage">9. Metered usage</h2>
+
+<p>
+  Work that consumes an allowance is authorised <em>before</em> it runs and settled at its true cost afterwards —
+  the same authorise/capture shape the payments module already uses, for the same reason.
+</p>
+
+<div class="ascii-diagram">  reserve(meter, qty)  ──▶  UsageReservation [held]     allowance check + hold
+         │                        │
+   work runs                      ├── commit(actualQty)  ──▶  UsageRecord  + grant draw-down
+         │                        ├── release()          ──▶  hold returned, nothing charged
+         └── crash / timeout      └── sweep at ExpiresAt ──▶  hold returned automatically</div>
+
+<table>
+  <thead><tr><th>Entity</th><th>Fields</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>UsageReservation</code> <span class="tag new">new</span></td>
+      <td><code>SubscriptionId</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>Status</code> (<code>held</code> | <code>committed</code> | <code>released</code> | <code>expired</code>), <code>ExpiresAt</code>, <code>IdempotencyKey</code>, <code>RowVersion</code></td>
+    </tr>
+    <tr>
+      <td><code>UsageRecord</code> <span class="tag new">new</span></td>
+      <td><code>SubscriptionId</code>, <code>MeterCode</code>, <code>Quantity</code>, <code>AllocationsJson</code>, <code>OccurredAt</code>, <code>SourceType</code>, <code>SourceId</code>, <code>ProviderCost?</code>, <code>ProviderCostCurrency?</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <code>AllocationsJson</code> records <em>which grants</em> the usage drew from and how much from each. Without it,
+  a refund or a dispute cannot be unwound, and breakage cannot be computed. <code>SourceType</code>/<code>SourceId</code>
+  point at the thing that caused the usage — for AI work, the <code>AiRun</code> id, which keeps
+  <a href="../decisions/012-ai-route-policy-cost-governance.md">ADR-012</a>'s audit record as the join.
+</p>
+
+<p>
+  <code>ProviderCost</code> is what the run actually cost <em>us</em>. It is the other half of the margin figure and
+  the reason usage lands in the ledger rather than a counter table (<a href="#ledger">§13</a>).
+</p>
+
+<h3>9.1 Ceilings and flags need no reservation</h3>
+<p>
+  <code>ceiling</code> is a point-in-time check (<code>CheckCeilingAsync(meter, currentCount)</code>) and
+  <code>flag</code> is a read. Only <code>counter</code> uses the reservation lifecycle.
+</p>
+
+<h2 id="drawdown">10. Draw-down order</h2>
+
+<p>A commit draws from grants in this order, and the order is load-bearing:</p>
+
+<ol>
+  <li><code>plan</code> and <code>adjustment</code> grants <strong>with</strong> an expiry, soonest expiry first</li>
+  <li>grants with no expiry — <code>purchase</code> last</li>
+  <li>ties broken by <code>CreatedAt</code>, oldest first</li>
+</ol>
+
+<p>
+  The perishable allowance is spent before the permanent one. Reversing this quietly destroys value the subscriber
+  paid cash for, and is the single most common way a credit system loses a customer's trust.
+</p>
+
+<p>
+  A commit exceeding available allowance across all grants <strong>fails</strong>; it never goes negative. Overage is
+  an explicit purchase, not an implicit debt.
+</p>
+
+<h2 id="subscriber">11. Who holds a subscription</h2>
+
+<p>
+  <code>SubscriberKind</code> + <code>SubscriberId</code> — the same polymorphic idiom as
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a>'s <code>ResourceKind</code>, and for the same
+  reason: the module must not know its consumers' entity types.
+</p>
+
+<table>
+  <thead><tr><th><code>SubscriberKind</code></th><th>Points at</th><th>Case</th></tr></thead>
+  <tbody>
+    <tr><td><code>group</code></td><td>A <code>Group</code> (<a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a>)</td><td>A family on a consumer product — one tenant, many subscribers</td></tr>
+    <tr><td><code>party</code></td><td>A <code>Party</code></td><td>An individual subscriber</td></tr>
+    <tr><td><code>tenant</code></td><td>The tenant itself</td><td>A B2B tenant on a platform plan</td></tr>
+  </tbody>
+</table>
+
+<div class="callout open">
+  <span class="callout-label">Dependency</span>
+  Only the <code>group</code> kind depends on Spec 086, and only as <em>data</em> — this module stores a
+  <code>Guid</code> and never dereferences it. <strong>Spec 087 can be built and tested before Spec 086 lands</strong>,
+  using <code>party</code> or <code>tenant</code> subscribers.
+</div>
+
+<h2 id="money">12. Orders, invoices, payments</h2>
+
+<p>No new money machinery. Two new order types on the existing spine, per <a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>'s additive rule:</p>
+
+<table>
+  <thead><tr><th>Order type</th><th>Meaning</th><th>Lines</th></tr></thead>
+  <tbody>
+    <tr><td><code>SubscriptionRenewal</code> <span class="tag new">new</span></td><td>One billing period of a subscription</td><td>One line: the plan version at its pinned price</td></tr>
+    <tr><td><code>EntitlementPurchase</code> <span class="tag new">new</span></td><td>Units of a named meter bought outright</td><td>One line per meter: <code>Quantity</code> × <code>UnitPrice</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Naming</span>
+  <code>EntitlementPurchase</code>, not <code>CreditPurchase</code>. It buys units of <em>whichever</em> meter — "one
+  more animated video" and "500 credits" are the same transaction against different meters. A type named for one
+  product's currency would need a second type the moment a second product priced differently.
+</div>
+
+<p>
+  A <strong>physical</strong> add-on (a printed book) is <strong>not</strong> this — it stays a
+  <code>ProductPurchase</code> with Commerce fulfilment. Only entitlement units come through here.
+</p>
+
+<h3>12.1 Renewal flow</h3>
+<ol>
+  <li>Renewal job selects subscriptions with <code>CurrentPeriodEnd &lt;= now</code> and <code>Status = active</code>.</li>
+  <li>Create <code>SubscriptionPeriod</code> for <code>Sequence + 1</code> (the idempotency anchor).</li>
+  <li><code>IOrderService.CreateAsync</code> with <code>IdempotencyKey = "sub:{subscriptionId}:period:{sequence}"</code>.</li>
+  <li><code>IInvoiceWriter.CreateForOrderAsync</code>.</li>
+  <li><code>IPaymentInitiator</code> → <code>PaymentIntent</code>; <code>IOrderService.LinkFundingAsync</code>.</li>
+  <li>On capture: post the ledger, materialise this period's <code>plan</code> grants, advance <code>CurrentPeriodStart/End</code>, set period <code>Status = settled</code>.</li>
+  <li>On failure: <code>Status = past_due</code>. Existing <code>DunningPlan</code> takes over. <strong>Grants are not materialised</strong> — an unpaid period confers no allowance.</li>
+</ol>
+
+<div class="callout p0">
+  <span class="callout-label">Order ≠ Payment ≠ Ledger</span>
+  Rule 2 holds here exactly as elsewhere. The <em>order</em> is the request to transact, the <em>payment intent</em>
+  funds it, the <em>ledger</em> records what happened, and the <em>grant</em> is what the subscriber can then use.
+  Four distinct records. A renewal that collapses any two of them will not survive its first refund.
+</div>
+
+<h2 id="ledger">13. Ledger accounts &amp; postings</h2>
+
+<p>
+  The tenant chart of accounts is seeded by <code>FinanceTenantProvisioningContributor</code> (1000 Cash, 1100 AR,
+  2000 AP, 2100 Payments Clearing, 3000 Retained Earnings, 4000 Operating Revenue, 5000 Operating Expenses). This
+  module adds its own via a <code>SubscriptionsTenantProvisioningContributor</code>, following the same pattern.
+</p>
+
+<table>
+  <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>2210</td><td>Deferred Revenue — Purchased Entitlements</td><td>Liability</td><td>Units bought and not yet consumed. <strong>The prepaid balance, as a liability.</strong></td></tr>
+    <tr><td>4100</td><td>Subscription Revenue</td><td>Revenue</td><td>Plan fees</td></tr>
+    <tr><td>4110</td><td>Entitlement Revenue</td><td>Revenue</td><td>Recognised as purchased units are consumed</td></tr>
+    <tr><td>5100</td><td>Cost of Service — Providers</td><td>Expense</td><td>What a run actually cost us</td></tr>
+  </tbody>
+</table>
+
+<h3>13.1 Postings</h3>
+<table>
+  <thead><tr><th>Event</th><th>Debit</th><th>Credit</th></tr></thead>
+  <tbody>
+    <tr><td>Subscription period settled</td><td colspan="2">Cash/AR and clearing handled by the existing invoice-settlement posting; the revenue leg lands in <strong>4100</strong></td></tr>
+    <tr><td>Entitlement purchase settled</td><td>(existing cash leg)</td><td><strong>2210</strong> Deferred Revenue</td></tr>
+    <tr><td>Purchased units consumed</td><td><strong>2210</strong></td><td><strong>4110</strong> Entitlement Revenue</td></tr>
+    <tr><td>Provider cost incurred on a run</td><td><strong>5100</strong></td><td>2000 Accounts Payable (or clearing)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Margin per meter = 4110 − 5100</strong>, by construction, from the ledger — not from a spreadsheet. That is
+  the whole reason usage posts here.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Revenue recognition</span>
+  Default policy: <strong>plan fees recognised at period start</strong> (monthly granularity makes intra-period
+  amortisation immaterial); <strong>purchased units deferred until consumed</strong>. Plan grants carry no liability —
+  the subscriber bought access, not units, so unused plan allowance is not owed back. This is a defensible default,
+  <em>not</em> accounting advice: an operator whose auditor wants daily amortisation should treat this as
+  configuration. Recorded as <a href="#open">O2</a>.
+</div>
+
+<h2 id="contracts">14. Contracts in SharedKernel</h2>
+
+<h3>14.1 New: <code>Abstractions.Subscriptions</code></h3>
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IEntitlementReader</code></td><td><code>GetAsync(subscriberRef)</code> → plan, meters, allowance, consumed, remaining. The read a product's UI renders.</td></tr>
+    <tr><td><code>IUsageMeter</code></td><td><code>ReserveAsync</code> / <code>CommitAsync</code> / <code>ReleaseAsync</code> / <code>CheckCeilingAsync</code> / <code>HasFlagAsync</code>.</td></tr>
+    <tr><td><code>ISubscriptionService</code></td><td>Subscribe, change plan (next period), cancel, resume, read.</td></tr>
+    <tr><td><code>IMeterDefinitionProvider</code></td><td>Module-contributed <code>IEnumerable&lt;T&gt;</code>: the meters a module owns, so <code>MeterCode</code> validates at write time and an unknown meter <strong>fails closed</strong>.</td></tr>
+    <tr><td><code>MeterKinds</code>, <code>SubscriberKinds</code>, <code>SubscriptionStatuses</code>, <code>ResetPolicies</code></td><td>Known-values helpers over open strings.</td></tr>
+  </tbody>
+</table>
+
+<h3>14.2 New: <code>Abstractions.Ledger.IJournalWriter</code></h3>
+<p>
+  <code>ILedgerService</code> lives in <code>Aonik.Finance.Contracts</code>, so no other module can post. This mirrors
+  <code>IInvoiceWriter</code> — described in its own XML doc as <em>"the write mirror of the ADR-006 read
+  contracts"</em> — and is implemented by <code>Aonik.Finance</code>:
+</p>
+<pre><code>public interface IJournalWriter
+{
+    Task&lt;JournalEntryRef&gt; PostAsync(PostJournalCommand command, CancellationToken cancellationToken = default);
+}
+
+public sealed record JournalLineSpec(string AccountCode, string Direction, decimal Amount, string Currency, string? Narration = null);
+
+public sealed record PostJournalCommand(
+    string SourceType,
+    Guid SourceId,
+    IReadOnlyList&lt;JournalLineSpec&gt; Lines,
+    DateTime? TimestampUtc = null);</code></pre>
+<p>
+  Accounts are addressed <strong>by code</strong>, not id — the caller must not need to resolve a tenant's chart.
+  Finance validates balance (debits = credits) and rejects an unknown code. This contract is generally useful and
+  arguably overdue; Commerce will want it too.
+</p>
+
+<h2 id="concurrency">15. Concurrency &amp; correctness</h2>
+
+<div class="callout p0">
+  <span class="callout-label">The race that matters</span>
+  Two dispatches commit against the last unit of allowance simultaneously. Without protection both succeed and the
+  subscriber consumes more than they hold. <code>EntitlementGrant.Consumed</code> and
+  <code>UsageReservation.Status</code> carry <code>RowVersion</code> optimistic concurrency, and the reserve/commit
+  path runs in a transaction with a bounded retry on concurrency conflict.
+</div>
+
+<p>
+  Per <code>CLAUDE.md</code>, this is exactly the class of change the InMemory provider is <strong>structurally
+  unable to fail on</strong> — it is non-relational, so <code>RowVersion</code>, <code>BeginTransaction</code> and
+  execution strategies are all no-ops there. <strong>Coverage in <code>tests/Aonik.Database.Tests</code> (LocalDB) is
+  mandatory, not optional.</strong> That lane is where the Spec 066 P1 defect would have been caught.
+</p>
+
+<p>Required LocalDB tests:</p>
+<ul>
+  <li>Concurrent commits against a grant with one unit remaining: exactly one succeeds.</li>
+  <li>A reservation cannot be committed twice (idempotency key + status guard).</li>
+  <li>Commit spanning two grants allocates correctly and records both in <code>AllocationsJson</code>.</li>
+  <li>An expired reservation cannot be committed.</li>
+  <li>Renewal is idempotent on <code>(SubscriptionId, Sequence)</code> under concurrent job execution.</li>
+</ul>
+
+<h2 id="jobs">16. Jobs</h2>
+
+<table>
+  <thead><tr><th>Job</th><th>Does</th><th>Precedent</th></tr></thead>
+  <tbody>
+    <tr><td><code>SubscriptionRenewalJob</code></td><td>Mints period + order + invoice + payment for due subscriptions</td><td><code>ScheduledJobDefinitions</code> registration pattern</td></tr>
+    <tr><td><code>UsageReservationSweepJob</code></td><td>Expires stale <code>held</code> reservations and returns the hold</td><td><code>InventoryReservationSweepJob</code> — same shape, reuse it</td></tr>
+    <tr><td><code>GrantExpirySweepJob</code></td><td>Closes <code>plan</code> grants past <code>ExpiresAt</code></td><td>—</td></tr>
+  </tbody>
+</table>
+
+<p>All three are <code>[DisallowConcurrentExecution]</code> and idempotent; all register through <code>ScheduledJobRegistrar</code>.</p>
+
+<h2 id="persistence">17. Persistence &amp; migration</h2>
+
+<ul>
+  <li>All nine entities are <strong>new tables</strong>, <code>Ank</code>-prefixed in <code>dbo</code> like everything else. No existing table is modified.</li>
+  <li><code>DbSet</code>s added to <code>AonikDbContext</code> (which owns all sets) and to a new <code>SubscriptionsDbContext</code> for module scoping. <strong>Migrations generated only against <code>AonikDbContext</code></strong>, CLI-only, per <code>CLAUDE.md</code>.</li>
+  <li>Entity configurations as <code>IEntityTypeConfiguration&lt;T&gt;</code> under <code>Aonik.Subscriptions/Persistence/Configurations/</code>.</li>
+  <li>Indexes: <code>(SubscriptionId, MeterCode, ExpiresAt)</code> on grants — this is the draw-down query and it runs on every commit. Unique on <code>(SubscriptionId, Sequence)</code> for periods, and on <code>IdempotencyKey</code> for reservations.</li>
+  <li><code>OrderTypeCodes</code> (SharedKernel) and the Finance <code>OrderType</code> enum both gain the two new values, <strong>kept in lockstep</strong> as their own comments require.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Note for the implementer</span>
+  ADR-011 is mid-migration: <code>Order</code> physically lives in <code>src/Aonik.Ordering/Entities/Orders/</code>
+  but still declares <code>namespace Aonik.Finance.Entities.Orders</code>. Expect that mismatch; do not "fix" it as a
+  side effect of this spec.
+</div>
+
+<h2 id="phasing">18. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>P1</strong> — contracts</td><td><code>Abstractions.Subscriptions</code> + <code>IJournalWriter</code>; Finance implements the latter.</td><td>Builds; <code>IJournalWriter</code> posts a balanced entry in a test.</td></tr>
+    <tr><td><strong>P2</strong> — catalogue</td><td><code>Meter</code>, <code>Plan</code>, <code>PlanVersion</code>, <code>PlanEntitlement</code> + module + admin CRUD.</td><td>A plan with all three entitlement kinds can be authored and read.</td></tr>
+    <tr><td><strong>P3</strong> — subscription</td><td><code>Subscription</code>, <code>SubscriptionPeriod</code>, subscribe / cancel / read. No money yet.</td><td>A £0 plan works end to end — which is the whole free tier.</td></tr>
+    <tr><td><strong>P4</strong> — grants &amp; usage</td><td><code>EntitlementGrant</code>, <code>UsageReservation</code>, <code>UsageRecord</code>, reserve/commit/release, draw-down, ceilings, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
+    <tr><td><strong>P5</strong> — money</td><td>Two order types, renewal flow, <code>EntitlementPurchase</code>, dunning handover.</td><td>A paid period renews idempotently; a failed payment yields <code>past_due</code> and no grants.</td></tr>
+    <tr><td><strong>P6</strong> — ledger</td><td>Provisioning contributor for the four accounts; the four postings.</td><td>Margin per meter is derivable from the ledger alone.</td></tr>
+    <tr><td><strong>P7</strong> — jobs &amp; admin</td><td>Three jobs; Admin UI for plans, subscriptions and usage.</td><td>Full solution build + <code>dotnet test Aonik.sln</code> + LocalDB lane green.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Test lanes</span>
+  Run the <strong>full solution</strong> — <code>Aonik.Api.Tests</code> boots the whole DI container, and a new module
+  with contributed <code>IEnumerable&lt;T&gt;</code> registrations is precisely the change that leaves
+  <code>Application.Tests</code> green while the app fails to boot. Run <code>dotnet build Aonik.sln</code> too:
+  <code>dotnet test</code> does not compile the Migrator/Mcp hosts and this adds a composition root.
+</div>
+
+<h2 id="acceptance">19. Acceptance criteria</h2>
+
+<ol>
+  <li>A plan can express all three entitlement kinds, and the Arke Kids pricing table (£0 / £9.99 / £19.99 / £39.99, stories, videos, profiles, HD) is expressible <strong>as data, with no code change</strong>.</li>
+  <li>A subscriber on a £0 plan can consume their allowance and be refused at zero.</li>
+  <li>Commit draws from soonest-expiring grants first and purchased grants last, proven by a test with mixed grants.</li>
+  <li>Concurrent commits against one remaining unit: exactly one succeeds, on <strong>LocalDB</strong>.</li>
+  <li>A crashed dispatch's reservation is swept and the hold returned.</li>
+  <li>Deleting a <code>ceiling</code>-metered object returns the slot; deleting a <code>counter</code>-metered one does not return allowance.</li>
+  <li>Renewal run twice produces one order, one invoice, one set of grants.</li>
+  <li>A failed renewal payment leaves <code>past_due</code> with <strong>no</strong> grants materialised.</li>
+  <li>Raising a plan's price does not re-price existing subscribers.</li>
+  <li>An unregistered <code>MeterCode</code> is rejected at write time.</li>
+  <li>Margin for a meter over a period is derivable from ledger accounts 4110 and 5100 alone.</li>
+  <li>No module gains a project reference to <code>Aonik.Subscriptions</code> or <code>Aonik.Finance</code>; all access is via SharedKernel abstractions.</li>
+  <li><code>dotnet build Aonik.sln</code>, <code>dotnet test Aonik.sln</code>, and the LocalDB lane green.</li>
+</ol>
+
+<h2 id="open">20. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>O1</td>
+      <td>Does an unpaid (<code>past_due</code>) subscription keep the <em>previous</em> period's unused grants?</td>
+      <td>Yes until they expire naturally. Clawing back allowance already granted is hostile and hard to explain; the dunning grace period is the right lever.</td>
+    </tr>
+    <tr>
+      <td>O2</td>
+      <td>Revenue recognition: period-start vs daily amortisation for plan fees.</td>
+      <td>Period-start in v1. Make it a setting rather than a constant so an operator's accountant can change it without a code change.</td>
+    </tr>
+    <tr>
+      <td>O3</td>
+      <td>Should <code>ProviderCost</code> live on <code>UsageRecord</code> or only in the ledger?</td>
+      <td>Both. The ledger is truth; the denormalised column makes per-meter margin queryable without a journal scan.</td>
+    </tr>
+    <tr>
+      <td>O4</td>
+      <td>Can one subscriber hold two active subscriptions?</td>
+      <td>Model allows it; v1 service enforces one active per <code>(SubscriberKind, SubscriberId)</code>. Relaxing later is additive; tightening later is not.</td>
+    </tr>
+    <tr>
+      <td>O5</td>
+      <td>Where do meters get defined — <code>Meter</code> rows, or code constants?</td>
+      <td>Rows, seeded by a config pack (<a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a>), validated by module-contributed <code>IMeterDefinitionProvider</code>. Meters are product identity, and per <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> that is configuration.</td>
+    </tr>
+    <tr>
+      <td>O6</td>
+      <td>Refunding an <code>EntitlementPurchase</code> whose units are partly consumed.</td>
+      <td>Out of scope for v1, but <code>AllocationsJson</code> is designed so it is <em>possible</em> later. Do not drop it as an optimisation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="refs">21. References</h2>
+<ul>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011 — Unify the Order Spine into a Shared Ordering Layer</a> (additive order types)</li>
+  <li><a href="../decisions/012-ai-route-policy-cost-governance.md">ADR-012 — AI Route-Policy Cost Governance</a> (<code>AiRun</code> as the usage source)</li>
+  <li><a href="../decisions/013-product-identity-is-configuration.md">ADR-013 — Product Identity Is Configuration</a> (meters are data)</li>
+  <li><a href="../decisions/014-business-type-configuration-packs.md">ADR-014 — Business-Type Configuration Packs</a> (how plans and meters are delivered)</li>
+  <li><a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015 — Groups and Sharing Are Platform Primitives</a> (the <code>group</code> subscriber kind)</li>
+  <li><a href="086.extract-groups-and-sharing-to-platform.html">Spec 086 — Extract groups and sharing to Platform</a></li>
+  <li><a href="041.unified-order-spine-ordering-layer.html">Spec 041 — Unified order spine</a></li>
+  <li><a href="060.ai-route-policy-cost-governance.html">Spec 060 — AI route-policy cost governance</a></li>
+</ul>
+
+<footer>
+  Spec 087 · Subscriptions, entitlements and metered usage · Draft Rev 1 · 2026-07-31
+</footer>
+
+</body>
+</html>
