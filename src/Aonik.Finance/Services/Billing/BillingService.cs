@@ -41,6 +41,9 @@ internal class BillingService : FinanceServiceBase, IBillingService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
+            // Spec 088 §7 - previously never written, which left settlement routing with no
+            // order to read a type from and invoice idempotency with nothing to key on.
+            OrderId = request.OrderId,
             CustomerAccountId = request.CustomerId,
             IssueDate = DateTime.UtcNow,
             DueDate = request.DueUtc,
@@ -358,7 +361,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
                 li.UnitPrice,
                 li.LineTotal)).ToList(),
             customerPartyId,
-            customerName);
+            customerName,
+            invoice.OrderId);
     }
 
 }

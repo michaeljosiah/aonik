@@ -483,6 +483,20 @@ public sealed record PostJournalCommand(
     <tr><td>O2</td><td>Does a mandate belong to a party or to a payment method?</td><td>Party. A method can be replaced (a reissued card) while the customer's authorisation persists; tying the mandate to the method forces re-authorisation for a bank's administrative act.</td></tr>
     <tr><td>O3</td><td>Should settlement splitting apply to the debit side too?</td><td>Not in v1. The cash leg is genuinely one movement; only the credit side carries analytic meaning.</td></tr>
     <tr><td>O4</td><td>Should <code>IJournalWriter</code> support reversal entries?</td><td>Not here. Refunds and reversals against consumer-specific accounts deserve their own spec, with the ledger's immutability rules stated explicitly.</td></tr>
+    <tr>
+      <td>O5</td>
+      <td>The supplied <code>InvoiceNumber</code> is discarded — should invoices have a real number?</td>
+      <td>
+        Found while implementing §7, and deliberately <strong>not</strong> fixed here.
+        <code>CreateInvoiceRequest.InvoiceNumber</code> is accepted but <code>Invoice</code> has no such
+        column, so the value is dropped; <code>MapToResponse</code> then returns
+        <code>invoice.Id.ToString("N")</code> under that name. A caller therefore cannot look an
+        invoice up by the number it supplied, and <code>InvoiceWriter</code>'s
+        <code>GenerateInvoiceNumber(orderId)</code> computes a string nothing keeps. Invoice
+        numbering is a billing concern with sequence, format and per-tenant-series questions of its
+        own — worth a spec, not a side effect of this one.
+      </td>
+    </tr>
   </tbody>
 </table>
 
