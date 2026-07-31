@@ -13,6 +13,7 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Platform.Services.Customers;
@@ -31,6 +32,8 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
     private readonly ICustomerFinanceStatsProvider _financeStatsProvider;
     private readonly ICustomerActivityProvider _activityProvider;
     private readonly IDocumentReader _documentReader;
+    private readonly IReadOnlyList<ICustomerRegistryContributor> _registryContributors;
+    private readonly IOrderService _orders;
 
     public CustomerAdminService(
         PlatformDbContext dbContext,
@@ -41,7 +44,9 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         IPermissionService permissionService,
         ICustomerFinanceStatsProvider financeStatsProvider,
         ICustomerActivityProvider activityProvider,
-        IDocumentReader documentReader)
+        IDocumentReader documentReader,
+        IEnumerable<ICustomerRegistryContributor> registryContributors,
+        IOrderService orders)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -51,6 +56,58 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         _financeStatsProvider = financeStatsProvider;
         _activityProvider = activityProvider;
         _documentReader = documentReader;
+        _registryContributors = registryContributors.ToList();
+        _orders = orders;
+    }
+
+    /// <summary>
+    /// Who is IN the registry: a tenant-scoped party holding the Customer role. Shared by the
+    /// list and the domain metadata so "this domain has customers" can never mean something
+    /// different from "these rows are listed".
+    /// </summary>
+    private IQueryable<PartyEntity> RegistryCustomerQuery(Guid tenantId) => _dbContext.Parties
+        .AsNoTracking()
+        .Where(party => party.TenantId == tenantId)
+        .Where(party => _dbContext.PartyRoleAssignments.Any(ra =>
+            ra.PartyId == party.Id &&
+            ra.TenantId == tenantId &&
+            ra.Role == PartyRoles.Customer &&
+            ra.ContextType == "Tenant" &&
+            ra.ContextId == tenantId));
+
+    public async Task<CustomerRegistryDomainsResponse> GetRegistryDomainsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Customers.Read", cancellationToken);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // A domain is "active" only if it has participants that are ALSO registry customers.
+        // A module's ownership records do not all correspond to a customer — the PersonalFinance
+        // seed, for instance, writes profiles with an empty PartyId — and counting them would
+        // advertise a tab that selects to an empty table, because the registry query still
+        // requires the tenant-scoped Customer role assignment. So the check intersects with
+        // exactly the predicate ListCustomersAsync applies.
+        var active = new List<string>();
+        foreach (var contributor in _registryContributors)
+        {
+            var participants = await contributor.GetParticipantsAsync(null, cancellationToken);
+            if (participants.Count == 0)
+            {
+                continue;
+            }
+
+            var ids = participants.ToList();
+            var hasRegistryCustomer = await RegistryCustomerQuery(tenantId)
+                .AnyAsync(party => ids.Contains(party.Id), cancellationToken);
+            if (hasRegistryCustomer)
+            {
+                active.Add(contributor.DomainKey);
+            }
+        }
+
+        return new CustomerRegistryDomainsResponse(
+            active.Distinct(StringComparer.Ordinal).OrderBy(d => d, StringComparer.Ordinal).ToList());
     }
 
     public async Task<PagedResult<CustomerListItem>> ListCustomersAsync(
@@ -63,15 +120,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
 
-        var query = _dbContext.Parties
-            .AsNoTracking()
-            .Where(party => party.TenantId == tenantId)
-            .Where(party => _dbContext.PartyRoleAssignments.Any(ra =>
-                ra.PartyId == party.Id &&
-                ra.TenantId == tenantId &&
-                ra.Role == PartyRoles.Customer &&
-                ra.ContextType == "Tenant" &&
-                ra.ContextId == tenantId));
+        var query = RegistryCustomerQuery(tenantId);
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
@@ -98,6 +147,21 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             query = query.Where(party =>
                 party.DisplayName.Contains(search) ||
                 _dbContext.PartyContacts.Any(c => c.PartyId == party.Id && c.Value.Contains(search)));
+        }
+
+        // Spec 080 — the domain filter narrows the registry BEFORE the count and the page, so
+        // paging stays correct; filtering a loaded page would report the wrong total and drop
+        // matches on later pages. An unknown key has no contributor and therefore matches
+        // nothing, which is the honest answer rather than silently ignoring the filter.
+        if (!string.IsNullOrWhiteSpace(request.Domain))
+        {
+            var domain = request.Domain.Trim();
+            var contributor = _registryContributors
+                .FirstOrDefault(c => string.Equals(c.DomainKey, domain, StringComparison.OrdinalIgnoreCase));
+            var participants = contributor is null
+                ? new HashSet<Guid>()
+                : (ISet<Guid>)(await contributor.GetParticipantsAsync(null, cancellationToken)).ToHashSet();
+            query = query.Where(party => participants.Contains(party.Id));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -163,6 +227,39 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             .Select(bp => new { bp.PartyId, bp.KybStatus })
             .ToListAsync(cancellationToken);
 
+        // Country is the party's own recorded fact — its earliest address. PartyAddress has no
+        // primary flag, only a free-text Type, so ranking one type over another would invent a
+        // precedence the model does not define; earliest-then-id is deterministic instead. Never
+        // inferred from an order corridor or a profile, which describe something else.
+        var addresses = await _dbContext.PartyAddresses
+            .AsNoTracking()
+            .Where(a => partyIds.Contains(a.PartyId) && a.Country != "")
+            .Select(a => new { a.PartyId, a.Country, a.CreatedAt, a.Id })
+            .ToListAsync(cancellationToken);
+        var countryByPartyId = addresses
+            .GroupBy(a => a.PartyId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).Select(a => a.Country).First());
+
+        // Domain participation, one batched call per module — never per party.
+        var domainsByPartyId = new Dictionary<Guid, List<string>>();
+        foreach (var contributor in _registryContributors)
+        {
+            var participants = await contributor.GetParticipantsAsync(partyIds, cancellationToken);
+            foreach (var participantId in participants)
+            {
+                if (!domainsByPartyId.TryGetValue(participantId, out var list))
+                {
+                    domainsByPartyId[participantId] = list = [];
+                }
+                list.Add(contributor.DomainKey);
+            }
+        }
+
+        // Spine-wide (ADR-011): every OrderType counts, aggregated in one query for the page.
+        var orderAggregates = await _orders.GetPartyOrderAggregatesAsync(partyIds, cancellationToken);
+
         var personByPartyId = personProfiles
             .GroupBy(p => p.PartyId)
             .ToDictionary(g => g.Key, g => g.First());
@@ -181,6 +278,8 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             var verificationStatus = canonicalPartyType == "Business" ? business?.KybStatus : person?.IdvStatus;
             var photoUrlTiny = canonicalPartyType == "Person" ? person?.PhotoUrlTiny : null;
 
+            var aggregate = orderAggregates.GetValueOrDefault(party.Id) ?? PartyOrderAggregate.Empty;
+
             return new CustomerListItem(
                 party.Id,
                 party.DisplayName,
@@ -190,7 +289,15 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
                 pc?.Phone,
                 photoUrlTiny,
                 verificationStatus,
-                party.CreatedAt);
+                party.CreatedAt,
+                countryByPartyId.GetValueOrDefault(party.Id),
+                domainsByPartyId.TryGetValue(party.Id, out var partyDomains)
+                    ? partyDomains.OrderBy(d => d, StringComparer.Ordinal).ToList()
+                    : [],
+                aggregate.OrderCount,
+                aggregate.TotalByCurrency
+                    .Select(t => new CustomerRegistryCurrencyTotal(t.Currency, t.Amount))
+                    .ToList());
         }).ToList();
 
         return new PagedResult<CustomerListItem>(

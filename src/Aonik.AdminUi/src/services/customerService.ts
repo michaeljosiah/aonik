@@ -5,6 +5,7 @@ import type {
   CreateCustomerResponse,
   CustomerDetail,
   CustomerListItem,
+  CustomerRegistryDomainsResponse,
   CustomerStats,
   PagedResult,
 } from '@/types';
@@ -15,6 +16,8 @@ export interface ListCustomersParams {
   status?: string;
   partyType?: string;
   search?: string;
+  /** Spec 080 — a CustomerRegistryDomains key; filtered server-side before paging. */
+  domain?: string;
 }
 
 export const customerService = {
@@ -25,9 +28,14 @@ export const customerService = {
     if (params.status) queryParams.append('status', params.status);
     if (params.partyType) queryParams.append('partyType', params.partyType);
     if (params.search) queryParams.append('search', params.search);
+    if (params.domain) queryParams.append('domain', params.domain);
 
     const query = queryParams.toString();
     return api.get<PagedResult<CustomerListItem>>(`/admin/customers${query ? `?${query}` : ''}`);
+  },
+  /** Spec 080 — the domains in use, so only tabs that can return rows are offered. */
+  listDomains: async (): Promise<CustomerRegistryDomainsResponse> => {
+    return api.get<CustomerRegistryDomainsResponse>('/admin/customers/domains');
   },
   get: async (partyId: string): Promise<CustomerDetail> => {
     return api.get<CustomerDetail>(`/admin/customers/${partyId}`);

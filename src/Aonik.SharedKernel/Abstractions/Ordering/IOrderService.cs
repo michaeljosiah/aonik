@@ -36,6 +36,24 @@ public interface IOrderService
     Task<PagedResult<OrderDto>> ListWithItemsAsync(ListOrdersQuery query, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Per-party order counts and value, aggregated in the database for a whole SET of payers in
+    /// one query — what the Spec 080 customers registry renders for a page of customers, where
+    /// listing each party's orders in turn would be N+1.
+    /// </summary>
+    /// <remarks>
+    /// SPINE-WIDE by design (ADR-011): every <c>OrderType</c> counts — box purchases, bill
+    /// payments, transfers alike — because there is one order spine and a registry that counted
+    /// only one product line would understate the customer. Payer-scoped in v1, matching
+    /// <see cref="ListOrdersQuery.PayerPartyId"/>, so registry and customer detail agree by
+    /// construction; participant-role expansion is a joint follow-up for both.
+    /// Every requested id is present in the result; a party with no orders maps to an empty
+    /// aggregate rather than being absent.
+    /// </remarks>
+    Task<IReadOnlyDictionary<Guid, PartyOrderAggregate>> GetPartyOrderAggregatesAsync(
+        IReadOnlyCollection<Guid> payerPartyIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Records a status transition (history + <c>OrderStatusChangedEvent</c>); a same-status call
     /// is a no-op. The spine enforces no state machine — but a caller that guards its own machine
     /// can send its observed status in <paramref name="expectedFromStatus"/> (Spec 053 §13): when

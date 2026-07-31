@@ -1,6 +1,7 @@
 using Aonik.Agents;
 using Aonik.Ai;
 using Aonik.Finance;
+using Aonik.Ordering;
 using Aonik.Platform;
 using Aonik.Platform.Mcp.Hosting;
 using Aonik.Platform.Contracts.Services.Storage;
@@ -36,6 +37,11 @@ var userId = builder.Configuration.GetValue<Guid?>("McpUserId")
 // Platform depends on Finance (for ICurrencyMetadataProvider registered by Finance
 // — but we provide our own stub), AI, and Agents.
 builder.Services.AddPlatformModule(builder.Configuration);
+// Ordering is the only registration of the SharedKernel IOrderService, which Platform's
+// customer admin service needs for the Spec 080 registry read-model. This host runs forced
+// Development, where the container validates every registration at Build(), so omitting it
+// fails the host outright rather than at first use.
+builder.Services.AddOrderingModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);

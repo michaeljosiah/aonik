@@ -263,6 +263,51 @@ internal sealed class CoreOrderService : IOrderService
         return order is null ? null : MapToDto(order);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, PartyOrderAggregate>> GetPartyOrderAggregatesAsync(
+        IReadOnlyCollection<Guid> payerPartyIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payerPartyIds);
+        var ids = payerPartyIds.Distinct().ToList();
+        // Every requested party is present, so a caller can index the result without
+        // re-checking; no orders reads as an explicit zero rather than a missing key.
+        var result = ids.ToDictionary(id => id, _ => PartyOrderAggregate.Empty);
+        if (ids.Count == 0)
+        {
+            return result;
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // Grouped in the DATABASE, spine-wide (no OrderType filter — ADR-011): one row per
+        // (party, currency) carrying that pair's order count and value. The per-party count is
+        // summed from these rows because an order has exactly one CurrencyIn, so the currency
+        // groups partition the party's orders without overlap.
+        var grouped = await _dbContext.Orders.AsNoTracking()
+            .Where(o => o.TenantId == tenantId && o.PayerPartyId != null && ids.Contains(o.PayerPartyId.Value))
+            .GroupBy(o => new { PartyId = o.PayerPartyId!.Value, o.CurrencyIn })
+            .Select(g => new
+            {
+                g.Key.PartyId,
+                g.Key.CurrencyIn,
+                Count = g.Count(),
+                Amount = g.Sum(o => o.AmountIn),
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var partyGroup in grouped.GroupBy(x => x.PartyId))
+        {
+            result[partyGroup.Key] = new PartyOrderAggregate(
+                partyGroup.Sum(x => x.Count),
+                partyGroup
+                    .OrderBy(x => x.CurrencyIn, StringComparer.Ordinal)
+                    .Select(x => new OrderCurrencyTotal(x.CurrencyIn, x.Amount))
+                    .ToList());
+        }
+
+        return result;
+    }
+
     public async Task<PagedResult<OrderSummary>> ListAsync(ListOrdersQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);

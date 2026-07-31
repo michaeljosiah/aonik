@@ -6,6 +6,13 @@ namespace Aonik.Platform.Contracts.Services.Customers;
 
 public interface ICustomerAdminService
 {
+    /// <summary>
+    /// Spec 080 — the product lines that actually have customers in this tenant, so the registry
+    /// only offers filter tabs that can return rows. Aggregated from the registered
+    /// <c>ICustomerRegistryContributor</c>s; a module that is not installed contributes nothing.
+    /// </summary>
+    Task<CustomerRegistryDomainsResponse> GetRegistryDomainsAsync(CancellationToken cancellationToken = default);
+
     Task<PagedResult<CustomerListItem>> ListCustomersAsync(
         ListCustomersRequest request,
         CancellationToken cancellationToken = default);
