@@ -79,14 +79,20 @@ export function ContentWorkbench({
   };
   const servedByVariant = !!panel.matchedVariantSelectionJson;
 
-  // `declarationsWithheld` is an AGGREGATE: true when at least one declaration is absent,
-  // including for a healthy block that authored ingredients and no allergens. Feeding it to
-  // each cell made an authored, SERVED ingredient read "Withheld while under review".
+  // The two flags are NOT the same kind of thing, and treating them alike is a mistake in
+  // both directions:
   //
-  // The per-field truth is already in the payload: text present = served, text null = absent.
-  // Review is the only thing that withholds AUTHORED text, so it is the single condition that
-  // overrides a field's own value.
+  //   `declarationsWithheld` is an AGGREGATE — true when at least one declaration is absent,
+  //   including for a healthy block with ingredients and no allergens. Per-cell it would make
+  //   a served ingredient read "withheld". The per-field truth is the text itself: present is
+  //   served, null is absent, and review is the one thing that withholds AUTHORED text.
+  //
+  //   `heatingWithheld` is PER-FIELD and carries information the steps array cannot: an
+  //   exact-match variant with no authored heating returns an empty array WITH the flag set,
+  //   which is withholding — while a block with no steps returns an empty array WITHOUT it,
+  //   which is an authored empty panel. Dropping it made the two read identically.
   const underReview = resolved ? resolved.isStale : state === 'review';
+  const heatingWithheld = underReview || panel.heatingWithheld;
 
   return (
     <AonikCard
@@ -133,7 +139,7 @@ export function ContentWorkbench({
           <DeclarationCell label="Allergens" text={panel.allergens} underReview={underReview} />
         </div>
 
-        <Heating steps={panel.heating} underReview={underReview} />
+        <Heating steps={panel.heating} withheld={heatingWithheld} underReview={underReview} />
       </div>
     </AonikCard>
   );
@@ -197,7 +203,17 @@ function DeclarationCell({
   );
 }
 
-function Heating({ steps, underReview }: { steps: HeatingStepDto[] | null; underReview: boolean }) {
+function Heating({
+  steps,
+  withheld,
+  underReview,
+}: {
+  steps: HeatingStepDto[] | null;
+  /** The server's per-heating verdict, or review. */
+  withheld: boolean;
+  /** Which of the two it was, so the caption says the right thing. */
+  underReview: boolean;
+}) {
   const hasSteps = !!steps && steps.length > 0;
 
   return (
@@ -205,10 +221,13 @@ function Heating({ steps, underReview }: { steps: HeatingStepDto[] | null; under
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
         Heating &amp; usage
       </p>
-      {underReview ? (
-        // Heating withholds like the other declarations under review. Outside review, no
-        // steps simply means none were authored — not that anything is being withheld.
-        <p className="text-[12.5px] italic text-[var(--color-warning)]">Withheld while under review</p>
+      {withheld ? (
+        // Withheld under review, or withheld because the matched variant authored none.
+        <p className="text-[12.5px] italic text-[var(--color-warning)]">
+          {underReview
+            ? 'Withheld while under review'
+            : 'Withheld — this combination authored no heating, and nothing is inherited'}
+        </p>
       ) : hasSteps ? (
         <ul className="flex flex-col gap-1">
           {steps!.map((step, index) => (

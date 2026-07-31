@@ -142,7 +142,12 @@ export function ContentVariantSheet({
     const dropped = Object.keys(selection).filter(
       (key) => !isEmptySelection(selection[key]) && !groups.some((g) => g.key === key),
     );
-    if (baseline && dropped.length > 0) {
+    // Applies to REVIVE as well as edit. A retired variant re-authored through
+    // `initialSelectionJson` has no baseline, so my first guard skipped it entirely — and the
+    // outcome there is the same: the removed group is dropped and AddVariantAsync happily
+    // authors the remaining combination, publishing freshly entered allergens against one the
+    // operator never chose.
+    if (dropped.length > 0) {
       setError(
         `This combination names ${dropped.join(', ')}, which this product no longer offers. ` +
           'Saving would move it onto a different combination, so it cannot be edited — retire ' +
@@ -358,6 +363,10 @@ function asSingle(value: SelectionValue | undefined): string {
 /** Everything an update would overwrite, for the staleness comparison. */
 function signatureOf(variant: ProductContentVariantDto): string {
   return JSON.stringify([
+    // The SELECTION is mutable through the same update API, so a concurrent retarget that
+    // changed no content field read as "fresh" and this sheet then moved the variant back.
+    // Identity belongs in the signature exactly as much as the content does.
+    variant.selectionJson,
     variant.servingLabel,
     variant.nutrition,
     variant.ingredients,

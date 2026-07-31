@@ -71,6 +71,8 @@ export function ProductContentPage() {
   const [groups, setGroups] = useState<EffectiveOptionGroupDto[]>([]);
   /** What the resolver serves for the standard selection — not always the block. */
   const [resolved, setResolved] = useState<ResolvedContentDto | null>(null);
+  /** The resolution FAILED (as opposed to reporting no content) — the panel may be wrong. */
+  const [resolvedError, setResolvedError] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState(false);
@@ -145,15 +147,26 @@ export function ProductContentPage() {
         // detail composes no content by contract, so reading `content` off it always yielded
         // null — the previous fix silently never applied. A 404 here is the honest "no block
         // authored" answer, not a failure.
+        // A 404 is this endpoint's DEFINED "no block authored" answer. Anything else is a
+        // failure, and swallowing it to null sent the workbench back to rendering the raw
+        // block as the customer panel — silently, which is the state this whole thread exists
+        // to prevent.
         slug
-          ? commerceContentService.resolveContent(slug).catch(() => null)
-          : Promise.resolve(null),
+          ? commerceContentService.resolveContent(slug).then(
+              (r) => ({ ok: true as const, content: r }),
+              (err: unknown) =>
+                httpStatus(err) === 404
+                  ? { ok: true as const, content: null }
+                  : { ok: false as const, content: null },
+            )
+          : Promise.resolve({ ok: true as const, content: null }),
       ]);
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
       setCoverage(cover);
       setGroups(product.product?.effectiveOptionGroups ?? []);
-      setResolved(resolvedContent);
+      setResolved(resolvedContent.content);
+      setResolvedError(!resolvedContent.ok);
       setGroupsError(!product.ok);
     } catch (err: unknown) {
       if (detailRequestRef.current !== requestId) return;
@@ -161,6 +174,7 @@ export function ProductContentPage() {
       setCoverage(null);
       setGroups([]);
       setResolved(null);
+      setResolvedError(false);
       setGroupsError(false);
       setDetailError(readMessage(err) || 'This product’s content could not be read.');
     } finally {
@@ -168,40 +182,17 @@ export function ProductContentPage() {
     }
   }, []);
 
-  const selectedSlug = rows.find((r) => r.productId === selectedId)?.slug ?? null;
-
-  useEffect(() => {
-    if (selectedId) void loadDetail(selectedId, selectedSlug);
-  }, [selectedId, selectedSlug, loadDetail]);
-
-  const selectedRow = rows.find((r) => r.productId === selectedId) ?? null;
-
-  // The rail's pill comes from the SAME mapper the workbench uses, so a product can never read
-  // Authored in the list and withheld in the panel beside it.
-  const stateOf = useCallback(
-    (row: ContentStatusRowDto): ContentState =>
-      deriveContentState(
-        row.hasBlock ? { ingredients: row.hasDeclarations ? 'authored' : null, allergens: null } : null,
-        row.isStale,
-      ),
-    [],
-  );
-
-  const selectedState = content
-    ? deriveContentState(content.block, content.isStale)
-    : selectedRow
-      ? stateOf(selectedRow)
-      : 'none';
-
   // Scanned across pages rather than derived from the rail's CURRENT page. Paging the rail
   // made every product reachable and, in the same move, hid every flagged product that was not
   // on the page in view — a safety queue that disappears when you turn a page is worse than
   // one that admits a bound.
   const [queue, setQueue] = useState<ContentStatusRowDto[]>([]);
   const [queueComplete, setQueueComplete] = useState(true);
+  const [queueFailed, setQueueFailed] = useState(false);
 
   const loadQueue = useCallback(async () => {
     const found: ContentStatusRowDto[] = [];
+    setQueueFailed(false);
     try {
       let page = 1;
       for (; page <= QUEUE_SCAN_PAGES; page += 1) {
@@ -216,8 +207,13 @@ export function ProductContentPage() {
       setQueue(found);
       setQueueComplete(false);
     } catch {
-      // Leaves the previous queue rather than emptying it: "no reviews outstanding" is the one
-      // conclusion a failed read must never produce on a safety surface.
+      // PARTIAL results are kept and the scan is marked failed AND incomplete. My first
+      // version only avoided overwriting a previous queue — which on the FIRST load left the
+      // initial empty queue with complete=true, i.e. exactly the false all-clear the comment
+      // claimed to prevent. An empty queue is only trustworthy if the scan finished.
+      setQueue((current) => (found.length > 0 ? found : current));
+      setQueueComplete(false);
+      setQueueFailed(true);
     }
   }, []);
 
@@ -226,6 +222,41 @@ export function ProductContentPage() {
   }, [loadQueue]);
 
   const reviewQueue = queue;
+
+  // Falls back to the QUEUE row: a flagged product can live on a status page the rail is not
+  // showing, and deriving these from `rows` alone left slug and name null — which skipped the
+  // resolution and blocked the block sheet, on exactly the products most in need of editing.
+  const selectedRowAnywhere =
+    rows.find((r) => r.productId === selectedId) ??
+    queue.find((r) => r.productId === selectedId) ??
+    null;
+  const selectedSlug = selectedRowAnywhere?.slug ?? null;
+
+  useEffect(() => {
+    if (selectedId) void loadDetail(selectedId, selectedSlug);
+  }, [selectedId, selectedSlug, loadDetail]);
+
+
+
+  // The rail's pill comes from the SAME mapper the workbench uses, so a product can never read
+  // Authored in the list and withheld in the panel beside it.
+  const stateOf = useCallback(
+    (row: ContentStatusRowDto): ContentState =>
+      deriveContentState(
+        row.hasBlock ? { ingredients: row.hasDeclarations ? 'authored' : null, allergens: null } : null,
+        row.isStale,
+      ),
+    [],
+  );
+
+  const selectedRow = selectedRowAnywhere;
+
+  const selectedState = content
+    ? deriveContentState(content.block, content.isStale)
+    : selectedRow
+      ? stateOf(selectedRow)
+      : 'none';
+
 
   const kpis = useMemo(() => {
     const denominator = rows.filter(isPublishedDenominator).length;
@@ -285,7 +316,13 @@ export function ProductContentPage() {
         <KpiTile
           label="Awaiting review"
           value={kpis.awaitingReview.toLocaleString()}
-          delta={queueComplete ? 'all products' : `first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} scanned`}
+          delta={
+            queueComplete
+              ? 'all products'
+              : queueFailed
+                ? 'scan incomplete'
+                : `first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} scanned`
+          }
           deltaTone={kpis.awaitingReview > 0 ? 'down' : 'neutral'}
         />
       </div>
@@ -300,7 +337,7 @@ export function ProductContentPage() {
         </div>
       )}
 
-      {reviewQueue.length > 0 && (
+      {(reviewQueue.length > 0 || queueFailed) && (
         <AonikCard
           title="Awaiting review"
           // NOT "these products withhold their declarations". The queue knows only the BLOCK's
@@ -310,6 +347,11 @@ export function ProductContentPage() {
           subtitle="Each product's default block no longer describes the current standard preparation"
           padding={0}
         >
+          {reviewQueue.length === 0 && queueFailed && (
+            <p className="px-4 py-3 text-[12px] text-[var(--color-text-secondary)]">
+              The review scan did not finish, so this list is not proof that nothing is flagged.
+            </p>
+          )}
           <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
             {reviewQueue.map((row) => (
               <li key={row.productId} className="flex items-center gap-3 px-4 py-2.5">
@@ -334,9 +376,17 @@ export function ProductContentPage() {
             ))}
           </ul>
           {!queueComplete && (
-            <p className="border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
-              Scanned the first {QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} products; there may be more
-              flagged beyond them.
+            <p className="flex items-center gap-2 border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="flex-1">
+                {queueFailed
+                  ? 'This scan did not finish, so there may be flagged products it never reached.'
+                  : `Scanned the first ${QUEUE_SCAN_PAGES * STATUS_PAGE_SIZE} products; there may be more flagged beyond them.`}
+              </span>
+              {queueFailed && (
+                <button type="button" onClick={() => void loadQueue()} className="underline">
+                  Rescan
+                </button>
+              )}
             </p>
           )}
         </AonikCard>
@@ -426,12 +476,31 @@ export function ProductContentPage() {
               </AonikCard>
             ) : (
               <>
+                {resolvedError && (
+                  <p className="flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
+                    <span className="flex-1">
+                      What customers currently receive could not be read, so the panel below
+                      shows the stored block — which is not always what is served.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => selectedId && void loadDetail(selectedId, selectedSlug)}
+                      className="shrink-0 underline"
+                    >
+                      Retry
+                    </button>
+                  </p>
+                )}
+
                 <ContentWorkbench
                   block={content?.block ?? null}
                   resolved={resolved}
                   state={selectedState}
-                  onAuthor={selectedId ? () => setEditingBlock(true) : undefined}
-                  onEdit={selectedId ? () => setEditingBlock(true) : undefined}
+                  // Authoring is gated on the RAW read having succeeded. Without it a product
+                  // the status row says HAS a block renders as "Nothing published", and the
+                  // CTA opens a blank sheet over content nobody has seen.
+                  onAuthor={selectedId && content ? () => setEditingBlock(true) : undefined}
+                  onEdit={selectedId && content ? () => setEditingBlock(true) : undefined}
                 />
 
                 <AonikCard
@@ -514,7 +583,13 @@ export function ProductContentPage() {
                             // A retired row is history: UpdateVariantAsync rejects every edit
                             // to it with V-C5. Re-authoring the SAME combination is the
                             // supported path and revives the row, so that is what is offered.
-                            groups.length > 0 && !!content?.block ? (
+                            groups.length > 0 &&
+                            !!content?.block &&
+                            // V-C1 rejects any canonical selection equal to the current
+                            // defaults, so a retired variant whose combination has SINCE become
+                            // the standard preparation cannot be revived at all — the default
+                            // block is where that content belongs now.
+                            variant.selectionJson !== resolved?.canonicalSelectionJson ? (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -529,7 +604,9 @@ export function ProductContentPage() {
                               </button>
                             ) : (
                               <span className="text-[11px] text-[var(--color-text-tertiary)]">
-                                retired
+                                {variant.selectionJson === resolved?.canonicalSelectionJson
+                                  ? 'now the standard — edit the block'
+                                  : 'retired'}
                               </span>
                             )
                           )}
@@ -603,6 +680,9 @@ export function ProductContentPage() {
           onClose={() => setEditingBlock(false)}
           onSaved={() => {
             void loadRows();
+            // The upsert CLEARS the review flag, so the queue and its KPI are stale the moment
+            // a stale block is saved — the same refresh confirmReview already does.
+            void loadQueue();
             void loadDetail(selectedId, selectedSlug);
           }}
         />
@@ -635,6 +715,13 @@ export function ProductContentPage() {
       toast.error(readMessage(err) || 'The combination could not be retired.');
     }
   }
+}
+
+/** The HTTP status of a rejected api call, or undefined for a transport-level failure. */
+function httpStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object' || !('response' in err)) return undefined;
+  const response = (err as { response?: { status?: number } }).response;
+  return typeof response?.status === 'number' ? response.status : undefined;
 }
 
 function readMessage(err: unknown): string {
