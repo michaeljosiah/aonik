@@ -45,10 +45,35 @@ export function ContentBlockSheet({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // `baseline` is what this sheet is editing ON TOP OF. It starts as the block the page
+  // passed in and is REPLACED by a conflict reload, so the version comparison below always
+  // refers to what the operator can currently see.
+  const [baseline, setBaseline] = useState<ProductContentDto | null>(block);
   const [draft, setDraft] = useState<ContentDraft>(() => draftFromBlock(block));
   const [saving, setSaving] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+
+  // The sheet stays mounted under the same key after a conflict, so nothing re-initialises on
+  // its own: draft, baseline and the conflict flag all have to be reset here or Save stays
+  // disabled over stale state and the operator has to discover that closing and reopening is
+  // the real reload.
+  const reload = async () => {
+    setReloading(true);
+    setError(null);
+    try {
+      const fresh = await commerceContentService.getAdminContent(productId);
+      setBaseline(fresh.block);
+      setDraft(draftFromBlock(fresh.block));
+      setConflict(false);
+      onSaved();
+    } catch (err: unknown) {
+      setError(readMessage(err) || 'The latest content could not be read.');
+    } finally {
+      setReloading(false);
+    }
+  };
 
   const save = async () => {
     const invalid = validateDraft(draft);
@@ -69,7 +94,7 @@ export function ContentBlockSheet({
       // inside the remaining window still wins. Closing that needs the upsert to accept the
       // contentVersion it was based on.
       const fresh = await commerceContentService.getAdminContent(productId);
-      if (block && fresh.block && fresh.block.contentVersion !== block.contentVersion) {
+      if (baseline && fresh.block && fresh.block.contentVersion !== baseline.contentVersion) {
         setConflict(true);
         setError(
           'Someone else edited this block while it was open. Reload to see their version — ' +
@@ -78,7 +103,7 @@ export function ContentBlockSheet({
         setSaving(false);
         return;
       }
-      if (!block && fresh.block) {
+      if (!baseline && fresh.block) {
         setConflict(true);
         setError('Someone else authored this block while this was open. Reload before saving.');
         setSaving(false);
@@ -103,7 +128,7 @@ export function ContentBlockSheet({
     <Sheet open onOpenChange={(open) => !open && !saving && onClose()}>
       <SheetContent size="md">
         <SheetHeader
-          title={block ? 'Edit the default block' : 'Author the default block'}
+          title={baseline ? 'Edit the default block' : 'Author the default block'}
           subtitle={productName}
         />
 
@@ -113,14 +138,19 @@ export function ContentBlockSheet({
               <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
               <span className="flex-1">{error}</span>
               {conflict && (
-                <button type="button" onClick={onSaved} className="shrink-0 underline">
-                  Reload
+                <button
+                  type="button"
+                  onClick={() => void reload()}
+                  disabled={reloading}
+                  className="shrink-0 underline"
+                >
+                  {reloading ? 'Reloading…' : 'Reload'}
                 </button>
               )}
             </div>
           )}
 
-          <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+          <fieldset disabled={saving || reloading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <ContentFields draft={draft} onChange={setDraft} />
           </fieldset>
         </SheetBody>
@@ -129,10 +159,10 @@ export function ContentBlockSheet({
           <span className="mr-auto max-w-[280px] text-[11px] text-[var(--color-text-tertiary)]">
             Saving replaces every field of this block, and clears its review flag.
           </span>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+          <Button variant="outline" onClick={onClose} disabled={saving || reloading}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={saving || conflict}>
+          <Button onClick={() => void save()} disabled={saving || reloading || conflict}>
             {saving ? 'Saving…' : 'Save block'}
           </Button>
         </SheetFooter>

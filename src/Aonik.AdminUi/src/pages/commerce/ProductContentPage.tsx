@@ -38,8 +38,8 @@ import {
   type ContentState,
 } from './lib/contentState';
 
-/** Status rows fetched for the rail, queue and KPIs. Named wherever a figure describes it. */
-const STATUS_PAGE_SIZE = 200;
+/** Status rows per page. The rail is PAGED — every product must be reachable for authoring. */
+const STATUS_PAGE_SIZE = 50;
 
 const STATE_TONE: Record<ContentState, PillTone> = {
   authored: 'success',
@@ -57,7 +57,11 @@ const STATE_LABEL: Record<ContentState, string> = {
 
 export function ProductContentPage() {
   const [rows, setRows] = useState<ContentStatusRowDto[]>([]);
+  const [rowPage, setRowPage] = useState(1);
+  const [rowTotal, setRowTotal] = useState(0);
   const [rowsComplete, setRowsComplete] = useState(true);
+  /** Set when the product's effective offer could not be read — variants need it. */
+  const [groupsError, setGroupsError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [content, setContent] = useState<AdminProductContentDto | null>(null);
   const [coverage, setCoverage] = useState<ContentCoverageDto | null>(null);
@@ -81,10 +85,17 @@ export function ProductContentPage() {
     setLoading(true);
     setError(null);
     try {
-      const page = await commerceContentService.listContentStatus(1, STATUS_PAGE_SIZE);
+      const page = await commerceContentService.listContentStatus(rowPage, STATUS_PAGE_SIZE);
       if (listRequestRef.current !== requestId) return;
+      const lastPage = Math.max(1, Math.ceil(page.totalCount / STATUS_PAGE_SIZE));
+      if (rowPage > lastPage) {
+        setRowTotal(page.totalCount);
+        setRowPage(lastPage);
+        return;
+      }
       setRows(page.items);
-      setRowsComplete(page.items.length >= page.totalCount);
+      setRowTotal(page.totalCount);
+      setRowsComplete(page.totalCount <= STATUS_PAGE_SIZE);
       setSelectedId((current) =>
         current && page.items.some((r) => r.productId === current)
           ? current
@@ -101,7 +112,7 @@ export function ProductContentPage() {
         setInitialLoad(false);
       }
     }
-  }, []);
+  }, [rowPage]);
 
   useEffect(() => {
     void loadRows();
@@ -118,17 +129,25 @@ export function ProductContentPage() {
       const [admin, cover, product] = await Promise.all([
         commerceContentService.getAdminContent(productId),
         commerceContentService.getCoverage(productId).catch(() => null),
-        commerceCatalogService.getProduct(productId).catch(() => null),
+        // Tracked as a FAILURE rather than folded into "no groups": an unread offer and a
+        // product that genuinely offers nothing look identical downstream, and one of them
+        // means combination authoring is broken rather than inapplicable.
+        commerceCatalogService.getProduct(productId).then(
+          (p) => ({ ok: true as const, product: p }),
+          () => ({ ok: false as const, product: null }),
+        ),
       ]);
       if (detailRequestRef.current !== requestId) return;
       setContent(admin);
       setCoverage(cover);
-      setGroups(product?.effectiveOptionGroups ?? []);
+      setGroups(product.product?.effectiveOptionGroups ?? []);
+      setGroupsError(!product.ok);
     } catch (err: unknown) {
       if (detailRequestRef.current !== requestId) return;
       setContent(null);
       setCoverage(null);
       setGroups([]);
+      setGroupsError(false);
       setDetailError(readMessage(err) || 'This product’s content could not be read.');
     } finally {
       if (detailRequestRef.current === requestId) setDetailLoading(false);
@@ -198,13 +217,13 @@ export function ProductContentPage() {
         <KpiTile
           label="Publishing figures"
           value={`${kpis.published} / ${kpis.denominator}`}
-          delta={rowsComplete ? 'active products' : `first ${rows.length} scanned`}
+          delta={rowsComplete ? 'active products' : `${rows.length} on this page`}
           deltaTone="neutral"
         />
         <KpiTile
           label="Combination variants"
           value={kpis.variants.toLocaleString()}
-          delta={rowsComplete ? 'all products' : `first ${rows.length} scanned`}
+          delta={rowsComplete ? 'all products' : `${rows.length} on this page`}
           deltaTone="neutral"
         />
         <KpiTile
@@ -216,7 +235,7 @@ export function ProductContentPage() {
         <KpiTile
           label="Awaiting review"
           value={kpis.awaitingReview.toLocaleString()}
-          delta={rowsComplete ? 'all products' : `first ${rows.length} scanned`}
+          delta={rowsComplete ? 'all products' : `${rows.length} on this page`}
           deltaTone={kpis.awaitingReview > 0 ? 'down' : 'neutral'}
         />
       </div>
@@ -303,10 +322,31 @@ export function ProductContentPage() {
                 })}
               </ul>
             )}
-            {!rowsComplete && (
-              <p className="border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
-                Showing the first {rows.length} products; the rest were not scanned.
-              </p>
+            {rowTotal > STATUS_PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border-light)] px-3 py-2">
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                  {(rowPage - 1) * STATUS_PAGE_SIZE + 1}–
+                  {Math.min(rowPage * STATUS_PAGE_SIZE, rowTotal)} of {rowTotal}
+                </span>
+                <span className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={rowPage <= 1}
+                    onClick={() => setRowPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={rowPage * STATUS_PAGE_SIZE >= rowTotal}
+                    onClick={() => setRowPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </span>
+              </div>
             )}
           </AonikCard>
 
@@ -337,7 +377,11 @@ export function ProductContentPage() {
                   subtitle="Each describes one complete selection; declarations left empty are withheld for it"
                   padding={0}
                   action={
-                    selectedId && (
+                    // Hidden when the product offers nothing to combine, and when the offer
+                    // could not be READ — the sheet would open a workflow whose every save
+                    // fails, for two quite different reasons.
+                    selectedId &&
+                    groups.length > 0 && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -348,6 +392,21 @@ export function ProductContentPage() {
                     )
                   }
                 >
+                  {groupsError && (
+                    <p className="mx-3 mt-3 flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
+                      <span className="flex-1">
+                        This product’s option offer could not be read, so combinations cannot be
+                        authored right now. Existing ones are still listed.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => selectedId && void loadDetail(selectedId)}
+                        className="shrink-0 underline"
+                      >
+                        Retry
+                      </button>
+                    </p>
+                  )}
                   {!content || content.variants.length === 0 ? (
                     <p className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
                       No combinations authored — every selection resolves to the default block.
@@ -362,20 +421,38 @@ export function ProductContentPage() {
                           <Pill tone={variant.isActive ? 'success' : 'muted'} size="sm">
                             {variant.isActive ? 'Active' : 'Retired'}
                           </Pill>
-                          <button
-                            type="button"
-                            onClick={() => setVariantSheet({ variant, selectionJson: null })}
-                            className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
-                          >
-                            Edit
-                          </button>
-                          {variant.isActive && (
+                          {variant.isActive ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setVariantSheet({ variant, selectionJson: null })}
+                                className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void retireVariant(variant.id)}
+                                className="text-[11.5px] text-[var(--color-text-secondary)] hover:underline"
+                              >
+                                Retire
+                              </button>
+                            </>
+                          ) : (
+                            // A retired row is history: UpdateVariantAsync rejects every edit
+                            // to it with V-C5. Re-authoring the SAME combination is the
+                            // supported path and revives the row, so that is what is offered.
                             <button
                               type="button"
-                              onClick={() => void retireVariant(variant.id)}
-                              className="text-[11.5px] text-[var(--color-text-secondary)] hover:underline"
+                              onClick={() =>
+                                setVariantSheet({
+                                  variant: null,
+                                  selectionJson: variant.selectionJson,
+                                })
+                              }
+                              className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
                             >
-                              Retire
+                              Re-author to revive
                             </button>
                           )}
                         </li>

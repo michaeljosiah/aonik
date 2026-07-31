@@ -144,22 +144,18 @@ function DeclarationCell({
 }
 
 function Heating({ steps, state }: { steps: HeatingStepDto[] | null; state: ContentState }) {
-  // Heating withholds exactly like the other declarations — it is a usage instruction, not a
-  // figure, so nothing about it may fall back.
-  const render = renderDeclaration(steps && steps.length > 0 ? 'authored' : null, state);
+  const hasSteps = !!steps && steps.length > 0;
 
   return (
     <div className="mt-3 rounded-md border border-[var(--color-border-light)] p-2.5">
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
         Heating &amp; usage
       </p>
-      {render.kind === 'withheld-review' ? (
+      {state === 'review' ? (
+        // Heating withholds exactly like the other declarations under review — it is a usage
+        // instruction, not a figure, so nothing about it may fall back.
         <p className="text-[12.5px] italic text-[var(--color-warning)]">Withheld while under review</p>
-      ) : render.kind === 'absent' ? (
-        <p className="text-[12.5px] italic text-[var(--color-text-tertiary)]">
-          Not yet published — exact-authored or absent, never substituted
-        </p>
-      ) : (
+      ) : hasSteps ? (
         <ul className="flex flex-col gap-1">
           {steps!.map((step, index) => (
             <li key={`${step.method}-${index}`} className="flex gap-2">
@@ -170,6 +166,14 @@ function Heating({ steps, state }: { steps: HeatingStepDto[] | null; state: Cont
             </li>
           ))}
         </ul>
+      ) : (
+        // A BLOCK with no steps is an authored EMPTY panel, not a withheld one: the upsert
+        // coerces a null heatingJson to "[]", so the resolver reports heating as not withheld
+        // and the customer receives an explicitly empty panel. Calling that "not yet
+        // published" would tell the operator a gap is being flagged when it is not.
+        <p className="text-[12.5px] italic text-[var(--color-text-tertiary)]">
+          No steps published — customers see an explicitly empty panel, not a withheld one
+        </p>
       )}
     </div>
   );

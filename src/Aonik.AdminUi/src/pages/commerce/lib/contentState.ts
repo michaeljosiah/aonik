@@ -119,13 +119,49 @@ export interface HeatingStep {
 /**
  * Heating steps to the wire's `heatingJson`.
  *
- * Returns null for an empty list rather than `"[]"`: null is "no heating authored", which the
- * resolver withholds like any other declaration. Rows with neither a method nor a body are
- * dropped, so an empty editing row never becomes a published blank step.
+ * Null for an empty list rather than `"[]"`. What null MEANS then differs by target, and the
+ * difference is the server's, not this function's:
+ *   * a VARIANT stores null and the resolver withholds heating for that combination;
+ *   * the default BLOCK coerces null to `"[]"` (UpsertContentAsync), which is an authored
+ *     empty panel — the resolver reports heating as NOT withheld.
+ * `blockHeatingIsWithheld` below is what keeps the workbench honest about that.
+ *
+ * Rows with neither half filled are dropped, so an empty editing row never becomes a step.
  */
 export function heatingToWire(steps: readonly HeatingStep[]): string | null {
   const live = steps
     .map((step) => ({ method: step.method.trim(), body: step.body.trim() }))
     .filter((step) => step.method !== '' || step.body !== '');
   return live.length === 0 ? null : JSON.stringify(live);
+}
+
+/**
+ * Rows the operator started but did not finish.
+ *
+ * `ParseHeatingStrict` requires BOTH a method and a body, so a half-filled row is rejected by
+ * the server — and rejected for the whole save, not just that row. Naming them here beats an
+ * opaque failure after the fact.
+ */
+export function incompleteHeatingRows(steps: readonly HeatingStep[]): number[] {
+  return steps
+    .map((step, index) => ({ step, index }))
+    .filter(({ step }) => {
+      const method = step.method.trim();
+      const body = step.body.trim();
+      return (method === '') !== (body === '');
+    })
+    .map(({ index }) => index + 1);
+}
+
+/**
+ * Whether a DEFAULT BLOCK's heating is genuinely withheld.
+ *
+ * It never is. The upsert coerces a null heatingJson to `"[]"`, so a block always has an
+ * authored (possibly empty) panel and the resolver reports HeatingWithheld: false. Rendering
+ * an empty block panel as "not yet published" would tell the operator that missing
+ * preparation guidance is being flagged to customers when an explicitly empty panel is what
+ * they actually receive.
+ */
+export function blockHeatingIsWithheld(): boolean {
+  return false;
 }

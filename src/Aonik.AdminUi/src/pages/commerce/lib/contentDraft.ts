@@ -12,6 +12,7 @@ import {
   figureToInput,
   figureToWire,
   heatingToWire,
+  incompleteHeatingRows,
   type FigureKey,
   type HeatingStep,
 } from './contentState';
@@ -79,6 +80,11 @@ export function validateDraft(draft: ContentDraft): string | null {
       subject: field.label,
     });
     if (message) return message;
+  }
+  // ParseHeatingStrict requires both halves, and rejects the WHOLE save over one bad row.
+  const partial = incompleteHeatingRows(draft.heating);
+  if (partial.length > 0) {
+    return `Heating step ${partial.join(', ')} needs both a method and an instruction — or clear both to drop it.`;
   }
   return null;
 }
