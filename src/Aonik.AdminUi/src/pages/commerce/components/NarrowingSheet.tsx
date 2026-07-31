@@ -20,6 +20,8 @@ import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService, type ProductOptionGroupLine } from '@/services/commerceCatalogService';
+
+import { validateSurchargeAmount } from '../lib/productForm';
 import type {
   OptionGroupDto,
   ProductNarrowingLineDto,
@@ -152,11 +154,16 @@ export function NarrowingSheet({
     // Validated BEFORE the first write. The option replace committed first previously, so a
     // rejected amount left the offer already changed under an error saying the save failed —
     // and neither correcting nor cancelling could undo it.
-    const parsedAmount = amount.trim() === '' ? null : Number(amount);
-    if (parsedAmount !== null && (!Number.isFinite(parsedAmount) || parsedAmount < 0)) {
-      setError('The surcharge must be a number and cannot be negative.');
+    // The SAME rule the choice and product editors use — shape, sign, scale and width decided
+    // on the text. UnitSurcharge is decimal(19,4), so an over-precise amount is rounded rather
+    // than refused, and the sheet would report success for a figure the store does not hold.
+    // I applied this in two of the three places that author money and missed this one.
+    const amountError = validateSurchargeAmount(amount);
+    if (amountError) {
+      setError(amountError);
       return;
     }
+    const parsedAmount = amount.trim() === '' ? null : Number(amount);
     // Compared NUMERICALLY, preserving null-vs-zero. Reformatting "1" to "1.00" is not an
     // edit, and sending it would re-read the product after any concurrent change and restore
     // the stale amount instead of conflicting with it.
@@ -220,14 +227,18 @@ export function NarrowingSheet({
       // TWO endpoints, so two commit points — there is no composite write. The offer can
       // land and the surcharge fail, so the error names what already changed rather than
       // reporting a save that partly succeeded as a save that failed.
-      if (offerChanged) {
-        // RE-READ before replacing. The signature check alone only protected no-op saves: an
-        // operator editing group B still sent the whole snapshot, reverting a concurrent edit
-        // to group A. The backend cannot detect that — it reads the product row when THIS
-        // request starts, so a payload built before the other write still looks current — so
-        // the staleness has to be established here, against what the server holds now.
-        const serverLines = await commerceCatalogService.getProductNarrowing(product.id);
-        if (signatureOfLines(serverLines) !== loadedSignature) {
+      // RE-READ before writing anything. The backend reads the product row when a request
+      // starts, so a payload built before someone else's committed write still looks current
+      // to it — the staleness has to be established here, against what the server holds now.
+      // This guards the SURCHARGE as well as the offer: both are last-writer-wins otherwise,
+      // and I had guarded only the offer.
+      if (offerChanged || surchargeChanged) {
+        const [serverLines, serverDetail] = await Promise.all([
+          commerceCatalogService.getProductNarrowing(product.id),
+          commerceCatalogService.getProduct(product.id),
+        ]);
+
+        if (offerChanged && signatureOfLines(serverLines) !== loadedSignature) {
           setConflict(true);
           setError(
             'Someone else changed this product’s offer while this was open. Reload to see ' +
@@ -236,6 +247,24 @@ export function NarrowingSheet({
           setSaving(false);
           return;
         }
+
+        const serverAmount = serverDetail.unitSurcharge;
+        const serverCurrency = serverDetail.unitSurchargeCurrency ?? null;
+        if (
+          surchargeChanged &&
+          (serverAmount !== originalParsed || serverCurrency !== storedCurrency)
+        ) {
+          setConflict(true);
+          setError(
+            'Someone else changed this product’s surcharge while this was open. Reload before ' +
+              'saving yours.',
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (offerChanged) {
         await commerceCatalogService.setProductOptionGroups(product.id, lines);
         offerCommitted = true;
       }
@@ -263,8 +292,11 @@ export function NarrowingSheet({
           `${message} The option groups WERE saved; only the surcharge failed, so the amount ` +
             'shown below is the one still stored.',
         );
-        // The list behind the sheet is stale even though this failed. The refresh rebinds and
-        // reloads this sheet, which is why the notice above is sticky rather than an error.
+        // Reloads THIS sheet directly rather than relying on the parent refresh to rebind it.
+        // If that refresh also failed, `groups` kept its reference, no reload ran, and the
+        // input went on showing the REJECTED amount under a notice claiming it showed the
+        // stored one — while a surcharge conflict left Save disabled with no Reload offered.
+        void load();
         onSaved();
       } else {
         setError(message);
