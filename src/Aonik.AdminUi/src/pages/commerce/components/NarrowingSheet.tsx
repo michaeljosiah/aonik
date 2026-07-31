@@ -1,0 +1,375 @@
+// Per-product narrowing (Spec 074 §2). Built from the RAW stored lines, never from the
+// resolved effective view, because the resolved view has already thrown away the one bit that
+// matters most here.
+//
+// `allowedChoiceKeys: null` means INHERIT every active choice — including choices added to the
+// catalogue tomorrow. An explicit list means exactly these, forever, until edited. Those are
+// different promises, they look identical once resolved, and saving a resolved view silently
+// converts every inherited product into a pinned one. So the toggle is modelled directly: on =
+// null, off = the current set frozen into a list the operator then edits chip by chip.
+//
+// Saving performs a FULL REPLACE with exactly what is on screen. A save modelled on anything
+// less — sending only touched groups, say — would leave untouched groups intact and quietly
+// widen the product relative to what the operator was looking at.
+
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Star } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Card as AonikCard, Pill } from '@/components/layout/aonik';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
+import { commerceCatalogService, type ProductOptionGroupLine } from '@/services/commerceCatalogService';
+import type { OptionGroupDto, ProductSummaryDto } from '@/types/commerce';
+
+import { SignedAmount } from './SignedAmount';
+import { choiceDelta, effectiveDefaultChoice } from '../lib/optionPricing';
+
+/** One catalogue group as the operator is currently shaping it for this product. */
+interface GroupDraft {
+  included: boolean;
+  /** True while `allowedChoiceKeys` is null — the inherit-future promise. */
+  inherit: boolean;
+  /** Only meaningful when `inherit` is false. */
+  pinned: Set<string>;
+  defaultChoiceKey: string | null;
+  sortOrder: number;
+}
+
+interface NarrowingSheetProps {
+  product: ProductSummaryDto;
+  groups: OptionGroupDto[];
+  surcharge: { amount: number | null; currency: string | null };
+  storefrontCurrency: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export function NarrowingSheet({
+  product,
+  groups,
+  surcharge,
+  storefrontCurrency,
+  onClose,
+  onSaved,
+}: NarrowingSheetProps) {
+  const [drafts, setDrafts] = useState<Map<string, GroupDraft> | null>(null);
+  const [amount, setAmount] = useState('');
+  const [originalAmount, setOriginalAmount] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    commerceCatalogService
+      .getProductNarrowing(product.id)
+      .then((lines) => {
+        if (cancelled) return;
+        const next = new Map<string, GroupDraft>();
+        for (const group of groups) {
+          const line = lines.find((l) => l.groupKey === group.key);
+          next.set(group.key, {
+            included: !!line,
+            // Absent line and inherited line both start with an empty pinned set; `inherit`
+            // is what distinguishes them, and it is read straight from the raw value.
+            inherit: line ? line.allowedChoiceKeys === null : true,
+            pinned: new Set(line?.allowedChoiceKeys ?? []),
+            defaultChoiceKey: line?.defaultChoiceKey ?? null,
+            sortOrder: line?.sortOrder ?? group.sortOrder,
+          });
+        }
+        setDrafts(next);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setDrafts(null);
+        setError(readMessage(err) || 'This product’s options could not be read.');
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id, groups]);
+
+  useEffect(() => {
+    const initial = surcharge.amount != null ? String(surcharge.amount) : '';
+    setAmount(initial);
+    setOriginalAmount(initial);
+  }, [surcharge.amount]);
+
+  const update = (groupKey: string, patch: Partial<GroupDraft>) => {
+    setDrafts((current) => {
+      if (!current) return current;
+      const next = new Map(current);
+      const draft = next.get(groupKey);
+      if (draft) next.set(groupKey, { ...draft, ...patch });
+      return next;
+    });
+  };
+
+  const save = async () => {
+    if (!drafts) return;
+    setSaving(true);
+    setError(null);
+    setConflict(false);
+    try {
+      // EXACTLY the visible intersection, every included group, in one replace.
+      const lines: ProductOptionGroupLine[] = groups
+        .filter((group) => drafts.get(group.key)?.included)
+        .map((group) => {
+          const draft = drafts.get(group.key)!;
+          return {
+            groupKey: group.key,
+            allowedChoiceKeys: draft.inherit ? null : [...draft.pinned],
+            defaultChoiceKey: draft.defaultChoiceKey,
+            sortOrder: draft.sortOrder,
+          };
+        });
+      await commerceCatalogService.setProductOptionGroups(product.id, lines);
+
+      if (amount !== originalAmount) {
+        const parsed = amount.trim() === '' ? null : Number(amount);
+        if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+          setError('The surcharge must be a number and cannot be negative.');
+          setSaving(false);
+          return;
+        }
+        await commerceCatalogService.setUnitSurcharge(
+          product.id,
+          parsed,
+          parsed === null ? null : (surcharge.currency ?? storefrontCurrency),
+        );
+      }
+
+      toast.success('Offer saved');
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      // The backend serialises full replaces on the product row and 409s the loser, which must
+      // revalidate rather than retry blind — so this offers a reload, not a retry.
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409 || code === 'concurrency_conflict') setConflict(true);
+      setError(readMessage(err) || 'The offer could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && !saving && onClose()}>
+      <SheetContent size="md">
+        <SheetHeader title={product.name} subtitle={`${product.slug} — what this product offers`} />
+
+        <SheetBody>
+          {error && (
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
+              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
+              <span className="flex-1">{error}</span>
+              {conflict && (
+                <button type="button" onClick={onSaved} className="shrink-0 underline">
+                  Reload
+                </button>
+              )}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+          ) : !drafts ? (
+            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
+              Nothing to edit — this product’s stored options could not be read.
+            </p>
+          ) : (
+            <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+              {groups.length === 0 ? (
+                <p className="text-[12.5px] text-[var(--color-text-secondary)]">
+                  There is no option catalogue yet, so there is nothing to offer.
+                </p>
+              ) : (
+                groups.map((group) => (
+                  <GroupSection
+                    key={group.key}
+                    group={group}
+                    draft={drafts.get(group.key)!}
+                    onChange={(patch) => update(group.key, patch)}
+                  />
+                ))
+              )}
+
+              <AonikCard title="Unit surcharge" padding={12}>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="None"
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--color-brand-primary)]"
+                />
+                <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+                  The one price-like field a product card may show
+                  {surcharge.currency || storefrontCurrency
+                    ? ` — in ${surcharge.currency ?? storefrontCurrency}.`
+                    : '. A currency is required, and none is known yet.'}
+                </p>
+              </AonikCard>
+            </fieldset>
+          )}
+        </SheetBody>
+
+        <SheetFooter>
+          <span className="mr-auto max-w-[300px] text-[11px] text-[var(--color-text-tertiary)]">
+            Saving replaces this product’s whole offer with exactly what is shown above.
+          </span>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={saving || loading || !drafts}>
+            {saving ? 'Saving…' : 'Save offer'}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function GroupSection({
+  group,
+  draft,
+  onChange,
+}: {
+  group: OptionGroupDto;
+  draft: GroupDraft;
+  onChange: (patch: Partial<GroupDraft>) => void;
+}) {
+  const activeChoices = useMemo(() => group.choices.filter((c) => c.isActive), [group.choices]);
+  // The baseline is the EFFECTIVE default: a product-level override moves the zero point, so
+  // the same choice reads differently here than in the catalogue table. Both are correct.
+  const baseline = effectiveDefaultChoice(activeChoices, draft.defaultChoiceKey);
+
+  const togglePinned = (key: string) => {
+    const next = new Set(draft.pinned);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange({ pinned: next });
+  };
+
+  return (
+    <AonikCard padding={12}>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={draft.included}
+          onChange={(e) => onChange({ included: e.target.checked })}
+        />
+        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
+          {group.label}
+        </span>
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+          {group.key}
+        </span>
+        {!group.isActive && (
+          <Pill tone="muted" size="sm">
+            Retired
+          </Pill>
+        )}
+      </label>
+
+      {draft.included && (
+        <div className="mt-2.5 flex flex-col gap-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draft.inherit}
+              onChange={(e) =>
+                onChange({
+                  inherit: e.target.checked,
+                  // Switching inheritance OFF pins what is on screen right now, so the product
+                  // keeps offering exactly what it offered a moment ago — just frozen.
+                  pinned: e.target.checked
+                    ? draft.pinned
+                    : new Set(activeChoices.map((c) => c.key)),
+                })
+              }
+            />
+            <span className="text-[12px] text-[var(--color-text-secondary)]">
+              All active choices (inherited)
+            </span>
+          </label>
+
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">
+            {draft.inherit
+              ? 'Choices added to this group later will be offered here automatically.'
+              : 'Pinned: only the choices selected below, now and in future.'}
+          </p>
+
+          <div className="flex flex-wrap gap-1.5">
+            {activeChoices.map((choice) => {
+              const offered = draft.inherit || draft.pinned.has(choice.key);
+              const delta = choiceDelta(choice, baseline);
+              const isDefault = baseline?.key === choice.key;
+              return (
+                <button
+                  key={choice.key}
+                  type="button"
+                  // Read-only while inherited: the set is not the operator's to edit until they
+                  // take the inherit promise off, and a clickable chip would imply otherwise.
+                  disabled={draft.inherit}
+                  onClick={() => togglePinned(choice.key)}
+                  className={[
+                    'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px]',
+                    offered
+                      ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/10 text-[var(--color-text-primary)]'
+                      : 'border-dashed border-[var(--color-border)] text-[var(--color-text-tertiary)] line-through',
+                    draft.inherit ? 'cursor-default' : 'cursor-pointer',
+                  ].join(' ')}
+                >
+                  {isDefault && (
+                    <Star
+                      className="h-3 w-3 fill-[var(--color-warning)] text-[var(--color-warning)]"
+                      aria-label="Default"
+                    />
+                  )}
+                  {choice.label}
+                  {delta !== null && delta !== 0 && (
+                    <SignedAmount amount={delta} currency={group.currency} />
+                  )}
+                </button>
+              );
+            })}
+            {activeChoices.length === 0 && (
+              <span className="text-[11.5px] text-[var(--color-warning)]">
+                Every choice in this group is retired — offering it shows the customer nothing.
+              </span>
+            )}
+          </div>
+
+          <label className="mt-1 flex items-center gap-2">
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">Default for this product</span>
+            <select
+              value={draft.defaultChoiceKey ?? ''}
+              onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[12px] outline-none"
+            >
+              <option value="">Follow the group ({group.choices.find((c) => c.isRecommendedDefault)?.label ?? 'none'})</option>
+              {activeChoices.map((choice) => (
+                <option key={choice.key} value={choice.key}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+    </AonikCard>
+  );
+}
+
+function readMessage(err: unknown): string {
+  return err && typeof err === 'object' && 'userMessage' in err
+    ? String((err as { userMessage?: string }).userMessage ?? '')
+    : '';
+}
