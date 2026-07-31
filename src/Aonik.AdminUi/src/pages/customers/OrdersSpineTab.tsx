@@ -12,7 +12,7 @@ import { FileText, RefreshCw } from 'lucide-react';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import type { OrderListItem } from '@/types';
 
-import { formatCurrency, formatDate } from './lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 import { presentOrderType } from './lib/orderTypePresentation';
 
 const ORDER_STATUS_TONE: Record<string, PillTone> = {

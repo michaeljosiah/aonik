@@ -612,6 +612,8 @@ export interface AdminCartDetailDto {
   boxMeta: AdminCartBoxMetaDto | null;
   orderId: string | null;
   updatedAtUtc: string;
+  /** The charged total. NOT derivable from the lines — see the server DTO's note. */
+  total: number;
   lines: AdminCartLineDto[];
 }
 

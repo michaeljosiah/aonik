@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { useModules } from '@/modules';
-import { formatCurrency, formatDate } from './lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 import { OrdersSpineTab } from './OrdersSpineTab';
 import { CommerceTab } from './commerce/CommerceTab';
 import { customerService } from '@/services/customerService';

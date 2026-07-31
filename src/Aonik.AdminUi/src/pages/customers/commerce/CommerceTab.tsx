@@ -15,7 +15,7 @@ import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
 import type { AdminPartyStorefrontDto } from '@/types/commerce';
 
-import { formatCurrency } from '../lib/format';
+import { formatCurrency } from '@/lib/format';
 import { BoxHistoryCard } from './BoxHistoryCard';
 
 interface CommerceTabProps {
