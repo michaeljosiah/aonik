@@ -59,6 +59,9 @@ export function ProductEditorSheet({
   const [surchargeAmount, setSurchargeAmount] = useState('');
   const [surchargeCurrency, setSurchargeCurrency] = useState('');
   const [originalSurcharge, setOriginalSurcharge] = useState({ amount: '', currency: '' });
+  // The storefront's canonical quote currency. Null when the config read failed — the one
+  // case where the surcharge currency cannot be constrained, because we do not know to what.
+  const [storefrontCurrency, setStorefrontCurrency] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,27 +98,31 @@ export function ProductEditorSheet({
     void load();
   }, [load]);
 
-  // The storefront config's canonical currency is the sensible default for a FIRST-TIME
-  // surcharge — the server rejects an amount with a blank currency, so an operator must not
-  // have to guess it. Never overwrites a currency the product already carries.
+  // The storefront's canonical currency does two jobs: it is the default for a FIRST-TIME
+  // surcharge (the server rejects an amount with a blank currency, so an operator must not
+  // have to guess), and it is the only value a surcharge may carry — quoting rejects any
+  // other with V10, so a free-typed currency would persist and then break checkout pricing.
   //
   // Seeding it is a DISPLAY default, not an edit: `isSurchargeDirty` normalises a currency
   // with no amount away, so opening an unsurcharged product and saving posts nothing here.
   useEffect(() => {
-    if (loading || surchargeCurrency) return;
     let cancelled = false;
     commerceStorefrontService
       .getPublicStorefrontConfig()
       .then((config) => {
-        if (!cancelled && config.currency) setSurchargeCurrency(config.currency);
+        if (cancelled || !config.currency) return;
+        setStorefrontCurrency(config.currency);
+        // Never overwrites a currency the product already carries — a legacy mismatch is
+        // shown as-is so the operator can see and correct it.
+        setSurchargeCurrency((current) => current || config.currency);
       })
       .catch(() => {
-        /* leave blank — the operator types it, and the server enforces the pair */
+        /* unknown canonical currency — the field stays free text and the server has the say */
       });
     return () => {
       cancelled = true;
     };
-  }, [loading, surchargeCurrency]);
+  }, []);
 
   const handleSave = async () => {
     if (!form || !original) return;
@@ -145,6 +152,22 @@ export function ProductEditorSheet({
     }
     if (surchargeTouched && parsedAmount !== null && !parsedCurrency) {
       setError('A surcharge amount needs a currency — the server rejects the pair otherwise.');
+      setActiveTab('storefront');
+      return;
+    }
+    // The surcharge endpoint accepts any three-letter code, but quoting (V10) rejects one
+    // that differs from the storefront currency — so a mismatch saves cleanly and then breaks
+    // this product's selection quotes and checkout pricing. Caught here, while it is an edit.
+    if (
+      surchargeTouched &&
+      parsedAmount !== null &&
+      storefrontCurrency &&
+      parsedCurrency !== storefrontCurrency
+    ) {
+      setError(
+        `A surcharge must be denominated in ${storefrontCurrency}, the storefront currency. ` +
+          'Any other currency saves but then fails quoting for this product.',
+      );
       setActiveTab('storefront');
       return;
     }
@@ -270,6 +293,7 @@ export function ProductEditorSheet({
                   onChange={(patch) => setForm({ ...form, ...patch })}
                   surchargeAmount={surchargeAmount}
                   surchargeCurrency={surchargeCurrency}
+                  storefrontCurrency={storefrontCurrency}
                   onSurchargeChange={(next) => {
                     if (next.amount !== undefined) setSurchargeAmount(next.amount);
                     if (next.currency !== undefined) setSurchargeCurrency(next.currency);

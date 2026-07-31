@@ -32,6 +32,8 @@ interface StorefrontTabProps {
   /** Surcharge is its own endpoint, not part of the product PATCH. */
   surchargeAmount: string;
   surchargeCurrency: string;
+  /** The storefront's canonical quote currency; null when the config read failed. */
+  storefrontCurrency: string | null;
   onSurchargeChange: (next: { amount?: string; currency?: string }) => void;
 }
 
@@ -42,8 +44,15 @@ export function StorefrontTab({
   onChange,
   surchargeAmount,
   surchargeCurrency,
+  storefrontCurrency,
   onSurchargeChange,
 }: StorefrontTabProps) {
+  // A stored currency that is not the storefront's is a real state the operator must be able
+  // to see and correct — so it stays selectable rather than being silently rewritten.
+  const currencyMismatch =
+    storefrontCurrency !== null &&
+    surchargeCurrency.length > 0 &&
+    surchargeCurrency !== storefrontCurrency;
   const isBundle = product.kind === 'Bundle';
   const productId = product.id;
 
@@ -184,18 +193,39 @@ export function StorefrontTab({
             />
           </Field>
           <Field label="Currency" className="w-[140px]">
-            <input
-              value={surchargeCurrency}
-              onChange={(e) => onSurchargeChange({ currency: e.target.value.toUpperCase() })}
-              maxLength={3}
-              className={`${inputClass} font-[family-name:var(--font-mono)]`}
-            />
+            {storefrontCurrency ? (
+              // A CHOICE, not free text: the endpoint takes any three-letter code, but quoting
+              // rejects anything other than the storefront currency, so typing one saves fine
+              // and then breaks this product's checkout pricing.
+              <select
+                value={surchargeCurrency || storefrontCurrency}
+                onChange={(e) => onSurchargeChange({ currency: e.target.value })}
+                className={`${inputClass} font-[family-name:var(--font-mono)]`}
+              >
+                <option value={storefrontCurrency}>{storefrontCurrency}</option>
+                {currencyMismatch && <option value={surchargeCurrency}>{surchargeCurrency}</option>}
+              </select>
+            ) : (
+              <input
+                value={surchargeCurrency}
+                onChange={(e) => onSurchargeChange({ currency: e.target.value.toUpperCase() })}
+                maxLength={3}
+                className={`${inputClass} font-[family-name:var(--font-mono)]`}
+              />
+            )}
           </Field>
         </div>
+        {currencyMismatch && (
+          <p className="mt-1.5 text-[11px] text-[var(--color-error)]">
+            This surcharge is stored in {surchargeCurrency}, but the storefront quotes in{' '}
+            {storefrontCurrency}. Selection quotes for this product fail until it matches.
+          </p>
+        )}
         <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
-          The one price-like field a product card may show. An amount requires a currency — the
-          server rejects the pair otherwise, so a stored amount can never be re-denominated by
-          accident. Clear the amount to remove the surcharge.
+          The one price-like field a product card may show. An amount requires a currency, and
+          it must be the storefront's — nothing is converted, so a differently denominated
+          surcharge is a hard quoting error rather than a conversion. Clear the amount to
+          remove the surcharge.
         </p>
       </AonikCard>
 

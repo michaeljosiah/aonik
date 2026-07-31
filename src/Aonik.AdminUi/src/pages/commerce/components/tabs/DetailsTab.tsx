@@ -153,6 +153,14 @@ export function ChipEditor({
   placeholder: string;
   onChange: (next: string[]) => void;
 }) {
+  const commit = (input: HTMLInputElement) => {
+    const value = input.value.trim();
+    // Duplicates are dropped rather than stored twice — the server replaces the whole list,
+    // so a duplicate would persist.
+    if (value && !values.includes(value)) onChange([...values, value]);
+    input.value = '';
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5">
       {values.map((value, index) => (
@@ -177,12 +185,12 @@ export function ChipEditor({
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return;
           e.preventDefault();
-          const value = e.currentTarget.value.trim();
-          // Duplicates are dropped rather than stored twice — the server replaces the whole
-          // list, so a duplicate would persist.
-          if (value && !values.includes(value)) onChange([...values, value]);
-          e.currentTarget.value = '';
+          commit(e.currentTarget);
         }}
+        // Also on blur: text typed and then left by clicking Save or switching tabs is
+        // visible on screen, so saving without it would report success while discarding
+        // something the operator could plainly see. Blur fires before the Save click lands.
+        onBlur={(e) => commit(e.currentTarget)}
       />
     </div>
   );

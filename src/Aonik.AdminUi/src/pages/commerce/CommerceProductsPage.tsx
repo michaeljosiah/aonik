@@ -77,6 +77,15 @@ export function CommerceProductsPage() {
         search: search || undefined,
       });
       if (requestIdRef.current !== requestId) return;
+      // The requested page can stop existing under us — editing the last product on the last
+      // page out of the active filter shrinks the total. Falling back to the last real page
+      // beats reporting "no products" against a nonzero total and printing "21-20 of 20".
+      const lastPage = Math.max(1, Math.ceil(result.totalCount / pageSize));
+      if (pageNumber > lastPage) {
+        setTotalCount(result.totalCount);
+        setPageNumber(lastPage);
+        return;
+      }
       setProducts(result.items);
       setTotalCount(result.totalCount);
     } catch (err: unknown) {
