@@ -164,3 +164,42 @@ describe('detectSelectionDrift', () => {
     expect(hasDrift(detectSelectionDrift({ gone: '', other: [] }, offer))).toBe(false);
   });
 });
+
+describe('detectSelectionDrift — a group ADDED to the offer', () => {
+  const offer = [
+    { key: 'spice', selectionMode: 'One', choices: [{ key: 'hot' }, { key: 'mild' }] },
+    { key: 'sides', selectionMode: 'Multi', choices: [{ key: 'rice' }] },
+  ];
+
+  it('flags an effective group a STORED canonical selection does not name', () => {
+    // The only drift that is an ABSENCE, so iterating what is stored can never see it. The
+    // stored selection was canonical and complete when written; the product has since gained
+    // `sides`, and re-serialising lets the server default it in — retargeting the variant onto
+    // a preparation that did not exist when its allergens were written.
+    const drift = detectSelectionDrift({ spice: 'hot' }, offer, { storedIsCanonical: true });
+    expect(drift.addedGroups).toEqual(['sides']);
+    expect(hasDrift(drift)).toBe(true);
+    expect(describeDrift(drift)).toMatch(/offered since this combination was authored/);
+  });
+
+  it('does NOT flag absence while a new combination is being composed', () => {
+    // A partial selection is the intended input there — the server fills the rest — so treating
+    // absence as drift would refuse every create.
+    expect(hasDrift(detectSelectionDrift({ spice: 'hot' }, offer))).toBe(false);
+  });
+
+  it('ignores a group with no offerable choices, which cannot be defaulted in', () => {
+    const withEmpty = [...offer, { key: 'extras', selectionMode: 'One', choices: [] }];
+    const drift = detectSelectionDrift({ spice: 'hot', sides: ['rice'] }, withEmpty, {
+      storedIsCanonical: true,
+    });
+    expect(drift.addedGroups).toEqual([]);
+  });
+
+  it('reports a complete stored selection as undrifted', () => {
+    const drift = detectSelectionDrift({ spice: 'hot', sides: ['rice'] }, offer, {
+      storedIsCanonical: true,
+    });
+    expect(hasDrift(drift)).toBe(false);
+  });
+});

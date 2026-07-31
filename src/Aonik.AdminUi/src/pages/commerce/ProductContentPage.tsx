@@ -211,10 +211,21 @@ export function ProductContentPage() {
   const [queue, setQueue] = useState<ContentStatusRowDto[]>([]);
   /** Read inside loadRows, which must not depend on `queue` and re-run on every scan. */
   const queueRef = useRef<ContentStatusRowDto[]>([]);
+  /**
+   * Generation guard, matching the list and detail loaders.
+   *
+   * A multi-page scan is slow enough that the one triggered by a block save can finish BEFORE
+   * the initial or retried scan it superseded — putting a product whose review flag was just
+   * cleared back into the queue, and into the tenant KPI, until some later scan happens to fix
+   * it.
+   */
+  const queueRequestRef = useRef(0);
   const [queueComplete, setQueueComplete] = useState(true);
   const [queueFailed, setQueueFailed] = useState(false);
 
   const loadQueue = useCallback(async () => {
+    const requestId = queueRequestRef.current + 1;
+    queueRequestRef.current = requestId;
     const found: ContentStatusRowDto[] = [];
     setQueueFailed(false);
     // Marked incomplete BEFORE the first await. `queueComplete` starting true meant that while
@@ -226,6 +237,7 @@ export function ProductContentPage() {
       for (; page <= QUEUE_SCAN_PAGES; page += 1) {
         const result = await commerceContentService.listContentStatus(page, STATUS_PAGE_SIZE);
         found.push(...result.items.filter((r) => r.isStale));
+        if (queueRequestRef.current !== requestId) return;
         if (page * STATUS_PAGE_SIZE >= result.totalCount) {
           setQueue(found);
           queueRef.current = found;
@@ -237,6 +249,7 @@ export function ProductContentPage() {
       queueRef.current = found;
       setQueueComplete(false);
     } catch {
+      if (queueRequestRef.current !== requestId) return;
       // PARTIAL results are kept and the scan is marked failed AND incomplete. My first
       // version only avoided overwriting a previous queue — which on the FIRST load left the
       // initial empty queue with complete=true, i.e. exactly the false all-clear the comment
@@ -263,8 +276,6 @@ export function ProductContentPage() {
   // could remove the only row describing the current selection — leaving the id and its loaded
   // content in place while the metadata vanished, so the editor could mount for one product
   // holding another's block.
-  const selectedSlug = selection?.slug ?? null;
-  const selectedIsActive = selection?.productStatus === 'Active';
   const selectedId = selection?.productId ?? null;
   const selectedRow =
     rows.find((r) => r.productId === selectedId) ??
@@ -538,7 +549,7 @@ export function ProductContentPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)}
+                      onClick={() => void reloadSelected()}
                       className="shrink-0 underline"
                     >
                       Retry
@@ -595,7 +606,7 @@ export function ProductContentPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)}
+                        onClick={() => void reloadSelected()}
                         className="shrink-0 underline"
                       >
                         Retry
@@ -693,7 +704,7 @@ export function ProductContentPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            selection && void loadDetail(selection.productId, selection.slug, selectedIsActive)
+                            void reloadSelected()
                           }
                           className="underline"
                         >
@@ -759,7 +770,7 @@ export function ProductContentPage() {
             // The upsert CLEARS the review flag, so the queue and its KPI are stale the moment
             // a stale block is saved — the same refresh confirmReview already does.
             void loadQueue();
-            void loadDetail(selectedId, selectedSlug, selectedIsActive);
+            void reloadSelected();
           }}
         />
       )}
@@ -774,18 +785,32 @@ export function ProductContentPage() {
           onClose={() => setVariantSheet(null)}
           onSaved={() => {
             void loadRows();
-            void loadDetail(selectedId, selectedSlug, selectedIsActive);
+            void reloadSelected();
           }}
         />
       )}
     </div>
   );
 
+  /**
+   * Reload whatever is selected NOW.
+   *
+   * Every reload that follows an await must read the live selection rather than the values its
+   * closure captured. A reload fired for a product the operator has since navigated away from
+   * starts last, so it WINS the detail request counter and leaves `content` describing one
+   * product while the page believes another is selected — the state the block editor seeds a
+   * full-replacement form from.
+   */
+  async function reloadSelected() {
+    const live = selectionRef.current;
+    if (live) await loadDetail(live.productId, live.slug, live.productStatus === 'Active');
+  }
+
   async function retireVariant(variantId: string) {
     try {
       await commerceContentService.deleteVariant(variantId);
       toast.success('Combination retired — it can be revived by authoring it again');
-      if (selectedId) await loadDetail(selectedId, selectedSlug, selectedIsActive);
+      await reloadSelected();
       await loadRows();
     } catch (err: unknown) {
       toast.error(readMessage(err) || 'The combination could not be retired.');

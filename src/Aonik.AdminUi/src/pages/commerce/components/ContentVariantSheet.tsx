@@ -145,7 +145,13 @@ export function ContentVariantSheet({
     //
     // Applies to REVIVE as well as edit: a retired variant re-authored through
     // `initialSelectionJson` has no baseline, and that is the path where a bad save SUCCEEDS.
-    const drift = detectSelectionDrift(selection, groups);
+    //
+    // `storedIsCanonical` only when EDITING: the selection then came back from the server
+    // complete, so a group it does not name is one the product gained afterwards — the one drift
+    // that is an absence rather than a value, and the one the operator cannot correct here,
+    // because editing an existing variant locks the selection controls. While composing a new
+    // combination a partial selection is the intended input and absence means nothing.
+    const drift = detectSelectionDrift(selection, groups, { storedIsCanonical: !!variant });
     if (hasDrift(drift)) {
       setError(
         `This combination can no longer be expressed against what the product offers — ` +

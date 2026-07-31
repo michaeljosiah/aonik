@@ -104,19 +104,43 @@ export interface SelectionDrift {
   withdrawnChoices: string[];
   /** Groups whose selection mode can no longer represent what is stored. */
   shapeChanged: string[];
+  /**
+   * Groups the product has GAINED since the selection was stored.
+   *
+   * The only drift not visible in the stored selection itself — it is an absence, so a loop over
+   * what is stored can never see it. A stored canonical selection names every effective group,
+   * so a group present in the offer and missing from it appeared afterwards. Re-serialising the
+   * old partial selection lets server normalisation supply the new group's default, and the
+   * variant retargets onto a preparation that did not exist when its allergens were written.
+   */
+  addedGroups: string[];
 }
 
 export interface DriftGroup extends SelectionGroup {
   choices: readonly { key: string }[];
 }
 
+export interface DriftOptions {
+  /**
+   * The selection is a COMPLETE canonical one read back from the server, so an effective group
+   * it does not name is a group that was added later.
+   *
+   * False while the operator composes a new combination: a partial selection is the intended
+   * input there — the server fills the rest — and treating absence as drift would refuse every
+   * create.
+   */
+  storedIsCanonical?: boolean;
+}
+
 export function detectSelectionDrift(
   selection: Record<string, SelectionValue>,
   groups: readonly DriftGroup[],
+  options: DriftOptions = {},
 ): SelectionDrift {
   const missingGroups: string[] = [];
   const withdrawnChoices: string[] = [];
   const shapeChanged: string[] = [];
+  const addedGroups: string[] = [];
 
   for (const [key, value] of Object.entries(selection)) {
     if (isEmptySelection(value)) continue;
@@ -136,14 +160,24 @@ export function detectSelectionDrift(
     if (!isMulti(group) && picked.length > 1) shapeChanged.push(key);
   }
 
-  return { missingGroups, withdrawnChoices, shapeChanged };
+  if (options.storedIsCanonical) {
+    for (const group of groups) {
+      // A group with no offerable choices cannot be defaulted into anything, so its absence
+      // says nothing about when it appeared.
+      if (group.choices.length === 0) continue;
+      if (isEmptySelection(selection[group.key])) addedGroups.push(group.key);
+    }
+  }
+
+  return { missingGroups, withdrawnChoices, shapeChanged, addedGroups };
 }
 
 export function hasDrift(drift: SelectionDrift): boolean {
   return (
     drift.missingGroups.length > 0 ||
     drift.withdrawnChoices.length > 0 ||
-    drift.shapeChanged.length > 0
+    drift.shapeChanged.length > 0 ||
+    drift.addedGroups.length > 0
   );
 }
 
@@ -157,6 +191,9 @@ export function describeDrift(drift: SelectionDrift): string {
   }
   if (drift.shapeChanged.length > 0) {
     parts.push(`${drift.shapeChanged.join(', ')} (now single-select, but several are stored)`);
+  }
+  if (drift.addedGroups.length > 0) {
+    parts.push(`${drift.addedGroups.join(', ')} (offered since this combination was authored)`);
   }
   return parts.join('; ');
 }
