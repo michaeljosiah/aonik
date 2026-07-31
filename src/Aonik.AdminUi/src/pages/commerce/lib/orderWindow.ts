@@ -46,7 +46,15 @@ export interface OrderWindowSummary {
 const CAPTURED = 'Captured';
 const NONE = '—';
 
-export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWindowSummary {
+/**
+ * @param windowLabel What the rows ARE, named in the caption. A paged table can say "this
+ * page" because the table below is the page; a dashboard cannot, because its figures cover a
+ * fetch the operator never sees in full — "latest 25 orders" is the only honest phrasing there.
+ */
+export function summariseOrderWindow(
+  rows: readonly OrderWindowRow[],
+  windowLabel = 'this page',
+): OrderWindowSummary {
   const paid = rows.filter((row) => row.paymentStatus === CAPTURED);
   const awaitingPayment = rows.filter(
     (row) => row.paymentStatus !== CAPTURED && !TERMINAL.has(row.orderStatus),
@@ -65,7 +73,7 @@ export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWind
       paidRevenue: NONE,
       averageOrder: NONE,
       awaitingPayment,
-      moneyCaption: 'this page',
+      moneyCaption: windowLabel,
       excludedOrders: 0,
     };
   }
@@ -83,8 +91,8 @@ export function summariseOrderWindow(rows: readonly OrderWindowRow[]): OrderWind
     awaitingPayment,
     moneyCaption:
       excludedOrders === 0
-        ? `this page · ${currency}`
-        : `this page · ${currency} only, excluding ${excludedOrders} order${
+        ? `${windowLabel} · ${currency}`
+        : `${windowLabel} · ${currency} only, excluding ${excludedOrders} order${
             excludedOrders === 1 ? '' : 's'
           } in other currencies`,
     excludedOrders,

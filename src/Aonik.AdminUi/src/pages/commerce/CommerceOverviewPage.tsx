@@ -7,7 +7,7 @@
 // slowest source and turn one failure into an empty page. A source that fails degrades to its
 // own "could not be read" row and nothing else on the page notices.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -37,6 +37,8 @@ import { paymentTone } from './lib/statusTone';
 
 /** The order window every tile and the recent list describe. Named in the captions. */
 const ORDER_WINDOW = 25;
+/** Recent-order rows the card renders. The tiles cover the whole fetched window. */
+const RECENT_ROWS = 8;
 /** Open carts scanned for the blocked count — the flag is per-cart and cannot be counted server-side. */
 const CART_WINDOW = 25;
 /** Products scanned for the content-review floor. Bounded, and disclosed when it bites. */
@@ -58,14 +60,36 @@ export function CommerceOverviewPage() {
   const [abandonedCarts, setAbandonedCarts] = useState<AttentionSources['abandonedCarts']>(LOADING);
   const [blockedCarts, setBlockedCarts] = useState<AttentionSources['blockedCarts']>(LOADING);
 
+  // Retry starts a SECOND generation while the first may still be in flight, and the two
+  // races are asymmetric: a slow initial failure landing after a fast retry success would
+  // replace real data with "unavailable". Every setter is gated on its own generation.
+  const generationRef = useRef(0);
+
   // Fires the requests and nothing else. The slots already START as `loading`, so resetting
   // them here would be a synchronous write during the mount effect for no gain — the retry
   // handler below does the resetting, where it is an event and actually needed.
   const load = useCallback(() => {
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    const current = () => generationRef.current === generation;
+    const set =
+      <T,>(setter: (value: T) => void) =>
+      (value: T) => {
+        if (current()) setter(value);
+      };
+
+    const setOrdersG = set(setOrders);
+    const setContentReviewG = set(setContentReview);
+    const setDeliveryPromiseG = set(setDeliveryPromise);
+    const setStagedDraftsG = set(setStagedDrafts);
+    const setSkippedExtrasG = set(setSkippedExtras);
+    const setAbandonedCartsG = set(setAbandonedCarts);
+    const setBlockedCartsG = set(setBlockedCarts);
+
     commerceStorefrontService
       .listStorefrontOrders({ page: 1, pageSize: ORDER_WINDOW })
-      .then((result) => setOrders({ kind: 'ready', value: result.items }))
-      .catch(() => setOrders({ kind: 'unavailable' }));
+      .then((result) => setOrdersG({ kind: 'ready', value: result.items }))
+      .catch(() => setOrdersG({ kind: 'unavailable' }));
 
     // The status list is paged and carries no server-side "requiresReview" filter, so this
     // scans one page and reports a FLOOR when there are more — the row says "at least N"
@@ -73,7 +97,7 @@ export function CommerceOverviewPage() {
     commerceContentService
       .listContentStatus(1, CONTENT_SCAN)
       .then((result) =>
-        setContentReview({
+        setContentReviewG({
           kind: 'ready',
           value: {
             count: result.items.filter((row) => row.requiresReview).length,
@@ -82,19 +106,19 @@ export function CommerceOverviewPage() {
           },
         }),
       )
-      .catch(() => setContentReview({ kind: 'unavailable' }));
+      .catch(() => setContentReviewG({ kind: 'unavailable' }));
 
     commerceStorefrontService
       .getPublicDelivery()
       .then((promise) =>
-        setDeliveryPromise({ kind: 'ready', value: promise.earliestDeliveryDate ?? null }),
+        setDeliveryPromiseG({ kind: 'ready', value: promise.earliestDeliveryDate ?? null }),
       )
       // 404 is the DESIGNED answer for "no promise configured", not a failure — Spec 069 is
       // explicit that unconfigured is a state. Any other error is genuinely unavailable.
       .catch((err: unknown) =>
         httpStatus(err) === 404
-          ? setDeliveryPromise({ kind: 'ready', value: null })
-          : setDeliveryPromise({ kind: 'unavailable' }),
+          ? setDeliveryPromiseG({ kind: 'ready', value: null })
+          : setDeliveryPromiseG({ kind: 'unavailable' }),
       );
 
     commerceStorefrontService
@@ -112,7 +136,7 @@ export function CommerceOverviewPage() {
             if (item.status === 'Draft') drafts.add(item.productId);
           }
         }
-        setStagedDrafts({
+        setStagedDraftsG({
           kind: 'ready',
           value: {
             count: drafts.size,
@@ -121,22 +145,22 @@ export function CommerceOverviewPage() {
           },
         });
       })
-      .catch(() => setStagedDrafts({ kind: 'unavailable' }));
+      .catch(() => setStagedDraftsG({ kind: 'unavailable' }));
 
     commerceStorefrontService
       .getPublicExtras()
-      .then((extras) => setSkippedExtras({ kind: 'ready', value: extras.skipped }))
-      .catch(() => setSkippedExtras({ kind: 'unavailable' }));
+      .then((extras) => setSkippedExtrasG({ kind: 'ready', value: extras.skipped }))
+      .catch(() => setSkippedExtrasG({ kind: 'unavailable' }));
 
     commerceStorefrontService
       .listCarts({ page: 1, pageSize: 1, status: 'Abandoned' })
-      .then((result) => setAbandonedCarts({ kind: 'ready', value: result.totalCount }))
-      .catch(() => setAbandonedCarts({ kind: 'unavailable' }));
+      .then((result) => setAbandonedCartsG({ kind: 'ready', value: result.totalCount }))
+      .catch(() => setAbandonedCartsG({ kind: 'unavailable' }));
 
     commerceStorefrontService
       .listCarts({ page: 1, pageSize: CART_WINDOW, status: 'Open' })
       .then((result) =>
-        setBlockedCarts({
+        setBlockedCartsG({
           kind: 'ready',
           value: {
             count: result.items.filter((cart) => cartBlocked(cart.boxMeta).blocked).length,
@@ -144,7 +168,7 @@ export function CommerceOverviewPage() {
           },
         }),
       )
-      .catch(() => setBlockedCarts({ kind: 'unavailable' }));
+      .catch(() => setBlockedCartsG({ kind: 'unavailable' }));
   }, []);
 
   useEffect(() => {
@@ -178,8 +202,15 @@ export function CommerceOverviewPage() {
   const settled = allSettled(sources);
 
   const orderRows = useMemo(() => (orders.kind === 'ready' ? orders.value : []), [orders]);
-  const summary = useMemo(() => summariseOrderWindow(orderRows), [orderRows]);
+  // The tiles aggregate the whole fetched window; the card renders a shorter list. Two
+  // different numbers, so two different captions — one caption for both would overstate what
+  // the operator can actually see, or understate what the figures cover.
   const windowCaption = `latest ${orderRows.length} orders`;
+  const shownRows = useMemo(() => orderRows.slice(0, RECENT_ROWS), [orderRows]);
+  const summary = useMemo(
+    () => summariseOrderWindow(orderRows, windowCaption),
+    [orderRows, windowCaption],
+  );
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
@@ -232,7 +263,7 @@ export function CommerceOverviewPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <AonikCard
           title="Recent orders"
-          subtitle={orders.kind === 'ready' ? windowCaption : undefined}
+          subtitle={orders.kind === 'ready' ? `latest ${shownRows.length} orders` : undefined}
           padding={0}
         >
           {orders.kind === 'loading' ? (
@@ -249,7 +280,7 @@ export function CommerceOverviewPage() {
             </p>
           ) : (
             <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
-              {orderRows.slice(0, 8).map((order) => (
+              {shownRows.map((order) => (
                 <li key={order.orderId}>
                   <button
                     type="button"
@@ -260,7 +291,7 @@ export function CommerceOverviewPage() {
                       {order.orderId.slice(0, 8)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <BuyerLabel buyerKind={order.buyerKind} buyerPartyId={order.buyerPartyId} />
+                      <BuyerLabel buyerKind={order.buyerKind} buyerPartyId={order.buyerPartyId} linkless />
                     </span>
                     <span className="shrink-0 font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-primary)]">
                       {formatCurrency(order.total, order.currency)}

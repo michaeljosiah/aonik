@@ -150,3 +150,55 @@ describe('buildAttentionRows', () => {
     }
   });
 });
+
+describe('clean but PARTIAL scans', () => {
+  it('reports a zero content count that could not see every product', () => {
+    // 200-product scan of a 300-product store: a flagged product 201 would otherwise render
+    // identically to a genuinely clean store. Zero + incomplete is not "nothing to report".
+    const row = buildAttentionRows({
+      ...quiet,
+      contentReview: { kind: 'ready', value: { count: 0, inspected: 200, complete: false } },
+    }).find((r) => r.key === 'content');
+    expect(row).toBeDefined();
+    expect(row!.statement).toMatch(/checked as far as the first 200 products/);
+    expect(row!.subline).toMatch(/rest was not inspected/);
+    expect(row!.tone).toBe('muted');
+  });
+
+  it('reports a zero draft count that could not see every collection', () => {
+    const row = buildAttentionRows({
+      ...quiet,
+      stagedDrafts: { kind: 'ready', value: { count: 0, collectionsInspected: 20, complete: false } },
+    }).find((r) => r.key === 'drafts');
+    expect(row?.statement).toMatch(/checked as far as the first 20 collections/);
+  });
+
+  it('still omits a zero count when the scan WAS complete', () => {
+    expect(
+      buildAttentionRows({
+        ...quiet,
+        contentReview: { kind: 'ready', value: { count: 0, inspected: 12, complete: true } },
+        stagedDrafts: { kind: 'ready', value: { count: 0, collectionsInspected: 3, complete: true } },
+      }).map((r) => r.key),
+    ).toEqual(['delivery']);
+  });
+});
+
+describe('cart sources degrade like every other source', () => {
+  it('shows an unavailable row when the open-cart read fails', () => {
+    const row = buildAttentionRows({
+      ...quiet,
+      blockedCarts: { kind: 'unavailable' },
+    }).find((r) => r.key === 'blocked-carts');
+    expect(row?.statement).toMatch(/could not be read/);
+  });
+
+  it('shows an unavailable row when the abandoned-cart read fails', () => {
+    // Without this, a carts outage was indistinguishable from having no abandoned carts.
+    const row = buildAttentionRows({
+      ...quiet,
+      abandonedCarts: { kind: 'unavailable' },
+    }).find((r) => r.key === 'abandoned-carts');
+    expect(row?.statement).toMatch(/could not be read/);
+  });
+});

@@ -2,13 +2,19 @@
 // page's whole claim: every row must be a REAL state read from the surface that owns it,
 // with a link there — never a computed guess, and never a placeholder.
 //
-// Three states are deliberately distinct, and conflating any two is the failure mode:
+// FOUR states are deliberately distinct, and conflating any two is the failure mode:
 //
-//   NOTHING TO REPORT  → the row is OMITTED. A green "0 items need review" row is noise that
-//                        trains operators to skim past the card.
+//   NOTHING TO REPORT   → the row is OMITTED. A green "0 items need review" row is noise that
+//                         trains operators to skim past the card.
 //   SOMETHING TO REPORT → the row appears, toned by urgency.
 //   SOURCE UNAVAILABLE  → the row appears saying so. Silence would read as "nothing to
-//                        report", which is the one thing a failed read cannot establish.
+//                         report", which is the one thing a failed read cannot establish.
+//   CLEAN BUT PARTIAL   → the row appears saying THAT. A bounded scan that found nothing has
+//                         established nothing beyond its bound: with 300 products and a
+//                         200-product scan, a flagged product 201 would render identically to
+//                         a genuinely clean store. This is the same error as the unavailable
+//                         case wearing a zero, and omitting it was the bug this comment now
+//                         exists to prevent recurring.
 
 export type AttentionTone = 'warn' | 'info' | 'muted';
 
@@ -62,6 +68,22 @@ function unavailable(key: string, what: string, href: string): AttentionRowModel
   };
 }
 
+/** Found nothing, but could not see everything — reported rather than passed off as clean. */
+function partiallyClean(
+  key: string,
+  what: string,
+  scope: string,
+  href: string,
+): AttentionRowModel {
+  return {
+    key,
+    tone: 'muted',
+    statement: `${what} checked as far as ${scope}`,
+    subline: 'Nothing found there, but the rest was not inspected — open the page for the full picture.',
+    href,
+  };
+}
+
 /**
  * The rows to render, in triage order: things that are wrong, then things that are merely
  * worth knowing. A `loading` source contributes nothing — the page fills in as each settles.
@@ -72,7 +94,18 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
   // ── Content awaiting review ──────────────────────────────────────────────
   if (sources.contentReview.kind === 'unavailable') {
     rows.push(unavailable('content', 'Product content', '/commerce/content'));
-  } else if (sources.contentReview.kind === 'ready' && sources.contentReview.value.count > 0) {
+  } else if (sources.contentReview.kind === 'ready' && sources.contentReview.value.count === 0) {
+    if (!sources.contentReview.value.complete) {
+      rows.push(
+        partiallyClean(
+          'content',
+          'Product content',
+          `the first ${sources.contentReview.value.inspected} products`,
+          '/commerce/content',
+        ),
+      );
+    }
+  } else if (sources.contentReview.kind === 'ready') {
     const { count, inspected, complete } = sources.contentReview.value;
     rows.push({
       key: 'content',
@@ -117,7 +150,18 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
   // ── Drafts staged in collections ─────────────────────────────────────────
   if (sources.stagedDrafts.kind === 'unavailable') {
     rows.push(unavailable('drafts', 'Collection membership', '/commerce/merchandising'));
-  } else if (sources.stagedDrafts.kind === 'ready' && sources.stagedDrafts.value.count > 0) {
+  } else if (sources.stagedDrafts.kind === 'ready' && sources.stagedDrafts.value.count === 0) {
+    if (!sources.stagedDrafts.value.complete) {
+      rows.push(
+        partiallyClean(
+          'drafts',
+          'Collection membership',
+          `the first ${sources.stagedDrafts.value.collectionsInspected} collections`,
+          '/commerce/merchandising',
+        ),
+      );
+    }
+  } else if (sources.stagedDrafts.kind === 'ready') {
     const { count, collectionsInspected, complete } = sources.stagedDrafts.value;
     rows.push({
       key: 'drafts',
@@ -145,7 +189,12 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
   }
 
   // ── Carts ────────────────────────────────────────────────────────────────
-  if (sources.blockedCarts.kind === 'ready' && sources.blockedCarts.value.count > 0) {
+  // Both cart reads get the same unavailable treatment as every other source. Without it a
+  // carts outage was indistinguishable from having no blocked or abandoned carts — the exact
+  // silence this module exists to refuse, and I had left these two branches out of it.
+  if (sources.blockedCarts.kind === 'unavailable') {
+    rows.push(unavailable('blocked-carts', 'Open carts', '/commerce/carts'));
+  } else if (sources.blockedCarts.kind === 'ready' && sources.blockedCarts.value.count > 0) {
     const { count, window } = sources.blockedCarts.value;
     rows.push({
       key: 'blocked-carts',
@@ -156,7 +205,9 @@ export function buildAttentionRows(sources: AttentionSources): AttentionRowModel
     });
   }
 
-  if (sources.abandonedCarts.kind === 'ready' && sources.abandonedCarts.value > 0) {
+  if (sources.abandonedCarts.kind === 'unavailable') {
+    rows.push(unavailable('abandoned-carts', 'Abandoned carts', '/commerce/carts'));
+  } else if (sources.abandonedCarts.kind === 'ready' && sources.abandonedCarts.value > 0) {
     const n = sources.abandonedCarts.value;
     rows.push({
       key: 'abandoned-carts',
