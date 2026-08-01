@@ -1,3 +1,4 @@
+using Aonik.Groups.Services;
 using Aonik.Database.Tests.Support;
 using Aonik.IntegrationTests.Support;
 using Aonik.PersonalFinance.Contracts.Models;
@@ -141,7 +142,16 @@ public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<Sq
             new StubPartyReader(),
             new Mock<ICustomerOrderHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
             new Mock<ICustomerInvoiceHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
-            new Mock<ICustomerPaymentHistoryReader> { DefaultValue = DefaultValue.Empty }.Object);
+            new Mock<ICustomerPaymentHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
+            new GroupService(
+                context,
+                tenantProvider,
+                userProvider,
+                Mock.Of<IUserPartyResolver>(),
+                Mock.Of<IPartyReader>(),
+                new FixedClock(),
+                [],
+                new PersonalFinancePartyResolver(context)));
         var writeService = new FinancialLifeGraphWriteService(
             context, tenantProvider, userProvider, validation, new NoOpGraphCacheInvalidator());
 
@@ -213,7 +223,17 @@ public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<Sq
             partyReader,
             directoryReader,
             clock,
-            new NoOpNotificationWriter());
+            new NoOpNotificationWriter(),
+            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()),
+            new GroupService(
+                context,
+                new TestTenantProvider(tenantId),
+                new TestCurrentUserProvider(inviteeUserId),
+                Mock.Of<IUserPartyResolver>(),
+                partyReader,
+                clock,
+                [new PersonalFinanceGroupLifecycleContributor(context, new TestTenantProvider(tenantId), clock)],
+                new PersonalFinancePartyResolver(context)));
 
         var response = await service.AcceptInvitationAsync(household.Id);
 

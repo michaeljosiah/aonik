@@ -28,4 +28,20 @@ public interface IPersonalFinancePartyResolver
         Guid tenantId,
         Guid partyId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The reverse: the party on the <c>PersonalProfile</c> of <paramref name="userId"/>, or null.
+    /// </summary>
+    /// <remarks>
+    /// Added by Spec 086 P4, for the same seeded personas and the same reason. <c>GroupService</c>
+    /// authorises by party, so a caller it cannot resolve is a caller who cannot create or manage a
+    /// group at all — and on every seeded environment that is <em>every</em> caller, because the
+    /// personas have a profile and no bridge row. Groups consumes this as an <b>optional</b>
+    /// fallback after <c>IUserPartyResolver</c>, exactly as <c>ProjectUserBriefEndpoint</c> already
+    /// does in the other direction.
+    /// </remarks>
+    Task<Guid?> GetPartyIdForUserAsync(
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }

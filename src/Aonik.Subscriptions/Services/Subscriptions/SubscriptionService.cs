@@ -45,7 +45,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         Guid? paymentMandateId = null,
         CancellationToken cancellationToken = default)
     {
-        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
+        await _authorization.EnsureCanManageBillingForAsync(subscriber, cancellationToken);
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var code = planCode.Trim().ToLowerInvariant();
@@ -201,7 +201,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         if (subscription is null)
             return null;
 
-        await _authorization.EnsureCanActForAsync(
+        await _authorization.EnsureCanManageBillingForAsync(
             new SubscriberRef(subscription.SubscriberKind, subscription.SubscriberId), cancellationToken);
 
         return Map(subscription);
@@ -211,7 +211,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         SubscriberRef subscriber,
         CancellationToken cancellationToken = default)
     {
-        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
+        await _authorization.EnsureCanManageBillingForAsync(subscriber, cancellationToken);
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var subscription = await _dbContext.Subscriptions.AsNoTracking()
@@ -256,7 +256,7 @@ internal sealed class SubscriptionService : ISubscriptionService
             .FirstOrDefaultAsync(s => s.Id == subscriptionId && s.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Subscription '{subscriptionId}' was not found.");
 
-        await _authorization.EnsureCanActForAsync(
+        await _authorization.EnsureCanManageBillingForAsync(
             new SubscriberRef(subscription.SubscriberKind, subscription.SubscriberId), cancellationToken);
 
         return subscription;

@@ -14,4 +14,19 @@ public interface IUserPartyResolver
         Guid tenantId,
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The reverse: the user linked to a party, or null when the party has no login.
+    /// </summary>
+    /// <remarks>
+    /// Added by Spec 086 for <c>IGroupService.AddMemberAsync</c>, whose whole safety rests on it.
+    /// Direct addition exists for people who <em>cannot</em> consent; a party that has a user can,
+    /// and must go through the invitation flow where their consent is recorded. Without a way to ask
+    /// this question, direct addition becomes a way to put any adult in a group without asking them.
+    /// Null therefore means "may be added directly", so this must fail closed if it cannot answer.
+    /// </remarks>
+    Task<Guid?> GetUserIdForPartyAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default);
 }

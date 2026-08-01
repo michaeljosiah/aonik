@@ -1,3 +1,4 @@
+using Aonik.Subscriptions.Entities.Usage;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -42,6 +43,7 @@ public class PaidRenewalTests
     {
         public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Tenant];
         public Task<bool> CanActForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<bool> CanManageBillingForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
     }
 
     /// <summary>Records what the renewal asked the order spine to do.</summary>
@@ -203,6 +205,36 @@ public class PaidRenewalTests
         // the annual price every month after their first year — and their period entitlements
         // started expiring monthly with it.
         second.EndsAt.Should().Be(firstEnd.AddYears(1));
+    }
+
+    [Fact]
+    public async Task APurchasedTopUp_Should_BeReadable_WithNoSubscription()
+    {
+        var h = new Harness();
+        await h.Catalogue.CreateMeterAsync(new CreateMeterRequest("stories", "Stories", MeterKinds.Counter, "stories"));
+
+        h.Db.EntitlementGrants.Add(new EntitlementGrant
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            SubscriberKind = SubscriberKinds.Tenant,
+            SubscriberId = TenantId,
+            MeterCode = "stories",
+            Source = GrantSources.Purchase,
+            Allowance = 20,
+            Status = GrantStatuses.Open
+        });
+        await h.Db.SaveChangesAsync();
+
+        var snapshot = await h.Reader.GetAsync(Subscriber());
+
+        // Purchased grants are keyed to the SUBSCRIBER so they outlive subscriptions. Returning null
+        // here made the documented pre-check report no allowance for someone holding paid-for units
+        // that IUsageMeter would happily have funded.
+        snapshot.Should().NotBeNull();
+        snapshot!.SubscriptionId.Should().BeNull();
+        snapshot.Meters.Should().ContainSingle()
+            .Which.Remaining.Should().Be(20);
     }
 
     // ---- the happy path ---------------------------------------------------------------------

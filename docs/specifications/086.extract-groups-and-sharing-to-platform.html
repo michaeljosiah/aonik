@@ -59,17 +59,17 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 086</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag status-draft">Status: Implemented (Rev 3) — P1–P7</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Priority: P1</span>
   <span class="meta-tag">Domain: Platform / PersonalFinance / SharedKernel</span>
-  <h1>Extract groups and sharing to Platform</h1>
+  <h1>Extract groups and sharing into a platform module</h1>
   <p style="margin-top:6px; color: var(--muted);">
     Implements <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a>. Group membership
     (<code>Household</code>, <a href="020.payabo-household.md">Spec&nbsp;020</a>) and scoped sharing
     (<code>CircleGrant</code>, <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>) are generic
-    capabilities currently owned by <code>Aonik.PersonalFinance</code>. This spec relocates them to a
-    <strong>Groups</strong> slice in <code>Aonik.Platform</code> and generalises them along exactly three axes:
+    capabilities currently owned by <code>Aonik.PersonalFinance</code>. This spec relocates them to a middle-layer
+    <strong><code>Aonik.Groups</code></strong> module and generalises them along exactly three axes:
     <strong>a member is a <code>Party</code>, not a <code>User</code></strong>; a shared resource is a
     <strong><code>ResourceKind</code> + ids</strong> pair rather than a typed foreign key; and domain-specific grant
     terms move into an opaque <strong><code>TermsJson</code></strong> blob the platform never reads. Every existing
@@ -111,7 +111,26 @@
   product would be wrong even if it did not.
 </p>
 
-<p>This spec moves them to <code>Aonik.Platform</code> and changes three things about their shape. Nothing else.</p>
+<p>This spec moves them to <code>Aonik.Groups</code> and changes three things about their shape. Nothing else.</p>
+
+<div class="callout p0">
+  <span class="callout-label">Correction to Rev 1</span>
+  Rev 1 placed the extracted code in a <strong>vertical slice inside <code>Aonik.Platform</code></strong>, on the
+  reasoning that Platform already owns the people layer and four entities do not warrant their own project. The
+  reasoning is sound; the placement is <strong>impossible</strong>. <code>Aonik.Platform</code> already has a
+  <code>ProjectReference</code> to <code>Aonik.PersonalFinance</code>, while
+  <code>Aonik.PersonalFinance</code> references only SharedKernel — the absence
+  <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> §10 calls load-bearing. A Groups slice in
+  Platform would therefore require <code>PersonalFinance&nbsp;→&nbsp;Platform</code>, inverting an existing edge into
+  a cycle, and the build would not compile.
+  <br><br>
+  Rev 2 places it in a <strong>middle-layer <code>Aonik.Groups</code> module</strong> instead: referencing
+  <strong>only SharedKernel</strong>, with Platform, PersonalFinance and Infrastructure depending on it
+  <em>downward</em>. That is exactly where <code>Aonik.Ordering</code> sits
+  (<a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>), and it is the only placement the
+  reference graph admits. Nothing else in this spec changes: the contracts still live in
+  <code>SharedKernel.Abstractions.Groups</code>, and no consumer references the module directly.
+</div>
 
 <div class="callout ok">
   <span class="callout-label">Why this is cheaper than it looks</span>
@@ -182,7 +201,7 @@
 
 <h3>3.1 In scope</h3>
 <ul>
-  <li>A <code>Groups</code> vertical slice in <code>Aonik.Platform</code>: <code>Group</code>, <code>GroupMember</code>, <code>ShareGrant</code>, <code>ShareInvite</code> + configurations + services.</li>
+  <li>A middle-layer <code>Aonik.Groups</code> module: <code>Group</code>, <code>GroupMember</code>, <code>ShareGrant</code>, <code>ShareInvite</code> + configurations + <code>GroupsDbContext</code> + services.</li>
   <li>The three model generalisations: party member, resource kind, terms blob.</li>
   <li>Two extension seams: <code>IGroupLifecycleContributor</code> (veto <em>and</em> react) and <code>IShareResourceResolver</code>.</li>
   <li>Contracts in <code>SharedKernel.Abstractions.Groups</code>.</li>
@@ -203,7 +222,7 @@
 
 <h2 id="model">4. The target model</h2>
 
-<div class="ascii-diagram">Aonik.Platform / Entities / Groups
+<div class="ascii-diagram">Aonik.Groups / Entities
 ├── Group          TenantId, Kind, Name, Members
 ├── GroupMember    GroupId, PartyId, UserId?, Role, invitation lifecycle
 ├── ShareGrant     OwnerPartyId, MemberPartyId?, GroupId?, Scope,
@@ -287,12 +306,28 @@
     /// &lt;summary&gt;Display refs for the given ids, owner-scoped. Unknown or non-owned ids are omitted.&lt;/summary&gt;
     Task&lt;IReadOnlyList&lt;ShareResourceRef&gt;&gt; ResolveAsync(
         string resourceKind,
-        Guid ownerPartyId,
+        ShareResourceOwner owner,
         IReadOnlyCollection&lt;Guid&gt; resourceIds,
         CancellationToken cancellationToken = default);
 }
 
+public readonly record struct ShareResourceOwner(Guid? PartyId, Guid? UserId);
+
 public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">Correction from building P5 — the owner is not always a party yet</span>
+  Rev 1 passed the resolver an <code>ownerPartyId</code>. Building it showed that forces a choice between two
+  unacceptable outcomes, because <strong>sharing works today for users with no party link at all</strong> — the
+  endpoint suite creates exactly such users, and 13 of its tests went red on the first attempt. Either the cutover
+  <em>refuses</em> those owners, which takes a working feature away from them; or it <em>skips validation</em> for
+  them, which is the privilege escalation this very section exists to prevent.
+  <br><br>
+  So the resolver is handed <strong>both identifiers</strong>. Ownership is therefore <em>always</em> checked, in
+  whichever terms the owner actually has, and <code>UserId</code> goes when the user columns do. The same shape
+  appears on <code>ShareGrantDto</code> and <code>CreateShareGrantCommand</code>, for the same reason and with the
+  same expiry.
+</div>
 
 <p>
   <code>Aonik.PersonalFinance</code> registers <code>care-entity</code>. The invite preview asks the resolver for names
@@ -366,7 +401,27 @@ public sealed record GroupTransition(
     Guid GroupId,
     Guid? MemberPartyId,
     Guid? MemberUserId,   // null for party-only members — contributors must tolerate this
-    Guid ActorPartyId);</code></pre>
+    Guid ActorPartyId,
+    Guid? ActorUserId = null);</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">Two corrections from building it (P4)</span>
+  <strong><code>ActorUserId</code> was missing.</strong> <code>HouseholdMemberRemovedEvent</code> has always
+  carried <code>removedByUserId</code>, and a contributor holding only <code>ActorPartyId</code> cannot produce it —
+  the transition would have silently dropped information the events it replaces already published. It also
+  distinguishes <em>left</em> from <em>removed</em>, which drive different notifications.
+  <br><br>
+  <strong>"Same transaction" needed a mechanism that did not exist.</strong> Every module context in this solution is
+  registered with its own connection, so a membership write through one context and a contributor's profile write
+  through another are two transactions — and a crash between them leaves a member removed but still linked. There is
+  no shared-connection or ambient-unit-of-work plumbing to borrow, and adding it would touch ten module registrations
+  and deserve its own ADR. Instead <code>GroupService</code> writes through an <code>IGroupDataContext</code> the
+  <em>composing module</em> supplies: PersonalFinance registers its own <code>PersonalFinanceDbContext</code>, which
+  <a href="#persistence">§10.3</a> already keeps the four group <code>DbSet</code>s on through P2–P6. Service and
+  contributor then share one change tracker, and one <code>SaveChangesAsync</code> covers both. Contributors therefore
+  react <em>before</em> the save, not after it. P7 is where this is revisited — when PersonalFinance's
+  <code>DbSet</code>s go, so does its claim on that interface.
+</div>
 
 <p>
   PersonalFinance registers one contributor carrying every side effect listed above. The
@@ -374,6 +429,16 @@ public sealed record GroupTransition(
   <strong>skips</strong> party-only members rather than failing on them — a child has no personal-finance profile to
   link, and that is correct rather than an error.
 </p>
+
+<div class="callout p0">
+  <span class="callout-label">Accept returns a result, not an exception (P5)</span>
+  Rev 1 had <code>AcceptInviteAsync</code> throw <code>InvalidStateException</code> for a consumed, revoked or expired
+  invite. That flattens three distinctions the deployed behaviour depends on: a token replayed by the <b>same</b>
+  member returns the grant they already hold (Spec&nbsp;049's parked-token flow replays accept on a cold start), a
+  token replayed by a <b>different</b> member is indistinguishable from an invalid one so it cannot be used as an
+  oracle, and an owner tapping their own link is a <strong>409</strong> rather than a 404. One exception type cannot
+  carry that, and the mobile flow that depends on the first would have broken silently.
+</div>
 
 <h3>7.2 <code>IShareResourceResolver</code></h3>
 <p>As <a href="#resources">§6</a>. Registered per module, keyed by <code>ResourceKinds</code>; duplicate ownership of a kind is a startup failure, not a last-writer-wins.</p>
@@ -385,19 +450,28 @@ public sealed record GroupTransition(
   tool-produced artefact (<a href="#persistence">§10</a>).
 </p>
 
-<h3>8.1 Moves to <code>Aonik.Platform</code></h3>
+<h3>8.1 Moves to <code>Aonik.Groups</code></h3>
+<div class="callout">
+  <span class="callout-label">Namespace-preserving relocation</span>
+  The files move; the <strong>type namespaces do not</strong>. The relocated entities keep
+  <code>namespace Aonik.PersonalFinance.Entities</code> and their configurations keep
+  <code>Aonik.PersonalFinance.Persistence.Configurations</code> — the ADR-006 / Spec&nbsp;027 technique
+  <code>Aonik.Ordering</code> also used. That keeps every fully-qualified name in the EF model snapshot valid, so the
+  move itself scaffolds <strong>no migration</strong>, and no consumer changes a single <code>using</code>. The
+  class renames in the table below are therefore a later, purely cosmetic pass, not part of P2.
+</div>
 <table>
   <thead><tr><th>From</th><th>To</th></tr></thead>
   <tbody>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/Household.cs</code></td><td><code>Platform/Entities/Groups/Group.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/HouseholdMember.cs</code></td><td><code>Platform/Entities/Groups/GroupMember.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleGrant.cs</code></td><td><code>Platform/Entities/Groups/ShareGrant.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleInvite.cs</code></td><td><code>Platform/Entities/Groups/ShareInvite.cs</code></td></tr>
-    <tr><td><code>…/Configurations/PersonalFinance/HouseholdMemberConfiguration.cs</code></td><td><code>Platform/Persistence/Configurations/Groups/GroupMemberConfiguration.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/Household.cs</code></td><td><code>Groups/Entities/Group.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/HouseholdMember.cs</code></td><td><code>Groups/Entities/GroupMember.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleGrant.cs</code></td><td><code>Groups/Entities/ShareGrant.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleInvite.cs</code></td><td><code>Groups/Entities/ShareInvite.cs</code></td></tr>
+    <tr><td><code>…/Configurations/PersonalFinance/HouseholdMemberConfiguration.cs</code></td><td><code>Groups/Persistence/Configurations/GroupMemberConfiguration.cs</code></td></tr>
     <tr><td><code>…/Configurations/PersonalFinance/CircleGrantConfiguration.cs</code></td><td><code>…/Groups/ShareGrantConfiguration.cs</code></td></tr>
     <tr><td><code>…/Configurations/PersonalFinance/CircleInviteConfiguration.cs</code></td><td><code>…/Groups/ShareInviteConfiguration.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdService.cs</code> (963)</td><td><code>Platform/Services/Groups/GroupService.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdMembershipRules.cs</code></td><td><code>Platform/Services/Groups/GroupMembershipRules.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdService.cs</code> (963)</td><td><code>Groups/Services/GroupService.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdMembershipRules.cs</code></td><td><code>Groups/Services/GroupMembershipRules.cs</code></td></tr>
   </tbody>
 </table>
 
@@ -446,7 +520,7 @@ public sealed record GroupTransition(
   <li><code>PersonalFinance/Services/Customers/PersonalFinanceCustomerRegistryContributor.cs</code></li>
   <li><code>Aonik.Finance.Mcp/Tools/FinancialLifeGraphMcpTools.cs</code>, <code>Aonik.PersonalFinance/Agents/Tools/FinancialLifeGraphTools.cs</code></li>
   <li><code>Aonik.Api/Middleware/TenantValidationMiddleware.cs</code>, <code>Aonik.Application/Abstractions/Persistence/IAonikDbContext.cs</code></li>
-  <li><code>Aonik.Finance/FinanceModule.cs</code>, <code>Aonik.PersonalFinance/PersonalFinanceModule.cs</code>, <code>Aonik.Platform</code> module registration for the new services</li>
+  <li><code>Aonik.Finance/FinanceModule.cs</code>, <code>Aonik.PersonalFinance/PersonalFinanceModule.cs</code>, <code>Aonik.Groups</code> module registration for the new services</li>
 </ul>
 
 <h3>8.5 Tests</h3>
@@ -455,13 +529,20 @@ public sealed record GroupTransition(
   <code>InvitePreviewRateLimiterTests</code> follows the limiter. <code>CircleEndpointsTests</code>,
   <code>CliApplicationTests</code>, <code>FakeAonikCliApiClient</code>, <code>DemoSeedServiceTests</code>,
   <code>UserBriefProjectorTests</code> and
-  <code>UserTransactionsUnderRetryStrategySqlServerTests</code> stay put and must pass <strong>unmodified</strong> —
-  that is the wire-compatibility proof (<a href="#acceptance">§15</a>).
+  <code>UserTransactionsUnderRetryStrategySqlServerTests</code> stay put and must pass with their
+  <strong>assertions unmodified</strong> — that is the wire-compatibility proof
+  (<a href="#acceptance">§15</a>). Constructor arity is not wire surface: P3 adds a
+  <code>MemberPartyResolver</code> argument to <code>HouseholdService</code> and <code>CircleService</code>, which the
+  three tests that construct them directly must pass. Nothing they assert changes.
 </p>
 
 <h2 id="contracts">9. Contracts in SharedKernel</h2>
 
-<p>New namespace <code>Aonik.SharedKernel.Abstractions.Groups</code>, consumed by PersonalFinance and by any future module. No module references <code>Aonik.Platform</code> directly.</p>
+<p>New namespace <code>Aonik.SharedKernel.Abstractions.Groups</code>, consumed by PersonalFinance and by any future
+module. A consumer that needs no entity types references the contracts and <strong>not</strong>
+<code>Aonik.Groups</code>; the project reference exists only where the DbContext or entities are genuinely
+needed (Infrastructure, for the canonical migration stream, and PersonalFinance, whose <code>DbSet</code>s survive
+until P7).</p>
 
 <table>
   <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
@@ -578,6 +659,27 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 </p>
 
 <div class="callout p0">
+  <span class="callout-label">The migration is forward-only in practice</span>
+  Once a group holds a member without a login, this migration <strong>cannot be rolled back</strong>: the scaffolded
+  <code>Down</code> re-narrows <code>UserId</code> to NOT NULL with a <code>Guid.Empty</code> default and recreates the
+  unfiltered unique index, so two party-only members collapse to one key and SQL Server rejects it.
+  <br><br>
+  The <code>Down</code> body is nonetheless left <strong>exactly as the CLI generated it</strong>, and that is the
+  right answer rather than a concession. EF wraps each migration in a transaction, so the failure rolls the whole
+  <code>Down</code> back and leaves the schema and <code>__EFMigrationsHistory</code> untouched — the database already
+  refuses, atomically and with a clear duplicate-key error. Two alternatives were tried and are worse: a
+  <em>no-op</em> body makes EF delete the history row while every column stays, so the next forward deploy reruns
+  <code>Up</code> against existing objects; and a hand-written <code>throw</code> achieves the same refusal while
+  violating <code>CLAUDE.md</code>'s rule that migration bodies are tool output. The same reasoning applies to
+  <code>AddSubscriptionPeriodFulfilmentRef</code> (Spec 087), whose restored check constraint rejects rows fulfilled
+  through a subscription period.
+  <br><br>
+  To reverse deliberately: confirm <code>SELECT COUNT(*) FROM dbo.AnkHouseholdMembers WHERE UserId IS NULL</code> is
+  zero first. If it is not, decide what becomes of those members — they have no other identity — before going near the
+  schema.
+</div>
+
+<div class="callout p0">
   <span class="callout-label">Migration rules</span>
   The migration is <strong>CLI-generated only</strong>, against <code>AonikDbContext</code>, per
   <code>CLAUDE.md</code>. <strong>The backfills are not written into a migration body</strong> — hand-authoring
@@ -590,11 +692,41 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 <h3>10.3 DbContext registration</h3>
 <ul>
   <li><code>AonikDbContext</code> — the four <code>DbSet</code>s stay (it owns all sets); the mapping helper changes from <code>MapFinanceTable</code> to <code>MapPlatformTable</code>, which is a no-op physically since both prefixes are <code>"Ank"</code>.</li>
-  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>retained through P2–P6</strong> and removed only in <strong>P7</strong>. They cannot go in P2: the still-deployed <code>HouseholdService</code> and <code>CircleService</code> need their entity sets to dual-write (P3) and to keep serving reads until the P5 cutover, and their facades do not exist until P4/P5. Rev 1 scheduled the removal in both §10.3 and P7, which was self-contradictory.</li>
-  <li><code>PlatformDbContext</code> — the four <code>DbSet</code>s are added. Its frozen migration folder is not touched.</li>
+  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>retained</strong>. Rev 1
+  scheduled their removal in P7; P4 made that impossible and it is now deliberate. They are what
+  <code>IGroupDataContext</code> is implemented over, which is what gives <code>GroupService</code> and the
+  PersonalFinance contributor one change tracker and therefore one transaction (<a href="#seams">§7.1</a>). Removing
+  them does not tidy the module — it silently downgrades the same-transaction guarantee to two. They go when the
+  shared-connection question is answered on its own terms, which is a platform-wide change and its own ADR.</li>
+  <li><s><code>PlatformDbContext</code> — the four <code>DbSet</code>s are added.</s> <strong>Obsolete.</strong>
+  Groups is a middle-layer module, not a Platform slice (see the Rev 2 correction in <a href="#current">§2</a>), so
+  Platform has no reason to map these tables at all. <code>GroupsDbContext</code> exists for a consumer that has no
+  other context of its own.</li>
 </ul>
 
 <h2 id="compat">11. Wire compatibility</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Two translations the facade must do (P4)</span>
+  <strong>User to party.</strong> <code>IGroupService</code> keys on party; every PersonalFinance route keys on user.
+  The facade resolves one to the other on every call.
+  <br><br>
+  <strong>Exceptions to the ones the endpoints map.</strong> These endpoints have always turned
+  <code>InvalidOperationException</code> into <strong>409</strong> and <code>UnauthorizedAccessException</code> into
+  <strong>403</strong>. <code>GroupService</code> throws <code>InvalidStateException</code>,
+  <code>NotFoundException</code> and <code>PermissionDeniedException</code>, none of which derive from those — letting
+  them through would turn documented 409s into 500s, which is precisely the break this facade exists to prevent.
+  Messages are carried verbatim, because the endpoints return them.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">P4 is a dual-READ window, not the cutover</span>
+  <code>GroupService</code> authorises a caller against a membership by <strong>party <em>or</em> user</strong>, not
+  party alone. The P3 backfill is what populates <code>PartyId</code> and it is disabled by default, so on any
+  environment where it has not run a membership still has a null party — and party-only authorisation would make those
+  rows unusable by the very person they belong to: their own accept, leave and manage calls would fail. The user half
+  of the key goes when the column does, in the spec that drops it.
+</div>
 
 <div class="callout ok">
   <span class="callout-label">The safety property</span>
@@ -616,8 +748,10 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   <code>SharedKernel/Events/Integration/FinanceEvents.cs</code> — <code>HouseholdCreatedEvent</code>,
   <code>HouseholdMemberInvitedEvent</code>, <code>HouseholdInvitationAcceptedEvent</code>,
   <code>HouseholdInvitationDeclinedEvent</code>, <code>HouseholdMemberRemovedEvent</code>,
-  <code>HouseholdMemberLeftEvent</code>. They move to a new <code>PlatformEvents.cs</code> (or
-  <code>GroupEvents.cs</code>) in the same namespace.
+  <code>HouseholdMemberLeftEvent</code>. They move to a new <code>GroupEvents.cs</code> in the same namespace.
+  <code>HouseholdAccountSharedEvent</code> and <code>HouseholdAccountUnsharedEvent</code> <strong>stay</strong> in
+  <code>FinanceEvents.cs</code>: they are about a personal-finance <em>account</em> being shared into a household, not
+  about the membership, so they belong with the module that owns accounts.
 </p>
 <p>
   <strong>Record names and payload shapes are unchanged</strong> in this pass. Renaming a published event contract is a
@@ -660,20 +794,31 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 
 <h2 id="seeding">13. Seeding &amp; demo data</h2>
 
-<ul>
-  <li><code>PersonalFinance/Services/Seeding/Phases/HouseholdsSeedPhase.cs</code> moves to Platform's seeding phases; the <code>DemoSeedPhase.Households</code> enum value and the <code>HouseholdIds</code> / <code>HouseholdMemberIds</code> result keys in <code>IDemoSeedContributor</code> keep their names.</li>
-  <li><code>PersonalFinanceDemoDataReverser.ReverseHouseholdsAsync</code> and <code>IPersonalFinanceDemoDataReverser</code> — the reversal moves with the phase; the interface method is retained and delegates, preserving the reversible-seed contract.</li>
-  <li><code>PlatformDemoSeedNames</code>, <code>PartySeedPhase</code>, <code>ReverseSeedPhase</code>, <code>DemoSeedService</code> — updated references only.</li>
-  <li>Seeded members must now also seed a <code>Party</code> per member, or reuse the party <code>PartySeedPhase</code> already creates. Phase ordering: parties before groups.</li>
-</ul>
+<div class="callout p0">
+  <span class="callout-label">Correction: the seed phase stays (P6)</span>
+  Rev 1 moved <code>HouseholdsSeedPhase</code> to Platform's seeding phases. It cannot move to
+  <code>Aonik.Groups</code> instead, and not for want of trying: the phase is built entirely out of
+  <em>PersonalFinance</em> material — <code>FinanceDemoSeedIds</code>, the module's role and
+  <code>PermissionsJson</code> payloads, and its persona ids — and <code>Aonik.Groups</code> references only
+  SharedKernel. Relocating it would mean either inverting that reference or hollowing the phase out into a shell that
+  passes PersonalFinance data to a PersonalFinance-shaped API in a module that knows about neither.
+  <br><br>
+  It is also demo data for a <em>personal-finance</em> demo, so the module that owns the personas is the right owner.
+  What was real in this bullet list is the last item, and that is done: seeded members now carry a
+  <code>PartyId</code>, read from the seeded <code>PersonalProfile</code>. From P4/P5 the readers prefer party, so a
+  demo household whose members had none would render empty until someone remembered to run the backfill — a seed bug
+  that looks like a broken feature rather than missing data. Re-seeding an existing demo tenant repairs old rows.
+</div>
 
 <h2 id="config">14. Configuration sections</h2>
 
 <p>
-  <code>CircleInviteOptions.SectionName</code> is <code>"PersonalFinance:Circle"</code>. The generic half moves to
-  <code>"Platform:Sharing"</code>. To avoid a silent behaviour change on deployments that already set the old section,
-  bind <strong>both</strong>, preferring the new one, and log a startup warning when only the legacy section is present.
-  Removing the fallback is a follow-up.
+  <code>CircleInviteOptions.SectionName</code> becomes <code>"Platform:Sharing"</code>, and
+  <code>LegacySectionName</code> keeps <code>"PersonalFinance:Circle"</code>. Both are bound — legacy first, the new
+  one over it — so an operator who set either gets what they configured and one who set both gets the new one.
+  Silently ignoring the old section would be the worst outcome available: a tenant that had dialled disclosure back to
+  <code>Counts</code> would quietly start disclosing names again. A hosted service logs one startup warning naming the
+  deployments that still need moving. Removing the fallback is a follow-up.
 </p>
 
 <h2 id="phasing">15. Phasing &amp; tasks</h2>
@@ -688,33 +833,104 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P2</strong> — entities + schema</td>
-      <td>Create the Groups slice with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Replace the unique index (<a href="#persistence">§10.2</a>). Register in the three contexts.</td>
-      <td>Migration reviewed, matches <a href="#persistence">§10.2</a> exactly — the additive columns plus the one index drop/replace, nothing else — and applies cleanly locally.</td>
+      <td>Create the <code>Aonik.Groups</code> module and relocate the four entities and their configurations into it, namespaces preserved (<a href="#inventory">§8.1</a>), with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Replace the unique index (<a href="#persistence">§10.2</a>). Register in the three contexts.</td>
+      <td>Migration reviewed, matches <a href="#persistence">§10.2</a> exactly — the additive columns plus the one index drop/replace, nothing else — and applies cleanly locally. Two party-only members in one group insert on LocalDB, which is the index change proving itself.</td>
     </tr>
     <tr>
       <td><strong>P3</strong> — backfill + dual-write</td>
-      <td>Idempotent Worker job: <code>PartyId</code>/<code>OwnerPartyId</code>/<code>MemberPartyId</code> from the user columns, plus <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans. Writers begin <strong>dual-writing</strong> user and party columns; <strong>readers still use the user columns</strong>.</td>
+      <td>Idempotent Worker job (<code>GroupPartyBackfillJob</code>): <code>PartyId</code>/<code>OwnerPartyId</code>/<code>MemberPartyId</code> from the user columns, plus <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans. Writers begin <strong>dual-writing</strong> user and party columns; <strong>readers still use the user columns</strong>.
+      <br><br>
+      <em>Implementation note.</em> The job reads across tenants but must <strong>commit per tenant</strong>:
+      <code>AonikDbContextBase.EnforceTenantOnWrites</code> rejects saving a tenant-scoped row whose
+      <code>TenantId</code> differs from the ambient tenant, so a read-everything-save-once backfill throws on the first
+      row it touches. It stamps <code>ITenantContext.TenantId</code>, does that tenant's rows, saves, and resets — the
+      <code>DocumentIngestionBackfillJob</code> pattern. Unresolvable users on <em>soft-deleted</em> rows are populated
+      where possible but never block: a member deleted years ago whose user has been purged is not a defect anyone can
+      fix, and a backfill that can never go green is one whose failure everyone learns to ignore.</td>
       <td>Zero unbackfilled rows in every environment, and no reader has changed.</td>
     </tr>
     <tr>
       <td><strong>P4</strong> — move Household</td>
-      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to Platform behind <code>IGroupLifecycleContributor</code>. PersonalFinance registers a contributor carrying its profile-link, account-unshare, event and cache-invalidation side effects; its <code>HouseholdService</code> becomes a delegating facade.</td>
+      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to <code>Aonik.Groups</code> behind
+      <code>IGroupLifecycleContributor</code>. PersonalFinance registers a contributor carrying its profile-link,
+      account-unshare and event side effects; its <code>HouseholdService</code> becomes a delegating facade.
+      <br><br>
+      <em>Two scope calls made while building it.</em>
+      <strong>Cache invalidation stays in the facade</strong>, not the contributor: it must run <em>after</em> the
+      commit, because invalidating inside the transaction lets a concurrent read repopulate from pre-commit state.
+      <strong><code>InviteAsync</code> stays in the facade too</strong> and throws from <code>GroupService</code> —
+      inviting needs a user-directory lookup and sends a notification, neither of which the platform should own; it
+      moves with the P6 events/config pass.</td>
       <td><code>HouseholdServiceTests</code> pass against the moved service; endpoint tests pass unmodified.</td>
     </tr>
     <tr>
       <td><strong>P5</strong> — split Circle</td>
-      <td><code>ShareGrantService</code> + <code>ShareInvitePreviewLimiter</code> to Platform. PersonalFinance registers the <code>care-entity</code> resolver and keeps the projection. <strong>Reader cutover: grants and invites are now resolved by party id.</strong> Dual-write continues; the user columns are dropped by a later spec.</td>
+      <td><code>ShareGrantService</code> to <code>Aonik.Groups</code>. PersonalFinance registers the
+      <code>care-entity</code> resolver and keeps the projection. <strong>Reader cutover: grants and invites resolve
+      by party <em>first</em></strong> — and by user as a fallback, for the same reason P4 does, because the P3
+      backfill is disabled by default and a grant written before it ran has none. Dual-write continues; the user
+      columns are dropped by a later spec.
+      <br><br>
+      <em>Three things found while building it.</em>
+      <strong>Every party comparison needs a null guard.</strong> In a LINQ query
+      <code>row.PartyId == caller.PartyId</code> with both sides null compiles to <code>PartyId IS NULL</code>, which
+      is <em>true</em> — so a caller with no party matched every grant whose member had none either, handing one user
+      another user's share. Caught by <code>Accept_IsIdempotentForSameUser_ButSingleUseAcrossUsers</code>.
+      <strong><code>NoAmounts</code> must still be written</strong>, and the platform cannot do it: it is finance
+      vocabulary, and §10.2 keeps the column so a rollback needs no data recovery. Left unwritten, a rollback to a
+      pre-P5 build would read <code>false</code> on every new grant and serve amounts to docs-only members. The owning
+      module mirrors it in a second save.
+      <strong><code>CreateShareGrantCommand</code> carries the member's user id</strong> rather than reverse-resolving
+      it from the party: a member with a profile but no bridge row cannot be resolved back, and the grant would be
+      written with no member — a dangling pending grant instead of the active one the caller asked for.
+      <br><br>
+      <em>Deferred.</em> <code>ShareInvitePreviewLimiter</code> stays in PersonalFinance. It is per-IP rate limiting
+      over an anonymous HTTP endpoint, so it belongs with the endpoint, not with the grant mechanics; moving it would
+      relocate code without moving a boundary.</td>
       <td><code>CircleEndpointsTests</code> and <code>CircleServiceTests</code> pass; CLI tests unmodified; a grant created before P3 is still listable, revocable and acceptable after cutover.</td>
     </tr>
     <tr>
       <td><strong>P6</strong> — events, seeding, config</td>
-      <td>Move <code>Household*</code> events out of <code>FinanceEvents.cs</code>; move the seed phase; dual-bind the config section.</td>
-      <td><code>DemoSeedServiceTests</code> pass; demo seed still reverses cleanly.</td>
+      <td>Move the <code>Household*</code> membership events into <code>GroupEvents.cs</code> and add the additive,
+      party-keyed <code>Group*</code> set the platform publishes (<a href="#events">§12.1</a>). Dual-bind the config
+      section (<a href="#config">§14</a>). Seed <code>PartyId</code> onto demo household members
+      (<a href="#seeding">§13</a>).
+      <br><br>
+      <em>Also here:</em> <code>InviteAsync</code> finally moves off the facade, which P4 deferred. Two things it
+      needed. <code>InviteGroupMemberCommand</code> named <strong>nobody</strong> in Rev 1 — only an email and a phone
+      — so it could not express the invitation PersonalFinance actually sends, where the invitee is an existing user
+      chosen by id; it now carries both identifiers. And <code>PermissionsJson</code> is written by the facade rather
+      than pushed onto the platform command: it is a PersonalFinance concept Spec 048 already superseded with
+      <code>ShareGrant</code>, and putting it on a platform command would hand every future product a field it should
+      never set.
+      <br><br>
+      <em>Correction:</em> the seed phase does <strong>not</strong> move — see <a href="#seeding">§13</a>.</td>
+      <td><code>DemoSeedServiceTests</code> pass; demo seed still reverses cleanly; a user-backed change emits both
+      event sets and a party-only change emits only the generic one.</td>
     </tr>
     <tr>
       <td><strong>P7</strong> — cleanup</td>
-      <td>Remove the four <code>DbSet</code>s from <code>PersonalFinanceDbContext</code>; re-point the life-graph and customer-insight consumers.</td>
-      <td>Full solution build + <code>dotnet test Aonik.sln</code> green.</td>
+      <td>Re-point the consumers that were querying the group tables for answers the platform already gives.
+      <code>IGroupReader</code> gained <code>GetForUserAsync</code> and <code>ExistsAsync</code> — user-keyed and
+      transitional, because those consumers are, and because a membership written before the P3 backfill has no party
+      at all; asking by party would silently drop it, and for an authorisation read that means denying someone access
+      they have.
+      <br><br>
+      <em>Re-pointed:</em> <code>FinancialLifeGraphValidationService</code> (four authorisation reads) and
+      <code>PersonalAccountService</code> (authorisation plus the cache-invalidation lists). Both now ask "is this
+      user in this group" rather than assembling the answer from rows, and the accepted-only filtering they used to
+      duplicate is gone rather than copied.
+      <br><br>
+      <em>Not re-pointed, each for a reason.</em> <code>HouseholdService</code>, <code>CircleService</code> and the
+      lifecycle contributor <strong>are</strong> the seam — they need entities by definition. The seeding phase and the
+      demo reverser <strong>write</strong> rows, which no reader contract exposes and none should. And
+      <code>CustomerDataExportProvider</code>, <code>FinancialLifeGraphLoader</code> and
+      <code>CustomerInsightSourceDataLoader</code> need columns the DTOs do not carry —
+      <code>InvitedByUserId</code>, <code>CreatedAt</code>, the raw <code>PermissionsJson</code> a subject-access
+      export must include. Widening <code>GroupMemberDto</code> to carry them would put PersonalFinance's shape back
+      on the platform contract, which is the coupling this spec removes; they move when the columns themselves are
+      retired.</td>
+      <td>Full solution build + <code>dotnet test Aonik.sln</code> green, including the endpoint suite unmodified.</td>
     </tr>
   </tbody>
 </table>
@@ -734,8 +950,18 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 <h2 id="acceptance">16. Acceptance criteria</h2>
 
 <ol>
-  <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>, <code>CircleGrant</code> or <code>CircleInvite</code> entity, and no <code>DbSet</code> for them.</li>
-  <li>No module has a project reference to <code>Aonik.Platform</code> added by this change; all access is via <code>SharedKernel.Abstractions.Groups</code>.</li>
+  <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>,
+      <code>CircleGrant</code> or <code>CircleInvite</code> <strong>entity</strong> — met; they live in
+      <code>Aonik.Groups</code>.
+      <br>
+      The "<em>and no <code>DbSet</code> for them</em>" half is <strong>deliberately not met</strong>, and the reason
+      is in <a href="#persistence">§10.3</a>: those sets are the unit of work the lifecycle contributor and the group
+      service share, so dropping them would trade a real atomicity guarantee for a cosmetic one. What the criterion
+      was actually protecting — PersonalFinance not <em>reading</em> group tables for its own purposes — is what P7
+      addressed; see the phase row.</li>
+  <li><code>Aonik.Groups</code> references <strong>only</strong> <code>Aonik.SharedKernel</code>, and no module
+      gains a project reference to <code>Aonik.Platform</code> from this change; behavioural access is via
+      <code>SharedKernel.Abstractions.Groups</code>.</li>
   <li><code>GroupMember.PartyId</code> is populated for every row; <code>UserId</code> is nullable and still populated (phase one).</li>
   <li>A <code>Group</code> can hold a member whose <code>Party</code> has <strong>no</strong> <code>User</code>, added through <code>AddMemberAsync</code>, end to end, proven by a test.</li>
   <li><strong>Two</strong> party-only members can be added to the same group — the filtered-index case, proven on <strong>LocalDB</strong> (the InMemory provider does not enforce unique indexes and will pass regardless).</li>
@@ -815,7 +1041,7 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 </ul>
 
 <footer>
-  Spec 086 · Extract groups and sharing to Platform · Draft Rev 1 · 2026-07-31
+  Spec 086 · Extract groups and sharing into a platform module · Implemented Rev 3 · 2026-08-01
 </footer>
 
 </body>

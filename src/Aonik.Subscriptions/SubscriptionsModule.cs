@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 using Aonik.Subscriptions.Contracts.Services;
 using Aonik.Subscriptions.Persistence;
@@ -55,6 +56,25 @@ public sealed class SubscriptionsModule : IModule
         services.AddScoped<SubscriberAuthorization>();
         services.AddScoped<ISubscriberAuthorizer, TenantSubscriberAuthorizer>();
         services.AddScoped<ISubscriberAuthorizer, PartySubscriberAuthorizer>();
+        services.AddScoped<ISubscriberAuthorizer, GroupSubscriberAuthorizer>();
+
+        // Without this the module's integration-event handlers are absent from DI, and the
+        // dispatcher treats an event with zero handlers as delivered — so it marks the outbox row
+        // processed and drops it. Every UsageCommittedEvent would vanish and no purchased-unit
+        // revenue or provider cost would ever reach the ledger: the outbox handoff would look
+        // correct and do nothing.
+        //
+        // ONCE. AddEventHandlersFromAssembly uses AddScoped without deduplication, so a second
+        // identical scan runs every handler twice — and the dispatcher stages one inbox row per
+        // invocation, so the duplicate pair violates the unique (EventId, HandlerName) index and
+        // dead-letters the event instead of marking it processed.
+        services.AddEventHandlersFromAssembly(typeof(SubscriptionsModule).Assembly);
+
+        // Without this the module's integration-event handlers are absent from DI, and the
+        // dispatcher treats an event with zero handlers as delivered — so it marks the outbox row
+        // processed and drops it. Every UsageCommittedEvent would vanish and no purchased-unit
+        // revenue or provider cost would ever reach the ledger: the outbox handoff would look
+        // correct and do nothing.
         services.AddScoped<EntitlementMaterialiser>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IEntitlementReader, EntitlementReader>();

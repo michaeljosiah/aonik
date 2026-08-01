@@ -20,7 +20,23 @@ public enum InvitePreviewDisclosure
 /// </summary>
 public sealed class CircleInviteOptions
 {
-    public const string SectionName = "PersonalFinance:Circle";
+    /// <summary>
+    /// Where these settings live now that sharing is a platform capability (Spec 086 §14).
+    /// </summary>
+    public const string SectionName = "Platform:Sharing";
+
+    /// <summary>
+    /// The section they lived in before, still bound first so a deployment that sets it keeps
+    /// working.
+    /// </summary>
+    /// <remarks>
+    /// Both are bound, legacy first and the new one over it, so an operator who has set either gets
+    /// what they configured and one who has set both gets the new one. Silently ignoring the old
+    /// section would be the worst outcome available: a tenant that had dialled disclosure back to
+    /// Counts would quietly start disclosing names again. A startup warning names the deployments
+    /// that still need moving; removing the fallback is a follow-up.
+    /// </remarks>
+    public const string LegacySectionName = "PersonalFinance:Circle";
 
     /// <summary>Names (default) | Counts — the single disclosure dial (§5, §14).</summary>
     public InvitePreviewDisclosure PreviewDisclosure { get; set; } = InvitePreviewDisclosure.Names;

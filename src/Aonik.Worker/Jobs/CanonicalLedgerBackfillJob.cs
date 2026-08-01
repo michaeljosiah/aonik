@@ -27,13 +27,16 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
     public static readonly JobKey Key = new("CanonicalLedgerBackfillJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly FinanceDbContext _dbContext;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<CanonicalLedgerBackfillJob> _logger;
 
     public CanonicalLedgerBackfillJob(
         FinanceDbContext dbContext,
+        ITenantContext tenantContext,
         ILogger<CanonicalLedgerBackfillJob> logger)
     {
         _dbContext = dbContext;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -42,8 +45,13 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
         var ct = context.CancellationToken;
 
         // Backfill spans every tenant by design, so it must see across the tenant filter.
+        // !IsDeleted is explicit: AcrossTenants disables the soft-delete filter too, and
+        // ILedgerResolver reads through the normal filtered query. A deleted canonical ledger would
+        // make this report a tenant as configured while its live ledgers stayed unmarked — and a
+        // deleted sole ledger could itself be marked canonical. Both leave the tenant unable to post.
         var ledgers = await _dbContext.Ledgers
             .AcrossTenants()
+            .Where(l => !l.IsDeleted)
             .Select(l => new { l.Id, l.TenantId, l.IsCanonical })
             .ToListAsync(ct);
 
@@ -74,14 +82,26 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
 
             var only = await _dbContext.Ledgers
                 .AcrossTenants()
-                .FirstAsync(l => l.Id == candidates[0].Id, ct);
+                .FirstAsync(l => l.Id == candidates[0].Id && !l.IsDeleted, ct);
 
-            only.IsCanonical = true;
-            marked++;
+            // Stamp the ambient tenant and commit per tenant. The base context refuses to save a
+            // tenant-scoped row whose TenantId differs from the ambient tenant, so a job that read
+            // across tenants and saved once would throw on the first row it touched.
+            _tenantContext.TenantId = tenant.Key;
+            _tenantContext.ResolutionSource = "backfill";
+
+            try
+            {
+                only.IsCanonical = true;
+                await _dbContext.SaveChangesAsync(ct);
+                marked++;
+            }
+            finally
+            {
+                _tenantContext.TenantId = null;
+                _tenantContext.ResolutionSource = null;
+            }
         }
-
-        if (marked > 0)
-            await _dbContext.SaveChangesAsync(ct);
 
         _logger.LogInformation(
             "Canonical ledger backfill: {Marked} marked, {AlreadySet} already set, {Ambiguous} ambiguous, {Tenants} tenants scanned.",

@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.PersonalFinance.Entities;
@@ -15,17 +16,20 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly IGroupReader _groupReader;
 
     public PersonalAccountService(
         PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        IGroupReader groupReader)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
+        _groupReader = groupReader;
     }
 
     public async Task<PersonalAccountResponse> CreateAccountAsync(
@@ -222,21 +226,28 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var memberships = await _financeDbContext.HouseholdMembers
-            .Where(member => member.TenantId == tenantId
-                && member.HouseholdId == request.HouseholdId
-                && member.UserId == userId)
-            .ToListAsync(cancellationToken);
 
-        foreach (var membership in memberships)
+        // Spec 086 P7 — the group reader answers this now. Accepted-only is its contract, so the
+        // filtering that used to live here is gone rather than duplicated.
+        var group = await _groupReader.GetAsync(request.HouseholdId, cancellationToken)
+            ?? throw new InvalidOperationException("Household not found.");
+
+        // ...and the kind is checked, not assumed. Without this, an owner of an Arke Kids family
+        // could pass its id here, write it into PersonalAccount.HouseholdId, and expose a bank
+        // account to family members through the household-account reader. Empty counts as a
+        // household, because every group written before Spec 086 has one.
+        if (!string.IsNullOrEmpty(group.Kind)
+            && !string.Equals(group.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase))
         {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+            throw new InvalidOperationException("Accounts can only be shared with a household.");
         }
 
-        var acceptedMembership = memberships.FirstOrDefault(HouseholdMembershipRules.IsAccepted)
+        var members = await _groupReader.GetMembersAsync(request.HouseholdId, cancellationToken);
+
+        var acceptedMembership = members.FirstOrDefault(member => member.UserId == userId)
             ?? throw new InvalidOperationException("Current user is not an accepted member of this household.");
 
-        if (!HouseholdMembershipRules.CanManageMembers(acceptedMembership))
+        if (!IsOwnerOrManager(acceptedMembership.Role))
         {
             throw new UnauthorizedAccessException("Only household owners or managers can share accounts with the household.");
         }
@@ -247,17 +258,8 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
-        var acceptedMembers = await _financeDbContext.HouseholdMembers
-            .Where(member => member.TenantId == tenantId && member.HouseholdId == request.HouseholdId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var membership in acceptedMembers)
-        {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
-        }
-
         await _cacheInvalidator.InvalidateUserGraphsAsync(
-            acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+            members.Where(member => member.UserId is not null).Select(member => member.UserId!.Value).Append(userId).Distinct(),
             cancellationToken);
 
         return MapToResponse(account);
@@ -285,17 +287,10 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         if (householdId.HasValue)
         {
-            var acceptedMembers = await _financeDbContext.HouseholdMembers
-                .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId.Value)
-                .ToListAsync(cancellationToken);
-
-            foreach (var membership in acceptedMembers)
-            {
-                HouseholdMembershipRules.NormalizeLegacyMember(membership);
-            }
+            var acceptedMembers = await _groupReader.GetMembersAsync(householdId.Value, cancellationToken);
 
             await _cacheInvalidator.InvalidateUserGraphsAsync(
-                acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+                acceptedMembers.Where(member => member.UserId is not null).Select(member => member.UserId!.Value).Append(userId).Distinct(),
                 cancellationToken);
         }
         else
@@ -311,9 +306,17 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
+        // Households only: picking up a family membership here would return the wrong account set
+        // entirely — the accounts of a group that has nothing to do with this user's finances.
         var memberships = await _financeDbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Join(
+                _financeDbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId
+                    && (group.Kind == GroupKinds.Household || group.Kind == "")),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, _) => member)
             .ToListAsync(cancellationToken);
 
         foreach (var membership in memberships)
@@ -332,6 +335,18 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         return accounts.Select(MapToResponse).ToList();
     }
+
+    /// <summary>
+    /// Whether a role may share accounts into the household.
+    /// </summary>
+    /// <remarks>
+    /// Spec 086 P7 — the group reader returns a normalised role string rather than an entity, so the
+    /// check reads the role directly instead of going through the membership rules. Acceptance is
+    /// already the reader's contract, which is the half of <c>CanManageMembers</c> that is gone.
+    /// </remarks>
+    private static bool IsOwnerOrManager(string role)
+        => string.Equals(role, GroupRoles.Owner, StringComparison.Ordinal)
+            || string.Equals(role, GroupRoles.Manager, StringComparison.Ordinal);
 
     private Guid GetCurrentUserId()
     {

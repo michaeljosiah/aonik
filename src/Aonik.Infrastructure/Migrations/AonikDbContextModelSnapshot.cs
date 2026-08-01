@@ -6544,6 +6544,9 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<Guid?>("SubscriptionPeriodId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -6567,7 +6570,7 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.ToTable("AnkOrderFulfilmentRefs", "dbo", t =>
                         {
-                            t.HasCheckConstraint("CK_OrderFulfilmentRefs_ExactlyOneTarget", "(CASE WHEN [PayoutId] IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN [PaymentIntentId] IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN [PartnerBillPaymentId] IS NOT NULL THEN 1 ELSE 0 END) = 1");
+                            t.HasCheckConstraint("CK_OrderFulfilmentRefs_ExactlyOneTarget", "(CASE WHEN [PayoutId] IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN [PaymentIntentId] IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN [PartnerBillPaymentId] IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN [SubscriptionPeriodId] IS NOT NULL THEN 1 ELSE 0 END) = 1");
                         });
                 });
 
@@ -17029,14 +17032,25 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("MemberPartyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("MemberUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("NoAmounts")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("OwnerPartyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResourceKind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -17056,6 +17070,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TermsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -17113,8 +17130,16 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("NoAmounts")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("OwnerPartyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResourceKind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -17134,6 +17159,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TermsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -18257,6 +18285,11 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -18321,6 +18354,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("PartyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PermissionsJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -18348,7 +18384,7 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
@@ -18357,8 +18393,14 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "UserId");
 
+                    b.HasIndex("TenantId", "HouseholdId", "PartyId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AnkHouseholdMembers_TenantId_HouseholdId_PartyId")
+                        .HasFilter("[PartyId] IS NOT NULL");
+
                     b.HasIndex("TenantId", "HouseholdId", "UserId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("AnkHouseholdMembers", "dbo");
                 });

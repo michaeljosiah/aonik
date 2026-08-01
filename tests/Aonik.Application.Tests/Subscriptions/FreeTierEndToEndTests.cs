@@ -39,12 +39,14 @@ public class FreeTierEndToEndTests
     {
         public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Tenant];
         public Task<bool> CanActForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<bool> CanManageBillingForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
     }
 
     private sealed class DenyPartyAuthorizer : ISubscriberAuthorizer
     {
         public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Party];
         public Task<bool> CanActForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<bool> CanManageBillingForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(false);
     }
 
     private sealed class Harness

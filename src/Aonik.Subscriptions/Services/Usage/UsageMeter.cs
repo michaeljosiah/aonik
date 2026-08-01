@@ -4,6 +4,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
+using Aonik.SharedKernel.Events.Integration;
 using Aonik.Subscriptions.Entities.Usage;
 using Aonik.Subscriptions.Persistence;
 using Aonik.Subscriptions.Services.Subscriptions;
@@ -207,13 +208,16 @@ internal sealed class UsageMeter : IUsageMeter
         };
 
         _dbContext.UsageRecords.Add(record);
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Spec 087 §13 — recognise the purchased portion and record what it cost us. Posted after
-        // the usage record is durable, so the ledger can never claim consumption the module has
-        // not recorded. Idempotent on the usage-record id.
-        if (_ledger is not null)
-            await _ledger.PostConsumptionAsync(record, committed, cancellationToken);
+        // Spec 087 §13 — recognise the purchased portion and record what it cost us. Handed to the
+        // outbox rather than posted inline: the drawdown and the usage record live in this module's
+        // context while the journal goes through Finance's, so an inline post is a second
+        // transaction and a crash between them leaves allowance consumed with no journal entry.
+        // Staged in the SAME save as the drawdown, and the post is keyed on the usage record, so the
+        // pair recovers together and redelivery recognises nothing twice.
+        _dbContext.EnqueueIntegrationEvent(new UsageCommittedEvent(tenantId, record.Id));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new UsageCommitResult(record.Id, actualQuantity, committed);
     }

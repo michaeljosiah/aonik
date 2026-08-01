@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -19,6 +20,7 @@ internal sealed class FinancialLifeGraphValidationService
     private readonly ICustomerOrderHistoryReader _orderReader;
     private readonly ICustomerInvoiceHistoryReader _invoiceReader;
     private readonly ICustomerPaymentHistoryReader _paymentReader;
+    private readonly IGroupReader _groupReader;
 
     public FinancialLifeGraphValidationService(
         PersonalFinanceDbContext dbContext,
@@ -28,7 +30,8 @@ internal sealed class FinancialLifeGraphValidationService
         IPartyReader partyReader,
         ICustomerOrderHistoryReader orderReader,
         ICustomerInvoiceHistoryReader invoiceReader,
-        ICustomerPaymentHistoryReader paymentReader)
+        ICustomerPaymentHistoryReader paymentReader,
+        IGroupReader groupReader)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -38,6 +41,7 @@ internal sealed class FinancialLifeGraphValidationService
         _orderReader = orderReader;
         _invoiceReader = invoiceReader;
         _paymentReader = paymentReader;
+        _groupReader = groupReader;
     }
 
     public async Task ValidateNodeCreateAsync(CreateFinancialLifeGraphNodeRequest request, CancellationToken cancellationToken = default)
@@ -259,17 +263,23 @@ internal sealed class FinancialLifeGraphValidationService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var memberships = await _dbContext.HouseholdMembers
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.HouseholdId == householdId.Value && item.UserId == userId)
-            .ToListAsync(cancellationToken);
 
-        foreach (var membership in memberships)
-        {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
-        }
+        // Spec 086 P7 — asked of the group reader rather than the table. The question has never been
+        // a personal-finance one: it is "is this user in this group", and the reader already returns
+        // accepted members only.
+        // The group kind is checked as well as membership. HouseholdId is request-controlled, so a
+        // member of a FAMILY could otherwise pass its id here and have the graph endpoints persist
+        // nodes and edges scoped to another product's group.
+        var group = await _groupReader.GetAsync(householdId.Value, cancellationToken);
+        var isHousehold = group is not null
+            && (string.IsNullOrEmpty(group.Kind)
+                || string.Equals(group.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase));
 
-        var hasAccess = memberships.Any(HouseholdMembershipRules.IsAccepted);
+        var members = isHousehold
+            ? await _groupReader.GetMembersAsync(householdId.Value, cancellationToken)
+            : [];
+
+        var hasAccess = members.Any(member => member.UserId == userId);
 
         if (!hasAccess)
         {
@@ -351,9 +361,7 @@ internal sealed class FinancialLifeGraphValidationService
                     return null;
                 }
 
-                return await _dbContext.Households
-                    .AsNoTracking()
-                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
+                return await _groupReader.ExistsAsync(nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.Household
                     : null;
 
@@ -363,17 +371,12 @@ internal sealed class FinancialLifeGraphValidationService
                     return null;
                 }
 
-                var householdMembers = await _dbContext.HouseholdMembers
-                    .AsNoTracking()
-                    .Where(item => item.TenantId == tenantId && item.Id == nodeId && item.HouseholdId == currentHouseholdId)
-                    .ToListAsync(cancellationToken);
+                var householdMembers = (await _groupReader.GetMembersAsync(currentHouseholdId, cancellationToken))
+                    .Where(item => item.Id == nodeId)
+                    .ToList();
 
-                foreach (var householdMember in householdMembers)
-                {
-                    HouseholdMembershipRules.NormalizeLegacyMember(householdMember);
-                }
-
-                return householdMembers.Any(HouseholdMembershipRules.IsAccepted)
+                // The reader returns accepted members only, so existence in that list IS acceptance.
+                return householdMembers.Count > 0
                     ? FinancialLifeGraphNodeTypes.HouseholdMember
                     : null;
 
@@ -409,17 +412,11 @@ internal sealed class FinancialLifeGraphValidationService
                     return null;
                 }
 
-                var householdMemberships = await _dbContext.HouseholdMembers
-                    .AsNoTracking()
-                    .Where(item => item.TenantId == tenantId && item.UserId == userId && item.HouseholdId == accountHouseholdId)
-                    .ToListAsync(cancellationToken);
+                var householdMemberships = (await _groupReader.GetMembersAsync(accountHouseholdId, cancellationToken))
+                    .Where(item => item.UserId == userId)
+                    .ToList();
 
-                foreach (var membership in householdMemberships)
-                {
-                    HouseholdMembershipRules.NormalizeLegacyMember(membership);
-                }
-
-                if (!householdMemberships.Any(HouseholdMembershipRules.IsAccepted))
+                if (householdMemberships.Count == 0)
                 {
                     return null;
                 }

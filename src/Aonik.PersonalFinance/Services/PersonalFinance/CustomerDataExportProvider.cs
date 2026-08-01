@@ -43,7 +43,7 @@ internal class CustomerDataExportProvider : ICustomerDataExportProvider
         // ── Households ──
         var householdMemberIds = await _db.HouseholdMembers
             .AsNoTracking()
-            .Where(m => m.TenantId == tenantId && userIds.Contains(m.UserId))
+            .Where(m => m.TenantId == tenantId && m.UserId != null && userIds.Contains(m.UserId.Value))
             .Select(m => m.HouseholdId)
             .Distinct()
             .ToListAsync(cancellationToken);

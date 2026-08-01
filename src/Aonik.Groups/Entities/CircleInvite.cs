@@ -16,6 +16,15 @@ public class CircleInvite : AuditableEntity, ITenantScoped
     /// <summary>Opaque, cryptographically random, unique per tenant.</summary>
     public string Token { get; set; } = string.Empty;
 
+    /// <summary>The owner, as a party (Spec 086). Alongside <see cref="OwnerUserId"/> through the transition.</summary>
+    public Guid? OwnerPartyId { get; set; }
+
+    /// <summary>One of <c>ShareResourceKinds</c>. Existing rows backfill to <c>care-entity</c>.</summary>
+    public string ResourceKind { get; set; } = string.Empty;
+
+    /// <summary>Domain-specific terms, written and read only by the owning module.</summary>
+    public string? TermsJson { get; set; }
+
     public string Scope { get; set; } = "entities";
     public string EntityIdsJson { get; set; } = "[]";
     public bool NoAmounts { get; set; }

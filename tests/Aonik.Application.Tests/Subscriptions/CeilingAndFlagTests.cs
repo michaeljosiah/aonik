@@ -38,6 +38,7 @@ public class CeilingAndFlagTests
     {
         public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Tenant];
         public Task<bool> CanActForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<bool> CanManageBillingForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
     }
 
     private sealed class Harness

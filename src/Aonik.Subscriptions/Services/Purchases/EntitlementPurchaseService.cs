@@ -52,7 +52,7 @@ internal sealed class EntitlementPurchaseService : IEntitlementPurchaseService
         decimal quantity,
         CancellationToken cancellationToken = default)
     {
-        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
+        await _authorization.EnsureCanManageBillingForAsync(subscriber, cancellationToken);
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var code = meterCode.Trim().ToLowerInvariant();

@@ -334,6 +334,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Apply Subscriptions configurations from Aonik.Subscriptions assembly (Spec 087).
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Subscriptions.SubscriptionsModule).Assembly);
 
+        // Apply Groups configurations from Aonik.Groups assembly (Spec 086). The entity types keep
+        // their Aonik.PersonalFinance.Entities namespace on relocation, so the model snapshot's
+        // fully-qualified names stay valid and the move itself needs no migration.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Groups.Persistence.GroupsDbContext).Assembly);
+
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
 

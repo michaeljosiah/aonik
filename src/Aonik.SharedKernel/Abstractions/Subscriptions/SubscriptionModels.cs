@@ -33,15 +33,23 @@ public sealed record MeterEntitlement(
     DateTime? ResetsAt);
 
 /// <summary>Everything a product needs to show "what do I have, and how much of it is left".</summary>
+/// <remarks>
+/// The subscription fields are <b>nullable</b>, and that is the point rather than a convenience.
+/// Purchased grants are keyed to the <em>subscriber</em> precisely so they outlive subscriptions
+/// (§8): someone who buys a standalone top-up, or who cancels while still holding one, has real
+/// drawable allowance and no subscription at all. Making these required forced this reader to answer
+/// null for them, so a product using it as the documented pre-check refused work that
+/// <c>IUsageMeter</c> would have funded — allowance the customer had already paid for.
+/// </remarks>
 public sealed record EntitlementSnapshot(
     SubscriberRef Subscriber,
-    Guid SubscriptionId,
+    Guid? SubscriptionId,
     string PlanCode,
     string PlanName,
-    Guid PlanVersionId,
-    string Status,
-    DateTime CurrentPeriodStart,
-    DateTime CurrentPeriodEnd,
+    Guid? PlanVersionId,
+    string? Status,
+    DateTime? CurrentPeriodStart,
+    DateTime? CurrentPeriodEnd,
     IReadOnlyList<MeterEntitlement> Meters);
 
 /// <summary>A subscription as seen from outside the module.</summary>

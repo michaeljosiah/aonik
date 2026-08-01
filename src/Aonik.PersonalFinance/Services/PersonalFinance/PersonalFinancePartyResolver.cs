@@ -33,4 +33,17 @@ internal sealed class PersonalFinancePartyResolver : IPersonalFinancePartyResolv
             .Select(p => (Guid?)p.UserId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<Guid?> GetPartyIdForUserAsync(
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _db.PersonalProfiles
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.UserId == userId && p.PartyId != Guid.Empty)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => (Guid?)p.PartyId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

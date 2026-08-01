@@ -170,8 +170,8 @@ internal sealed class SubscriptionRenewalService
             return RenewalOutcome.NeedsReauthorisation;
         }
 
+        await CompleteOrderAsync(order.Id, period.Id, cancellationToken);
         await SettleAsync(subscription, period, version, cancellationToken);
-        await CompleteOrderAsync(order.Id, cancellationToken);
 
         return RenewalOutcome.Settled;
     }
@@ -247,8 +247,13 @@ internal sealed class SubscriptionRenewalService
             return RenewalOutcome.NeedsReauthorisation;
         }
 
+        // Order side FIRST, settlement second. Settling advances CurrentPeriodEnd and leaves no
+        // pending period, so FindDueAsync stops selecting the subscription and FindRetryableAsync
+        // only looks at failed ones — a crash between the two would strand the order Draft with no
+        // fulfilment trace and nothing to revisit it. This way the period stays due until both
+        // halves are done, and both are idempotent so the retry is a no-op where it already ran.
+        await CompleteOrderAsync(period.OrderId!.Value, period.Id, cancellationToken);
         await SettleAsync(subscription, period, version, cancellationToken);
-        await CompleteOrderAsync(period.OrderId!.Value, cancellationToken);
 
         return RenewalOutcome.Settled;
     }
@@ -416,7 +421,7 @@ internal sealed class SubscriptionRenewalService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task CompleteOrderAsync(Guid orderId, CancellationToken cancellationToken)
+    private async Task CompleteOrderAsync(Guid orderId, Guid periodId, CancellationToken cancellationToken)
     {
         var order = await _orders.GetAsync(orderId, cancellationToken);
 
@@ -424,6 +429,12 @@ internal sealed class SubscriptionRenewalService
         // leave the canonical record of the transaction contradicting what happened.
         if (order is null || OrderStatusCodes.IsTerminal(order.Status))
             return;
+
+        // Spec 087 §12 — what actually fulfilled this order. The three original references are all
+        // money-movement records, so until OrderFulfilmentLink carried a period a subscription
+        // renewal completed its order with no fulfilment trace at all.
+        await _orders.LinkFulfilmentAsync(
+            orderId, new OrderFulfilmentLink(SubscriptionPeriodId: periodId), cancellationToken);
 
         await _orders.TransitionAsync(orderId, OrderStatusCodes.Complete, "Subscription period settled",
             expectedFromStatus: order.Status, cancellationToken);

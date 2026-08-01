@@ -338,6 +338,7 @@ public static class DatabaseStartupConfiguration
                 "Ledger.Read", "Ledger.Write", "Ledger.Reconcile",
                 "Payment.Read", "Payment.Create", "Payment.Capture", "Payment.Cancel", "Payment.Refund",
                 "Invoice.Read", "Invoice.Create", "Invoice.Update", "Invoice.Delete", "Invoice.Issue",
+                "Subscription.Manage",
                 "Catalog.Read", "Catalog.Write",
                 "Customers.Read", "Customers.Create", "Customers.Write"
             ],
@@ -347,6 +348,7 @@ public static class DatabaseStartupConfiguration
                 "Ledger.Read", "Ledger.Write", "Ledger.Reconcile",
                 "Payment.Read", "Payment.Create", "Payment.Capture", "Payment.Cancel", "Payment.Refund",
                 "Invoice.Read", "Invoice.Create", "Invoice.Update", "Invoice.Delete", "Invoice.Issue",
+                "Subscription.Manage",
                 "Catalog.Read",
                 "Customers.Read", "Customers.Create", "Customers.Write"
             ],
