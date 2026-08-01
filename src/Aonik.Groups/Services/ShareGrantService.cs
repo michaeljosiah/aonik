@@ -277,7 +277,11 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         var resources = string.Equals(invite.Scope, ShareScopes.All, StringComparison.OrdinalIgnoreCase)
             ? []
             : await ResolveResourcesAsync(
-                invite.ResourceKind,
+                // Normalised first. An invite minted before Spec 086 has an EMPTY kind, and
+                // FindResolver would match nothing — so the preview would silently show a resource
+                // count of zero for an invite that names several, which reads to the recipient as an
+                // empty share rather than a lookup that never ran.
+                NormalizeLegacyKind(invite.ResourceKind),
                 new ShareResourceOwner(invite.OwnerPartyId, invite.OwnerUserId),
                 resourceIds,
                 cancellationToken);
@@ -585,6 +589,12 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
     /// one and the backfill that fills it is disabled by default — refusing those would make an
     /// upgrade unable to revoke its own pre-existing shares.
     /// </remarks>
+    /// <summary>
+    /// A stored kind, with the pre-Spec-086 empty value read as what it has always meant.
+    /// </summary>
+    private static string NormalizeLegacyKind(string? storedKind)
+        => string.IsNullOrEmpty(storedKind) ? ShareResourceKinds.CareEntity : storedKind;
+
     private static bool MatchesKind(string? storedKind, string? requiredKind)
         => requiredKind is null
             || string.IsNullOrEmpty(storedKind)
