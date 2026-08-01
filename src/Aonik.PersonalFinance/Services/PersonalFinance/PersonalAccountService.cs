@@ -306,9 +306,17 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
+        // Households only: picking up a family membership here would return the wrong account set
+        // entirely — the accounts of a group that has nothing to do with this user's finances.
         var memberships = await _financeDbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Join(
+                _financeDbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId
+                    && (group.Kind == GroupKinds.Household || group.Kind == "")),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, _) => member)
             .ToListAsync(cancellationToken);
 
         foreach (var membership in memberships)

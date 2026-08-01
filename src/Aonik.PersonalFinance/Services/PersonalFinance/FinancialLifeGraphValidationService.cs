@@ -267,7 +267,18 @@ internal sealed class FinancialLifeGraphValidationService
         // Spec 086 P7 — asked of the group reader rather than the table. The question has never been
         // a personal-finance one: it is "is this user in this group", and the reader already returns
         // accepted members only.
-        var members = await _groupReader.GetMembersAsync(householdId.Value, cancellationToken);
+        // The group kind is checked as well as membership. HouseholdId is request-controlled, so a
+        // member of a FAMILY could otherwise pass its id here and have the graph endpoints persist
+        // nodes and edges scoped to another product's group.
+        var group = await _groupReader.GetAsync(householdId.Value, cancellationToken);
+        var isHousehold = group is not null
+            && (string.IsNullOrEmpty(group.Kind)
+                || string.Equals(group.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase));
+
+        var members = isHousehold
+            ? await _groupReader.GetMembersAsync(householdId.Value, cancellationToken)
+            : [];
+
         var hasAccess = members.Any(member => member.UserId == userId);
 
         if (!hasAccess)

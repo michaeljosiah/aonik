@@ -132,6 +132,12 @@ internal sealed class GroupPartyBackfillJob : IJob
             .AsNoTracking()
             .AcrossTenants()
             .Where(profile => !profile.IsDeleted && profile.PartyId != Guid.Empty)
+            // Ascending, so the newest wins the overwrite below — the same choice
+            // PersonalFinancePartyResolver makes at runtime with OrderByDescending(CreatedAt).
+            // Nothing stops a user having several profiles, and an unordered read let whichever row
+            // SQL happened to return last decide, so the backfill could write a different party from
+            // the one every live lookup resolves to.
+            .OrderBy(profile => profile.CreatedAt)
             .Select(profile => new { profile.TenantId, profile.UserId, profile.PartyId })
             .ToListAsync(ct);
 

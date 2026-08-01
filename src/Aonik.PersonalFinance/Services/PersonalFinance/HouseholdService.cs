@@ -348,9 +348,17 @@ internal sealed class HouseholdService : IHouseholdService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
+        // Household-facing, so it must only see households — otherwise a parent in an Arke Kids
+        // family gets that family returned as "my household", with its members and its name.
         var memberships = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Join(
+                _dbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId
+                    && (group.Kind == GroupKinds.Household || group.Kind == "")),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, _) => member)
             .OrderByDescending(member => member.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -379,11 +387,19 @@ internal sealed class HouseholdService : IHouseholdService
         var userId = GetCurrentUserId();
         var now = _clock.UtcNow;
 
+        // Same boundary: a pending invitation to a family is not a household invitation, and
+        // listing it here would offer it for acceptance on a route that then treats it as one.
         var invitations = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId
                 && member.UserId == userId
                 && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
+            .Join(
+                _dbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId
+                    && (group.Kind == GroupKinds.Household || group.Kind == "")),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, _) => member)
             .OrderByDescending(member => member.InvitedAt ?? member.CreatedAt)
             .ToListAsync(cancellationToken);
 
