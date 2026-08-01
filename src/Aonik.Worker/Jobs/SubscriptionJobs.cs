@@ -1,4 +1,5 @@
 using Aonik.Platform.Entities.Operations;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Subscriptions.Services.Subscriptions;
 using Aonik.Subscriptions.Services.Usage;
 
@@ -23,15 +24,18 @@ internal sealed class SubscriptionRenewalJob : IJob
     public static readonly JobKey Key = new("SubscriptionRenewalJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly SubscriptionRenewalService _renewals;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<SubscriptionRenewalJob> _logger;
 
     public SubscriptionRenewalJob(
         SubscriptionRenewalService renewals,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<SubscriptionRenewalJob> logger)
     {
         _renewals = renewals;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
@@ -44,31 +48,44 @@ internal sealed class SubscriptionRenewalJob : IJob
             return;
         }
 
-        var due = await _renewals.FindDueAsync(context.CancellationToken);
         var settled = 0;
         var pastDue = 0;
         var closed = 0;
         var needsReauthorisation = 0;
 
-        foreach (var subscriptionId in due)
-        {
-            // One failure must not stop the run: these are independent subscriptions, and letting
-            // a single bad one block the rest would turn a small problem into an outage.
-            try
+        var tenants = await _renewals.FindTenantsWithWorkAsync(context.CancellationToken);
+
+        await TenantScopedJob.ForEachTenantAsync(
+            _tenantContext, tenants, "subscription-renewal",
+            async ct =>
             {
-                switch (await _renewals.RenewAsync(subscriptionId, context.CancellationToken))
+                var due = await _renewals.FindDueAsync(ct);
+
+                foreach (var subscriptionId in due)
                 {
-                    case RenewalOutcome.Settled: settled++; break;
-                    case RenewalOutcome.PastDue: pastDue++; break;
-                    case RenewalOutcome.Closed: closed++; break;
-                    case RenewalOutcome.NeedsReauthorisation: needsReauthorisation++; break;
+                    // One failure must not stop the run: these are independent subscriptions, and
+                    // letting a single bad one block the rest would turn a small problem into an
+                    // outage.
+                    try
+                    {
+                        switch (await _renewals.RenewAsync(subscriptionId, ct))
+                        {
+                            case RenewalOutcome.Settled: settled++; break;
+                            case RenewalOutcome.PastDue: pastDue++; break;
+                            case RenewalOutcome.Closed: closed++; break;
+                            case RenewalOutcome.NeedsReauthorisation: needsReauthorisation++; break;
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogError(ex, "Subscription renewal failed for {SubscriptionId}.", subscriptionId);
+                    }
                 }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Subscription renewal failed for {SubscriptionId}.", subscriptionId);
-            }
-        }
+
+                return due.Count;
+            },
+            _logger,
+            context.CancellationToken);
 
         context.Result = $"Renewed {settled}, past due {pastDue}, closed {closed}, needs re-authorisation {needsReauthorisation}.";
 
@@ -96,15 +113,18 @@ internal sealed class SubscriptionDunningJob : IJob
     public static readonly JobKey Key = new("SubscriptionDunningJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly SubscriptionRenewalService _renewals;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<SubscriptionDunningJob> _logger;
 
     public SubscriptionDunningJob(
         SubscriptionRenewalService renewals,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<SubscriptionDunningJob> logger)
     {
         _renewals = renewals;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
@@ -117,25 +137,37 @@ internal sealed class SubscriptionDunningJob : IJob
             return;
         }
 
-        var retryable = await _renewals.FindRetryableAsync(context.CancellationToken);
         var recovered = 0;
         var expired = 0;
 
-        foreach (var subscriptionId in retryable)
-        {
-            try
+        var tenants = await _renewals.FindTenantsWithWorkAsync(context.CancellationToken);
+
+        await TenantScopedJob.ForEachTenantAsync(
+            _tenantContext, tenants, "subscription-dunning",
+            async ct =>
             {
-                switch (await _renewals.RetryAsync(subscriptionId, context.CancellationToken))
+                var retryable = await _renewals.FindRetryableAsync(ct);
+
+                foreach (var subscriptionId in retryable)
                 {
-                    case RenewalOutcome.Settled: recovered++; break;
-                    case RenewalOutcome.Expired: expired++; break;
+                    try
+                    {
+                        switch (await _renewals.RetryAsync(subscriptionId, ct))
+                        {
+                            case RenewalOutcome.Settled: recovered++; break;
+                            case RenewalOutcome.Expired: expired++; break;
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogError(ex, "Subscription dunning retry failed for {SubscriptionId}.", subscriptionId);
+                    }
                 }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Subscription dunning retry failed for {SubscriptionId}.", subscriptionId);
-            }
-        }
+
+                return retryable.Count;
+            },
+            _logger,
+            context.CancellationToken);
 
         context.Result = $"Recovered {recovered}, expired {expired}.";
 
@@ -156,15 +188,18 @@ internal sealed class UsageReservationSweepJob : IJob
     public static readonly JobKey Key = new("UsageReservationSweepJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly UsageSweeper _sweeper;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<UsageReservationSweepJob> _logger;
 
     public UsageReservationSweepJob(
         UsageSweeper sweeper,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<UsageReservationSweepJob> logger)
     {
         _sweeper = sweeper;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
@@ -177,7 +212,13 @@ internal sealed class UsageReservationSweepJob : IJob
             return;
         }
 
-        var expired = await _sweeper.ExpireStaleReservationsAsync(context.CancellationToken);
+        var tenants = await _sweeper.FindTenantsWithWorkAsync(context.CancellationToken);
+
+        var expired = await TenantScopedJob.ForEachTenantAsync(
+            _tenantContext, tenants, "usage-reservation-sweep",
+            ct => _sweeper.ExpireStaleReservationsAsync(ct),
+            _logger,
+            context.CancellationToken);
         context.Result = $"Expired {expired} stale usage reservation(s).";
 
         if (expired > 0)
@@ -198,15 +239,18 @@ internal sealed class GrantExpirySweepJob : IJob
     public static readonly JobKey Key = new("GrantExpirySweepJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly UsageSweeper _sweeper;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<GrantExpirySweepJob> _logger;
 
     public GrantExpirySweepJob(
         UsageSweeper sweeper,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<GrantExpirySweepJob> logger)
     {
         _sweeper = sweeper;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
@@ -219,10 +263,66 @@ internal sealed class GrantExpirySweepJob : IJob
             return;
         }
 
-        var closed = await _sweeper.CloseExpiredGrantsAsync(context.CancellationToken);
+        var tenants = await _sweeper.FindTenantsWithWorkAsync(context.CancellationToken);
+
+        var closed = await TenantScopedJob.ForEachTenantAsync(
+            _tenantContext, tenants, "grant-expiry-sweep",
+            ct => _sweeper.CloseExpiredGrantsAsync(ct),
+            _logger,
+            context.CancellationToken);
         context.Result = $"Closed {closed} expired entitlement grant(s).";
 
         if (closed > 0)
             _logger.LogInformation("Grant expiry sweep closed {Count} lapsed grant(s).", closed);
+    }
+}
+
+/// <summary>
+/// Runs a scheduled subscription job once per tenant that has work.
+/// </summary>
+/// <remarks>
+/// Every service in <c>Aonik.Subscriptions</c> begins with <c>ITenantProvider.GetCurrentTenantId()</c>,
+/// and a Quartz execution has no request and therefore no ambient tenant — <c>HttpContextTenantProvider</c>
+/// throws "Tenant context not available" on the first call, <em>before</em> any per-subscription
+/// error handling, so nothing was ever processed. Writing across tenants is no alternative either:
+/// <c>AonikDbContextBase.EnforceTenantOnWrites</c> refuses a tenant-scoped write whose TenantId does
+/// not match the ambient one.
+///
+/// So the job becomes each tenant in turn — stamp, work, commit, reset — which is the same shape
+/// <c>DocumentIngestionBackfillJob</c> uses. One tenant failing must not stop the rest.
+/// </remarks>
+internal static class TenantScopedJob
+{
+    public static async Task<int> ForEachTenantAsync(
+        ITenantContext tenantContext,
+        IReadOnlyList<Guid> tenantIds,
+        string source,
+        Func<CancellationToken, Task<int>> work,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var total = 0;
+
+        foreach (var tenantId in tenantIds)
+        {
+            tenantContext.TenantId = tenantId;
+            tenantContext.ResolutionSource = source;
+
+            try
+            {
+                total += await work(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "{Source} failed for tenant {TenantId}.", source, tenantId);
+            }
+            finally
+            {
+                tenantContext.TenantId = null;
+                tenantContext.ResolutionSource = null;
+            }
+        }
+
+        return total;
     }
 }

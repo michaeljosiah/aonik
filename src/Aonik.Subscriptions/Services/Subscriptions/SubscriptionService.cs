@@ -268,13 +268,8 @@ internal sealed class SubscriptionService : ISubscriptionService
             .OrderByDescending(v => v.Version)
             .FirstOrDefaultAsync(cancellationToken);
 
-    private static DateTime AddInterval(DateTime from, string billingInterval) => billingInterval switch
-    {
-        BillingIntervals.Year => from.AddYears(1),
-        // A free plan still has periods — that is how its allowance refreshes. Treated as monthly
-        // so "6 stories a month" means the same thing whether or not money changes hands.
-        _ => from.AddMonths(1)
-    };
+    private static DateTime AddInterval(DateTime from, string billingInterval)
+        => BillingInterval.Add(from, billingInterval);
 
     private static SubscriptionDto Map(Subscription s)
         => new(s.Id, new SubscriberRef(s.SubscriberKind, s.SubscriberId), string.Empty, s.PlanVersionId,

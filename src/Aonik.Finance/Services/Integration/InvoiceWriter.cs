@@ -1,5 +1,6 @@
 using Aonik.Finance.Contracts.Models.Billing;
 using Aonik.Finance.Contracts.Services.Billing;
+using Aonik.Finance.Services.Billing;
 using Aonik.SharedKernel.Abstractions.Billing;
 
 namespace Aonik.Finance.Services.Integration;
@@ -12,9 +13,11 @@ namespace Aonik.Finance.Services.Integration;
 /// </summary>
 internal sealed class InvoiceWriter : IInvoiceWriter
 {
-    private readonly IBillingService _billing;
+    // The CONCRETE service, not IBillingService: this adapter needs the machine-authorised path,
+    // because its callers are scheduled jobs and cross-module settlements with no current user.
+    private readonly BillingService _billing;
 
-    public InvoiceWriter(IBillingService billing) => _billing = billing;
+    public InvoiceWriter(BillingService billing) => _billing = billing;
 
     public async Task<InvoiceRef> CreateForOrderAsync(CreateInvoiceForOrderCommand command, CancellationToken cancellationToken = default)
     {
@@ -32,7 +35,7 @@ internal sealed class InvoiceWriter : IInvoiceWriter
             OrderId: command.OrderId,
             IdempotencyKey: command.IdempotencyKey);
 
-        var response = await _billing.CreateInvoiceAsync(request, cancellationToken);
+        var response = await _billing.CreateInvoiceForMachineAsync(request, cancellationToken);
         return new InvoiceRef(response.Id, response.InvoiceNumber, response.TotalAmount, response.Currency);
     }
 

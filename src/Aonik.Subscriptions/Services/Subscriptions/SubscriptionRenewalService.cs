@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
@@ -50,6 +51,41 @@ internal sealed class SubscriptionRenewalService
         _invoices = invoices;
         _payments = payments;
         _clock = clock;
+    }
+
+    /// <summary>
+    /// Tenants holding at least one subscription this service would act on.
+    /// </summary>
+    /// <remarks>
+    /// The scheduled jobs run with <b>no ambient tenant</b>, and every other method here starts with
+    /// <c>GetCurrentTenantId()</c> — which throws under <c>HttpContextTenantProvider</c>. So the job
+    /// cannot simply call <c>FindDueAsync</c>; it has to be told which tenants to become first.
+    /// Derived from the data rather than the tenant table, so an idle tenant costs nothing and a
+    /// tenant whose rows arrived out of band is not missed.
+    /// </remarks>
+    public async Task<IReadOnlyList<Guid>> FindTenantsWithWorkAsync(CancellationToken cancellationToken = default)
+    {
+        var now = _clock.UtcNow;
+
+        var fromSubscriptions = await _dbContext.Subscriptions
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(s => !s.IsDeleted
+                        && (s.Status == SubscriptionStatuses.Active || s.Status == SubscriptionStatuses.PastDue)
+                        && s.CurrentPeriodEnd <= now)
+            .Select(s => s.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var fromPeriods = await _dbContext.SubscriptionPeriods
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(p => !p.IsDeleted && p.Status != SubscriptionPeriodStatuses.Settled)
+            .Select(p => p.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return fromSubscriptions.Concat(fromPeriods).Distinct().ToList();
     }
 
     /// <summary>Subscriptions whose period has ended and which are still meant to renew.</summary>
@@ -253,13 +289,28 @@ internal sealed class SubscriptionRenewalService
             SubscriptionId = subscription.Id,
             Sequence = nextSequence + 1,
             StartsAt = subscription.CurrentPeriodEnd,
-            EndsAt = subscription.CurrentPeriodEnd.AddMonths(1),
+            // The PLAN's interval, not a month. Hard-coding AddMonths here charged an annual
+            // subscriber the annual price every month after their first year, and reset their
+            // period entitlements monthly with it.
+            EndsAt = BillingInterval.Add(subscription.CurrentPeriodEnd, await ResolveIntervalAsync(subscription, cancellationToken)),
             Status = SubscriptionPeriodStatuses.Pending
         };
 
         _dbContext.SubscriptionPeriods.Add(period);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return period;
+    }
+
+    /// <summary>The billing interval of the plan this subscription is pinned to.</summary>
+    private async Task<string> ResolveIntervalAsync(Subscription subscription, CancellationToken cancellationToken)
+    {
+        var interval = await _dbContext.PlanVersions
+            .AsNoTracking()
+            .Where(v => v.Id == subscription.PlanVersionId)
+            .Join(_dbContext.Plans.AsNoTracking(), v => v.PlanId, p => p.Id, (_, p) => p.BillingInterval)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.IsNullOrWhiteSpace(interval) ? BillingIntervals.Month : interval;
     }
 
     private async Task<OrderDto> EnsureOrderAsync(

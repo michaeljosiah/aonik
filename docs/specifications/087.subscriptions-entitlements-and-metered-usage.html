@@ -898,7 +898,10 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
   <li>Concurrent commits against a grant with one unit remaining: exactly one succeeds.</li>
   <li>A reservation cannot be committed twice (tenant-scoped idempotency key + status guard).</li>
   <li>Reserve spanning two grants writes one allocation row per grant; release returns the hold to <em>those</em> grants and no others.</li>
-  <li>Commit at a lower actual quantity than reserved trims allocations pro-rata and returns the remainder.</li>
+  <li>Commit at a lower actual quantity than reserved trims allocations <strong>from the tail</strong> and returns the
+      remainder — never pro rata. A pro-rata trim would consume paid, non-expiring purchased units while handing back
+      perishable plan allowance, which is the exact inversion <a href="#drawdown">§9</a> exists to prevent. This line
+      previously said "pro-rata" and contradicted both that rule and the acceptance criterion below it.</li>
   <li>An expired reservation cannot be committed.</li>
   <li>Renewal is idempotent on <code>(SubscriptionId, Sequence)</code> under concurrent job execution.</li>
   <li><strong>Filtered unique indexes</strong> (<a href="#persistence">§17.1</a>): duplicate period-grant materialisation fails; a second active subscription for one subscriber fails; two <em>cancelled</em> subscriptions for the same subscriber are permitted.</li>

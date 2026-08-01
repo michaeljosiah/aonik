@@ -156,10 +156,13 @@ public class PaidRenewalTests
             Renewals = new SubscriptionRenewalService(Db, tenant, materialiser, Orders, Invoices, Payments, Clock);
         }
 
-        public async Task<SubscriptionDto> SeedPaidSubscriptionAsync(decimal price = 19.99m, decimal stories = 8)
+        public async Task<SubscriptionDto> SeedPaidSubscriptionAsync(
+            decimal price = 19.99m,
+            decimal stories = 8,
+            string interval = BillingIntervals.Month)
         {
             await Catalogue.CreateMeterAsync(new CreateMeterRequest("stories", "Stories", MeterKinds.Counter, "stories"));
-            var plan = await Catalogue.CreatePlanAsync(new CreatePlanRequest("family", "Family", BillingIntervals.Month));
+            var plan = await Catalogue.CreatePlanAsync(new CreatePlanRequest("family", "Family", interval));
             var draft = await Catalogue.CreateDraftVersionAsync(plan.Id, new CreatePlanVersionRequest(price, "GBP"));
             await Catalogue.SetEntitlementsAsync(draft.Id, new SetEntitlementsRequest(
                 [new PlanEntitlementSpec("stories", stories, ResetPolicies.Period)]));
@@ -177,6 +180,30 @@ public class PaidRenewalTests
     }
 
     private static SubscriberRef Subscriber() => new(SubscriberKinds.Tenant, TenantId);
+
+    [Fact]
+    public async Task AnAnnualSubscription_Should_RenewAYearLater_NotAMonth()
+    {
+        var h = new Harness();
+        var subscription = await h.SeedPaidSubscriptionAsync(stories: 8, interval: BillingIntervals.Year);
+
+        var first = await h.Db.Subscriptions.AsNoTracking().FirstAsync(x => x.Id == subscription.Id);
+        var firstEnd = first.CurrentPeriodEnd;
+
+        await h.Renewals.RenewAsync(subscription.Id);
+        await h.AdvancePastPeriodEndAsync(subscription.Id);
+        await h.Renewals.RenewAsync(subscription.Id);
+
+        var second = await h.Db.SubscriptionPeriods.AsNoTracking()
+            .Where(p => p.SubscriptionId == subscription.Id)
+            .OrderByDescending(p => p.Sequence)
+            .FirstAsync();
+
+        // Renewal used to add a month regardless of interval, so an annual subscriber was charged
+        // the annual price every month after their first year — and their period entitlements
+        // started expiring monthly with it.
+        second.EndsAt.Should().Be(firstEnd.AddYears(1));
+    }
 
     // ---- the happy path ---------------------------------------------------------------------
 
