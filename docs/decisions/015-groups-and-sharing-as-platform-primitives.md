@@ -50,7 +50,7 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 
 ## Decision
 
-**Group membership and scoped sharing are platform primitives, not personal-finance features.** They move to a `Groups` vertical slice in `Aonik.Platform`, generalised along exactly three axes and no more.
+**Group membership and scoped sharing are platform primitives, not personal-finance features.** They move to a **middle-layer `Aonik.Groups` module**, generalised along exactly three axes and no more.
 
 ### The model
 
@@ -73,7 +73,7 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 | **Extension seams** | Two, both following the module-contributed `IEnumerable<T>` DI pattern already used for seeding and provisioning: **`IGroupLifecycleContributor`** — which must both *veto* and *react* (`VetoAsync` + `OnCommittedAsync`, in-transaction), because a refusal-only interface has nowhere to put the profile-link, account-unshare, event and cache-invalidation side effects that removal performs today — and `IShareResourceResolver` (resource-kind resolution). |
 | **Wire compatibility** | Existing PersonalFinance routes and DTOs are **unchanged**; their services delegate to the platform. Simi's mobile app and the CLI see nothing. This is what makes the extraction safe to do while Simi is live. |
 | **Table names** | **Unchanged in this pass.** Classes are renamed; `ToTable("Households")`, `ToTable("CircleGrants")` and column names are retained by explicit mapping. Renaming is a later, optional migration with no functional content. |
-| **A slice, not a module** | Groups is a vertical slice inside `Aonik.Platform`, which already owns the people layer (Identity, Party). Four entities and two services do not warrant their own module. |
+| **A middle-layer module, not a Platform slice** | The obvious home is a slice inside `Aonik.Platform`, which already owns the people layer (Identity, Party) — four entities and two services hardly warrant their own project. The reference graph forbids it: `Aonik.Platform` already references `Aonik.PersonalFinance`, while `Aonik.PersonalFinance` deliberately references only SharedKernel ([Spec 027](../specifications/027.extract-personal-finance-module.html) §10, "the load-bearing absence"). A Groups slice in Platform would require `PersonalFinance → Platform`, inverting an existing edge into a cycle. So Groups sits where [`Aonik.Ordering`](011-unify-order-spine-into-ordering-layer.md) sits: referencing **only SharedKernel**, with Platform, PersonalFinance and Infrastructure depending on it downward. |
 
 ### Scope discipline (YAGNI)
 
@@ -103,7 +103,7 @@ Also noted: `HouseholdMember.PermissionsJson` is described in `CircleGrant`'s ow
 - **Leave both in PersonalFinance and let the new module depend on it.** Rejected: violates ADR-005's no-cross-module-reference rule, and makes a finance module a hard dependency of a children's product.
 - **Duplicate the concepts in the new module.** Rejected: two implementations of an expiring bearer-token invite is a security liability, and the two would diverge immediately.
 - **Put the entities in `SharedKernel`.** Rejected: SharedKernel holds contracts, primitives and integration events — not entities with `DbSet`s and services. Nothing there owns persistence.
-- **Create a new `Aonik.Groups` module.** Viable, and the right answer if this grows. Rejected for v1 on size: four entities and two services are a slice. Platform already owns Identity and Party, which is where people-shaped concepts belong.
+- **A `Groups` slice inside `Aonik.Platform`.** The first choice, on size — four entities and two services hardly warrant a project, and Platform already owns Identity and Party, where people-shaped concepts belong. Rejected because it does not compile: `Platform → PersonalFinance` already exists, so `PersonalFinance → Platform` would close a cycle. See the decision table.
 - **Keep `UserId` and create credential-less "child users".** Rejected: it pollutes the identity store with principals that can never authenticate, invents a login surface for children that the product explicitly does not have, and makes consent and deletion harder to reason about.
 - **Model the shared resource as a typed FK per module.** Rejected: it puts every module's entities in the platform's model, which is the coupling this ADR exists to remove.
 

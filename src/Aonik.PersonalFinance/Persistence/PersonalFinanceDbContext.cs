@@ -94,6 +94,12 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
         // Apply PersonalFinance EF configurations from this assembly.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PersonalFinanceDbContext).Assembly);
 
+        // Spec 086 — the group entities (Household, HouseholdMember, CircleGrant, CircleInvite) and
+        // their configurations now live in Aonik.Groups. This context still exposes DbSets for them,
+        // so it has to reach into that assembly too; without this line EF would rebuild them by
+        // convention here and this context's model would silently diverge from the migrated schema.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Groups.Persistence.GroupsDbContext).Assembly);
+
         ApplyDboPrefixedTableNames(modelBuilder);
 
         ConfigureRowVersions(modelBuilder);

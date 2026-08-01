@@ -59,17 +59,17 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 086</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 2)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Priority: P1</span>
   <span class="meta-tag">Domain: Platform / PersonalFinance / SharedKernel</span>
-  <h1>Extract groups and sharing to Platform</h1>
+  <h1>Extract groups and sharing into a platform module</h1>
   <p style="margin-top:6px; color: var(--muted);">
     Implements <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a>. Group membership
     (<code>Household</code>, <a href="020.payabo-household.md">Spec&nbsp;020</a>) and scoped sharing
     (<code>CircleGrant</code>, <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>) are generic
-    capabilities currently owned by <code>Aonik.PersonalFinance</code>. This spec relocates them to a
-    <strong>Groups</strong> slice in <code>Aonik.Platform</code> and generalises them along exactly three axes:
+    capabilities currently owned by <code>Aonik.PersonalFinance</code>. This spec relocates them to a middle-layer
+    <strong><code>Aonik.Groups</code></strong> module and generalises them along exactly three axes:
     <strong>a member is a <code>Party</code>, not a <code>User</code></strong>; a shared resource is a
     <strong><code>ResourceKind</code> + ids</strong> pair rather than a typed foreign key; and domain-specific grant
     terms move into an opaque <strong><code>TermsJson</code></strong> blob the platform never reads. Every existing
@@ -111,7 +111,26 @@
   product would be wrong even if it did not.
 </p>
 
-<p>This spec moves them to <code>Aonik.Platform</code> and changes three things about their shape. Nothing else.</p>
+<p>This spec moves them to <code>Aonik.Groups</code> and changes three things about their shape. Nothing else.</p>
+
+<div class="callout p0">
+  <span class="callout-label">Correction to Rev 1</span>
+  Rev 1 placed the extracted code in a <strong>vertical slice inside <code>Aonik.Platform</code></strong>, on the
+  reasoning that Platform already owns the people layer and four entities do not warrant their own project. The
+  reasoning is sound; the placement is <strong>impossible</strong>. <code>Aonik.Platform</code> already has a
+  <code>ProjectReference</code> to <code>Aonik.PersonalFinance</code>, while
+  <code>Aonik.PersonalFinance</code> references only SharedKernel — the absence
+  <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> §10 calls load-bearing. A Groups slice in
+  Platform would therefore require <code>PersonalFinance&nbsp;→&nbsp;Platform</code>, inverting an existing edge into
+  a cycle, and the build would not compile.
+  <br><br>
+  Rev 2 places it in a <strong>middle-layer <code>Aonik.Groups</code> module</strong> instead: referencing
+  <strong>only SharedKernel</strong>, with Platform, PersonalFinance and Infrastructure depending on it
+  <em>downward</em>. That is exactly where <code>Aonik.Ordering</code> sits
+  (<a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>), and it is the only placement the
+  reference graph admits. Nothing else in this spec changes: the contracts still live in
+  <code>SharedKernel.Abstractions.Groups</code>, and no consumer references the module directly.
+</div>
 
 <div class="callout ok">
   <span class="callout-label">Why this is cheaper than it looks</span>
@@ -182,7 +201,7 @@
 
 <h3>3.1 In scope</h3>
 <ul>
-  <li>A <code>Groups</code> vertical slice in <code>Aonik.Platform</code>: <code>Group</code>, <code>GroupMember</code>, <code>ShareGrant</code>, <code>ShareInvite</code> + configurations + services.</li>
+  <li>A middle-layer <code>Aonik.Groups</code> module: <code>Group</code>, <code>GroupMember</code>, <code>ShareGrant</code>, <code>ShareInvite</code> + configurations + <code>GroupsDbContext</code> + services.</li>
   <li>The three model generalisations: party member, resource kind, terms blob.</li>
   <li>Two extension seams: <code>IGroupLifecycleContributor</code> (veto <em>and</em> react) and <code>IShareResourceResolver</code>.</li>
   <li>Contracts in <code>SharedKernel.Abstractions.Groups</code>.</li>
@@ -203,7 +222,7 @@
 
 <h2 id="model">4. The target model</h2>
 
-<div class="ascii-diagram">Aonik.Platform / Entities / Groups
+<div class="ascii-diagram">Aonik.Groups / Entities
 ├── Group          TenantId, Kind, Name, Members
 ├── GroupMember    GroupId, PartyId, UserId?, Role, invitation lifecycle
 ├── ShareGrant     OwnerPartyId, MemberPartyId?, GroupId?, Scope,
@@ -385,19 +404,28 @@ public sealed record GroupTransition(
   tool-produced artefact (<a href="#persistence">§10</a>).
 </p>
 
-<h3>8.1 Moves to <code>Aonik.Platform</code></h3>
+<h3>8.1 Moves to <code>Aonik.Groups</code></h3>
+<div class="callout">
+  <span class="callout-label">Namespace-preserving relocation</span>
+  The files move; the <strong>type namespaces do not</strong>. The relocated entities keep
+  <code>namespace Aonik.PersonalFinance.Entities</code> and their configurations keep
+  <code>Aonik.PersonalFinance.Persistence.Configurations</code> — the ADR-006 / Spec&nbsp;027 technique
+  <code>Aonik.Ordering</code> also used. That keeps every fully-qualified name in the EF model snapshot valid, so the
+  move itself scaffolds <strong>no migration</strong>, and no consumer changes a single <code>using</code>. The
+  class renames in the table below are therefore a later, purely cosmetic pass, not part of P2.
+</div>
 <table>
   <thead><tr><th>From</th><th>To</th></tr></thead>
   <tbody>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/Household.cs</code></td><td><code>Platform/Entities/Groups/Group.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/HouseholdMember.cs</code></td><td><code>Platform/Entities/Groups/GroupMember.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleGrant.cs</code></td><td><code>Platform/Entities/Groups/ShareGrant.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleInvite.cs</code></td><td><code>Platform/Entities/Groups/ShareInvite.cs</code></td></tr>
-    <tr><td><code>…/Configurations/PersonalFinance/HouseholdMemberConfiguration.cs</code></td><td><code>Platform/Persistence/Configurations/Groups/GroupMemberConfiguration.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/Household.cs</code></td><td><code>Groups/Entities/Group.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/HouseholdMember.cs</code></td><td><code>Groups/Entities/GroupMember.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleGrant.cs</code></td><td><code>Groups/Entities/ShareGrant.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Entities/PersonalFinance/CircleInvite.cs</code></td><td><code>Groups/Entities/ShareInvite.cs</code></td></tr>
+    <tr><td><code>…/Configurations/PersonalFinance/HouseholdMemberConfiguration.cs</code></td><td><code>Groups/Persistence/Configurations/GroupMemberConfiguration.cs</code></td></tr>
     <tr><td><code>…/Configurations/PersonalFinance/CircleGrantConfiguration.cs</code></td><td><code>…/Groups/ShareGrantConfiguration.cs</code></td></tr>
     <tr><td><code>…/Configurations/PersonalFinance/CircleInviteConfiguration.cs</code></td><td><code>…/Groups/ShareInviteConfiguration.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdService.cs</code> (963)</td><td><code>Platform/Services/Groups/GroupService.cs</code></td></tr>
-    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdMembershipRules.cs</code></td><td><code>Platform/Services/Groups/GroupMembershipRules.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdService.cs</code> (963)</td><td><code>Groups/Services/GroupService.cs</code></td></tr>
+    <tr><td><code>PersonalFinance/Services/PersonalFinance/HouseholdMembershipRules.cs</code></td><td><code>Groups/Services/GroupMembershipRules.cs</code></td></tr>
   </tbody>
 </table>
 
@@ -446,7 +474,7 @@ public sealed record GroupTransition(
   <li><code>PersonalFinance/Services/Customers/PersonalFinanceCustomerRegistryContributor.cs</code></li>
   <li><code>Aonik.Finance.Mcp/Tools/FinancialLifeGraphMcpTools.cs</code>, <code>Aonik.PersonalFinance/Agents/Tools/FinancialLifeGraphTools.cs</code></li>
   <li><code>Aonik.Api/Middleware/TenantValidationMiddleware.cs</code>, <code>Aonik.Application/Abstractions/Persistence/IAonikDbContext.cs</code></li>
-  <li><code>Aonik.Finance/FinanceModule.cs</code>, <code>Aonik.PersonalFinance/PersonalFinanceModule.cs</code>, <code>Aonik.Platform</code> module registration for the new services</li>
+  <li><code>Aonik.Finance/FinanceModule.cs</code>, <code>Aonik.PersonalFinance/PersonalFinanceModule.cs</code>, <code>Aonik.Groups</code> module registration for the new services</li>
 </ul>
 
 <h3>8.5 Tests</h3>
@@ -461,7 +489,11 @@ public sealed record GroupTransition(
 
 <h2 id="contracts">9. Contracts in SharedKernel</h2>
 
-<p>New namespace <code>Aonik.SharedKernel.Abstractions.Groups</code>, consumed by PersonalFinance and by any future module. No module references <code>Aonik.Platform</code> directly.</p>
+<p>New namespace <code>Aonik.SharedKernel.Abstractions.Groups</code>, consumed by PersonalFinance and by any future
+module. A consumer that needs no entity types references the contracts and <strong>not</strong>
+<code>Aonik.Groups</code>; the project reference exists only where the DbContext or entities are genuinely
+needed (Infrastructure, for the canonical migration stream, and PersonalFinance, whose <code>DbSet</code>s survive
+until P7).</p>
 
 <table>
   <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
@@ -688,8 +720,8 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P2</strong> — entities + schema</td>
-      <td>Create the Groups slice with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Replace the unique index (<a href="#persistence">§10.2</a>). Register in the three contexts.</td>
-      <td>Migration reviewed, matches <a href="#persistence">§10.2</a> exactly — the additive columns plus the one index drop/replace, nothing else — and applies cleanly locally.</td>
+      <td>Create the <code>Aonik.Groups</code> module and relocate the four entities and their configurations into it, namespaces preserved (<a href="#inventory">§8.1</a>), with pinned table/column names. Generate the migration against <code>AonikDbContext</code>. Replace the unique index (<a href="#persistence">§10.2</a>). Register in the three contexts.</td>
+      <td>Migration reviewed, matches <a href="#persistence">§10.2</a> exactly — the additive columns plus the one index drop/replace, nothing else — and applies cleanly locally. Two party-only members in one group insert on LocalDB, which is the index change proving itself.</td>
     </tr>
     <tr>
       <td><strong>P3</strong> — backfill + dual-write</td>
@@ -735,7 +767,9 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 
 <ol>
   <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>, <code>CircleGrant</code> or <code>CircleInvite</code> entity, and no <code>DbSet</code> for them.</li>
-  <li>No module has a project reference to <code>Aonik.Platform</code> added by this change; all access is via <code>SharedKernel.Abstractions.Groups</code>.</li>
+  <li><code>Aonik.Groups</code> references <strong>only</strong> <code>Aonik.SharedKernel</code>, and no module
+      gains a project reference to <code>Aonik.Platform</code> from this change; behavioural access is via
+      <code>SharedKernel.Abstractions.Groups</code>.</li>
   <li><code>GroupMember.PartyId</code> is populated for every row; <code>UserId</code> is nullable and still populated (phase one).</li>
   <li>A <code>Group</code> can hold a member whose <code>Party</code> has <strong>no</strong> <code>User</code>, added through <code>AddMemberAsync</code>, end to end, proven by a test.</li>
   <li><strong>Two</strong> party-only members can be added to the same group — the filtered-index case, proven on <strong>LocalDB</strong> (the InMemory provider does not enforce unique indexes and will pass regardless).</li>
@@ -815,7 +849,7 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 </ul>
 
 <footer>
-  Spec 086 · Extract groups and sharing to Platform · Draft Rev 1 · 2026-07-31
+  Spec 086 · Extract groups and sharing into a platform module · Draft Rev 2 · 2026-08-01
 </footer>
 
 </body>

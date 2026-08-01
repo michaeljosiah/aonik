@@ -70,7 +70,7 @@ internal sealed class FinancialLifeGraphLoader
             }
 
             householdMembers = householdMembers
-                .Where(HouseholdMembershipRules.IsAccepted)
+                .Where(HouseholdMembershipRules.IsAcceptedUserMember)
                 .ToList();
 
             householdMemberDisplayNames = await BuildHouseholdMemberDisplayNamesAsync(tenantId, userId, householdMembers, cancellationToken);
@@ -227,7 +227,7 @@ internal sealed class FinancialLifeGraphLoader
         CancellationToken cancellationToken)
     {
         var memberUserIds = householdMembers
-            .Select(item => item.UserId)
+            .Select(item => item.UserId!.Value)
             .Distinct()
             .ToList();
 
@@ -260,7 +260,7 @@ internal sealed class FinancialLifeGraphLoader
                 continue;
             }
 
-            if (profileLookup.TryGetValue(member.UserId, out var partyId)
+            if (profileLookup.TryGetValue(member.UserId!.Value, out var partyId)
                 && partyLookup.TryGetValue(partyId, out var displayName)
                 && !string.IsNullOrWhiteSpace(displayName))
             {
@@ -268,7 +268,7 @@ internal sealed class FinancialLifeGraphLoader
                 continue;
             }
 
-            if (userLookup.TryGetValue(member.UserId, out var email)
+            if (userLookup.TryGetValue(member.UserId!.Value, out var email)
                 && !string.IsNullOrWhiteSpace(email))
             {
                 result[member.Id] = email.Trim();

@@ -257,7 +257,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         }
 
         await _cacheInvalidator.InvalidateUserGraphsAsync(
-            acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+            acceptedMembers.Where(HouseholdMembershipRules.IsAcceptedUserMember).Select(item => item.UserId!.Value).Append(userId).Distinct(),
             cancellationToken);
 
         return MapToResponse(account);
@@ -295,7 +295,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
             }
 
             await _cacheInvalidator.InvalidateUserGraphsAsync(
-                acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+                acceptedMembers.Where(HouseholdMembershipRules.IsAcceptedUserMember).Select(item => item.UserId!.Value).Append(userId).Distinct(),
                 cancellationToken);
         }
         else

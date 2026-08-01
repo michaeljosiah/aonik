@@ -187,7 +187,7 @@ internal sealed class HouseholdService : IHouseholdService
             existingMembership.RespondedAt = null;
 
             _dbContext.EnqueueIntegrationEvent(new HouseholdMemberInvitedEvent(
-                tenantId, household.Id, existingMembership.UserId, inviterUserId, normalizedRole));
+                tenantId, household.Id, existingMembership.UserId!.Value, inviterUserId, normalizedRole));
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -212,7 +212,7 @@ internal sealed class HouseholdService : IHouseholdService
         _dbContext.HouseholdMembers.Add(member);
 
         _dbContext.EnqueueIntegrationEvent(new HouseholdMemberInvitedEvent(
-            tenantId, household.Id, member.UserId, inviterUserId, normalizedRole));
+            tenantId, household.Id, member.UserId!.Value, inviterUserId, normalizedRole));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -345,7 +345,7 @@ internal sealed class HouseholdService : IHouseholdService
 
         var affectedAcceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphsAsync(
-            affectedAcceptedMembers.Select(item => item.UserId).Append(userId).Distinct(),
+            affectedAcceptedMembers.Select(item => item.UserId!.Value).Append(userId).Distinct(),
             cancellationToken);
 
         return MapMemberResponse(acceptedInvitation);
@@ -507,7 +507,7 @@ internal sealed class HouseholdService : IHouseholdService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
-        await _cacheInvalidator.InvalidateUserGraphsAsync(acceptedMembers.Select(item => item.UserId), cancellationToken);
+        await _cacheInvalidator.InvalidateUserGraphsAsync(acceptedMembers.Select(item => item.UserId!.Value), cancellationToken);
 
         return (await GetMyHouseholdAsync(cancellationToken))
             ?? throw new InvalidOperationException("Household not found.");
@@ -591,7 +591,7 @@ internal sealed class HouseholdService : IHouseholdService
                 invitation.Id,
                 invitation.HouseholdId,
                 householdNames.TryGetValue(invitation.HouseholdId, out var householdName) ? householdName : "Household",
-                invitation.UserId,
+                invitation.UserId!.Value,
                 HouseholdMembershipRules.NormalizeRole(invitation.Role),
                 HouseholdMembershipRules.NormalizeInvitationStatus(invitation.InvitationStatus),
                 invitation.InvitedByUserId,
@@ -616,7 +616,7 @@ internal sealed class HouseholdService : IHouseholdService
         var inviterDisplayNames = await ResolveDisplayNamesAsync(
             tenantId,
             [inviterUserId],
-            member.UserId,
+            member.UserId!.Value,
             cancellationToken);
         var inviterDisplayName = inviterDisplayNames.TryGetValue(inviterUserId, out var resolvedInviterDisplayName)
             ? resolvedInviterDisplayName
@@ -624,7 +624,7 @@ internal sealed class HouseholdService : IHouseholdService
 
         await NotifyActorAsync(
             tenantId,
-            member.UserId,
+            member.UserId!.Value,
             "household.invited",
             $"Invitation to join {household.Name}",
             string.IsNullOrWhiteSpace(inviterDisplayName)
@@ -668,8 +668,8 @@ internal sealed class HouseholdService : IHouseholdService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var affectedUsers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
-        var affectedUserIds = affectedUsers.Select(item => item.UserId)
-            .Append(membership.UserId)
+        var affectedUserIds = affectedUsers.Select(item => item.UserId!.Value)
+            .Append(membership.UserId!.Value)
             .Append(actorUserId)
             .Distinct()
             .ToList();
@@ -710,10 +710,10 @@ internal sealed class HouseholdService : IHouseholdService
         }
 
         var acceptedMembers = members
-            .Where(HouseholdMembershipRules.IsAccepted)
+            .Where(HouseholdMembershipRules.IsAcceptedUserMember)
             .ToList();
 
-        var displayNames = await ResolveDisplayNamesAsync(tenantId, acceptedMembers.Select(member => member.UserId), currentUserId, cancellationToken);
+        var displayNames = await ResolveDisplayNamesAsync(tenantId, acceptedMembers.Select(member => member.UserId!.Value), currentUserId, cancellationToken);
         var inviterIds = acceptedMembers.Where(member => member.InvitedByUserId.HasValue).Select(member => member.InvitedByUserId!.Value).Distinct().ToList();
         var inviterDisplayNames = inviterIds.Count == 0
             ? new Dictionary<Guid, string>()
@@ -726,8 +726,8 @@ internal sealed class HouseholdService : IHouseholdService
             .Select(member => new HouseholdMemberDetailResponse(
                 member.Id,
                 member.HouseholdId,
-                member.UserId,
-                displayNames.TryGetValue(member.UserId, out var displayName) ? displayName : $"Member {member.UserId}",
+                member.UserId!.Value,
+                displayNames.TryGetValue(member.UserId!.Value, out var displayName) ? displayName : $"Member {member.UserId}",
                 HouseholdMembershipRules.NormalizeRole(member.Role),
                 HouseholdMembershipRules.ParsePermissions(member.PermissionsJson),
                 HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),
@@ -764,7 +764,7 @@ internal sealed class HouseholdService : IHouseholdService
             member.Id,
             member.HouseholdId,
             householdName,
-            member.UserId,
+            member.UserId!.Value,
             HouseholdMembershipRules.NormalizeRole(member.Role),
             HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),
             member.InvitedByUserId,
@@ -893,7 +893,7 @@ internal sealed class HouseholdService : IHouseholdService
             HouseholdMembershipRules.NormalizeLegacyMember(member);
         }
 
-        return members.Where(HouseholdMembershipRules.IsAccepted).ToList();
+        return members.Where(HouseholdMembershipRules.IsAcceptedUserMember).ToList();
     }
 
     private async Task NotifyActorAsync(
@@ -947,7 +947,7 @@ internal sealed class HouseholdService : IHouseholdService
         return new HouseholdMemberResponse(
             member.Id,
             member.HouseholdId,
-            member.UserId,
+            member.UserId!.Value,
             HouseholdMembershipRules.NormalizeRole(member.Role),
             HouseholdMembershipRules.ParsePermissions(member.PermissionsJson),
             HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),

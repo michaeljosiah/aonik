@@ -20,6 +20,29 @@ public class CircleGrant : AuditableEntity, ITenantScoped
     /// <summary>Optional container (Spec 020); null = stand-alone grant (Open decision O2).</summary>
     public Guid? HouseholdId { get; set; }
 
+    /// <summary>
+    /// Whose records are shared, as a party (Spec 086). Added ALONGSIDE
+    /// <see cref="OwnerUserId"/> rather than replacing it: the deployed CircleService compares the
+    /// user columns against the authenticated user id, so re-pointing them in place would make
+    /// every existing grant vanish — unlistable and unrevocable — until the reader cutover shipped.
+    /// </summary>
+    public Guid? OwnerPartyId { get; set; }
+
+    /// <summary>The member, as a party. Null until an invite is accepted.</summary>
+    public Guid? MemberPartyId { get; set; }
+
+    /// <summary>
+    /// What sort of thing is shared — one of <c>ShareResourceKinds</c> (Spec 086 §6). Existing rows
+    /// backfill to <c>care-entity</c>, which is what <see cref="EntityIdsJson"/> has always meant.
+    /// </summary>
+    public string ResourceKind { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Domain-specific terms the OWNING MODULE interprets. The platform stores and returns this and
+    /// never reads it, which is what keeps one domain's redaction rules off a platform entity.
+    /// </summary>
+    public string? TermsJson { get; set; }
+
     /// <summary>all | entities | docsOnly.</summary>
     public string Scope { get; set; } = "entities";
 

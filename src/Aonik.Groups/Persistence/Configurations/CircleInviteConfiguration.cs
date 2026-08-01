@@ -14,6 +14,7 @@ internal class CircleInviteConfiguration : IEntityTypeConfiguration<CircleInvite
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Token).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.ResourceKind).IsRequired().HasMaxLength(64);
         builder.Property(x => x.Scope).IsRequired().HasMaxLength(16);
         builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
         builder.Property(x => x.Channel).HasMaxLength(16);

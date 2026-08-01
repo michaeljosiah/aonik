@@ -51,6 +51,20 @@ internal static class HouseholdMembershipRules
     public static bool IsAccepted(HouseholdMember member)
         => string.Equals(NormalizeInvitationStatus(member.InvitationStatus), HouseholdInvitationStatuses.Accepted, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// An accepted member who has a login.
+    /// </summary>
+    /// <remarks>
+    /// Spec 086 made <c>UserId</c> nullable, because a group member need not have a login — a child
+    /// in an Arke Kids family is a party with no principal. Every PersonalFinance path is
+    /// user-scoped, though: profiles, accounts and life-graph caches all key on a user. So a
+    /// party-only member is not "missing data" here, it is simply not this module's concern, and
+    /// filtering it out at the point where a member LIST is built is what lets the call sites read
+    /// <c>UserId</c> without null handling.
+    /// </remarks>
+    public static bool IsAcceptedUserMember(HouseholdMember member)
+        => IsAccepted(member) && member.UserId is not null;
+
     public static bool IsPending(HouseholdMember member)
         => string.Equals(NormalizeInvitationStatus(member.InvitationStatus), HouseholdInvitationStatuses.Pending, StringComparison.OrdinalIgnoreCase);
 
