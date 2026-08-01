@@ -50,7 +50,16 @@ internal sealed class EntitlementReader : IEntitlementReader
             .FirstOrDefaultAsync(cancellationToken);
 
         if (subscription is null)
-            return null;
+        {
+            // No subscription is not "no entitlement". Purchased grants outlive subscriptions by
+            // design, so a subscriber holding one still has something to report — and returning
+            // null here is what made the documented pre-check refuse paid-for work.
+            var purchased = await BuildPurchasedOnlyMetersAsync(tenantId, subscriber, cancellationToken);
+
+            return purchased.Count == 0
+                ? null
+                : new EntitlementSnapshot(subscriber, null, string.Empty, string.Empty, null, null, null, null, purchased);
+        }
 
         // The PINNED version, never the pending one.
         var version = await _dbContext.PlanVersions.AsNoTracking()
@@ -82,6 +91,70 @@ internal sealed class EntitlementReader : IEntitlementReader
         var snapshot = await GetAsync(subscriber, cancellationToken);
         return snapshot?.Meters.FirstOrDefault(m =>
             string.Equals(m.MeterCode, meterCode, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Meters assembled from the subscriber's open grants alone, with no plan to read them against.
+    /// </summary>
+    /// <remarks>
+    /// Only counter meters appear. A ceiling or a flag is a statement about what a <em>plan</em>
+    /// permits, so without one there is nothing to report; a counter is a balance the subscriber
+    /// owns outright.
+    /// </remarks>
+    private async Task<List<MeterEntitlement>> BuildPurchasedOnlyMetersAsync(
+        Guid tenantId,
+        SubscriberRef subscriber,
+        CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+
+        var grants = await _dbContext.EntitlementGrants.AsNoTracking()
+            .Where(g => g.TenantId == tenantId
+                        && g.SubscriberKind == subscriber.Kind
+                        && g.SubscriberId == subscriber.Id
+                        && g.Status == GrantStatuses.Open
+                        && (g.ExpiresAt == null || g.ExpiresAt > now))
+            .ToListAsync(cancellationToken);
+
+        if (grants.Count == 0)
+            return [];
+
+        var codes = grants.Select(g => g.MeterCode).Distinct().ToList();
+
+        var meters = await _dbContext.Meters.AsNoTracking()
+            .Where(m => m.TenantId == tenantId && codes.Contains(m.Code))
+            .ToDictionaryAsync(m => m.Code, cancellationToken);
+
+        var result = new List<MeterEntitlement>();
+
+        foreach (var group in grants.GroupBy(g => g.MeterCode))
+        {
+            var meter = meters.GetValueOrDefault(group.Key);
+
+            if (meter is not null && meter.Kind != MeterKinds.Counter)
+                continue;
+
+            var allowance = group.Sum(g => g.Allowance);
+            var consumed = group.Sum(g => g.Consumed);
+            var held = group.Sum(g => g.Held);
+
+            var expiries = group.Where(g => g.ExpiresAt.HasValue).Select(g => g.ExpiresAt!.Value).ToList();
+
+            result.Add(new MeterEntitlement(
+                group.Key,
+                MeterKinds.Counter,
+                meter?.Unit,
+                allowance,
+                consumed,
+                held,
+                Math.Max(0, allowance - consumed - held),
+                // Nothing resets these: a purchased balance accumulates and is drawn down, which is
+                // exactly why it survives the subscription that may have accompanied it.
+                ResetPolicies.Never,
+                expiries.Count == 0 ? null : expiries.Min()));
+        }
+
+        return result;
     }
 
     private async Task<List<MeterEntitlement>> BuildMetersAsync(

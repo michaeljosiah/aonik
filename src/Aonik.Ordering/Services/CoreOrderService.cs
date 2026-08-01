@@ -450,7 +450,8 @@ internal sealed class CoreOrderService : IOrderService
     public async Task LinkFulfilmentAsync(Guid orderId, OrderFulfilmentLink link, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(link);
-        var set = new[] { link.PayoutId, link.PaymentIntentId, link.PartnerBillPaymentId }.Count(id => id is not null);
+        var set = new[] { link.PayoutId, link.PaymentIntentId, link.PartnerBillPaymentId, link.SubscriptionPeriodId }
+            .Count(id => id is not null);
         if (set != 1)
         {
             throw new ArgumentException("Exactly one fulfilment reference must be set.", nameof(link));
@@ -466,7 +467,8 @@ internal sealed class CoreOrderService : IOrderService
             OrderId = orderId,
             PayoutId = link.PayoutId,
             PaymentIntentId = link.PaymentIntentId,
-            PartnerBillPaymentId = link.PartnerBillPaymentId
+            PartnerBillPaymentId = link.PartnerBillPaymentId,
+            SubscriptionPeriodId = link.SubscriptionPeriodId
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
