@@ -73,6 +73,19 @@ public interface IGroupReader
     /// <summary>Groups a party belongs to, whatever their role.</summary>
     Task<IReadOnlyList<GroupDto>> GetForPartyAsync(Guid partyId, CancellationToken cancellationToken = default);
 
+    /// <summary>Groups a <b>user</b> belongs to. Transitional — see the remark.</summary>
+    /// <remarks>
+    /// Added in P7 so the personal-finance consumers can stop querying the group tables directly.
+    /// User-keyed rather than party-keyed because those consumers are, and because a membership
+    /// written before the P3 backfill has no party at all — asking by party would silently drop it,
+    /// and for an authorisation read that means denying someone access they have. Goes with the
+    /// user columns.
+    /// </remarks>
+    Task<IReadOnlyList<GroupDto>> GetForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether a group exists in the current tenant, without loading it or its members.</summary>
+    Task<bool> ExistsAsync(Guid groupId, CancellationToken cancellationToken = default);
+
     /// <summary>Accepted members only — invited-but-unanswered people are not yet in the group.</summary>
     Task<IReadOnlyList<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken cancellationToken = default);
 }

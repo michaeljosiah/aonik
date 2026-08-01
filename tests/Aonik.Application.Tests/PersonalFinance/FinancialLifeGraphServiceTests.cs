@@ -1,3 +1,9 @@
+using Aonik.PersonalFinance.Persistence;
+using Aonik.TestSupport.Multitenancy;
+using Aonik.TestSupport.Identity;
+using Moq;
+using Aonik.SharedKernel.Abstractions.Groups;
+using Aonik.Groups.Services;
 using Aonik.Finance.Entities;
 using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Persistence;
@@ -18,6 +24,30 @@ namespace Aonik.Application.Tests.PersonalFinance;
 
 public class FinancialLifeGraphServiceTests
 {
+
+    /// <summary>
+    /// The real group reader over the same context (Spec 086 P7). Not a mock: these tests assert
+    /// household-scoped behaviour, and a faked reader would assert nothing about it.
+    /// </summary>
+    private static IGroupReader GroupReader(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
+    {
+        var tenantProvider = new TestTenantProvider(tenantId);
+
+        return new GroupService(
+            context,
+            tenantProvider,
+            new TestCurrentUserProvider(userId),
+            Mock.Of<IUserPartyResolver>(),
+            Mock.Of<IPartyReader>(),
+            new SystemClock(),
+            [],
+            new PersonalFinancePartyResolver(context));
+    }
+
+    private sealed class SystemClock : Aonik.SharedKernel.Abstractions.IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
     // Spec 027: PartyReader / UserDirectoryReader live in Aonik.Platform but
     // tests still use FinanceDbContext, which carries the legacy read-model
     // projections for these aggregates. These adapters bridge the two so the
@@ -217,7 +247,8 @@ public class FinancialLifeGraphServiceTests
             new TestPartyReader(financeContext),
             new Aonik.Finance.Services.Finance.Readers.CustomerOrderHistoryReader(financeContext),
             new Aonik.Finance.Services.Finance.Readers.CustomerInvoiceHistoryReader(financeContext),
-            new Aonik.Finance.Services.Finance.Readers.CustomerPaymentHistoryReader(financeContext));
+            new Aonik.Finance.Services.Finance.Readers.CustomerPaymentHistoryReader(financeContext),
+            GroupReader(pfContext, tenantId, userId));
     }
 
     private static FinancialLifeGraphWriteService CreateWriteService(

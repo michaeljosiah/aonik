@@ -575,6 +575,29 @@ internal sealed class GroupService : IGroupService, IGroupReader
         return result;
     }
 
+    public async Task<IReadOnlyList<GroupDto>> GetForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var groupIds = await _dbContext.GroupMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Select(member => member.HouseholdId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return await LoadGroupsAsync(tenantId, groupIds, cancellationToken);
+    }
+
+    public async Task<bool> ExistsAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        return await _dbContext.Groups
+            .AsNoTracking()
+            .AnyAsync(group => group.TenantId == tenantId && group.Id == groupId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();

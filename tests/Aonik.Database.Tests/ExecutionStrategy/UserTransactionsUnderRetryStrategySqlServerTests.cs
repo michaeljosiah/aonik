@@ -142,7 +142,16 @@ public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<Sq
             new StubPartyReader(),
             new Mock<ICustomerOrderHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
             new Mock<ICustomerInvoiceHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
-            new Mock<ICustomerPaymentHistoryReader> { DefaultValue = DefaultValue.Empty }.Object);
+            new Mock<ICustomerPaymentHistoryReader> { DefaultValue = DefaultValue.Empty }.Object,
+            new GroupService(
+                context,
+                tenantProvider,
+                userProvider,
+                Mock.Of<IUserPartyResolver>(),
+                Mock.Of<IPartyReader>(),
+                new FixedClock(),
+                [],
+                new PersonalFinancePartyResolver(context)));
         var writeService = new FinancialLifeGraphWriteService(
             context, tenantProvider, userProvider, validation, new NoOpGraphCacheInvalidator());
 

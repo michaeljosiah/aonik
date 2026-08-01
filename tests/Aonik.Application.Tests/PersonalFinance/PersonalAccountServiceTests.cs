@@ -1,3 +1,9 @@
+using Aonik.TestSupport.Multitenancy;
+using Aonik.TestSupport.Identity;
+using Moq;
+using Aonik.SharedKernel.Abstractions.Platform;
+using Aonik.SharedKernel.Abstractions.Groups;
+using Aonik.Groups.Services;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
@@ -12,6 +18,30 @@ namespace Aonik.Application.Tests.PersonalFinance;
 
 public class PersonalAccountServiceTests
 {
+
+    /// <summary>
+    /// The real group reader over the same context (Spec 086 P7). Not a mock: these tests assert
+    /// household-scoped behaviour, and a faked reader would assert nothing about it.
+    /// </summary>
+    private static IGroupReader GroupReader(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
+    {
+        var tenantProvider = new TestTenantProvider(tenantId);
+
+        return new GroupService(
+            context,
+            tenantProvider,
+            new TestCurrentUserProvider(userId),
+            Mock.Of<IUserPartyResolver>(),
+            Mock.Of<IPartyReader>(),
+            new SystemClock(),
+            [],
+            new PersonalFinancePartyResolver(context));
+    }
+
+    private sealed class SystemClock : Aonik.SharedKernel.Abstractions.IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
     private sealed class TestTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;
@@ -83,7 +113,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var request = new CreatePersonalAccountRequest(
             "Main Bank",
@@ -116,7 +147,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Card",
@@ -150,7 +182,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var request = new CreatePersonalAccountRequest(
             "Rooster",
@@ -181,7 +214,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Rooster",
@@ -222,7 +256,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Cash Wallet",
@@ -275,7 +310,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         // Act
         var act = () => service.DeleteManualAccountAsync(Guid.NewGuid());
@@ -296,7 +332,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var household = new Household
         {
@@ -350,7 +387,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            GroupReader(context, tenantId, userId));
 
         var household = new Household
         {

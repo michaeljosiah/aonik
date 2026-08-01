@@ -59,7 +59,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 086</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 2)</span>
+  <span class="meta-tag status-draft">Status: Implemented (Rev 3) — P1–P7</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Priority: P1</span>
   <span class="meta-tag">Domain: Platform / PersonalFinance / SharedKernel</span>
@@ -671,8 +671,16 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 <h3>10.3 DbContext registration</h3>
 <ul>
   <li><code>AonikDbContext</code> — the four <code>DbSet</code>s stay (it owns all sets); the mapping helper changes from <code>MapFinanceTable</code> to <code>MapPlatformTable</code>, which is a no-op physically since both prefixes are <code>"Ank"</code>.</li>
-  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>retained through P2–P6</strong> and removed only in <strong>P7</strong>. They cannot go in P2: the still-deployed <code>HouseholdService</code> and <code>CircleService</code> need their entity sets to dual-write (P3) and to keep serving reads until the P5 cutover, and their facades do not exist until P4/P5. Rev 1 scheduled the removal in both §10.3 and P7, which was self-contradictory.</li>
-  <li><code>PlatformDbContext</code> — the four <code>DbSet</code>s are added. Its frozen migration folder is not touched.</li>
+  <li><code>PersonalFinanceDbContext</code> — the four <code>DbSet</code>s are <strong>retained</strong>. Rev 1
+  scheduled their removal in P7; P4 made that impossible and it is now deliberate. They are what
+  <code>IGroupDataContext</code> is implemented over, which is what gives <code>GroupService</code> and the
+  PersonalFinance contributor one change tracker and therefore one transaction (<a href="#seams">§7.1</a>). Removing
+  them does not tidy the module — it silently downgrades the same-transaction guarantee to two. They go when the
+  shared-connection question is answered on its own terms, which is a platform-wide change and its own ADR.</li>
+  <li><s><code>PlatformDbContext</code> — the four <code>DbSet</code>s are added.</s> <strong>Obsolete.</strong>
+  Groups is a middle-layer module, not a Platform slice (see the Rev 2 correction in <a href="#current">§2</a>), so
+  Platform has no reason to map these tables at all. <code>GroupsDbContext</code> exists for a consumer that has no
+  other context of its own.</li>
 </ul>
 
 <h2 id="compat">11. Wire compatibility</h2>
@@ -881,8 +889,27 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P7</strong> — cleanup</td>
-      <td>Remove the four <code>DbSet</code>s from <code>PersonalFinanceDbContext</code>; re-point the life-graph and customer-insight consumers.</td>
-      <td>Full solution build + <code>dotnet test Aonik.sln</code> green.</td>
+      <td>Re-point the consumers that were querying the group tables for answers the platform already gives.
+      <code>IGroupReader</code> gained <code>GetForUserAsync</code> and <code>ExistsAsync</code> — user-keyed and
+      transitional, because those consumers are, and because a membership written before the P3 backfill has no party
+      at all; asking by party would silently drop it, and for an authorisation read that means denying someone access
+      they have.
+      <br><br>
+      <em>Re-pointed:</em> <code>FinancialLifeGraphValidationService</code> (four authorisation reads) and
+      <code>PersonalAccountService</code> (authorisation plus the cache-invalidation lists). Both now ask "is this
+      user in this group" rather than assembling the answer from rows, and the accepted-only filtering they used to
+      duplicate is gone rather than copied.
+      <br><br>
+      <em>Not re-pointed, each for a reason.</em> <code>HouseholdService</code>, <code>CircleService</code> and the
+      lifecycle contributor <strong>are</strong> the seam — they need entities by definition. The seeding phase and the
+      demo reverser <strong>write</strong> rows, which no reader contract exposes and none should. And
+      <code>CustomerDataExportProvider</code>, <code>FinancialLifeGraphLoader</code> and
+      <code>CustomerInsightSourceDataLoader</code> need columns the DTOs do not carry —
+      <code>InvitedByUserId</code>, <code>CreatedAt</code>, the raw <code>PermissionsJson</code> a subject-access
+      export must include. Widening <code>GroupMemberDto</code> to carry them would put PersonalFinance's shape back
+      on the platform contract, which is the coupling this spec removes; they move when the columns themselves are
+      retired.</td>
+      <td>Full solution build + <code>dotnet test Aonik.sln</code> green, including the endpoint suite unmodified.</td>
     </tr>
   </tbody>
 </table>
@@ -902,7 +929,15 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 <h2 id="acceptance">16. Acceptance criteria</h2>
 
 <ol>
-  <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>, <code>CircleGrant</code> or <code>CircleInvite</code> entity, and no <code>DbSet</code> for them.</li>
+  <li><code>Aonik.PersonalFinance</code> contains no <code>Household</code>, <code>HouseholdMember</code>,
+      <code>CircleGrant</code> or <code>CircleInvite</code> <strong>entity</strong> — met; they live in
+      <code>Aonik.Groups</code>.
+      <br>
+      The "<em>and no <code>DbSet</code> for them</em>" half is <strong>deliberately not met</strong>, and the reason
+      is in <a href="#persistence">§10.3</a>: those sets are the unit of work the lifecycle contributor and the group
+      service share, so dropping them would trade a real atomicity guarantee for a cosmetic one. What the criterion
+      was actually protecting — PersonalFinance not <em>reading</em> group tables for its own purposes — is what P7
+      addressed; see the phase row.</li>
   <li><code>Aonik.Groups</code> references <strong>only</strong> <code>Aonik.SharedKernel</code>, and no module
       gains a project reference to <code>Aonik.Platform</code> from this change; behavioural access is via
       <code>SharedKernel.Abstractions.Groups</code>.</li>
@@ -985,7 +1020,7 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 </ul>
 
 <footer>
-  Spec 086 · Extract groups and sharing into a platform module · Draft Rev 2 · 2026-08-01
+  Spec 086 · Extract groups and sharing into a platform module · Implemented Rev 3 · 2026-08-01
 </footer>
 
 </body>
