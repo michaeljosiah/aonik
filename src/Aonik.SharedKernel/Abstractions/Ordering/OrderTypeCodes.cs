@@ -20,6 +20,20 @@ public static class OrderTypeCodes
     /// <summary>A purchase of goods. The retail line shape lives on <c>OrderItem</c>.</summary>
     public const string ProductPurchase = "ProductPurchase";
 
+    /// <summary>
+    /// One billing period of a subscription (Spec 087 §12). One line: the plan version at its
+    /// pinned price. Settlement credits subscription revenue rather than 4000.
+    /// </summary>
+    public const string SubscriptionRenewal = "SubscriptionRenewal";
+
+    /// <summary>
+    /// Units of a named meter bought outright (Spec 087 §12). Named for the ENTITLEMENT, not for
+    /// one product's currency: "one more animated video" and "500 credits" are the same
+    /// transaction against different meters, so a type named "CreditPurchase" would have needed a
+    /// second type the moment a second product priced differently.
+    /// </summary>
+    public const string EntitlementPurchase = "EntitlementPurchase";
+
     /// <summary>A purchase order to a supplier for raw materials (Spec 053 §10) — the inverse
     /// direction of money to <see cref="ProductPurchase"/>: we pay, the supplier is the payee.
     /// Lines reuse the retail shape with <c>ProductId</c> soft-referencing an ingredient.</summary>

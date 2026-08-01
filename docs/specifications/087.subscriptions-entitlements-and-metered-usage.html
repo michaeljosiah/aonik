@@ -1112,6 +1112,31 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
       <td>Refunding an <code>EntitlementPurchase</code> whose units are partly consumed.</td>
       <td>Out of scope for v1, but <code>AllocationsJson</code> is designed so it is <em>possible</em> later. Do not drop it as an optimisation.</td>
     </tr>
+    <tr>
+      <td>O7</td>
+      <td>What is a consumed purchased unit <em>worth</em>, for the 2210 → 4110 recognition leg?</td>
+      <td>
+        <strong>Open, and deliberately not guessed in P5.</strong> Recognition needs a per-unit
+        value, and the only priced source is <code>MeterOffer</code>, which arrives in P6. Until
+        then the poster falls back to the recorded provider cost per unit and posts
+        <strong>nothing</strong> when there is no basis at all — recognising a made-up amount would
+        be worse than recognising late, because the correction is a compensating entry against real
+        customer revenue. P6 should replace this with the offer price recorded on the purchase
+        order line, so the value recognised is the value actually charged.
+      </td>
+    </tr>
+    <tr>
+      <td>O8</td>
+      <td>How does a settlement resolver know which meter an invoice line is for?</td>
+      <td>
+        <strong>Settled in P5:</strong> from the line's own <code>MetadataJson</code>, surfaced on
+        <code>SettlementLineContext</code> (an addition to Spec 088 §9 this phase revealed was
+        necessary). An invoice line carries no link back to the order line that produced it, so
+        matching on description or position would be guesswork; the consumer tags its own lines
+        when it raises the invoice. Unreadable metadata yields an undimensioned line, never a
+        failed settlement.
+      </td>
+    </tr>
   </tbody>
 </table>
 

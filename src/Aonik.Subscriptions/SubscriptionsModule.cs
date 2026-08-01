@@ -4,6 +4,8 @@ using Aonik.Subscriptions.Persistence;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Services.Catalogue;
 using Aonik.Subscriptions.Services.Subscriptions;
+using Aonik.SharedKernel.Abstractions.Ledgers;
+using Aonik.Subscriptions.Services.Ledger;
 using Aonik.Subscriptions.Services.Usage;
 
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +57,14 @@ public sealed class SubscriptionsModule : IModule
         services.AddScoped<EntitlementMaterialiser>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IEntitlementReader, EntitlementReader>();
+        services.AddScoped<UsageLedgerPoster>();
         services.AddScoped<IUsageMeter, UsageMeter>();
+
+        // Spec 087 P5 - the ledger side. The accounts are declared for Finance to create at
+        // provisioning; the resolver plugs this module's order types into Finance's settlement
+        // seam (Spec 088 §9) without either module referencing the other.
+        services.AddScoped<ILedgerAccountContributor, SubscriptionLedgerAccountContributor>();
+        services.AddScoped<ISettlementRevenueResolver, SubscriptionSettlementRevenueResolver>();
 
         return services;
     }

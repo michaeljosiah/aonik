@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Entities.Usage;
 using Aonik.Subscriptions.Persistence;
@@ -26,17 +27,22 @@ internal sealed class UsageMeter : IUsageMeter
     private readonly ITenantProvider _tenantProvider;
     private readonly SubscriberAuthorization _authorization;
     private readonly IClock _clock;
+    private readonly UsageLedgerPoster? _ledger;
 
     public UsageMeter(
         SubscriptionsDbContext dbContext,
         ITenantProvider tenantProvider,
         SubscriberAuthorization authorization,
-        IClock clock)
+        IClock clock,
+        UsageLedgerPoster? ledger = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _authorization = authorization;
         _clock = clock;
+        // Optional: metering works without a ledger (the free tier posts nothing at all), and
+        // existing fixtures construct this without one.
+        _ledger = ledger;
     }
 
     public async Task<UsageReservationRef> ReserveAsync(
@@ -201,6 +207,12 @@ internal sealed class UsageMeter : IUsageMeter
 
         _dbContext.UsageRecords.Add(record);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Spec 087 §13 — recognise the purchased portion and record what it cost us. Posted after
+        // the usage record is durable, so the ledger can never claim consumption the module has
+        // not recorded. Idempotent on the usage-record id.
+        if (_ledger is not null)
+            await _ledger.PostConsumptionAsync(record, committed, cancellationToken);
 
         return new UsageCommitResult(record.Id, actualQuantity, committed);
     }

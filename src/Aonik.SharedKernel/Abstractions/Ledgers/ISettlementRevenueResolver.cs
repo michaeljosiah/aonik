@@ -24,13 +24,20 @@ public interface ISettlementRevenueResolver
 }
 
 /// <summary>One invoice line being settled.</summary>
+/// <param name="MetadataJson">
+/// The line's own metadata, verbatim. This is how a consumer tells its lines apart: an invoice
+/// line carries no link to the order line that produced it, so matching on description or position
+/// would be guesswork. The consumer wrote this when it raised the invoice and is the only thing
+/// that can interpret it.
+/// </param>
 public sealed record SettlementLineContext(
     Guid InvoiceId,
     Guid? OrderId,
     Guid InvoiceLineId,
     string Description,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string? MetadataJson = null);
 
 /// <summary>
 /// Where a settled line's credit goes.

@@ -296,7 +296,8 @@ internal sealed class LedgerPostingService
                     line.Id,
                     line.Description,
                     line.LineTotal,
-                    invoice.Currency))))
+                    invoice.Currency,
+                    line.MetadataJson))))
             .ToList();
     }
 
