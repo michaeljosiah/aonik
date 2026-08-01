@@ -108,10 +108,10 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     }
 
     public Task<bool> RevokeGrantAsync(Guid grantId, CancellationToken cancellationToken = default)
-        => _shareGrants.RevokeAsync(grantId, cancellationToken);
+        => _shareGrants.RevokeAsync(grantId, ShareResourceKinds.CareEntity, cancellationToken);
 
     public Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default)
-        => _shareGrants.RevokeInviteAsync(inviteId, cancellationToken);
+        => _shareGrants.RevokeInviteAsync(inviteId, ShareResourceKinds.CareEntity, cancellationToken);
 
     // ── Invites ─────────────────────────────────────────────────────────
 
@@ -231,10 +231,12 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             return null;
         }
 
-        // Most permissive wins: "all" beats "entities", and amounts are allowed if ANY covering
-        // grant allows them. Taking the least permissive would silently narrow a share the owner
-        // deliberately widened.
-        var scope = grants.Any(grant => grant.Scope == "all") ? "all" : grants[0].Scope;
+        // Most permissive wins, and it has to be checked in order rather than falling back to the
+        // newest: with an older "entities" grant and a newer "docsOnly" one, taking grants[0] reports
+        // docsOnly and silently narrows a share the owner never withdrew.
+        var scope = grants.Any(grant => grant.Scope == "all") ? "all"
+            : grants.Any(grant => grant.Scope == "entities") ? "entities"
+            : grants[0].Scope;
         var entityIds = grants.SelectMany(grant => grant.EntityIds).Distinct().ToList();
         var noAmounts = grants.All(grant => grant.NoAmounts);
 

@@ -409,6 +409,82 @@ public sealed class GroupServiceTests
         payload.Should().Contain(GroupRoles.Manager);
     }
 
+    [Fact]
+    public async Task AFamily_Should_NotBeTreatedAsAHousehold_ByTheFinanceContributor()
+    {
+        await using var context = CreateContext();
+        var userId = Guid.NewGuid();
+        await SeedProfileAsync(context, userId);
+
+        var family = await CreateService(context, userId).CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+
+        // The contributor must ignore a group that is not its own kind. Writing a family into
+        // PersonalProfile.HouseholdId would impose finance exclusivity on the other product, which
+        // is the coupling ADR-015 exists to remove — reintroduced from the other side of the seam.
+        var profile = await context.PersonalProfiles.SingleAsync(item => item.UserId == userId);
+        profile.HouseholdId.Should().BeNull();
+
+        EventTypes(context).Should().NotContain(name => name.Contains("HouseholdCreatedEvent"));
+        EventTypes(context).Should().Contain(name => name.Contains("GroupCreatedEvent"));
+    }
+
+    [Fact]
+    public async Task TwoFamilies_Should_BothBeJoinable_ByOneUser()
+    {
+        await using var context = CreateContext();
+        var userId = Guid.NewGuid();
+        await SeedProfileAsync(context, userId);
+
+        var service = CreateService(context, userId);
+        await service.CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+
+        // One household per user is a finance rule. A parent belongs to two families, and the
+        // contributor vetoing the second would make the whole model unusable.
+        var act = () => service.CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Okonkwos"));
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task AManager_Should_NotBeAbleToPromoteThemselvesToOwner()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var managerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        await SeedProfileAsync(context, managerUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+        var invited = await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Manager, UserId: managerUserId));
+        await CreateService(context, managerUserId).AcceptInvitationAsync(invited.Id);
+
+        var act = () => CreateService(context, managerUserId).ChangeRoleAsync(invited.Id, GroupRoles.Owner);
+
+        // A manager passes the manage-members check, so without an explicit rule they could hand
+        // themselves ownership — bypassing TransferOwnershipAsync, which requires an existing owner.
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*transferring it*");
+    }
+
+    [Fact]
+    public async Task InviteAsync_ByPartyAlone_Should_StillRecordTheUser()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var inviteePartyId = await SeedProfileAsync(context, inviteeUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        var member = await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer, PartyId: inviteePartyId));
+
+        // Inviting by party alone is the documented follow-up to AddMemberAsync refusing a party
+        // that has a login, so it is exactly where the user id matters most: leaving it null hides
+        // the membership from every user-keyed reader and skips the finance contributor entirely.
+        member.UserId.Should().Be(inviteeUserId);
+    }
+
     private static List<string> EventTypes(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext context)
         => context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>().Select(message => message.EventType).ToList();
 

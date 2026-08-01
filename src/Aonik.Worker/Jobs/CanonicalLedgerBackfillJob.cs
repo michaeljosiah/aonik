@@ -45,8 +45,13 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
         var ct = context.CancellationToken;
 
         // Backfill spans every tenant by design, so it must see across the tenant filter.
+        // !IsDeleted is explicit: AcrossTenants disables the soft-delete filter too, and
+        // ILedgerResolver reads through the normal filtered query. A deleted canonical ledger would
+        // make this report a tenant as configured while its live ledgers stayed unmarked — and a
+        // deleted sole ledger could itself be marked canonical. Both leave the tenant unable to post.
         var ledgers = await _dbContext.Ledgers
             .AcrossTenants()
+            .Where(l => !l.IsDeleted)
             .Select(l => new { l.Id, l.TenantId, l.IsCanonical })
             .ToListAsync(ct);
 
@@ -77,7 +82,7 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
 
             var only = await _dbContext.Ledgers
                 .AcrossTenants()
-                .FirstAsync(l => l.Id == candidates[0].Id, ct);
+                .FirstAsync(l => l.Id == candidates[0].Id && !l.IsDeleted, ct);
 
             // Stamp the ambient tenant and commit per tenant. The base context refuses to save a
             // tenant-scoped row whose TenantId differs from the ambient tenant, so a job that read

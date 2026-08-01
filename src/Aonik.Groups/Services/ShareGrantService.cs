@@ -159,7 +159,10 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         return grants.Select(ToDto).ToList();
     }
 
-    public async Task<bool> RevokeAsync(Guid grantId, CancellationToken cancellationToken = default)
+    public async Task<bool> RevokeAsync(
+        Guid grantId,
+        string? requiredResourceKind = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var caller = await RequireCallerAsync(tenantId, cancellationToken);
@@ -170,7 +173,9 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
                 && ((caller.PartyId != null && item.OwnerPartyId == caller.PartyId)
                     || item.OwnerUserId == caller.UserId), cancellationToken);
 
-        if (grant is null)
+        // Not found and wrong-kind are the same answer, so an adapter cannot be used to discover
+        // which of another product's grant ids exist.
+        if (grant is null || !MatchesKind(grant.ResourceKind, requiredResourceKind))
         {
             return false;
         }
@@ -348,7 +353,10 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         }
     }
 
-    public async Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default)
+    public async Task<bool> RevokeInviteAsync(
+        Guid inviteId,
+        string? requiredResourceKind = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var caller = await RequireCallerAsync(tenantId, cancellationToken);
@@ -359,8 +367,9 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
                 && ((caller.PartyId != null && item.OwnerPartyId == caller.PartyId)
                     || item.OwnerUserId == caller.UserId), cancellationToken);
 
-        // Not found, not owned and wrong tenant are one answer, so existence is never revealed.
-        if (invite is null)
+        // Not found, not owned, wrong tenant and wrong kind are one answer, so existence is never
+        // revealed.
+        if (invite is null || !MatchesKind(invite.ResourceKind, requiredResourceKind))
         {
             return false;
         }
@@ -526,6 +535,19 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
 
         return userId;
     }
+
+    /// <summary>
+    /// Whether a stored kind satisfies the adapter's required one.
+    /// </summary>
+    /// <remarks>
+    /// An <b>empty</b> stored kind matches anything, because every row written before Spec 086 has
+    /// one and the backfill that fills it is disabled by default — refusing those would make an
+    /// upgrade unable to revoke its own pre-existing shares.
+    /// </remarks>
+    private static bool MatchesKind(string? storedKind, string? requiredKind)
+        => requiredKind is null
+            || string.IsNullOrEmpty(storedKind)
+            || string.Equals(storedKind, requiredKind, StringComparison.OrdinalIgnoreCase);
 
     private static bool OwnedBy(CircleInvite invite, Caller caller)
         => (invite.OwnerPartyId is { } ownerPartyId && ownerPartyId == caller.PartyId)

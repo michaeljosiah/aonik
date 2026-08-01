@@ -55,7 +55,7 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
 
     public async Task<string?> VetoAsync(GroupTransition transition, CancellationToken cancellationToken = default)
     {
-        if (transition.MemberUserId is not { } userId)
+        if (!IsHousehold(transition) || transition.MemberUserId is not { } userId)
         {
             return null;
         }
@@ -147,7 +147,7 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
 
     public async Task OnCommittedAsync(GroupTransition transition, CancellationToken cancellationToken = default)
     {
-        if (transition.MemberUserId is not { } userId)
+        if (!IsHousehold(transition) || transition.MemberUserId is not { } userId)
         {
             return;
         }
@@ -210,6 +210,25 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
                 break;
         }
     }
+
+    /// <summary>
+    /// Whether this transition is about a personal-finance household.
+    /// </summary>
+    /// <remarks>
+    /// Load-bearing, not defensive. Without it an Arke Kids <b>family</b> was written into
+    /// <c>PersonalProfile.HouseholdId</c> and then vetoed a second family as "already belongs to a
+    /// household" — this module imposing its exclusivity, its profile link and its events on every
+    /// other product that uses the platform group service. That is precisely the coupling ADR-015
+    /// exists to remove, reintroduced from the other side of the seam.
+    ///
+    /// An <b>empty</b> kind counts as a household. Every group written before Spec 086 has one — the
+    /// migration defaults the column to "" and the backfill that fills it is disabled by default —
+    /// and treating those as "not mine" would drop the profile link, the exclusivity rule and the
+    /// legacy events for every household that already exists.
+    /// </remarks>
+    private static bool IsHousehold(GroupTransition transition)
+        => string.IsNullOrEmpty(transition.GroupKind)
+            || string.Equals(transition.GroupKind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRemoval(GroupTransition transition)
         => (transition.MemberPartyId is { } memberPartyId && memberPartyId == transition.ActorPartyId)

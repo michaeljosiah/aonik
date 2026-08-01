@@ -124,10 +124,14 @@ internal sealed class GroupPartyBackfillJob : IJob
         var lookup = new Dictionary<(Guid, Guid), Guid>();
 
         // Profiles first, so the authoritative bridge links overwrite them below.
+        // !IsDeleted is explicit because AcrossTenants disables the soft-delete filter along with
+        // the tenant one. Without it a deleted profile or a superseded link supplies an obsolete
+        // party, the row is reported as resolved rather than raised for repair, and the wrong party
+        // is written into a membership that decides who can see what.
         var profiles = await _dbContext.PersonalProfiles
             .AsNoTracking()
             .AcrossTenants()
-            .Where(profile => profile.PartyId != Guid.Empty)
+            .Where(profile => !profile.IsDeleted && profile.PartyId != Guid.Empty)
             .Select(profile => new { profile.TenantId, profile.UserId, profile.PartyId })
             .ToListAsync(ct);
 
@@ -139,6 +143,7 @@ internal sealed class GroupPartyBackfillJob : IJob
         var links = await _dbContext.UserParties
             .AsNoTracking()
             .AcrossTenants()
+            .Where(link => !link.IsDeleted)
             .OrderBy(link => link.CreatedAt)
             .Select(link => new { link.TenantId, link.UserId, link.PartyId })
             .ToListAsync(ct);

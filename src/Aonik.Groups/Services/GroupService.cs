@@ -117,7 +117,9 @@ internal sealed class GroupService : IGroupService, IGroupReader
             InvitedAt = _clock.UtcNow
         };
 
-        var transition = new GroupTransition(GroupTransitionKinds.Created, group.Id, caller.PartyId, caller.UserId, caller.PartyId, caller.UserId);
+        var transition = new GroupTransition(
+            GroupTransitionKinds.Created, group.Id, caller.PartyId, caller.UserId, caller.PartyId, caller.UserId,
+            GroupRoles.Owner, group.Kind);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         _dbContext.Groups.Add(group);
@@ -180,7 +182,8 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         var transition = new GroupTransition(
-            GroupTransitionKinds.MemberAdded, group.Id, partyId, null, caller.PartyId, caller.UserId, normalizedRole);
+            GroupTransitionKinds.MemberAdded, group.Id, partyId, null, caller.PartyId, caller.UserId, normalizedRole,
+            group.Kind);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         var member = existing ?? new HouseholdMember
@@ -233,12 +236,21 @@ internal sealed class GroupService : IGroupService, IGroupReader
         var inviteePartyId = command.PartyId
             ?? await ResolvePartyForUserAsync(tenantId, command.UserId!.Value, cancellationToken);
 
+        // Resolved BOTH ways. Inviting by party alone is the documented follow-up to AddMemberAsync
+        // refusing a party that has a login — so it is exactly the path where the user id matters
+        // most, and leaving it null hides the accepted membership from every user-keyed reader and
+        // skips PersonalFinance's profile link, exclusivity check and legacy events entirely.
+        var inviteeUserId = command.UserId
+            ?? (command.PartyId is { } addressedPartyId
+                ? await ResolveUserForPartyAsync(tenantId, addressedPartyId, cancellationToken)
+                : null);
+
         var now = _clock.UtcNow;
 
         // Re-inviting is the same transition as inviting, so it reuses the row rather than minting a
         // second membership — two rows for one person is what the filtered unique index forbids, and
         // it would make "are they in this group?" ambiguous.
-        var existing = await FindMemberAsync(tenantId, group.Id, inviteePartyId, command.UserId, cancellationToken);
+        var existing = await FindMemberAsync(tenantId, group.Id, inviteePartyId, inviteeUserId, cancellationToken);
 
         if (existing is not null)
         {
@@ -254,8 +266,8 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         var transition = new GroupTransition(
-            GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, command.UserId, caller.PartyId, caller.UserId,
-            normalizedRole);
+            GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, inviteeUserId, caller.PartyId, caller.UserId,
+            normalizedRole, group.Kind);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         var member = existing ?? new HouseholdMember
@@ -265,7 +277,7 @@ internal sealed class GroupService : IGroupService, IGroupReader
         };
 
         member.PartyId = inviteePartyId;
-        member.UserId = command.UserId;
+        member.UserId = inviteeUserId;
         member.Role = normalizedRole;
         member.PermissionsJson = GroupMembershipRules.SerializePermissions(GroupMembershipRules.EmptyPermissions);
         member.InvitationStatus = GroupMemberStatuses.Pending;
@@ -282,7 +294,7 @@ internal sealed class GroupService : IGroupService, IGroupReader
         await ReactAsync(transition, cancellationToken);
 
         _dbContext.EnqueueIntegrationEvent(new GroupMemberInvitedEvent(
-            tenantId, group.Id, inviteePartyId ?? Guid.Empty, command.UserId, normalizedRole, caller.PartyId));
+            tenantId, group.Id, inviteePartyId ?? Guid.Empty, inviteeUserId, normalizedRole, caller.PartyId));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -432,6 +444,15 @@ internal sealed class GroupService : IGroupService, IGroupReader
         var membership = await RequireMembershipAsync(tenantId, membershipId, cancellationToken);
 
         await RequireManagerAsync(tenantId, membership.HouseholdId, caller, cancellationToken);
+
+        // Ownership is granted by TRANSFER, never by role change. Without this a manager — who
+        // passes the authorisation above — can call this on their own membership and promote
+        // themselves, which is the whole point of TransferOwnershipAsync requiring an existing owner.
+        if (string.Equals(normalizedRole, GroupRoles.Owner, StringComparison.Ordinal)
+            && !GroupMembershipRules.IsOwner(membership))
+        {
+            throw new InvalidStateException("Ownership is granted by transferring it, not by changing a role.");
+        }
 
         if (GroupMembershipRules.IsOwner(membership) && !string.Equals(normalizedRole, GroupRoles.Owner, StringComparison.Ordinal))
         {

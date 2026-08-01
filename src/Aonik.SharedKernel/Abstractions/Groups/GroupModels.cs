@@ -111,6 +111,11 @@ public sealed record ShareResourceRef(Guid Id, string Kind, string DisplayName);
 /// cannot reproduce it — the transition would silently drop information the events it replaces
 /// already published.
 /// </param>
+/// <param name="GroupKind">
+/// What kind of group this is — one of <c>GroupKinds</c>. Contributors <b>must</b> branch on it: a
+/// module that treats every group as its own would impose its rules on every other product's, and
+/// PersonalFinance did exactly that until it was carried here.
+/// </param>
 /// <param name="Role">
 /// The role the transition sets, where it sets one — one of <c>GroupRoles</c>. Carried rather than
 /// looked up, because a contributor runs <b>before</b> the save: a database projection cannot see a
@@ -123,7 +128,8 @@ public sealed record GroupTransition(
     Guid? MemberUserId,
     Guid ActorPartyId,
     Guid? ActorUserId = null,
-    string? Role = null);
+    string? Role = null,
+    string GroupKind = GroupKinds.Household);
 
 /// <summary>Create a group.</summary>
 public sealed record CreateGroupCommand(string Kind, string Name);

@@ -36,7 +36,13 @@ public interface IShareGrantService
     /// A bool rather than an exception, deliberately: the caller's 404 must not distinguish "no such
     /// grant" from "not yours", or revocation becomes a way to probe which grant ids exist.
     /// </remarks>
-    Task<bool> RevokeAsync(Guid grantId, CancellationToken cancellationToken = default);
+    /// <param name="requiredResourceKind">
+    /// When supplied, the grant must be of this kind or it is treated as not found. A module-facing
+    /// adapter passes its own kind: without it, a caller who owns a grant created by <em>another</em>
+    /// product can pass its id to that adapter's delete route and revoke a share the adapter never
+    /// had any business seeing — ownership alone is not the boundary here.
+    /// </param>
+    Task<bool> RevokeAsync(Guid grantId, string? requiredResourceKind = null, CancellationToken cancellationToken = default);
 
     /// <summary>Mint an invite carrying the grant terms, materialised into a grant on accept.</summary>
     Task<ShareInviteDto> CreateInviteAsync(CreateShareInviteCommand command, CancellationToken cancellationToken = default);
@@ -79,7 +85,7 @@ public interface IShareGrantService
     /// what stops an owner believing they have withdrawn access they still grant.
     /// </remarks>
     /// <exception cref="InvalidStateException">The invite is accepted or expired.</exception>
-    Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default);
+    Task<bool> RevokeInviteAsync(Guid inviteId, string? requiredResourceKind = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Why an accept did not produce a grant, when it did not.</summary>
