@@ -1,4 +1,5 @@
 using Aonik.PersonalFinance.Entities.Accounts;
+using Aonik.Groups.Persistence;
 using Aonik.PersonalFinance.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -21,12 +22,20 @@ namespace Aonik.PersonalFinance.Persistence;
 /// Subsequent phases (3+) migrate the PF services off <c>FinanceDbContext</c>
 /// onto this context.
 /// </summary>
-internal sealed class PersonalFinanceDbContext : AonikDbContextBase
+internal sealed class PersonalFinanceDbContext : AonikDbContextBase, IGroupDataContext
 {
     // ── PersonalFinance entities ─────────────────────────────────────────
     public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public DbSet<Household> Households { get; set; } = null!;
     public DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+
+    // Spec 086 P4 — IGroupDataContext. GroupService writes the membership through THIS instance, and
+    // PersonalFinanceGroupLifecycleContributor writes the profile link and account unshare through
+    // it too, so one change tracker and one SaveChangesAsync cover both. That is what makes
+    // IGroupLifecycleContributor's same-transaction promise true; two contexts would be two
+    // transactions, because every module context is registered with its own connection.
+    DbSet<Household> Aonik.Groups.Persistence.IGroupDataContext.Groups => Households;
+    DbSet<HouseholdMember> Aonik.Groups.Persistence.IGroupDataContext.GroupMembers => HouseholdMembers;
     public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public DbSet<PersonalLinkedAccount> PersonalLinkedAccounts { get; set; } = null!;
     public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;

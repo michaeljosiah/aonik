@@ -1,3 +1,4 @@
+using Aonik.Groups.Services;
 using Aonik.Database.Tests.Support;
 using Aonik.IntegrationTests.Support;
 using Aonik.PersonalFinance.Contracts.Models;
@@ -214,7 +215,16 @@ public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<Sq
             directoryReader,
             clock,
             new NoOpNotificationWriter(),
-            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()));
+            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()),
+            new GroupService(
+                context,
+                new TestTenantProvider(tenantId),
+                new TestCurrentUserProvider(inviteeUserId),
+                Mock.Of<IUserPartyResolver>(),
+                partyReader,
+                clock,
+                [new PersonalFinanceGroupLifecycleContributor(context, new TestTenantProvider(tenantId), clock)],
+                new PersonalFinancePartyResolver(context)));
 
         var response = await service.AcceptInvitationAsync(household.Id);
 

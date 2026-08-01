@@ -1,55 +1,48 @@
-using System.Text.Json;
-
-using Aonik.PersonalFinance.Contracts.Models;
+using Aonik.Groups.Services;
 using Aonik.PersonalFinance.Entities;
 
 namespace Aonik.PersonalFinance.Services;
 
+/// <summary>
+/// PersonalFinance's view of the group membership rules (Spec 086 §8.1).
+/// </summary>
+/// <remarks>
+/// The rules themselves moved to <see cref="GroupMembershipRules"/> in P4 — none of them knew what
+/// a household was. This type survives as a forwarder rather than being deleted so the roughly
+/// twenty call sites across this module keep compiling and keep reading in household vocabulary;
+/// deleting it would have turned a behaviour-preserving move into a module-wide rename.
+///
+/// The one member that is genuinely this module's own is <see cref="IsAcceptedUserMember"/>: it
+/// encodes that PersonalFinance is a user-scoped domain, which is a fact about finance, not about
+/// groups.
+/// </remarks>
 internal static class HouseholdMembershipRules
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    internal static readonly IReadOnlyList<string> EmptyPermissions = GroupMembershipRules.EmptyPermissions;
 
-    internal static readonly IReadOnlyList<string> EmptyPermissions = Array.Empty<string>();
-
-    public static string NormalizeRole(string role)
-    {
-        if (string.IsNullOrWhiteSpace(role))
-        {
-            throw new ArgumentException("Role is required.", nameof(role));
-        }
-
-        return role.Trim().ToLowerInvariant() switch
-        {
-            "owner" => HouseholdRoles.Owner,
-            "member" => HouseholdRoles.Manager,
-            "manager" => HouseholdRoles.Manager,
-            "viewer" => HouseholdRoles.Viewer,
-            _ => throw new ArgumentException("Role must be Owner, Manager, or Viewer.", nameof(role))
-        };
-    }
+    public static string NormalizeRole(string role) => GroupMembershipRules.NormalizeRole(role);
 
     public static string NormalizeInvitationStatus(string? invitationStatus)
-    {
-        if (string.IsNullOrWhiteSpace(invitationStatus))
-        {
-            return HouseholdInvitationStatuses.Accepted;
-        }
+        => GroupMembershipRules.NormalizeStatus(invitationStatus);
 
-        return invitationStatus.Trim().ToLowerInvariant() switch
-        {
-            "pending" => HouseholdInvitationStatuses.Pending,
-            "accepted" => HouseholdInvitationStatuses.Accepted,
-            "declined" => HouseholdInvitationStatuses.Declined,
-            "removed" => HouseholdInvitationStatuses.Removed,
-            _ => HouseholdInvitationStatuses.Accepted
-        };
-    }
+    public static bool IsAccepted(HouseholdMember member) => GroupMembershipRules.IsAccepted(member);
 
-    public static bool IsAccepted(HouseholdMember member)
-        => string.Equals(NormalizeInvitationStatus(member.InvitationStatus), HouseholdInvitationStatuses.Accepted, StringComparison.OrdinalIgnoreCase);
+    public static bool IsPending(HouseholdMember member) => GroupMembershipRules.IsPending(member);
+
+    public static bool CanManageMembers(HouseholdMember member) => GroupMembershipRules.CanManageMembers(member);
+
+    public static bool IsOwner(HouseholdMember member) => GroupMembershipRules.IsOwner(member);
+
+    public static IReadOnlyList<string> NormalizePermissions(IReadOnlyList<string>? permissions)
+        => GroupMembershipRules.NormalizePermissions(permissions);
+
+    public static IReadOnlyList<string> ParsePermissions(string? permissionsJson)
+        => GroupMembershipRules.ParsePermissions(permissionsJson);
+
+    public static string SerializePermissions(IReadOnlyList<string>? permissions)
+        => GroupMembershipRules.SerializePermissions(permissions);
+
+    public static void NormalizeLegacyMember(HouseholdMember member) => GroupMembershipRules.NormalizeLegacy(member);
 
     /// <summary>
     /// An accepted member who has a login.
@@ -64,68 +57,4 @@ internal static class HouseholdMembershipRules
     /// </remarks>
     public static bool IsAcceptedUserMember(HouseholdMember member)
         => IsAccepted(member) && member.UserId is not null;
-
-    public static bool IsPending(HouseholdMember member)
-        => string.Equals(NormalizeInvitationStatus(member.InvitationStatus), HouseholdInvitationStatuses.Pending, StringComparison.OrdinalIgnoreCase);
-
-    public static bool CanManageMembers(HouseholdMember member)
-    {
-        if (!IsAccepted(member))
-        {
-            return false;
-        }
-
-        var role = NormalizeRole(member.Role);
-        return string.Equals(role, HouseholdRoles.Owner, StringComparison.Ordinal)
-            || string.Equals(role, HouseholdRoles.Manager, StringComparison.Ordinal);
-    }
-
-    public static bool IsOwner(HouseholdMember member)
-        => IsAccepted(member) && string.Equals(NormalizeRole(member.Role), HouseholdRoles.Owner, StringComparison.Ordinal);
-
-    public static IReadOnlyList<string> NormalizePermissions(IReadOnlyList<string>? permissions)
-    {
-        if (permissions == null || permissions.Count == 0)
-        {
-            return EmptyPermissions;
-        }
-
-        return permissions
-            .Where(permission => !string.IsNullOrWhiteSpace(permission))
-            .Select(permission => permission.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    public static IReadOnlyList<string> ParsePermissions(string? permissionsJson)
-    {
-        if (string.IsNullOrWhiteSpace(permissionsJson))
-        {
-            return EmptyPermissions;
-        }
-
-        try
-        {
-            var permissions = JsonSerializer.Deserialize<List<string>>(permissionsJson, JsonOptions);
-            return NormalizePermissions(permissions);
-        }
-        catch (JsonException)
-        {
-            return EmptyPermissions;
-        }
-    }
-
-    public static string SerializePermissions(IReadOnlyList<string>? permissions)
-        => JsonSerializer.Serialize(NormalizePermissions(permissions), JsonOptions);
-
-    public static void NormalizeLegacyMember(HouseholdMember member)
-    {
-        member.Role = NormalizeRole(member.Role);
-        member.InvitationStatus = NormalizeInvitationStatus(member.InvitationStatus);
-
-        if (IsAccepted(member))
-        {
-            member.InvitedAt ??= member.CreatedAt;
-        }
-    }
 }

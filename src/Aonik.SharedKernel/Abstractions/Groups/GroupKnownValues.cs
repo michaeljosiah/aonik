@@ -38,13 +38,34 @@ public static class ShareResourceKinds
     public const string CareEntity = "care-entity";
 }
 
-/// <summary>Where a member is in the invitation lifecycle (Spec 020, carried across by Spec 086).</summary>
+/// <summary>
+/// Where a member is in the invitation lifecycle (Spec 020, carried across by Spec 086).
+/// </summary>
+/// <remarks>
+/// These are the <em>stored</em> values, not new ones. Rev 1 of this file called the first state
+/// <c>Invited</c>; the column has always held <c>Pending</c>, and a constant that disagrees with the
+/// data is worse than no constant at all — every comparison against it silently returns false.
+/// </remarks>
 public static class GroupMemberStatuses
 {
-    public const string Invited = "Invited";
+    public const string Pending = "Pending";
     public const string Accepted = "Accepted";
     public const string Declined = "Declined";
     public const string Removed = "Removed";
+}
+
+/// <summary>
+/// What a member may do in a group (Spec 020, carried across by Spec 086).
+/// </summary>
+/// <remarks>
+/// Ownership is a <b>role</b>, not a second field on the group, so the two can never disagree about
+/// who the owner is. The values match what the column already holds.
+/// </remarks>
+public static class GroupRoles
+{
+    public const string Owner = "Owner";
+    public const string Manager = "Manager";
+    public const string Viewer = "Viewer";
 }
 
 /// <summary>Lifecycle of a share grant and its invite (Spec 048).</summary>

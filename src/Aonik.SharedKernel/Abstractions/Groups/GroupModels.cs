@@ -95,12 +95,19 @@ public sealed record ShareResourceRef(Guid Id, string Kind, string DisplayName);
 /// Null for a party-only member. Contributors <b>must</b> tolerate that: a child has no
 /// personal-finance profile to link, and skipping is correct rather than an error.
 /// </param>
+/// <param name="ActorUserId">
+/// The acting user, when the actor has one. Added in P4: <c>HouseholdMemberRemovedEvent</c> has
+/// always carried <c>removedByUserId</c>, and a contributor holding only <see cref="ActorPartyId"/>
+/// cannot reproduce it — the transition would silently drop information the events it replaces
+/// already published.
+/// </param>
 public sealed record GroupTransition(
     string Kind,
     Guid GroupId,
     Guid? MemberPartyId,
     Guid? MemberUserId,
-    Guid ActorPartyId);
+    Guid ActorPartyId,
+    Guid? ActorUserId = null);
 
 /// <summary>Create a group.</summary>
 public sealed record CreateGroupCommand(string Kind, string Name);

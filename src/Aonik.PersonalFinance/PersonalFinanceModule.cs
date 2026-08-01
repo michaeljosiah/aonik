@@ -73,6 +73,15 @@ public sealed class PersonalFinanceModule : IModule
         // CircleService and HouseholdService so both agree on where a party comes from.
         services.AddScoped<Services.MemberPartyResolver>();
 
+        // Spec 086 P4 — the group unit of work. PersonalFinanceDbContext, not GroupsDbContext:
+        // GroupService and PersonalFinanceGroupLifecycleContributor must share one change tracker
+        // for the contributor's reaction to land in the same transaction as the membership write.
+        services.AddScoped<Aonik.Groups.Persistence.IGroupDataContext>(sp =>
+            sp.GetRequiredService<Persistence.PersonalFinanceDbContext>());
+
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Groups.IGroupLifecycleContributor,
+            Services.PersonalFinanceGroupLifecycleContributor>();
+
         services.AddScoped<CircleService>();
         services.AddScoped<ICircleService>(sp => sp.GetRequiredService<CircleService>());
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());

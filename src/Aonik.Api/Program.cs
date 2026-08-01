@@ -1,3 +1,4 @@
+using Aonik.Groups;
 using Aonik.Agents;
 using Aonik.Agents.Endpoints;
 using Aonik.Ai;
@@ -35,6 +36,7 @@ builder.Services.AddOrderingModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddCommerceModule(builder.Configuration);
 builder.Services.AddSubscriptionsModule(builder.Configuration);
+builder.Services.AddGroupsModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);

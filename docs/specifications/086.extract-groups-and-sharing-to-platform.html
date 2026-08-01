@@ -385,7 +385,27 @@ public sealed record GroupTransition(
     Guid GroupId,
     Guid? MemberPartyId,
     Guid? MemberUserId,   // null for party-only members — contributors must tolerate this
-    Guid ActorPartyId);</code></pre>
+    Guid ActorPartyId,
+    Guid? ActorUserId = null);</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">Two corrections from building it (P4)</span>
+  <strong><code>ActorUserId</code> was missing.</strong> <code>HouseholdMemberRemovedEvent</code> has always
+  carried <code>removedByUserId</code>, and a contributor holding only <code>ActorPartyId</code> cannot produce it —
+  the transition would have silently dropped information the events it replaces already published. It also
+  distinguishes <em>left</em> from <em>removed</em>, which drive different notifications.
+  <br><br>
+  <strong>"Same transaction" needed a mechanism that did not exist.</strong> Every module context in this solution is
+  registered with its own connection, so a membership write through one context and a contributor's profile write
+  through another are two transactions — and a crash between them leaves a member removed but still linked. There is
+  no shared-connection or ambient-unit-of-work plumbing to borrow, and adding it would touch ten module registrations
+  and deserve its own ADR. Instead <code>GroupService</code> writes through an <code>IGroupDataContext</code> the
+  <em>composing module</em> supplies: PersonalFinance registers its own <code>PersonalFinanceDbContext</code>, which
+  <a href="#persistence">§10.3</a> already keeps the four group <code>DbSet</code>s on through P2–P6. Service and
+  contributor then share one change tracker, and one <code>SaveChangesAsync</code> covers both. Contributors therefore
+  react <em>before</em> the save, not after it. P7 is where this is revisited — when PersonalFinance's
+  <code>DbSet</code>s go, so does its claim on that interface.
+</div>
 
 <p>
   PersonalFinance registers one contributor carrying every side effect listed above. The
@@ -631,6 +651,28 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 
 <h2 id="compat">11. Wire compatibility</h2>
 
+<div class="callout p0">
+  <span class="callout-label">Two translations the facade must do (P4)</span>
+  <strong>User to party.</strong> <code>IGroupService</code> keys on party; every PersonalFinance route keys on user.
+  The facade resolves one to the other on every call.
+  <br><br>
+  <strong>Exceptions to the ones the endpoints map.</strong> These endpoints have always turned
+  <code>InvalidOperationException</code> into <strong>409</strong> and <code>UnauthorizedAccessException</code> into
+  <strong>403</strong>. <code>GroupService</code> throws <code>InvalidStateException</code>,
+  <code>NotFoundException</code> and <code>PermissionDeniedException</code>, none of which derive from those — letting
+  them through would turn documented 409s into 500s, which is precisely the break this facade exists to prevent.
+  Messages are carried verbatim, because the endpoints return them.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">P4 is a dual-READ window, not the cutover</span>
+  <code>GroupService</code> authorises a caller against a membership by <strong>party <em>or</em> user</strong>, not
+  party alone. The P3 backfill is what populates <code>PartyId</code> and it is disabled by default, so on any
+  environment where it has not run a membership still has a null party — and party-only authorisation would make those
+  rows unusable by the very person they belong to: their own accept, leave and manage calls would fail. The user half
+  of the key goes when the column does, in the spec that drops it.
+</div>
+
 <div class="callout ok">
   <span class="callout-label">The safety property</span>
   Simi is live. <strong>No route, request body, response body, status code or error shape changes in this spec.</strong>
@@ -741,7 +783,16 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P4</strong> — move Household</td>
-      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to Platform behind <code>IGroupLifecycleContributor</code>. PersonalFinance registers a contributor carrying its profile-link, account-unshare, event and cache-invalidation side effects; its <code>HouseholdService</code> becomes a delegating facade.</td>
+      <td><code>GroupService</code> + <code>GroupMembershipRules</code> to <code>Aonik.Groups</code> behind
+      <code>IGroupLifecycleContributor</code>. PersonalFinance registers a contributor carrying its profile-link,
+      account-unshare and event side effects; its <code>HouseholdService</code> becomes a delegating facade.
+      <br><br>
+      <em>Two scope calls made while building it.</em>
+      <strong>Cache invalidation stays in the facade</strong>, not the contributor: it must run <em>after</em> the
+      commit, because invalidating inside the transaction lets a concurrent read repopulate from pre-commit state.
+      <strong><code>InviteAsync</code> stays in the facade too</strong> and throws from <code>GroupService</code> —
+      inviting needs a user-directory lookup and sends a notification, neither of which the platform should own; it
+      moves with the P6 events/config pass.</td>
       <td><code>HouseholdServiceTests</code> pass against the moved service; endpoint tests pass unmodified.</td>
     </tr>
     <tr>

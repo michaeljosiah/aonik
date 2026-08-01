@@ -15,6 +15,26 @@ using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.PersonalFinance.Services;
 
+/// <summary>
+/// PersonalFinance's household API, now a facade over <see cref="IGroupService"/> (Spec 086 P4).
+/// </summary>
+/// <remarks>
+/// <para>
+/// The lifecycle moved to <c>Aonik.Groups</c>; what stays here is everything the platform has no
+/// business knowing — household vocabulary, the response shapes the mobile app and CLI already
+/// consume, the user-facing notifications, and display names resolved through
+/// <c>PersonalProfile → Party</c>. Every route, DTO and status code is unchanged, which is the whole
+/// point of the facade surviving rather than the endpoints being re-pointed
+/// (<a href="../../../../docs/specifications/086.extract-groups-and-sharing-to-platform.html">§11</a>).
+/// </para>
+/// <para>
+/// Two translations happen here and are load-bearing. The facade keys on <b>user</b> and the group
+/// service keys on <b>party</b>, so every call resolves one to the other; and the group service
+/// throws SharedKernel exceptions while these endpoints have always mapped
+/// <c>InvalidOperationException</c> to 409 and <c>UnauthorizedAccessException</c> to 403. Translating
+/// here rather than changing the endpoints is what keeps the status codes identical.
+/// </para>
+/// </remarks>
 internal sealed class HouseholdService : IHouseholdService
 {
     private const string NotificationSource = "Finance.Household";
@@ -29,6 +49,7 @@ internal sealed class HouseholdService : IHouseholdService
     private readonly IClock _clock;
     private readonly IUserNotificationWriter _notificationWriter;
     private readonly MemberPartyResolver _partyResolver;
+    private readonly IGroupService _groupService;
 
     public HouseholdService(
         PersonalFinanceDbContext dbContext,
@@ -39,7 +60,8 @@ internal sealed class HouseholdService : IHouseholdService
         IUserDirectoryReader userDirectoryReader,
         IClock clock,
         IUserNotificationWriter notificationWriter,
-        MemberPartyResolver partyResolver)
+        MemberPartyResolver partyResolver,
+        IGroupService groupService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -50,6 +72,7 @@ internal sealed class HouseholdService : IHouseholdService
         _clock = clock;
         _notificationWriter = notificationWriter;
         _partyResolver = partyResolver;
+        _groupService = groupService;
     }
 
     public async Task<HouseholdResponse> CreateHouseholdAsync(
@@ -63,60 +86,22 @@ internal sealed class HouseholdService : IHouseholdService
 
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
 
-        var memberships = await _dbContext.HouseholdMembers
+        // The profile checks, the profile link and HouseholdCreatedEvent all live in
+        // PersonalFinanceGroupLifecycleContributor now, and run inside the group service's save.
+        var group = await TranslateAsync(() =>
+            _groupService.CreateAsync(new CreateGroupCommand(GroupKinds.Household, request.Name), cancellationToken));
+
+        var member = await _dbContext.HouseholdMembers
             .AsNoTracking()
-            .Where(member => member.TenantId == tenantId && member.UserId == userId)
-            .ToListAsync(cancellationToken);
+            .FirstAsync(item => item.TenantId == tenantId && item.HouseholdId == group.Id && item.UserId == userId, cancellationToken);
 
-        foreach (var membership in memberships)
-        {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
-            if (HouseholdMembershipRules.IsAccepted(membership))
-            {
-                throw new InvalidOperationException("User already belongs to a household.");
-            }
-        }
-
-        if (profile.HouseholdId.HasValue)
-        {
-            throw new InvalidOperationException("User already belongs to a household.");
-        }
-
-        var household = new Household
-        {
-            TenantId = tenantId,
-            // Spec 086 P3 dual-write. Everything PersonalFinance creates is a household; a family
-            // is what the other product creates through the platform contract.
-            Kind = GroupKinds.Household,
-            Name = request.Name.Trim()
-        };
-
-        var member = new HouseholdMember
-        {
-            TenantId = tenantId,
-            HouseholdId = household.Id,
-            UserId = userId,
-            // The profile was already required above and carries the party, so the owner needs no
-            // resolver round-trip.
-            PartyId = profile.PartyId == Guid.Empty ? null : profile.PartyId,
-            Role = HouseholdRoles.Owner,
-            PermissionsJson = HouseholdMembershipRules.SerializePermissions(HouseholdMembershipRules.EmptyPermissions),
-            InvitationStatus = HouseholdInvitationStatuses.Accepted,
-            InvitedAt = _clock.UtcNow
-        };
-
-        _dbContext.Households.Add(household);
-        _dbContext.HouseholdMembers.Add(member);
-
-        profile.HouseholdId = household.Id;
-
-        _dbContext.EnqueueIntegrationEvent(new HouseholdCreatedEvent(tenantId, household.Id, userId));
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
+        // Cache invalidation stays on this side of the seam, and after the commit rather than inside
+        // it: invalidating while the transaction is still open lets a concurrent read repopulate the
+        // cache from pre-commit state, which is worse than not invalidating at all.
         await _cacheInvalidator.InvalidateUserGraphAsync(userId, cancellationToken);
+
+        var household = await GetRequiredHouseholdAsync(group.Id, tenantId, cancellationToken);
 
         return new HouseholdResponse(
             household.Id,
@@ -246,105 +231,14 @@ internal sealed class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var now = _clock.UtcNow;
 
-        var strategy = _dbContext.Database.CreateExecutionStrategy();
-        var acceptedInvitation = await strategy.ExecuteAsync(async ct =>
-        {
-            var useTransaction = _dbContext.Database.IsRelational();
-            var committed = false;
-            await using var transaction = useTransaction
-                ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
-                : null;
+        var membershipId = await RequireMembershipIdAsync(tenantId, householdId, userId, "Pending household invitation not found.", cancellationToken);
 
-            try
-            {
-                var invitation = await _dbContext.HouseholdMembers
-                    .FirstOrDefaultAsync(
-                        member => member.TenantId == tenantId
-                            && member.HouseholdId == householdId
-                            && member.UserId == userId,
-                        ct)
-                    ?? throw new InvalidOperationException("Pending household invitation not found.");
+        await TranslateAsync(() => _groupService.AcceptInvitationAsync(membershipId, cancellationToken));
 
-                HouseholdMembershipRules.NormalizeLegacyMember(invitation);
-
-                if (!HouseholdMembershipRules.IsPending(invitation))
-                {
-                    throw new InvalidOperationException("Pending household invitation not found.");
-                }
-
-                if (IsExpired(invitation, now))
-                {
-                    throw new InvalidOperationException("Household invitation has expired.");
-                }
-
-                var competingMemberships = await _dbContext.HouseholdMembers
-                    .AsNoTracking()
-                    .Where(member => member.TenantId == tenantId
-                        && member.UserId == userId
-                        && member.Id != invitation.Id)
-                    .ToListAsync(ct);
-
-                foreach (var competingMembership in competingMemberships)
-                {
-                    HouseholdMembershipRules.NormalizeLegacyMember(competingMembership);
-                    if (HouseholdMembershipRules.IsAccepted(competingMembership))
-                    {
-                        throw new InvalidOperationException("User already belongs to a household.");
-                    }
-                }
-
-                invitation.Role = HouseholdMembershipRules.NormalizeRole(invitation.Role);
-                invitation.InvitationStatus = HouseholdInvitationStatuses.Accepted;
-                invitation.InvitedAt ??= invitation.CreatedAt;
-                invitation.RespondedAt = now;
-
-                var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, ct);
-
-                if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
-                {
-                    throw new InvalidOperationException("User already belongs to a household.");
-                }
-
-                profile.HouseholdId = householdId;
-
-                var otherPendingInvitations = await _dbContext.HouseholdMembers
-                    .Where(member => member.TenantId == tenantId
-                        && member.UserId == userId
-                        && member.Id != invitation.Id
-                        && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
-                    .ToListAsync(ct);
-
-                foreach (var otherInvitation in otherPendingInvitations)
-                {
-                    HouseholdMembershipRules.NormalizeLegacyMember(otherInvitation);
-                    otherInvitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
-                    otherInvitation.RespondedAt = now;
-                }
-
-                _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId));
-
-                await _dbContext.SaveChangesAsync(ct);
-
-                if (transaction != null)
-                {
-                    await transaction.CommitAsync(ct);
-                    committed = true;
-                }
-
-                return invitation;
-            }
-            catch
-            {
-                if (transaction != null && !committed)
-                {
-                    await transaction.RollbackAsync(ct);
-                }
-
-                throw;
-            }
-        }, cancellationToken);
+        var accepted = await _dbContext.HouseholdMembers
+            .AsNoTracking()
+            .FirstAsync(member => member.Id == membershipId, cancellationToken);
 
         await NotifyActorAsync(
             tenantId,
@@ -362,7 +256,7 @@ internal sealed class HouseholdService : IHouseholdService
             affectedAcceptedMembers.Select(item => item.UserId!.Value).Append(userId).Distinct(),
             cancellationToken);
 
-        return MapMemberResponse(acceptedInvitation);
+        return MapMemberResponse(accepted);
     }
 
     public async Task DeclineInvitationAsync(
@@ -376,26 +270,11 @@ internal sealed class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var invitation = await _dbContext.HouseholdMembers
-            .FirstOrDefaultAsync(
-                member => member.TenantId == tenantId
-                    && member.HouseholdId == householdId
-                    && member.UserId == userId,
-                cancellationToken)
-            ?? throw new InvalidOperationException("Pending household invitation not found.");
+        var membershipId = await RequireMembershipIdAsync(tenantId, householdId, userId, "Pending household invitation not found.", cancellationToken);
 
-        HouseholdMembershipRules.NormalizeLegacyMember(invitation);
-
-        if (!HouseholdMembershipRules.IsPending(invitation))
-        {
-            throw new InvalidOperationException("Pending household invitation not found.");
-        }
-
-        invitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
-        invitation.RespondedAt = _clock.UtcNow;
+        await TranslateAsync(() => _groupService.DeclineInvitationAsync(membershipId, cancellationToken));
 
         _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationDeclinedEvent(tenantId, householdId, userId));
-
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -416,29 +295,18 @@ internal sealed class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var actorUserId = GetCurrentUserId();
-        var actorMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, actorUserId, cancellationToken);
-
-        if (!HouseholdMembershipRules.CanManageMembers(actorMembership))
-        {
-            throw new UnauthorizedAccessException("Only household owners or managers can remove members.");
-        }
 
         if (actorUserId == userId)
         {
+            // Kept here rather than in the group service: leaving and being removed are the same
+            // transition to a group, and only this module has a separate route for each.
             throw new InvalidOperationException("Use leave household to remove yourself.");
         }
 
-        var targetMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, userId, cancellationToken);
-        var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+        var membershipId = await RequireMembershipIdAsync(tenantId, householdId, userId, "Household membership not found.", cancellationToken);
 
-        if (HouseholdMembershipRules.IsOwner(targetMembership) && acceptedMembers.Count(HouseholdMembershipRules.IsOwner) == 1)
-        {
-            throw new InvalidOperationException("Cannot remove the sole accepted household owner.");
-        }
-
-        _dbContext.EnqueueIntegrationEvent(new HouseholdMemberRemovedEvent(tenantId, householdId, userId, actorUserId));
-
-        await RemoveMembershipAsync(targetMembership, actorUserId, tenantId, householdId, isSelfRemoval: false, cancellationToken);
+        await TranslateAsync(() => _groupService.RemoveMemberAsync(membershipId, cancellationToken));
+        await InvalidateAfterRemovalAsync(tenantId, householdId, userId, actorUserId, cancellationToken);
 
         await NotifyActorAsync(
             tenantId,
@@ -449,6 +317,17 @@ internal sealed class HouseholdService : IHouseholdService
             "Warning",
             "/household",
             JsonSerializer.Serialize(new { householdId, removedByUserId = actorUserId }),
+            cancellationToken);
+
+        await NotifyActorAsync(
+            tenantId,
+            actorUserId,
+            "household.member-removed",
+            "Household member removed",
+            "The household member was removed successfully.",
+            "Info",
+            "/household",
+            JsonSerializer.Serialize(new { householdId, userId }),
             cancellationToken);
     }
 
@@ -463,17 +342,10 @@ internal sealed class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var membership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, userId, cancellationToken);
-        var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+        var membershipId = await RequireMembershipIdAsync(tenantId, householdId, userId, "Household membership not found.", cancellationToken);
 
-        if (HouseholdMembershipRules.IsOwner(membership) && acceptedMembers.Count(HouseholdMembershipRules.IsOwner) == 1)
-        {
-            throw new InvalidOperationException("Transfer household ownership before leaving as the sole owner.");
-        }
-
-        _dbContext.EnqueueIntegrationEvent(new HouseholdMemberLeftEvent(tenantId, householdId, userId));
-
-        await RemoveMembershipAsync(membership, userId, tenantId, householdId, isSelfRemoval: true, cancellationToken);
+        await TranslateAsync(() => _groupService.RemoveMemberAsync(membershipId, cancellationToken));
+        await InvalidateAfterRemovalAsync(tenantId, householdId, userId, userId, cancellationToken);
 
         await NotifyActorAsync(
             tenantId,
@@ -503,22 +375,9 @@ internal sealed class HouseholdService : IHouseholdService
         }
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var currentUserId = GetCurrentUserId();
-        var currentOwnerMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, currentUserId, cancellationToken);
+        var membershipId = await RequireMembershipIdAsync(tenantId, householdId, newOwnerUserId, "Household membership not found.", cancellationToken);
 
-        if (!HouseholdMembershipRules.IsOwner(currentOwnerMembership))
-        {
-            throw new UnauthorizedAccessException("Only a household owner can transfer ownership.");
-        }
-
-        var targetMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, newOwnerUserId, cancellationToken);
-        currentOwnerMembership.Role = HouseholdRoles.Manager;
-        targetMembership.Role = HouseholdRoles.Owner;
-
-        _dbContext.EnqueueIntegrationEvent(
-            new HouseholdOwnershipTransferredEvent(tenantId, householdId, currentUserId, newOwnerUserId));
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await TranslateAsync(() => _groupService.TransferOwnershipAsync(householdId, membershipId, cancellationToken));
 
         var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphsAsync(acceptedMembers.Select(item => item.UserId!.Value), cancellationToken);
@@ -650,60 +509,84 @@ internal sealed class HouseholdService : IHouseholdService
             cancellationToken);
     }
 
-    private async Task RemoveMembershipAsync(
-        HouseholdMember membership,
-        Guid actorUserId,
+    /// <summary>
+    /// Invalidates every life graph a departure touches, once the group service has committed.
+    /// </summary>
+    /// <remarks>
+    /// The profile unlink and account unshare that used to sit here moved into
+    /// <see cref="PersonalFinanceGroupLifecycleContributor"/>, where they run inside the membership
+    /// transaction. What is left is cache invalidation, which deliberately does <b>not</b> belong in
+    /// there: invalidating before commit lets a concurrent read repopulate from pre-commit state.
+    /// </remarks>
+    private async Task InvalidateAfterRemovalAsync(
         Guid tenantId,
         Guid householdId,
-        bool isSelfRemoval,
+        Guid memberUserId,
+        Guid actorUserId,
         CancellationToken cancellationToken)
     {
-        membership.InvitationStatus = HouseholdInvitationStatuses.Removed;
-        membership.RespondedAt = _clock.UtcNow;
+        var remaining = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
 
-        var profile = await _dbContext.PersonalProfiles
-            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == membership.UserId, cancellationToken);
-
-        if (profile != null && profile.HouseholdId == householdId)
-        {
-            profile.HouseholdId = null;
-        }
-
-        var ownedHouseholdAccounts = await _dbContext.PersonalAccounts
-            .Where(account => account.TenantId == tenantId && account.UserId == membership.UserId && account.HouseholdId == householdId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var account in ownedHouseholdAccounts)
-        {
-            account.HouseholdId = null;
-            _dbContext.EnqueueIntegrationEvent(new HouseholdAccountUnsharedEvent(tenantId, householdId, account.Id));
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var affectedUsers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
-        var affectedUserIds = affectedUsers.Select(item => item.UserId!.Value)
-            .Append(membership.UserId!.Value)
+        var affectedUserIds = remaining.Select(item => item.UserId!.Value)
+            .Append(memberUserId)
             .Append(actorUserId)
             .Distinct()
             .ToList();
 
         await _cacheInvalidator.InvalidateUserGraphsAsync(affectedUserIds, cancellationToken);
+    }
 
-        if (!isSelfRemoval)
+    /// <summary>
+    /// Finds the membership id the group service works in, from the user this module works in.
+    /// </summary>
+    private async Task<Guid> RequireMembershipIdAsync(
+        Guid tenantId,
+        Guid householdId,
+        Guid userId,
+        string notFoundMessage,
+        CancellationToken cancellationToken)
+    {
+        var membershipId = await _dbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId && member.UserId == userId)
+            .Select(member => (Guid?)member.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return membershipId ?? throw new InvalidOperationException(notFoundMessage);
+    }
+
+    /// <summary>
+    /// Runs a group-service call, restating its exceptions in the ones these endpoints map.
+    /// </summary>
+    /// <remarks>
+    /// The endpoints have always turned <c>InvalidOperationException</c> into 409 and
+    /// <c>UnauthorizedAccessException</c> into 403. <c>GroupService</c> throws SharedKernel
+    /// exceptions instead, and letting those through would turn documented 409s into 500s — a
+    /// silent break of exactly the wire compatibility this facade exists to preserve. Messages are
+    /// carried verbatim, because the endpoints return them.
+    /// </remarks>
+    private static async Task<T> TranslateAsync<T>(Func<Task<T>> call)
+    {
+        try
         {
-            await NotifyActorAsync(
-                tenantId,
-                actorUserId,
-                "household.member-removed",
-                "Household member removed",
-                "The household member was removed successfully.",
-                "Info",
-                "/household",
-                JsonSerializer.Serialize(new { householdId, userId = membership.UserId }),
-                cancellationToken);
+            return await call();
+        }
+        catch (PermissionDeniedException ex)
+        {
+            throw new UnauthorizedAccessException(ex.Message, ex);
+        }
+        catch (Exception ex) when (ex is InvalidStateException or NotFoundException)
+        {
+            throw new InvalidOperationException(ex.Message, ex);
         }
     }
+
+    private static async Task TranslateAsync(Func<Task> call)
+        => await TranslateAsync<bool>(async () =>
+        {
+            await call();
+            return true;
+        });
 
     private async Task<HouseholdDetailResponse> BuildHouseholdDetailAsync(
         Guid tenantId,

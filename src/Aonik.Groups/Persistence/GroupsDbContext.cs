@@ -17,7 +17,7 @@ namespace Aonik.Groups.Persistence;
 /// snapshot's fully-qualified names valid, so the move itself needs no migration and no consumer
 /// changes a single <c>using</c>. Renaming to Group / ShareGrant is a later, purely cosmetic pass.
 /// </summary>
-internal sealed class GroupsDbContext : AonikDbContextBase
+internal sealed class GroupsDbContext : AonikDbContextBase, IGroupDataContext
 {
     public DbSet<Household> Groups => Set<Household>();
     public DbSet<HouseholdMember> GroupMembers => Set<HouseholdMember>();
