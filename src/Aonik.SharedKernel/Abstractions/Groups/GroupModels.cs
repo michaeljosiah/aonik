@@ -42,10 +42,18 @@ public sealed record GroupMemberDto(
 /// Domain-specific terms the owning module wrote and is the only thing that reads. PersonalFinance
 /// keeps its amount-redaction flag here rather than on a platform entity.
 /// </param>
+/// <param name="OwnerUserId">
+/// The owner's user, through the Spec 086 transition. Present for the same reason
+/// <see cref="GroupMemberDto.UserId"/> is: the deployed wire contract is user-keyed, the columns are
+/// dual-written, and a DTO that dropped them would force every consumer to resolve party to user
+/// per grant. Goes when the columns do.
+/// </param>
 public sealed record ShareGrantDto(
     Guid Id,
     Guid OwnerPartyId,
     Guid? MemberPartyId,
+    Guid OwnerUserId,
+    Guid? MemberUserId,
     Guid? GroupId,
     string Scope,
     string ResourceKind,
@@ -81,6 +89,8 @@ public sealed record ShareInviteDto(
 /// </param>
 public sealed record ShareInvitePreviewDto(
     string OwnerDisplayName,
+    string Scope,
+    string? TermsJson,
     int ResourceCount,
     IReadOnlyList<ShareResourceRef> Resources,
     DateTime ExpiresAt);
@@ -116,11 +126,18 @@ public sealed record CreateGroupCommand(string Kind, string Name);
 public sealed record InviteGroupMemberCommand(Guid GroupId, string Role, string? Email = null, string? Phone = null);
 
 /// <summary>Create a grant directly, when the member is already known.</summary>
+/// <param name="MemberUserId">
+/// The member's user, through the Spec 086 transition. Carried rather than reverse-resolved from
+/// <paramref name="MemberPartyId"/>: a member who has a profile but no <c>AnkUserParties</c> row
+/// cannot be resolved back, and the grant would then be written with a null member — a dangling
+/// pending grant instead of the active one the caller asked for. Goes with the columns.
+/// </param>
 public sealed record CreateShareGrantCommand(
     string Scope,
     string ResourceKind,
     IReadOnlyList<Guid> ResourceIds,
     Guid? MemberPartyId = null,
+    Guid? MemberUserId = null,
     Guid? GroupId = null,
     string? TermsJson = null);
 

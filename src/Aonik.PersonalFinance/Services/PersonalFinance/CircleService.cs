@@ -15,6 +15,16 @@ using Microsoft.Extensions.Options;
 
 namespace Aonik.PersonalFinance.Services;
 
+/// <summary>
+/// PersonalFinance's circle API, now a projection over <see cref="IShareGrantService"/> (Spec 086 P5).
+/// </summary>
+/// <remarks>
+/// The grant lifecycle, the single-use invite and the tenant scoping around them moved to
+/// <c>Aonik.Groups</c>. What stays is the half that is genuinely about money and care: the
+/// <c>CareEntity</c>, <c>PaymentLog</c> and document projections, the amount redaction a
+/// <c>docsOnly</c> share means, and the response shapes the mobile app and CLI already consume.
+/// Every route, DTO and status code is unchanged.
+/// </remarks>
 internal sealed class CircleService : ICircleService, ICircleVisibility
 {
     private const int InviteExpiryDays = 7; // matches Spec 020 household invites
@@ -33,6 +43,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     private readonly IDocumentLinkReader _documentLinkReader;
     private readonly IPartyReader _partyReader;
     private readonly MemberPartyResolver _partyResolver;
+    private readonly IShareGrantService _shareGrants;
     private readonly CircleInviteOptions _options;
 
     public CircleService(
@@ -43,6 +54,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         IDocumentLinkReader documentLinkReader,
         IPartyReader partyReader,
         MemberPartyResolver partyResolver,
+        IShareGrantService shareGrants,
         IOptions<CircleInviteOptions> options)
     {
         _dbContext = dbContext;
@@ -52,6 +64,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         _documentLinkReader = documentLinkReader;
         _partyReader = partyReader;
         _partyResolver = partyResolver;
+        _shareGrants = shareGrants;
         _options = options.Value;
     }
 
@@ -59,330 +72,144 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     public async Task<CircleGrantResponse> CreateGrantAsync(CreateCircleGrantRequest request, CancellationToken cancellationToken = default)
     {
-        var (tenantId, ownerUserId) = GetContext();
+        var (tenantId, _) = GetContext();
         var scope = NormalizeScope(request.Scope);
         var noAmounts = scope == "docsOnly" || request.NoAmounts;
 
-        var grant = new CircleGrant
-        {
-            TenantId = tenantId,
-            OwnerUserId = ownerUserId,
-            MemberUserId = request.MemberUserId == Guid.Empty ? null : request.MemberUserId,
-            // Spec 086 P3 dual-write: party columns ALONGSIDE the user ones, never instead of them.
-            // Readers still use the user columns until P5, so a null here costs nothing today.
-            OwnerPartyId = await _partyResolver.ResolveAsync(tenantId, ownerUserId, cancellationToken),
-            MemberPartyId = request.MemberUserId == Guid.Empty
-                ? null
-                : await _partyResolver.ResolveAsync(tenantId, request.MemberUserId, cancellationToken),
-            ResourceKind = ShareResourceKinds.CareEntity,
-            TermsJson = CircleGrantTerms.Serialize(noAmounts),
-            Scope = scope,
-            EntityIdsJson = SerializeIds(request.EntityIds),
-            NoAmounts = noAmounts,
-            Status = request.MemberUserId == Guid.Empty ? "pending" : "active",
-        };
+        var memberPartyId = request.MemberUserId == Guid.Empty
+            ? null
+            : await _partyResolver.ResolveAsync(tenantId, request.MemberUserId, cancellationToken);
 
-        _dbContext.CircleGrants.Add(grant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return MapGrant(grant);
+        var grant = await _shareGrants.CreateGrantAsync(
+            new CreateShareGrantCommand(
+                scope,
+                ShareResourceKinds.CareEntity,
+                request.EntityIds ?? [],
+                memberPartyId,
+                request.MemberUserId == Guid.Empty ? null : request.MemberUserId,
+                TermsJson: CircleGrantTerms.Serialize(noAmounts)),
+            cancellationToken);
+
+        await MirrorLegacyNoAmountsAsync(grant.Id, inviteId: null, noAmounts, cancellationToken);
+
+        return MapGrant(grant, noAmounts);
     }
 
     public async Task<IReadOnlyList<CircleGrantResponse>> ListGrantsForOwnerAsync(CancellationToken cancellationToken = default)
     {
-        var (tenantId, userId) = GetContext();
-        var grants = await _dbContext.CircleGrants.AsNoTracking()
-            .Where(g => g.TenantId == tenantId && g.OwnerUserId == userId && g.Status != "revoked")
-            .OrderByDescending(g => g.CreatedAt)
-            .ToListAsync(cancellationToken);
-        return grants.Select(MapGrant).ToList();
+        var grants = await _shareGrants.ListMineAsync(cancellationToken);
+        return grants.Where(IsCareEntityGrant).Select(MapGrant).ToList();
     }
 
     public async Task<IReadOnlyList<CircleGrantResponse>> ListGrantsForMemberAsync(CancellationToken cancellationToken = default)
     {
-        var (tenantId, userId) = GetContext();
-        var grants = await _dbContext.CircleGrants.AsNoTracking()
-            .Where(g => g.TenantId == tenantId && g.MemberUserId == userId && g.Status == "active")
-            .OrderByDescending(g => g.CreatedAt)
-            .ToListAsync(cancellationToken);
-        return grants.Select(MapGrant).ToList();
+        var grants = await _shareGrants.ListSharedWithMeAsync(cancellationToken);
+        return grants.Where(IsCareEntityGrant).Select(MapGrant).ToList();
     }
 
-    public async Task<bool> RevokeGrantAsync(Guid grantId, CancellationToken cancellationToken = default)
-    {
-        var (tenantId, userId) = GetContext();
-        var grant = await _dbContext.CircleGrants
-            .FirstOrDefaultAsync(g => g.Id == grantId && g.TenantId == tenantId && g.OwnerUserId == userId, cancellationToken);
-        if (grant is null)
-        {
-            return false;
-        }
+    public Task<bool> RevokeGrantAsync(Guid grantId, CancellationToken cancellationToken = default)
+        => _shareGrants.RevokeAsync(grantId, cancellationToken);
 
-        grant.Status = "revoked";
-
-        // Revoking the grant also kills the token that minted it: flip the originating invite to
-        // "revoked" so a replay of the (consumed) token is unambiguously dead and the audit trail is
-        // coherent — one invite maps to one grant. Committed in the same save as the grant.
-        var originatingInvite = await _dbContext.CircleInvites
-            .FirstOrDefaultAsync(i => i.GrantId == grantId && i.TenantId == tenantId, cancellationToken);
-        if (originatingInvite is not null && originatingInvite.Status != "revoked")
-        {
-            originatingInvite.Status = "revoked";
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default)
-    {
-        var (tenantId, ownerUserId) = GetContext();
-        var invite = await _dbContext.CircleInvites
-            .FirstOrDefaultAsync(i => i.Id == inviteId && i.TenantId == tenantId && i.OwnerUserId == ownerUserId, cancellationToken);
-
-        // Not found / not owned / wrong tenant → false → 404 (existence not revealed to a non-owner).
-        if (invite is null)
-        {
-            return false;
-        }
-
-        // Idempotent: revoking an already-revoked invite is a no-op success (a DELETE can be retried).
-        if (invite.Status == "revoked")
-        {
-            return true;
-        }
-
-        // Only a live, pending offer can be rescinded. An accepted invite is a spent token whose access
-        // lives in the grant — the owner cuts that by revoking the GRANT (which now cascades here). An
-        // expired invite is already dead. Either way this is a state conflict (422), not a bad id (404).
-        if (invite.Status != "pending")
-        {
-            throw new InvalidStateException(
-                $"An invite that is already '{invite.Status}' cannot be revoked; revoke the grant instead.");
-        }
-
-        invite.Status = "revoked";
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
-    }
+    public Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default)
+        => _shareGrants.RevokeInviteAsync(inviteId, cancellationToken);
 
     // ── Invites ─────────────────────────────────────────────────────────
 
     public async Task<CircleInviteResponse> CreateInviteAsync(CreateCircleInviteRequest request, CancellationToken cancellationToken = default)
     {
-        var (tenantId, ownerUserId) = GetContext();
         var scope = NormalizeScope(request.Scope);
-
         var noAmounts = scope == "docsOnly" || request.NoAmounts;
 
-        var invite = new CircleInvite
-        {
-            TenantId = tenantId,
-            OwnerUserId = ownerUserId,
-            OwnerPartyId = await _partyResolver.ResolveAsync(tenantId, ownerUserId, cancellationToken),
-            ResourceKind = ShareResourceKinds.CareEntity,
-            TermsJson = CircleGrantTerms.Serialize(noAmounts),
-            Token = GenerateToken(),
-            Scope = scope,
-            EntityIdsJson = SerializeIds(request.EntityIds),
-            NoAmounts = noAmounts,
-            Channel = Clean(request.Channel),
-            ExpiresAt = DateTime.UtcNow.AddDays(InviteExpiryDays),
-            Status = "pending",
-        };
+        var invite = await _shareGrants.CreateInviteAsync(
+            new CreateShareInviteCommand(
+                scope,
+                ShareResourceKinds.CareEntity,
+                request.EntityIds ?? [],
+                TermsJson: CircleGrantTerms.Serialize(noAmounts),
+                Channel: Clean(request.Channel),
+                ValidFor: TimeSpan.FromDays(InviteExpiryDays)),
+            cancellationToken);
 
-        _dbContext.CircleInvites.Add(invite);
+        await MirrorLegacyNoAmountsAsync(grantId: null, invite.Id, noAmounts, cancellationToken);
+
+        return MapInvite(invite, noAmounts);
+    }
+
+    /// <summary>
+    /// Writes the redaction flag to the retained <c>NoAmounts</c> column as well as to terms.
+    /// </summary>
+    /// <remarks>
+    /// The platform cannot do this: <c>NoAmounts</c> is finance vocabulary, and a platform that
+    /// branched on a term would be exactly the coupling ADR-015 removes. But §10.2 keeps the column
+    /// through the transition so a rollback needs no data recovery — and leaving it unwritten would
+    /// mean a rollback to a pre-P5 build read <c>false</c> on every new grant and served amounts to
+    /// docs-only members. So the owning module mirrors it, in a second save. If that save fails the
+    /// current build is still correct, because it reads terms; only the rollback path degrades, and
+    /// only to where it already was. The mirror goes when the column does.
+    /// </remarks>
+    private async Task MirrorLegacyNoAmountsAsync(Guid? grantId, Guid? inviteId, bool noAmounts, CancellationToken cancellationToken)
+    {
+        if (!noAmounts)
+        {
+            return;
+        }
+
+        if (grantId is { } id)
+        {
+            var grant = await _dbContext.CircleGrants.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            if (grant is not null)
+            {
+                grant.NoAmounts = true;
+            }
+        }
+
+        if (inviteId is { } invite)
+        {
+            var row = await _dbContext.CircleInvites.FirstOrDefaultAsync(item => item.Id == invite, cancellationToken);
+            if (row is not null)
+            {
+                row.NoAmounts = true;
+            }
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return MapInvite(invite);
     }
 
     public async Task<InvitePreviewResponse?> PreviewInviteAsync(string token, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        var preview = await _shareGrants.PreviewInviteAsync(token, cancellationToken);
+
+        if (preview is null)
         {
             return null;
         }
 
-        // The token is the capability: a 256-bit, globally-unique secret. Resolve it WITHOUT an ambient
-        // tenant (the caller is anonymous) via AcrossTenants — the token equality predicate keeps the
-        // read pinned to the single invite. This is how the tenant is "resolved from the token" (§9).
-        var invite = await _dbContext.CircleInvites.AsNoTracking().AcrossTenants()
-            .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
-
-        // Fail closed: one null → one 404 for invalid / expired / consumed / revoked alike. Never an oracle.
-        if (invite is null || invite.Status != "pending" || invite.ExpiresAt < DateTime.UtcNow)
-        {
-            return null;
-        }
-
-        // Establish the request's tenant from the token so the cross-module owner-name read (IPartyReader,
-        // which scopes by the ambient tenant) resolves. The preview genuinely operates in this tenant once
-        // the token is validated; nothing else in an anonymous preview request depends on tenant context.
-        _tenantContext.TenantId = invite.TenantId;
-        _tenantContext.ResolutionSource = "CircleInviteToken";
-
-        var ownerName = await ResolveOwnerDisplayNameAsync(invite.TenantId, invite.OwnerUserId, cancellationToken);
-
-        // Entity names are the one deliberate disclosure, and only for a scoped share: scope=all shares
-        // everything, so there is no specific list to name (§5) — the label carries that meaning.
-        var entityNames = invite.Scope == "all"
-            ? Array.Empty<string>()
-            : await ResolveEntityNamesAsync(invite.TenantId, invite.OwnerUserId, ParseIds(invite.EntityIdsJson), cancellationToken);
-
+        // The disclosure dial is a PersonalFinance decision, not a platform one, so the platform
+        // preview always resolves names and this decides whether to show them. Putting the dial in
+        // the platform would make one product's privacy policy everyone's.
         var disclose = _options.PreviewDisclosure == InvitePreviewDisclosure.Names;
+        var names = preview.Resources.Select(resource => resource.DisplayName).ToList();
+
         return new InvitePreviewResponse(
-            OwnerDisplayName: ownerName,
-            Scope: invite.Scope,
-            ScopeLabel: ScopeLabel(invite.Scope),
-            EntityNames: disclose ? entityNames : Array.Empty<string>(),
-            EntityCount: entityNames.Count,
-            NoAmounts: invite.NoAmounts,
-            ExpiresAt: invite.ExpiresAt);
+            OwnerDisplayName: preview.OwnerDisplayName,
+            Scope: preview.Scope,
+            ScopeLabel: ScopeLabel(preview.Scope),
+            EntityNames: disclose ? names : Array.Empty<string>(),
+            EntityCount: preview.ResourceCount,
+            NoAmounts: ReadNoAmounts(preview.TermsJson, preview.Scope),
+            ExpiresAt: preview.ExpiresAt);
     }
 
     public async Task<AcceptInviteResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default)
     {
-        var (tenantId, memberUserId) = GetContext();
+        var result = await _shareGrants.AcceptInviteAsync(token, cancellationToken);
 
-        var invite = await _dbContext.CircleInvites
-            .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Token == token, cancellationToken);
-        if (invite is null)
+        return result.Status switch
         {
-            return AcceptInviteResult.Invalid;
-        }
-
-        // Self-accept guard (409, not 404): you cannot be a member of your own circle. Checked before
-        // status so an owner who taps their own link always gets the same clear conflict.
-        if (invite.OwnerUserId == memberUserId)
-        {
-            return AcceptInviteResult.SelfAccept;
-        }
-
-        // Idempotent resume: the parked-token flow (Simi Spec 049) can replay accept more than once
-        // (cold start + warm link, a store round-trip). If THIS user already consumed the token, return
-        // the grant they already hold — a 200, never a 404 — and mint nothing new. A DIFFERENT user
-        // reaching an already-accepted token gets Invalid (single-use, fail-closed).
-        if (invite.Status == "accepted")
-        {
-            return await ResolveIdempotentAsync(tenantId, memberUserId, invite.GrantId, cancellationToken);
-        }
-
-        // Any other non-pending state (expired / revoked) → fail closed.
-        if (invite.Status != "pending")
-        {
-            return AcceptInviteResult.Invalid;
-        }
-
-        if (invite.ExpiresAt < DateTime.UtcNow)
-        {
-            invite.Status = "expired";
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return AcceptInviteResult.Invalid;
-        }
-
-        var grant = new CircleGrant
-        {
-            TenantId = tenantId,
-            OwnerUserId = invite.OwnerUserId,
-            MemberUserId = memberUserId,
-            // The owner's party is carried from the invite rather than re-resolved: the invite is
-            // the record of what was offered, and re-resolving could pick up a different link
-            // minted between minting and acceptance.
-            OwnerPartyId = invite.OwnerPartyId,
-            MemberPartyId = await _partyResolver.ResolveAsync(tenantId, memberUserId, cancellationToken),
-            ResourceKind = string.IsNullOrWhiteSpace(invite.ResourceKind)
-                ? ShareResourceKinds.CareEntity
-                : invite.ResourceKind,
-            TermsJson = invite.TermsJson ?? CircleGrantTerms.Serialize(invite.NoAmounts),
-            Scope = invite.Scope,
-            EntityIdsJson = invite.EntityIdsJson,
-            NoAmounts = invite.NoAmounts,
-            Status = "active",
+            ShareInviteAcceptStatus.Accepted => AcceptInviteResult.FromGrant(MapGrant(result.Grant!)),
+            ShareInviteAcceptStatus.SelfAccept => AcceptInviteResult.SelfAccept,
+            _ => AcceptInviteResult.Invalid
         };
-        _dbContext.CircleGrants.Add(grant);
-
-        // Consume the invite and create the grant in ONE save so they commit together: a crash between
-        // two separate saves would otherwise leave the grant created but the token still "pending"
-        // (reusable). The RowVersion concurrency token on the invite makes two overlapping accepts
-        // conflict — the loser's save throws, and we resolve it idempotently against the committed winner
-        // rather than 500-ing or minting a second grant.
-        invite.Status = "accepted";
-        invite.ConsumedAt = DateTime.UtcNow;
-        invite.GrantId = grant.Id;
-
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return AcceptInviteResult.FromGrant(MapGrant(grant));
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            // A concurrent accept of the same token won the RowVersion race and already consumed it.
-            // Drop our rolled-back grant/invite edits and resolve against the committed winner.
-            _dbContext.ChangeTracker.Clear();
-            var winner = await _dbContext.CircleInvites.AsNoTracking()
-                .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Token == token, cancellationToken);
-            return await ResolveIdempotentAsync(tenantId, memberUserId, winner?.GrantId, cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// The idempotent / single-use resolution for an already-consumed invite: the grant is returned
-    /// (200) only if it is bound to THIS member AND still active; a grant bound to someone else, or one
-    /// that has since been revoked, means the token confers nothing for this caller → Invalid (404,
-    /// fail-closed). A missing grant id is likewise Invalid. Returning a revoked grant as a 200 would
-    /// falsely read as "you're in", so the active filter keeps the replay answer honest.
-    /// </summary>
-    private async Task<AcceptInviteResult> ResolveIdempotentAsync(
-        Guid tenantId, Guid memberUserId, Guid? grantId, CancellationToken cancellationToken)
-    {
-        if (grantId is not { } id)
-        {
-            return AcceptInviteResult.Invalid;
-        }
-
-        var grant = await _dbContext.CircleGrants.AsNoTracking()
-            .FirstOrDefaultAsync(
-                g => g.Id == id && g.TenantId == tenantId && g.MemberUserId == memberUserId && g.Status == "active",
-                cancellationToken);
-        return grant is null ? AcceptInviteResult.Invalid : AcceptInviteResult.FromGrant(MapGrant(grant));
-    }
-
-    /// <summary>
-    /// The owner's public display name for the anonymous preview (§5). owner UserId → PartyId
-    /// (PersonalProfile) → Party display name (Platform, via <see cref="IPartyReader"/>). The
-    /// PersonalProfile read is AcrossTenants + explicitly tenant-scoped so it does not depend on the
-    /// ambient filter; IPartyReader relies on the tenant PreviewInviteAsync set from the token.
-    /// </summary>
-    private async Task<string> ResolveOwnerDisplayNameAsync(Guid tenantId, Guid ownerUserId, CancellationToken cancellationToken)
-    {
-        var partyId = await _dbContext.PersonalProfiles.AsNoTracking().AcrossTenants()
-            .Where(p => p.TenantId == tenantId && p.UserId == ownerUserId)
-            .Select(p => p.PartyId)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (partyId == Guid.Empty)
-        {
-            return string.Empty;
-        }
-
-        var parties = await _partyReader.GetByIdsAsync(tenantId, new[] { partyId }, cancellationToken);
-        return parties.Count > 0 ? parties[0].DisplayName : string.Empty;
-    }
-
-    /// <summary>The live, non-archived names of the invite's shared entities — names only, never amounts (§5).</summary>
-    private async Task<IReadOnlyList<string>> ResolveEntityNamesAsync(
-        Guid tenantId, Guid ownerUserId, IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
-    {
-        if (ids.Count == 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        return await _dbContext.CareEntities.AsNoTracking().AcrossTenants()
-            .Where(e => e.TenantId == tenantId && e.UserId == ownerUserId && ids.Contains(e.Id) && !e.Archived)
-            .OrderBy(e => e.Name)
-            .Select(e => e.Name)
-            .ToListAsync(cancellationToken);
     }
 
     private static string ScopeLabel(string scope) => scope switch
@@ -398,41 +225,58 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     public async Task<CircleGrantView?> ResolveAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         var grants = await GetActiveGrantsAsync(ownerUserId, cancellationToken);
+
         if (grants.Count == 0)
         {
-            return null; // fail closed: no active grant → no access
+            return null;
         }
 
-        // A member may hold several active grants for one owner (a direct grant plus an
-        // invite-accepted one, or shares of different entities). Merge them so nothing is missed:
-        // most-permissive scope, union of entity ids, amounts shown if any grant shows them. This
-        // merged view drives listing + the general access check; the per-entity amount decision is
-        // made in GetSharedEntityAsync so a docsOnly entity never inherits another grant's amounts.
-        var scope = grants.Any(g => g.Scope == "all") ? "all"
-            : grants.Any(g => g.Scope == "entities") ? "entities"
-            : "docsOnly";
-        var entityIds = grants.SelectMany(g => g.EntityIds).Distinct().ToList();
-        var noAmounts = grants.All(g => g.NoAmounts);
+        // Most permissive wins: "all" beats "entities", and amounts are allowed if ANY covering
+        // grant allows them. Taking the least permissive would silently narrow a share the owner
+        // deliberately widened.
+        var scope = grants.Any(grant => grant.Scope == "all") ? "all" : grants[0].Scope;
+        var entityIds = grants.SelectMany(grant => grant.EntityIds).Distinct().ToList();
+        var noAmounts = grants.All(grant => grant.NoAmounts);
 
         return new CircleGrantView(ownerUserId, scope, entityIds, noAmounts);
     }
 
-    /// <summary>All active, known-scope grants for (current member → owner). Fail-closed: unknown scopes dropped.</summary>
+    /// <summary>
+    /// Every active grant from one owner to the current member.
+    /// </summary>
+    /// <remarks>
+    /// Reads the table directly rather than through <c>IShareGrantReader</c>, and that is deliberate
+    /// for the length of the transition. The reader is party-keyed; this filter has to answer for
+    /// grants written <em>before</em> the P3 backfill, which carry a null party — and a party-only
+    /// read would make them vanish, which for a visibility filter means silently revoking access
+    /// nobody revoked. So it matches owner and member on party <b>or</b> user, over a table
+    /// PersonalFinance still owns <c>DbSet</c>s for (§10.3). It moves behind the reader when the
+    /// user columns are dropped and there is nothing left to fall back to.
+    /// </remarks>
     private async Task<IReadOnlyList<CircleGrantView>> GetActiveGrantsAsync(Guid ownerUserId, CancellationToken cancellationToken)
     {
         var (tenantId, memberUserId) = GetContext();
-        var grants = await _dbContext.CircleGrants.AsNoTracking()
-            .Where(g => g.TenantId == tenantId && g.OwnerUserId == ownerUserId
-                && g.MemberUserId == memberUserId && g.Status == "active")
+        var memberPartyId = await _partyResolver.ResolveAsync(tenantId, memberUserId, cancellationToken);
+        var ownerPartyId = await _partyResolver.ResolveAsync(tenantId, ownerUserId, cancellationToken);
+
+        var grants = await _dbContext.CircleGrants
+            .AsNoTracking()
+            .Where(grant => grant.TenantId == tenantId
+                && grant.Status == "active"
+                && grant.ResourceKind == ShareResourceKinds.CareEntity
+                && (grant.OwnerUserId == ownerUserId || (ownerPartyId != null && grant.OwnerPartyId == ownerPartyId))
+                && (grant.MemberUserId == memberUserId || (memberPartyId != null && grant.MemberPartyId == memberPartyId)))
+            .OrderByDescending(grant => grant.CreatedAt)
             .ToListAsync(cancellationToken);
 
         return grants
-            .Where(g => Scopes.Contains(g.Scope))
-            .Select(g => new CircleGrantView(g.OwnerUserId, g.Scope, ParseIds(g.EntityIdsJson), g.NoAmounts))
+            .Select(grant => new CircleGrantView(
+                ownerUserId,
+                grant.Scope,
+                ParseIds(grant.EntityIdsJson),
+                CircleGrantTerms.ReadNoAmounts(grant.TermsJson, grant.NoAmounts)))
             .ToList();
     }
-
-    // ── Shared reads (member viewing an owner's data) ───────────────────
 
     public async Task<IReadOnlyList<CareEntityRef>?> ListSharedEntitiesAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
@@ -644,11 +488,21 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static CircleGrantResponse MapGrant(CircleGrant g)
-        => new(g.Id, g.OwnerUserId, g.MemberUserId, g.Scope, ParseIds(g.EntityIdsJson), g.NoAmounts, g.Status, g.CreatedAt);
+    /// <summary>Only care-entity grants belong on the circle routes; another module's are not this one's to show.</summary>
+    private static bool IsCareEntityGrant(ShareGrantDto grant)
+        => string.Equals(grant.ResourceKind, ShareResourceKinds.CareEntity, StringComparison.OrdinalIgnoreCase);
 
-    private static CircleInviteResponse MapInvite(CircleInvite i)
-        => new(i.Id, i.Token, i.Scope, ParseIds(i.EntityIdsJson), i.NoAmounts, i.Channel, i.ExpiresAt, i.Status);
+    private static bool ReadNoAmounts(string? termsJson, string scope)
+        => CircleGrantTerms.ReadNoAmounts(termsJson, columnValue: scope == "docsOnly");
+
+    private static CircleGrantResponse MapGrant(ShareGrantDto grant)
+        => MapGrant(grant, ReadNoAmounts(grant.TermsJson, grant.Scope));
+
+    private static CircleGrantResponse MapGrant(ShareGrantDto grant, bool noAmounts)
+        => new(grant.Id, grant.OwnerUserId, grant.MemberUserId, grant.Scope, grant.ResourceIds, noAmounts, grant.Status, grant.CreatedAt);
+
+    private static CircleInviteResponse MapInvite(ShareInviteDto invite, bool noAmounts)
+        => new(invite.Id, invite.Token, invite.Scope, invite.ResourceIds, noAmounts, invite.Channel, invite.ExpiresAt, invite.Status);
 
     private static CareEntityResponse MapEntity(CareEntity e)
         // PhotoUrl is null here: the circle (docs-only) list view omits the resolved banner URL to

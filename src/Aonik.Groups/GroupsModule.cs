@@ -24,6 +24,10 @@ public static class GroupsModule
         services.AddScoped<IGroupService>(sp => sp.GetRequiredService<GroupService>());
         services.AddScoped<IGroupReader>(sp => sp.GetRequiredService<GroupService>());
 
+        services.AddScoped<ShareGrantService>();
+        services.AddScoped<IShareGrantService>(sp => sp.GetRequiredService<ShareGrantService>());
+        services.AddScoped<IShareGrantReader>(sp => sp.GetRequiredService<ShareGrantService>());
+
         return services;
     }
 }

@@ -306,12 +306,28 @@
     /// &lt;summary&gt;Display refs for the given ids, owner-scoped. Unknown or non-owned ids are omitted.&lt;/summary&gt;
     Task&lt;IReadOnlyList&lt;ShareResourceRef&gt;&gt; ResolveAsync(
         string resourceKind,
-        Guid ownerPartyId,
+        ShareResourceOwner owner,
         IReadOnlyCollection&lt;Guid&gt; resourceIds,
         CancellationToken cancellationToken = default);
 }
 
+public readonly record struct ShareResourceOwner(Guid? PartyId, Guid? UserId);
+
 public record ShareResourceRef(Guid Id, string Kind, string DisplayName);</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">Correction from building P5 — the owner is not always a party yet</span>
+  Rev 1 passed the resolver an <code>ownerPartyId</code>. Building it showed that forces a choice between two
+  unacceptable outcomes, because <strong>sharing works today for users with no party link at all</strong> — the
+  endpoint suite creates exactly such users, and 13 of its tests went red on the first attempt. Either the cutover
+  <em>refuses</em> those owners, which takes a working feature away from them; or it <em>skips validation</em> for
+  them, which is the privilege escalation this very section exists to prevent.
+  <br><br>
+  So the resolver is handed <strong>both identifiers</strong>. Ownership is therefore <em>always</em> checked, in
+  whichever terms the owner actually has, and <code>UserId</code> goes when the user columns do. The same shape
+  appears on <code>ShareGrantDto</code> and <code>CreateShareGrantCommand</code>, for the same reason and with the
+  same expiry.
+</div>
 
 <p>
   <code>Aonik.PersonalFinance</code> registers <code>care-entity</code>. The invite preview asks the resolver for names
@@ -413,6 +429,16 @@ public sealed record GroupTransition(
   <strong>skips</strong> party-only members rather than failing on them — a child has no personal-finance profile to
   link, and that is correct rather than an error.
 </p>
+
+<div class="callout p0">
+  <span class="callout-label">Accept returns a result, not an exception (P5)</span>
+  Rev 1 had <code>AcceptInviteAsync</code> throw <code>InvalidStateException</code> for a consumed, revoked or expired
+  invite. That flattens three distinctions the deployed behaviour depends on: a token replayed by the <b>same</b>
+  member returns the grant they already hold (Spec&nbsp;049's parked-token flow replays accept on a cold start), a
+  token replayed by a <b>different</b> member is indistinguishable from an invalid one so it cannot be used as an
+  oracle, and an owner tapping their own link is a <strong>409</strong> rather than a 404. One exception type cannot
+  carry that, and the mobile flow that depends on the first would have broken silently.
+</div>
 
 <h3>7.2 <code>IShareResourceResolver</code></h3>
 <p>As <a href="#resources">§6</a>. Registered per module, keyed by <code>ResourceKinds</code>; duplicate ownership of a kind is a startup failure, not a last-writer-wins.</p>
@@ -797,7 +823,28 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P5</strong> — split Circle</td>
-      <td><code>ShareGrantService</code> + <code>ShareInvitePreviewLimiter</code> to Platform. PersonalFinance registers the <code>care-entity</code> resolver and keeps the projection. <strong>Reader cutover: grants and invites are now resolved by party id.</strong> Dual-write continues; the user columns are dropped by a later spec.</td>
+      <td><code>ShareGrantService</code> to <code>Aonik.Groups</code>. PersonalFinance registers the
+      <code>care-entity</code> resolver and keeps the projection. <strong>Reader cutover: grants and invites resolve
+      by party <em>first</em></strong> — and by user as a fallback, for the same reason P4 does, because the P3
+      backfill is disabled by default and a grant written before it ran has none. Dual-write continues; the user
+      columns are dropped by a later spec.
+      <br><br>
+      <em>Three things found while building it.</em>
+      <strong>Every party comparison needs a null guard.</strong> In a LINQ query
+      <code>row.PartyId == caller.PartyId</code> with both sides null compiles to <code>PartyId IS NULL</code>, which
+      is <em>true</em> — so a caller with no party matched every grant whose member had none either, handing one user
+      another user's share. Caught by <code>Accept_IsIdempotentForSameUser_ButSingleUseAcrossUsers</code>.
+      <strong><code>NoAmounts</code> must still be written</strong>, and the platform cannot do it: it is finance
+      vocabulary, and §10.2 keeps the column so a rollback needs no data recovery. Left unwritten, a rollback to a
+      pre-P5 build would read <code>false</code> on every new grant and serve amounts to docs-only members. The owning
+      module mirrors it in a second save.
+      <strong><code>CreateShareGrantCommand</code> carries the member's user id</strong> rather than reverse-resolving
+      it from the party: a member with a profile but no bridge row cannot be resolved back, and the grant would be
+      written with no member — a dangling pending grant instead of the active one the caller asked for.
+      <br><br>
+      <em>Deferred.</em> <code>ShareInvitePreviewLimiter</code> stays in PersonalFinance. It is per-IP rate limiting
+      over an anonymous HTTP endpoint, so it belongs with the endpoint, not with the grant mechanics; moving it would
+      relocate code without moving a boundary.</td>
       <td><code>CircleEndpointsTests</code> and <code>CircleServiceTests</code> pass; CLI tests unmodified; a grant created before P3 is still listable, revocable and acceptable after cutover.</td>
     </tr>
     <tr>

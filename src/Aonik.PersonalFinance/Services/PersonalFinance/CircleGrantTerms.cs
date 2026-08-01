@@ -28,4 +28,30 @@ internal sealed record CircleGrantTerms
 
     public static string Serialize(bool noAmounts)
         => JsonSerializer.Serialize(new CircleGrantTerms { NoAmounts = noAmounts }, SerializerOptions);
+
+    /// <summary>
+    /// Reads the redaction term, falling back to the column.
+    /// </summary>
+    /// <remarks>
+    /// The <c>NoAmounts</c> column is retained and dual-written through the transition (§10.2), so a
+    /// grant predating the backfill — or one written by a rolled-back deployment — still answers
+    /// correctly. Unreadable terms fall back too: terms are opaque to the platform and could hold
+    /// anything a future module writes, and a parse failure must not make a grant stop redacting.
+    /// </remarks>
+    public static bool ReadNoAmounts(string? termsJson, bool columnValue)
+    {
+        if (string.IsNullOrWhiteSpace(termsJson))
+        {
+            return columnValue;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<CircleGrantTerms>(termsJson, SerializerOptions)?.NoAmounts ?? columnValue;
+        }
+        catch (JsonException)
+        {
+            return columnValue;
+        }
+    }
 }

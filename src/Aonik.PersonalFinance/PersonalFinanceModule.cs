@@ -82,6 +82,11 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Groups.IGroupLifecycleContributor,
             Services.PersonalFinanceGroupLifecycleContributor>();
 
+        // Spec 086 P5 — the only thing that knows what a care entity is. Registering it here is what
+        // keeps CareEntity out of the platform's model entirely.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Groups.IShareResourceResolver,
+            Services.CareEntityShareResourceResolver>();
+
         services.AddScoped<CircleService>();
         services.AddScoped<ICircleService>(sp => sp.GetRequiredService<CircleService>());
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());

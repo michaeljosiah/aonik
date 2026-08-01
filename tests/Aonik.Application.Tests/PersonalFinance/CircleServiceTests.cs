@@ -1,3 +1,5 @@
+using Aonik.Groups.Services;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Moq;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
@@ -77,12 +79,73 @@ public class CircleServiceTests
         => new(new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"Circle_{Guid.NewGuid()}").Options, new TestTenantProvider(_tenantId));
 
+
+    /// <summary>
+    /// The real Spec 086 P5 stack: the platform share service over the same DbContext, with
+    /// PersonalFinance's care-entity resolver plugged in. Not a mock — these tests exist to prove the
+    /// circle behaviour survived the split, and a faked grant service would prove nothing.
+    /// </summary>
+    private IShareGrantService ShareGrants(PersonalFinanceDbContext ctx, Guid userId)
+    {
+        var tenantProvider = new TestTenantProvider(_tenantId);
+        var partyResolver = new PersonalFinancePartyResolver(ctx);
+
+        return new ShareGrantService(
+            ctx,
+            tenantProvider,
+            new MutableTenantContext { TenantId = _tenantId },
+            new TestCurrentUserProvider(userId),
+            Mock.Of<IUserPartyResolver>(),
+            _partyReader,
+            [new CareEntityShareResourceResolver(ctx, tenantProvider, Mock.Of<IUserPartyResolver>(), partyResolver)],
+            new SystemClockForTests(),
+            partyResolver);
+    }
+
+    private sealed class SystemClockForTests : Aonik.SharedKernel.Abstractions.IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
+
+    private sealed class MutableTenantContext : ITenantContext
+    {
+        public Guid? TenantId { get; set; }
+        public string? ResolutionSource { get; set; }
+        public bool IsResolved => TenantId.HasValue;
+    }
+
+    /// <summary>
+    /// Gives an actor the PersonalProfile production guarantees them.
+    /// </summary>
+    /// <remarks>
+    /// Spec 086 P5 requires the owner of a grant to resolve to a party, because ownership of the
+    /// named resources is only checkable in party terms. Every user created through
+    /// IdentityService or RegistrationService gets a profile carrying a PartyId, so this is what
+    /// production looks like — these tests simply had not needed to say so before.
+    /// </remarks>
+    private void EnsureProfile(PersonalFinanceDbContext ctx, Guid userId)
+    {
+        if (ctx.PersonalProfiles.Any(profile => profile.TenantId == _tenantId && profile.UserId == userId))
+        {
+            return;
+        }
+
+        ctx.PersonalProfiles.Add(new PersonalProfile
+        {
+            Id = Guid.NewGuid(), TenantId = _tenantId, UserId = userId, PartyId = Guid.NewGuid()
+        });
+        ctx.SaveChanges();
+    }
+
     private CircleService Circle(
         PersonalFinanceDbContext ctx,
         Guid userId,
         IDocumentLinkReader? documentLinkReader = null,
         InvitePreviewDisclosure disclosure = InvitePreviewDisclosure.Names)
-        => new(
+    {
+        EnsureProfile(ctx, userId);
+
+        return new(
             ctx,
             new TestTenantProvider(_tenantId),
             new TestTenantContext(),
@@ -92,7 +155,9 @@ public class CircleServiceTests
             // Spec 086 P3 dual-write. The real resolver over a no-link IUserPartyResolver, so these
             // tests exercise the PersonalProfile fallback the seeded personas actually take.
             new MemberPartyResolver(ctx, Mock.Of<IUserPartyResolver>()),
+            ShareGrants(ctx, userId),
             Microsoft.Extensions.Options.Options.Create(new CircleInviteOptions { PreviewDisclosure = disclosure }));
+    }
 
     /// <summary>Seeds the owner's PersonalProfile (UserId → PartyId) and registers the party display name for preview.</summary>
     private async Task SeedOwnerProfileAsync(PersonalFinanceDbContext ctx, Guid ownerUserId, string displayName)

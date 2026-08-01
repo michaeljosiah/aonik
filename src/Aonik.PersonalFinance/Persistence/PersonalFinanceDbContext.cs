@@ -36,6 +36,8 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase, IGroupDataC
     // transactions, because every module context is registered with its own connection.
     DbSet<Household> Aonik.Groups.Persistence.IGroupDataContext.Groups => Households;
     DbSet<HouseholdMember> Aonik.Groups.Persistence.IGroupDataContext.GroupMembers => HouseholdMembers;
+    DbSet<CircleGrant> Aonik.Groups.Persistence.IGroupDataContext.ShareGrants => CircleGrants;
+    DbSet<CircleInvite> Aonik.Groups.Persistence.IGroupDataContext.ShareInvites => CircleInvites;
     public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public DbSet<PersonalLinkedAccount> PersonalLinkedAccounts { get; set; } = null!;
     public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;

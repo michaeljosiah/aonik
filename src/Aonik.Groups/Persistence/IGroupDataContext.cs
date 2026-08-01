@@ -1,6 +1,7 @@
 using Aonik.PersonalFinance.Entities;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Aonik.Groups.Persistence;
@@ -38,12 +39,23 @@ public interface IGroupDataContext
 
     DbSet<HouseholdMember> GroupMembers { get; }
 
+    DbSet<CircleGrant> ShareGrants { get; }
+
+    DbSet<CircleInvite> ShareInvites { get; }
+
     /// <summary>
     /// The transaction and retry surface. Not incidental: accepting an invitation has to hold a
     /// serializable transaction across the veto, the write and the contributors' reaction, or two
     /// concurrent accepts each pass their veto and the member ends up in two exclusive groups.
     /// </summary>
     DatabaseFacade Database { get; }
+
+    /// <summary>
+    /// Needed to discard a rolled-back unit after a concurrency conflict: two overlapping accepts of
+    /// one invite race on its <c>RowVersion</c>, and the loser has to drop its edits before resolving
+    /// against the committed winner.
+    /// </summary>
+    ChangeTracker ChangeTracker { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

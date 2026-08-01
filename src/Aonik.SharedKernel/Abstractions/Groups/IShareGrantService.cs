@@ -30,9 +30,13 @@ public interface IShareGrantService
 
     /// <summary>
     /// Withdraw a grant. Takes effect immediately — the row is the record of truth, so there is no
-    /// cached capability to outlive it.
+    /// cached capability to outlive it. False when there was no such grant <em>of the caller's</em>.
     /// </summary>
-    Task RevokeAsync(Guid grantId, CancellationToken cancellationToken = default);
+    /// <remarks>
+    /// A bool rather than an exception, deliberately: the caller's 404 must not distinguish "no such
+    /// grant" from "not yours", or revocation becomes a way to probe which grant ids exist.
+    /// </remarks>
+    Task<bool> RevokeAsync(Guid grantId, CancellationToken cancellationToken = default);
 
     /// <summary>Mint an invite carrying the grant terms, materialised into a grant on accept.</summary>
     Task<ShareInviteDto> CreateInviteAsync(CreateShareInviteCommand command, CancellationToken cancellationToken = default);
@@ -51,9 +55,54 @@ public interface IShareGrantService
     /// <summary>
     /// Accept an invite, materialising its grant for the current caller.
     /// </summary>
-    /// <remarks>Single-use: the token is consumed, so a leaked link cannot be replayed.</remarks>
-    /// <exception cref="InvalidStateException">The invite is consumed, revoked, expired, or belongs to the caller.</exception>
-    Task<ShareGrantDto> AcceptInviteAsync(string token, CancellationToken cancellationToken = default);
+    /// <remarks>
+    /// <para>Single-use: the token is consumed, so a leaked link cannot be replayed by anyone else.</para>
+    /// <para>
+    /// Returns a result rather than throwing, and that is a correction to Rev 1 of this contract. The
+    /// distinctions here are load-bearing and an exception flattens them: a token replayed by the
+    /// <b>same</b> member returns the grant they already hold (Spec 049's parked-token flow replays
+    /// accept on a cold start), a token replayed by a <b>different</b> member is indistinguishable
+    /// from an invalid one so it cannot be used as an oracle, and an owner tapping their own link is
+    /// a conflict rather than a not-found. Modelling those as one <c>InvalidStateException</c> would
+    /// have silently broken the mobile flow that depends on the first.
+    /// </para>
+    /// </remarks>
+    Task<ShareInviteAcceptResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rescind an invite that has not been accepted. Idempotent — revoking an already-revoked invite
+    /// succeeds, so a DELETE can be retried.
+    /// </summary>
+    /// <remarks>
+    /// An <em>accepted</em> invite is a spent token whose access lives in the grant; the owner cuts
+    /// that by revoking the grant, which cascades here. Refusing rather than silently succeeding is
+    /// what stops an owner believing they have withdrawn access they still grant.
+    /// </remarks>
+    /// <exception cref="InvalidStateException">The invite is accepted or expired.</exception>
+    Task<bool> RevokeInviteAsync(Guid inviteId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Why an accept did not produce a grant, when it did not.</summary>
+public enum ShareInviteAcceptStatus
+{
+    /// <summary>Bound, or already bound by this same member. <see cref="ShareInviteAcceptResult.Grant"/> is set.</summary>
+    Accepted,
+
+    /// <summary>Invalid, expired, revoked, or already consumed by someone else — all alike, so this is no oracle.</summary>
+    Invalid,
+
+    /// <summary>The caller owns the invite. You cannot be a member of your own circle.</summary>
+    SelfAccept,
+}
+
+/// <summary><see cref="Grant"/> is non-null if and only if <see cref="Status"/> is Accepted.</summary>
+public sealed record ShareInviteAcceptResult(ShareInviteAcceptStatus Status, ShareGrantDto? Grant)
+{
+    public static ShareInviteAcceptResult FromGrant(ShareGrantDto grant) => new(ShareInviteAcceptStatus.Accepted, grant);
+
+    public static readonly ShareInviteAcceptResult Invalid = new(ShareInviteAcceptStatus.Invalid, null);
+
+    public static readonly ShareInviteAcceptResult SelfAccept = new(ShareInviteAcceptStatus.SelfAccept, null);
 }
 
 /// <summary>
@@ -104,7 +153,27 @@ public interface IShareResourceResolver
     /// </summary>
     Task<IReadOnlyList<ShareResourceRef>> ResolveAsync(
         string resourceKind,
-        Guid ownerPartyId,
+        ShareResourceOwner owner,
         IReadOnlyCollection<Guid> resourceIds,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Who owns the resources being resolved.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Both identifiers, and at least one is always present. Party is the destination — it is what a
+/// grant is keyed on, and what a member without a login can be. But sharing predates Spec 086 and
+/// works today for users with no party link at all, so requiring one at the P5 cutover would take
+/// the feature away from them.
+/// </para>
+/// <para>
+/// The alternative was to skip validation when the owner has no party, and that is not an
+/// alternative: unvalidated ids let a caller name another party's resources and read them back
+/// through <see cref="IShareGrantReader"/>. Carrying both keys means ownership is <b>always</b>
+/// checked, in whichever terms the owner actually has. <see cref="UserId"/> goes when the user
+/// columns do.
+/// </para>
+/// </remarks>
+public readonly record struct ShareResourceOwner(Guid? PartyId, Guid? UserId);

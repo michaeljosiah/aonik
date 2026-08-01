@@ -1,3 +1,4 @@
+using Aonik.Groups.Services;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,6 +31,11 @@ public sealed class GroupPartyDualWriteTests
 {
     private readonly Guid _tenantId = Guid.NewGuid();
 
+    private sealed class TestClock : Aonik.SharedKernel.Abstractions.IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
+
     private PersonalFinanceDbContext CreateContext()
         => new(new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"DualWrite_{Guid.NewGuid()}").Options, new TestTenantProvider(_tenantId));
@@ -47,6 +53,16 @@ public sealed class GroupPartyDualWriteTests
             Mock.Of<Aonik.SharedKernel.Abstractions.Documents.IDocumentLinkReader>(),
             Mock.Of<IPartyReader>(),
             Resolver(ctx),
+            new ShareGrantService(
+                ctx,
+                new TestTenantProvider(_tenantId),
+                Mock.Of<Aonik.SharedKernel.Abstractions.Multitenancy.ITenantContext>(),
+                new TestCurrentUserProvider(userId),
+                Mock.Of<IUserPartyResolver>(),
+                Mock.Of<IPartyReader>(),
+                [new CareEntityShareResourceResolver(ctx, new TestTenantProvider(_tenantId), Mock.Of<IUserPartyResolver>(), new PersonalFinancePartyResolver(ctx))],
+                new TestClock(),
+                new PersonalFinancePartyResolver(ctx)),
             Microsoft.Extensions.Options.Options.Create(new CircleInviteOptions()));
 
     private async Task<Guid> SeedProfileAsync(PersonalFinanceDbContext ctx, Guid userId)
@@ -109,8 +125,10 @@ public sealed class GroupPartyDualWriteTests
         using var ctx = CreateContext();
         var owner = Guid.NewGuid();
 
-        // No profile, no bridge link. Dual-writing must never turn a working flow into a failure —
-        // the backfill is what reports the gap, loudly, when an operator can act on it.
+        // Sharing predates Spec 086 and works today for users with no party link at all. Dual-writing
+        // must never turn a working flow into a failure, and neither must the P5 cutover — which is
+        // why ownership is validated in whichever terms the owner actually has rather than in party
+        // terms only. The backfill is what reports the gap, when an operator can act on it.
         var act = () => Circle(ctx, owner).CreateGrantAsync(
             new CreateCircleGrantRequest(Guid.Empty, "entities", Array.Empty<Guid>(), false));
 
