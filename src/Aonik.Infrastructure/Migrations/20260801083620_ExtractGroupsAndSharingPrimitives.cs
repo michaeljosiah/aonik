@@ -115,29 +115,32 @@ namespace Aonik.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Deliberate no-op (CLAUDE.md, narrow snapshot-reconciliation exception; precedents
-            // 20260620063309 and 20260721225529).
+            // Refuses, rather than silently doing nothing.
             //
             // The scaffolded rollback CANNOT EXECUTE once the feature this migration enables has
-            // been used. It re-narrows AnkHouseholdMembers.UserId to NOT NULL with a Guid.Empty
-            // default and then recreates the UNFILTERED unique index on
-            // (TenantId, HouseholdId, UserId). Two members without a login — the central supported
-            // case of Spec 086, a family with two children — both collapse to Guid.Empty, and SQL
-            // Server rejects the index with duplicate keys. The rollback would fail halfway, having
-            // already destroyed the party ids those members are identified by.
+            // been used: it re-narrows AnkHouseholdMembers.UserId to NOT NULL with a Guid.Empty
+            // default and recreates the UNFILTERED unique index on (TenantId, HouseholdId, UserId),
+            // so two members without a login — a family with two children, the central supported
+            // case of Spec 086 — collapse to the same key and SQL Server rejects it. The rollback
+            // would fail halfway, having already destroyed the party ids those members are
+            // identified by.
             //
-            // Doing nothing is both safe and sufficient. Every operation in Up is ADDITIVE apart
-            // from the index, and pre-Spec-086 code neither reads the new columns nor depends on the
-            // old index existing: the filtered unique indexes enforce a strict superset of what the
-            // unfiltered one did for rows that have a UserId. So a code rollback over this schema
-            // behaves exactly as it did before, and no data is lost.
+            // A no-op body was the first attempt and it is worse than useless: EF treats a
+            // successful Down as a reversal and deletes the history row while every column and index
+            // stays in place, so the next forward deployment reruns Up against objects that already
+            // exist and fails there instead. Throwing keeps the history row honest.
             //
-            // Reversing the SCHEMA is therefore an operational decision, not an automatic one. It is
-            // only safe while no party-only member exists, and it must be done deliberately:
+            // Reversing the schema is an operational decision, safe only while no party-only member
+            // exists, and is done deliberately:
             //   1. confirm  SELECT COUNT(*) FROM dbo.AnkHouseholdMembers WHERE UserId IS NULL  is 0
             //   2. drop the two filtered unique indexes
             //   3. re-narrow UserId and recreate the unfiltered unique index
             //   4. drop Kind, PartyId, OwnerPartyId, MemberPartyId, ResourceKind, TermsJson
+            //   5. delete this migration's row from __EFMigrationsHistory
+            throw new InvalidOperationException(
+                "ExtractGroupsAndSharingPrimitives is forward-only. Its rollback cannot run once a group "
+                + "holds a member without a login, and a no-op would leave the history row claiming a "
+                + "reversal that did not happen. See the comment in this migration for the manual steps.");
         }
     }
 }

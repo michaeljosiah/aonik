@@ -274,6 +274,17 @@ public sealed class GroupServiceTests
         var elsewhereId = Guid.NewGuid();
         await SeedProfileAsync(context, inviteeUserId, householdId: elsewhereId);
 
+        // The group row too, not just the membership: the exclusivity scan joins to it now, because
+        // counting a FAMILY as a household is exactly what let this module's rule reach into
+        // another product's groups. A membership without its group cannot exist in the schema.
+        context.Households.Add(new Household
+        {
+            Id = elsewhereId,
+            TenantId = _tenantId,
+            Kind = GroupKinds.Household,
+            Name = "Elsewhere"
+        });
+
         // An accepted membership, not just the profile link: the invite check has always scanned
         // memberships, and asserting against a profile field the old code never read would test a
         // rule this phase did not move.
@@ -483,6 +494,105 @@ public sealed class GroupServiceTests
         // that has a login, so it is exactly where the user id matters most: leaving it null hides
         // the membership from every user-keyed reader and skips the finance contributor entirely.
         member.UserId.Should().Be(inviteeUserId);
+    }
+
+    [Fact]
+    public async Task AParentInAFamily_Should_StillBeAbleToCreateAHousehold()
+    {
+        await using var context = CreateContext();
+        var userId = Guid.NewGuid();
+        await SeedProfileAsync(context, userId);
+
+        var service = CreateService(context, userId);
+        await service.CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+
+        // The exclusivity scan counts households, not memberships. Scanning by user alone made a
+        // family block this module's own first household — the same coupling as the other direction.
+        var act = () => service.CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task AcceptingAFamilyInvitation_Should_NotWriteTheFinanceProfileLink()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        await SeedProfileAsync(context, inviteeUserId);
+
+        var family = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+        var invited = await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(family.Id, GroupRoles.Viewer, UserId: inviteeUserId));
+
+        await CreateService(context, inviteeUserId).AcceptInvitationAsync(invited.Id);
+
+        // The creation path carried the kind; accepting did not, so a family invitation still ran
+        // the finance contributor and wrote the family into PersonalProfile.HouseholdId.
+        var profile = await context.PersonalProfiles.SingleAsync(item => item.UserId == inviteeUserId);
+        profile.HouseholdId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AManager_Should_NotBeAbleToInviteSomeoneStraightInAsOwner()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        var act = () => CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Owner, UserId: Guid.NewGuid()));
+
+        // Blocking self-promotion alone left the same escalation through another door.
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*transferring it*");
+    }
+
+    [Fact]
+    public async Task InviteAsync_Should_RejectAPartyAndUserThatAreDifferentPeople()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+
+        var otherUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, otherUserId);
+        var unrelatedPartyId = Guid.NewGuid();
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        var act = () => CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer, PartyId: unrelatedPartyId, UserId: otherUserId));
+
+        // One membership pairing party A with user B: B accepts through the user key, and every
+        // party-keyed reader then treats A as a member of a group A never agreed to join.
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*different people*");
+    }
+
+    [Fact]
+    public async Task AcceptingALegacyInvitation_Should_BackfillTheMembersParty()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var inviteePartyId = await SeedProfileAsync(context, inviteeUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+        var invited = await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer, UserId: inviteeUserId));
+
+        // An invitation written before the party backfill.
+        var row = await context.HouseholdMembers.FirstAsync(item => item.Id == invited.Id);
+        row.PartyId = null;
+        await context.SaveChangesAsync();
+
+        await CreateService(context, inviteeUserId).AcceptInvitationAsync(invited.Id);
+
+        // The accepting caller's party is right there. Leaving it null keeps the accepted membership
+        // invisible to every party-keyed reader until someone remembers to run a disabled job.
+        (await context.HouseholdMembers.FirstAsync(item => item.Id == invited.Id))
+            .PartyId.Should().Be(inviteePartyId);
     }
 
     private static List<string> EventTypes(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext context)

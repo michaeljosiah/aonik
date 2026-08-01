@@ -229,6 +229,19 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         // Spec 086 P7 — the group reader answers this now. Accepted-only is its contract, so the
         // filtering that used to live here is gone rather than duplicated.
+        var group = await _groupReader.GetAsync(request.HouseholdId, cancellationToken)
+            ?? throw new InvalidOperationException("Household not found.");
+
+        // ...and the kind is checked, not assumed. Without this, an owner of an Arke Kids family
+        // could pass its id here, write it into PersonalAccount.HouseholdId, and expose a bank
+        // account to family members through the household-account reader. Empty counts as a
+        // household, because every group written before Spec 086 has one.
+        if (!string.IsNullOrEmpty(group.Kind)
+            && !string.Equals(group.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Accounts can only be shared with a household.");
+        }
+
         var members = await _groupReader.GetMembersAsync(request.HouseholdId, cancellationToken);
 
         var acceptedMembership = members.FirstOrDefault(member => member.UserId == userId)

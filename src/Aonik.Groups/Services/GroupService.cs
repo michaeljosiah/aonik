@@ -150,6 +150,7 @@ internal sealed class GroupService : IGroupService, IGroupReader
 
         var group = await RequireGroupAsync(tenantId, groupId, cancellationToken);
         await RequireManagerAsync(tenantId, groupId, caller, cancellationToken);
+        RequireNotOwnerRole(normalizedRole);
 
         if (partyId == Guid.Empty || !await _partyReader.ExistsAsync(tenantId, partyId, cancellationToken))
         {
@@ -227,6 +228,7 @@ internal sealed class GroupService : IGroupService, IGroupReader
 
         var group = await RequireGroupAsync(tenantId, command.GroupId, cancellationToken);
         await RequireManagerAsync(tenantId, group.Id, caller, cancellationToken);
+        RequireNotOwnerRole(normalizedRole);
 
         if (command.PartyId is null && command.UserId is null)
         {
@@ -244,6 +246,20 @@ internal sealed class GroupService : IGroupService, IGroupReader
             ?? (command.PartyId is { } addressedPartyId
                 ? await ResolveUserForPartyAsync(tenantId, addressedPartyId, cancellationToken)
                 : null);
+
+        // And when BOTH are supplied they must be the same person. Taking the caller's word for it
+        // would let a manager mint one membership pairing party A with user B: B accepts through the
+        // user key, and party-keyed readers then treat A as an accepted member of a group A never
+        // agreed to join.
+        if (command.PartyId is { } statedPartyId && command.UserId is { } statedUserId)
+        {
+            var resolvedForUser = await ResolvePartyForUserAsync(tenantId, statedUserId, cancellationToken);
+
+            if (resolvedForUser is not null && resolvedForUser != statedPartyId)
+            {
+                throw new InvalidStateException("The party and user named on this invitation are different people.");
+            }
+        }
 
         var now = _clock.UtcNow;
 
@@ -355,35 +371,55 @@ internal sealed class GroupService : IGroupService, IGroupReader
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var caller = await RequireCallerAsync(tenantId, cancellationToken);
-        var membership = await RequireMembershipAsync(tenantId, membershipId, cancellationToken);
 
-        if (!caller.Matches(membership))
-        {
-            // An invitation is accepted BY the invitee. Letting anyone else accept it would make the
-            // consent the invitation exists to record worthless.
-            throw new PermissionDeniedException("An invitation can only be accepted by its recipient.");
-        }
+        HouseholdMember? accepted = null;
 
-        if (!GroupMembershipRules.IsPending(membership))
-        {
-            throw new NotFoundException("Pending invitation not found.");
-        }
-
-        var now = _clock.UtcNow;
-        if (GroupMembershipRules.IsExpired(membership, now))
-        {
-            throw new InvalidStateException("The invitation has expired.");
-        }
-
-        var transition = new GroupTransition(
-            GroupTransitionKinds.InviteAccepted, membership.HouseholdId, membership.PartyId, membership.UserId ?? caller.UserId, caller.PartyId, caller.UserId);
-
-        // Serializable, across the veto AND the write. A contributor's veto is a read — "does this
-        // member already belong to an exclusive group?" — and two concurrent accepts of two
-        // different invitations would each read "no" and each commit. The isolation level is what
-        // makes the veto mean anything under concurrency, which is why it wraps both.
+        // EVERYTHING inside the transaction, including the read. Checking pending-and-unexpired
+        // outside it let two concurrent accepts of one invitation both observe "pending" — and
+        // HouseholdMember carries no concurrency token, so the loser would go on to run the
+        // contributors again and enqueue a second acceptance event off its stale entity.
         await InTransactionAsync(async ct =>
         {
+            var membership = await RequireMembershipAsync(tenantId, membershipId, ct);
+
+            if (!caller.Matches(membership))
+            {
+                // An invitation is accepted BY the invitee. Letting anyone else accept it would make
+                // the consent the invitation exists to record worthless.
+                throw new PermissionDeniedException("An invitation can only be accepted by its recipient.");
+            }
+
+            if (!GroupMembershipRules.IsPending(membership))
+            {
+                throw new NotFoundException("Pending invitation not found.");
+            }
+
+            var now = _clock.UtcNow;
+            if (GroupMembershipRules.IsExpired(membership, now))
+            {
+                throw new InvalidStateException("The invitation has expired.");
+            }
+
+            var group = await RequireGroupAsync(tenantId, membership.HouseholdId, ct);
+
+            // A membership written before the party backfill has none, and the accepting caller's is
+            // right here. Leaving it null keeps the row invisible to every party-keyed reader and
+            // publishes an acceptance carrying Guid.Empty.
+            membership.PartyId ??= caller.PartyId;
+
+            var transition = new GroupTransition(
+                GroupTransitionKinds.InviteAccepted,
+                membership.HouseholdId,
+                membership.PartyId,
+                membership.UserId ?? caller.UserId,
+                caller.PartyId,
+                caller.UserId,
+                membership.Role,
+                group.Kind);
+
+            // The veto is a read — "does this member already belong to an exclusive group?" — and two
+            // concurrent accepts of two DIFFERENT invitations would each read "no" and each commit.
+            // Serializable is what makes the veto mean anything under concurrency.
             await VetoOrThrowAsync(transition, ct);
 
             membership.Role = GroupMembershipRules.NormalizeRole(membership.Role);
@@ -400,9 +436,11 @@ internal sealed class GroupService : IGroupService, IGroupReader
                 membership.UserId));
 
             await _dbContext.SaveChangesAsync(ct);
+
+            accepted = membership;
         }, cancellationToken);
 
-        return GroupMembershipRules.ToDto(membership);
+        return GroupMembershipRules.ToDto(accepted!);
     }
 
     public async Task<GroupMemberDto> DeclineInvitationAsync(Guid membershipId, CancellationToken cancellationToken = default)
@@ -424,9 +462,11 @@ internal sealed class GroupService : IGroupService, IGroupReader
         membership.InvitationStatus = GroupMemberStatuses.Declined;
         membership.RespondedAt = _clock.UtcNow;
 
+        var group = await RequireGroupAsync(tenantId, membership.HouseholdId, cancellationToken);
+
         var transition = new GroupTransition(
             GroupTransitionKinds.InviteDeclined, membership.HouseholdId, membership.PartyId, membership.UserId,
-            caller.PartyId, caller.UserId);
+            caller.PartyId, caller.UserId, membership.Role, group.Kind);
 
         // No veto: refusing an invitation is the invitee's own decision, and a module that could
         // block it would be able to conscript someone into a group.
@@ -484,7 +524,8 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         var transition = new GroupTransition(
-            GroupTransitionKinds.OwnershipTransferred, groupId, target.PartyId, target.UserId, caller.PartyId, caller.UserId);
+            GroupTransitionKinds.OwnershipTransferred, groupId, target.PartyId, target.UserId, caller.PartyId, caller.UserId,
+            GroupRoles.Owner, group.Kind);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         // Ownership is a role, so the transfer is two role writes and no third field to fall out of
@@ -530,8 +571,11 @@ internal sealed class GroupService : IGroupService, IGroupReader
                 cancellationToken);
         }
 
+        var group = await RequireGroupAsync(tenantId, membership.HouseholdId, cancellationToken);
+
         var transition = new GroupTransition(
-            GroupTransitionKinds.MemberRemoved, membership.HouseholdId, membership.PartyId, membership.UserId, caller.PartyId, caller.UserId);
+            GroupTransitionKinds.MemberRemoved, membership.HouseholdId, membership.PartyId, membership.UserId,
+            caller.PartyId, caller.UserId, membership.Role, group.Kind);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         membership.InvitationStatus = GroupMemberStatuses.Removed;
@@ -740,6 +784,23 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         return new Caller(partyId.Value, userId);
+    }
+
+    /// <summary>
+    /// Ownership is conferred by transfer, never by naming a role.
+    /// </summary>
+    /// <remarks>
+    /// Applies to <b>creation</b> as well as role change. Blocking self-promotion alone left the
+    /// same escalation through another door: a manager could simply add a party-only owner, or
+    /// invite an account straight in as owner, and never touch <c>TransferOwnershipAsync</c> — which
+    /// is the one path that requires an existing owner.
+    /// </remarks>
+    private static void RequireNotOwnerRole(string normalizedRole)
+    {
+        if (string.Equals(normalizedRole, GroupRoles.Owner, StringComparison.Ordinal))
+        {
+            throw new InvalidStateException("Ownership is granted by transferring it, not by naming the role.");
+        }
     }
 
     private async Task<Household> RequireGroupAsync(Guid tenantId, Guid groupId, CancellationToken cancellationToken)

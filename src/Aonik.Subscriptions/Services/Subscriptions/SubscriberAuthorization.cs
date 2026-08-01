@@ -119,11 +119,16 @@ internal sealed class GroupSubscriberAuthorizer : ISubscriberAuthorizer
 {
     private readonly IGroupReader _groups;
     private readonly ICurrentPartyResolver _currentParty;
+    private readonly ICurrentUserProvider _currentUser;
 
-    public GroupSubscriberAuthorizer(IGroupReader groups, ICurrentPartyResolver currentParty)
+    public GroupSubscriberAuthorizer(
+        IGroupReader groups,
+        ICurrentPartyResolver currentParty,
+        ICurrentUserProvider currentUser)
     {
         _groups = groups;
         _currentParty = currentParty;
+        _currentUser = currentUser;
     }
 
     public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Group];
@@ -131,13 +136,22 @@ internal sealed class GroupSubscriberAuthorizer : ISubscriberAuthorizer
     public async Task<bool> CanActForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
     {
         var partyId = await _currentParty.GetCurrentPartyIdAsync(cancellationToken);
+        var userId = _currentUser.GetCurrentUserId();
 
-        if (partyId is null)
+        if (partyId is null && userId is null)
         {
             return false;
         }
 
         var members = await _groups.GetMembersAsync(subscriber.Id, cancellationToken);
-        return members.Any(member => member.PartyId == partyId);
+
+        // Either key, for the same reason every other reader in the Spec 086 transition takes both:
+        // a membership written before the party backfill has none, and GroupMemberDto projects
+        // Guid.Empty for it. Party-only matching would deny every pre-existing member access to the
+        // subscription their group pays for — and a seeded persona, whose party never resolves
+        // through the bridge at all, would fail even earlier.
+        return members.Any(member =>
+            (partyId is { } callerParty && member.PartyId != Guid.Empty && member.PartyId == callerParty)
+            || (userId is { } callerUser && member.UserId == callerUser));
     }
 }

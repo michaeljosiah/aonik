@@ -98,22 +98,60 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
             return "User already belongs to a household.";
         }
 
-        var memberships = await _dbContext.HouseholdMembers
-            .AsNoTracking()
-            .Where(member => member.TenantId == tenantId && member.UserId == userId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var membership in memberships)
+        if (await BelongsToAnotherHouseholdAsync(tenantId, userId, joiningGroupId, cancellationToken))
         {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
-
-            if (HouseholdMembershipRules.IsAccepted(membership) && membership.HouseholdId != joiningGroupId)
-            {
-                return "User already belongs to a household.";
-            }
+            return "User already belongs to a household.";
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether this user is an accepted member of some <b>other household</b>.
+    /// </summary>
+    /// <remarks>
+    /// The group filter is the load-bearing part. Scanning memberships by user alone counts a
+    /// <em>family</em> as a household, so a parent in an Arke Kids family could not create or join
+    /// their first personal-finance household at all — this module's exclusivity rule reaching
+    /// across into another product's groups, which is the same coupling the transition-kind guard
+    /// removes from the other direction.
+    /// </remarks>
+    private async Task<bool> BelongsToAnotherHouseholdAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid? joiningGroupId,
+        CancellationToken cancellationToken)
+    {
+        var memberships = await _dbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Join(
+                _dbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, group) => new { Member = member, group.Kind })
+            .ToListAsync(cancellationToken);
+
+        foreach (var row in memberships)
+        {
+            // Empty counts as household: every group written before Spec 086 has one.
+            var isHousehold = string.IsNullOrEmpty(row.Kind)
+                || string.Equals(row.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase);
+
+            if (!isHousehold)
+            {
+                continue;
+            }
+
+            HouseholdMembershipRules.NormalizeLegacyMember(row.Member);
+
+            if (HouseholdMembershipRules.IsAccepted(row.Member) && row.Member.HouseholdId != joiningGroupId)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<string?> VetoInviteAsync(Guid userId, Guid groupId, CancellationToken cancellationToken)
@@ -127,22 +165,9 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
             return "User not found.";
         }
 
-        var memberships = await _dbContext.HouseholdMembers
-            .AsNoTracking()
-            .Where(member => member.TenantId == tenantId && member.UserId == userId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var membership in memberships)
-        {
-            HouseholdMembershipRules.NormalizeLegacyMember(membership);
-
-            if (HouseholdMembershipRules.IsAccepted(membership) && membership.HouseholdId != groupId)
-            {
-                return "User already belongs to a household.";
-            }
-        }
-
-        return null;
+        return await BelongsToAnotherHouseholdAsync(tenantId, userId, groupId, cancellationToken)
+            ? "User already belongs to a household."
+            : null;
     }
 
     public async Task OnCommittedAsync(GroupTransition transition, CancellationToken cancellationToken = default)
