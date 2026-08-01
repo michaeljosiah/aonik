@@ -111,13 +111,19 @@ public sealed record ShareResourceRef(Guid Id, string Kind, string DisplayName);
 /// cannot reproduce it — the transition would silently drop information the events it replaces
 /// already published.
 /// </param>
+/// <param name="Role">
+/// The role the transition sets, where it sets one — one of <c>GroupRoles</c>. Carried rather than
+/// looked up, because a contributor runs <b>before</b> the save: a database projection cannot see a
+/// membership that has not committed yet, and would report the previous role, or none at all.
+/// </param>
 public sealed record GroupTransition(
     string Kind,
     Guid GroupId,
     Guid? MemberPartyId,
     Guid? MemberUserId,
     Guid ActorPartyId,
-    Guid? ActorUserId = null);
+    Guid? ActorUserId = null,
+    string? Role = null);
 
 /// <summary>Create a group.</summary>
 public sealed record CreateGroupCommand(string Kind, string Name);

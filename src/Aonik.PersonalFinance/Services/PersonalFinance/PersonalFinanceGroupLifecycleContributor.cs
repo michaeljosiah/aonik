@@ -167,10 +167,10 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
                     transition.GroupId,
                     userId,
                     transition.ActorUserId ?? Guid.Empty,
-                    // The role is not on the transition, and adding it would put one module's
-                    // vocabulary on a platform record. The event's contract is unchanged, so the
-                    // stored value is read back instead.
-                    await ReadRoleAsync(tenantId, transition.GroupId, userId, cancellationToken)));
+                    // From the transition, not the table: this runs before the group service saves,
+                    // so a projection would miss a new membership entirely and read the stale role
+                    // off a reused invitation row.
+                    transition.Role ?? HouseholdRoles.Viewer));
                 break;
 
             case GroupTransitionKinds.InviteDeclined:
@@ -188,8 +188,11 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
                 await UnlinkAsync(tenantId, userId, transition.GroupId, cancellationToken);
 
                 // Left vs removed is not cosmetic — the two events drive different notifications and
-                // a different audit story. The transition distinguishes them by who acted.
-                if (transition.ActorPartyId == transition.MemberPartyId)
+                // a different audit story. Matched on either identifier: a membership written before
+                // the P3 backfill has no party, so comparing parties alone reads the member's own
+                // departure as somebody else removing them, on precisely the environments where the
+                // disabled-by-default backfill has not run.
+                if (IsSelfRemoval(transition))
                 {
                     _dbContext.EnqueueIntegrationEvent(new HouseholdMemberLeftEvent(tenantId, transition.GroupId, userId));
                 }
@@ -208,15 +211,11 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
         }
     }
 
-    private async Task<string> ReadRoleAsync(Guid tenantId, Guid groupId, Guid userId, CancellationToken cancellationToken)
-    {
-        var role = await _dbContext.HouseholdMembers
-            .Where(member => member.TenantId == tenantId && member.HouseholdId == groupId && member.UserId == userId)
-            .Select(member => member.Role)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return string.IsNullOrWhiteSpace(role) ? HouseholdRoles.Viewer : HouseholdMembershipRules.NormalizeRole(role);
-    }
+    private static bool IsSelfRemoval(GroupTransition transition)
+        => (transition.MemberPartyId is { } memberPartyId && memberPartyId == transition.ActorPartyId)
+            || (transition.MemberUserId is { } memberUserId
+                && transition.ActorUserId is { } actorUserId
+                && memberUserId == actorUserId);
 
     private async Task LinkProfileAsync(Guid tenantId, Guid userId, Guid groupId, CancellationToken cancellationToken)
     {

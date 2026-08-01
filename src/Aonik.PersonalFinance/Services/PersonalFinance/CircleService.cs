@@ -263,7 +263,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             .AsNoTracking()
             .Where(grant => grant.TenantId == tenantId
                 && grant.Status == "active"
-                && grant.ResourceKind == ShareResourceKinds.CareEntity
+                && (grant.ResourceKind == ShareResourceKinds.CareEntity || grant.ResourceKind == "")
                 && (grant.OwnerUserId == ownerUserId || (ownerPartyId != null && grant.OwnerPartyId == ownerPartyId))
                 && (grant.MemberUserId == memberUserId || (memberPartyId != null && grant.MemberPartyId == memberPartyId)))
             .OrderByDescending(grant => grant.CreatedAt)
@@ -488,9 +488,20 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Only care-entity grants belong on the circle routes; another module's are not this one's to show.</summary>
+    /// <summary>
+    /// Only care-entity grants belong on the circle routes; another module's are not this one's to show.
+    /// </summary>
+    /// <remarks>
+    /// An <b>empty</b> kind counts as care-entity. Every grant written before Spec 086 has one — the
+    /// migration defaults the column to "" and the backfill that fills it is disabled by default — so
+    /// filtering on the populated value alone would make every pre-existing share vanish the moment
+    /// this deployed. Care entities are the only thing <c>EntityIdsJson</c> has ever held, so the
+    /// empty value is not ambiguous. It stops being accepted when the backfill is confirmed
+    /// everywhere and the column is made required.
+    /// </remarks>
     private static bool IsCareEntityGrant(ShareGrantDto grant)
-        => string.Equals(grant.ResourceKind, ShareResourceKinds.CareEntity, StringComparison.OrdinalIgnoreCase);
+        => string.IsNullOrEmpty(grant.ResourceKind)
+            || string.Equals(grant.ResourceKind, ShareResourceKinds.CareEntity, StringComparison.OrdinalIgnoreCase);
 
     private static bool ReadNoAmounts(string? termsJson, string scope)
         => CircleGrantTerms.ReadNoAmounts(termsJson, columnValue: scope == "docsOnly");

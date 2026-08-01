@@ -137,6 +137,37 @@ public sealed class GroupPartyDualWriteTests
     }
 
     [Fact]
+    public async Task ALegacyGrant_WithNoResourceKind_Should_StillBeVisible()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        await SeedProfileAsync(ctx, owner);
+        await SeedProfileAsync(ctx, member);
+
+        // Exactly what an upgrade produces: the migration defaults ResourceKind to "" and the
+        // backfill that fills it is disabled by default.
+        ctx.CircleGrants.Add(new CircleGrant
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            OwnerUserId = owner,
+            MemberUserId = member,
+            ResourceKind = string.Empty,
+            Scope = "entities",
+            EntityIdsJson = "[]",
+            Status = "active"
+        });
+        await ctx.SaveChangesAsync();
+
+        var shared = await Circle(ctx, member).ListGrantsForMemberAsync();
+
+        // Filtering on the populated kind alone would make every pre-existing share vanish the
+        // moment this deployed — silently revoking access nobody revoked.
+        shared.Should().ContainSingle().Which.OwnerUserId.Should().Be(owner);
+    }
+
+    [Fact]
     public async Task CreateInvite_Should_PopulateOwnerPartyResourceKindAndTerms()
     {
         using var ctx = CreateContext();

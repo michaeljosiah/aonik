@@ -315,6 +315,100 @@ public sealed class GroupServiceTests
         await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*name the party or user*");
     }
 
+    [Fact]
+    public async Task AddMemberAsync_Should_RejectAPartyLinkedToAUserOnlyThroughItsProfile()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+
+        // A seeded persona: a profile carrying a party, and no AnkUserParties row.
+        var adultUserId = Guid.NewGuid();
+        var adultPartyId = await SeedProfileAsync(context, adultUserId);
+        _partyReader.Setup(r => r.ExistsAsync(_tenantId, adultPartyId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _userPartyResolver.Setup(r => r.GetUserIdForPartyAsync(_tenantId, adultPartyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid?)null);
+
+        var act = () => CreateService(context, ownerUserId).AddMemberAsync(group.Id, adultPartyId, GroupRoles.Viewer);
+
+        // Asking only the bridge answers "no user" for someone who plainly has one, and direct
+        // addition would then put an adult in a group without ever asking them. The consent boundary
+        // has to fail closed on any evidence of a login, not just the authoritative kind.
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*must be invited*");
+    }
+
+    [Fact]
+    public async Task GetMineAsync_Should_NotReturnAGroupTheCallerHasLeft()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var leaverUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var leaverPartyId = await SeedProfileAsync(context, leaverUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        context.HouseholdMembers.Add(new HouseholdMember
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HouseholdId = group.Id,
+            UserId = leaverUserId,
+            PartyId = leaverPartyId,
+            Role = GroupRoles.Viewer,
+            PermissionsJson = "[]",
+            InvitationStatus = GroupMemberStatuses.Removed
+        });
+        await context.SaveChangesAsync();
+
+        var mine = await CreateService(context, leaverUserId).GetMineAsync();
+
+        // A removed member is not a member. A status-blind lookup would hand them the group's name
+        // and every accepted member in it, after their access should have ended.
+        mine.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetMineAsync_Should_NotReturnAGroupTheCallerHasOnlyBeenInvitedTo()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        await SeedProfileAsync(context, inviteeUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+        await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer, UserId: inviteeUserId));
+
+        var mine = await CreateService(context, inviteeUserId).GetMineAsync();
+
+        mine.Should().BeEmpty("an invitation is an offer, not membership");
+    }
+
+    [Fact]
+    public async Task InviteAsync_Should_PublishTheInvitedRole_NotADefault()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        await SeedProfileAsync(context, inviteeUserId);
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+        await CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Manager, UserId: inviteeUserId));
+
+        // The contributor runs BEFORE the save, so reading the role back from the table would miss
+        // the uncommitted membership entirely and publish Viewer. It travels on the transition.
+        var payload = context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>()
+            .Single(message => message.EventType.Contains("HouseholdMemberInvitedEvent"))
+            .Payload;
+
+        payload.Should().Contain(GroupRoles.Manager);
+    }
+
     private static List<string> EventTypes(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext context)
         => context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>().Select(message => message.EventType).ToList();
 

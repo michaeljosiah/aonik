@@ -159,7 +159,11 @@ internal sealed class GroupService : IGroupService, IGroupReader
         // The consent boundary. Direct addition exists for people who cannot consent; anyone with a
         // login can, and belongs on the invitation path where their answer is recorded. Without this
         // check the two paths stop partitioning and the second becomes a way around the first.
-        var linkedUserId = await _userPartyResolver.GetUserIdForPartyAsync(tenantId, partyId, cancellationToken);
+        // Both sources, not just the bridge. A seeded or demo persona is linked to a login only
+        // through PersonalProfile.PartyId, so asking AnkUserParties alone answers "no user" for
+        // someone who plainly has one — and direct addition would then put them in a group without
+        // ever asking. Fails closed: any evidence of a login sends them to the invitation path.
+        var linkedUserId = await ResolveUserForPartyAsync(tenantId, partyId, cancellationToken);
         if (linkedUserId is not null)
         {
             throw new InvalidStateException("This party has a user and must be invited rather than added.");
@@ -175,7 +179,8 @@ internal sealed class GroupService : IGroupService, IGroupReader
             throw new InvalidStateException("This party is already a member of the group.");
         }
 
-        var transition = new GroupTransition(GroupTransitionKinds.MemberAdded, group.Id, partyId, null, caller.PartyId, caller.UserId);
+        var transition = new GroupTransition(
+            GroupTransitionKinds.MemberAdded, group.Id, partyId, null, caller.PartyId, caller.UserId, normalizedRole);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         var member = existing ?? new HouseholdMember
@@ -249,7 +254,8 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         var transition = new GroupTransition(
-            GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, command.UserId, caller.PartyId, caller.UserId);
+            GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, command.UserId, caller.PartyId, caller.UserId,
+            normalizedRole);
         await VetoOrThrowAsync(transition, cancellationToken);
 
         var member = existing ?? new HouseholdMember
@@ -303,6 +309,19 @@ internal sealed class GroupService : IGroupService, IGroupReader
         return members.FirstOrDefault(member =>
             (partyId is not null && member.PartyId == partyId)
             || (userId is not null && member.UserId == userId));
+    }
+
+    /// <summary>Party to user, through the bridge then the profile — the mirror of the caller lookup.</summary>
+    private async Task<Guid?> ResolveUserForPartyAsync(Guid tenantId, Guid partyId, CancellationToken cancellationToken)
+    {
+        var userId = await _userPartyResolver.GetUserIdForPartyAsync(tenantId, partyId, cancellationToken);
+
+        if (userId is null && _profilePartyFallback is not null)
+        {
+            userId = await _profilePartyFallback.GetUserIdForPartyAsync(tenantId, partyId, cancellationToken);
+        }
+
+        return userId;
     }
 
     private async Task<Guid?> ResolvePartyForUserAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
@@ -527,6 +546,7 @@ internal sealed class GroupService : IGroupService, IGroupReader
         var groupIds = await _dbContext.GroupMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId
+                && member.InvitationStatus == GroupMemberStatuses.Accepted
                 && (member.PartyId == caller.PartyId
                     || (caller.UserId != null && member.UserId == caller.UserId)))
             .Select(member => member.HouseholdId)
@@ -542,7 +562,9 @@ internal sealed class GroupService : IGroupService, IGroupReader
 
         var groupIds = await _dbContext.GroupMembers
             .AsNoTracking()
-            .Where(member => member.TenantId == tenantId && member.PartyId == partyId)
+            .Where(member => member.TenantId == tenantId
+                && member.InvitationStatus == GroupMemberStatuses.Accepted
+                && member.PartyId == partyId)
             .Select(member => member.HouseholdId)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -581,7 +603,9 @@ internal sealed class GroupService : IGroupService, IGroupReader
 
         var groupIds = await _dbContext.GroupMembers
             .AsNoTracking()
-            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .Where(member => member.TenantId == tenantId
+                && member.InvitationStatus == GroupMemberStatuses.Accepted
+                && member.UserId == userId)
             .Select(member => member.HouseholdId)
             .Distinct()
             .ToListAsync(cancellationToken);
