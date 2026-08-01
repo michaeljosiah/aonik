@@ -220,20 +220,161 @@ internal sealed class UsageMeter : IUsageMeter
         await ReturnHoldAsync(reservation, UsageReservationStatuses.Released, cancellationToken);
     }
 
-    public Task ClaimSlotAsync(SubscriberRef subscriber, string meterCode, string holderRef, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(
-            "Ceiling meters arrive in Spec 087 P4. Throwing rather than succeeding: a meter kind "
-            + "this cannot yet enforce must not look like one it can.");
+    public async Task ClaimSlotAsync(
+        SubscriberRef subscriber,
+        string meterCode,
+        string holderRef,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
 
-    public Task ReleaseSlotAsync(SubscriberRef subscriber, string meterCode, string holderRef, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Ceiling meters arrive in Spec 087 P4.");
+        if (string.IsNullOrWhiteSpace(holderRef))
+        {
+            // Without a holder identity nothing can be idempotent, and a retried create would
+            // silently consume a second slot.
+            throw new InvalidStateException("A holder reference is required to claim a ceiling slot.");
+        }
 
-    public Task<bool> HasFlagAsync(SubscriberRef subscriber, string meterCode, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(
-            "Flag meters arrive in Spec 087 P4. Returning false would be worse than throwing — a "
-            + "caller cannot tell 'not entitled' from 'not implemented'.");
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var ceiling = await CeilingAllowanceAsync(tenantId, subscriber, meterCode, cancellationToken);
+
+        var holding = await _dbContext.CeilingHoldings
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId
+                                      && h.SubscriberKind == subscriber.Kind
+                                      && h.SubscriberId == subscriber.Id
+                                      && h.MeterCode == meterCode,
+                cancellationToken);
+
+        if (holding is null)
+        {
+            holding = new CeilingHolding
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                SubscriberKind = subscriber.Kind,
+                SubscriberId = subscriber.Id,
+                MeterCode = meterCode,
+                Held = 0
+            };
+            _dbContext.CeilingHoldings.Add(holding);
+        }
+
+        // Idempotent per holder: this holder already occupies a slot, so re-claiming is a no-op
+        // rather than a second consumption.
+        var alreadyClaimed = await _dbContext.CeilingClaims.AsNoTracking()
+            .AnyAsync(c => c.CeilingHoldingId == holding.Id && c.HolderRef == holderRef, cancellationToken);
+
+        if (alreadyClaimed)
+            return;
+
+        if (holding.Held + 1 > ceiling)
+            throw new EntitlementExceededException(meterCode, 1, Math.Max(0, ceiling - holding.Held));
+
+        // Compare-and-increment. RowVersion on the holding is what stops two callers at the limit
+        // both succeeding: a point-in-time count that takes no lock and writes no row is a
+        // check-then-act race, and it over-admits under exactly the conditions a ceiling exists for.
+        holding.Held += 1;
+
+        _dbContext.CeilingClaims.Add(new CeilingClaim
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CeilingHoldingId = holding.Id,
+            HolderRef = holderRef,
+            ClaimedAt = _clock.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ReleaseSlotAsync(
+        SubscriberRef subscriber,
+        string meterCode,
+        string holderRef,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var holding = await _dbContext.CeilingHoldings
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId
+                                      && h.SubscriberKind == subscriber.Kind
+                                      && h.SubscriberId == subscriber.Id
+                                      && h.MeterCode == meterCode,
+                cancellationToken);
+
+        if (holding is null)
+            return;
+
+        var claim = await _dbContext.CeilingClaims
+            .FirstOrDefaultAsync(c => c.CeilingHoldingId == holding.Id && c.HolderRef == holderRef, cancellationToken);
+
+        // Idempotent: only an existing claim decrements, so a retried delete cannot free a slot
+        // twice and admit more objects than the ceiling.
+        if (claim is null)
+            return;
+
+        _dbContext.CeilingClaims.Remove(claim);
+        holding.Held = Math.Max(0, holding.Held - 1);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> HasFlagAsync(
+        SubscriberRef subscriber,
+        string meterCode,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // Reads the PINNED version, never the pending one. A flag is a pure read with no grant to
+        // withhold, so this is the only thing stopping an unpaid upgrade conferring a capability.
+        var entitlement = await ActiveEntitlementAsync(tenantId, subscriber, meterCode, cancellationToken);
+
+        return entitlement is not null && entitlement.Allowance >= 1;
+    }
 
     // ---- internals ---------------------------------------------------------------------------
+
+    /// <summary>The subscriber's ceiling for a meter, from the pinned plan version.</summary>
+    private async Task<int> CeilingAllowanceAsync(
+        Guid tenantId,
+        SubscriberRef subscriber,
+        string meterCode,
+        CancellationToken cancellationToken)
+    {
+        var entitlement = await ActiveEntitlementAsync(tenantId, subscriber, meterCode, cancellationToken);
+
+        // No subscription, or a plan that grants none: zero slots, not unlimited.
+        if (entitlement is null)
+            throw new EntitlementExceededException(meterCode, 1, 0);
+
+        return (int)decimal.Truncate(entitlement.Allowance);
+    }
+
+    private async Task<Entities.Catalogue.PlanEntitlement?> ActiveEntitlementAsync(
+        Guid tenantId,
+        SubscriberRef subscriber,
+        string meterCode,
+        CancellationToken cancellationToken)
+    {
+        var planVersionId = await _dbContext.Subscriptions.AsNoTracking()
+            .Where(s => s.TenantId == tenantId
+                        && s.SubscriberKind == subscriber.Kind
+                        && s.SubscriberId == subscriber.Id
+                        && SubscriptionStatuses.OccupiesActiveSlot.Contains(s.Status))
+            .Select(s => (Guid?)s.PlanVersionId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (planVersionId is null)
+            return null;
+
+        return await _dbContext.PlanEntitlements.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.PlanVersionId == planVersionId && e.MeterCode == meterCode, cancellationToken);
+    }
 
     private async Task ReturnHoldAsync(
         UsageReservation reservation,

@@ -84,6 +84,24 @@ public class FreeTierEndToEndTests
                 [new PlanEntitlementSpec("stories", stories, reset)]));
             await Catalogue.PublishVersionAsync(draft.Id);
         }
+
+        /// <summary>All three entitlement kinds on one free plan, as a real pricing tier has.</summary>
+        public async Task SeedAllThreeKindsAsync(decimal stories = 3, decimal profiles = 2, decimal hd = 1)
+        {
+            await Catalogue.CreateMeterAsync(new CreateMeterRequest("stories", "Stories", MeterKinds.Counter, "stories"));
+            await Catalogue.CreateMeterAsync(new CreateMeterRequest("child-profiles", "Child profiles", MeterKinds.Ceiling, "profiles"));
+            await Catalogue.CreateMeterAsync(new CreateMeterRequest("hd-styles", "HD styles", MeterKinds.Flag));
+
+            var plan = await Catalogue.CreatePlanAsync(new CreatePlanRequest("peek", "Peek", BillingIntervals.None));
+            var draft = await Catalogue.CreateDraftVersionAsync(plan.Id, new CreatePlanVersionRequest(0m, "GBP"));
+            await Catalogue.SetEntitlementsAsync(draft.Id, new SetEntitlementsRequest(
+            [
+                new PlanEntitlementSpec("stories", stories, ResetPolicies.Period),
+                new PlanEntitlementSpec("child-profiles", profiles, ResetPolicies.Never),
+                new PlanEntitlementSpec("hd-styles", hd, ResetPolicies.Never)
+            ]));
+            await Catalogue.PublishVersionAsync(draft.Id);
+        }
     }
 
     private static SubscriberRef Subscriber() => new(SubscriberKinds.Tenant, TenantId);

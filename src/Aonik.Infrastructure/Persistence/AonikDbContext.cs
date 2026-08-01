@@ -132,6 +132,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<UsageReservation> UsageReservations { get; set; } = null!;
     public virtual DbSet<UsageReservationAllocation> UsageReservationAllocations { get; set; } = null!;
     public virtual DbSet<UsageRecord> UsageRecords { get; set; } = null!;
+    public virtual DbSet<CeilingHolding> CeilingHoldings { get; set; } = null!;
+    public virtual DbSet<CeilingClaim> CeilingClaims { get; set; } = null!;
     public virtual DbSet<ProductVariant> ProductVariants { get; set; } = null!;
     public virtual DbSet<ProductCategory> ProductCategories { get; set; } = null!;
     public virtual DbSet<ProductMedia> ProductMedia { get; set; } = null!;
@@ -448,6 +450,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapSubscriptionsTable<UsageReservation>(modelBuilder, "UsageReservations");
         MapSubscriptionsTable<UsageReservationAllocation>(modelBuilder, "UsageReservationAllocations");
         MapSubscriptionsTable<UsageRecord>(modelBuilder, "UsageRecords");
+        MapSubscriptionsTable<CeilingHolding>(modelBuilder, "CeilingHoldings");
+        MapSubscriptionsTable<CeilingClaim>(modelBuilder, "CeilingClaims");
         MapCommerceTable<ProductVariant>(modelBuilder, "ProductVariants");
         MapCommerceTable<ProductCategory>(modelBuilder, "ProductCategories");
         MapCommerceTable<ProductMedia>(modelBuilder, "ProductMedia");

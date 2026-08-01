@@ -28,6 +28,8 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
     public DbSet<UsageReservation> UsageReservations => Set<UsageReservation>();
     public DbSet<UsageReservationAllocation> UsageReservationAllocations => Set<UsageReservationAllocation>();
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
+    public DbSet<CeilingHolding> CeilingHoldings => Set<CeilingHolding>();
+    public DbSet<CeilingClaim> CeilingClaims => Set<CeilingClaim>();
 
     public SubscriptionsDbContext(
         DbContextOptions<SubscriptionsDbContext> options,
@@ -63,6 +65,8 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
         MapTable<UsageReservation>(modelBuilder, "UsageReservations");
         MapTable<UsageReservationAllocation>(modelBuilder, "UsageReservationAllocations");
         MapTable<UsageRecord>(modelBuilder, "UsageRecords");
+        MapTable<CeilingHolding>(modelBuilder, "CeilingHoldings");
+        MapTable<CeilingClaim>(modelBuilder, "CeilingClaims");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
