@@ -72,6 +72,7 @@ public sealed class SubscriptionsModule : IModule
         services.AddScoped<IEntitlementPurchaseService, EntitlementPurchaseService>();
         services.AddScoped<EntitlementPurchaseService>();
         services.AddScoped<SubscriptionRenewalService>();
+        services.AddScoped<UsageSweeper>();
 
         return services;
     }

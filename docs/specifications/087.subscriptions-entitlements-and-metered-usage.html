@@ -1017,9 +1017,25 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
     <tr><td><strong>P4</strong> — full usage</td><td>The rest: <code>UsageReservation</code> + allocations, <code>Held</code>, <code>CeilingHolding</code>/<code>CeilingClaim</code>, draw-down ordering, flags.</td><td><strong>LocalDB concurrency suite green</strong> (<a href="#concurrency">§15</a>).</td></tr>
     <tr><td><strong>P5</strong> — ledger <em>(before paid money)</em></td><td><strong>Requires Spec 088 P1–P5.</strong> Provisioning contributor for the four accounts; register the settlement resolver (<a href="#ledger">§13.1</a>); post usage entries through <code>IJournalWriter</code> with meter dimensions.</td><td>A subscription invoice credits 4100 and an entitlement purchase 2210, each dimensioned by meter.</td></tr>
     <tr><td><strong>P6</strong> — paid money</td><td><strong>Requires Spec 088 P4.</strong> Two order types; <code>MeterOffer</code> + <code>IEntitlementPurchaseService</code>; renewal against a stored mandate with per-side-effect idempotency and order completion; <code>SubscriptionDunningJob</code>.</td><td>A paid period renews idempotently onto the correct accounts; a failed payment yields <code>past_due</code>, retries with a fresh intent, and materialises no grants.</td></tr>
-    <tr><td><strong>P7</strong> — jobs &amp; admin</td><td><strong>Four</strong> jobs (renewal, dunning, reservation sweep, grant expiry); Admin UI for plans, subscriptions, offers, mandates and usage.</td><td>Full solution build + <code>dotnet test Aonik.sln</code> + LocalDB lane green.</td></tr>
+    <tr><td><strong>P7</strong> — jobs</td><td><strong>Four</strong> jobs (renewal, dunning, reservation sweep, grant expiry), each a thin wrapper over a service that is already tested without a scheduler. <strong>Admin UI is carved out</strong> — see below.</td><td>Full solution build + <code>dotnet test Aonik.sln</code> + LocalDB lane green.</td></tr>
   </tbody>
 </table>
+
+<div class="callout open">
+  <span class="callout-label">Admin UI is its own spec</span>
+  P7 originally bundled "Admin UI for plans, subscriptions, offers, mandates and usage" with the four
+  jobs. That is a frontend workstream, not a tail on a backend phase, and this repository already
+  treats it that way: Commerce's admin surface is <strong>twelve</strong> separate specs
+  (<a href="073.admin-ui-commerce-foundation.html">073</a>–<a href="084.admin-ui-commerce-overview.html">084</a>),
+  starting with a foundation spec for module registration, navigation and the data layer before any
+  screen is built.
+  <br><br>
+  Five screens squeezed in here would either be thin enough to need rebuilding or large enough to
+  bury the jobs they shipped alongside. The subscriptions admin surface therefore becomes its own
+  spec, following the same foundation-first shape. The API surface it needs already exists — the
+  catalogue endpoints landed in P2, and the read contracts (<code>IEntitlementReader</code>,
+  <code>ISubscriptionService</code>) in P3.
+</div>
 
 <div class="callout p0">
   <span class="callout-label">Two ordering corrections from Rev 1</span>
