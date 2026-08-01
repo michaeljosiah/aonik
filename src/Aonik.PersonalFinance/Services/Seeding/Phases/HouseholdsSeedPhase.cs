@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Seeding;
 
@@ -52,6 +53,7 @@ internal sealed class HouseholdsSeedPhase
                 {
                     Id = seed.HouseholdId,
                     TenantId = tenantId,
+                    Kind = GroupKinds.Household,
                     Name = seed.Name,
                     CreatedAt = now,
                     CreatedBy = userId
@@ -77,6 +79,11 @@ internal sealed class HouseholdsSeedPhase
 
             if (existingMember == null)
             {
+                // Spec 086 P3: PartyId is deliberately left to the backfill job rather than resolved
+                // here. This phase is constructed directly as well as through DI, and the demo user's
+                // PersonalProfile may not exist yet at this point in the seed — resolving from only
+                // the half of the rule available here would write a party the backfill then disagrees
+                // with. Demo personas are exactly the case the backfill's profile fallback exists for.
                 existingMember = new HouseholdMember
                 {
                     Id = seed.MemberId,

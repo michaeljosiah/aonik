@@ -483,8 +483,11 @@ public sealed record GroupTransition(
   <code>InvitePreviewRateLimiterTests</code> follows the limiter. <code>CircleEndpointsTests</code>,
   <code>CliApplicationTests</code>, <code>FakeAonikCliApiClient</code>, <code>DemoSeedServiceTests</code>,
   <code>UserBriefProjectorTests</code> and
-  <code>UserTransactionsUnderRetryStrategySqlServerTests</code> stay put and must pass <strong>unmodified</strong> —
-  that is the wire-compatibility proof (<a href="#acceptance">§15</a>).
+  <code>UserTransactionsUnderRetryStrategySqlServerTests</code> stay put and must pass with their
+  <strong>assertions unmodified</strong> — that is the wire-compatibility proof
+  (<a href="#acceptance">§15</a>). Constructor arity is not wire surface: P3 adds a
+  <code>MemberPartyResolver</code> argument to <code>HouseholdService</code> and <code>CircleService</code>, which the
+  three tests that construct them directly must pass. Nothing they assert changes.
 </p>
 
 <h2 id="contracts">9. Contracts in SharedKernel</h2>
@@ -725,7 +728,15 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P3</strong> — backfill + dual-write</td>
-      <td>Idempotent Worker job: <code>PartyId</code>/<code>OwnerPartyId</code>/<code>MemberPartyId</code> from the user columns, plus <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans. Writers begin <strong>dual-writing</strong> user and party columns; <strong>readers still use the user columns</strong>.</td>
+      <td>Idempotent Worker job (<code>GroupPartyBackfillJob</code>): <code>PartyId</code>/<code>OwnerPartyId</code>/<code>MemberPartyId</code> from the user columns, plus <code>Kind</code>, <code>ResourceKind</code>, <code>TermsJson</code>. Reports touched/skipped; fails on orphans. Writers begin <strong>dual-writing</strong> user and party columns; <strong>readers still use the user columns</strong>.
+      <br><br>
+      <em>Implementation note.</em> The job reads across tenants but must <strong>commit per tenant</strong>:
+      <code>AonikDbContextBase.EnforceTenantOnWrites</code> rejects saving a tenant-scoped row whose
+      <code>TenantId</code> differs from the ambient tenant, so a read-everything-save-once backfill throws on the first
+      row it touches. It stamps <code>ITenantContext.TenantId</code>, does that tenant's rows, saves, and resets — the
+      <code>DocumentIngestionBackfillJob</code> pattern. Unresolvable users on <em>soft-deleted</em> rows are populated
+      where possible but never block: a member deleted years ago whose user has been purged is not a defect anyone can
+      fix, and a backfill that can never go green is one whose failure everyone learns to ignore.</td>
       <td>Zero unbackfilled rows in every environment, and no reader has changed.</td>
     </tr>
     <tr>

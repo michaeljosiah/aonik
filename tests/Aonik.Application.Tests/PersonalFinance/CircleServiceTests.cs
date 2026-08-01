@@ -1,3 +1,4 @@
+using Moq;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Services;
@@ -88,6 +89,9 @@ public class CircleServiceTests
             new TestCurrentUserProvider(userId),
             documentLinkReader ?? new FakeDocumentLinkReader(),
             _partyReader,
+            // Spec 086 P3 dual-write. The real resolver over a no-link IUserPartyResolver, so these
+            // tests exercise the PersonalProfile fallback the seeded personas actually take.
+            new MemberPartyResolver(ctx, Mock.Of<IUserPartyResolver>()),
             Microsoft.Extensions.Options.Options.Create(new CircleInviteOptions { PreviewDisclosure = disclosure }));
 
     /// <summary>Seeds the owner's PersonalProfile (UserId → PartyId) and registers the party display name for preview.</summary>

@@ -69,6 +69,10 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<ICareEntityPhotoService, CareEntityPhotoService>();
         services.AddScoped<IPaymentLogService, PaymentLogService>();
         services.AddScoped<IPaymentLogSummaryService, PaymentLogSummaryService>();
+        // Spec 086 P3 — transitional user -> party mapping for the dual-write window. Shared by
+        // CircleService and HouseholdService so both agree on where a party comes from.
+        services.AddScoped<Services.MemberPartyResolver>();
+
         services.AddScoped<CircleService>();
         services.AddScoped<ICircleService>(sp => sp.GetRequiredService<CircleService>());
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());

@@ -213,7 +213,8 @@ public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<Sq
             partyReader,
             directoryReader,
             clock,
-            new NoOpNotificationWriter());
+            new NoOpNotificationWriter(),
+            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()));
 
         var response = await service.AcceptInvitationAsync(household.Id);
 

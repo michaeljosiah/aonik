@@ -8,6 +8,7 @@ using Aonik.PersonalFinance.Contracts.Services;
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events.Integration;
@@ -27,6 +28,7 @@ internal sealed class HouseholdService : IHouseholdService
     private readonly IUserDirectoryReader _userDirectoryReader;
     private readonly IClock _clock;
     private readonly IUserNotificationWriter _notificationWriter;
+    private readonly MemberPartyResolver _partyResolver;
 
     public HouseholdService(
         PersonalFinanceDbContext dbContext,
@@ -36,7 +38,8 @@ internal sealed class HouseholdService : IHouseholdService
         IPartyReader partyReader,
         IUserDirectoryReader userDirectoryReader,
         IClock clock,
-        IUserNotificationWriter notificationWriter)
+        IUserNotificationWriter notificationWriter,
+        MemberPartyResolver partyResolver)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -46,6 +49,7 @@ internal sealed class HouseholdService : IHouseholdService
         _userDirectoryReader = userDirectoryReader;
         _clock = clock;
         _notificationWriter = notificationWriter;
+        _partyResolver = partyResolver;
     }
 
     public async Task<HouseholdResponse> CreateHouseholdAsync(
@@ -83,6 +87,9 @@ internal sealed class HouseholdService : IHouseholdService
         var household = new Household
         {
             TenantId = tenantId,
+            // Spec 086 P3 dual-write. Everything PersonalFinance creates is a household; a family
+            // is what the other product creates through the platform contract.
+            Kind = GroupKinds.Household,
             Name = request.Name.Trim()
         };
 
@@ -91,6 +98,9 @@ internal sealed class HouseholdService : IHouseholdService
             TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = userId,
+            // The profile was already required above and carries the party, so the owner needs no
+            // resolver round-trip.
+            PartyId = profile.PartyId == Guid.Empty ? null : profile.PartyId,
             Role = HouseholdRoles.Owner,
             PermissionsJson = HouseholdMembershipRules.SerializePermissions(HouseholdMembershipRules.EmptyPermissions),
             InvitationStatus = HouseholdInvitationStatuses.Accepted,
@@ -201,6 +211,10 @@ internal sealed class HouseholdService : IHouseholdService
             TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = request.UserId,
+            // Spec 086 P3 dual-write. Null when the invitee has no party yet — deliberately not an
+            // error: an invitation that works today must keep working, and the backfill job reports
+            // what is left unresolved.
+            PartyId = await _partyResolver.ResolveAsync(tenantId, request.UserId, cancellationToken),
             Role = normalizedRole,
             PermissionsJson = HouseholdMembershipRules.SerializePermissions(permissions),
             InvitationStatus = HouseholdInvitationStatuses.Pending,

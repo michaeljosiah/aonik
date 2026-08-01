@@ -157,6 +157,20 @@ internal static class ScheduledJobDefinitions
                 "Closes lapsed entitlement grants so breakage is recorded rather than inferred (Spec 087).",
                 options.GrantExpirySweep.CronExpression,
                 options.GrantExpirySweep.Enabled),
+            new ScheduledJobDefinition<GroupPartyBackfillJob>(
+                GroupPartyBackfillJob.Key,
+                new TriggerKey("GroupPartyBackfillJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Group Party Backfill",
+                "Populates group party ids, kind, resource kind and terms ahead of the Spec 086 reader cutover (one-off; disabled by default).",
+                options.GroupPartyBackfill.CronExpression,
+                options.GroupPartyBackfill.Enabled),
+            new ScheduledJobDefinition<CanonicalLedgerBackfillJob>(
+                CanonicalLedgerBackfillJob.Key,
+                new TriggerKey("CanonicalLedgerBackfillJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Canonical Ledger Backfill",
+                "Marks each tenant's canonical ledger so ILedgerResolver can answer (Spec 088; one-off, disabled by default).",
+                options.CanonicalLedgerBackfill.CronExpression,
+                options.CanonicalLedgerBackfill.Enabled),
             new ScheduledJobDefinition<InventoryReservationSweepJob>(
                 InventoryReservationSweepJob.Key,
                 new TriggerKey("InventoryReservationSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),

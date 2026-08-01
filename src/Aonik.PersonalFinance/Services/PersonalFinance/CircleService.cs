@@ -6,6 +6,7 @@ using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Persistence;
@@ -31,6 +32,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IDocumentLinkReader _documentLinkReader;
     private readonly IPartyReader _partyReader;
+    private readonly MemberPartyResolver _partyResolver;
     private readonly CircleInviteOptions _options;
 
     public CircleService(
@@ -40,6 +42,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         ICurrentUserProvider currentUserProvider,
         IDocumentLinkReader documentLinkReader,
         IPartyReader partyReader,
+        MemberPartyResolver partyResolver,
         IOptions<CircleInviteOptions> options)
     {
         _dbContext = dbContext;
@@ -48,6 +51,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         _currentUserProvider = currentUserProvider;
         _documentLinkReader = documentLinkReader;
         _partyReader = partyReader;
+        _partyResolver = partyResolver;
         _options = options.Value;
     }
 
@@ -64,6 +68,14 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             TenantId = tenantId,
             OwnerUserId = ownerUserId,
             MemberUserId = request.MemberUserId == Guid.Empty ? null : request.MemberUserId,
+            // Spec 086 P3 dual-write: party columns ALONGSIDE the user ones, never instead of them.
+            // Readers still use the user columns until P5, so a null here costs nothing today.
+            OwnerPartyId = await _partyResolver.ResolveAsync(tenantId, ownerUserId, cancellationToken),
+            MemberPartyId = request.MemberUserId == Guid.Empty
+                ? null
+                : await _partyResolver.ResolveAsync(tenantId, request.MemberUserId, cancellationToken),
+            ResourceKind = ShareResourceKinds.CareEntity,
+            TermsJson = CircleGrantTerms.Serialize(noAmounts),
             Scope = scope,
             EntityIdsJson = SerializeIds(request.EntityIds),
             NoAmounts = noAmounts,
@@ -160,14 +172,19 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         var (tenantId, ownerUserId) = GetContext();
         var scope = NormalizeScope(request.Scope);
 
+        var noAmounts = scope == "docsOnly" || request.NoAmounts;
+
         var invite = new CircleInvite
         {
             TenantId = tenantId,
             OwnerUserId = ownerUserId,
+            OwnerPartyId = await _partyResolver.ResolveAsync(tenantId, ownerUserId, cancellationToken),
+            ResourceKind = ShareResourceKinds.CareEntity,
+            TermsJson = CircleGrantTerms.Serialize(noAmounts),
             Token = GenerateToken(),
             Scope = scope,
             EntityIdsJson = SerializeIds(request.EntityIds),
-            NoAmounts = scope == "docsOnly" || request.NoAmounts,
+            NoAmounts = noAmounts,
             Channel = Clean(request.Channel),
             ExpiresAt = DateTime.UtcNow.AddDays(InviteExpiryDays),
             Status = "pending",
@@ -267,6 +284,15 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             TenantId = tenantId,
             OwnerUserId = invite.OwnerUserId,
             MemberUserId = memberUserId,
+            // The owner's party is carried from the invite rather than re-resolved: the invite is
+            // the record of what was offered, and re-resolving could pick up a different link
+            // minted between minting and acceptance.
+            OwnerPartyId = invite.OwnerPartyId,
+            MemberPartyId = await _partyResolver.ResolveAsync(tenantId, memberUserId, cancellationToken),
+            ResourceKind = string.IsNullOrWhiteSpace(invite.ResourceKind)
+                ? ShareResourceKinds.CareEntity
+                : invite.ResourceKind,
+            TermsJson = invite.TermsJson ?? CircleGrantTerms.Serialize(invite.NoAmounts),
             Scope = invite.Scope,
             EntityIdsJson = invite.EntityIdsJson,
             NoAmounts = invite.NoAmounts,

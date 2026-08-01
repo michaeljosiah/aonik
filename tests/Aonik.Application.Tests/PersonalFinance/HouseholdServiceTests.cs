@@ -1,3 +1,4 @@
+using Moq;
 using System.Text.Json;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
@@ -172,7 +173,8 @@ public class HouseholdServiceTests
             partyReader,
             userDirectoryReader,
             clock,
-            notificationWriter);
+            notificationWriter,
+            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()));
     }
 
     [Fact]

@@ -27,13 +27,16 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
     public static readonly JobKey Key = new("CanonicalLedgerBackfillJob", ScheduledJobGroups.ScheduledJobs);
 
     private readonly FinanceDbContext _dbContext;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<CanonicalLedgerBackfillJob> _logger;
 
     public CanonicalLedgerBackfillJob(
         FinanceDbContext dbContext,
+        ITenantContext tenantContext,
         ILogger<CanonicalLedgerBackfillJob> logger)
     {
         _dbContext = dbContext;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -76,12 +79,24 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
                 .AcrossTenants()
                 .FirstAsync(l => l.Id == candidates[0].Id, ct);
 
-            only.IsCanonical = true;
-            marked++;
-        }
+            // Stamp the ambient tenant and commit per tenant. The base context refuses to save a
+            // tenant-scoped row whose TenantId differs from the ambient tenant, so a job that read
+            // across tenants and saved once would throw on the first row it touched.
+            _tenantContext.TenantId = tenant.Key;
+            _tenantContext.ResolutionSource = "backfill";
 
-        if (marked > 0)
-            await _dbContext.SaveChangesAsync(ct);
+            try
+            {
+                only.IsCanonical = true;
+                await _dbContext.SaveChangesAsync(ct);
+                marked++;
+            }
+            finally
+            {
+                _tenantContext.TenantId = null;
+                _tenantContext.ResolutionSource = null;
+            }
+        }
 
         _logger.LogInformation(
             "Canonical ledger backfill: {Marked} marked, {AlreadySet} already set, {Ambiguous} ambiguous, {Tenants} tenants scanned.",
