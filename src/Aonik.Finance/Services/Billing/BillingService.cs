@@ -32,9 +32,37 @@ internal class BillingService : FinanceServiceBase, IBillingService
         _ledgerPoster = ledgerPoster;
     }
 
-    public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
+    public Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
+        => CreateInvoiceAsync(request, machineAuthorised: false, cancellationToken);
+
+    /// <summary>
+    /// Raises an invoice on behalf of a <b>machine</b> caller — a scheduled renewal, a checkout
+    /// settlement — where there is no user to hold <c>Invoice.Create</c>.
+    /// </summary>
+    /// <remarks>
+    /// Not a back door. <c>EnsurePermissionAsync</c> throws outright when no user is present, so
+    /// every paid subscription renewal failed in the Worker and retried into the same error: the
+    /// permission gate exists for the HTTP surface, and a cron has no principal to satisfy it. The
+    /// authorisation for these calls is the calling module's own rule — this subscription's period
+    /// is due, this order is paid — which is checked before the call and cannot be expressed as a
+    /// user permission.
+    ///
+    /// Reachable only from inside Finance, and used only by <c>InvoiceWriter</c>, which is the
+    /// SharedKernel write contract other modules go through. The gated public method is unchanged.
+    /// </remarks>
+    internal Task<InvoiceResponse> CreateInvoiceForMachineAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
+        => CreateInvoiceAsync(request, machineAuthorised: true, cancellationToken);
+
+    private async Task<InvoiceResponse> CreateInvoiceAsync(
+        CreateInvoiceRequest request,
+        bool machineAuthorised,
+        CancellationToken cancellationToken)
     {
-        await EnsurePermissionAsync("Invoice.Create", cancellationToken);
+        if (!machineAuthorised)
+        {
+            await EnsurePermissionAsync("Invoice.Create", cancellationToken);
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         // Spec 088 §8 - return the original rather than billing the customer a second time. The

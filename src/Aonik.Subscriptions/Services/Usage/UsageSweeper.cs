@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Persistence;
 using Aonik.SharedKernel.Persistence;
@@ -10,19 +11,47 @@ namespace Aonik.Subscriptions.Services.Usage;
 /// <summary>
 /// Spec 087 §16 — returns holds nobody claimed, and closes allowance that has lapsed.
 ///
-/// Both sweeps run <b>across every tenant</b>: a hold left behind by a crashed dispatch belongs to
-/// whichever tenant took it, and no request context exists to scope by. Both are idempotent, so a
+/// Both sweeps run <b>per tenant</b>, driven by <see cref="FindTenantsWithWorkAsync"/>. They used to
+/// read across every tenant and save once, which could never work:
+/// <c>AonikDbContextBase.EnforceTenantOnWrites</c> refuses a tenant-scoped write with no ambient
+/// tenant, so the first save threw and neither sweep ever completed. Both are idempotent, so a
 /// re-run after a partial failure is safe and is the intended recovery.
 /// </summary>
 internal sealed class UsageSweeper
 {
     private readonly SubscriptionsDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
 
-    public UsageSweeper(SubscriptionsDbContext dbContext, IClock clock)
+    public UsageSweeper(SubscriptionsDbContext dbContext, ITenantProvider tenantProvider, IClock clock)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
         _clock = clock;
+    }
+
+    /// <summary>Tenants holding at least one row either sweep would touch.</summary>
+    public async Task<IReadOnlyList<Guid>> FindTenantsWithWorkAsync(CancellationToken cancellationToken = default)
+    {
+        var now = _clock.UtcNow;
+
+        var fromReservations = await _dbContext.UsageReservations
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(r => !r.IsDeleted && r.Status == UsageReservationStatuses.Held && r.ExpiresAt <= now)
+            .Select(r => r.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var fromGrants = await _dbContext.EntitlementGrants
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(g => !g.IsDeleted && g.Status == GrantStatuses.Open && g.ExpiresAt != null && g.ExpiresAt <= now)
+            .Select(g => g.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return fromReservations.Concat(fromGrants).Distinct().ToList();
     }
 
     /// <summary>
@@ -36,10 +65,10 @@ internal sealed class UsageSweeper
     public async Task<int> ExpireStaleReservationsAsync(CancellationToken cancellationToken = default)
     {
         var now = _clock.UtcNow;
+        var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var stale = await _dbContext.UsageReservations
-            .AcrossTenants()
-            .Where(r => r.Status == UsageReservationStatuses.Held && r.ExpiresAt <= now)
+            .Where(r => r.TenantId == tenantId && r.Status == UsageReservationStatuses.Held && r.ExpiresAt <= now)
             .ToListAsync(cancellationToken);
 
         if (stale.Count == 0)
@@ -88,10 +117,10 @@ internal sealed class UsageSweeper
     public async Task<int> CloseExpiredGrantsAsync(CancellationToken cancellationToken = default)
     {
         var now = _clock.UtcNow;
+        var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var expired = await _dbContext.EntitlementGrants
-            .AcrossTenants()
-            .Where(g => g.Status == GrantStatuses.Open && g.ExpiresAt != null && g.ExpiresAt <= now)
+            .Where(g => g.TenantId == tenantId && g.Status == GrantStatuses.Open && g.ExpiresAt != null && g.ExpiresAt <= now)
             .ToListAsync(cancellationToken);
 
         if (expired.Count == 0)

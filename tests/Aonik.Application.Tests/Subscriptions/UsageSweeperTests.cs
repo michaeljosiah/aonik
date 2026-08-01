@@ -35,12 +35,17 @@ public class UsageSweeperTests
     private static (SubscriptionsDbContext Db, TestClock Clock, UsageSweeper Sweeper) Create()
     {
         var clock = new TestClock();
+        // The sweeps are tenant-scoped now, so the provider is shared with the context rather than
+        // discarded: reading across tenants and saving once could never work, because the base
+        // context refuses a tenant-scoped write with no ambient tenant.
+        var tenantProvider = new TestTenantProvider();
+
         var db = new SubscriptionsDbContext(
             new DbContextOptionsBuilder<SubscriptionsDbContext>()
                 .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}").Options,
-            new TestTenantProvider());
+            tenantProvider);
 
-        return (db, clock, new UsageSweeper(db, clock));
+        return (db, clock, new UsageSweeper(db, tenantProvider, clock));
     }
 
     private static EntitlementGrant Grant(decimal allowance, decimal held, DateTime? expiresAt = null) => new()

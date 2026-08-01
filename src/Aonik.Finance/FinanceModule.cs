@@ -88,7 +88,10 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();
 
         // Billing
-        services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
+        // Registered concretely as well: InvoiceWriter needs the machine-authorised creation path,
+        // which the user-facing interface deliberately does not expose.
+        services.AddScoped<Services.Billing.BillingService>();
+        services.AddScoped<Contracts.Services.Billing.IBillingService>(sp => sp.GetRequiredService<Services.Billing.BillingService>());
 
         // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)
         // so modules that cannot reference Finance (e.g. Aonik.Commerce) can bill and fund an order.
