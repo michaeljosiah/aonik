@@ -96,7 +96,10 @@ internal sealed class CareEntityShareResourceResolver : IShareResourceResolver
             .Where(entity => entity.TenantId == tenantId
                 && entity.UserId == userId
                 && ids.Contains(entity.Id)
-                && !entity.Archived)
+                && !entity.Archived
+                // Same reason as the invite lookup: AcrossTenants disables the soft-delete filter,
+                // and a live invite must not disclose the names of deleted resources.
+                && !entity.IsDeleted)
             .OrderBy(entity => entity.Name)
             .Select(entity => new { entity.Id, entity.Name })
             .ToListAsync(cancellationToken);

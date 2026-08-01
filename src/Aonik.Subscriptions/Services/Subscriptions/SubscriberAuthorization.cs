@@ -42,7 +42,17 @@ internal sealed class SubscriberAuthorization
     /// Throws unless the current caller may act for this subscriber. An <b>unregistered kind fails
     /// closed</b>: an unknown kind is not a reason to allow the call.
     /// </summary>
-    public async Task EnsureCanActForAsync(SubscriberRef subscriber, CancellationToken cancellationToken)
+    public Task EnsureCanActForAsync(SubscriberRef subscriber, CancellationToken cancellationToken)
+        => EnsureAsync(subscriber, billing: false, cancellationToken);
+
+    /// <summary>
+    /// Throws unless the caller may change what this subscriber pays for. Strictly narrower than
+    /// <see cref="EnsureCanActForAsync"/> — see <c>ISubscriberAuthorizer.CanManageBillingForAsync</c>.
+    /// </summary>
+    public Task EnsureCanManageBillingForAsync(SubscriberRef subscriber, CancellationToken cancellationToken)
+        => EnsureAsync(subscriber, billing: true, cancellationToken);
+
+    private async Task EnsureAsync(SubscriberRef subscriber, bool billing, CancellationToken cancellationToken)
     {
         var authorizer = _authorizers.FirstOrDefault(a =>
             a.SupportedKinds.Any(k => string.Equals(k, subscriber.Kind, StringComparison.OrdinalIgnoreCase)));
@@ -53,7 +63,11 @@ internal sealed class SubscriberAuthorization
                 $"No authorizer is registered for subscriber kind '{subscriber.Kind}'.");
         }
 
-        if (!await authorizer.CanActForAsync(subscriber, cancellationToken))
+        var allowed = billing
+            ? await authorizer.CanManageBillingForAsync(subscriber, cancellationToken)
+            : await authorizer.CanActForAsync(subscriber, cancellationToken);
+
+        if (!allowed)
         {
             // Deliberately one message for both "does not exist" and "not yours": distinguishing
             // them would let a caller enumerate other subscribers.
@@ -70,14 +84,42 @@ internal sealed class SubscriberAuthorization
 /// </summary>
 internal sealed class TenantSubscriberAuthorizer : ISubscriberAuthorizer
 {
-    private readonly ITenantProvider _tenantProvider;
+    private const string BillingPermission = "Subscription.Manage";
 
-    public TenantSubscriberAuthorizer(ITenantProvider tenantProvider) => _tenantProvider = tenantProvider;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ICurrentUserProvider _currentUser;
+    private readonly IPermissionService _permissions;
+
+    public TenantSubscriberAuthorizer(
+        ITenantProvider tenantProvider,
+        ICurrentUserProvider currentUser,
+        IPermissionService permissions)
+    {
+        _tenantProvider = tenantProvider;
+        _currentUser = currentUser;
+        _permissions = permissions;
+    }
 
     public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Tenant];
 
     public Task<bool> CanActForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
         => Task.FromResult(subscriber.Id == _tenantProvider.GetCurrentTenantId());
+
+    /// <remarks>
+    /// Being in the tenant is not authority over the tenant's plan. Changing it is an administrative
+    /// act, so it carries a permission — otherwise any ordinary user of a B2B tenant could cancel the
+    /// platform subscription their colleagues depend on.
+    /// </remarks>
+    public async Task<bool> CanManageBillingForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
+    {
+        if (subscriber.Id != _tenantProvider.GetCurrentTenantId())
+        {
+            return false;
+        }
+
+        return _currentUser.GetCurrentUserId() is { } userId
+            && await _permissions.HasPermissionAsync(userId, BillingPermission, cancellationToken);
+    }
 }
 
 /// <summary>
@@ -97,6 +139,10 @@ internal sealed class PartySubscriberAuthorizer : ISubscriberAuthorizer
         var partyId = await _currentParty.GetCurrentPartyIdAsync(cancellationToken);
         return partyId is not null && partyId == subscriber.Id;
     }
+
+    /// <remarks>Identical: the party <em>is</em> the subscriber, so there is no one else to protect them from.</remarks>
+    public Task<bool> CanManageBillingForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
+        => CanActForAsync(subscriber, cancellationToken);
 }
 
 /// <summary>
@@ -150,8 +196,32 @@ internal sealed class GroupSubscriberAuthorizer : ISubscriberAuthorizer
         // Guid.Empty for it. Party-only matching would deny every pre-existing member access to the
         // subscription their group pays for — and a seeded persona, whose party never resolves
         // through the bridge at all, would fail even earlier.
-        return members.Any(member =>
-            (partyId is { } callerParty && member.PartyId != Guid.Empty && member.PartyId == callerParty)
-            || (userId is { } callerUser && member.UserId == callerUser));
+        return members.Any(member => Matches(member, partyId, userId));
     }
+
+    /// <remarks>
+    /// Owners and managers only. A family plan is drawn on by everyone in the family — that is what
+    /// <see cref="CanActForAsync"/> is for — but a child holding a Viewer role must not be able to
+    /// cancel it or replace the card it is paid with.
+    /// </remarks>
+    public async Task<bool> CanManageBillingForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
+    {
+        var partyId = await _currentParty.GetCurrentPartyIdAsync(cancellationToken);
+        var userId = _currentUser.GetCurrentUserId();
+
+        if (partyId is null && userId is null)
+        {
+            return false;
+        }
+
+        var members = await _groups.GetMembersAsync(subscriber.Id, cancellationToken);
+
+        return members.Any(member => Matches(member, partyId, userId)
+            && (string.Equals(member.Role, GroupRoles.Owner, StringComparison.Ordinal)
+                || string.Equals(member.Role, GroupRoles.Manager, StringComparison.Ordinal)));
+    }
+
+    private static bool Matches(GroupMemberDto member, Guid? partyId, Guid? userId)
+        => (partyId is { } callerParty && member.PartyId != Guid.Empty && member.PartyId == callerParty)
+            || (userId is { } callerUser && member.UserId == callerUser);
 }

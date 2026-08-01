@@ -43,6 +43,7 @@ public class PaidRenewalTests
     {
         public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Tenant];
         public Task<bool> CanActForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<bool> CanManageBillingForAsync(SubscriberRef s, CancellationToken ct = default) => Task.FromResult(true);
     }
 
     /// <summary>Records what the renewal asked the order spine to do.</summary>

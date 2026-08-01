@@ -460,6 +460,23 @@ internal sealed class CoreOrderService : IOrderService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await EnsureOrderExistsAsync(orderId, cancellationToken);
 
+        // Idempotent. Settlement links before it commits so a crash leaves the period retryable,
+        // and that retry must not accumulate a second identical fulfilment row against the same
+        // order — the trace is a fact about what happened, not a log of how many times we said it.
+        var alreadyLinked = await _dbContext.OrderFulfilmentRefs.AnyAsync(
+            existing => existing.TenantId == tenantId
+                && existing.OrderId == orderId
+                && existing.PayoutId == link.PayoutId
+                && existing.PaymentIntentId == link.PaymentIntentId
+                && existing.PartnerBillPaymentId == link.PartnerBillPaymentId
+                && existing.SubscriptionPeriodId == link.SubscriptionPeriodId,
+            cancellationToken);
+
+        if (alreadyLinked)
+        {
+            return;
+        }
+
         _dbContext.OrderFulfilmentRefs.Add(new OrderFulfilmentRef
         {
             Id = Guid.NewGuid(),

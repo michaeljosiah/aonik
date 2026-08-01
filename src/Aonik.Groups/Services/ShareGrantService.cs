@@ -237,10 +237,13 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
 
         // The token IS the capability: 256 bits, globally unique. Resolved without an ambient tenant
         // because the caller is anonymous — the equality predicate pins the read to one invite.
+        // !IsDeleted is explicit because AcrossTenants disables the soft-delete filter too. Without
+        // it a withdrawn invite stays previewable to anyone still holding its token — the one thing
+        // an anonymous, unauthenticated endpoint must never do.
         var invite = await _dbContext.ShareInvites
             .AsNoTracking()
             .AcrossTenants()
-            .FirstOrDefaultAsync(item => item.Token == token, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Token == token && !item.IsDeleted, cancellationToken);
 
         // Fail closed, and identically: invalid, expired, consumed and revoked all return null, so
         // this cannot be used to discover which tokens exist.

@@ -170,8 +170,8 @@ internal sealed class SubscriptionRenewalService
             return RenewalOutcome.NeedsReauthorisation;
         }
 
-        await SettleAsync(subscription, period, version, cancellationToken);
         await CompleteOrderAsync(order.Id, period.Id, cancellationToken);
+        await SettleAsync(subscription, period, version, cancellationToken);
 
         return RenewalOutcome.Settled;
     }
@@ -247,8 +247,13 @@ internal sealed class SubscriptionRenewalService
             return RenewalOutcome.NeedsReauthorisation;
         }
 
-        await SettleAsync(subscription, period, version, cancellationToken);
+        // Order side FIRST, settlement second. Settling advances CurrentPeriodEnd and leaves no
+        // pending period, so FindDueAsync stops selecting the subscription and FindRetryableAsync
+        // only looks at failed ones — a crash between the two would strand the order Draft with no
+        // fulfilment trace and nothing to revisit it. This way the period stays due until both
+        // halves are done, and both are idempotent so the retry is a no-op where it already ran.
         await CompleteOrderAsync(period.OrderId!.Value, period.Id, cancellationToken);
+        await SettleAsync(subscription, period, version, cancellationToken);
 
         return RenewalOutcome.Settled;
     }

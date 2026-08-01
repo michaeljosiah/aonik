@@ -39,4 +39,18 @@ public interface ISubscriberAuthorizer
     Task<bool> CanActForAsync(
         SubscriberRef subscriber,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether the caller may change what the subscriber <b>pays for</b> — subscribe, change plan,
+    /// cancel, set the payment mandate, buy a top-up.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CanActForAsync"/> because the two questions are genuinely different
+    /// and answering them together gets one of them wrong. Reading entitlements and drawing on them
+    /// is what ordinary membership is for — a child in a family consuming their own allowance is the
+    /// point of the model. Cancelling the plan or replacing the card is not: without this split, any
+    /// accepted member of a family, or any ordinary user in a B2B tenant, could cancel the shared
+    /// paid plan and change its payment instrument.
+    /// </remarks>
+    Task<bool> CanManageBillingForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default);
 }
