@@ -97,6 +97,19 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
 
         await ValidateResourcesAsync(command.ResourceKind, ToOwner(owner), command.ResourceIds, cancellationToken);
 
+        // A grant naming party A and user B is authorised through BOTH: ListSharedWithMeAsync matches
+        // the user while HasGrantAsync matches the party, so one malformed grant hands the owner's
+        // resources to two different people. Fails closed when the pair cannot be verified.
+        if (command.MemberPartyId is { } statedMemberParty && command.MemberUserId is { } statedMemberUser)
+        {
+            var resolved = await ResolvePartyForUserAsync(tenantId, statedMemberUser, cancellationToken);
+
+            if (resolved is null || resolved != statedMemberParty)
+            {
+                throw new InvalidStateException("The party and user named on this grant are not the same person.");
+            }
+        }
+
         var grant = new CircleGrant
         {
             TenantId = tenantId,
@@ -471,7 +484,14 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
 
         var resolved = await ResolveResourcesAsync(resourceKind, owner, resourceIds, cancellationToken);
 
-        if (resolved.Count != resourceIds.Distinct().Count())
+        var requested = resourceIds.Distinct().ToHashSet();
+        var returned = resolved.Select(resource => resource.Id).ToHashSet();
+
+        // The SET, not the count. Counting alone lets a faulty or newly contributed resolver drop an
+        // unauthorised id and return a different owned one in its place — the totals agree, and the
+        // caller's original unauthorised id is persisted, which IShareGrantReader then authorises
+        // from directly. Equality is what the paragraph above actually promises.
+        if (!requested.SetEquals(returned))
         {
             throw new InvalidStateException("A share grant can only name resources its owner owns.");
         }
@@ -532,6 +552,19 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
     private static ShareResourceOwner ToOwner(Caller caller) => new(caller.PartyId, caller.UserId);
 
     /// <summary>Party to user, through the bridge then the profile — the mirror of the caller lookup.</summary>
+    /// <summary>User to party, through the bridge then the profile.</summary>
+    private async Task<Guid?> ResolvePartyForUserAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        var partyId = await _userPartyResolver.GetPartyIdForUserAsync(tenantId, userId, cancellationToken);
+
+        if (partyId is null && _profilePartyFallback is not null)
+        {
+            partyId = await _profilePartyFallback.GetPartyIdForUserAsync(tenantId, userId, cancellationToken);
+        }
+
+        return partyId;
+    }
+
     private async Task<Guid?> ResolveUserForPartyAsync(Guid tenantId, Guid partyId, CancellationToken cancellationToken)
     {
         var userId = await _userPartyResolver.GetUserIdForPartyAsync(tenantId, partyId, cancellationToken);

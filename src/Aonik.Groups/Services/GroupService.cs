@@ -286,6 +286,16 @@ internal sealed class GroupService : IGroupService, IGroupReader
             }
         }
 
+        // An invitee with no party could never accept: AcceptInvitationAsync resolves the caller's
+        // party first and refuses without one, so the API would report a valid invitation that stays
+        // unusable until some unrelated identity-linking happens. Refuse at the point where it can
+        // still be explained.
+        if (inviteePartyId is null)
+        {
+            throw new InvalidStateException(
+                "The invitee is not linked to a party, so they could not accept this invitation.");
+        }
+
         var transition = new GroupTransition(
             GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, inviteeUserId, caller.PartyId, caller.UserId,
             normalizedRole, group.Kind);

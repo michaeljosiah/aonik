@@ -659,6 +659,27 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 </p>
 
 <div class="callout p0">
+  <span class="callout-label">The migration is forward-only in practice</span>
+  Once a group holds a member without a login, this migration <strong>cannot be rolled back</strong>: the scaffolded
+  <code>Down</code> re-narrows <code>UserId</code> to NOT NULL with a <code>Guid.Empty</code> default and recreates the
+  unfiltered unique index, so two party-only members collapse to one key and SQL Server rejects it.
+  <br><br>
+  The <code>Down</code> body is nonetheless left <strong>exactly as the CLI generated it</strong>, and that is the
+  right answer rather than a concession. EF wraps each migration in a transaction, so the failure rolls the whole
+  <code>Down</code> back and leaves the schema and <code>__EFMigrationsHistory</code> untouched — the database already
+  refuses, atomically and with a clear duplicate-key error. Two alternatives were tried and are worse: a
+  <em>no-op</em> body makes EF delete the history row while every column stays, so the next forward deploy reruns
+  <code>Up</code> against existing objects; and a hand-written <code>throw</code> achieves the same refusal while
+  violating <code>CLAUDE.md</code>'s rule that migration bodies are tool output. The same reasoning applies to
+  <code>AddSubscriptionPeriodFulfilmentRef</code> (Spec 087), whose restored check constraint rejects rows fulfilled
+  through a subscription period.
+  <br><br>
+  To reverse deliberately: confirm <code>SELECT COUNT(*) FROM dbo.AnkHouseholdMembers WHERE UserId IS NULL</code> is
+  zero first. If it is not, decide what becomes of those members — they have no other identity — before going near the
+  schema.
+</div>
+
+<div class="callout p0">
   <span class="callout-label">Migration rules</span>
   The migration is <strong>CLI-generated only</strong>, against <code>AonikDbContext</code>, per
   <code>CLAUDE.md</code>. <strong>The backfills are not written into a migration body</strong> — hand-authoring

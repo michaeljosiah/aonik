@@ -504,10 +504,20 @@ internal sealed class HouseholdService : IHouseholdService
         string notFoundMessage,
         CancellationToken cancellationToken)
     {
+        // Joined to the group, and only households qualify. Every legacy mutation reaches the
+        // generic service through here — accept, decline, remove, leave, transfer — so without the
+        // kind check a family id passed to a household route would mutate the other product's group
+        // while this facade emitted household notifications over the top of it. Empty counts as a
+        // household: every group written before Spec 086 has one.
         var membershipId = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId && member.UserId == userId)
-            .Select(member => (Guid?)member.Id)
+            .Join(
+                _dbContext.Households.AsNoTracking().Where(group => group.TenantId == tenantId
+                    && (group.Kind == GroupKinds.Household || group.Kind == "")),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, _) => (Guid?)member.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
         return membershipId ?? throw new InvalidOperationException(notFoundMessage);

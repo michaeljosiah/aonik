@@ -46,6 +46,7 @@ internal class IdentitySeedService
             new Permission { Key = "Invoice.Update", Description = "Update existing invoices" },
             new Permission { Key = "Invoice.Delete", Description = "Delete invoices" },
             new Permission { Key = "Invoice.Issue", Description = "Issue draft invoices" },
+            new Permission { Key = "Subscription.Manage", Description = "Change what a tenant subscribes to and how it is paid" },
 
             // Payment permissions
             new Permission { Key = "Payment.Create", Description = "Create payment intents" },
