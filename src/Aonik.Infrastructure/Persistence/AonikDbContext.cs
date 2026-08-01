@@ -126,6 +126,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<Plan> Plans { get; set; } = null!;
     public virtual DbSet<PlanVersion> PlanVersions { get; set; } = null!;
     public virtual DbSet<PlanEntitlement> PlanEntitlements { get; set; } = null!;
+    public virtual DbSet<MeterOffer> MeterOffers { get; set; } = null!;
     public virtual DbSet<PlanSubscriptionEntity> PlanSubscriptions { get; set; } = null!;
     public virtual DbSet<SubscriptionPeriod> SubscriptionPeriods { get; set; } = null!;
     public virtual DbSet<EntitlementGrant> EntitlementGrants { get; set; } = null!;
@@ -444,6 +445,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapSubscriptionsTable<Plan>(modelBuilder, "Plans");
         MapSubscriptionsTable<PlanVersion>(modelBuilder, "PlanVersions");
         MapSubscriptionsTable<PlanEntitlement>(modelBuilder, "PlanEntitlements");
+        MapSubscriptionsTable<MeterOffer>(modelBuilder, "MeterOffers");
         MapSubscriptionsTable<PlanSubscriptionEntity>(modelBuilder, "PlanSubscriptions");
         MapSubscriptionsTable<SubscriptionPeriod>(modelBuilder, "SubscriptionPeriods");
         MapSubscriptionsTable<EntitlementGrant>(modelBuilder, "EntitlementGrants");

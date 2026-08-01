@@ -183,7 +183,8 @@ internal sealed class UsageMeter : IUsageMeter
             toConsume -= consumeHere;
 
             if (consumeHere > 0)
-                committed.Add(new GrantAllocation(grant.Id, grant.Source, consumeHere, grant.ExpiresAt));
+                committed.Add(new GrantAllocation(
+                    grant.Id, grant.Source, consumeHere, grant.ExpiresAt, grant.UnitValue, grant.UnitValueCurrency));
         }
 
         reservation.Status = UsageReservationStatuses.Committed;

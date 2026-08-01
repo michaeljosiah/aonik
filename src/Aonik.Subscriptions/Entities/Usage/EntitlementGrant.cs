@@ -57,4 +57,14 @@ public class EntitlementGrant : AuditableEntity, ITenantScoped
 
     /// <summary>Purchases and adjustments trace to their order.</summary>
     public Guid? SourceOrderId { get; set; }
+
+    /// <summary>
+    /// What one unit of a PURCHASED grant was actually paid for, recorded from the offer at
+    /// materialisation (Spec 087 O7). Consuming a purchased unit moves that value from the
+    /// deferred-revenue liability into revenue, so recognition uses the price the customer was
+    /// charged rather than an estimate. Null for plan grants, which carry no liability.
+    /// </summary>
+    public decimal? UnitValue { get; set; }
+
+    public string? UnitValueCurrency { get; set; }
 }

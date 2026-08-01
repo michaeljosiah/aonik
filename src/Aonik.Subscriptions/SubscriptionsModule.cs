@@ -6,6 +6,7 @@ using Aonik.Subscriptions.Services.Catalogue;
 using Aonik.Subscriptions.Services.Subscriptions;
 using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.Subscriptions.Services.Ledger;
+using Aonik.Subscriptions.Services.Purchases;
 using Aonik.Subscriptions.Services.Usage;
 
 using Microsoft.EntityFrameworkCore;
@@ -65,6 +66,12 @@ public sealed class SubscriptionsModule : IModule
         // seam (Spec 088 §9) without either module referencing the other.
         services.AddScoped<ILedgerAccountContributor, SubscriptionLedgerAccountContributor>();
         services.AddScoped<ISettlementRevenueResolver, SubscriptionSettlementRevenueResolver>();
+
+        // Spec 087 P6 - paid money. Both reach Finance only through SharedKernel contracts
+        // (IOrderService, IInvoiceWriter, IRecurringPaymentInitiator), never by reference.
+        services.AddScoped<IEntitlementPurchaseService, EntitlementPurchaseService>();
+        services.AddScoped<EntitlementPurchaseService>();
+        services.AddScoped<SubscriptionRenewalService>();
 
         return services;
     }

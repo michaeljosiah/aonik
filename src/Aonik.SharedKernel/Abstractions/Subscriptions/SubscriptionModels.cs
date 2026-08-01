@@ -85,7 +85,18 @@ public sealed record UsageCommitResult(
     IReadOnlyList<GrantAllocation> Allocations);
 
 /// <summary>One grant's share of a reservation or a committed usage record.</summary>
-public sealed record GrantAllocation(Guid GrantId, string Source, decimal Quantity, DateTime? GrantExpiresAt);
+/// <param name="UnitValue">
+/// What one unit of this grant was paid for, when it was purchased. Carried so revenue is
+/// recognised at the price actually charged rather than an estimate (Spec 087 O7). Null for plan
+/// allowance, which carries no deferred-revenue liability.
+/// </param>
+public sealed record GrantAllocation(
+    Guid GrantId,
+    string Source,
+    decimal Quantity,
+    DateTime? GrantExpiresAt,
+    decimal? UnitValue = null,
+    string? UnitValueCurrency = null);
 
 /// <summary>A meter a module owns, contributed at provisioning. See <see cref="IMeterDefinitionProvider"/>.</summary>
 public sealed record MeterDefinition(string Code, string DisplayName, string Kind, string? Unit = null);

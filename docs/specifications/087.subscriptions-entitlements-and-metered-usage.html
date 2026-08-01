@@ -1116,7 +1116,10 @@ ReleaseSlotAsync(meter, holderRef)   // delete claim + decrement, only if the cl
       <td>O7</td>
       <td>What is a consumed purchased unit <em>worth</em>, for the 2210 → 4110 recognition leg?</td>
       <td>
-        <strong>Open, and deliberately not guessed in P5.</strong> Recognition needs a per-unit
+        <strong>Settled in P6.</strong> The grant now records <code>UnitValue</code> from the offer at
+        materialisation, so recognition uses the price the customer was actually charged. The P5
+        note below explains why nothing was guessed in the meantime.<br><br>
+        <em>Original P5 position:</em> Recognition needs a per-unit
         value, and the only priced source is <code>MeterOffer</code>, which arrives in P6. Until
         then the poster falls back to the recorded provider cost per unit and posts
         <strong>nothing</strong> when there is no basis at all — recognising a made-up amount would

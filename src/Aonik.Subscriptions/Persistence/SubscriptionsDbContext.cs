@@ -21,6 +21,7 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
     public DbSet<Plan> Plans => Set<Plan>();
     public DbSet<PlanVersion> PlanVersions => Set<PlanVersion>();
     public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();
+    public DbSet<MeterOffer> MeterOffers => Set<MeterOffer>();
 
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<SubscriptionPeriod> SubscriptionPeriods => Set<SubscriptionPeriod>();
@@ -59,6 +60,7 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
         MapTable<Plan>(modelBuilder, "Plans");
         MapTable<PlanVersion>(modelBuilder, "PlanVersions");
         MapTable<PlanEntitlement>(modelBuilder, "PlanEntitlements");
+        MapTable<MeterOffer>(modelBuilder, "MeterOffers");
         MapTable<Subscription>(modelBuilder, "PlanSubscriptions");
         MapTable<SubscriptionPeriod>(modelBuilder, "SubscriptionPeriods");
         MapTable<EntitlementGrant>(modelBuilder, "EntitlementGrants");

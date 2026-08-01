@@ -17,6 +17,8 @@ internal sealed class EntitlementGrantConfiguration : IEntityTypeConfiguration<E
         builder.Property(x => x.Allowance).HasPrecision(19, 4);
         builder.Property(x => x.Consumed).HasPrecision(19, 4);
         builder.Property(x => x.Held).HasPrecision(19, 4);
+        builder.Property(x => x.UnitValue).HasPrecision(19, 4);
+        builder.Property(x => x.UnitValueCurrency).HasMaxLength(3);
 
         // The draw-down query, run on every reserve. Keyed by SUBSCRIBER so purchased grants
         // survive a cancel-and-resubscribe.

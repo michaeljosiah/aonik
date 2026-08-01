@@ -46,10 +46,18 @@ internal sealed class UsageLedgerPoster
 
         var dimensions = JsonSerializer.Serialize(new { meterCode = record.MeterCode });
 
-        if (purchased > 0)
+        // Spec 087 O7 - recognise at the price the customer was actually charged, recorded on the
+        // grant from its offer. An estimate here would need a compensating entry against real
+        // customer revenue to correct.
+        var recognisable = allocations
+            .Where(a => string.Equals(a.Source, GrantSources.Purchase, StringComparison.OrdinalIgnoreCase))
+            .Sum(a => a.Quantity * (a.UnitValue ?? 0m));
+
+        var currency = allocations.FirstOrDefault(a => a.UnitValueCurrency is not null)?.UnitValueCurrency;
+
+        if (purchased > 0 && currency is not null)
         {
-            var unitValue = await ResolveUnitValueAsync(record, cancellationToken);
-            var amount = purchased * unitValue;
+            var amount = recognisable;
 
             if (amount > 0)
             {
@@ -63,15 +71,15 @@ internal sealed class UsageLedgerPoster
                     record.Id,
                     [
                         new JournalLineSpec(SubscriptionAccounts.DeferredEntitlements, JournalDirections.Debit,
-                            amount, record.ProviderCostCurrency ?? "GBP", "Entitlement consumed", dimensions),
+                            amount, currency, "Entitlement consumed", dimensions),
                         new JournalLineSpec(SubscriptionAccounts.EntitlementRevenue, JournalDirections.Credit,
-                            amount, record.ProviderCostCurrency ?? "GBP", "Entitlement revenue", dimensions)
+                            amount, currency, "Entitlement revenue", dimensions)
                     ]),
                     cancellationToken);
             }
         }
 
-        if (record.ProviderCost is > 0 && record.ProviderCostCurrency is { } currency)
+        if (record.ProviderCost is > 0 && record.ProviderCostCurrency is { } costCurrency)
         {
             var ledgerId = await _ledgerResolver.GetCanonicalLedgerIdAsync(cancellationToken);
 
@@ -81,31 +89,11 @@ internal sealed class UsageLedgerPoster
                 record.Id,
                 [
                     new JournalLineSpec(SubscriptionAccounts.ProviderCost, JournalDirections.Debit,
-                        record.ProviderCost.Value, currency, "Provider cost", dimensions),
+                        record.ProviderCost.Value, costCurrency, "Provider cost", dimensions),
                     new JournalLineSpec(SubscriptionAccounts.AccountsPayable, JournalDirections.Credit,
-                        record.ProviderCost.Value, currency, "Provider cost payable", dimensions)
+                        record.ProviderCost.Value, costCurrency, "Provider cost payable", dimensions)
                 ]),
                 cancellationToken);
         }
-    }
-
-    /// <summary>
-    /// What one consumed unit is worth, for the revenue-recognition leg.
-    /// </summary>
-    /// <remarks>
-    /// P5 has no priced offer to read — <c>MeterOffer</c> arrives in P6 — so this uses the recorded
-    /// provider cost per unit as a stand-in when nothing better exists, and posts nothing when
-    /// there is no basis at all. Recognising a made-up amount would be worse than recognising
-    /// late: the correction would have to be a compensating entry against real customer revenue.
-    /// See Spec 087 O7.
-    /// </remarks>
-    private Task<decimal> ResolveUnitValueAsync(UsageRecord record, CancellationToken cancellationToken)
-    {
-        _ = cancellationToken;
-
-        if (record.ProviderCost is > 0 && record.Quantity > 0)
-            return Task.FromResult(record.ProviderCost.Value / record.Quantity);
-
-        return Task.FromResult(0m);
     }
 }
