@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
@@ -95,5 +96,48 @@ internal sealed class PartySubscriberAuthorizer : ISubscriberAuthorizer
     {
         var partyId = await _currentParty.GetCurrentPartyIdAsync(cancellationToken);
         return partyId is not null && partyId == subscriber.Id;
+    }
+}
+
+/// <summary>
+/// Authorises <c>group</c>-kind subscribers (Spec 087 §11) — a family or household on a shared plan.
+/// The caller must be an accepted member of that group.
+/// </summary>
+/// <remarks>
+/// Without this the module advertised <c>SubscriberKinds.Group</c> and then failed closed on every
+/// use of it: no authorizer meant "No authorizer is registered for subscriber kind 'group'", which
+/// made the entire group-backed subscription model — the one Arke Kids and Payabo are built on —
+/// unusable rather than merely unimplemented.
+///
+/// Membership, not ownership. A group plan is bought for the group, and any accepted member may read
+/// its entitlements and draw on them; restricting that to the owner would mean a second parent could
+/// not use what the family pays for. Party-only members are included by
+/// <c>IGroupReader.GetMembersAsync</c>, which is deliberate — a child consuming their own allowance
+/// is the point of the model, and the caller's identity is checked before this is ever reached.
+/// </remarks>
+internal sealed class GroupSubscriberAuthorizer : ISubscriberAuthorizer
+{
+    private readonly IGroupReader _groups;
+    private readonly ICurrentPartyResolver _currentParty;
+
+    public GroupSubscriberAuthorizer(IGroupReader groups, ICurrentPartyResolver currentParty)
+    {
+        _groups = groups;
+        _currentParty = currentParty;
+    }
+
+    public IReadOnlyCollection<string> SupportedKinds => [SubscriberKinds.Group];
+
+    public async Task<bool> CanActForAsync(SubscriberRef subscriber, CancellationToken cancellationToken = default)
+    {
+        var partyId = await _currentParty.GetCurrentPartyIdAsync(cancellationToken);
+
+        if (partyId is null)
+        {
+            return false;
+        }
+
+        var members = await _groups.GetMembersAsync(subscriber.Id, cancellationToken);
+        return members.Any(member => member.PartyId == partyId);
     }
 }

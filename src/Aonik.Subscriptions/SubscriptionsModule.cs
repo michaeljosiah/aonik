@@ -55,6 +55,7 @@ public sealed class SubscriptionsModule : IModule
         services.AddScoped<SubscriberAuthorization>();
         services.AddScoped<ISubscriberAuthorizer, TenantSubscriberAuthorizer>();
         services.AddScoped<ISubscriberAuthorizer, PartySubscriberAuthorizer>();
+        services.AddScoped<ISubscriberAuthorizer, GroupSubscriberAuthorizer>();
         services.AddScoped<EntitlementMaterialiser>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IEntitlementReader, EntitlementReader>();
