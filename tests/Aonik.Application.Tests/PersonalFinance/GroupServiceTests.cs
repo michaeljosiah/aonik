@@ -566,7 +566,7 @@ public sealed class GroupServiceTests
 
         // One membership pairing party A with user B: B accepts through the user key, and every
         // party-keyed reader then treats A as a member of a group A never agreed to join.
-        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*different people*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*not the same person*");
     }
 
     [Fact]

@@ -255,9 +255,14 @@ internal sealed class GroupService : IGroupService, IGroupReader
         {
             var resolvedForUser = await ResolvePartyForUserAsync(tenantId, statedUserId, cancellationToken);
 
-            if (resolvedForUser is not null && resolvedForUser != statedPartyId)
+            // Must resolve, and must match. Letting an unresolvable pair through was the same hole
+            // with an extra step: the membership is stored with the stated party, and once the user
+            // later gains a link they accept through the user key — acceptance sees a non-null party
+            // and leaves it alone, so the unrelated party stands as an accepted member having never
+            // agreed to anything.
+            if (resolvedForUser is null || resolvedForUser != statedPartyId)
             {
-                throw new InvalidStateException("The party and user named on this invitation are different people.");
+                throw new InvalidStateException("The party and user named on this invitation are not the same person.");
             }
         }
 

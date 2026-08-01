@@ -269,10 +269,13 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
                 resourceIds,
                 cancellationToken);
 
-        return new ShareInvitePreviewDto(ownerName, invite.Scope, invite.TermsJson, resources.Count, resources, invite.ExpiresAt);
+        return new ShareInvitePreviewDto(ownerName, invite.ResourceKind, invite.Scope, invite.TermsJson, resources.Count, resources, invite.ExpiresAt);
     }
 
-    public async Task<ShareInviteAcceptResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<ShareInviteAcceptResult> AcceptInviteAsync(
+        string token,
+        string? requiredResourceKind = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var member = await RequireCallerAsync(tenantId, cancellationToken);
@@ -280,7 +283,9 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         var invite = await _dbContext.ShareInvites
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Token == token, cancellationToken);
 
-        if (invite is null)
+        // Checked before anything is consumed, and indistinguishable from an unknown token so the
+        // adapter cannot be used to probe which of another product's invites exist.
+        if (invite is null || !MatchesKind(invite.ResourceKind, requiredResourceKind))
         {
             return ShareInviteAcceptResult.Invalid;
         }
@@ -588,7 +593,7 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         }
 
         var parties = await _partyReader.GetByIdsAsync(tenantId, [ownerPartyId], cancellationToken);
-        var displayName = parties.FirstOrDefault()?.DisplayName;
+        var displayName = parties?.FirstOrDefault()?.DisplayName;
 
         return string.IsNullOrWhiteSpace(displayName) ? "Someone" : displayName.Trim();
     }

@@ -284,18 +284,35 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
         Guid acceptedGroupId,
         CancellationToken cancellationToken)
     {
+        // Joined to the group, for the same reason the exclusivity scan is: an outstanding
+        // invitation to an Arke Kids FAMILY is not this module's to withdraw. Fixing the scan and
+        // not this left PersonalFinance still cancelling another product's invitations the moment a
+        // user joined a household.
         var others = await _dbContext.HouseholdMembers
             .Where(member => member.TenantId == tenantId
                 && member.UserId == userId
                 && member.HouseholdId != acceptedGroupId
                 && member.InvitationStatus == GroupMemberStatuses.Pending)
+            .Join(
+                _dbContext.Households.Where(group => group.TenantId == tenantId),
+                member => member.HouseholdId,
+                group => group.Id,
+                (member, group) => new { Member = member, group.Kind })
             .ToListAsync(cancellationToken);
 
-        foreach (var other in others)
+        foreach (var row in others)
         {
-            HouseholdMembershipRules.NormalizeLegacyMember(other);
-            other.InvitationStatus = GroupMemberStatuses.Declined;
-            other.RespondedAt = _clock.UtcNow;
+            var isHousehold = string.IsNullOrEmpty(row.Kind)
+                || string.Equals(row.Kind, GroupKinds.Household, StringComparison.OrdinalIgnoreCase);
+
+            if (!isHousehold)
+            {
+                continue;
+            }
+
+            HouseholdMembershipRules.NormalizeLegacyMember(row.Member);
+            row.Member.InvitationStatus = GroupMemberStatuses.Declined;
+            row.Member.RespondedAt = _clock.UtcNow;
         }
     }
 

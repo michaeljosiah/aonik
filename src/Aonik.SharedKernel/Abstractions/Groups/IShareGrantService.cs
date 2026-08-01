@@ -73,7 +73,16 @@ public interface IShareGrantService
     /// have silently broken the mobile flow that depends on the first.
     /// </para>
     /// </remarks>
-    Task<ShareInviteAcceptResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default);
+    /// <param name="requiredResourceKind">
+    /// When supplied, an invite of another kind is <see cref="ShareInviteAcceptStatus.Invalid"/> and
+    /// is <b>not consumed</b>. A module-facing adapter passes its own kind: without it, submitting
+    /// another product's token here spends their single-use invite and maps their resource ids into
+    /// this adapter's response.
+    /// </param>
+    Task<ShareInviteAcceptResult> AcceptInviteAsync(
+        string token,
+        string? requiredResourceKind = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Rescind an invite that has not been accepted. Idempotent — revoking an already-revoked invite

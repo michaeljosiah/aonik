@@ -89,6 +89,7 @@ public sealed record ShareInviteDto(
 /// </param>
 public sealed record ShareInvitePreviewDto(
     string OwnerDisplayName,
+    string ResourceKind,
     string Scope,
     string? TermsJson,
     int ResourceCount,

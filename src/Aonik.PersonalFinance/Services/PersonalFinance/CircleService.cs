@@ -179,7 +179,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     {
         var preview = await _shareGrants.PreviewInviteAsync(token, cancellationToken);
 
-        if (preview is null)
+        if (preview is null || !IsCareEntityKind(preview.ResourceKind))
         {
             return null;
         }
@@ -202,11 +202,15 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     public async Task<AcceptInviteResult> AcceptInviteAsync(string token, CancellationToken cancellationToken = default)
     {
-        var result = await _shareGrants.AcceptInviteAsync(token, cancellationToken);
+        // The kind goes IN, so the generic service refuses another product's token before consuming
+        // it. Revocation was scoped last round and acceptance was not, so submitting their token here
+        // spent their single-use invite and mapped their resource ids into a circle response.
+        var result = await _shareGrants.AcceptInviteAsync(token, ShareResourceKinds.CareEntity, cancellationToken);
 
         return result.Status switch
         {
-            ShareInviteAcceptStatus.Accepted => AcceptInviteResult.FromGrant(MapGrant(result.Grant!)),
+            ShareInviteAcceptStatus.Accepted when IsCareEntityGrant(result.Grant!)
+                => AcceptInviteResult.FromGrant(MapGrant(result.Grant!)),
             ShareInviteAcceptStatus.SelfAccept => AcceptInviteResult.SelfAccept,
             _ => AcceptInviteResult.Invalid
         };
@@ -272,6 +276,11 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             .ToListAsync(cancellationToken);
 
         return grants
+            // Fails closed on a scope this module does not recognise, as the pre-split
+            // implementation did. Downstream treats anything that is not "all" as id-scoped, so a
+            // malformed value would quietly grant document access against those ids rather than
+            // being rejected.
+            .Where(grant => Scopes.Contains(grant.Scope))
             .Select(grant => new CircleGrantView(
                 ownerUserId,
                 grant.Scope,
@@ -504,6 +513,10 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     private static bool IsCareEntityGrant(ShareGrantDto grant)
         => string.IsNullOrEmpty(grant.ResourceKind)
             || string.Equals(grant.ResourceKind, ShareResourceKinds.CareEntity, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCareEntityKind(string? resourceKind)
+        => string.IsNullOrEmpty(resourceKind)
+            || string.Equals(resourceKind, ShareResourceKinds.CareEntity, StringComparison.OrdinalIgnoreCase);
 
     private static bool ReadNoAmounts(string? termsJson, string scope)
         => CircleGrantTerms.ReadNoAmounts(termsJson, columnValue: scope == "docsOnly");
