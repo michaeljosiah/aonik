@@ -42,6 +42,20 @@ internal sealed class HouseholdsSeedPhase
         var householdIds = new List<Guid>();
         var householdMemberIds = new List<Guid>();
 
+        // Spec 086 §13. P3 left this to the backfill, which was right while readers still used the
+        // user columns. From P4/P5 they read party first, so a demo household whose members carry no
+        // party would render as empty until an operator remembered to run a job — the worst kind of
+        // seed bug, because it looks like the feature is broken rather than the data.
+        var memberPartyId = userId.HasValue
+            ? await _db.PersonalProfiles
+                .AsNoTracking()
+                .Where(profile => profile.TenantId == tenantId
+                    && profile.UserId == userId.Value
+                    && profile.PartyId != Guid.Empty)
+                .Select(profile => (Guid?)profile.PartyId)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+
         foreach (var seed in households)
         {
             var household = await _db.Households
@@ -79,17 +93,15 @@ internal sealed class HouseholdsSeedPhase
 
             if (existingMember == null)
             {
-                // Spec 086 P3: PartyId is deliberately left to the backfill job rather than resolved
-                // here. This phase is constructed directly as well as through DI, and the demo user's
-                // PersonalProfile may not exist yet at this point in the seed — resolving from only
-                // the half of the rule available here would write a party the backfill then disagrees
-                // with. Demo personas are exactly the case the backfill's profile fallback exists for.
                 existingMember = new HouseholdMember
                 {
                     Id = seed.MemberId,
                     TenantId = tenantId,
                     HouseholdId = household.Id,
                     UserId = userId.Value,
+                    // Null when the profile is not seeded yet, which is not an error: the columns are
+                    // dual-written, the readers fall back to the user, and the backfill closes it.
+                    PartyId = memberPartyId,
                     Role = seed.Role,
                     PermissionsJson = seed.PermissionsJson,
                     CreatedAt = now,
@@ -99,6 +111,7 @@ internal sealed class HouseholdsSeedPhase
             }
             else
             {
+                existingMember.PartyId ??= memberPartyId;
                 existingMember.TenantId = tenantId;
                 existingMember.Role = seed.Role;
                 existingMember.PermissionsJson = seed.PermissionsJson;

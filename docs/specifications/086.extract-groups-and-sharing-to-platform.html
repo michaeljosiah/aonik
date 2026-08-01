@@ -719,8 +719,10 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
   <code>SharedKernel/Events/Integration/FinanceEvents.cs</code> — <code>HouseholdCreatedEvent</code>,
   <code>HouseholdMemberInvitedEvent</code>, <code>HouseholdInvitationAcceptedEvent</code>,
   <code>HouseholdInvitationDeclinedEvent</code>, <code>HouseholdMemberRemovedEvent</code>,
-  <code>HouseholdMemberLeftEvent</code>. They move to a new <code>PlatformEvents.cs</code> (or
-  <code>GroupEvents.cs</code>) in the same namespace.
+  <code>HouseholdMemberLeftEvent</code>. They move to a new <code>GroupEvents.cs</code> in the same namespace.
+  <code>HouseholdAccountSharedEvent</code> and <code>HouseholdAccountUnsharedEvent</code> <strong>stay</strong> in
+  <code>FinanceEvents.cs</code>: they are about a personal-finance <em>account</em> being shared into a household, not
+  about the membership, so they belong with the module that owns accounts.
 </p>
 <p>
   <strong>Record names and payload shapes are unchanged</strong> in this pass. Renaming a published event contract is a
@@ -763,20 +765,31 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
 
 <h2 id="seeding">13. Seeding &amp; demo data</h2>
 
-<ul>
-  <li><code>PersonalFinance/Services/Seeding/Phases/HouseholdsSeedPhase.cs</code> moves to Platform's seeding phases; the <code>DemoSeedPhase.Households</code> enum value and the <code>HouseholdIds</code> / <code>HouseholdMemberIds</code> result keys in <code>IDemoSeedContributor</code> keep their names.</li>
-  <li><code>PersonalFinanceDemoDataReverser.ReverseHouseholdsAsync</code> and <code>IPersonalFinanceDemoDataReverser</code> — the reversal moves with the phase; the interface method is retained and delegates, preserving the reversible-seed contract.</li>
-  <li><code>PlatformDemoSeedNames</code>, <code>PartySeedPhase</code>, <code>ReverseSeedPhase</code>, <code>DemoSeedService</code> — updated references only.</li>
-  <li>Seeded members must now also seed a <code>Party</code> per member, or reuse the party <code>PartySeedPhase</code> already creates. Phase ordering: parties before groups.</li>
-</ul>
+<div class="callout p0">
+  <span class="callout-label">Correction: the seed phase stays (P6)</span>
+  Rev 1 moved <code>HouseholdsSeedPhase</code> to Platform's seeding phases. It cannot move to
+  <code>Aonik.Groups</code> instead, and not for want of trying: the phase is built entirely out of
+  <em>PersonalFinance</em> material — <code>FinanceDemoSeedIds</code>, the module's role and
+  <code>PermissionsJson</code> payloads, and its persona ids — and <code>Aonik.Groups</code> references only
+  SharedKernel. Relocating it would mean either inverting that reference or hollowing the phase out into a shell that
+  passes PersonalFinance data to a PersonalFinance-shaped API in a module that knows about neither.
+  <br><br>
+  It is also demo data for a <em>personal-finance</em> demo, so the module that owns the personas is the right owner.
+  What was real in this bullet list is the last item, and that is done: seeded members now carry a
+  <code>PartyId</code>, read from the seeded <code>PersonalProfile</code>. From P4/P5 the readers prefer party, so a
+  demo household whose members had none would render empty until someone remembered to run the backfill — a seed bug
+  that looks like a broken feature rather than missing data. Re-seeding an existing demo tenant repairs old rows.
+</div>
 
 <h2 id="config">14. Configuration sections</h2>
 
 <p>
-  <code>CircleInviteOptions.SectionName</code> is <code>"PersonalFinance:Circle"</code>. The generic half moves to
-  <code>"Platform:Sharing"</code>. To avoid a silent behaviour change on deployments that already set the old section,
-  bind <strong>both</strong>, preferring the new one, and log a startup warning when only the legacy section is present.
-  Removing the fallback is a follow-up.
+  <code>CircleInviteOptions.SectionName</code> becomes <code>"Platform:Sharing"</code>, and
+  <code>LegacySectionName</code> keeps <code>"PersonalFinance:Circle"</code>. Both are bound — legacy first, the new
+  one over it — so an operator who set either gets what they configured and one who set both gets the new one.
+  Silently ignoring the old section would be the worst outcome available: a tenant that had dialled disclosure back to
+  <code>Counts</code> would quietly start disclosing names again. A hosted service logs one startup warning naming the
+  deployments that still need moving. Removing the fallback is a follow-up.
 </p>
 
 <h2 id="phasing">15. Phasing &amp; tasks</h2>
@@ -849,8 +862,22 @@ builder.Property(x =&gt; x.ResourceIdsJson).HasColumnName("EntityIdsJson");</cod
     </tr>
     <tr>
       <td><strong>P6</strong> — events, seeding, config</td>
-      <td>Move <code>Household*</code> events out of <code>FinanceEvents.cs</code>; move the seed phase; dual-bind the config section.</td>
-      <td><code>DemoSeedServiceTests</code> pass; demo seed still reverses cleanly.</td>
+      <td>Move the <code>Household*</code> membership events into <code>GroupEvents.cs</code> and add the additive,
+      party-keyed <code>Group*</code> set the platform publishes (<a href="#events">§12.1</a>). Dual-bind the config
+      section (<a href="#config">§14</a>). Seed <code>PartyId</code> onto demo household members
+      (<a href="#seeding">§13</a>).
+      <br><br>
+      <em>Also here:</em> <code>InviteAsync</code> finally moves off the facade, which P4 deferred. Two things it
+      needed. <code>InviteGroupMemberCommand</code> named <strong>nobody</strong> in Rev 1 — only an email and a phone
+      — so it could not express the invitation PersonalFinance actually sends, where the invitee is an existing user
+      chosen by id; it now carries both identifiers. And <code>PermissionsJson</code> is written by the facade rather
+      than pushed onto the platform command: it is a PersonalFinance concept Spec 048 already superseded with
+      <code>ShareGrant</code>, and putting it on a platform command would hand every future product a field it should
+      never set.
+      <br><br>
+      <em>Correction:</em> the seed phase does <strong>not</strong> move — see <a href="#seeding">§13</a>.</td>
+      <td><code>DemoSeedServiceTests</code> pass; demo seed still reverses cleanly; a user-backed change emits both
+      event sets and a party-only change emits only the generic one.</td>
     </tr>
     <tr>
       <td><strong>P7</strong> — cleanup</td>

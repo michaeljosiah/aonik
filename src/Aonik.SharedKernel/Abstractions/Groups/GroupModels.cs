@@ -123,7 +123,21 @@ public sealed record GroupTransition(
 public sealed record CreateGroupCommand(string Kind, string Name);
 
 /// <summary>Invite someone who can consent. For a member who cannot, see <see cref="IGroupService.AddMemberAsync"/>.</summary>
-public sealed record InviteGroupMemberCommand(Guid GroupId, string Role, string? Email = null, string? Phone = null);
+/// <param name="PartyId">Who is being invited. Either this or <paramref name="UserId"/> is required.</param>
+/// <param name="UserId">
+/// The invitee's user. Rev 1 of this command named nobody at all — only an email and a phone — which
+/// made it impossible to express the invitation PersonalFinance actually sends, where the invitee is
+/// an existing user chosen by id. Both identifiers are accepted through the Spec 086 transition;
+/// <paramref name="UserId"/> goes when the user columns do.
+/// </param>
+/// <param name="Email">Delivery hint only. The platform does not send anything.</param>
+public sealed record InviteGroupMemberCommand(
+    Guid GroupId,
+    string Role,
+    Guid? PartyId = null,
+    Guid? UserId = null,
+    string? Email = null,
+    string? Phone = null);
 
 /// <summary>Create a grant directly, when the member is already known.</summary>
 /// <param name="MemberUserId">

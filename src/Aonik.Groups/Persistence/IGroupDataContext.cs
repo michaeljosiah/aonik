@@ -1,4 +1,5 @@
 using Aonik.PersonalFinance.Entities;
+using Aonik.SharedKernel.Events;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -56,6 +57,13 @@ public interface IGroupDataContext
     /// against the committed winner.
     /// </summary>
     ChangeTracker ChangeTracker { get; }
+
+    /// <summary>
+    /// Stages an integration event in the outbox, committed by the same save as the write that
+    /// caused it — so an event can never describe a transition that did not happen, nor a
+    /// transition happen unannounced.
+    /// </summary>
+    void EnqueueIntegrationEvent(IIntegrationEvent integrationEvent);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

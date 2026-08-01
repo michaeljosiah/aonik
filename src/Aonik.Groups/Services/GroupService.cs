@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.UserBrief;
+using Aonik.SharedKernel.Events.Integration;
 
 using System.Data;
 
@@ -126,6 +127,10 @@ internal sealed class GroupService : IGroupService, IGroupReader
         // "react then save once" is what makes the same-transaction promise in
         // IGroupLifecycleContributor true rather than aspirational.
         await ReactAsync(transition, cancellationToken);
+
+        _dbContext.EnqueueIntegrationEvent(new GroupCreatedEvent(
+            tenantId, group.Id, group.Kind, caller.PartyId, caller.UserId));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new GroupDto(group.Id, group.Kind, group.Name, [GroupMembershipRules.ToDto(owner)]);
@@ -197,16 +202,123 @@ internal sealed class GroupService : IGroupService, IGroupReader
         }
 
         await ReactAsync(transition, cancellationToken);
+
+        _dbContext.EnqueueIntegrationEvent(new GroupMemberAddedEvent(
+            tenantId, group.Id, partyId, null, normalizedRole, caller.PartyId));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return GroupMembershipRules.ToDto(member);
     }
 
     public async Task<GroupMemberDto> InviteAsync(InviteGroupMemberCommand command, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(
-            "Spec 086 P4: invitation is still served by the PersonalFinance facade, which owns the "
-            + "user-directory lookup and the notification an invitation sends. It moves here with the "
-            + "P6 events/config pass, once GroupInvite carries its own delivery hints.");
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var caller = await RequireCallerAsync(tenantId, cancellationToken);
+        var normalizedRole = GroupMembershipRules.NormalizeRole(command.Role);
+
+        var group = await RequireGroupAsync(tenantId, command.GroupId, cancellationToken);
+        await RequireManagerAsync(tenantId, group.Id, caller, cancellationToken);
+
+        if (command.PartyId is null && command.UserId is null)
+        {
+            throw new InvalidStateException("An invitation must name the party or user being invited.");
+        }
+
+        var inviteePartyId = command.PartyId
+            ?? await ResolvePartyForUserAsync(tenantId, command.UserId!.Value, cancellationToken);
+
+        var now = _clock.UtcNow;
+
+        // Re-inviting is the same transition as inviting, so it reuses the row rather than minting a
+        // second membership — two rows for one person is what the filtered unique index forbids, and
+        // it would make "are they in this group?" ambiguous.
+        var existing = await FindMemberAsync(tenantId, group.Id, inviteePartyId, command.UserId, cancellationToken);
+
+        if (existing is not null)
+        {
+            if (GroupMembershipRules.IsAccepted(existing))
+            {
+                throw new InvalidStateException("This person is already a member of the group.");
+            }
+
+            if (GroupMembershipRules.IsPending(existing) && !GroupMembershipRules.IsExpired(existing, now))
+            {
+                throw new InvalidStateException("An invitation is already pending.");
+            }
+        }
+
+        var transition = new GroupTransition(
+            GroupTransitionKinds.MemberInvited, group.Id, inviteePartyId, command.UserId, caller.PartyId, caller.UserId);
+        await VetoOrThrowAsync(transition, cancellationToken);
+
+        var member = existing ?? new HouseholdMember
+        {
+            TenantId = tenantId,
+            HouseholdId = group.Id
+        };
+
+        member.PartyId = inviteePartyId;
+        member.UserId = command.UserId;
+        member.Role = normalizedRole;
+        member.PermissionsJson = GroupMembershipRules.SerializePermissions(GroupMembershipRules.EmptyPermissions);
+        member.InvitationStatus = GroupMemberStatuses.Pending;
+        member.InvitedByUserId = caller.UserId;
+        member.InvitedAt = now;
+        member.RespondedAt = null;
+        member.ExpiresAt = now.AddDays(InvitationExpiryDays);
+
+        if (existing is null)
+        {
+            _dbContext.GroupMembers.Add(member);
+        }
+
+        await ReactAsync(transition, cancellationToken);
+
+        _dbContext.EnqueueIntegrationEvent(new GroupMemberInvitedEvent(
+            tenantId, group.Id, inviteePartyId ?? Guid.Empty, command.UserId, normalizedRole, caller.PartyId));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return GroupMembershipRules.ToDto(member);
+    }
+
+    /// <summary>Finds a membership by either identifier — the same dual key every read here uses.</summary>
+    private async Task<HouseholdMember?> FindMemberAsync(
+        Guid tenantId,
+        Guid groupId,
+        Guid? partyId,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
+        var members = await _dbContext.GroupMembers
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == groupId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var member in members)
+        {
+            GroupMembershipRules.NormalizeLegacy(member);
+        }
+
+        return members.FirstOrDefault(member =>
+            (partyId is not null && member.PartyId == partyId)
+            || (userId is not null && member.UserId == userId));
+    }
+
+    private async Task<Guid?> ResolvePartyForUserAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        var partyId = await _userPartyResolver.GetPartyIdForUserAsync(tenantId, userId, cancellationToken);
+
+        if (partyId is null && _profilePartyFallback is not null)
+        {
+            partyId = await _profilePartyFallback.GetPartyIdForUserAsync(tenantId, userId, cancellationToken);
+        }
+
+        // Null is tolerated, not fatal: the invitee may have no party yet, the columns are
+        // dual-written, and the backfill is what closes the gap. Refusing here would make an
+        // invitation that works today start failing at the cutover.
+        return partyId;
+    }
 
     public async Task<GroupMemberDto> AcceptInvitationAsync(Guid membershipId, CancellationToken cancellationToken = default)
     {
@@ -249,6 +361,13 @@ internal sealed class GroupService : IGroupService, IGroupReader
             membership.RespondedAt = now;
 
             await ReactAsync(transition, ct);
+
+            _dbContext.EnqueueIntegrationEvent(new GroupInvitationAcceptedEvent(
+                tenantId,
+                membership.HouseholdId,
+                membership.PartyId ?? Guid.Empty,
+                membership.UserId));
+
             await _dbContext.SaveChangesAsync(ct);
         }, cancellationToken);
 
@@ -274,6 +393,13 @@ internal sealed class GroupService : IGroupService, IGroupReader
         membership.InvitationStatus = GroupMemberStatuses.Declined;
         membership.RespondedAt = _clock.UtcNow;
 
+        var transition = new GroupTransition(
+            GroupTransitionKinds.InviteDeclined, membership.HouseholdId, membership.PartyId, membership.UserId,
+            caller.PartyId, caller.UserId);
+
+        // No veto: refusing an invitation is the invitee's own decision, and a module that could
+        // block it would be able to conscript someone into a group.
+        await ReactAsync(transition, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return GroupMembershipRules.ToDto(membership);
@@ -327,6 +453,10 @@ internal sealed class GroupService : IGroupService, IGroupReader
         target.Role = GroupRoles.Owner;
 
         await ReactAsync(transition, cancellationToken);
+
+        _dbContext.EnqueueIntegrationEvent(new GroupOwnershipTransferredEvent(
+            tenantId, groupId, caller.PartyId, target.PartyId ?? Guid.Empty));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await BuildGroupDtoAsync(tenantId, group, cancellationToken);
@@ -370,6 +500,10 @@ internal sealed class GroupService : IGroupService, IGroupReader
         // The contributor clears the profile link and unshares owned accounts here. One save covers
         // both that and the status flip, so a crash cannot leave a member removed but still linked.
         await ReactAsync(transition, cancellationToken);
+
+        _dbContext.EnqueueIntegrationEvent(new GroupMemberRemovedEvent(
+            tenantId, membership.HouseholdId, membership.PartyId ?? Guid.Empty, membership.UserId, caller.PartyId));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

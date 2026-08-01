@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Aonik.PersonalFinance.Agents;
 using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.PersonalFinance.Contracts.Services.Accounts;
@@ -92,7 +94,11 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());
         // Spec 061: anonymous invite preview — the disclosure/rate-limit switches and the
         // per-IP + per-token limiter (in-memory, singleton so its counters persist across requests).
-        services.AddOptions<CircleInviteOptions>().BindConfiguration(CircleInviteOptions.SectionName);
+        services.AddOptions<CircleInviteOptions>()
+            .Bind(configuration.GetSection(CircleInviteOptions.LegacySectionName))
+            .Bind(configuration.GetSection(CircleInviteOptions.SectionName));
+
+        WarnOnLegacySharingSection(services, configuration);
         services.AddSingleton<IInvitePreviewRateLimiter, InvitePreviewRateLimiter>();
         services.AddScoped<ISupportStatementService, SupportStatementService>();
         services.AddScoped<IBudgetService, BudgetService>();
@@ -293,6 +299,49 @@ public sealed class PersonalFinanceModule : IModule
         services.AddSingleton<IToolApprovalManifest, PersonalFinanceToolApprovalManifest>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Tells an operator, once at startup, that their sharing settings are in the old section.
+    /// </summary>
+    /// <remarks>
+    /// A warning rather than a failure: the legacy section is still bound, so the deployment behaves
+    /// correctly — it just will not once the fallback is removed, and the only way anyone learns that
+    /// in time is if it is said out loud now.
+    /// </remarks>
+    private sealed class LegacySharingSectionWarning : IHostedService
+    {
+        private readonly ILogger<LegacySharingSectionWarning> _logger;
+
+        public LegacySharingSectionWarning(ILogger<LegacySharingSectionWarning> logger) => _logger = logger;
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogWarning(
+                "Sharing settings were read from the legacy configuration section '{Legacy}'. Move them to "
+                + "'{Current}' (Spec 086 §14) — the fallback is temporary and this deployment will lose its "
+                + "settings when it is removed.",
+                CircleInviteOptions.LegacySectionName,
+                CircleInviteOptions.SectionName);
+
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private static void WarnOnLegacySharingSection(IServiceCollection services, IConfiguration configuration)
+    {
+        var legacy = configuration.GetSection(CircleInviteOptions.LegacySectionName);
+        var current = configuration.GetSection(CircleInviteOptions.SectionName);
+
+        if (!legacy.GetChildren().Any() || current.GetChildren().Any())
+        {
+            return;
+        }
+
+        services.AddHostedService(sp => new LegacySharingSectionWarning(
+            sp.GetRequiredService<ILogger<LegacySharingSectionWarning>>()));
     }
 }
 

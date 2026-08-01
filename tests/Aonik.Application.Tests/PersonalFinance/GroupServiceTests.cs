@@ -228,6 +228,97 @@ public sealed class GroupServiceTests
     }
 
     [Fact]
+    public async Task AUserBackedChange_Should_EmitBothTheGenericAndTheLegacyEvent()
+    {
+        await using var context = CreateContext();
+        var userId = Guid.NewGuid();
+        await SeedProfileAsync(context, userId);
+
+        await CreateService(context, userId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        // Both, deliberately: the generic event for consumers that understand parties, the legacy one
+        // for subscribers that already exist. The duplication is the price of not breaking a live
+        // subscriber, and it ends when the legacy set is retired.
+        EventTypes(context).Should().Contain(name => name.Contains("GroupCreatedEvent"));
+        EventTypes(context).Should().Contain(name => name.Contains("HouseholdCreatedEvent"));
+    }
+
+    [Fact]
+    public async Task APartyOnlyChange_Should_EmitOnlyTheGenericEvent()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Family, "Keanes"));
+
+        var childPartyId = Guid.NewGuid();
+        _partyReader.Setup(r => r.ExistsAsync(_tenantId, childPartyId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _userPartyResolver.Setup(r => r.GetUserIdForPartyAsync(_tenantId, childPartyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid?)null);
+
+        await CreateService(context, ownerUserId).AddMemberAsync(group.Id, childPartyId, GroupRoles.Viewer);
+
+        // The legacy payloads all carry a UserId, so a child has no legal one to publish. This is the
+        // whole reason the party-based set is additive rather than a rename.
+        EventTypes(context).Should().Contain(name => name.Contains("GroupMemberAddedEvent"));
+        EventTypes(context).Should().NotContain(name => name.Contains("HouseholdMemberInvitedEvent"));
+    }
+
+    [Fact]
+    public async Task InviteAsync_Should_BeVetoed_When_TheInviteeBelongsElsewhere()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        var inviteeUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var elsewhereId = Guid.NewGuid();
+        await SeedProfileAsync(context, inviteeUserId, householdId: elsewhereId);
+
+        // An accepted membership, not just the profile link: the invite check has always scanned
+        // memberships, and asserting against a profile field the old code never read would test a
+        // rule this phase did not move.
+        context.HouseholdMembers.Add(new HouseholdMember
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HouseholdId = elsewhereId,
+            UserId = inviteeUserId,
+            Role = GroupRoles.Owner,
+            PermissionsJson = "[]",
+            InvitationStatus = GroupMemberStatuses.Accepted
+        });
+        await context.SaveChangesAsync();
+
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        var act = () => CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer, UserId: inviteeUserId));
+
+        // Inviting someone who already belongs elsewhere would mint an invitation they could never
+        // accept. The rule is PersonalFinance's, so it lives in the contributor's veto — and the
+        // message is the one the endpoint has always returned.
+        await act.Should().ThrowAsync<InvalidStateException>()
+            .WithMessage("User already belongs to a household.");
+    }
+
+    [Fact]
+    public async Task InviteAsync_Should_RejectAnInvitationThatNamesNobody()
+    {
+        await using var context = CreateContext();
+        var ownerUserId = Guid.NewGuid();
+        await SeedProfileAsync(context, ownerUserId);
+        var group = await CreateService(context, ownerUserId).CreateAsync(new CreateGroupCommand(GroupKinds.Household, "Keane"));
+
+        var act = () => CreateService(context, ownerUserId).InviteAsync(
+            new InviteGroupMemberCommand(group.Id, GroupRoles.Viewer));
+
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*name the party or user*");
+    }
+
+    private static List<string> EventTypes(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext context)
+        => context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>().Select(message => message.EventType).ToList();
+
+    [Fact]
     public async Task AddMemberAsync_Should_RejectACallerWhoIsNotAManager()
     {
         await using var context = CreateContext();

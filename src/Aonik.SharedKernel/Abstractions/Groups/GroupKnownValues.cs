@@ -88,7 +88,13 @@ public static class GroupTransitionKinds
     /// <summary>A party added directly, with no invitation — the path a member without a login takes.</summary>
     public const string MemberAdded = "member-added";
 
+    /// <summary>Someone who can consent has been invited, and has not yet answered.</summary>
+    public const string MemberInvited = "member-invited";
+
     public const string InviteAccepted = "invite-accepted";
+
+    /// <summary>An invitation refused. Distinct from removal: nothing was ever linked to unwind.</summary>
+    public const string InviteDeclined = "invite-declined";
     public const string MemberRemoved = "member-removed";
     public const string OwnershipTransferred = "ownership-transferred";
 }

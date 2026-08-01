@@ -1,3 +1,4 @@
+using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -63,6 +64,11 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
         {
             GroupTransitionKinds.Created => await VetoJoinAsync(userId, null, cancellationToken),
             GroupTransitionKinds.InviteAccepted => await VetoJoinAsync(userId, transition.GroupId, cancellationToken),
+
+            // An invitation is not yet a membership, so the exclusivity rule does not apply — but
+            // inviting someone who already belongs elsewhere would mint an invitation they could
+            // never accept, and the endpoint has always refused it up front.
+            GroupTransitionKinds.MemberInvited => await VetoInviteAsync(userId, transition.GroupId, cancellationToken),
             _ => null
         };
     }
@@ -110,6 +116,35 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
         return null;
     }
 
+    private async Task<string?> VetoInviteAsync(Guid userId, Guid groupId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        if (await FindProfileAsync(tenantId, userId, cancellationToken) is null)
+        {
+            // Also the existence check: a user with no personal profile is either unknown or not a
+            // PersonalFinance user, and the endpoint has always reported both the same way.
+            return "User not found.";
+        }
+
+        var memberships = await _dbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in memberships)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+
+            if (HouseholdMembershipRules.IsAccepted(membership) && membership.HouseholdId != groupId)
+            {
+                return "User already belongs to a household.";
+            }
+        }
+
+        return null;
+    }
+
     public async Task OnCommittedAsync(GroupTransition transition, CancellationToken cancellationToken = default)
     {
         if (transition.MemberUserId is not { } userId)
@@ -124,6 +159,23 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
             case GroupTransitionKinds.Created:
                 await LinkProfileAsync(tenantId, userId, transition.GroupId, cancellationToken);
                 _dbContext.EnqueueIntegrationEvent(new HouseholdCreatedEvent(tenantId, transition.GroupId, userId));
+                break;
+
+            case GroupTransitionKinds.MemberInvited:
+                _dbContext.EnqueueIntegrationEvent(new HouseholdMemberInvitedEvent(
+                    tenantId,
+                    transition.GroupId,
+                    userId,
+                    transition.ActorUserId ?? Guid.Empty,
+                    // The role is not on the transition, and adding it would put one module's
+                    // vocabulary on a platform record. The event's contract is unchanged, so the
+                    // stored value is read back instead.
+                    await ReadRoleAsync(tenantId, transition.GroupId, userId, cancellationToken)));
+                break;
+
+            case GroupTransitionKinds.InviteDeclined:
+                _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationDeclinedEvent(
+                    tenantId, transition.GroupId, userId));
                 break;
 
             case GroupTransitionKinds.InviteAccepted:
@@ -154,6 +206,16 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
                     tenantId, transition.GroupId, transition.ActorUserId ?? Guid.Empty, userId));
                 break;
         }
+    }
+
+    private async Task<string> ReadRoleAsync(Guid tenantId, Guid groupId, Guid userId, CancellationToken cancellationToken)
+    {
+        var role = await _dbContext.HouseholdMembers
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == groupId && member.UserId == userId)
+            .Select(member => member.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.IsNullOrWhiteSpace(role) ? HouseholdRoles.Viewer : HouseholdMembershipRules.NormalizeRole(role);
     }
 
     private async Task LinkProfileAsync(Guid tenantId, Guid userId, Guid groupId, CancellationToken cancellationToken)
