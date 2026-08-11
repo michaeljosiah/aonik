@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 090 - Offline-verifiable entitlement</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 090</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Subscriptions</span>
+  <h1>Offline-verifiable entitlement</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A paid feature in a local-first application must be checkable with <strong>no network</strong>. Today
+    <code>IEntitlementReader</code> is a live server read against <code>SubscriptionsDbContext</code>, which is
+    correct for a web product and unusable for a desktop one. This spec adds a signed, short-lived
+    <strong>entitlement token</strong> the client can verify by itself, and says plainly what happens when it
+    expires — because the two failure modes here are a licence anyone can forge and an application that stops
+    working on a flight, and both are easy to reach by accident.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#why">Why the server read is not enough</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#threat">What we are defending against</a></li>
+    <li><a href="#token">The token</a></li>
+    <li><a href="#keys">Keys and rotation</a></li>
+    <li><a href="#lifecycle">Issue, refresh, expiry</a></li>
+    <li><a href="#grace">Grace, and the day the network is gone</a></li>
+    <li><a href="#revocation">Revocation</a></li>
+    <li><a href="#metering">Metered credits are not entitlements</a></li>
+    <li><a href="#client">What the client must do</a></li>
+    <li><a href="#persistence">Persistence</a></li>
+    <li><a href="#contracts">Contracts</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> answers "what is this subscriber
+  entitled to?" with a database query. Arke Studio is <em>"free, MIT-licensed, local-first… nothing leaves the
+  machine except approved dispatches."</em> A commercial tier on top of it needs the same question answered on a
+  laptop with no connection.
+</p>
+
+<p>This spec adds:</p>
+
+<ul>
+  <li>An <strong>entitlement token</strong> — a compact, signed, short-lived statement of what a subscriber may do, verifiable with a public key alone.</li>
+  <li><strong>Ed25519 signing</strong> with published, rotatable public keys, so a client verifies without ever holding a secret.</li>
+  <li>A <strong>refresh lifecycle</strong> with an explicit <strong>grace window</strong> and a defined behaviour at its end.</li>
+  <li>A statement of what this mechanism <strong>cannot</strong> do — meter credits — and why that is correct rather than a gap.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The failure this spec exists to prevent</span>
+  A licence check that phones home on every launch turns an offline-capable product into an online one, and the
+  first flaky airport wifi turns a paying customer into an angry one. A licence check with no expiry turns one
+  leaked token into a permanent free tier. Everything below is the narrow path between those two.
+</div>
+
+<h2 id="why">2. Why the server read is not enough</h2>
+
+<table>
+  <thead><tr><th>Property</th><th><code>IEntitlementReader</code> today</th><th>Needed offline</th></tr></thead>
+  <tbody>
+    <tr><td>Answered by</td><td>A query against <code>SubscriptionsDbContext</code></td><td>The client, unaided</td></tr>
+    <tr><td>Requires network</td><td>Yes, every call</td><td>No, for days</td></tr>
+    <tr><td>Freshness</td><td>Exact — the row is the truth</td><td>Bounded staleness, deliberately chosen</td></tr>
+    <tr><td>Tamper resistance</td><td>Server-side; nothing to tamper with</td><td>Signature, because the artefact is on the user's disk</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The server read stays exactly as it is and remains authoritative. This spec adds a <em>projection</em> of it that
+  can travel — the same relationship a cached read has to its source, with the addition that this one is signed
+  because it lands somewhere the user controls.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+<ul>
+  <li>Token format, claims, signing and verification.</li>
+  <li>Key generation, publication, rotation and revocation.</li>
+  <li>Issue and refresh endpoints; the grace window and its expiry behaviour.</li>
+  <li>Device binding, and its deliberate limits.</li>
+  <li>The revocation list and why it is small by design.</li>
+  <li>The client-side verification contract, as a specification other codebases implement.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Offline metering of credits.</strong> See <a href="#metering">§10</a> — this is a correctness boundary, not a deferral.</li>
+  <li><strong>Anti-tamper, obfuscation or anti-debugging.</strong> The client is MIT-licensed and open; pretending otherwise would be theatre. See <a href="#threat">§4</a>.</li>
+  <li><strong>Per-seat hardware locking.</strong> Device binding is a friction, not a boundary.</li>
+  <li><strong>A new identity system.</strong> Tokens are issued to an authenticated subscriber through the existing IdP.</li>
+</ul>
+
+<h2 id="threat">4. What we are defending against</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Say the quiet part first</span>
+  The desktop client is <strong>MIT-licensed and open source</strong>. Anyone determined can delete the check and
+  compile their own build. No signing scheme changes that, and a spec that pretends otherwise leads to expensive
+  obfuscation work that buys nothing.
+</div>
+
+<p>So the goal is not "unbreakable". It is:</p>
+
+<table>
+  <thead><tr><th>Defended</th><th>Not defended</th></tr></thead>
+  <tbody>
+    <tr><td>Editing a JSON file on disk to grant yourself Pro</td><td>Recompiling the client with the check removed</td></tr>
+    <tr><td>Copying one customer's token to a hundred machines, indefinitely</td><td>One person using their own licence on a machine we did not expect</td></tr>
+    <tr><td>Continuing to use a paid tier months after cancelling or charging back</td><td>Continuing for the remainder of a paid period, which is correct anyway</td></tr>
+    <tr><td>A support burden of "why did my licence stop working" caused by us</td><td>Determined piracy, which is a pricing and goodwill problem, not a cryptographic one</td></tr>
+  </tbody>
+</table>
+
+<p>
+  In other words: make the honest path effortless and the casual dishonest path pointless. Everything beyond that
+  costs more than it returns.
+</p>
+
+<h2 id="token">5. The token</h2>
+
+<p>
+  A compact JSON payload with a detached Ed25519 signature — deliberately <em>not</em> a general-purpose JWT
+  library dependency on the client, because verification must be a hundred lines a reviewer can read.
+</p>
+
+<pre><code>{
+  "v":    1,
+  "sub":  "&lt;subscriber kind&gt;:&lt;subscriber id&gt;",
+  "tid":  "&lt;tenant id&gt;",
+  "plan": "studio-pro",
+  "feat": ["long-form-video", "cloud-sync", "voice-hd"],
+  "lim":  { "workspaces": 25, "workspace-bytes": 214748364800 },
+  "iat":  1786...,
+  "exp":  1786...,
+  "gra":  1786...,
+  "dev":  "&lt;device fingerprint, optional&gt;",
+  "kid":  "2026-08-a"
+}</code></pre>
+
+<table>
+  <thead><tr><th>Claim</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>feat</code></td><td>Flag meters, resolved. The client asks "may I?" and never re-derives it from a plan name.</td></tr>
+    <tr><td><code>lim</code></td><td>Ceiling meters, resolved to numbers. Enough to refuse a 26th workspace offline.</td></tr>
+    <tr><td><code>exp</code></td><td>When the token stops being fresh. Short — days, not months.</td></tr>
+    <tr><td><code>gra</code></td><td>When the <em>grace</em> ends. Long — see <a href="#grace">§8</a>.</td></tr>
+    <tr><td><code>dev</code></td><td>Optional device fingerprint. Present so a token copied to a hundred machines is visible, not so it is impossible.</td></tr>
+    <tr><td><code>kid</code></td><td>Which public key verifies this. Rotation without invalidating everything.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Counters are conspicuously absent</span>
+  There is no credit balance in the token, and that is <a href="#metering">§10</a>'s subject. A number that can be
+  spent cannot be safely stated in an artefact the spender holds.
+</div>
+
+<h2 id="keys">6. Keys and rotation</h2>
+
+<ul>
+  <li><strong>Ed25519.</strong> Small signatures, small keys, no parameter choices to get wrong.</li>
+  <li>The <strong>private key never leaves the server</strong> and is held through the existing <code>ISettingValueProtector</code> / DataProtection path.</li>
+  <li><strong>Public keys ship with the client</strong> <em>and</em> are fetchable, so a rotation reaches an old build without an update.</li>
+  <li><code>kid</code> selects the key. Several are valid at once, which is what makes rotation a non-event.</li>
+  <li>A compromised key is <strong>withdrawn</strong>: removed from the published set, and every token bearing its <code>kid</code> fails verification at the next check.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">A shipped public key is not a secret and must not be treated as one</span>
+  It verifies; it cannot sign. The mistake to avoid is deriving anything else from it — an obfuscated "secret" in
+  the client is a secret published to everyone who runs <code>strings</code>.
+</div>
+
+<h2 id="lifecycle">7. Issue, refresh, expiry</h2>
+
+<ol>
+  <li><strong>Issue.</strong> The client authenticates through the existing IdP and requests a token. The server reads entitlement exactly as <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> does today, projects it, signs it.</li>
+  <li><strong>Store.</strong> The client keeps the token on disk. It is not a secret — it says what someone bought — but it is bound and short-lived.</li>
+  <li><strong>Refresh.</strong> Opportunistically, well before <code>exp</code>, whenever the network happens to be there. Never on a blocking path, never as a launch gate.</li>
+  <li><strong>Expire.</strong> After <code>exp</code> the token is stale but still honoured until <code>gra</code>.</li>
+  <li><strong>Lapse.</strong> After <code>gra</code>, paid features are unavailable. See below for exactly what that means.</li>
+</ol>
+
+<h2 id="grace">8. Grace, and the day the network is gone</h2>
+
+<div class="callout ok">
+  <span class="callout-label">The rule that decides the product's character</span>
+  <strong>Lapsing removes paid features. It never removes the user's work, and it never removes the free product.</strong>
+  Arke Studio without a subscription is Arke Studio — the thing that exists today, free and MIT. A lapsed token
+  returns the user to that, with every world still on their disk and every file still readable.
+</div>
+
+<table>
+  <thead><tr><th>State</th><th>Window</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td>Fresh</td><td>until <code>exp</code></td><td>Everything works. No network needed.</td></tr>
+    <tr><td>Stale</td><td><code>exp</code> → <code>gra</code></td><td>Everything still works. The client mentions, quietly and once, that it would like to check in.</td></tr>
+    <tr><td>Lapsed</td><td>after <code>gra</code></td><td>Paid features off. Local authoring, all worlds, all files: unchanged. Cloud sync pauses; it does not delete.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Suggested defaults: <code>exp</code> at <strong>7 days</strong>, <code>gra</code> at <strong>30</strong>. Long
+  enough for a holiday, a hospital stay or a bad month of connectivity; short enough that a cancelled subscription
+  does not fund a year of use. Both configurable per tenant, because a studio on a locked-down network is a
+  different case from a hobbyist.
+</p>
+
+<h2 id="revocation">9. Revocation</h2>
+
+<p>
+  Short expiry <em>is</em> the revocation mechanism for almost everything: cancel today, and within a week the
+  token stops refreshing and within a month it lapses. A published revocation list exists only for the cases where
+  a week is too long — chargeback fraud, a leaked token in circulation, an account compromise.
+</p>
+
+<ul>
+  <li>Keyed on token <code>jti</code> or subscriber, published alongside the public keys.</li>
+  <li>Consulted <strong>when the client is online anyway</strong>. Never a launch gate; an offline client cannot fetch it and must not be punished for that.</li>
+  <li><strong>Small by design.</strong> A list that grows without bound is a list nobody ships. Entries are removed once the token they revoke would have expired regardless.</li>
+</ul>
+
+<h2 id="metering">10. Metered credits are not entitlements</h2>
+
+<div class="callout p0">
+  <span class="callout-label">A hard boundary, not a phase-two item</span>
+  A <strong>flag</strong> ("may use long-form video") and a <strong>ceiling</strong> ("at most 25 workspaces") are
+  statements that stay true until the subscription changes, so they travel safely in a signed artefact.
+  A <strong>counter</strong> ("1,200 credits remaining") is a number that changes every time it is used — and an
+  offline client holding it can spend the same credits on two machines, or restore yesterday's file and spend them
+  again. That is not a bug to fix with better client code; it is what an offline balance <em>is</em>.
+</div>
+
+<p>Therefore:</p>
+
+<ul>
+  <li><strong>Counter meters are never issued offline.</strong> The token carries flags and ceilings only.</li>
+  <li><strong>Anything that spends credits requires the network</strong> — which is already true, because it calls a provider.</li>
+  <li><strong>Local dispatch on the user's own provider keys is unmetered by us</strong>, and should be. They are spending their own money with FAL; AONIK has no claim on it and no business counting it.</li>
+</ul>
+
+<p>
+  This is what makes the whole design honest: the offline story covers what the user <em>may do</em>, and the
+  online story covers what they <em>spend</em>. Trying to make one mechanism carry both is where offline licensing
+  schemes go wrong.
+</p>
+
+<h2 id="client">11. What the client must do</h2>
+
+<p>
+  The client is a separate codebase — possibly not even C#. This section is the specification it implements, and it
+  is short on purpose.
+</p>
+
+<ol>
+  <li>Verify the signature against the public key named by <code>kid</code>. Reject an unknown <code>kid</code>.</li>
+  <li>Reject a token whose <code>sub</code> or <code>tid</code> does not match the signed-in subscriber.</li>
+  <li>Compare <code>exp</code> and <code>gra</code> against the system clock, then apply <a href="#grace">§8</a>.</li>
+  <li>Treat a missing, malformed or unverifiable token as <strong>free tier</strong> — never as an error, and never as a reason to refuse to start.</li>
+  <li>Refresh opportunistically and in the background. Never block the UI on it.</li>
+</ol>
+
+<div class="callout">
+  <span class="callout-label">The clock</span>
+  A user can set their clock back. Mitigation is proportionate rather than clever: the client records the highest
+  timestamp it has seen and treats a large backward jump as suspicious, degrading to free tier until it can check
+  in. It does not try to be a trusted time source, because it cannot be one.
+</div>
+
+<h2 id="persistence">12. Persistence</h2>
+
+<ul>
+  <li><code>AnkEntitlementSigningKeys</code> — <code>Kid</code>, algorithm, public key, protected private key, <code>NotBefore</code>, <code>NotAfter</code>, status.</li>
+  <li><code>AnkEntitlementTokenIssues</code> — an audit row per issued token: subscriber, <code>jti</code>, <code>kid</code>, device, issued and expiry. This is what makes "one token on a hundred machines" observable.</li>
+  <li><code>AnkEntitlementRevocations</code> — <code>jti</code> or subscriber, reason, added, and the point at which the entry may be swept.</li>
+  <li>All tenant-scoped, <code>Ank</code>-prefixed, migration generated only against <code>AonikDbContext</code>.</li>
+</ul>
+
+<h2 id="contracts">13. Contracts</h2>
+
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IEntitlementTokenIssuer</code></td><td>Project the live entitlement read into a signed token for a subscriber and optional device.</td></tr>
+    <tr><td><code>IEntitlementKeyRing</code></td><td>The active signing key, and the published verification set.</td></tr>
+    <tr><td><code>IEntitlementRevocationList</code></td><td>Read and publish revocations.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>IEntitlementReader</code> is <strong>unchanged</strong>. This spec projects it; it does not replace it, and
+  every server-side caller keeps reading the database.
+</p>
+
+<h2 id="phasing">14. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>P1</strong> — keys</td><td>Key entity, generation, protected storage, the published verification endpoint.</td><td>A key can be generated, published and rotated with two valid at once.</td></tr>
+    <tr><td><strong>P2</strong> — issue</td><td>Projection from <code>IEntitlementReader</code>, signing, the issue endpoint, the audit row.</td><td>A token verifies against the published key and states the subscriber's real flags and ceilings.</td></tr>
+    <tr><td><strong>P3</strong> — lifecycle</td><td>Refresh, <code>exp</code>/<code>gra</code> configuration, revocation list.</td><td>A revoked token fails at the next online check; an offline client keeps working to <code>gra</code>.</td></tr>
+    <tr><td><strong>P4</strong> — reference verifier</td><td>A small, dependency-free verification implementation plus vectors, published for client authors.</td><td>The vectors pass in a second language, proving the format is implementable from the spec alone.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">15. Acceptance criteria</h2>
+
+<ol>
+  <li>A token verifies offline with the public key alone, and no network call occurs on the verification path.</li>
+  <li>Editing any byte of the payload invalidates the signature.</li>
+  <li>A token signed by a withdrawn <code>kid</code> fails verification.</li>
+  <li>Two signing keys can be valid simultaneously, and rotation invalidates no outstanding token.</li>
+  <li>A token whose <code>sub</code> does not match the signed-in subscriber is refused.</li>
+  <li>Between <code>exp</code> and <code>gra</code>, paid features continue to work with no network.</li>
+  <li>After <code>gra</code>, paid features stop, <strong>every local world remains readable, and the application still starts</strong>.</li>
+  <li>A missing or corrupt token yields the free tier, not an error dialog and not a failure to launch.</li>
+  <li>No counter meter appears in any issued token, enforced by a test over the projection.</li>
+  <li>A revoked token fails at the next online check and is not consulted offline.</li>
+  <li>The published vectors verify in an independent implementation.</li>
+  <li><code>dotnet build</code> and <code>dotnet test Aonik.sln</code> green.</li>
+</ol>
+
+<h2 id="open">16. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td>Default <code>exp</code> and <code>gra</code>?</td><td>7 and 30 days. Long enough for a holiday, short enough that cancelling matters.</td></tr>
+    <tr><td>O2</td><td>Is device binding on by default?</td><td>No. It is a support burden the moment someone changes a motherboard, and it deters only casual copying, which the audit row already surfaces.</td></tr>
+    <tr><td>O3</td><td>How many devices per subscriber?</td><td>Observe before enforcing. Issue freely, watch the audit rows, and set a number once there is evidence rather than a guess.</td></tr>
+    <tr><td>O4</td><td>Should the token carry the workspace byte ceiling, given it changes on purchase?</td><td>Yes — a stale ceiling errs toward the customer, and a top-up simply refreshes sooner. Erring the other way refuses storage someone has paid for.</td></tr>
+    <tr><td>O5</td><td>JWT, or this bespoke format?</td><td>Bespoke and tiny. A JWT library on every client platform is a dependency and a CVE surface for a payload with ten claims and one signature.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Spec 090 · Offline-verifiable entitlement · Draft Rev 1 · 2026-08-11 ·
+  Projects <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> ·
+  Required by <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
+</footer>
+
+</body>
+</html>

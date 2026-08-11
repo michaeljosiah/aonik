@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 089 - Workspaces: a versioned tree of files, and the sync that moves it</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 089</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: Aonik.Workspaces</span>
+  <h1>Workspaces: a versioned tree of files, and the sync that moves it</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Implements <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>. A
+    <strong>workspace</strong> is a versioned tree of files owned by a party — shareable, quota'd and
+    syncable. An Arke <em>world</em> is a workspace whose <code>Kind</code> is <code>world</code>, exactly as a
+    personal-finance household is a group whose kind is <code>household</code>. The platform owns the container,
+    the tree, the revisions, the blobs and the sync protocol. It <strong>never opens a file</strong>: what a sheet
+    or a canon entry means belongs to the product, and if this module ever learns otherwise the seam has failed.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#why">Why a tree, and why here</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">The model</a></li>
+    <li><a href="#addressing">Content addressing</a></li>
+    <li><a href="#revisions">Revisions and the head</a></li>
+    <li><a href="#sync">The sync protocol</a></li>
+    <li><a href="#conflict">Divergence, and why it is a proposal</a></li>
+    <li><a href="#quadrants">The four quadrants</a></li>
+    <li><a href="#sharing">Sharing a workspace</a></li>
+    <li><a href="#quota">Quota and metering</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#contracts">Contracts in SharedKernel</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Arke Studio is local-first: <em>"Worlds are folders of readable files on the user's own disk… the filesystem as
+  the only durable truth."</em> A commercial cloud tier alongside the free product changes exactly one thing — a
+  world must be able to exist somewhere other than one person's disk.
+</p>
+
+<p>This spec adds the smallest platform capability that makes that true, and nothing else:</p>
+
+<ul>
+  <li>A <strong><code>Workspace</code></strong> — a named, tenant-scoped, party-owned container with a <code>Kind</code>.</li>
+  <li>A <strong><code>WorkspaceRevision</code></strong> — a monotonic snapshot, which <em>is</em> a manifest of <code>path → hash</code>.</li>
+  <li><strong>Content-addressed blobs</strong> through the existing <code>IFileStore</code>, which already returns a SHA-256 on upload.</li>
+  <li>A <strong>pull/push sync protocol</strong> that is, in essence, "here are my hashes; which do you not have?"</li>
+  <li><code>workspace</code> registered as a <strong><code>ShareResourceKind</code></strong>, so
+      <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a>'s invites, expiry and revocation apply unchanged.</li>
+  <li>Workspace count and stored bytes as <strong>meters</strong>, so
+      <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> can price them.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">The folder is the wire format</span>
+  Not for convenience — for independence. The free application is MIT-licensed and must not acquire a dependency on
+  AONIK. It reads and writes folders; a sync client moves them. The local tree stays authoritative offline and the
+  cloud holds a mirror of the same tree, so the product's domain layer never learns this module exists.
+</div>
+
+<h2 id="why">2. Why a tree, and why here</h2>
+
+<p>The platform has two things that look adjacent and are not:</p>
+
+<table>
+  <thead><tr><th>Existing</th><th>What it is</th><th>Why it is not a workspace</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>IFileStore</code> <span class="tag existing">existing</span></td>
+      <td>Upload a blob, get back a storage key, size, content type and SHA-256.</td>
+      <td>No path, no revision, no manifest. It stores <em>a file</em>, not <em>a tree over time</em>. It is the right primitive underneath this spec, and it is reused verbatim.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Documents</code> <span class="tag existing">existing</span></td>
+      <td>Classification, chunking, embedding and scoped retrieval of individual documents.</td>
+      <td>Built to answer "what does this document say?" A workspace answers "what did this tree look like at revision 7?" Bending one into the other gives one module two incompatible jobs.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.1 Why the platform rather than the product</h3>
+
+<div class="callout p0">
+  <span class="callout-label">The sharing seam decides it</span>
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> §6 asks the owning module
+  <em>"does this owner own these ids?"</em> through an <code>IShareResourceResolver</code>, on the hot path of an
+  authorisation check. If worlds live in Arke, the platform must call the product over HTTP to answer it —
+  inverting the dependency, for an application designed to work offline. If workspaces live here, the resolver is
+  a query against this module's own table.
+</div>
+
+<p>
+  Two further consequences fall out of the same placement. <strong>Quota</strong> is only expressible if the
+  platform knows how many workspaces exist and how large they are. And <strong>two products need it</strong> — Arke
+  Studio and Arke Kids both have worlds, which is the same two-consumer test that put groups in the platform: one
+  consumer is a feature, two is a capability.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+<ul>
+  <li>The <code>Aonik.Workspaces</code> middle-layer module: entities, configurations, <code>WorkspacesDbContext</code>, services.</li>
+  <li>Content-addressed blob storage over <code>IFileStore</code>, including deduplication and reference counting.</li>
+  <li>Revisions as immutable manifests; the head pointer; history.</li>
+  <li>The sync protocol: negotiate, upload missing blobs, commit a revision, download missing blobs.</li>
+  <li>Divergence detection and its expression as a <em>proposal</em> rather than a merge.</li>
+  <li><code>workspace</code> as a share resource kind, with a resolver inside this module.</li>
+  <li>Count and byte meters, and the enforcement point for both.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Real-time collaborative editing.</strong> Operational transform and CRDTs are a different product.</li>
+  <li><strong>Merge algorithms.</strong> Divergence produces a proposal; the human decides. See <a href="#conflict">§8</a>.</li>
+  <li><strong>Branching.</strong> One head per workspace.</li>
+  <li><strong>Per-file permissions.</strong> A grant names a workspace, not a path.</li>
+  <li><strong>Any interpretation of file contents.</strong> No parsing, no schema, no validation of what is inside a file.</li>
+  <li><strong>Server-side media dispatch</strong> and <strong>offline entitlement</strong> — the latter is <a href="090.offline-verifiable-entitlement.html">Spec 090</a>.</li>
+  <li><strong>Git.</strong> Arke's specification forbids a git dependency (§2.4). Content addressing gives the dedupe without it.</li>
+</ul>
+
+<h2 id="model">4. The model</h2>
+
+<div class="ascii-diagram">Aonik.Workspaces / Entities
+├── Workspace          TenantId, Kind, Name, Slug, OwnerPartyId,
+│                      HeadRevisionId?, FileCount, TotalBytes, Status
+├── WorkspaceRevision   WorkspaceId, Sequence, ParentRevisionId?,
+│                      AuthorPartyId, AuthorUserId?, Message, CreatedAt,
+│                      FileCount, TotalBytes
+├── WorkspaceFile       RevisionId, Path, ContentHash, SizeBytes, ContentType
+└── WorkspaceBlob       TenantId, ContentHash, StorageKey, SizeBytes, RefCount</div>
+
+<table>
+  <thead><tr><th>Entity</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Workspace</code> <span class="tag new">new</span></td>
+      <td><code>Kind</code> is an <strong>open string</strong> with a known-values helper (<code>world</code>), the <code>OrderType</code> / <code>GroupKinds</code> precedent. <code>OwnerPartyId</code> not <code>OwnerUserId</code>, for the reason <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> gives: a member need not have a login, and a child's workspace in Arke Kids has an owner who cannot authenticate.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceRevision</code> <span class="tag new">new</span></td>
+      <td>Immutable. <code>Sequence</code> is monotonic per workspace and is what a client compares. <code>ParentRevisionId</code> is what makes divergence detectable — a revision that does not descend from the head is not a fast-forward.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceFile</code> <span class="tag new">new</span></td>
+      <td>One row per path per revision. <strong>The manifest is the revision.</strong> Paths are stored forward-slash and NFC-normalised; see <a href="#security">§14</a> for why that is a security property and not a tidiness one.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceBlob</code> <span class="tag new">new</span></td>
+      <td>Content, once, per tenant. <code>RefCount</code> is how a revision can be deleted without orphaning bytes another revision still names.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Naming</span>
+  Platform code says <code>Workspace</code>. "World" is product vocabulary and stays in product UIs, per
+  <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a>.
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> paid three review rounds for the opposite
+  choice, when <code>Household</code> in platform code led the finance contributor to treat an Arke Kids family as a
+  household and refuse the second one.
+</div>
+
+<h2 id="addressing">5. Content addressing</h2>
+
+<p>
+  A blob is identified by the SHA-256 of its bytes. <code>IFileStore.UploadAsync</code> already computes and returns
+  one, so the primitive exists; this spec adds the table that remembers it.
+</p>
+
+<pre><code>hash = SHA-256(bytes)
+storageKey = "workspaces/{tenantId:N}/blobs/{hash[0..2]}/{hash}"</code></pre>
+
+<p>Three properties follow, and all three matter commercially:</p>
+
+<ul>
+  <li><strong>Dedupe.</strong> Ten takes of one shot that share a reference image store that image once. A world's
+      history stores an unchanged sheet once, not once per revision.</li>
+  <li><strong>Cheap sync.</strong> "Which of these hashes do you not have" is answerable without transferring
+      anything, so an unchanged 2GB world syncs in one round trip and no bytes.</li>
+  <li><strong>Integrity.</strong> A downloaded blob is verified against the hash that named it, so a corrupted or
+      substituted object is detected by construction rather than by trust in the store.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Reference counting is not optional</span>
+  Deleting a revision must not delete bytes another revision still names, and deleting a <em>workspace</em> must not
+  delete bytes another workspace in the same tenant deduped against. <code>RefCount</code> is maintained in the same
+  transaction as the manifest write; a blob reaching zero is swept, never deleted inline. Getting this wrong
+  destroys data silently and is discovered by a user opening an old revision to find it empty.
+</div>
+
+<h2 id="revisions">6. Revisions and the head</h2>
+
+<p>
+  A revision is created by presenting a complete manifest — every path in the tree with its hash — plus the parent
+  the client believed it was building on. The server:
+</p>
+
+<ol>
+  <li>rejects the commit if any named hash has no blob (upload first, commit second — never the reverse);</li>
+  <li>compares <code>parentRevisionId</code> to the current head;</li>
+  <li>if they match, appends the revision and advances the head — a <strong>fast-forward</strong>;</li>
+  <li>if they do not, appends the revision <em>without</em> advancing the head and returns
+      <code>Diverged</code>. See <a href="#conflict">§8</a>.</li>
+</ol>
+
+<p>
+  The manifest is complete rather than a delta. That is deliberate: a delta requires the server to trust the
+  client's account of what changed, and a client that omits a deletion silently resurrects a file. A complete
+  manifest makes the revision self-describing and the diff computable server-side.
+</p>
+
+<h2 id="sync">7. The sync protocol</h2>
+
+<div class="ascii-diagram">PUSH                                    PULL
+────                                    ────
+1. client builds manifest of local tree  1. client asks for head revision
+2. POST manifest hashes → server         2. server returns manifest
+   server replies: missing[]             3. client diffs against local tree
+3. client uploads only missing blobs     4. client asks for missing blobs
+4. client commits (manifest + parent)    5. client writes files, records head
+   server: FastForward | Diverged</div>
+
+<p>
+  Two round trips before any byte moves, and the second is empty when nothing changed. There is no long-lived
+  connection, no server-side session and no lock: a client that dies mid-upload has uploaded blobs that nothing
+  references yet, which the sweeper reclaims.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Uploads are idempotent by construction</span>
+  A blob is named by its own hash, so re-uploading it is a no-op rather than a duplicate. That is what makes a
+  resumable large-media sync possible without any resume protocol: the client simply asks again which hashes are
+  missing, and the answer shrinks.
+</div>
+
+<h2 id="conflict">8. Divergence, and why it is a proposal</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Sync reuses the product's own mechanic</span>
+  Arke Studio's core mechanic is the accept gate: <em>"nothing enters the authored record without a human accept…
+  proposals are ripple-checked against canon."</em> A remote revision that does not descend from the local head is
+  <strong>a proposal</strong>. It is ripple-checked and accepted exactly as a locally-drafted change is.
+  <br><br>
+  This is the most important design decision in the spec, and it is a decision to <em>not</em> build something. No
+  merge algorithm, no three-way diff, no conflict markers, no new vocabulary for the user to learn — because the
+  product already has a word for "a change that has not been accepted yet", and this is one.
+</div>
+
+<p>The platform's part is deliberately small. It:</p>
+
+<ul>
+  <li>detects divergence (parent ≠ head) and says so;</li>
+  <li>stores the divergent revision, so nothing is lost while the human decides;</li>
+  <li>exposes the two manifests and the paths that differ.</li>
+</ul>
+
+<p>
+  It does <strong>not</strong> decide which side wins, because deciding would require understanding what the files
+  mean — which is the line this module must never cross.
+</p>
+
+<h3 id="authority">8.1 Which revision is true</h3>
+
+<table>
+  <thead><tr><th>Situation</th><th>Authority</th></tr></thead>
+  <tbody>
+    <tr><td>Offline, one machine</td><td><strong>The local tree.</strong> The product is local-first; the cloud is a mirror, and a mirror is never the original.</td></tr>
+    <tr><td>Between machines, or with a collaborator</td><td><strong>The cloud head.</strong> It is the only thing both parties can see.</td></tr>
+    <tr><td>Both moved since they last agreed</td><td><strong>Neither, automatically.</strong> The remote arrives as a proposal and a human accepts.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="quadrants">9. The four quadrants</h2>
+
+<p>
+  Arke's specification warns that conflating the <em>authoring</em> path (OpenCode, file edits) with the
+  <em>media</em> path (the job queue, providers) is the main architectural risk it exists to prevent. Local-versus-remote
+  crosses both, giving four combinations where the product currently reasons about two. This spec fixes which it supports:
+</p>
+
+<table>
+  <thead><tr><th></th><th>Authoring</th><th>Media</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Local</strong></td>
+      <td><span class="tag existing">unchanged</span> OpenCode in a staging directory, as today. Free tier, offline.</td>
+      <td><span class="tag existing">unchanged</span> The local job queue calls providers with the user's own keys.</td>
+    </tr>
+    <tr>
+      <td><strong>Remote</strong></td>
+      <td><span class="tag new">this spec</span> Sync only. The cloud stores and serves the tree; it does not run OpenCode.</td>
+      <td><span class="tag gap">not v1</span> Server-side dispatch is a separate subsystem and is where credits are consumed. Named in <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>'s follow-ups.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">The cloud does not author</span>
+  Remote authoring would mean running the harness server-side, which needs the provider keys, the staging
+  directory, the accept gate and the ripple check — that is the whole product, rebuilt on a server. v1 syncs a tree
+  and nothing more. Everything anyone does to a world still happens on a machine they control.
+</div>
+
+<h2 id="sharing">10. Sharing a workspace</h2>
+
+<p>
+  Registered as a <code>ShareResourceKind</code>, so every mechanic in
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> applies with no new code: opaque
+  single-use invite tokens, expiry, immediate revocation, ownership validation, and the anonymous preview.
+</p>
+
+<pre><code>ResourceKind   "workspace"
+ResourceIds    ["&lt;the-undersong&gt;", "&lt;copper-saints&gt;"]
+TermsJson      { "role": "editor" }        ← the product's word; the platform never reads it</code></pre>
+
+<p>
+  The resolver lives in this module and returns <code>ShareResourceRef(Id, "workspace", Name)</code> for workspaces
+  the owner actually owns — omitting the rest, which is what lets grant creation detect a caller naming someone
+  else's ids. Because it is a local query, an authorisation check costs one round trip and never leaves the platform.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Read/write is a term, not a platform concept</span>
+  A grant says <em>that</em> a workspace is shared. Whether the recipient may commit is
+  <code>TermsJson</code> — the product's business, read by the product. The platform enforcing an "editor" role
+  would mean interpreting terms, which §6.1 of Spec 086 forbids for exactly this reason.
+</div>
+
+<h2 id="quota">11. Quota and metering</h2>
+
+<table>
+  <thead><tr><th>Meter</th><th>Kind</th><th>Enforced where</th></tr></thead>
+  <tbody>
+    <tr><td><code>workspaces</code></td><td>Ceiling — held slots, released when a workspace is deleted</td><td>Create</td></tr>
+    <tr><td><code>workspace-bytes</code></td><td>Counter — drawn down as blobs are stored, returned on sweep</td><td>Blob upload, before the bytes are accepted</td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Metered from day one, not later</span>
+  A storage limit retrofitted onto users who have already uploaded 200GB is a support problem, not an engineering
+  one. The byte meter is checked <em>before</em> an upload is accepted, so the failure is "you are out of space"
+  rather than a surprise bill or a silent truncation.
+</div>
+
+<p>
+  Both are <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> primitives used as designed:
+  the ceiling's claim/release lifecycle is what a workspace count is, and the counter's reserve/commit is what a
+  variable-size upload is. Neither needs new machinery.
+</p>
+
+<h2 id="persistence">12. Persistence &amp; migration</h2>
+
+<ul>
+  <li>Four new tables — <code>AnkWorkspaces</code>, <code>AnkWorkspaceRevisions</code>, <code>AnkWorkspaceFiles</code>, <code>AnkWorkspaceBlobs</code> — all tenant-scoped, all <code>Ank</code>-prefixed in <code>dbo</code>.</li>
+  <li>Migration generated <strong>only</strong> against <code>AonikDbContext</code> per <code>CLAUDE.md</code>. <code>WorkspacesDbContext</code> declares none.</li>
+  <li>Filtered unique index on <code>(TenantId, WorkspaceId, Sequence)</code> — the revision sequence is the idempotency key a retried commit lands on.</li>
+  <li>Unique index on <code>(TenantId, ContentHash)</code> for blobs, which is what makes dedupe a database guarantee rather than an application hope.</li>
+  <li>Unique index on <code>(RevisionId, Path)</code>. A manifest naming one path twice is malformed, and the database is the right place to say so.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The LocalDB lane is mandatory here</span>
+  Three of the four indexes above are filtered or uniqueness-bearing, and the InMemory provider enforces no unique
+  index at all. Per <code>CLAUDE.md</code>, coverage for them belongs in <code>tests/Aonik.Database.Tests</code> —
+  an InMemory test asserting dedupe would pass against a schema that does not dedupe.
+</div>
+
+<h2 id="contracts">13. Contracts in SharedKernel</h2>
+
+<p>New namespace <code>Aonik.SharedKernel.Abstractions.Workspaces</code>. Consumers reference the contracts, never the module.</p>
+
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IWorkspaceService</code></td><td>Create, rename, transfer ownership, delete, list mine.</td></tr>
+    <tr><td><code>IWorkspaceSyncService</code></td><td>Negotiate missing hashes, commit a revision, read a manifest.</td></tr>
+    <tr><td><code>IWorkspaceReader</code></td><td>Read-only projection for other modules — does this party own this workspace, how large is it.</td></tr>
+    <tr><td><code>WorkspaceKinds</code></td><td>Known-values helper. <code>world</code> today.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="security">14. Security</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Control</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Path traversal.</strong> A manifest path of <code>../../etc/passwd</code> or a Windows device name.</td>
+      <td>Paths are validated on commit: relative, forward-slash, no <code>.</code> or <code>..</code> segment, no drive letter, no leading slash, no NTFS stream, no reserved device name. Rejected, not sanitised — silently rewriting a caller's path is how two files become one.</td>
+    </tr>
+    <tr>
+      <td><strong>Unicode collision.</strong> Two paths that differ only by normalisation form collide on one filesystem and not another.</td>
+      <td>NFC normalisation before storage and before comparison, so the manifest means the same thing on every client.</td>
+    </tr>
+    <tr>
+      <td><strong>Hash substitution.</strong> A client commits a manifest naming a hash it never uploaded, hoping to reference another tenant's blob.</td>
+      <td>Blob lookup is tenant-scoped, and commit rejects any hash with no blob <em>in this tenant</em>. Cross-tenant dedupe is deliberately not done: it would leak the existence of another tenant's content by timing.</td>
+    </tr>
+    <tr>
+      <td><strong>Quota bypass.</strong> Upload, then check.</td>
+      <td>The byte meter is reserved before the stream is accepted and committed on success, using Spec 087's reserve/commit lifecycle rather than a post-hoc count.</td>
+    </tr>
+    <tr>
+      <td><strong>Zip-bomb / oversize single file.</strong></td>
+      <td>A per-file ceiling and a per-commit file-count ceiling, both configurable, both enforced before bytes are read.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="phasing">15. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>P1</strong> — contracts</td>
+      <td><code>SharedKernel.Abstractions.Workspaces</code>: interfaces, records, known values. No behaviour.</td>
+      <td>Solution builds; no test change.</td>
+    </tr>
+    <tr>
+      <td><strong>P2</strong> — module + schema</td>
+      <td>The <code>Aonik.Workspaces</code> middle-layer module (references only SharedKernel), four entities, configurations, <code>WorkspacesDbContext</code>, migration against <code>AonikDbContext</code>.</td>
+      <td>Migration reviewed and applies cleanly; the uniqueness and dedupe indexes proven on LocalDB.</td>
+    </tr>
+    <tr>
+      <td><strong>P3</strong> — blobs</td>
+      <td>Content-addressed upload over <code>IFileStore</code>, reference counting, the orphan sweeper as a Worker job.</td>
+      <td>The same bytes uploaded twice store once; deleting one of two revisions naming a blob keeps the bytes.</td>
+    </tr>
+    <tr>
+      <td><strong>P4</strong> — revisions</td>
+      <td>Manifest commit, parent comparison, fast-forward, head advance, history read.</td>
+      <td>A retried commit is idempotent on <code>(WorkspaceId, Sequence)</code>; a commit naming an absent hash is refused.</td>
+    </tr>
+    <tr>
+      <td><strong>P5</strong> — sync</td>
+      <td>Negotiation, the <code>Diverged</code> outcome, manifest diff.</td>
+      <td>An unchanged 1GB workspace syncs with no bytes transferred; a divergent commit is stored and reported, never applied.</td>
+    </tr>
+    <tr>
+      <td><strong>P6</strong> — sharing &amp; quota</td>
+      <td><code>workspace</code> resolver; count and byte meters wired to Spec 087.</td>
+      <td>A workspace can be shared by invite and revoked; exceeding either meter refuses before any byte is stored.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">16. Acceptance criteria</h2>
+
+<ol>
+  <li><code>Aonik.Workspaces</code> references <strong>only</strong> <code>Aonik.SharedKernel</code>.</li>
+  <li>No type in the module names a product concept — no sheet, canon, production, world <em>except</em> as the value of <code>Kind</code>.</li>
+  <li>Identical bytes stored twice occupy one blob, proven on <strong>LocalDB</strong>, where the unique index is real.</li>
+  <li>Deleting a revision that shares a blob with another revision leaves the bytes readable.</li>
+  <li>A commit naming a hash with no blob in this tenant is refused, and no revision is created.</li>
+  <li>A commit whose parent is not the head is <strong>stored</strong>, reported as <code>Diverged</code>, and does <strong>not</strong> advance the head.</li>
+  <li>Re-committing an identical manifest is idempotent — one revision, not two.</li>
+  <li>A path containing <code>..</code>, a drive letter, a leading slash or a reserved device name is rejected at commit.</li>
+  <li>Two paths differing only in Unicode normalisation are treated as one and the commit is refused as malformed.</li>
+  <li>Exceeding the byte meter refuses the upload before the stream is consumed.</li>
+  <li>A workspace shared by invite is listable, revocable and acceptable through Spec 086's existing routes with no workspace-specific code in those routes.</li>
+  <li>An unchanged workspace of at least 500MB completes a sync with zero blob transfers.</li>
+  <li><code>dotnet build</code> and <code>dotnet test Aonik.sln</code> green, plus the LocalDB lane.</li>
+</ol>
+
+<h2 id="open">17. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>O1</td>
+      <td>Should blobs dedupe across tenants?</td>
+      <td><strong>No.</strong> The storage saving is real but existence becomes probeable by timing, and one tenant's deletion affecting another's read is a support incident nobody can explain.</td>
+    </tr>
+    <tr>
+      <td>O2</td>
+      <td>How much history is retained?</td>
+      <td>All of it until a retention policy exists. Revisions are cheap; blobs are not, so the first cost pressure will come from media, not from history depth.</td>
+    </tr>
+    <tr>
+      <td>O3</td>
+      <td>Does a workspace need a <code>Group</code> owner as well as a party?</td>
+      <td>Not in v1. A studio shares a workspace through a grant; making it group-owned adds a second ownership representation, which is what <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> O1 rejected for groups.</td>
+    </tr>
+    <tr>
+      <td>O4</td>
+      <td>Is the sync client part of the platform or the product?</td>
+      <td>The product. The platform ships the protocol and the contracts; the client that walks a real filesystem belongs with the application that owns the folder.</td>
+    </tr>
+    <tr>
+      <td>O5</td>
+      <td>Should a divergent revision expire?</td>
+      <td>Probably — an unaccepted proposal holding blobs alive indefinitely is a quota leak. Needs a number, so deferred rather than guessed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<footer>
+  Spec 089 · Workspaces and sync · Draft Rev 1 · 2026-08-11 ·
+  Implements <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
+</footer>
+
+</body>
+</html>
