@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arke Studio &amp; Arke Kids on AONIK — capability brief</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --accent-10: #055a601f; --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878;
+      --open-bg: #eef5fa; --open-border: #88b8d4; --warn-bg: #fbe9e7; --warn-border: #d97a6c;
+      --ok-bg: #ecf6ee; --ok-border: #6db77f; --coral: #eb5c37;
+      --purple-bg: #f3eefa; --purple-border: #a98cd0;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 980px; }
+    header.doc-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.client { background: var(--accent-10); color: var(--accent); }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    .subtitle { color: var(--muted); margin: 0; max-width: 74ch; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 46px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5,90,96,.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 3px solid var(--note-border); background: var(--note-bg); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; }
+    .callout.decision { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.risk { border-left-color: var(--warn-border); background: var(--warn-bg); }
+    .callout.done { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout .label { display: block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+    .chip { display: inline-block; font: 11px/1.5 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .chip.reuse   { background: var(--ok-bg); color: #2c6b46; border: 1px solid var(--ok-border); }
+    .chip.mirror  { background: var(--note-bg); color: #7a5a10; border: 1px solid var(--note-border); }
+    .chip.product { background: var(--purple-bg); color: #5a3f82; border: 1px solid var(--purple-border); }
+    .chip.gap     { background: var(--warn-bg); color: #a13c2e; border: 1px solid var(--warn-border); }
+    .chip.spec    { background: var(--accent-10); color: var(--accent); border: 1px solid var(--accent); }
+    .chip.built   { background: var(--ok-bg); color: #2c6b46; border: 1px solid var(--ok-border); }
+    .chip.draft   { background: var(--open-bg); color: #2a5c7a; border: 1px solid var(--open-border); }
+    .chip.none    { background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
+    .toc { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 18px 24px; }
+    .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin: 0 0 18px; }
+    .card h3 { margin-top: 0; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+    .small { font-size: 13px; color: var(--muted); }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+    .flow .node { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+    .flow .node b { color: var(--accent); }
+    .flow .arrow { color: var(--muted); }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 4px; font-size: 13.5px; }
+    .legend div { display: flex; gap: 7px; align-items: baseline; }
+    footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { .toc ol { columns: 1; } table { font-size: 13px; } }
+  </style>
+</head>
+<body>
+
+<header class="doc-meta">
+  <span class="meta-tag">Capability brief</span>
+  <span class="meta-tag status">Draft Rev 1 — for review</span>
+  <span class="meta-tag client">Products: Arke Studio · Arke Kids</span>
+  <span class="meta-tag">2026-08-11</span>
+  <h1>Arke Studio &amp; Arke Kids on AONIK</h1>
+  <p class="subtitle">
+    What the two Arke products are, what a commercial tier actually requires, and — capability by
+    capability — which part of AONIK carries it and which specification enables it. Written to be
+    argued with: every mapping is classified, every gap is named, and where AONIK does <em>not</em>
+    have the answer the brief says so rather than gesturing at a module whose name sounds close.
+  </p>
+</header>
+
+<h2 id="toc">Contents</h2>
+<div class="toc">
+  <ol>
+    <li><a href="#summary">Executive summary</a></li>
+    <li><a href="#products">The two products</a></li>
+    <li><a href="#commercial">The commercial model</a></li>
+    <li><a href="#seam">The governing rule: one seam</a></li>
+    <li><a href="#key">How to read the map</a></li>
+    <li><a href="#map">Arke Studio — the full capability map</a></li>
+    <li><a href="#hard">The five hard seams</a></li>
+    <li><a href="#kids">Arke Kids</a></li>
+    <li><a href="#modules">Module by module</a></li>
+    <li><a href="#status">What actually exists today</a></li>
+    <li><a href="#gaps">The gap register</a></li>
+    <li><a href="#nonengineering">Risks that are not engineering risks</a></li>
+    <li><a href="#sequence">Sequencing</a></li>
+    <li><a href="#drift">Drift rules</a></li>
+  </ol>
+</div>
+
+<h2 id="summary">1. Executive summary</h2>
+
+<p>
+  Arke Studio is a free, MIT-licensed, local-first desktop application for authoring fictional
+  worlds and producing media from them. Its own specification is categorical: <em>"the filesystem as
+  the only durable truth. No cloud backend on the hot path, no database of record, no git,"</em> and
+  <em>"any account, subscription, billing or cloud backend"</em> is listed out of scope for v1.
+  Arke Kids is a separate, child-facing product in the same family, already removed from the Studio
+  repository.
+</p>
+
+<p>
+  A commercial tier is now under consideration alongside — explicitly not instead of — the free
+  product. This brief exists because that decision has a much smaller blast radius than it appears
+  to, and the reason is worth stating plainly:
+</p>
+
+<div class="callout done">
+  <span class="label">The finding</span>
+  <p style="margin-top:0">
+    <strong>AONIK already holds almost everything a commercial Arke needs, and it holds it generically.</strong>
+    Authentication across three operator-choice IdPs, tenancy, parties, subscriptions with plan
+    versions and renewal, three kinds of meter, orders, invoices, a double-entry ledger, groups with
+    roles and invitations, and scoped revocable sharing are all built, merged and product-neutral.
+    Of the twenty Arke Studio capability specifications, <strong>eleven need nothing from AONIK at all</strong>
+    — they are the product, and the platform must never learn them.
+  </p>
+  <p style="margin-bottom:0">
+    What is genuinely missing is <strong>two things and a decision</strong>: a versioned tree of files
+    the platform can own (<a href="specifications/089.workspaces-and-sync.html">Spec 089</a>), an
+    entitlement a laptop can verify with no network
+    (<a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a>), and a ruling on
+    whether cloud dispatch spends AONIK credits or the user's own provider key — which is a business
+    decision wearing an architecture costume.
+  </p>
+</div>
+
+<p>The three sentences that follow from that:</p>
+
+<ol>
+  <li><strong>The free product does not change.</strong> Sync is opt-in, the folder stays the interchange format, and nothing in Arke's local domain layer gains a dependency on AONIK. If that stops being true, the commercial tier has eaten the product it was meant to sit beside.</li>
+  <li><strong>The platform owns containers, identity and money. The product owns meaning.</strong> AONIK stores a world; it must never know what a canon entry is. §4 makes this testable rather than aspirational.</li>
+  <li><strong>Arke Kids is the reason any of this is platform work.</strong> One consumer is a feature; two is a capability. Both products have worlds, families, subscriptions and sharing — and it is the second consumer that justifies putting them in the platform rather than the product.</li>
+</ol>
+
+<h2 id="products">2. The two products</h2>
+
+<h3>2.1 Arke Studio — what it is today</h3>
+
+<p>
+  A Windows desktop application (Electron shell, local coordinator, an embedded coding-harness
+  adapter). A <strong>world</strong> is a folder of readable files on the user's own disk. The
+  authored record — canon entries, character and location sheets, productions, scenes, shots — lives
+  in those files and nowhere else. A derived index makes them queryable. Nothing enters the authored
+  record without a human accepting it: proposals are ripple-checked against canon and either
+  accepted, rebased or rejected. Media generation is dispatched to providers with the user's own
+  keys, through a durable local job queue, and the spend is recorded in a local append-only ledger.
+</p>
+
+<p>The twenty capability specifications group into four bands:</p>
+
+<table>
+  <thead><tr><th>Band</th><th>Specs</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Substrate</strong></td>
+      <td>001, 002, 003, 016</td>
+      <td>Shell, contracts, coordinator; the world on disk; the derived index; first run, packaging, updates.</td>
+    </tr>
+    <tr>
+      <td><strong>Authoring</strong></td>
+      <td>004, 005, 006, 007, 015, 017</td>
+      <td>The accept gate; the harness adapter; canon; sheets; import and fact extraction; art direction.</td>
+    </tr>
+    <tr>
+      <td><strong>Media</strong></td>
+      <td>008, 009, 010, 011, 012, 013, 019, 020</td>
+      <td>Providers and the ledger; the job queue; reference kits; voice; productions; takes and exports; long-form video; local generation.</td>
+    </tr>
+    <tr>
+      <td><strong>Oversight</strong></td>
+      <td>014, 018</td>
+      <td>Activity, the needs-you queue and spend; voice mode.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Arke's own architecture note warns that <em>conflating the authoring path and the media path</em> is
+  the main risk it exists to prevent. That warning matters here, because a cloud tier adds a third
+  axis — local versus remote — crossing both. §7.5 is where that lands.
+</p>
+
+<h3>2.2 Arke Kids — what it is</h3>
+
+<p>
+  A separate, child-facing product sharing the same substrate: worlds, characters, generated stories
+  and video. The commercial shape is already sketched in
+  <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> as the
+  worked example that proved the entitlement model: a <strong>Peek</strong> tier free forever, then
+  three paid tiers at £9.99 / £19.99 / £39.99, gated on stories per month, videos per month, child
+  profiles and HD output.
+</p>
+
+<p>Structurally it differs from Studio in four ways that all land on the platform:</p>
+
+<table>
+  <thead><tr><th>Difference</th><th>Consequence for AONIK</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>The subscriber is a parent; the users are children.</td>
+      <td>The owner of a workspace may be a party who cannot authenticate. This is exactly why <a href="decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> keyed membership on <code>PartyId</code> rather than <code>UserId</code>.</td>
+    </tr>
+    <tr>
+      <td>A <strong>family</strong> is the unit, not an individual.</td>
+      <td>A family is a <code>Group</code> whose kind is <code>family</code> — already supported, already merged, and the exact case that broke when the platform's noun was <code>Household</code>.</td>
+    </tr>
+    <tr>
+      <td>It is cloud-first, not local-first.</td>
+      <td>Kids inverts Studio's assumption. It needs the same <code>Workspace</code>, but as the primary store rather than a mirror.</td>
+    </tr>
+    <tr>
+      <td>Children are a protected class in law.</td>
+      <td>Guardian relationships, verifiable parental consent, and content safety are not features — they are conditions of shipping. §12.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Why the second product is the load-bearing one</span>
+  Every extraction in this programme passed the same test: <strong>one consumer is a feature, two is
+  a capability</strong>. Groups went to the platform because Payabo households and Arke Kids families
+  are the same shape. Workspaces go to the platform because Studio worlds and Kids worlds are the
+  same shape. If Arke Kids were cancelled tomorrow, a fair reviewer would ask whether
+  <code>Aonik.Workspaces</code> should still exist — and the honest answer is that it would be a
+  closer call.
+</div>
+
+<h2 id="commercial">3. The commercial model</h2>
+
+<p>
+  The tier structure has to answer one question before any of it is buildable: <strong>what is a
+  paying customer actually buying?</strong> There are three candidate answers and they have different
+  architectures.
+</p>
+
+<table>
+  <thead><tr><th>What is sold</th><th>What it requires</th><th>Assessment</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A. Storage and continuity</strong> — worlds in the cloud, on every machine, backed up, shareable.</td>
+      <td>Workspaces, sync, quota meters, sharing. <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> + <a href="specifications/090.offline-verifiable-entitlement.html">090</a>.</td>
+      <td><strong>Buildable now.</strong> No custody change, no metering of third-party spend, no new liability. This is the tier to ship first.</td>
+    </tr>
+    <tr>
+      <td><strong>B. Features</strong> — long-form video, HD voice, richer reference binding, collaboration.</td>
+      <td>Flag meters. Already exist in <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a>; need 090 to be checkable offline.</td>
+      <td><strong>Buildable now,</strong> and it composes with A at no extra cost. The caution is that the client is open source, so a flag gates the honest, not the determined — §7.2.</td>
+    </tr>
+    <tr>
+      <td><strong>C. Compute</strong> — we run the generation, the customer buys credits instead of holding provider keys.</td>
+      <td>Server-side dispatch, key custody, counter meters transactional with execution, and a ruling on which ledger is true.</td>
+      <td><strong>Not buildable yet,</strong> and it is the one that changes AONIK's liability profile. Four of the five hard seams in §7 exist only because of C.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout decision">
+  <span class="label">Recommendation</span>
+  <p style="margin-top:0"><strong>Ship A+B. Defer C until A+B has customers.</strong></p>
+  <p style="margin-bottom:0">
+    A+B needs two specifications, both now written, and no change to AONIK's risk posture. C needs
+    provider-key custody, a reconciliation rule between two ledgers, a server-side execution
+    subsystem, and an answer to what happens when a provider bills us for work a customer disputes.
+    That is not a phase-two of the same project; it is a different business — reselling compute — and
+    it deserves to be entered deliberately with revenue already on the board, not as a consequence of
+    shipping sync.
+  </p>
+</div>
+
+<h3>3.1 The Arke Kids pricing table, as data</h3>
+
+<p>
+  Spec 087's acceptance criteria already require that the Kids table be expressible <em>with no code
+  change</em>. Concretely:
+</p>
+
+<table>
+  <thead><tr><th>Tier</th><th>Meter</th><th>Kind</th><th>Mechanism</th></tr></thead>
+  <tbody>
+    <tr><td>All</td><td>Stories per month</td><td><span class="chip mirror">counter</span></td><td>Reserve on request, commit on delivery, release on failure. Refused at zero.</td></tr>
+    <tr><td>All</td><td>Videos per month</td><td><span class="chip mirror">counter</span></td><td>As above. Larger unit cost, same lifecycle.</td></tr>
+    <tr><td>All</td><td>Child profiles</td><td><span class="chip reuse">ceiling</span></td><td>Claim on create, release on delete. Checkable offline (<a href="specifications/090.offline-verifiable-entitlement.html">090</a>).</td></tr>
+    <tr><td>£19.99+</td><td>HD output</td><td><span class="chip reuse">flag</span></td><td>Present or absent in the entitlement. No number to track.</td></tr>
+    <tr><td>£0 "Peek"</td><td>—</td><td>—</td><td>A £0 plan is a plan. No trial machinery, no separate free-tier code path.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The distinction between the counter meters and the other two is not cosmetic; it is the entire
+  reason <a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a> refuses to put
+  counters in an offline token. §7.2.
+</p>
+
+<h2 id="seam">4. The governing rule: one seam</h2>
+
+<p>
+  Everything below is downstream of a single boundary. State it once, and most of the mapping
+  decisions answer themselves.
+</p>
+
+<div class="callout done">
+  <span class="label">The seam</span>
+  <p style="margin-top:0; font-size:16px">
+    <strong>AONIK owns the container, the identity, and the money. Arke owns the meaning.</strong>
+  </p>
+  <p style="margin-bottom:0">
+    The platform stores a workspace, its revisions, its files and their bytes; it knows who owns it,
+    who it is shared with, how large it is and whether the subscription covering it is current. It
+    <strong>never opens the files</strong>. What a canon entry is, what a ripple check does, what a
+    model sheet compiles to, how a shot becomes a take — all of that is product, operating on
+    contents the platform is structurally incapable of interpreting.
+  </p>
+</div>
+
+<h3>4.1 Why this is testable rather than aspirational</h3>
+
+<p>
+  The same rule already survived one full implementation cycle. In
+  <a href="specifications/086.extract-groups-and-sharing-to-platform.html">Spec 086</a>, a share
+  grant carries <code>TermsJson</code> — an opaque blob the platform persists and never reads. The
+  consuming product parses it; the platform cannot, because it has no type for it. That is the test:
+</p>
+
+<pre><code>If Aonik.Workspaces ever gains a type called CanonEntry, Sheet, Shot or Take,
+the seam has failed and the module has become a second copy of the product.</code></pre>
+
+<p>
+  It is enforceable in review, in a single grep, and it has one clean precedent. The equivalent for
+  the other direction is just as important:
+</p>
+
+<pre><code>If Arke's local domain layer ever gains a reference to Aonik, the free product
+has become a client of a paid backend, which is the thing this design exists
+to prevent.</code></pre>
+
+<h3>4.2 The vocabulary rule that comes with it</h3>
+
+<p>
+  Platform code says <code>Workspace</code>. "World" is Arke's word and stays in Arke's UI. Platform
+  code says <code>Group</code> with <code>Kind = "family"</code>. "Family" is Kids' word.
+  <a href="decisions/013-product-identity-is-configuration.md">ADR-013</a> made this a rule;
+  <a href="specifications/086.extract-groups-and-sharing-to-platform.html">Spec 086</a> paid for
+  breaking it. When the platform's noun was <code>Household</code>, the personal-finance lifecycle
+  contributor treated an Arke Kids <em>family</em> as a household, wrote it into
+  <code>PersonalProfile.HouseholdId</code>, and then refused the user's second family with
+  <em>"User already belongs to a household."</em> Three review rounds to fully close. The vocabulary
+  invited the defect; the defect was not a coding slip.
+</p>
+
+<h2 id="key">5. How to read the map</h2>
+
+<p>Every Arke capability falls into exactly one of four classes. The classification is the useful part — a mapping that says "related to" for everything says nothing.</p>
+
+<div class="legend">
+  <div><span class="chip reuse">REUSE</span> <span class="small">AONIK already provides it. Arke consumes it; nothing new is built.</span></div>
+</div>
+<div class="legend">
+  <div><span class="chip mirror">MIRROR</span> <span class="small">Both sides have their own implementation of the same idea. They must be reconciled, and the reconciliation rule must be written before either changes.</span></div>
+</div>
+<div class="legend">
+  <div><span class="chip product">PRODUCT</span> <span class="small">Stays in Arke permanently. The platform must never learn it. Listing these is as important as listing the others.</span></div>
+</div>
+<div class="legend">
+  <div><span class="chip gap">GAP</span> <span class="small">Neither side has an answer. Named, sized, and given a proposed spec number in §11.</span></div>
+</div>
+
+<p class="small" style="margin-top:14px">
+  Status chips: <span class="chip built">built</span> merged to master ·
+  <span class="chip draft">draft</span> specified, not implemented ·
+  <span class="chip none">none</span> no specification exists.
+</p>
+
+<h2 id="map">6. Arke Studio — the full capability map</h2>
+
+<p>All twenty capability specifications, in order.</p>
+
+<h3>6.1 Substrate</h3>
+
+<table>
+  <thead><tr><th style="width:20%">Arke spec</th><th style="width:11%">Class</th><th style="width:24%">AONIK carrier</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>001</strong> Foundation and shell<br><span class="small">monorepo, contracts, coordinator, Electron</span></td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>A desktop shell and a local process coordinator have no platform analogue and want none. The only touchpoint a cloud tier adds is a sign-in surface and a sync client, both of which are additive modules the shell hosts.</td>
+    </tr>
+    <tr>
+      <td><strong>002</strong> The world on disk<br><span class="small">layout, formats, versioning, history</span></td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
+      <td><strong>The central seam.</strong> Arke's on-disk layout stays authoritative locally and is the wire format. The platform mirrors it as <code>Workspace</code> → <code>WorkspaceRevision</code> → <code>WorkspaceFile</code>, with blobs addressed by the SHA-256 <code>IFileStore</code> already returns. A revision <em>is</em> a manifest of path → hash. Explicitly no git, which Arke's spec forbids.</td>
+    </tr>
+    <tr>
+      <td><strong>003</strong> The derived index<br><span class="small">and its queries</span></td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>A local index derived from files the platform cannot read is, by construction, not platform work. It rebuilds from the tree; sync moves the tree; the index follows. <em>Caveat:</em> if the index is ever synced rather than rebuilt, the seam has been crossed — it encodes meaning.</td>
+    </tr>
+    <tr>
+      <td><strong>016</strong> First run, packaging, updates, uninstall</td>
+      <td><span class="chip gap">GAP</span></td>
+      <td><span class="chip spec">Spec 090</span> <span class="chip draft">draft</span> partial</td>
+      <td>Packaging and updates stay product. What is missing is the commercial slice: sign-in at first run, licence activation, and — the one nobody specifies until it bites — <strong>what uninstall does to cloud-held worlds</strong>. Deleting the app must not delete the customer's data, and the current specs say nothing about it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.2 Authoring</h3>
+
+<table>
+  <thead><tr><th style="width:20%">Arke spec</th><th style="width:11%">Class</th><th style="width:24%">AONIK carrier</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>004</strong> The accept gate<br><span class="small">proposals, ripples, rebase, chat and form</span></td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Agents</code><br><span class="chip spec">Spec 030</span> <span class="chip built">built</span><br><span class="chip spec">Spec 032</span> <span class="chip built">built</span></td>
+      <td><strong>The deepest alignment in the whole family, arrived at independently.</strong> Arke: <em>"nothing enters the authored record without a human accept."</em> AONIK rule 3: <em>"agents propose; systems execute — never bypass human-in-the-loop for mutations."</em> Two products, two codebases, one principle. Spec 030's durable <code>Proposal</code> and Spec 032's risk-tiered gate are the same mechanic with money at stake instead of canon. <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> exploits this: a divergent remote revision arrives as a proposal and goes through Arke's existing gate, so sync needs no merge algorithm and no new user-facing vocabulary.</td>
+    </tr>
+    <tr>
+      <td><strong>005</strong> The harness adapter<br><span class="small">OpenCode lifecycle, sessions, confinement, permissions</span></td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—<br><span class="small">analogue: <code>Aonik.Agents</code></span></td>
+      <td>Driving a local coding harness, confining it to a directory and mediating its permissions is desktop work with no server equivalent. AONIK's agent runtime (MAF + M.E.AI, <a href="decisions/004-adopt-microsoft-agent-framework.md">ADR-004</a>) solves a structurally similar problem — tool exposure under an approval gate — but on a different substrate. <strong>Do not try to unify them.</strong> One runs a subprocess on a user's machine; the other runs in a multi-tenant server. The shared idea is the gate, and the gate is already shared conceptually via 004.</td>
+    </tr>
+    <tr>
+      <td><strong>006</strong> Canon<br><span class="small">entries, revisions, grounded Q&amp;A, refusal, threads</span></td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—<br><span class="small">analogue: <code>Aonik.Documents</code></span></td>
+      <td>Canon is the authored record's semantics: what is true in this world, what a revision means, when the system must refuse to answer. Its <em>files</em> are workspace files; its <em>meaning</em> is untouchable by the platform. <code>Aonik.Documents</code> chunks and indexes for retrieval and is the closest analogue, but it has no path, no revision and no manifest — bending it here would give one module two incompatible jobs.</td>
+    </tr>
+    <tr>
+      <td><strong>007</strong> Sheets<br><span class="small">characters, locations, factions</span></td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>Pure product vocabulary. A sheet is a file in a workspace; the platform sees a path, a hash and a size.</td>
+    </tr>
+    <tr>
+      <td><strong>015</strong> Artifacts, world import, fact extraction</td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Documents</code> <span class="chip built">built</span><br><code>IFileStore</code> <span class="chip built">built</span></td>
+      <td>Import ingests outside material and extracts facts — genuinely the same shape as Documents' classify/chunk/index pipeline, and the one place a real reuse case exists rather than an analogy. But it runs locally today, offline, on the user's own model routing. Reuse becomes attractive only under commercial model C (§3), where the extraction runs server-side; until then, sharing this code would import a dependency for no gain.</td>
+    </tr>
+    <tr>
+      <td><strong>017</strong> World art direction, the two-image character kit</td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>Product craft — how a world's visual identity is established and how a character stays consistent across generations. No platform surface at all.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.3 Media</h3>
+
+<table>
+  <thead><tr><th style="width:20%">Arke spec</th><th style="width:11%">Class</th><th style="width:24%">AONIK carrier</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>008</strong> Providers, credentials, the model manifest and the ledger</td>
+      <td><span class="chip mirror">MIRROR</span><br><span class="chip gap">GAP</span></td>
+      <td><code>Aonik.Ai</code> <span class="chip built">built</span><br><span class="chip spec">Spec 060</span> <span class="chip built">built</span><br><code>ISettingValueProtector</code> <span class="chip built">built</span></td>
+      <td><strong>Three separate seams wearing one spec number, and the most consequential row in this table.</strong>
+        <em>Providers &amp; routing</em>: Spec 060's route policy, cost governance and model fallback is the same problem AONIK already solved server-side — mirror, reconcile later.
+        <em>Credentials</em>: locally, keys sit in an app-owned encrypted file under the OS key store; server-side, AONIK protects settings through DataProtection. Holding a customer's provider key in our cloud is a <strong>custody and liability change</strong>, not a storage decision — §7.4.
+        <em>The ledger</em>: Arke keeps an append-only spend ledger with provider-reported actuals. AONIK's rule 1 is that the ledger is the source of financial truth. Two ledgers, one word — §7.3.</td>
+    </tr>
+    <tr>
+      <td><strong>009</strong> The job queue and dispatch<br><span class="small">durable execution, exactly-once, reconciliation</span></td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td>Quartz + outbox <span class="chip built">built</span><br><span class="chip spec">Spec 030</span> <span class="chip built">built</span></td>
+      <td>Both sides independently arrived at durable execution with exactly-once semantics and a reconciliation protocol against an external provider — AONIK's is the outbox plus Quartz plus the Spec 030 dispatcher. <strong>They stay separate.</strong> Arke's queue runs on a laptop that sleeps, loses network and gets force-quit; AONIK's runs in a server with a transactional database. Same problem, incompatible failure models. They only converge under model C, and then it is a new subsystem rather than a merge.</td>
+    </tr>
+    <tr>
+      <td><strong>010</strong> Reference kits and model-sheet compilation</td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>Compiling reference imagery into a form a model accepts is craft, and it is the product's competitive substance.</td>
+    </tr>
+    <tr>
+      <td><strong>011</strong> Voice — the Voxa sidecar, assignment, generation, dictation</td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Voice</code> <span class="chip built">built</span></td>
+      <td><code>Aonik.Voice</code> already carries multi-vendor TTS/STT with provider catalogues, credential handling, recipes and preview endpoints — a real, non-trivial overlap. Arke's Voxa is a local sidecar; AONIK's is a server module. The <em>vendor abstraction and voice catalogue</em> are worth converging on eventually; the runtime is not.</td>
+    </tr>
+    <tr>
+      <td><strong>012</strong> Productions, scenes, shots, boards, dispatch planning</td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td>The production model is the product. Files in a workspace; opaque to the platform.</td>
+    </tr>
+    <tr>
+      <td><strong>013</strong> Takes, review, the cut, audio and exports</td>
+      <td><span class="chip product">PRODUCT</span><br><span class="chip mirror">MIRROR</span></td>
+      <td><code>IFileStore</code> <span class="chip built">built</span><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
+      <td>The review and cut model is product. The <em>artefacts</em> are the platform's storage problem, and the sharpest one: takes are the largest files in a world and multiple takes of one shot are near-identical. Content addressing dedupes exactly this shape, which is a direct argument for Spec 089's design and a direct argument that the database must hold <strong>hashes and pointers only, never bytes</strong>.</td>
+    </tr>
+    <tr>
+      <td><strong>019</strong> Long-form video, bound references, locked-parameter tasks</td>
+      <td><span class="chip product">PRODUCT</span><br><span class="chip reuse">REUSE</span></td>
+      <td><span class="chip spec">Spec 087</span> <span class="chip built">built</span> flag meter</td>
+      <td>The capability is product. Its <em>commercial</em> expression is a flag meter — <code>long-form-video</code> present or absent in the entitlement — which is exactly what Spec 087 and Spec 090 exist to answer. A natural, well-shaped paid feature under model B.</td>
+    </tr>
+    <tr>
+      <td><strong>020</strong> Local image and video generation</td>
+      <td><span class="chip product">PRODUCT</span></td>
+      <td>—</td>
+      <td><strong>Deliberately and permanently unmetered by us.</strong> A user running generation on their own GPU spends their own electricity. AONIK has no claim on it and no business counting it. Metering local compute would be the clearest possible signal that the commercial tier had turned predatory — and it would also be trivially defeated in an open-source client.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.4 Oversight</h3>
+
+<table>
+  <thead><tr><th style="width:20%">Arke spec</th><th style="width:11%">Class</th><th style="width:24%">AONIK carrier</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>014</strong> Activity — running work, the needs-you queue and spend</td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td>Money-action logging <span class="chip built">built</span><br><span class="chip spec">Spec 087</span> <span class="chip built">built</span></td>
+      <td>"Needs you" is the accept gate's inbox — the same idea as AONIK's pending-proposal queue. "Spend" is the ledger aggregation, and under model C it becomes a <em>metered</em> balance rather than an observed one, at which point AONIK's money-action logging convention (entry and outcome events, a span, an order scope) applies to every dispatch. Until C, this is product with a shared vocabulary.</td>
+    </tr>
+    <tr>
+      <td><strong>018</strong> Voice mode — speaking to the studio</td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Voice</code> <span class="chip built">built</span></td>
+      <td>Same relationship as 011. AONIK has speech settings, vendor catalogues and STT/TTS preview already; the notable transferable asset is the <strong>speech-render guidance</strong> AONIK already enforces — text bound for TTS must be verbalizable, with no markdown, no emoji, and abbreviations spelled out. That is a solved problem worth copying rather than rediscovering.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.5 The count</h3>
+
+<table>
+  <thead><tr><th>Class</th><th>Count</th><th>Specs</th></tr></thead>
+  <tbody>
+    <tr><td><span class="chip product">PRODUCT</span> — platform must never learn it</td><td><strong>11</strong></td><td>001, 003, 005, 006, 007, 010, 012, 013*, 017, 019*, 020</td></tr>
+    <tr><td><span class="chip mirror">MIRROR</span> — reconcile, do not merge</td><td><strong>9</strong></td><td>002, 004, 008, 009, 011, 013*, 014, 015, 018</td></tr>
+    <tr><td><span class="chip reuse">REUSE</span> — consume AONIK directly</td><td><strong>1</strong></td><td>019 (flag meter only)</td></tr>
+    <tr><td><span class="chip gap">GAP</span> — no answer either side</td><td><strong>2</strong></td><td>008 (custody, ledger authority), 016 (activation, uninstall)</td></tr>
+  </tbody>
+</table>
+
+<p class="small">* 013 and 019 split across classes — the model is product, the storage and the commercial gate are not.</p>
+
+<div class="callout">
+  <span class="label">Read the count, not the rows</span>
+  Eleven of twenty capabilities need nothing from AONIK, and that is the healthy result rather than a
+  disappointing one. A platform that carried fifteen of them would have absorbed the product, and the
+  free local-first application — the thing with the users — would have become a thin client for a
+  backend it was designed not to need.
+</div>
+
+<h2 id="hard">7. The five hard seams</h2>
+
+<p>
+  Everything in §6 marked <span class="chip mirror">MIRROR</span> or <span class="chip gap">GAP</span>
+  reduces to five decisions. Four of the five exist only because of commercial model C.
+</p>
+
+<h3 id="seam-1">7.1 The world ↔ workspace seam</h3>
+
+<div class="card">
+  <p><strong>The question.</strong> A world is a folder. A cloud tier needs it to exist somewhere other than one person's disk. Where does it live, and which copy is true?</p>
+
+  <p><strong>The answer</strong> (<a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>, <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>):</p>
+  <div class="flow">
+    <div class="node"><b>Workspace</b><br><span class="small">container, owner, head</span></div>
+    <span class="arrow">→</span>
+    <div class="node"><b>WorkspaceRevision</b><br><span class="small">= a manifest</span></div>
+    <span class="arrow">→</span>
+    <div class="node"><b>WorkspaceFile</b><br><span class="small">path → hash</span></div>
+    <span class="arrow">→</span>
+    <div class="node"><b>blob</b><br><span class="small">by content hash</span></div>
+  </div>
+
+  <p>
+    <code>IFileStore</code> already returns a SHA-256 on upload, so content addressing costs nothing
+    new. Sync reduces to <em>"which of these hashes do you not have?"</em> — and takes of one shot
+    dedupe hard, which is the case that matters for size.
+  </p>
+
+  <p><strong>Why it must be platform, not product.</strong> This is the argument that actually settles it, and it is a sharing argument rather than a storage one. Spec 086 §6 makes a share grant name a <code>ResourceKind</code> plus ids, and requires the owning module to answer <em>"does this owner own these ids?"</em> through an <code>IShareResourceResolver</code>. That question is asked <strong>on the hot path of an authorisation check</strong>. If worlds live in the product, the platform must call the product over HTTP to answer it — inverting the dependency, for a product designed to work offline. With <code>workspace</code> registered as a share resource kind, the resolver is a query against the platform's own table.</p>
+
+  <p><strong>Which copy is true.</strong> The local tree is authoritative on the machine that holds it; the cloud head is authoritative between machines. A remote revision that does not descend from the local head is <strong>not merged and not silently overwritten</strong> — it arrives as a proposal and goes through Arke's existing accept gate. No merge algorithm, no conflict markers, no new vocabulary. The product already has a word for "a change not yet accepted".</p>
+
+  <p class="small"><strong>Status:</strong> <span class="chip draft">specified, not built</span> — <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>, six phases, module does not yet exist.</p>
+</div>
+
+<h3 id="seam-2">7.2 The entitlement seam</h3>
+
+<div class="card">
+  <p><strong>The question.</strong> <code>IEntitlementReader</code> is a live database read. Arke Studio runs on a laptop with no network. How does a paid feature check itself?</p>
+
+  <p><strong>The answer</strong> (<a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a>): a compact Ed25519-signed token carrying <strong>flags and ceilings only</strong>, with a short expiry and a long grace. Seven days fresh, thirty days grace, then paid features stop — and nothing else does.</p>
+
+  <div class="callout risk">
+    <span class="label">The distinction the whole design turns on</span>
+    A <strong>flag</strong> ("may use long-form video") and a <strong>ceiling</strong> ("at most 25
+    workspaces") stay true until the subscription changes, so they travel safely in a signed artefact.
+    A <strong>counter</strong> ("1,200 credits remaining") changes every time it is used — and an
+    offline client holding one can spend the same credits on two machines, or restore yesterday's file
+    and spend them again. That is not a bug to fix with better client code; <strong>it is what an
+    offline balance is.</strong> Counters are therefore never issued offline, and anything that spends
+    credits requires the network — which is already true, because it calls a provider.
+  </div>
+
+  <p><strong>What it does not defend, said out loud.</strong> The client is MIT-licensed and open. Anyone determined can delete the check and compile their own build. The goal is not "unbreakable" — it is that the honest path is effortless and the casual dishonest path is pointless. A spec that pretends otherwise leads to expensive obfuscation work that buys nothing.</p>
+
+  <p><strong>The rule that decides the product's character.</strong> Lapsing removes paid features. It never removes the user's work, and it never removes the free product. A lapsed customer returns to Arke Studio-as-it-exists-today — free, MIT, every world still on disk, every file still readable.</p>
+
+  <p class="small"><strong>Status:</strong> <span class="chip draft">specified, not built</span> — <a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a>, four phases.</p>
+</div>
+
+<h3 id="seam-3">7.3 Ledger authority — two ledgers, one word</h3>
+
+<div class="card">
+  <p><strong>The question.</strong> Arke keeps an append-only spend ledger with provider-reported actuals. AONIK's non-negotiable rule 1 is that <em>the ledger is the source of financial truth,</em> double-entry and immutable. Both are called "the ledger". Which one is?</p>
+
+  <p><strong>The answer, proposed:</strong> they are ledgers of different things, and the confusion is entirely in the noun.</p>
+
+  <table>
+    <thead><tr><th></th><th>Arke's spend ledger</th><th>AONIK's ledger</th></tr></thead>
+    <tbody>
+      <tr><td>Records</td><td>What a dispatch cost, as the provider reported it</td><td>What money moved between whom</td></tr>
+      <tr><td>Currency of record</td><td>The user's own provider spend</td><td>AONIK-denominated value</td></tr>
+      <tr><td>Party</td><td>The user and their provider — AONIK is not a party</td><td>AONIK and its customer</td></tr>
+      <tr><td>Nature</td><td><strong>Observation</strong>, like a personal-finance bill record</td><td><strong>Truth</strong>, double-entry, immutable</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Under models A and B this resolves cleanly: Arke's ledger observes the user's own spending on
+    their own keys, exactly as <code>Aonik.PersonalFinance</code> observes <em>"this user pays £9.99
+    a month to Netflix"</em> without that being an AONIK financial event. Under model C it does not
+    resolve at all: if a customer buys credits and we dispatch on their behalf, a single generation
+    is <strong>simultaneously</strong> a counter-meter commit, an AONIK ledger posting, and a cost we
+    incur from the provider — and the three must reconcile.
+  </p>
+
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 093</strong>. <strong>This must be written before any line of model C is built,</strong> not after — an unreconciled second ledger is the kind of defect discovered by an auditor rather than a test.</p>
+</div>
+
+<h3 id="seam-4">7.4 Provider-key custody</h3>
+
+<div class="card">
+  <p><strong>The question.</strong> Locally, a user's FAL or ElevenLabs key sits in an app-owned encrypted file under the OS key store — their machine, their key, their liability. In the cloud, someone has to hold it.</p>
+
+  <p><strong>Three options, honestly assessed:</strong></p>
+
+  <table>
+    <thead><tr><th>Option</th><th>What it means</th><th>Assessment</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Never hold keys</strong></td>
+        <td>Cloud sync only; all dispatch stays local on the user's machine and their key.</td>
+        <td><span class="chip reuse">recommended for v1</span> Zero custody change. Model A+B is entirely achievable this way. The customer buys storage, continuity and features — not compute.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Hold the customer's key</strong></td>
+        <td>They paste their FAL key into our cloud; we dispatch on their behalf against their account.</td>
+        <td><span class="chip gap">worst of both</span> Full custody liability, a breach exposes customer credentials at other vendors, and we still cannot meter it as revenue because the spend is theirs. Rejected.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Our key, their credits</strong></td>
+        <td>We hold provider relationships; customers buy AONIK credits; we dispatch and bear the provider cost.</td>
+        <td><span class="chip mirror">model C</span> Coherent, and the only version where compute is genuinely a product. But it makes AONIK a compute reseller with margin risk, provider concentration risk, and abuse exposure. Enter deliberately.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 092</strong>, needed only if model C is chosen. Option 1 needs no spec, which is the strongest argument for it.</p>
+</div>
+
+<h3 id="seam-5">7.5 Server-side dispatch, and the third axis</h3>
+
+<div class="card">
+  <p><strong>The question.</strong> Arke's job queue is local and calls providers directly. Does anything execute server-side?</p>
+
+  <p>
+    Arke's own architecture note warns that <strong>conflating the authoring path and the media
+    path</strong> is the main risk its design exists to prevent. Adding local-versus-remote gives four
+    combinations where the product currently reasons about two:
+  </p>
+
+  <table>
+    <thead><tr><th></th><th>Local</th><th>Remote</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Authoring</strong></td>
+        <td><span class="chip reuse">v1</span> The product as it exists. Harness, accept gate, ripple check.</td>
+        <td><span class="chip gap">out of v1</span> Would mean running the harness, the keys, the staging directory, the accept gate and the ripple check server-side — <strong>the whole product rebuilt</strong>, for a feature nobody asked for.</td>
+      </tr>
+      <tr>
+        <td><strong>Media</strong></td>
+        <td><span class="chip reuse">v1</span> Local queue, user's own keys, unmetered by us.</td>
+        <td><span class="chip mirror">model C</span> Where credits are actually consumed. A new subsystem, transactional with metering. Not a port of the local queue — a laptop that sleeps and a server with a transactional database have incompatible failure models.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Ruling for v1: sync a tree; do not author on the server.</strong> That single sentence keeps the cloud tier at "storage and continuity" and prevents the quiet expansion where remote authoring appears one endpoint at a time.</p>
+
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 091</strong>, model C only. The v1 ruling is recorded in <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> §4.</p>
+</div>
+
+<h2 id="kids">8. Arke Kids</h2>
+
+<p>
+  Kids uses more of AONIK than Studio does, because it is cloud-first rather than local-first. Almost
+  everything it needs is built.
+</p>
+
+<h3>8.1 The mapping</h3>
+
+<table>
+  <thead><tr><th style="width:22%">Kids concept</th><th style="width:12%">Class</th><th style="width:26%">AONIK carrier</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A family</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>Aonik.Groups</code><br><span class="chip spec">Spec 086</span> <span class="chip built">built</span></td>
+      <td>A <code>Group</code> whose <code>Kind</code> is <code>family</code>. Roles, invitations, accept/decline, transfer of ownership and membership rules are all inherited. <code>GroupKind</code> is an open string with a known-values helper, so <code>family</code> needs no platform change.</td>
+    </tr>
+    <tr>
+      <td><strong>A child</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>Party</code> <span class="chip built">built</span></td>
+      <td>A member whose <code>PartyId</code> is set and whose <code>UserId</code> is null — a person in the system who cannot authenticate. <a href="decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> keyed membership on party precisely for this. Every group operation already handles the null-<code>UserId</code> case; it took a review round to get right and it is right now.</td>
+    </tr>
+    <tr>
+      <td><strong>A parent as subscriber</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>Aonik.Subscriptions</code><br><span class="chip spec">Spec 087</span> <span class="chip built">built</span></td>
+      <td>Plans, plan versions, mandates, renewal, dunning and the four scheduled jobs are merged and working. The subscriber is a party; the beneficiaries are the family's members.</td>
+    </tr>
+    <tr>
+      <td><strong>The pricing table</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><span class="chip spec">Spec 087</span> <span class="chip built">built</span><br><span class="chip spec">Spec 065</span> <span class="chip built">built</span></td>
+      <td>Expressible as data with no code change — that is a stated acceptance criterion of 087, tested against this exact table. Meter <em>definitions</em> belong to the Kids config pack, not platform code (<a href="specifications/065.business-type-configuration-packs.html">Spec 065</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>A child's world</strong></td>
+      <td><span class="chip mirror">MIRROR</span></td>
+      <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
+      <td>Same primitive as Studio, inverted: cloud is primary, local is the cache. <code>OwnerPartyId</code> can be a child who has no login — which is why the field is party-keyed and not user-keyed.</td>
+    </tr>
+    <tr>
+      <td><strong>Sharing a story with a grandparent</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>ShareGrant</code> / <code>ShareInvite</code><br><span class="chip spec">Spec 086</span> <span class="chip built">built</span></td>
+      <td>Scoped, expiring, single-use, immediately revocable, with an anonymous preview for the recipient before they accept. Built and merged. Register <code>workspace</code> as a <code>ShareResourceKind</code> and this works with no new sharing code — see §8.2.</td>
+    </tr>
+    <tr>
+      <td><strong>Sign-in</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>Aonik.Platform</code><br><a href="decisions/007-keycloak-as-auth-provider.md">ADR-007</a> · <span class="chip spec">Spec 029</span> <span class="chip built">built</span></td>
+      <td>Three operator-choice IdPs (Auth0, Entra, Keycloak) with issuer routing, so tokens from any registered provider validate side by side. Kids needs one; the platform offers three and the choice is deployment configuration.</td>
+    </tr>
+    <tr>
+      <td><strong>Notifications</strong></td>
+      <td><span class="chip reuse">REUSE</span></td>
+      <td><code>Aonik.Platform</code> <span class="chip built">built</span></td>
+      <td>"Your story is ready", "your invite was accepted", dunning mail. Existing notification infrastructure.</td>
+    </tr>
+    <tr>
+      <td><strong>Guardian relationship</strong></td>
+      <td><span class="chip gap">GAP</span></td>
+      <td><code>PartyRelationship</code><br><span class="chip none">no spec</span></td>
+      <td>A <code>Guardian</code> relationship type is named as an explicit follow-up in Spec 086 §16 and deliberately not delivered there. Party relationships exist; this specific type and its semantics do not.</td>
+    </tr>
+    <tr>
+      <td><strong>Verifiable parental consent</strong></td>
+      <td><span class="chip gap">GAP</span></td>
+      <td><code>PartyConsent</code><br><span class="chip none">no spec</span></td>
+      <td><code>PartyConsent</code> exists as an entity. <em>Verifiable</em> consent — the standard actually required for children — does not. §12.</td>
+    </tr>
+    <tr>
+      <td><strong>Content safety for generated media</strong></td>
+      <td><span class="chip gap">GAP</span></td>
+      <td>—<br><span class="chip none">no spec</span></td>
+      <td>Neither product has an answer. For a child-facing generative product this is not a feature gap; it is a shipping condition. §12.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="sharekind">8.2 A worked example: <code>ShareResourceKind</code></h3>
+
+<p>
+  Worth spelling out, because it is the mechanism that makes "two products, one sharing
+  implementation" true rather than merely claimed.
+</p>
+
+<p>
+  In <a href="specifications/086.extract-groups-and-sharing-to-platform.html">Spec 086</a>, a share
+  grant does not name a table. It names a <strong>kind</strong> plus a set of ids:
+</p>
+
+<pre><code>ShareGrant
+  ResourceKind = "workspace"          // what sort of thing
+  ResourceIds  = [ &lt;guid&gt;, &lt;guid&gt; ]   // which ones
+  TermsJson    = { … }                // opaque — the platform never reads it
+  ExpiresAt, RevokedAt, SingleUse …   // the platform's own machinery</code></pre>
+
+<p>
+  The platform cannot validate <em>"does this owner own these ids?"</em> — it does not know what a
+  workspace is. So it asks the owning module through <code>IShareResourceResolver</code>, and each
+  module registers a resolver for the kinds it owns:
+</p>
+
+<table>
+  <thead><tr><th><code>ResourceKind</code></th><th>Owning module</th><th>Resolver answers</th></tr></thead>
+  <tbody>
+    <tr><td><code>care-entity</code></td><td><code>Aonik.PersonalFinance</code></td><td>"Does this user own these care entities?" <span class="chip built">built</span></td></tr>
+    <tr><td><code>workspace</code></td><td><code>Aonik.Workspaces</code></td><td>"Does this party own these workspaces?" <span class="chip draft">Spec 089</span></td></tr>
+    <tr><td><em>anything future</em></td><td><em>its own module</em></td><td>Register a kind and a resolver; inherit all of the sharing machinery.</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Concretely, for Kids:</strong> a parent shares one child's story world with a grandparent.</p>
+
+<ol>
+  <li>Kids calls the platform: grant <code>workspace</code>, ids <code>[world-id]</code>, expires in 30 days, terms <code>{"canComment":true,"canDownload":false}</code>.</li>
+  <li>The platform asks <code>Aonik.Workspaces</code>: <em>does this party own <code>world-id</code>?</em> A query against its own table — no HTTP, no cross-module reference, no product callback.</li>
+  <li>The platform issues a single-use invite, sends it, renders an anonymous preview, records the accept, and enforces expiry and revocation.</li>
+  <li>Kids parses <code>TermsJson</code> and decides what "can comment" means. <strong>The platform never opens it.</strong></li>
+</ol>
+
+<p>
+  The grandparent needs no account until they accept; revocation is immediate; the invite cannot be
+  replayed. <strong>None of that is written twice.</strong> Studio's "share a world with a
+  collaborator" is the same four steps with a different <code>TermsJson</code>.
+</p>
+
+<h2 id="modules">9. Module by module</h2>
+
+<p>
+  The other direction: for each AONIK module, what it does for Arke — including the ones that do
+  nothing, because a brief that lists only the hits overstates the fit.
+</p>
+
+<table>
+  <thead><tr><th style="width:20%">Module</th><th style="width:10%">Relevance</th><th>What it carries for Arke</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Aonik.SharedKernel</code></td>
+      <td><strong>Core</strong></td>
+      <td>Every contract Arke touches: <code>IGroupService</code>, <code>IShareGrantService</code>, <code>IEntitlementReader</code>, <code>IFileStore</code>, integration events, tenancy primitives. <code>Aonik.Workspaces</code> will reference this and nothing else — the middle-layer pattern <a href="decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> established.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Platform</code></td>
+      <td><strong>Core</strong></td>
+      <td>Identity across three IdPs, tenancy, party and the user↔party bridge, profiles, notifications, compliance, audit. Kids' guardian relationships and consent will land here.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Groups</code></td>
+      <td><strong>Core</strong></td>
+      <td>Families (Kids) and collaborator circles (Studio). Roles, invites, accept/decline, ownership transfer, membership rules, and the whole share-grant mechanism including single-use tokens, expiry, revocation and anonymous preview. <span class="chip built">built</span></td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Subscriptions</code></td>
+      <td><strong>Core</strong></td>
+      <td>Plans, plan versions, periods, mandates, renewal, dunning, the four scheduled jobs, and all three meter kinds. The commercial engine for both products. <span class="chip built">built</span></td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Workspaces</code></td>
+      <td><strong>Core</strong></td>
+      <td>Worlds, revisions, files, blobs, sync, quota. <strong>Does not exist.</strong> <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>, six phases. <span class="chip draft">draft</span></td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Finance</code></td>
+      <td>Supporting</td>
+      <td>Invoices, payment intents and the double-entry ledger behind a subscription charge. Arke never calls it directly; Subscriptions does. Also the home of the ledger-authority question in §7.3.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Ordering</code></td>
+      <td>Supporting</td>
+      <td>The order spine (<a href="decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>, <a href="specifications/041.unified-order-spine-ordering-layer.html">Spec 041</a>). A subscription charge, a credit top-up and a one-off purchase are all orders. If credits are ever sold, they are an <code>OrderType</code> — not a new spine.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Ai</code></td>
+      <td>Mirror</td>
+      <td>LLM routing, prompt management, <code>AiRun</code> audit records, and <a href="specifications/060.ai-route-policy-cost-governance.html">Spec 060</a>'s route policy, cost governance and model fallback — the server-side counterpart to Arke's provider layer and model manifest. Convergence is a model-C question, not a v1 one.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Agents</code></td>
+      <td>Mirror</td>
+      <td>The proposal/approval machinery: <code>Proposal</code>, the <a href="specifications/030.proposal-execution-dispatcher.html">Spec 030</a> dispatcher and the <a href="specifications/032.tiered-ai-mutation-approval.html">Spec 032</a> tiered gate. Conceptually Arke's accept gate with money at stake. Shared principle, separate runtimes — see 6.2/004.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Voice</code></td>
+      <td>Mirror</td>
+      <td>Multi-vendor TTS/STT, provider catalogues, credentials, recipes, preview endpoints, and enforced speech-render guidance. Real overlap with Arke 011/018; the vendor abstraction is the reusable part, the sidecar runtime is not.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Documents</code></td>
+      <td>Mirror</td>
+      <td>Classification, chunking and retrieval indexing — the nearest analogue to Arke 015 (import and fact extraction). Explicitly <strong>not</strong> a workspace: no path, no revision, no manifest (<a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>, alternatives considered).</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Worker</code></td>
+      <td>Supporting</td>
+      <td>Quartz jobs: renewal, dunning, meter period rollover, entitlement recalculation. Under model C it would also host server-side dispatch — a new subsystem, not an extension.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Api</code></td>
+      <td>Supporting</td>
+      <td>FastEndpoints composition root. Every endpoint the Arke sync client and licence check call.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.AdminUi</code></td>
+      <td>Supporting</td>
+      <td>Operator surfaces: subscriptions, meters, tenants, customers, observability. Not a customer surface — Arke ships its own UI, and Kids will too.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Commerce</code></td>
+      <td><span class="chip none">none</span></td>
+      <td>Products, carts, box builder, fulfilment, merchandising, maker-ops. Nothing to do with Arke. Listed to make the point that a large, well-built module can be entirely irrelevant to a product — <em>unless</em> credits are sold as a catalogue item, which is a model-C question and probably still the wrong home.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.PersonalFinance</code></td>
+      <td><span class="chip none">none</span></td>
+      <td>Payabo's substrate. Relevant only as precedent: it is the module Groups was extracted <em>from</em>, and the source of the <code>Household</code>-versus-<code>Group</code> lesson in §4.2.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="status">10. What actually exists today</h2>
+
+<p>Merged to <code>master</code>, not planned:</p>
+
+<table>
+  <thead><tr><th>Capability</th><th>Where</th><th>Enabling spec</th></tr></thead>
+  <tbody>
+    <tr><td>Groups: families and circles, roles, membership rules, lifecycle contributors</td><td><code>src/Aonik.Groups/</code></td><td><span class="chip spec">086</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Sharing: scoped grants, single-use invites, expiry, revocation, anonymous preview, <code>IShareResourceResolver</code></td><td><code>src/Aonik.Groups/</code></td><td><span class="chip spec">086</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Subscriptions: plans, plan versions, periods, mandates, renewal, dunning, four scheduled jobs</td><td><code>src/Aonik.Subscriptions/</code></td><td><span class="chip spec">087</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Metering: counter (reserve/commit/release), ceiling (claim/release), flag</td><td><code>src/Aonik.Subscriptions/</code></td><td><span class="chip spec">087</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Recurring billing prerequisites in Finance</td><td><code>src/Aonik.Finance/</code></td><td><span class="chip spec">088</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Identity across Auth0 / Entra / Keycloak with issuer routing</td><td><code>src/Aonik.Platform/</code></td><td><span class="chip spec">029</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Parties, the user↔party bridge, party relationships, consent records</td><td><code>src/Aonik.Platform/</code></td><td>—</td></tr>
+    <tr><td>Blob storage returning SHA-256 on upload</td><td><code>IFileStore</code></td><td>—</td></tr>
+    <tr><td>Proposal/approval machinery and the tiered mutation gate</td><td><code>src/Aonik.Agents/</code></td><td><span class="chip spec">030</span> <span class="chip spec">032</span> <span class="chip built">built</span></td></tr>
+    <tr><td>Product identity as configuration, not code</td><td>platform-wide</td><td><span class="chip spec">064</span> <span class="chip spec">065</span> <span class="chip built">built</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout done">
+  <span class="label">The honest headline</span>
+  A commercial Arke needs <strong>identity, tenancy, families, sharing, subscriptions, metering,
+  invoicing and a ledger</strong>. Every one of those is built, merged and product-neutral —
+  and none of it was built for Arke. That is the return on having done the extractions properly:
+  <a href="specifications/086.extract-groups-and-sharing-to-platform.html">086</a> and
+  <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">087</a> were
+  specified against Payabo and Arke Kids simultaneously, so the second consumer costs a config pack
+  rather than a rewrite.
+</div>
+
+<h2 id="gaps">11. The gap register</h2>
+
+<table>
+  <thead><tr><th style="width:8%">Spec</th><th style="width:26%">Gap</th><th style="width:9%">Status</th><th style="width:9%">Needed for</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>089</strong></td>
+      <td>Workspaces and sync</td>
+      <td><span class="chip draft">draft</span></td>
+      <td>A</td>
+      <td>Written. Six phases. Highest-risk component in the plan, mitigated by refusing merge and refusing real-time collaboration.</td>
+    </tr>
+    <tr>
+      <td><strong>090</strong></td>
+      <td>Offline-verifiable entitlement</td>
+      <td><span class="chip draft">draft</span></td>
+      <td>A, B</td>
+      <td>Written. Four phases. Blocks <em>any</em> paid tier on a local-first client, independently of sync.</td>
+    </tr>
+    <tr>
+      <td><strong>091</strong></td>
+      <td>Cloud dispatch and metered execution</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>C</td>
+      <td>Server-side media generation, transactional with counter meters. A new subsystem, not a port of Arke's local queue.</td>
+    </tr>
+    <tr>
+      <td><strong>092</strong></td>
+      <td>Provider credential custody</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>C</td>
+      <td>Only needed if we hold keys or relationships. Option 1 in §7.4 avoids it entirely.</td>
+    </tr>
+    <tr>
+      <td><strong>093</strong></td>
+      <td>Spend reconciliation between Arke's ledger and AONIK's</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>C</td>
+      <td><strong>Must precede 091.</strong> Two things called "the ledger" and rule 1 says only one can be true.</td>
+    </tr>
+    <tr>
+      <td><strong>094</strong></td>
+      <td>Guardian relationships and verifiable parental consent</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>Kids</td>
+      <td>Named as a follow-up in Spec 086 §16. A regulatory precondition, not a feature.</td>
+    </tr>
+    <tr>
+      <td><strong>095</strong></td>
+      <td>Content safety for child-facing generation</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>Kids</td>
+      <td>No answer on either side today. §12.</td>
+    </tr>
+    <tr>
+      <td><strong>096</strong></td>
+      <td>Account closure, data export and deletion</td>
+      <td><span class="chip none">proposed</span></td>
+      <td>A</td>
+      <td>The moment we hold a customer's worlds, subject-access export and deletion become obligations. Arke 016 covers uninstall; nothing covers cloud-held data.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="nonengineering">12. Risks that are not engineering risks</h2>
+
+<p>
+  These would not surface from a code review, and each can stop a launch on its own.
+</p>
+
+<div class="callout risk">
+  <span class="label">R1 — Children are a protected class</span>
+  <p style="margin-top:0">
+    Arke Kids processes children's data and generates content for them. That engages the UK Age
+    Appropriate Design Code, GDPR Article 8 parental consent, and COPPA if the product reaches the US.
+    <strong>Verifiable</strong> parental consent is a higher bar than a consent record — a checkbox is
+    not it. AONIK has <code>PartyConsent</code> as an entity and no mechanism behind it.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>Implication:</strong> Spec 094 is not a nice-to-have that follows launch; it is a
+    precondition of it, and it needs a legal read before an engineering one.
+  </p>
+</div>
+
+<div class="callout risk">
+  <span class="label">R2 — Generative content for children</span>
+  A model that produces a story or a video for an eight-year-old can produce something distressing,
+  and neither product has a moderation layer. The reputational asymmetry is total: one bad output
+  reaches a parent, and no amount of "the model did it" survives that conversation.
+  <strong>Nobody has specified this.</strong> It is the largest unaddressed item in this brief.
+</div>
+
+<div class="callout risk">
+  <span class="label">R3 — Open source and paid tiers</span>
+  Arke Studio is MIT. A community fork that strips the licence check is legal, and a hostile framing
+  ("they went commercial") is a real risk to the goodwill the free product earns.
+  <strong>Mitigation is positioning, not cryptography:</strong> sell what a fork cannot provide —
+  hosted storage, sync between machines, sharing with people who have no install. Selling a
+  <em>feature flag</em> invites the fork; selling <em>infrastructure</em> does not.
+</div>
+
+<div class="callout risk">
+  <span class="label">R4 — Storage economics</span>
+  A world with video takes is plausibly gigabytes. Content addressing dedupes takes of one shot well,
+  but a flat monthly price against unbounded storage is a business model with a hole in it.
+  <strong>Set the byte ceiling before the first customer, not after.</strong> Quotas retrofitted onto
+  users who already uploaded 200GB are a support problem, not an engineering one — which is
+  <a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>'s stated reason for putting
+  workspaces in the platform where meters can see them.
+</div>
+
+<div class="callout risk">
+  <span class="label">R5 — The product-versus-platform pull</span>
+  Every cloud feature will present an argument for moving one more piece of Arke into AONIK. Each
+  argument will be locally reasonable. The end state is that the free local-first product becomes a
+  thin client for a paid backend — at which point the thing with the users has been dismantled to
+  serve the thing with the revenue. §14 exists because this risk is gradual and therefore hard to see
+  in any single pull request.
+</div>
+
+<h2 id="sequence">13. Sequencing</h2>
+
+<table>
+  <thead><tr><th style="width:8%">Step</th><th style="width:30%">Work</th><th style="width:14%">Enables</th><th>Why here</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>1</strong></td>
+      <td><a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a> — offline entitlement</td>
+      <td>Any paid tier</td>
+      <td><strong>Before sync, not after.</strong> It is smaller, it is independent, and it blocks every commercial tier on its own. Building sync first means building a paid feature with no way to check whether the customer is paying.</td>
+    </tr>
+    <tr>
+      <td><strong>2</strong></td>
+      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> P1–P3 — the container, blobs, revisions</td>
+      <td>Storage</td>
+      <td>The model without the protocol. Testable in isolation, and it is where content addressing either proves out on real world sizes or does not.</td>
+    </tr>
+    <tr>
+      <td><strong>3</strong></td>
+      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> P4–P5 — the sync protocol and divergence-as-proposal</td>
+      <td>Model A</td>
+      <td>The highest-risk work in the plan. Do it with the model already stable underneath so a failure is diagnosably a protocol failure.</td>
+    </tr>
+    <tr>
+      <td><strong>4</strong></td>
+      <td>Register <code>workspace</code> as a share kind; wire the count and byte meters</td>
+      <td>A + quota</td>
+      <td>Small, because 086 and 087 already did the work. This step is the payoff for the extractions.</td>
+    </tr>
+    <tr>
+      <td><strong>5</strong></td>
+      <td>Spec 096 — closure, export, deletion</td>
+      <td>Launch A</td>
+      <td>The obligation starts the day the first customer's world is on our disk, not the day someone asks.</td>
+    </tr>
+    <tr>
+      <td><strong>6</strong></td>
+      <td>Specs 094, 095 — consent and content safety</td>
+      <td>Kids</td>
+      <td>Preconditions for a child-facing launch. Legal input before engineering.</td>
+    </tr>
+    <tr>
+      <td><strong>7</strong></td>
+      <td>Spec 093, then 092, then 091</td>
+      <td>Model C</td>
+      <td><strong>Only if compute is genuinely the business.</strong> In that order: settle which ledger is true, then custody, then execution. Reversing it means building a system whose financial truth is decided afterwards.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout decision">
+  <span class="label">The shortest path to revenue</span>
+  <strong>Steps 1–5.</strong> Two specifications already written, one integration step that is small
+  because the platform work is done, and one obligation spec. That is a commercial Arke Studio selling
+  storage, continuity and sharing — with no change to AONIK's liability profile, no key custody, no
+  second ledger, and a free product that still works exactly as it does today with the network
+  unplugged.
+</div>
+
+<h2 id="drift">14. Drift rules</h2>
+
+<p>Five statements. Each one is checkable in review, and each has already been paid for somewhere.</p>
+
+<ol>
+  <li><strong>No Arke noun in platform code.</strong> Not <code>World</code>, not <code>Canon</code>, not <code>Sheet</code>, not <code>Take</code>. The platform says <code>Workspace</code> with <code>Kind = "world"</code>. <a href="decisions/013-product-identity-is-configuration.md">ADR-013</a>; the bill was paid in <a href="specifications/086.extract-groups-and-sharing-to-platform.html">Spec 086</a>'s <code>Household</code> defect.</li>
+  <li><strong>The platform never opens a workspace file.</strong> Same rule as <code>TermsJson</code>. If <code>Aonik.Workspaces</code> gains a type that describes file <em>contents</em>, the seam has failed.</li>
+  <li><strong>Arke's local domain layer never references Aonik.</strong> Sync is an additive client at the edge. The free product must build and run with no knowledge that a platform exists.</li>
+  <li><strong>No counter meter is ever issued offline.</strong> <a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a> §10, enforced by a test over the projection rather than by reviewer memory.</li>
+  <li><strong>Lapsing never removes the user's work.</strong> Paid features stop; worlds, files and the free product do not. Sync pauses; it does not delete.</li>
+</ol>
+
+<div class="callout">
+  <span class="label">If only one of these survives</span>
+  Rule 3. Rules 1, 2, 4 and 5 protect the architecture and the customer. Rule 3 protects the reason
+  anyone chose Arke Studio in the first place — and it is the one that erodes silently, one reasonable
+  pull request at a time.
+</div>
+
+<footer>
+  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 1 · 2026-08-11<br>
+  Enabling specifications:
+  <a href="specifications/086.extract-groups-and-sharing-to-platform.html">086</a> ·
+  <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">087</a> ·
+  <a href="specifications/088.finance-prerequisites-for-recurring-billing.html">088</a> ·
+  <a href="specifications/089.workspaces-and-sync.html">089</a> ·
+  <a href="specifications/090.offline-verifiable-entitlement.html">090</a> ·
+  proposed 091–096<br>
+  Decisions:
+  <a href="decisions/013-product-identity-is-configuration.md">ADR-013</a> ·
+  <a href="decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> ·
+  <a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
+</footer>
+
+</body>
+</html>
