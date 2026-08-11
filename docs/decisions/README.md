@@ -41,6 +41,7 @@ Each ADR includes:
 | [013](013-product-identity-is-configuration.md) | Product Identity Is Configuration, Not Platform Code | 2026-07-14 | Accepted |
 | [014](014-business-type-configuration-packs.md) | Business-Type Configuration Packs | 2026-07-14 | Accepted |
 | [015](015-groups-and-sharing-as-platform-primitives.md) | Groups and Sharing Are Platform Primitives | 2026-07-31 | Accepted |
+| [016](016-workspaces-as-platform-primitives.md) | A Workspace Is a Platform Primitive; a World Is a Kind of One | 2026-08-01 | Proposed |
 
 ### Superseded/Deprecated
 
@@ -54,6 +55,7 @@ Each ADR includes:
 - [ADR 002: Anemic Domain Model](002-anemic-domain-model.md) - Domain entity design philosophy
 - [ADR 005: Module-First Modular Monolith](005-adopt-module-first-modular-monolith.md) - Canonical module architecture and boundaries
 - [ADR 015: Groups and Sharing Are Platform Primitives](015-groups-and-sharing-as-platform-primitives.md) - Group membership and scoped sharing belong to Platform, and a member is a Party
+- [ADR 016: A Workspace Is a Platform Primitive; a World Is a Kind of One](016-workspaces-as-platform-primitives.md) - A versioned tree of files is platform capability; the product owns what the files mean
 
 ### Data Access & Persistence
 - [ADR 003: No Generic Repository](003-no-generic-repository.md) - Direct EF Core usage without repository pattern
