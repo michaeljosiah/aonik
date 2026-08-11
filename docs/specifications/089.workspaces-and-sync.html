@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 089</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 2)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Workspaces</span>
   <h1>Workspaces: a versioned tree of files, and the sync that moves it</h1>
@@ -318,14 +318,19 @@ Task&lt;PromoteResult&gt; PromoteAsync(StagedBlob staged, string contentKey, Can
 
 <div class="ascii-diagram">PUSH                                    PULL
 ────                                    ────
-1. client builds manifest of local tree  1. client asks for head revision
-2. POST manifest hashes → server         2. server returns manifest
-   server replies: missing[]             3. client diffs against local tree
-3. client uploads only missing blobs     4. downloads missing blobs TO STAGING,
-   (multipart, resumable — §7.1)            verifying each against its hash
-4. client commits (manifest + parent,    5. writes a pull journal, then ACTIVATES
-   client-generated CommitId — §7.3)        the tree atomically, then records head
-   server: FastForward | Diverged           (§7.2 — crash-safe)</div>
+0. recover any pending journal first     0. recover any pending journal first
+   (§7.2.2 — no read path skips this)       AND classify local vs RECORDED HEAD:
+1. client builds manifest of local tree     dirty + remote ahead -> commit the
+   EXCLUDING .aonik/ (§7.2.3)                dirty tree FIRST, so it diverges
+2. POST manifest hashes -> server            as a proposal (§7.2.1)
+   server replies: missing[]             1. client asks for head revision
+3. client uploads only missing blobs     2. server returns manifest
+   (multipart, resumable — §7.1)         3. diff against local tree
+4. client commits (manifest + parent +   4. download missing blobs TO .aonik/
+   client CommitId + request hash,          staging, verifying each hash
+   §7.3); server head advance is a       5. write .aonik/pull.journal, apply,
+   RowVersion CAS (§7.4)                     record head, delete journal,
+   server: FastForward | Diverged            sweep staging — IN THAT ORDER</div>
 
 <p>
   Two round trips before any byte moves, and the second is empty when nothing changed. There is no long-lived
@@ -380,32 +385,124 @@ Task&lt;PromoteResult&gt; PromoteAsync(StagedBlob staged, string contentKey, Can
   the entire design — it destroys authored work while looking like normal operation.
 </div>
 
-<p>The application of a pull is therefore a three-phase commit against the local disk:</p>
+<p>The application of a pull is therefore a four-phase commit against the local disk:</p>
 
 <ol>
-  <li><strong>Stage.</strong> Every needed blob is downloaded to a staging directory inside the workspace and
-      verified against its hash. Nothing in the live tree is touched. This phase is fully restartable and
+  <li><strong>Precondition: the tree must be clean.</strong> Before anything else, compare the live tree against the
+      <em>locally recorded head manifest</em>. See <a href="#dirty">§7.2.1</a> — skipping this destroys uncommitted work.</li>
+  <li><strong>Stage.</strong> Every needed blob is downloaded into <code>.aonik/staging/</code> (<a href="#metadata">§7.2.3</a>)
+      and verified against its hash. Nothing in the live tree is touched. This phase is fully restartable and
       idempotent — a re-run downloads only what is still missing.</li>
-  <li><strong>Journal.</strong> Write a journal file naming the target revision and the complete set of file
-      operations (add, replace, delete) to be applied. The journal is written and flushed <em>before</em> the
-      first mutation of the live tree.</li>
-  <li><strong>Activate, then record.</strong> Apply the operations from the journal, then record the new head,
-      then delete the journal — strictly in that order.</li>
+  <li><strong>Journal.</strong> Write <code>.aonik/pull.journal</code> naming the target revision and the complete set of
+      file operations (add, replace, delete). Written and flushed <em>before</em> the first mutation of the live
+      tree. Its presence is also the <strong>in-progress marker</strong> of <a href="#observers">§7.2.2</a>.</li>
+  <li><strong>Activate, then record, then clear.</strong> Apply the operations, record the new head, delete the
+      journal, then sweep staging — strictly in that order.</li>
 </ol>
 
 <p>
   Recovery is then mechanical rather than heuristic: <strong>a journal present at startup means a pull was
   interrupted.</strong> The client re-applies it from the beginning (every operation is idempotent — the source
-  blobs are still staged and hash-verified), records the head, and deletes the journal. A client that finds no
-  journal knows its tree is whole.
+  blobs are still staged and hash-verified), records the head, and deletes the journal.
 </p>
 
+<h4 id="observers">7.2.2 What the invariant actually is</h4>
+
 <div class="callout p0">
-  <span class="callout-label">The invariant this buys</span>
-  <strong>A local tree is never in a state that is not either revision <em>N</em> or revision <em>N+1</em>.</strong>
-  Without it, sync can lose authored work — which is the one failure a product built entirely on
-  <em>"nothing enters the authored record without a human accept"</em> can never be forgiven for.
+  <span class="callout-label">P0 — Rev 2 overstated this, and the overstatement mattered</span>
+  <p style="margin-top:0">
+    Rev 2 claimed <em>"a local tree is never in a state that is not either revision N or N+1."</em>
+    <strong>That is false and the journal does not make it true.</strong> If the process dies after the first
+    journal operation and before the last, the folder <em>is</em> a mixture. The journal makes that state
+    <em>recoverable</em>; it does not make it <em>unobservable</em>, and another process — the derived index, a
+    text editor, a backup agent, a second client instance — can read the mixture in the meantime.
+  </p>
+  <p style="margin-bottom:0">
+    An atomic root swap would make it literally true, but not for this product: the workspace is a folder the
+    user has open in editors and Explorer, and swapping it out from under a live multi-gigabyte tree means either
+    a full copy or breaking every open handle. So the honest move is to <strong>state the weaker invariant and
+    enforce it</strong>, rather than assert the stronger one and rely on it.
+  </p>
 </div>
+
+<p>The invariant, restated so it is true:</p>
+
+<pre><code>A mixture is possible ON DISK, and is NEVER OBSERVED, because:
+
+  the journal exists  ⟺  the tree may be mid-application
+
+and EVERY operation that reads or publishes the tree — index build,
+push, manifest construction, export, opening the workspace — MUST
+run recovery to completion first, or refuse.
+
+There is no read path that inspects the tree without checking for
+a journal. That check is the enforcement; the invariant is its
+consequence.</code></pre>
+
+<p>
+  Concretely: the client refuses to build a manifest, refuses to push and refuses to serve a file read while a
+  journal is present, completing recovery first. Recovery is fast — the blobs are already staged and verified, so
+  it is local file moves — so "refuse then repair" is measured in seconds, not a user-visible outage. And the
+  acceptance criterion is written against what is actually guaranteed: <strong>recovery completes before any read
+  or push</strong>, not that the filesystem is atomic.
+</p>
+
+<h4 id="dirty">7.2.1 A pull must never overwrite uncommitted local work</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the most destructive gap remaining after Rev 2</span>
+  <p style="margin-top:0">
+    The PULL sequence diffed the remote manifest against <strong>the live tree</strong> and activated. It never
+    compared the live tree against <strong>the locally recorded head</strong>. So if the author had uncommitted
+    edits — a rewritten scene, a new sheet, a deletion — and another machine had advanced the cloud head, the
+    pull would quietly overwrite or delete that work.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>And it would never enter the divergence flow at all.</strong> §8's whole promise is that a conflicting
+    change becomes a proposal a human accepts; uncommitted local work would have been destroyed <em>before</em>
+    reaching the mechanic designed to protect it. Everything else in this spec assumes the local tree is either
+    clean or has been committed; nothing enforced it.
+  </p>
+</div>
+
+<p>Pull therefore begins by classifying the local tree against its recorded head:</p>
+
+<table>
+  <thead><tr><th>Local tree vs recorded head</th><th>Remote head</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Clean</strong> (matches)</td><td>Ahead</td><td>Fast-forward. Stage, journal, activate. The ordinary case.</td></tr>
+    <tr><td><strong>Clean</strong></td><td>Same</td><td>Nothing to do.</td></tr>
+    <tr><td><strong>Dirty</strong> (differs)</td><td>Same</td><td>Nothing to do — local work is simply uncommitted, which is normal and not sync's business.</td></tr>
+    <tr><td><strong>Dirty</strong></td><td>Ahead</td><td><strong>Commit the dirty tree as a local revision first</strong>, parented on the recorded head. That commit then diverges from the remote head by construction — so it reaches <a href="#conflict">§8</a> as a proposal and the human decides, which is exactly what should happen.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Why snapshotting beats a clean-tree precondition</span>
+  Refusing to pull until the user commits is defensible but hostile: it makes sync fail with homework attached,
+  and a creative tool's users do not think in commits. Snapshotting first is strictly better — no work is ever
+  at risk, the divergence machinery already exists and is the product's own accept gate, and the user sees the
+  question they should see (<em>"these two versions differ, which do you want?"</em>) rather than an instruction
+  to tidy up before they are allowed to sync.
+</div>
+
+<h4 id="metadata">7.2.3 Sync state lives outside the manifest</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a defect Rev 2's own fix introduced</span>
+  Rev 2 put the staging directory <strong>inside the workspace</strong> and had recovery delete only the journal.
+  But push builds its manifest from the workspace directory — so after a successful or recovered pull, the next
+  push would treat the leftover staged blobs as <strong>authored files</strong>, upload them, add them to the
+  manifest and charge them against the byte ceiling. A pull would silently inflate the world with copies of its
+  own internals, and the more sync ran the worse it would get.
+</div>
+
+<ul>
+  <li>All sync state lives under a single reserved subtree: <code>.aonik/</code> — journal, staging, the recorded head, the part-upload state from <a href="#sync-upload">§7.1</a>.</li>
+  <li><strong>Manifest construction excludes <code>.aonik/</code> unconditionally</strong>, and the exclusion is in the manifest builder rather than in each caller, so there is one place to get it right.</li>
+  <li><strong>A commit naming any path under <code>.aonik/</code> is refused server-side</strong> as malformed. A client cannot smuggle sync state into a world, deliberately or by regression, and the server does not rely on the client's exclusion being correct.</li>
+  <li>Staging is swept after a successful activation and on recovery completion — not left for the next run to trip over.</li>
+</ul>
 
 <h3 id="sync-idem">7.3 Commit idempotency is not the sequence number</h3>
 
@@ -449,6 +546,71 @@ Task&lt;PromoteResult&gt; PromoteAsync(StagedBlob staged, string contentKey, Can
   Divergence is then detected where it belongs — by comparing the declared <code>ParentRevisionId</code> against
   the current head — rather than as a side effect of a uniqueness collision. A diverged commit still receives a
   sequence and is still stored; it simply does not advance the head.
+</p>
+
+<h4 id="commitbind">7.3.1 A <code>CommitId</code> binds to <em>one</em> request, not to a name</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — replaying an outcome for a different tree is worse than not retrying</span>
+  Treating any matching <code>CommitId</code> as the same operation is unsafe once you consider what a client
+  actually does after a timeout. It does not know whether the commit landed, the author may have kept working,
+  and the client correctly reuses the <code>CommitId</code> — but rebuilds the manifest from a tree that has
+  since <strong>changed</strong>. The server returns the original outcome verbatim, and the client concludes the
+  <em>new</em> tree is committed when it is not. The next pull then treats those edits as absent, and the work is
+  lost silently, with a success response on the record.
+</div>
+
+<p>
+  The idempotency record therefore stores a <strong>canonical request hash</strong> — SHA-256 over the workspace
+  id, the declared parent, and the manifest as a sorted <code>path→hash</code> list — alongside the outcome:
+</p>
+
+<pre><code>same CommitId + same request hash  -> replay the stored outcome (a true retry)
+same CommitId + DIFFERENT hash     -> 409, explicitly: "this CommitId was used
+                                      for a different tree; use a new one"
+                                      Never a silent replay.</code></pre>
+
+<p>
+  The failure mode becomes a loud client bug rather than quiet data loss, which is the correct trade for anything
+  in the commit path.
+</p>
+
+<h3 id="cas">7.4 Advancing the head is a compare-and-swap, not a transaction</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "inside the transaction" is not the same as atomic</span>
+  <p style="margin-top:0">
+    §7.3 said the server assigns the sequence "inside the transaction", which sounds sufficient and is not. Under
+    SQL Server's default <code>READ COMMITTED</code>, two concurrent commits can <strong>both read the same
+    head</strong>, <strong>both classify themselves as fast-forwards</strong>, and then either lose one head
+    update or collide on the sequence index. Neither outcome is the specified one: the loser is supposed to be
+    stored as <code>Diverged</code>, and instead it either vanishes or errors.
+  </p>
+  <p style="margin-bottom:0">
+    The acceptance criterion added in Rev 2 — "two clients committing concurrently from the same head both
+    persist" — was therefore not satisfiable by the mechanism described.
+  </p>
+</div>
+
+<p>Head advancement is a <code>RowVersion</code> compare-and-swap on <code>Workspace</code>:</p>
+
+<pre><code>read  workspace (Head = H, RowVersion = V)
+classify: parent == H ? FastForward : Diverged
+persist the revision (it is stored EITHER WAY)
+
+if FastForward:
+    UPDATE Workspaces SET Head = new, ... WHERE Id = @id AND RowVersion = V
+    0 rows affected -> ANOTHER COMMIT WON. Do not fail, do not retry blindly:
+        RE-READ the head and RE-CLASSIFY. The parent no longer matches, so
+        this commit is now Diverged — which is the correct answer, arrived
+        at by the same rule rather than by an exception handler.</code></pre>
+
+<p>
+  This is the identical pattern <code>UsageMeter</code> already uses for ceiling claims, and for the identical
+  reason recorded there: <em>"a point-in-time count that takes no lock and writes no row is a check-then-act race,
+  and it over-admits under exactly the conditions a ceiling exists for."</em> A serializable lock would also work
+  and is rejected — it serialises every commit in a workspace to protect against a rare collision, and the CAS
+  costs nothing when there is no contention.
 </p>
 
 <h2 id="conflict">8. Divergence, and why it is a proposal</h2>
@@ -655,8 +817,54 @@ Delete/Share  requires effective == Owner</code></pre>
   <code>HolderRef</code> is the <strong>content hash</strong>, which makes the accounting fall out for free:
   claiming is idempotent per blob, so the same bytes referenced by ten revisions are charged once, and the release
   happens exactly when the orphan sweeper deletes the blob. Both properties come from machinery Spec 087 already
-  has; only the weight is new, and it is additive with a default of 1.
+  has.
 </p>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the weight does not fit in the column, and the numbers are not close</span>
+  <p style="margin-top:0">
+    <code>CeilingHolding.Held</code> is an <strong><code>int</code></strong>
+    (<code>Entities/Usage/CeilingHolding.cs:24</code>), because every ceiling to date has counted seats and
+    profiles. <code>int.MaxValue</code> is <strong>2,147,483,647</strong>. The 200GB figure in
+    <a href="090.offline-verifiable-entitlement.html">Spec 090</a>'s example payload is
+    <strong>214,748,364,800</strong> — <strong>exactly one hundred times larger</strong>, and even a 3GB world
+    overflows it.
+  </p>
+  <p style="margin-bottom:0">
+    So "just add a <code>weight</code> parameter" would silently overflow or truncate on <em>ordinary paid-tier
+    usage</em>, not at some implausible extreme — and a wrapped aggregate does not fail loudly, it under-counts,
+    which means the ceiling stops refusing and the storage bill is discovered later.
+  </p>
+</div>
+
+<p>P6 therefore also migrates the arithmetic, not only the signature:</p>
+
+<ul>
+  <li><code>CeilingHolding.Held</code> and <code>CeilingClaim.Weight</code> become <strong><code>long</code></strong> — bytes are integral and a 64-bit count reaches ~9.2 exabytes, which is not a limit anyone will meet. (<code>EntitlementGrant.Held</code> is already <code>decimal</code>; the ceiling path simply never needed the range until now.)</li>
+  <li>The ceiling <em>value</em> itself, every comparison, and <code>EntitlementExceededException</code>'s quantity and remaining figures all widen with it. A <code>long</code> aggregate compared against an <code>int</code> limit is the same bug one layer up.</li>
+  <li>A migration against <code>AonikDbContext</code> widens the columns. Widening <code>int</code> → <code>bigint</code> is non-breaking for existing rows.</li>
+  <li><strong>An explicit overflow test</strong> claiming more than <code>int.MaxValue</code> bytes across several blobs, in the LocalDB lane — the InMemory provider would not catch a column-width truncation.</li>
+</ul>
+
+<h3 id="transfer">11.2 Quota must move when ownership moves</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a hole between two features that are individually correct</span>
+  <code>IWorkspaceService</code> exposes ownership transfer, and ceiling claims are held against <em>a specific
+  subscriber</em>. Nothing connected the two. So transferring a workspace would leave <strong>the former owner's
+  claims held indefinitely</strong> — paying for storage they no longer have, with no way to release it — while
+  the <strong>recipient gets it for free</strong>, with no check that they have the capacity or even a
+  subscription. Both halves are wrong in opposite directions, and the customer-facing symptom is a billing
+  complaint neither party can explain.
+</div>
+
+<ul>
+  <li><strong>The billing subscriber is stored on the workspace</strong> and is the thing claims are held against — deliberately separate from <code>OwnerPartyId</code>, because they can legitimately differ (an Arke Kids workspace owned by a parent may be billed to a family subscription).</li>
+  <li><strong>Transfer is a claim migration, in one transaction:</strong> compute the workspace's count and byte weight, claim them against the recipient <em>first</em>, and only on success release the former owner's and move the billing subscriber.</li>
+  <li><strong>Insufficient capacity refuses the transfer</strong> with the shortfall named. It does not proceed and over-admit, and it does not strand the workspace between owners.</li>
+  <li><strong>Claim first, release second</strong> — never the reverse. Releasing first opens a window where a concurrent claim consumes the freed allowance and the transfer then fails with the original owner's claim already gone.</li>
+  <li>The same accounting applies to workspace <em>deletion</em>, which is the degenerate transfer: release both meters, once, when the sweeper has actually removed the bytes.</li>
+</ul>
 
 <div class="callout p0">
   <span class="callout-label">Metered from day one, not later</span>
@@ -674,6 +882,8 @@ Delete/Share  requires effective == Owner</code></pre>
   <li>Unique index on <code>(TenantId, WorkspaceId, Sequence)</code> — <strong>ordering only</strong>. The server assigns it inside the transaction; no client ever sends one.</li>
   <li>Unique index on <code>(TenantId, WorkspaceId, CommitId)</code> — <strong>this</strong> is the idempotency key a retried commit lands on, and keeping it distinct from <code>Sequence</code> is what allows a divergent commit to be stored rather than rejected (<a href="#sync-idem">§7.3</a>).</li>
   <li>Unique index on <code>(TenantId, ContentHash)</code> for blobs, which is what makes dedupe a database guarantee rather than an application hope.</li>
+  <li>Unique index on <code>(TenantId, SubscriberKind, SubscriberId, ContentHash)</code> on <code>AnkWorkspaceBlobPossessions</code> — the proof-of-possession record that stops a content hash acting as a bearer capability (§14).</li>
+  <li><code>RowVersion</code> on <code>AnkWorkspaces</code>, which is what makes head advancement a compare-and-swap rather than a read-then-write race (<a href="#cas">§7.4</a>).</li>
   <li>Unique index on <code>(RevisionId, Path)</code>. A manifest naming one path twice is malformed, and the database is the right place to say so.</li>
 </ul>
 
@@ -708,16 +918,36 @@ Delete/Share  requires effective == Owner</code></pre>
       <td>Paths are validated on commit: relative, forward-slash, no <code>.</code> or <code>..</code> segment, no drive letter, no leading slash, no NTFS stream, no reserved device name. Rejected, not sanitised — silently rewriting a caller's path is how two files become one.</td>
     </tr>
     <tr>
-      <td><strong>Unicode collision.</strong> Two paths that differ only by normalisation form collide on one filesystem and not another.</td>
-      <td>NFC normalisation before storage and before comparison, so the manifest means the same thing on every client.</td>
+      <td><strong>Reparse-point traversal.</strong> A manifest path <code>linked/scene.txt</code> where <code>linked</code> is a symlink or NTFS junction in the live tree pointing outside the workspace.</td>
+      <td><strong>Lexical validation does not cover this and Rev 2 wrongly implied it did</strong> — <code>linked/scene.txt</code> contains no <code>..</code> and is a perfectly legal relative path, yet a pull writing to it escapes the workspace entirely. The link need not even be hostile: it can arrive from another tool, a restored backup, or the user's own convenience. Every activation operation therefore resolves the target with <strong>no-follow</strong> semantics and verifies the resolved path is still beneath the workspace root before writing; a component that is a reparse point aborts the operation rather than traversing it. Server-side, a commit whose <em>source</em> tree contained a reparse point is refused on the same rule. Checking the string is not checking the destination.</td>
     </tr>
     <tr>
-      <td><strong>Hash substitution.</strong> A client commits a manifest naming a hash it never uploaded, hoping to reference another tenant's blob.</td>
-      <td>Blob lookup is tenant-scoped, and commit rejects any hash with no blob <em>in this tenant</em>. Cross-tenant dedupe is deliberately not done: it would leak the existence of another tenant's content by timing.</td>
+      <td><strong>Filesystem-equivalent path collision.</strong> <code>Scene.txt</code> and <code>scene.txt</code>, or names differing only by trailing dot or space, are two distinct server paths that are <strong>one file on Windows</strong>.</td>
+      <td><strong>NFC alone does not give every client the same tree</strong>, which Rev 2 claimed. During pull the two entries silently overwrite each other and the resulting tree matches no manifest — which then pushes as a spurious revision. A single <em>portable equivalence</em> rule is applied at commit: NFC, then case-fold, then strip trailing dots and spaces per Windows rules. <strong>A manifest containing any pair that collides under it is rejected as malformed</strong>, with both paths named. Rejecting at commit is the only option that keeps every supported client able to materialise the tree — sanitising would silently merge two authored files.</td>
+    </tr>
+    <tr>
+      <td><strong>Hash substitution / the hash as a bearer capability.</strong> A caller commits a manifest naming a hash they never uploaded, to reference someone else's blob and then read the bytes back through their own manifest.</td>
+      <td>
+        <strong>Tenant scope alone is not sufficient, and this is the finding that matters most in this table.</strong>
+        Rev 2 accepted any hash with a blob <em>in this tenant</em> — which is fine when a tenant is one customer,
+        and wrong for Arke Kids, where <strong>one tenant holds many unrelated families</strong>. Guessing is not
+        required either: hashes of shared or previously-seen content are knowable, and a match turns into a read.
+        A content hash is a <em>name</em>, and Rev 2 treated it as an <em>authorisation</em>.
+        <br><br>
+        A commit may therefore only name a hash the caller has <strong>demonstrated possession of</strong>:
+        <ul style="margin:6px 0 0">
+          <li>uploaded by this subscriber (a <code>BlobPossession</code> row per subscriber per hash, written on promote — including when promote discovers the blob already exists, since they still supplied the bytes), <strong>or</strong></li>
+          <li>already reachable by this caller through a workspace they can read.</li>
+        </ul>
+        <strong>Dedupe stays physical; authorisation becomes per-subscriber.</strong> The bytes are still stored
+        once — the saving is preserved — but a reference requires proof, so the hash stops being a bearer token.
+        A commit naming an unpossessed hash is refused as <em>missing</em>, never as <em>forbidden</em>: the
+        distinction would confirm the blob exists and hand back the existence oracle the control just closed.
+      </td>
     </tr>
     <tr>
       <td><strong>Quota bypass.</strong> Upload, then check.</td>
-      <td>The byte meter is reserved before the stream is accepted and committed on success, using Spec 087's reserve/commit lifecycle rather than a post-hoc count.</td>
+      <td>The byte ceiling is claimed before the stream is accepted and released on failure, using Spec 087's claim/release lifecycle rather than a post-hoc count. Callers without <code>Write</code> access consume no quota because they are refused before staging (<a href="#access">§10.1</a>).</td>
     </tr>
     <tr>
       <td><strong>Zip-bomb / oversize single file.</strong></td>
@@ -748,18 +978,18 @@ Delete/Share  requires effective == Owner</code></pre>
     </tr>
     <tr>
       <td><strong>P4</strong> — revisions</td>
-      <td>Manifest commit, client <code>CommitId</code> idempotency, parent comparison, fast-forward, head advance, history read.</td>
-      <td>A retried commit is idempotent on <code>(WorkspaceId, CommitId)</code> and returns the original outcome; two clients committing from the same head both persist, the second as <code>Diverged</code>; a commit naming an absent hash is refused.</td>
+      <td>Manifest commit; <code>CommitId</code> idempotency bound to a canonical request hash (<a href="#commitbind">&sect;7.3.1</a>); parent comparison; <strong>head advance as a <code>RowVersion</code> CAS with re-classification on loss</strong> (<a href="#cas">&sect;7.4</a>); history read.</td>
+      <td>A retried commit with the same request hash replays the original outcome, and one with a <em>different</em> manifest is refused 409 rather than replayed; two clients committing concurrently from the same head both persist, the loser re-classified as <code>Diverged</code> rather than erroring; a commit naming an unpossessed hash is refused as missing.</td>
     </tr>
     <tr>
       <td><strong>P5</strong> — sync</td>
-      <td>Negotiation, the <code>Diverged</code> outcome, manifest diff, and the staged/journalled pull application (<a href="#sync-pull">§7.2</a>).</td>
-      <td>An unchanged 1GB workspace syncs with no bytes transferred; a divergent commit is stored and reported, never applied; <strong>a pull killed mid-write leaves the tree at revision <em>N</em> or <em>N+1</em> and never a mixture</strong>.</td>
+      <td>Negotiation, the <code>Diverged</code> outcome, manifest diff, the <strong>dirty-tree snapshot precondition</strong> (<a href="#dirty">&sect;7.2.1</a>), the staged/journalled pull application with mandatory recovery-before-read (<a href="#observers">&sect;7.2.2</a>), and the reserved <code>.aonik/</code> subtree (<a href="#metadata">&sect;7.2.3</a>).</td>
+      <td>An unchanged 1GB workspace syncs with no bytes transferred; a divergent commit is stored and reported, never applied; <strong>a pull onto a dirty tree commits the local work first and reaches the accept gate rather than overwriting it</strong>; a pull killed mid-write is recovered to completion before any read or push, and no push ever carries <code>.aonik/</code> content.</td>
     </tr>
     <tr>
       <td><strong>P6</strong> — sharing &amp; quota</td>
-      <td><code>workspace</code> resolver; <code>AccessLevel</code> enforcement in the sync service (<a href="#access">§10.1</a>); count and weighted byte ceilings wired to Spec 087.</td>
-      <td>A workspace can be shared by invite and revoked; <strong>a read-only grantee calling the commit endpoint directly gets 403</strong>; exceeding either ceiling refuses before any byte is stored; deleting a workspace returns its held bytes.</td>
+      <td><code>workspace</code> resolver; <code>AccessLevel</code> enforcement in the sync service (<a href="#access">&sect;10.1</a>); count and weighted byte ceilings wired to Spec 087, <strong>including the <code>int</code>&nbsp;&rarr;&nbsp;<code>long</code> widening of <code>CeilingHolding.Held</code></strong> (<a href="#weighted">&sect;11.1</a>); per-subscriber <code>BlobPossession</code>; claim migration on ownership transfer (<a href="#transfer">&sect;11.2</a>).</td>
+      <td>A workspace can be shared by invite and revoked; <strong>a read-only grantee calling the commit endpoint directly gets 403</strong>; a 3GB workspace is counted without truncation; exceeding either ceiling refuses before any byte is stored; deleting a workspace returns its held bytes; transferring one moves the claims atomically or refuses.</td>
     </tr>
   </tbody>
 </table>
@@ -782,8 +1012,17 @@ Delete/Share  requires effective == Owner</code></pre>
   <li>The same content hash referenced by ten revisions is charged against the byte ceiling <strong>once</strong>.</li>
   <li>A blob upload interrupted at 90% resumes without re-transferring the first 90%.</li>
   <li>No upload path buffers a whole blob in memory — proven by uploading a file larger than the process working set.</li>
-  <li>A pull interrupted between the journal write and completion leaves the tree at revision <em>N</em> or <em>N+1</em>, never a mixture, and recovery completes it without user involvement.</li>
+  <li>A pull interrupted between the journal write and completion is <strong>recovered to completion before any read, index build, manifest construction or push is permitted</strong> — no read path inspects the tree without first checking for a journal. (Rev 2 asserted the stronger "never a mixture on disk", which the journal does not deliver; see <a href="#observers">§7.2.2</a>.)</li>
   <li>A staged blob failing hash verification is discarded and never enters the live tree.</li>
+  <li><strong>A pull onto a tree with uncommitted local edits, where the remote head has advanced, commits the local work as a revision first</strong> — that commit diverges and reaches the accept gate. No local edit is overwritten or deleted without a human decision.</li>
+  <li>A push after a completed or recovered pull carries <strong>no</strong> <code>.aonik/</code> content, and a commit naming any path under <code>.aonik/</code> is refused server-side regardless of what the client sent.</li>
+  <li>Retrying a commit with the same <code>CommitId</code> but a different manifest, parent or workspace is <strong>refused with 409</strong>, never replayed as success.</li>
+  <li>Two clients committing concurrently from the same head: one advances the head, the other is re-classified and stored as <code>Diverged</code>. Neither errors, and the losing update is detected by <code>RowVersion</code> rather than by a uniqueness violation — proven in the <strong>LocalDB lane</strong>, since the InMemory provider enforces neither.</li>
+  <li>A commit naming a hash the subscriber has neither uploaded nor can already reach is <strong>refused as missing</strong> — with the same response as a genuinely absent blob, so no existence oracle is offered.</li>
+  <li>A pull whose manifest path traverses a symlink or junction <strong>writes nothing outside the workspace root</strong>; the resolved destination is verified before every write.</li>
+  <li>A manifest containing <code>Scene.txt</code> and <code>scene.txt</code> — or names differing only by trailing dot or space — is rejected at commit with both paths named, rather than materialising as one file.</li>
+  <li>A workspace holding more than <code>int.MaxValue</code> bytes is counted without truncation, and the ceiling still refuses at the limit. LocalDB lane, since InMemory would not catch a column-width truncation.</li>
+  <li>Transferring ownership claims against the recipient <strong>before</strong> releasing the former owner, and refuses the transfer outright when the recipient lacks capacity — leaving both parties' claims unchanged.</li>
   <li>A path containing <code>..</code>, a drive letter, a leading slash or a reserved device name is rejected at commit.</li>
   <li>Two paths differing only in Unicode normalisation are treated as one and the commit is refused as malformed.</li>
   <li>Exceeding the byte meter refuses the upload before the stream is consumed.</li>
@@ -826,7 +1065,7 @@ Delete/Share  requires effective == Owner</code></pre>
 </table>
 
 <footer>
-  Spec 089 · Workspaces and sync · Draft Rev 2 (Codex round 1: 6 findings applied) · 2026-08-11 ·
+  Spec 089 · Workspaces and sync · Draft Rev 3 (Codex rounds 1-2: 16 findings applied) · 2026-08-11 ·
   Implements <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
 </footer>
 
