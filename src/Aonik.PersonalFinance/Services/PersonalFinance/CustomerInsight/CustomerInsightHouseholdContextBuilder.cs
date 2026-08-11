@@ -16,9 +16,10 @@ internal static class CustomerInsightHouseholdContextBuilder
         Guid currentUserId)
     {
         var memberSummaries = members
+            .Where(HouseholdMembershipRules.IsAcceptedUserMember)
             .OrderBy(x => x.UserId)
             .Select(x => new CustomerInsightHouseholdMemberSummary(
-                x.UserId,
+                x.UserId!.Value,
                 string.IsNullOrWhiteSpace(x.Role) ? "member" : x.Role.Trim(),
                 x.UserId == currentUserId))
             .ToList();

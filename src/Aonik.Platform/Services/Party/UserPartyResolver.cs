@@ -34,4 +34,22 @@ internal sealed class UserPartyResolver : IUserPartyResolver
             .Select(link => (Guid?)link.PartyId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<Guid?> GetUserIdForPartyAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty || partyId == Guid.Empty)
+        {
+            return null;
+        }
+
+        return await _dbContext.UserParties
+            .AsNoTracking()
+            .Where(link => link.TenantId == tenantId && link.PartyId == partyId)
+            .OrderByDescending(link => link.CreatedAt)
+            .Select(link => (Guid?)link.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

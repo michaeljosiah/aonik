@@ -94,10 +94,17 @@ public sealed record ListOrdersQuery(
 
 /// <summary>Links an order to the execution record that fulfils it. Exactly one id must be set,
 /// matching the <c>OrderFulfilmentRef</c> "one-of" CHECK.</summary>
+/// <param name="SubscriptionPeriodId">
+/// The subscription period this order delivered. Added by Spec 087: the three references above are
+/// all money-movement records, so a subscription renewal — whose fulfilment is a period of access,
+/// not a transfer — had nothing it could legally record, and the canonical order lost its fulfilment
+/// trace entirely.
+/// </param>
 public sealed record OrderFulfilmentLink(
     Guid? PayoutId = null,
     Guid? PaymentIntentId = null,
-    Guid? PartnerBillPaymentId = null);
+    Guid? PartnerBillPaymentId = null,
+    Guid? SubscriptionPeriodId = null);
 
 /// <summary>One party's spine-wide order footprint (Spec 080 registry columns).</summary>
 /// <param name="OrderCount">Orders across every OrderType where this party is the payer.</param>

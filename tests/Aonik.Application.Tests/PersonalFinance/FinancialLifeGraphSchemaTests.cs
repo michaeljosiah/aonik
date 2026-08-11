@@ -1,3 +1,8 @@
+using Aonik.TestSupport.Multitenancy;
+using Aonik.TestSupport.Identity;
+using Moq;
+using Aonik.SharedKernel.Abstractions.Groups;
+using Aonik.Groups.Services;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
@@ -13,6 +18,30 @@ namespace Aonik.Application.Tests.PersonalFinance;
 
 public class FinancialLifeGraphSchemaTests
 {
+
+    /// <summary>
+    /// The real group reader over the same context (Spec 086 P7). Not a mock: these tests assert
+    /// household-scoped behaviour, and a faked reader would assert nothing about it.
+    /// </summary>
+    private static IGroupReader GroupReader(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
+    {
+        var tenantProvider = new TestTenantProvider(tenantId);
+
+        return new GroupService(
+            context,
+            tenantProvider,
+            new TestCurrentUserProvider(userId),
+            Mock.Of<IUserPartyResolver>(),
+            Mock.Of<IPartyReader>(),
+            new SystemClock(),
+            [],
+            new PersonalFinancePartyResolver(context));
+    }
+
+    private sealed class SystemClock : Aonik.SharedKernel.Abstractions.IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
     private sealed class TestTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;
@@ -101,7 +130,8 @@ public class FinancialLifeGraphSchemaTests
             partyReader ?? new StubPartyReader(),
             new StubOrderReader(),
             new StubInvoiceReader(),
-            new StubPaymentReader());
+            new StubPaymentReader(),
+            GroupReader(context, tenantId, userId));
 
     [Fact]
     public void Schema_Should_Define_Spec_NodeTypes_And_Predicates()

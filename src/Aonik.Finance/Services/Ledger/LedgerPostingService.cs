@@ -7,6 +7,7 @@ using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Observability;
+using Aonik.SharedKernel.Abstractions.Ledgers;
 
 namespace Aonik.Finance.Services.Ledger;
 
@@ -60,10 +61,17 @@ internal sealed class LedgerPostingService
 
     private readonly FinanceDbContext _db;
     private readonly ILogger<LedgerPostingService> _logger;
+    private readonly IReadOnlyList<ISettlementRevenueResolver> _settlementResolvers;
 
-    public LedgerPostingService(FinanceDbContext db, ILogger<LedgerPostingService>? logger = null)
+    public LedgerPostingService(
+        FinanceDbContext db,
+        ILogger<LedgerPostingService>? logger = null,
+        IEnumerable<ISettlementRevenueResolver>? settlementResolvers = null)
     {
         _db = db;
+        // Spec 088 §9. Optional for the same reason as the logger: existing fixtures construct
+        // this service with just a DbContext, and no resolvers means today's behaviour.
+        _settlementResolvers = settlementResolvers?.ToList() ?? [];
         // Optional logger so existing test fixtures that construct this service
         // directly with just a DbContext keep compiling. Production DI always
         // resolves a real logger (NullLogger as fallback in tests).
@@ -106,6 +114,20 @@ internal sealed class LedgerPostingService
         var tenantId = invoice.TenantId;
         var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
         var clearingAccountId = await ResolveOrCreateClearingAccountIdAsync(tenantId, ledgerId, cancellationToken);
+
+        // Spec 088 §9 - route the revenue leg by the funding order's type, and split it per line.
+        // Reads Invoice.OrderId, which Spec 088 §7 made non-null for order-backed invoices; before
+        // that this could not have worked at all.
+        var routed = await TryResolveRoutedCreditsAsync(invoice, cancellationToken);
+
+        if (routed is not null)
+        {
+            await PostSplitSettlementAsync(tenantId, ledgerId, invoice, clearingAccountId, routed, cancellationToken);
+            return;
+        }
+
+        // UNCHANGED fallback: no order, no order type, or no resolver claims it. Every product
+        // that existed before this seam takes exactly this path and posts exactly what it did.
         var revenueAccountId = await ResolveRequiredAccountIdAsync(tenantId, RevenueAccountCode, RevenueAccountName, cancellationToken);
 
         await PostBalancedEntryAsync(
@@ -218,6 +240,169 @@ internal sealed class LedgerPostingService
             narration: "Remittance reversed",
             orderId: orderId,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Spec 088 §9.1 — the credit account for each of an invoice's lines, or null when nothing
+    /// claims this invoice and the caller should take the unchanged single-line path.
+    /// </summary>
+    private async Task<List<(InvoiceLine Line, SettlementCredit Credit)>?> TryResolveRoutedCreditsAsync(
+        Invoice invoice,
+        CancellationToken cancellationToken)
+    {
+        if (_settlementResolvers.Count == 0 || invoice.OrderId is not { } orderId)
+            return null;
+
+        var orderType = await _db.Orders.AsNoTracking()
+            .Where(o => o.Id == orderId && o.TenantId == invoice.TenantId)
+            .Select(o => o.OrderType)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(orderType))
+            return null;
+
+        var claiming = _settlementResolvers
+            .Where(r => r.OrderTypes.Any(t => string.Equals(t, orderType, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (claiming.Count == 0)
+            return null;
+
+        if (claiming.Count > 1)
+        {
+            // Ambiguous routing of real revenue is not something to resolve by picking first.
+            throw new InvalidOperationException(
+                $"{claiming.Count} settlement resolvers claim order type '{orderType}'. Exactly one must.");
+        }
+
+        var resolver = claiming[0];
+
+        // Lines are not loaded by the settlement caller, so fetch them here rather than relying on
+        // whatever the caller happened to include.
+        var lines = await _db.InvoiceLines.AsNoTracking()
+            .Where(l => l.InvoiceId == invoice.Id && l.TenantId == invoice.TenantId)
+            .OrderBy(l => l.Id)
+            .ToListAsync(cancellationToken);
+
+        if (lines.Count == 0)
+            return null;
+
+        return lines
+            .Select(line => (
+                Line: line,
+                Credit: resolver.Resolve(orderType, new SettlementLineContext(
+                    invoice.Id,
+                    invoice.OrderId,
+                    line.Id,
+                    line.Description,
+                    line.LineTotal,
+                    invoice.Currency,
+                    line.MetadataJson))))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Spec 088 §9.2 — one debit for the invoice total, one credit per line, each dimensioned.
+    ///
+    /// A single credit for the total cannot carry a truthful per-line tag when an order mixes
+    /// kinds — two prepaid meters in one checkout, or goods alongside a service — which would
+    /// leave the balance unreconcilable by whatever dimension the consumer cares about.
+    /// </summary>
+    private async Task PostSplitSettlementAsync(
+        Guid tenantId,
+        Guid ledgerId,
+        Invoice invoice,
+        Guid clearingAccountId,
+        List<(InvoiceLine Line, SettlementCredit Credit)> routed,
+        CancellationToken cancellationToken)
+    {
+        using var activity = FinanceActivitySource.Source.StartActivity("ledger.post");
+        activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Settle);
+        activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
+        activity?.SetTag("LedgerSourceType", InvoiceSettlementSourceType);
+        activity?.SetTag("LedgerSourceId", invoice.Id);
+        if (invoice.OrderId is { } tagOrderId && tagOrderId != Guid.Empty)
+            activity?.SetTag(FinanceActivitySource.OrderIdTag, tagOrderId);
+
+        var total = routed.Sum(r => r.Line.LineTotal);
+
+        if (total <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot post a non-positive amount ({total}) for {InvoiceSettlementSourceType} {invoice.Id}.");
+        }
+
+        // Same idempotency key as the single-line path, so an invoice cannot be settled twice by
+        // taking a different branch on a retry.
+        var alreadyPosted = await _db.JournalEntries.AsNoTracking()
+            .AnyAsync(e => e.TenantId == tenantId
+                           && e.SourceType == InvoiceSettlementSourceType
+                           && e.SourceId == invoice.Id,
+                cancellationToken);
+
+        if (alreadyPosted)
+        {
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.SkippedIdempotent);
+            _logger.LedgerPostSkippedIdempotent(invoice.OrderId, tenantId);
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var entryId = Guid.NewGuid();
+
+        var entryLines = new List<JournalEntryLine>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                JournalEntryId = entryId,
+                LedgerAccountId = clearingAccountId,
+                Direction = "Debit",
+                Amount = total,
+                Currency = invoice.Currency,
+                Narration = "Invoice settled",
+                DimensionsJson = "{}",
+                CreatedAt = now
+            }
+        };
+
+        foreach (var (line, credit) in routed)
+        {
+            var creditAccountId = await ResolveOrCreateAccountIdAsync(
+                tenantId, ledgerId, credit.AccountCode, credit.AccountName, credit.AccountType, cancellationToken);
+
+            entryLines.Add(new JournalEntryLine
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                JournalEntryId = entryId,
+                LedgerAccountId = creditAccountId,
+                Direction = "Credit",
+                Amount = line.LineTotal,
+                Currency = invoice.Currency,
+                Narration = line.Description,
+                DimensionsJson = credit.DimensionsJson ?? "{}",
+                CreatedAt = now
+            });
+        }
+
+        _db.JournalEntries.Add(new JournalEntry
+        {
+            Id = entryId,
+            TenantId = tenantId,
+            LedgerId = ledgerId,
+            Timestamp = now,
+            SourceType = InvoiceSettlementSourceType,
+            SourceId = invoice.Id,
+            Status = "Posted",
+            CreatedAt = now,
+            Lines = entryLines
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
     }
 
     private async Task PostBalancedEntryAsync(

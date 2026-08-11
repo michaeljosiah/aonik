@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Aonik.PersonalFinance.Agents;
 using Aonik.PersonalFinance.Agents.CodeAct;
 using Aonik.PersonalFinance.Contracts.Services.Accounts;
@@ -69,12 +71,34 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<ICareEntityPhotoService, CareEntityPhotoService>();
         services.AddScoped<IPaymentLogService, PaymentLogService>();
         services.AddScoped<IPaymentLogSummaryService, PaymentLogSummaryService>();
+        // Spec 086 P3 — transitional user -> party mapping for the dual-write window. Shared by
+        // CircleService and HouseholdService so both agree on where a party comes from.
+        services.AddScoped<Services.MemberPartyResolver>();
+
+        // Spec 086 P4 — the group unit of work. PersonalFinanceDbContext, not GroupsDbContext:
+        // GroupService and PersonalFinanceGroupLifecycleContributor must share one change tracker
+        // for the contributor's reaction to land in the same transaction as the membership write.
+        services.AddScoped<Aonik.Groups.Persistence.IGroupDataContext>(sp =>
+            sp.GetRequiredService<Persistence.PersonalFinanceDbContext>());
+
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Groups.IGroupLifecycleContributor,
+            Services.PersonalFinanceGroupLifecycleContributor>();
+
+        // Spec 086 P5 — the only thing that knows what a care entity is. Registering it here is what
+        // keeps CareEntity out of the platform's model entirely.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Groups.IShareResourceResolver,
+            Services.CareEntityShareResourceResolver>();
+
         services.AddScoped<CircleService>();
         services.AddScoped<ICircleService>(sp => sp.GetRequiredService<CircleService>());
         services.AddScoped<ICircleVisibility>(sp => sp.GetRequiredService<CircleService>());
         // Spec 061: anonymous invite preview — the disclosure/rate-limit switches and the
         // per-IP + per-token limiter (in-memory, singleton so its counters persist across requests).
-        services.AddOptions<CircleInviteOptions>().BindConfiguration(CircleInviteOptions.SectionName);
+        services.AddOptions<CircleInviteOptions>()
+            .Bind(configuration.GetSection(CircleInviteOptions.LegacySectionName))
+            .Bind(configuration.GetSection(CircleInviteOptions.SectionName));
+
+        WarnOnLegacySharingSection(services, configuration);
         services.AddSingleton<IInvitePreviewRateLimiter, InvitePreviewRateLimiter>();
         services.AddScoped<ISupportStatementService, SupportStatementService>();
         services.AddScoped<IBudgetService, BudgetService>();
@@ -275,6 +299,49 @@ public sealed class PersonalFinanceModule : IModule
         services.AddSingleton<IToolApprovalManifest, PersonalFinanceToolApprovalManifest>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Tells an operator, once at startup, that their sharing settings are in the old section.
+    /// </summary>
+    /// <remarks>
+    /// A warning rather than a failure: the legacy section is still bound, so the deployment behaves
+    /// correctly — it just will not once the fallback is removed, and the only way anyone learns that
+    /// in time is if it is said out loud now.
+    /// </remarks>
+    private sealed class LegacySharingSectionWarning : IHostedService
+    {
+        private readonly ILogger<LegacySharingSectionWarning> _logger;
+
+        public LegacySharingSectionWarning(ILogger<LegacySharingSectionWarning> logger) => _logger = logger;
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogWarning(
+                "Sharing settings were read from the legacy configuration section '{Legacy}'. Move them to "
+                + "'{Current}' (Spec 086 §14) — the fallback is temporary and this deployment will lose its "
+                + "settings when it is removed.",
+                CircleInviteOptions.LegacySectionName,
+                CircleInviteOptions.SectionName);
+
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private static void WarnOnLegacySharingSection(IServiceCollection services, IConfiguration configuration)
+    {
+        var legacy = configuration.GetSection(CircleInviteOptions.LegacySectionName);
+        var current = configuration.GetSection(CircleInviteOptions.SectionName);
+
+        if (!legacy.GetChildren().Any() || current.GetChildren().Any())
+        {
+            return;
+        }
+
+        services.AddHostedService(sp => new LegacySharingSectionWarning(
+            sp.GetRequiredService<ILogger<LegacySharingSectionWarning>>()));
     }
 }
 

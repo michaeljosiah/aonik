@@ -20,7 +20,13 @@ public sealed record CreateInvoiceForOrderCommand(
     Guid CustomerId,
     string Currency,
     IReadOnlyList<InvoiceLineSpec> Lines,
-    DateTime? DueUtc = null);
+    DateTime? DueUtc = null,
+    /// <summary>
+    /// Optional idempotency key (Spec 088 §8), matching <c>IOrderService</c>'s behaviour. When
+    /// supplied, re-issuing the same key returns the original invoice rather than raising a second
+    /// one — which is what stops a renewal job that dies mid-flight from billing twice.
+    /// </summary>
+    string? IdempotencyKey = null);
 
 /// <summary>A lightweight reference to the created invoice.</summary>
 public sealed record InvoiceRef(Guid InvoiceId, string InvoiceNumber, decimal Total, string Currency);

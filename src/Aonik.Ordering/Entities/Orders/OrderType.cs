@@ -24,5 +24,10 @@ public enum OrderType
     // shape with ProductId soft-referencing an ingredient. Kept in lockstep with
     // SharedKernel.Abstractions.Ordering.OrderTypeCodes (Order.OrderType is an open string;
     // this enum is only the known-values helper).
-    PurchaseOrder
+    PurchaseOrder,
+
+    // Spec 087 §12 - subscriptions ride the same order spine. Kept in lockstep with
+    // SharedKernel.Abstractions.Ordering.OrderTypeCodes, as the comment above requires.
+    SubscriptionRenewal,
+    EntitlementPurchase
 }

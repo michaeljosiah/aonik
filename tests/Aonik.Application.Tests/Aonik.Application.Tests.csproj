@@ -38,6 +38,7 @@
     <ProjectReference Include="..\..\src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Ordering\Aonik.Ordering.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Commerce\Aonik.Commerce.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Subscriptions\Aonik.Subscriptions.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Worker\Aonik.Worker.csproj" />

@@ -52,7 +52,23 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         // (the global query filter), so lead each index with TenantId to match the real
         // predicate instead of forcing the DB to isolate the tenant's slice separately.
         builder.HasIndex(x => new { x.TenantId, x.CustomerAccountId });
-        builder.HasIndex(x => new { x.TenantId, x.OrderId });
+        // Spec 088 §8 - one invoice per order, so a retried renewal cannot bill twice.
+        // FILTERED because Invoice.OrderId is nullable and standalone invoices are valid: SQL
+        // Server treats NULL as a value in a unique index and permits only one per tenant, so an
+        // unfiltered index would reject every tenant's SECOND standalone invoice.
+        builder.HasIndex(x => new { x.TenantId, x.OrderId })
+            .IsUnique()
+            .HasFilter("[OrderId] IS NOT NULL");
+        // This replaces the previous non-unique (TenantId, OrderId) index rather than joining it:
+        // EF collapses same-column declarations into one, and a filtered unique index still serves
+        // every by-order lookup, since those always carry a non-null OrderId.
+
+        builder.Property(x => x.IdempotencyKey).HasMaxLength(200);
+
+        // Same reasoning: every invoice written before this phase has a null key.
+        builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.DueDate });
 

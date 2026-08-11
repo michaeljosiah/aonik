@@ -293,7 +293,7 @@ internal sealed class CustomerInsightSourceDataLoader
                 HouseholdMembershipRules.NormalizeLegacyMember(member);
             }
 
-            members = members.Where(HouseholdMembershipRules.IsAccepted).ToList();
+            members = members.Where(HouseholdMembershipRules.IsAcceptedUserMember).ToList();
 
             coverageAccumulator.MarkAvailable("household");
             return (household, members);

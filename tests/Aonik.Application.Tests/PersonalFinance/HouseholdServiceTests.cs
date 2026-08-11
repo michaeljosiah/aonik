@@ -1,3 +1,6 @@
+using Aonik.SharedKernel.Abstractions.Groups;
+using Aonik.Groups.Services;
+using Moq;
 using System.Text.Json;
 using Aonik.PersonalFinance.Contracts.Models;
 using Aonik.PersonalFinance.Entities;
@@ -154,6 +157,35 @@ public class HouseholdServiceTests
         return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
+
+    /// <summary>
+    /// The real Spec 086 P4 stack behind the facade: the group service, PersonalFinance's lifecycle
+    /// contributor, and the same DbContext for both — which is what makes the contributor's writes
+    /// land in the membership's transaction. Deliberately not a mock: these tests exist to prove the
+    /// household behaviour survived the move, and a faked group service would prove nothing.
+    /// </summary>
+    private static IGroupService CreateGroupService(
+        PersonalFinanceDbContext context,
+        Guid tenantId,
+        Guid userId,
+        IPartyReader partyReader,
+        IClock clock)
+    {
+        var tenantProvider = new TestTenantProvider(tenantId);
+
+        return new GroupService(
+            context,
+            tenantProvider,
+            new TestCurrentUserProvider(userId),
+            // No AnkUserParties rows in these tests; the caller resolves through the
+            // PersonalProfile fallback, exactly as a seeded environment does.
+            Mock.Of<IUserPartyResolver>(),
+            partyReader,
+            clock,
+            [new PersonalFinanceGroupLifecycleContributor(context, tenantProvider, clock)],
+            new PersonalFinancePartyResolver(context));
+    }
+
     private static HouseholdService CreateService(
         PersonalFinanceDbContext context,
         Guid tenantId,
@@ -172,7 +204,9 @@ public class HouseholdServiceTests
             partyReader,
             userDirectoryReader,
             clock,
-            notificationWriter);
+            notificationWriter,
+            new MemberPartyResolver(context, Mock.Of<IUserPartyResolver>()),
+            CreateGroupService(context, tenantId, userId, partyReader, clock));
     }
 
     [Fact]

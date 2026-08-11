@@ -16,6 +16,94 @@ public sealed class ScheduledJobOptions
     public InventoryReservationSweepJobOptions InventoryReservationSweep { get; set; } = new();
     public LowStockScanJobOptions LowStockScan { get; set; } = new();
     public BoxCartAbandonSweepJobOptions BoxCartAbandonSweep { get; set; } = new();
+
+    // Spec 087 §16 — subscriptions.
+    public SubscriptionRenewalJobOptions SubscriptionRenewal { get; set; } = new();
+    public SubscriptionDunningJobOptions SubscriptionDunning { get; set; } = new();
+    public UsageReservationSweepJobOptions UsageReservationSweep { get; set; } = new();
+    public GrantExpirySweepJobOptions GrantExpirySweep { get; set; } = new();
+
+    // One-off backfills. Both are disabled by default and enabled by an operator for a single
+    // deployment window, following the DocumentIngestionBackfill precedent.
+    public GroupPartyBackfillJobOptions GroupPartyBackfill { get; set; } = new();
+    public CanonicalLedgerBackfillJobOptions CanonicalLedgerBackfill { get; set; } = new();
+}
+
+/// <summary>Spec 086 P3.</summary>
+public sealed class GroupPartyBackfillJobOptions
+{
+    /// <summary>
+    /// Disabled by default. This job is idempotent and safe to leave enabled, but it is a
+    /// <em>transition</em> step: an operator turns it on for the P3 window, confirms zero
+    /// unbackfilled rows, and turns it off again. It throws when a row cannot be resolved, which is
+    /// the point — a scheduled job failing loudly is how the P5 cutover is kept honest.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Quartz cron expression (6-field with seconds). Default: hourly (only fires when enabled).</summary>
+    public string CronExpression { get; set; } = "0 0 * * * ?";
+}
+
+/// <summary>Spec 088 §10.</summary>
+public sealed class CanonicalLedgerBackfillJobOptions
+{
+    /// <summary>
+    /// Disabled by default. Enabled for the deployment that introduces <c>ILedgerResolver</c>, then
+    /// re-enabled whenever a batch of tenants is provisioned — a tenant with no canonical ledger
+    /// cannot post at all, so leaving it scheduled is defensible.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Quartz cron expression (6-field with seconds). Default: hourly (only fires when enabled).</summary>
+    public string CronExpression { get; set; } = "0 0 * * * ?";
+}
+
+public sealed class SubscriptionRenewalJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: hourly. A billing boundary is a
+    /// date, not an instant, so hourly is soon enough — and the flow is idempotent, so cadence
+    /// only affects how quickly a due period is picked up (Spec 087 §12.1).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0 * * * ?";
+}
+
+public sealed class SubscriptionDunningJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 4 hours. The backoff between
+    /// attempts is measured in DAYS and lives on the period, so a tighter cadence here would not
+    /// retry anything sooner — it would only re-scan (Spec 087 §12.5).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0 0/4 * * ?";
+}
+
+public sealed class UsageReservationSweepJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 5 minutes. A stranded hold is
+    /// allowance a subscriber has paid for and cannot use, so this is deliberately frequent —
+    /// matching the inventory sweep that solves the same problem for stock (Spec 087 §9).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0/5 * * * ?";
+}
+
+public sealed class GrantExpirySweepJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: hourly. Nobody's allowance depends
+    /// on this — draw-down already ignores an expired grant — so cadence only affects how promptly
+    /// breakage is recorded (Spec 087 §8).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 30 * * * ?";
 }
 
 public sealed class InventoryReservationSweepJobOptions

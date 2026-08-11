@@ -42,6 +42,11 @@
   -->
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <!-- Spec 086 / ADR-015: group membership and sharing moved to the Aonik.Groups middle layer.
+         A DOWNWARD reference, exactly like Finance -> Ordering (ADR-011) — Groups itself references
+         only SharedKernel, so no cycle. The Spec 027 §10 absence above still holds: there is still
+         no reference to Aonik.Finance. -->
+    <ProjectReference Include="..\Aonik.Groups\Aonik.Groups.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -61,6 +61,16 @@ public sealed class FinanceModule : IModule
         // mirroring the PartnerPrefundSeedHelper direct-write pattern.
         services.AddScoped<Services.Ledger.LedgerPostingService>();
 
+        // Spec 088 P1 - cross-module ledger write path. ILedgerService stays Finance-internal;
+        // these are the SharedKernel-facing mirrors, alongside IInvoiceWriter/IPaymentInitiator.
+        services.AddScoped<SharedKernel.Abstractions.Ledgers.IJournalWriter, Services.Ledger.JournalWriter>();
+        services.AddScoped<SharedKernel.Abstractions.Ledgers.ILedgerResolver, Services.Ledger.LedgerResolver>();
+
+        // Spec 088 P4 - standing authorisations. Authoring stays Finance-internal; only the
+        // charging contract is reachable from outside.
+        services.AddScoped<Contracts.Services.Payments.IPaymentMandateService, Services.Payments.PaymentMandateService>();
+        services.AddScoped<SharedKernel.Abstractions.Payments.IRecurringPaymentInitiator, Services.Payments.RecurringPaymentInitiator>();
+
         // Payments
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
@@ -78,7 +88,10 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();
 
         // Billing
-        services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
+        // Registered concretely as well: InvoiceWriter needs the machine-authorised creation path,
+        // which the user-facing interface deliberately does not expose.
+        services.AddScoped<Services.Billing.BillingService>();
+        services.AddScoped<Contracts.Services.Billing.IBillingService>(sp => sp.GetRequiredService<Services.Billing.BillingService>());
 
         // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)
         // so modules that cannot reference Finance (e.g. Aonik.Commerce) can bill and fund an order.

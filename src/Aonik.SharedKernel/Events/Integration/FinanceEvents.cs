@@ -90,44 +90,9 @@ public record ConversationSessionEndedEvent(
     Guid UserId,
     Guid ChatThreadId) : IIntegrationEvent;
 
-public record HouseholdCreatedEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid OwnerUserId) : IIntegrationEvent;
-
-public record HouseholdMemberInvitedEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid InvitedUserId,
-    Guid InvitedByUserId,
-    string Role) : IIntegrationEvent;
-
-public record HouseholdInvitationAcceptedEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
-
-public record HouseholdInvitationDeclinedEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
-
-public record HouseholdMemberRemovedEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid UserId,
-    Guid RemovedByUserId) : IIntegrationEvent;
-
-public record HouseholdMemberLeftEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
-
-public record HouseholdOwnershipTransferredEvent(
-    Guid TenantId,
-    Guid HouseholdId,
-    Guid PreviousOwnerUserId,
-    Guid NewOwnerUserId) : IIntegrationEvent;
+// The Household* membership events moved to GroupEvents.cs (Spec 086 §12). The two below stay:
+// they are about a personal-finance ACCOUNT being shared into a household, not about the membership
+// itself, so they belong with the module that owns accounts.
 
 public record HouseholdAccountSharedEvent(
     Guid TenantId,

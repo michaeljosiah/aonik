@@ -2,6 +2,7 @@ using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ledgers;
 using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
@@ -14,10 +15,16 @@ namespace Aonik.Finance.Services.Provisioning;
 internal class FinanceTenantProvisioningContributor : ITenantProvisioningContributor
 {
     private readonly FinanceDbContext _dbContext;
+    private readonly IReadOnlyList<ILedgerAccountContributor> _accountContributors;
 
-    public FinanceTenantProvisioningContributor(FinanceDbContext dbContext)
+    public FinanceTenantProvisioningContributor(
+        FinanceDbContext dbContext,
+        IEnumerable<ILedgerAccountContributor>? accountContributors = null)
     {
         _dbContext = dbContext;
+        // Spec 088 §5 — modules declare the accounts they post to; Finance still owns the chart.
+        // Optional so existing fixtures that construct this with just a DbContext keep compiling.
+        _accountContributors = accountContributors?.ToList() ?? [];
     }
 
     public string ModuleName => "Finance";
@@ -124,6 +131,8 @@ internal class FinanceTenantProvisioningContributor : ITenantProvisioningContrib
         {
             actions.Add("Limits policies already exist - skipped");
         }
+
+        chartOfAccountsCount += await EnsureContributedAccountsAsync(context, actions, cancellationToken);
 
         return new TenantProvisioningContribution(actions, ledgerCreated, chartOfAccountsCount, policiesCreated);
     }
@@ -239,5 +248,66 @@ internal class FinanceTenantProvisioningContributor : ITenantProvisioningContrib
                 CreatedBy = userId
             }
         ];
+    }
+
+    /// <summary>
+    /// Creates the accounts other modules declare (Spec 088 §5). Idempotent and additive: an
+    /// existing code is left exactly as it is — never renamed or retyped — because an operator may
+    /// have adjusted it deliberately, and silently rewriting an account a ledger already posts to
+    /// would rewrite history rather than correct it.
+    /// </summary>
+    private async Task<int> EnsureContributedAccountsAsync(
+        TenantProvisioningContext context,
+        List<string> actions,
+        CancellationToken cancellationToken)
+    {
+        if (_accountContributors.Count == 0)
+            return 0;
+
+        var ledger = await _dbContext.Ledgers
+            .FirstOrDefaultAsync(l => l.TenantId == context.TenantId, cancellationToken);
+
+        if (ledger is null)
+            return 0;
+
+        var existingCodes = await _dbContext.LedgerAccounts
+            .Where(a => a.TenantId == context.TenantId && a.LedgerId == ledger.Id)
+            .Select(a => a.Code)
+            .ToListAsync(cancellationToken);
+
+        var known = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+        var created = 0;
+
+        foreach (var contributor in _accountContributors)
+        {
+            foreach (var account in contributor.GetAccounts())
+            {
+                if (!known.Add(account.Code))
+                    continue;
+
+                _dbContext.LedgerAccounts.Add(new LedgerAccount
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    LedgerId = ledger.Id,
+                    Code = account.Code,
+                    Name = account.Name,
+                    AccountType = account.AccountType,
+                    DimensionsJson = "{}",
+                    CreatedAt = context.Now,
+                    CreatedBy = context.UserId
+                });
+
+                created++;
+            }
+
+            if (created > 0)
+                actions.Add($"Created ledger accounts contributed by {contributor.ModuleName}");
+        }
+
+        if (created > 0)
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return created;
     }
 }

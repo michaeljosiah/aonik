@@ -8,6 +8,9 @@ using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Entities.Production;
+using Aonik.Subscriptions.Entities.Catalogue;
+using Aonik.Subscriptions.Entities.Subscriptions;
+using Aonik.Subscriptions.Entities.Usage;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Documents.Entities;
@@ -38,6 +41,13 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
+// Spec 087 §3 warned that PersonalFinance.Subscription (a B2C bill-TRACKING record) shares its
+// name with the Subscriptions module's commercial agreement. The two meet here, so the SaaS one
+// is aliased — same treatment as LedgerEntity and PartyEntity above.
+using PlanSubscriptionEntity = Aonik.Subscriptions.Entities.Subscriptions.Subscription;
+// ...and the PersonalFinance one is aliased too, so neither side of the collision resolves by
+// import order. Its PUBLIC name stays `Subscriptions` because IAonikDbContext depends on it.
+using TrackedSubscriptionEntity = Aonik.PersonalFinance.Entities.Subscription;
 
 namespace Aonik.Infrastructure.Persistence;
 
@@ -109,6 +119,22 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
     // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
     public virtual DbSet<Product> Products { get; set; } = null!;
+
+    // Spec 087 - subscriptions catalogue. Module-scoped reads go through SubscriptionsDbContext;
+    // these sets exist so the canonical migration stream carries the tables.
+    public virtual DbSet<Meter> Meters { get; set; } = null!;
+    public virtual DbSet<Plan> Plans { get; set; } = null!;
+    public virtual DbSet<PlanVersion> PlanVersions { get; set; } = null!;
+    public virtual DbSet<PlanEntitlement> PlanEntitlements { get; set; } = null!;
+    public virtual DbSet<MeterOffer> MeterOffers { get; set; } = null!;
+    public virtual DbSet<PlanSubscriptionEntity> PlanSubscriptions { get; set; } = null!;
+    public virtual DbSet<SubscriptionPeriod> SubscriptionPeriods { get; set; } = null!;
+    public virtual DbSet<EntitlementGrant> EntitlementGrants { get; set; } = null!;
+    public virtual DbSet<UsageReservation> UsageReservations { get; set; } = null!;
+    public virtual DbSet<UsageReservationAllocation> UsageReservationAllocations { get; set; } = null!;
+    public virtual DbSet<UsageRecord> UsageRecords { get; set; } = null!;
+    public virtual DbSet<CeilingHolding> CeilingHoldings { get; set; } = null!;
+    public virtual DbSet<CeilingClaim> CeilingClaims { get; set; } = null!;
     public virtual DbSet<ProductVariant> ProductVariants { get; set; } = null!;
     public virtual DbSet<ProductCategory> ProductCategories { get; set; } = null!;
     public virtual DbSet<ProductMedia> ProductMedia { get; set; } = null!;
@@ -200,7 +226,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
     public virtual DbSet<BudgetLine> BudgetLines { get; set; } = null!;
     public virtual DbSet<Bill> Bills { get; set; } = null!;
-    public virtual DbSet<Subscription> Subscriptions { get; set; } = null!;
+    public virtual DbSet<TrackedSubscriptionEntity> Subscriptions { get; set; } = null!;
     public virtual DbSet<PersonalRecurringBill> PersonalRecurringBills { get; set; } = null!;
     public virtual DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
     public virtual DbSet<Goal> Goals { get; set; } = null!;
@@ -304,6 +330,14 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
         // Apply Commerce configurations from Aonik.Commerce assembly (Spec 042).
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Commerce.CommerceModule).Assembly);
+
+        // Apply Subscriptions configurations from Aonik.Subscriptions assembly (Spec 087).
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Subscriptions.SubscriptionsModule).Assembly);
+
+        // Apply Groups configurations from Aonik.Groups assembly (Spec 086). The entity types keep
+        // their Aonik.PersonalFinance.Entities namespace on relocation, so the model snapshot's
+        // fully-qualified names stay valid and the move itself needs no migration.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Groups.Persistence.GroupsDbContext).Assembly);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
@@ -411,6 +445,20 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
         // Commerce (Spec 042)
         MapCommerceTable<Product>(modelBuilder, "Products");
+
+        MapSubscriptionsTable<Meter>(modelBuilder, "Meters");
+        MapSubscriptionsTable<Plan>(modelBuilder, "Plans");
+        MapSubscriptionsTable<PlanVersion>(modelBuilder, "PlanVersions");
+        MapSubscriptionsTable<PlanEntitlement>(modelBuilder, "PlanEntitlements");
+        MapSubscriptionsTable<MeterOffer>(modelBuilder, "MeterOffers");
+        MapSubscriptionsTable<PlanSubscriptionEntity>(modelBuilder, "PlanSubscriptions");
+        MapSubscriptionsTable<SubscriptionPeriod>(modelBuilder, "SubscriptionPeriods");
+        MapSubscriptionsTable<EntitlementGrant>(modelBuilder, "EntitlementGrants");
+        MapSubscriptionsTable<UsageReservation>(modelBuilder, "UsageReservations");
+        MapSubscriptionsTable<UsageReservationAllocation>(modelBuilder, "UsageReservationAllocations");
+        MapSubscriptionsTable<UsageRecord>(modelBuilder, "UsageRecords");
+        MapSubscriptionsTable<CeilingHolding>(modelBuilder, "CeilingHoldings");
+        MapSubscriptionsTable<CeilingClaim>(modelBuilder, "CeilingClaims");
         MapCommerceTable<ProductVariant>(modelBuilder, "ProductVariants");
         MapCommerceTable<ProductCategory>(modelBuilder, "ProductCategories");
         MapCommerceTable<ProductMedia>(modelBuilder, "ProductMedia");
@@ -493,6 +541,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<Refund>(modelBuilder, "Refunds");
         MapFinanceTable<Chargeback>(modelBuilder, "Chargebacks");
         MapFinanceTable<PaymentMethod>(modelBuilder, "PaymentMethods");
+        // Spec 088 P4 - standing authorisations for unattended charging.
+        MapFinanceTable<PaymentMandate>(modelBuilder, "PaymentMandates");
 
         MapFinanceTable<Invoice>(modelBuilder, "Invoices");
         MapFinanceTable<InvoiceLine>(modelBuilder, "InvoiceLines");
@@ -552,7 +602,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<CategorisationRule>(modelBuilder, "CategorisationRules");
         MapFinanceTable<BudgetLine>(modelBuilder, "BudgetLines");
         MapFinanceTable<Bill>(modelBuilder, "Bills");
-        MapFinanceTable<Subscription>(modelBuilder, "Subscriptions");
+        MapFinanceTable<TrackedSubscriptionEntity>(modelBuilder, "Subscriptions");
         MapFinanceTable<PersonalRecurringBill>(modelBuilder, "PersonalRecurringBills");
         MapFinanceTable<DebtRepayment>(modelBuilder, "DebtRepayments");
         MapFinanceTable<Goal>(modelBuilder, "Goals");
@@ -623,6 +673,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     private static void MapCommerceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
         => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Commerce, tableName);
+
+    private static void MapSubscriptionsTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Default, tableName);
 
     private static void MapAiTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class

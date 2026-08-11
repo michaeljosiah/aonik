@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.Groups</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Spec 086 / ADR-015 — group membership and scoped sharing as platform capability.
+
+    A MIDDLE-LAYER module, not a slice inside Aonik.Platform, and that correction is forced rather
+    than stylistic. Platform already has a ProjectReference to Aonik.PersonalFinance, while
+    PersonalFinance deliberately references only SharedKernel (Spec 027 §10, "the load-bearing
+    absence"). Putting Groups in Platform would therefore require PersonalFinance -> Platform, which
+    inverts an existing edge and creates a cycle.
+
+    So Groups sits where Aonik.Ordering sits (Spec 041 / ADR-011): it references ONLY SharedKernel,
+    and Platform, PersonalFinance and Infrastructure depend on it downward. Consumers that need no
+    entity types keep using SharedKernel.Abstractions.Groups instead.
+
+    The canonical migration stream stays in AonikDbContext; GroupsDbContext declares no migrations.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Platform" />
+    <InternalsVisibleTo Include="Aonik.PersonalFinance" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+  </ItemGroup>
+
+</Project>
