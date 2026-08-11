@@ -71,7 +71,7 @@
 
 <header class="doc-meta">
   <span class="meta-tag">Capability brief</span>
-  <span class="meta-tag status">Draft Rev 1 — for review</span>
+  <span class="meta-tag status">Draft Rev 2 — for review</span>
   <span class="meta-tag client">Products: Arke Studio · Arke Kids</span>
   <span class="meta-tag">2026-08-11</span>
   <h1>Arke Studio &amp; Arke Kids on AONIK</h1>
@@ -508,7 +508,7 @@ to prevent.</code></pre>
       <td><strong>013</strong> Takes, review, the cut, audio and exports</td>
       <td><span class="chip product">PRODUCT</span><br><span class="chip mirror">MIRROR</span></td>
       <td><code>IFileStore</code> <span class="chip built">built</span><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
-      <td>The review and cut model is product. The <em>artefacts</em> are the platform's storage problem, and the sharpest one: takes are the largest files in a world and multiple takes of one shot are near-identical. Content addressing dedupes exactly this shape, which is a direct argument for Spec 089's design and a direct argument that the database must hold <strong>hashes and pointers only, never bytes</strong>.</td>
+      <td>The review and cut model is product. The <em>artefacts</em> are the platform's storage problem, and the sharpest one: takes are by far the largest files in a world. <strong>An earlier revision of this brief claimed content addressing dedupes them. It does not.</strong> SHA-256 dedupes byte-identical blobs; two independently generated takes of one shot are visually near-identical and byte-wise unrelated, as are two encodes of one source. Each costs full size. Dedupe pays on the <em>authoring</em> path — unchanged files across revisions, shared reference images, a workspace re-synced to a second machine — and barely at all on the media path. Price the byte ceiling accordingly (§12 R4). The database holding <strong>hashes and pointers only, never bytes</strong>, stands regardless.</td>
     </tr>
     <tr>
       <td><strong>019</strong> Long-form video, bound references, locked-parameter tasks</td>
@@ -760,7 +760,7 @@ to prevent.</code></pre>
       <td><strong>A child's world</strong></td>
       <td><span class="chip mirror">MIRROR</span></td>
       <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
-      <td>Same primitive as Studio, inverted: cloud is primary, local is the cache. <code>OwnerPartyId</code> can be a child who has no login — which is why the field is party-keyed and not user-keyed.</td>
+      <td>Same primitive as Studio, inverted: cloud is primary, local is the cache. <strong>In v1 the owner is the subscribing parent's party</strong>, not the child's — see the note under §8.2. The field is still party-keyed rather than user-keyed, which is what will let ownership move to the child once guardian authority exists (Spec 094).</td>
     </tr>
     <tr>
       <td><strong>Sharing a story with a grandparent</strong></td>
@@ -816,8 +816,19 @@ to prevent.</code></pre>
 <pre><code>ShareGrant
   ResourceKind = "workspace"          // what sort of thing
   ResourceIds  = [ &lt;guid&gt;, &lt;guid&gt; ]   // which ones
+  AccessLevel  = Read | Write | Owner // closed enum — the platform DOES read this,
+                                      //   and enforces it at its own endpoints
   TermsJson    = { … }                // opaque — the platform never reads it
   ExpiresAt, RevokedAt, SingleUse …   // the platform's own machinery</code></pre>
+
+<p class="small">
+  <strong>Note on <code>AccessLevel</code>:</strong> an earlier revision of this brief and of Spec 089 put
+  read-versus-write inside <code>TermsJson</code>, on the reasoning that a role is product vocabulary. That was
+  wrong in a way worth recording: the commit endpoint belongs to the platform, so a read-only recipient could
+  simply call it directly and the product-side check would be decoration. Authorisation for the platform's own
+  endpoints is the platform's job; <em>product semantics</em> — what "co-author" means, whether comments are
+  allowed — remain opaque in <code>TermsJson</code>. The seam moved to the right place rather than moving.
+</p>
 
 <p>
   The platform cannot validate <em>"does this owner own these ids?"</em> — it does not know what a
@@ -834,12 +845,31 @@ to prevent.</code></pre>
   </tbody>
 </table>
 
-<p><strong>Concretely, for Kids:</strong> a parent shares one child's story world with a grandparent.</p>
+<div class="callout risk">
+  <span class="label">First, a correction — an earlier revision of this example could not pass its own validation</span>
+  <p style="margin-top:0">
+    It assigned the world's <code>OwnerPartyId</code> to <strong>the child</strong>, then had <strong>the
+    parent</strong> create the grant. Step 2 below asks whether the granting party owns the workspace, and the
+    answer would have been <em>no</em>. The guardian relationship that would let a parent act for a child is
+    listed three rows above as <span class="chip gap">GAP</span> — so the example depended on the very thing it
+    acknowledged was missing.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>v1 resolution:</strong> the <strong>subscribing parent's party owns the workspace</strong>; the child
+    is a member of the family group with access to it. This is honest about who is accountable — the parent holds
+    the subscription, consents on the child's behalf, and can be contacted — and it needs nothing that does not
+    exist. Moving ownership to the child is a Spec 094 follow-up, and the field is party-keyed precisely so that
+    move is a data change rather than a schema one.
+  </p>
+</div>
+
+<p><strong>Concretely, for Kids:</strong> a parent shares a story world from their family with a grandparent.</p>
 
 <ol>
-  <li>Kids calls the platform: grant <code>workspace</code>, ids <code>[world-id]</code>, expires in 30 days, terms <code>{"canComment":true,"canDownload":false}</code>.</li>
-  <li>The platform asks <code>Aonik.Workspaces</code>: <em>does this party own <code>world-id</code>?</em> A query against its own table — no HTTP, no cross-module reference, no product callback.</li>
+  <li>Kids calls the platform: grant <code>workspace</code>, ids <code>[world-id]</code>, access <code>Read</code>, expires in 30 days, terms <code>{"canComment":true,"canDownload":false}</code>.</li>
+  <li>The platform asks <code>Aonik.Workspaces</code>: <em>does this party own <code>world-id</code>?</em> A query against its own table — no HTTP, no cross-module reference, no product callback. <strong>It resolves because the parent is the owner.</strong></li>
   <li>The platform issues a single-use invite, sends it, renders an anonymous preview, records the accept, and enforces expiry and revocation.</li>
+  <li>The grandparent's <code>Read</code> access is enforced <strong>by the platform, at the endpoint</strong> — they cannot commit even by calling the sync API directly (<a href="specifications/089.workspaces-and-sync.html">Spec 089</a> §10.1).</li>
   <li>Kids parses <code>TermsJson</code> and decides what "can comment" means. <strong>The platform never opens it.</strong></li>
 </ol>
 
@@ -1076,8 +1106,10 @@ to prevent.</code></pre>
 
 <div class="callout risk">
   <span class="label">R4 — Storage economics</span>
-  A world with video takes is plausibly gigabytes. Content addressing dedupes takes of one shot well,
-  but a flat monthly price against unbounded storage is a business model with a hole in it.
+  A world with video takes is plausibly gigabytes, and <strong>content addressing does not help with the takes</strong>
+  — it dedupes byte-identical blobs, and independently generated takes share no bytes (§6.3/013). Model the media
+  path as <strong>undeduplicated</strong>: a flat monthly price against unbounded storage is a business model with
+  a hole in it, and the hole is larger than an earlier revision of this brief implied.
   <strong>Set the byte ceiling before the first customer, not after.</strong> Quotas retrofitted onto
   users who already uploaded 200GB are a support problem, not an engineering one — which is
   <a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>'s stated reason for putting
@@ -1106,21 +1138,21 @@ to prevent.</code></pre>
     </tr>
     <tr>
       <td><strong>2</strong></td>
-      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> P1–P3 — the container, blobs, revisions</td>
+      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P1–P4</strong> — contracts, module and schema, blobs, revisions</td>
       <td>Storage</td>
-      <td>The model without the protocol. Testable in isolation, and it is where content addressing either proves out on real world sizes or does not.</td>
+      <td>The model without the protocol. Testable in isolation, and it is where content addressing either proves out on real world sizes or does not. P3 is the largest of the four: it must add the <code>StageAsync</code>/<code>PromoteAsync</code> pair to <code>IFileStore</code>, because the existing interface writes to a random GUID path and returns the hash only afterwards — it cannot write by content key.</td>
     </tr>
     <tr>
       <td><strong>3</strong></td>
-      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> P4–P5 — the sync protocol and divergence-as-proposal</td>
+      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P5</strong> — the sync protocol, divergence-as-proposal, crash-safe pull</td>
       <td>Model A</td>
-      <td>The highest-risk work in the plan. Do it with the model already stable underneath so a failure is diagnosably a protocol failure.</td>
+      <td>The highest-risk work in the plan. Do it with the revision model already stable underneath so a failure is diagnosably a protocol failure.</td>
     </tr>
     <tr>
       <td><strong>4</strong></td>
-      <td>Register <code>workspace</code> as a share kind; wire the count and byte meters</td>
+      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P6</strong> — register <code>workspace</code> as a share kind; enforce <code>AccessLevel</code>; wire the count and byte ceilings</td>
       <td>A + quota</td>
-      <td>Small, because 086 and 087 already did the work. This step is the payoff for the extractions.</td>
+      <td>Small, because 086 and 087 already did the work — this step is the payoff for the extractions. The one genuine addition is a <strong>weighted</strong> ceiling claim in <code>UsageMeter</code>, since claims are unit-valued today.</td>
     </tr>
     <tr>
       <td><strong>5</strong></td>
@@ -1172,7 +1204,7 @@ to prevent.</code></pre>
 </div>
 
 <footer>
-  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 1 · 2026-08-11<br>
+  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 2 (Codex round 1: 4 findings applied) · 2026-08-11<br>
   Enabling specifications:
   <a href="specifications/086.extract-groups-and-sharing-to-platform.html">086</a> ·
   <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">087</a> ·
