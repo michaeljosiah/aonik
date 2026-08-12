@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 090 - Offline-verifiable entitlement</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 090</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 4)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Subscriptions</span>
+  <h1>Offline-verifiable entitlement</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A paid feature in a local-first application must be checkable with <strong>no network</strong>. Today
+    <code>IEntitlementReader</code> is a live server read against <code>SubscriptionsDbContext</code>, which is
+    correct for a web product and unusable for a desktop one. This spec adds a signed, short-lived
+    <strong>entitlement token</strong> the client can verify by itself, and says plainly what happens when it
+    expires — because the two failure modes here are a licence anyone can forge and an application that stops
+    working on a flight, and both are easy to reach by accident.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#why">Why the server read is not enough</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#threat">What we are defending against</a></li>
+    <li><a href="#token">The token</a></li>
+    <li><a href="#keys">Keys and rotation</a></li>
+    <li><a href="#lifecycle">Issue, refresh, expiry</a></li>
+    <li><a href="#grace">Grace, and the day the network is gone</a></li>
+    <li><a href="#revocation">Revocation</a></li>
+    <li><a href="#metering">Metered credits are not entitlements</a></li>
+    <li><a href="#client">What the client must do</a></li>
+    <li><a href="#persistence">Persistence</a></li>
+    <li><a href="#contracts">Contracts</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> answers "what is this subscriber
+  entitled to?" with a database query. Arke Studio is <em>"free, MIT-licensed, local-first… nothing leaves the
+  machine except approved dispatches."</em> A commercial tier on top of it needs the same question answered on a
+  laptop with no connection.
+</p>
+
+<p>This spec adds:</p>
+
+<ul>
+  <li>An <strong>entitlement token</strong> — a compact, signed, short-lived statement of what a subscriber may do, verifiable with a public key alone.</li>
+  <li><strong>Ed25519 signing</strong> with published, rotatable public keys, so a client verifies without ever holding a secret.</li>
+  <li>A <strong>refresh lifecycle</strong> with an explicit <strong>grace window</strong> and a defined behaviour at its end.</li>
+  <li>A statement of what this mechanism <strong>cannot</strong> do — meter credits — and why that is correct rather than a gap.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The failure this spec exists to prevent</span>
+  A licence check that phones home on every launch turns an offline-capable product into an online one, and the
+  first flaky airport wifi turns a paying customer into an angry one. A licence check with no expiry turns one
+  leaked token into a permanent free tier. Everything below is the narrow path between those two.
+</div>
+
+<h2 id="why">2. Why the server read is not enough</h2>
+
+<table>
+  <thead><tr><th>Property</th><th><code>IEntitlementReader</code> today</th><th>Needed offline</th></tr></thead>
+  <tbody>
+    <tr><td>Answered by</td><td>A query against <code>SubscriptionsDbContext</code></td><td>The client, unaided</td></tr>
+    <tr><td>Requires network</td><td>Yes, every call</td><td>No, for days</td></tr>
+    <tr><td>Freshness</td><td>Exact — the row is the truth</td><td>Bounded staleness, deliberately chosen</td></tr>
+    <tr><td>Tamper resistance</td><td>Server-side; nothing to tamper with</td><td>Signature, because the artefact is on the user's disk</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The server read stays exactly as it is and remains authoritative. This spec adds a <em>projection</em> of it that
+  can travel — the same relationship a cached read has to its source, with the addition that this one is signed
+  because it lands somewhere the user controls.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+<ul>
+  <li>Token format, claims, signing and verification.</li>
+  <li>Key generation, publication, rotation and revocation.</li>
+  <li>Issue and refresh endpoints; the grace window and its expiry behaviour.</li>
+  <li>Device binding, and its deliberate limits.</li>
+  <li>The revocation list and why it is small by design.</li>
+  <li>The client-side verification contract, as a specification other codebases implement.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Offline metering of credits.</strong> See <a href="#metering">§10</a> — this is a correctness boundary, not a deferral.</li>
+  <li><strong>Anti-tamper, obfuscation or anti-debugging.</strong> The client is MIT-licensed and open; pretending otherwise would be theatre. See <a href="#threat">§4</a>.</li>
+  <li><strong>Per-seat hardware locking.</strong> Device binding is a friction, not a boundary.</li>
+  <li><strong>A new identity system.</strong> Tokens are issued to an authenticated subscriber through the existing IdP.</li>
+</ul>
+
+<h2 id="threat">4. What we are defending against</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Say the quiet part first</span>
+  The desktop client is <strong>MIT-licensed and open source</strong>. Anyone determined can delete the check and
+  compile their own build. No signing scheme changes that, and a spec that pretends otherwise leads to expensive
+  obfuscation work that buys nothing.
+</div>
+
+<p>So the goal is not "unbreakable". It is:</p>
+
+<table>
+  <thead><tr><th>Defended</th><th>Not defended</th></tr></thead>
+  <tbody>
+    <tr><td>Editing a JSON file on disk to grant yourself Pro</td><td>Recompiling the client with the check removed</td></tr>
+    <tr><td>Copying one customer's token to a hundred machines, indefinitely</td><td>One person using their own licence on a machine we did not expect</td></tr>
+    <tr><td>Continuing to use a paid tier months after cancelling or charging back</td><td>Continuing for the remainder of a paid period, which is correct anyway</td></tr>
+    <tr><td>A support burden of "why did my licence stop working" caused by us</td><td>Determined piracy, which is a pricing and goodwill problem, not a cryptographic one</td></tr>
+  </tbody>
+</table>
+
+<p>
+  In other words: make the honest path effortless and the casual dishonest path pointless. Everything beyond that
+  costs more than it returns.
+</p>
+
+<h2 id="token">5. The token</h2>
+
+<p>
+  A compact JSON payload with an Ed25519 signature — deliberately <em>not</em> a general-purpose JWT
+  library dependency on the client, because verification must be a hundred lines a reviewer can read.
+</p>
+
+<pre><code>{
+  "v":    1,
+  "jti":  "&lt;uuid — unique per issued token&gt;",
+  "rvh":  "&lt;random per-subscriber revocation handle — §9.1&gt;",
+  "sub":  "&lt;subscriber kind&gt;:&lt;subscriber id&gt;",
+  "tid":  "&lt;tenant id&gt;",
+  "plan": "studio-pro",
+  "feat": ["long-form-video", "cloud-sync", "voice-hd"],
+  "lim":  { "workspaces": 25, "workspace-bytes": 214748364800 },
+  "use":  { "workspaces": 18, "workspace-bytes":  91234567890 },
+  "iat":  1786...,
+  "exp":  1786...,
+  "gra":  1786...,
+  "dev":  "&lt;device fingerprint, optional&gt;",
+  "kid":  "2026-08-a"
+}</code></pre>
+
+<table>
+  <thead><tr><th>Claim</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>jti</code> <span class="tag new">added Rev 2</span></td><td>Unique per issued token. <strong>Without it, §9's per-token revocation cannot work at all</strong> — the client would have no way to correlate the token it holds with a token-specific revocation entry, leaving only subscriber-wide revocation. It is also what links a token to its audit row, which is what makes "one token on a hundred machines" observable.</td></tr>
+    <tr><td><code>rvh</code> <span class="tag new">added Rev 4</span></td><td>Random per-subscriber revocation handle, rotated on each refresh. It is what lets subscriber-wide revocation be published <strong>without publishing who was revoked</strong> — only a holder of the token can compute the handle to look up (<a href="#privacy">§9.1</a>).</td></tr>
+    <tr><td><code>feat</code></td><td>Flag meters, resolved. The client asks "may I?" and never re-derives it from a plan name.</td></tr>
+    <tr><td><code>lim</code></td><td>Ceiling meters, resolved to numbers. Enough to refuse a 26th workspace offline — <em>on this device</em>; see <a href="#provisional">§11.1</a> for why that qualifier is load-bearing.</td></tr>
+    <tr><td><code>use</code> <span class="tag new">added Rev 3</span></td><td><strong>Advisory snapshot</strong> of ceiling <em>usage across all devices</em> at the moment of issue. Rev 2's §11.1 promised the refreshed token would carry "the true count" and then specified a payload that could not — this is that promise made real. <strong>Never authoritative</strong>: it may only make the client refuse or warn <em>earlier</em>, and may never be used to permit anything the server has not confirmed. See <a href="#use-not-counter">below</a> for why this is not the counter §10 prohibits.</td></tr>
+    <tr><td><code>exp</code></td><td>When the token stops being fresh. Short — days, not months.</td></tr>
+    <tr><td><code>gra</code></td><td>When the <em>grace</em> ends. Long — see <a href="#grace">§8</a>.</td></tr>
+    <tr><td><code>dev</code></td><td>Optional device fingerprint. Present so a token copied to a hundred machines is visible, not so it is impossible. <strong>It is only a control if the verifier compares it</strong> — <a href="#client">§11</a> step 4.</td></tr>
+    <tr><td><code>kid</code></td><td>Which public key verifies this. Rotation without invalidating everything.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="wire">5.1 The wire format, specified to the byte</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "a detached Ed25519 signature" is not an interoperable specification</span>
+  <p style="margin-top:0">
+    An earlier draft described the format in prose and then asked, in its acceptance criteria, that an
+    independent implementation in a second language verify the same tokens. Those two things were incompatible.
+    The prose fixed neither the envelope, nor the exact bytes covered by the signature, nor the character
+    encoding, nor the signature encoding, nor — the one that silently breaks everything —
+    <strong>whether the JSON is verified as received or re-serialised first</strong>.
+  </p>
+  <p style="margin-bottom:0">
+    Two correct implementations would then disagree about key order, whitespace and number formatting, and
+    reject each other's valid tokens. That failure appears only when the second implementation is written,
+    which is long after the format has shipped.
+  </p>
+</div>
+
+<p><strong>The token is a single ASCII string in exactly two parts:</strong></p>
+
+<pre><code>token = SIGNING_INPUT "." BASE64URL(signature)
+
+SIGNING_INPUT  BASE64URL(payload_bytes) — the LEFT-HAND PART OF THE TOKEN,
+               variable length, EXACTLY AS TRANSMITTED
+
+payload_bytes  UTF-8 encoding of the JSON object, with no BOM
+
+signature      Ed25519 over ALL the ASCII bytes of SIGNING_INPUT — every byte
+               up to but NOT including the "." separator. Never over
+               payload_bytes, never over a re-serialisation, and never over a
+               fixed-length prefix of any kind.
+
+BASE64URL      RFC 4648 §5, unpadded ("-" and "_", no "=")</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">Correction — an earlier Rev 2 draft said "the 64 ASCII-safe bytes"</span>
+  <strong>64 is the length of an Ed25519 <em>signature</em>, not of the encoded payload</strong>, which is variable
+  and far longer than 64 bytes for any real token. An implementer following that sentence literally would have
+  signed only a 64-byte prefix and failed every conforming verifier — and in an interoperability specification
+  that is exactly the class of error that survives until someone writes the second implementation. The message is
+  <strong>all</strong> the bytes of <code>SIGNING_INPUT</code>.
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Why signing the encoded part, not the JSON, removes the entire problem</span>
+  <strong>Canonicalisation is not required and must not be attempted.</strong> The verifier splits on the single
+  <code>"."</code>, verifies the signature over the left-hand substring <em>exactly as it arrived</em>, and only
+  then base64url-decodes and parses it for use. Key order, whitespace and number formatting become irrelevant,
+  because no implementation ever re-encodes anything. This is the one design choice that makes a second-language
+  implementation genuinely mechanical — and it is the same reason JWS is specified this way.
+</div>
+
+<h4 id="twopass">The two passes over the payload, and the rule that makes them safe</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the prescribed order was impossible to execute</span>
+  Rev 2 told the client to <em>"verify the signature against the public key named by <code>kid</code> … only then
+  decode and parse."</em> But <code>kid</code> lives <strong>inside the encoded payload</strong>. You cannot select
+  the verification key without decoding, and you were told not to decode before verifying. The algorithm had a
+  circular dependency, and an implementer would have resolved it however seemed natural — which is precisely the
+  divergence §5.1 exists to prevent.
+</div>
+
+<p>
+  The format keeps <code>kid</code> in the payload rather than adding a third header part, so the resolution is to
+  make the two passes <strong>explicit and asymmetric</strong>:
+</p>
+
+<pre><code>PASS 1 — UNTRUSTED, for key selection ONLY
+  decode SIGNING_INPUT, parse JSON, read "kid" AND NOTHING ELSE.
+  A payload that will not decode or parse -> reject.
+  An unknown or absent "kid"              -> reject.
+  No other claim may be read, cached, logged or acted upon in this pass.
+
+PASS 2 — verify
+  Ed25519 over ALL bytes of SIGNING_INPUT with the key named by that kid.
+  Failure -> reject. Nothing from PASS 1 survives a failure.
+
+PASS 3 — TRUSTED
+  Re-read EVERY claim, including "kid", from the now-verified payload.
+  If the re-read "kid" differs from the one used in PASS 1 -> reject.</code></pre>
+
+<p>
+  The pass-3 re-read of <code>kid</code> is not redundant paranoia: it is what makes pass 1's untrusted read
+  unable to influence the outcome. An attacker controls the whole payload before verification, so the only safe
+  posture is that pass 1 selects a <em>candidate</em> key and nothing more, and every decision is made from bytes
+  a signature has already covered. This is the same discipline JWS applies to its protected header.
+</p>
+
+<ul>
+  <li><strong>Rejection rules.</strong> More or fewer than two parts; any character outside the base64url alphabet; padding present; a payload that is not a JSON object; an unrecognised <code>v</code>. All are rejected before parsing, with no partial acceptance.</li>
+  <li><strong>Unknown claims are ignored</strong>, so claims can be added without breaking old clients. Unknown <code>kid</code> is <em>not</em> ignored — it is a hard failure (<a href="#keys">§6</a>).</li>
+  <li><strong>Timestamps</strong> are integer seconds since the Unix epoch, UTC. Never strings, never milliseconds.</li>
+  <li><strong>Test vectors</strong> ship in P4: a valid token, one with a flipped payload byte, one with a flipped signature byte, one with padding, one with an unknown <code>kid</code>, one expired, one in grace. An implementation is conformant when all seven produce the specified verdict — and each vector ships <strong>with its verifying key in the published encoding below</strong>, since a vector whose key cannot be loaded proves nothing.</li>
+</ul>
+
+<h4 id="keyset">The published key set, also specified to the byte</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a byte-precise token is useless with an ambiguous key</span>
+  §5.1 pinned the token down to the byte and then left the <em>other</em> half of verification unspecified: how
+  <code>kid</code> maps to key bytes, and whether an Ed25519 public key is raw 32-byte material,
+  SubjectPublicKeyInfo, PEM, base64 or base64url. An independent client can therefore implement the token format
+  perfectly and <strong>still be unable to load the key</strong> — which fails the same acceptance criterion, at
+  the same late moment, for the same reason.
+</div>
+
+<pre><code>GET /entitlement/keys        (public, unauthenticated, cacheable)
+
+{
+  "version": 7,                      // monotonic; a LOWER version is IGNORED (§6)
+  "keys": [
+    { "kid": "2026-08-a",
+      "alg": "Ed25519",
+      "key": "&lt;BASE64URL of the RAW 32-byte public key, unpadded&gt;" }
+  ],
+  "sig": "&lt;BASE64URL of the root-key Ed25519 signature&gt;"
+}</code></pre>
+
+<ul>
+  <li><strong>Raw 32-byte keys</strong>, base64url-unpadded — not SPKI, not PEM. Every Ed25519 library accepts raw key material; not all agree on wrapper parsing, and a wrapper buys nothing when the algorithm is fixed at one value.</li>
+  <li><strong>The root signature covers the canonical serialisation of <code>version</code> and <code>keys</code></strong>, using the same trick as §5.1: the response carries the exact signed bytes so no client re-serialises to verify.</li>
+  <li><strong>The set is global, not tenant-scoped.</strong> Tenant-scoping the keys would leak which tenants exist to an unauthenticated caller, and a public key is not a secret — the tenant appears in <code>tid</code> inside the token, where it is signed.</li>
+  <li><strong>The list is complete, never a delta</strong> — that is what makes absence meaningful and withdrawal enforceable (<a href="#keys">§6</a>).</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Counters are conspicuously absent</span>
+  There is no credit balance in the token, and that is <a href="#metering">§10</a>'s subject. A number that can be
+  spent cannot be safely stated in an artefact the spender holds.
+</div>
+
+<h3 id="use-not-counter">5.2 Why <code>use</code> is a level, not a balance</h3>
+
+<p>
+  Adding a usage figure to a token that pointedly excludes credit balances needs justifying, because the two look
+  alike and are not.
+</p>
+
+<table>
+  <thead><tr><th></th><th><code>use</code> — a ceiling level</th><th>A credit balance — prohibited</th></tr></thead>
+  <tbody>
+    <tr><td>What the client does with it</td><td><strong>Refuses earlier.</strong> It can only ever be more restrictive than no knowledge at all.</td><td><strong>Spends it.</strong> Permission to act is derived from it.</td></tr>
+    <tr><td>Where the real check happens</td><td>Server-side at claim time, under <code>RowVersion</code> compare-and-increment. Always.</td><td>Nowhere — the client's copy <em>is</em> the decision.</td></tr>
+    <tr><td>Effect of a stale value</td><td>The client is wrong in the customer's favour and the server corrects it on the next claim.</td><td>The customer spends the same credits twice — on two machines, or by restoring yesterday's file.</td></tr>
+    <tr><td>Effect of tampering</td><td>Nothing is gained. Editing <code>use</code> down does not create workspace slots; the server still refuses.</td><td>Everything is gained. Editing the balance up is free money.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">The test that separates them</span>
+  <strong>Ask what a forged value buys.</strong> A forged credit balance buys compute the customer has not paid
+  for, because nothing downstream re-checks it. A forged <code>use</code> buys nothing at all, because the ceiling
+  claim is enforced server-side at the moment of creation and an offline creation is provisional until it is
+  (<a href="#provisional">§11.1</a>). That asymmetry is the whole distinction, and it is why this claim can be
+  carried while a balance cannot.
+</div>
+
+<h2 id="keys">6. Keys and rotation</h2>
+
+<ul>
+  <li><strong>Ed25519.</strong> Small signatures, small keys, no parameter choices to get wrong.</li>
+  <li>The <strong>private key never leaves the server</strong> and is held through the existing <code>ISettingValueProtector</code> / DataProtection path.</li>
+  <li><strong>Public keys ship with the client</strong> <em>and</em> are fetchable, so a rotation reaches an old build without an update.</li>
+  <li><code>kid</code> selects the key. Several are valid at once, which is what makes rotation a non-event.</li>
+  <li>A compromised key is <strong>withdrawn</strong>: removed from the published set, and every token bearing its <code>kid</code> fails verification at the next check.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — withdrawal does not reach a key that shipped inside the client</span>
+  <p style="margin-top:0">
+    Those last two bullets contradict each other and Rev 3 did not notice. Keys are <strong>bundled with the
+    client</strong> so rotation reaches old builds — which means removing a compromised key from the published
+    set <strong>does not remove it from the binary</strong>. At the next online check the client resolves the same
+    <code>kid</code> from its bundled fallback and <strong>keeps accepting forged tokens signed with the leaked
+    private key</strong>, indefinitely, for every build that shipped before the compromise.
+  </p>
+  <p style="margin-bottom:0">
+    This is the one failure the whole key-management section exists to prevent, and the bundling that makes
+    rotation painless is exactly what breaks it. Absence from the fetched set has to be <strong>authoritative and
+    persisted</strong>, not merely absent.
+  </p>
+</div>
+
+<ul>
+  <li>The published key set is <strong>versioned and complete</strong> — it is the full list of valid keys, not a delta — and it is signed by a <strong>long-lived root key</strong> so a client can tell a genuine withdrawal from a stripped or spoofed response.</li>
+  <li><strong>Bundled keys are a bootstrap, never an authority.</strong> They are used only until the first successful fetch; after that the fetched set wins outright.</li>
+  <li>A <code>kid</code> present in the bundle but <strong>absent from a fetched set of higher version</strong> is written to a local <strong>withdrawn-key tombstone</strong> and never used again, offline or online.</li>
+  <li>A fetched set with a version lower than the one already stored is <strong>ignored</strong>, so an attacker cannot roll a client back to a set that still contains the compromised key.</li>
+  <li>The root key's own compromise is out of scope and is handled the way it always is: a client update. It signs nothing but key sets, is used rarely, and can be held far more carefully than a signing key used every few days.</li>
+</ul>
+
+<h3 id="retirement">6.1 The safe-retirement invariant</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "several keys valid at once" does not by itself make rotation safe</span>
+  <p style="margin-top:0">
+    Overlapping keys stop a rotation invalidating tokens <em>at the moment of rotation</em>. They say nothing
+    about <strong>retirement</strong>. If a signing key reaches its <code>NotAfter</code>, or is dropped from the
+    published set, while tokens it signed are still inside their grace window, then every offline paying customer
+    holding one silently degrades to the free tier — <strong>with a valid, unexpired, unrevoked token in hand</strong>.
+  </p>
+  <p style="margin-bottom:0">
+    It would look exactly like a licensing bug to the customer and exactly like correct rotation to us, and it
+    would land on the users least able to recover: the ones who are offline.
+  </p>
+</div>
+
+<p>The invariant, which is a scheduling rule rather than a mechanism:</p>
+
+<pre><code>A non-compromised verification key MUST remain published until
+
+    max(gra) over every token it has ever signed
+
+has passed. With exp = 7d and gra = 30d, a key stops SIGNING at T and
+stops VERIFYING no earlier than T + 30d.</code></pre>
+
+<ul>
+  <li><code>NotAfter</code> on <code>AnkEntitlementSigningKeys</code> therefore has <strong>two distinct meanings</strong> and needs two fields: <code>SigningNotAfter</code> (stop issuing with this key) and <code>VerifyNotAfter</code> (stop publishing it), with the second at least the maximum grace beyond the first.</li>
+  <li>The audit rows make this computable rather than assumed: the true retirement date is <code>MAX(GraceUntil)</code> across <code>AnkEntitlementTokenIssues</code> for that <code>kid</code>.</li>
+  <li>
+    <strong>The bound is enforced at <em>issue</em> time, not only when <code>VerifyNotAfter</code> is written.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — checking on write leaves the key still signing behind your back</span>
+      Validating <code>VerifyNotAfter</code> when that field is set says nothing about the tokens signed
+      <em>afterwards</em>. The key is still active, so a later token can be issued with a <code>GraceUntil</code>
+      <strong>beyond the stored deadline</strong> — and this is not hypothetical: it happens the moment anyone
+      lengthens the tenant's grace window, which is an ordinary, well-intentioned configuration change. A
+      retirement computed yesterday then silently invalidates a token issued today, during its grace, offline,
+      for a paying customer.
+      <br><br>
+      Issuance therefore <strong>atomically</strong> requires <code>newGraceUntil &lt;= VerifyNotAfter</code>, or
+      extends <code>VerifyNotAfter</code> in the same transaction. And retirement <strong>serialises against
+      in-flight issuance</strong> under the key row's <code>RowVersion</code>, so the check cannot be read by one
+      operation while the other is committing — otherwise the race simply moves rather than closing.
+    </div>
+  </li>
+  <li><strong>Compromise is the deliberate exception.</strong> A leaked private key is withdrawn immediately and the breakage is accepted, because the alternative is honouring forged tokens. That is a decision to make loudly, with support forewarned — not a scheduled event.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">A shipped public key is not a secret and must not be treated as one</span>
+  It verifies; it cannot sign. The mistake to avoid is deriving anything else from it — an obfuscated "secret" in
+  the client is a secret published to everyone who runs <code>strings</code>.
+</div>
+
+<h2 id="lifecycle">7. Issue, refresh, expiry</h2>
+
+<ol>
+  <li><strong>Issue.</strong> The client authenticates through the existing IdP and requests a token. The server reads entitlement exactly as <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> does today, projects it, signs it.</li>
+  <li><strong>Store.</strong> The client keeps the token on disk. It is not a secret — it says what someone bought — but it is bound and short-lived.</li>
+  <li><strong>Refresh.</strong> Opportunistically, well before <code>exp</code>, whenever the network happens to be there. Never on a blocking path, never as a launch gate.</li>
+  <li><strong>Expire.</strong> After <code>exp</code> the token is stale but still honoured until <code>gra</code>.</li>
+  <li><strong>Lapse.</strong> After <code>gra</code>, paid features are unavailable. See below for exactly what that means.</li>
+</ol>
+
+<h2 id="grace">8. Grace, and the day the network is gone</h2>
+
+<div class="callout ok">
+  <span class="callout-label">The rule that decides the product's character</span>
+  <strong>Lapsing removes paid features. It never removes the user's work, and it never removes the free product.</strong>
+  Arke Studio without a subscription is Arke Studio — the thing that exists today, free and MIT. A lapsed token
+  returns the user to that, with every world still on their disk and every file still readable.
+</div>
+
+<table>
+  <thead><tr><th>State</th><th>Window</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td>Fresh</td><td>until <code>exp</code></td><td>Everything works. No network needed.</td></tr>
+    <tr><td>Stale</td><td><code>exp</code> → <code>gra</code></td><td>Everything still works. The client mentions, quietly and once, that it would like to check in.</td></tr>
+    <tr><td>Lapsed</td><td>after <code>gra</code></td><td>Paid features off. Local authoring, all worlds, all files: unchanged. Cloud sync pauses; it does not delete.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Suggested defaults: <code>exp</code> at <strong>7 days</strong>, <code>gra</code> at <strong>30</strong>. Long
+  enough for a holiday, a hospital stay or a bad month of connectivity; short enough that a cancelled subscription
+  does not fund a year of use. Both configurable per tenant, because a studio on a locked-down network is a
+  different case from a hobbyist.
+</p>
+
+<h2 id="revocation">9. Revocation</h2>
+
+<p>
+  Short expiry <em>is</em> the revocation mechanism for almost everything: cancel today, and within a week the
+  token stops refreshing and within a month it lapses. A published revocation list exists only for the cases where
+  a week is too long — chargeback fraud, a leaked token in circulation, an account compromise.
+</p>
+
+<ul>
+  <li>Published alongside the public keys, and carrying <strong>opaque handles</strong> rather than <code>jti</code> or subscriber identifiers — see <a href="#privacy">§9.1</a>.</li>
+  <li>Consulted <strong>when the client is online anyway</strong>. Never a launch gate; an offline client cannot fetch it and must not be punished for that.</li>
+  <li>A match is <strong>persisted as a local tombstone</strong> so going offline cannot undo it (<a href="#client">§11</a>).</li>
+  <li><strong>Small by design.</strong> A list that grows without bound is a list nobody ships. Entries are removed once the token they revoke would have expired regardless.</li>
+</ul>
+
+<h3 id="privacy">9.1 A public list must not name subscribers</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the list and the tenancy model were designed separately, and they conflict</span>
+  <p style="margin-top:0">
+    Rev 3 made the list public and unauthenticated (correctly — an attacker's client must be able to fetch it),
+    and keyed it on <code>jti</code> <em>or subscriber</em>. Put together, that <strong>publishes which
+    subscribers have been revoked</strong>, and revocation is reserved for chargeback fraud, account compromise
+    and leaked credentials. The status is inherently sensitive.
+  </p>
+  <p style="margin-bottom:0">
+    Opacity of the identifier is not the defence: subscriber ids are obtainable through ordinary platform
+    interactions, so anyone holding one can test it against the list. And in the <strong>Arke Kids topology one
+    tenant holds many unrelated families</strong> — so this is a family learning something about another family,
+    not an abstract disclosure.
+  </p>
+</div>
+
+<p>The list therefore publishes <strong>handles nobody can compute without already holding the token</strong>:</p>
+
+<pre><code>token revocation      handle = SHA-256("rvk-t" || jti)
+subscriber revocation handle = SHA-256("rvk-s" || rvh)
+
+rvh   a per-subscriber RANDOM revocation handle, minted at subscription
+      creation, carried as a signed claim in every token, and ROTATED on
+      each issue-with-refresh so an old leaked token cannot be used to
+      watch a subscriber's status over time.</code></pre>
+
+<ul>
+  <li><strong>A client checks by computing its own two handles</strong> from claims it already holds, and looking them up. No identifier is ever sent to the server, so the check works unauthenticated and reveals nothing by being made.</li>
+  <li><strong>Someone without a token learns nothing.</strong> <code>jti</code> and <code>rvh</code> are random, so the handles cannot be enumerated or guessed from a known subscriber id — which is exactly the correlation the raw list allowed.</li>
+  <li><strong>Subscriber-wide revocation still works</strong>, because <code>rvh</code> is stable across the tokens outstanding at the moment of revocation — the case it exists for, where an attacker may hold several.</li>
+  <li>An authenticated per-subscriber lookup was considered and rejected: the client that most needs to check is the one that <em>cannot</em> authenticate, which is the mistake <a href="#client">§11</a> just finished correcting.</li>
+</ul>
+
+<h2 id="metering">10. Metered credits are not entitlements</h2>
+
+<div class="callout p0">
+  <span class="callout-label">A hard boundary, not a phase-two item</span>
+  A <strong>flag</strong> ("may use long-form video") and a <strong>ceiling</strong> ("at most 25 workspaces") are
+  statements that stay true until the subscription changes, so they travel safely in a signed artefact.
+  A <strong>counter</strong> ("1,200 credits remaining") is a number that changes every time it is used — and an
+  offline client holding it can spend the same credits on two machines, or restore yesterday's file and spend them
+  again. That is not a bug to fix with better client code; it is what an offline balance <em>is</em>.
+</div>
+
+<p>Therefore:</p>
+
+<ul>
+  <li><strong>Counter meters are never issued offline.</strong> The token carries flags and ceilings only.</li>
+  <li><strong>Anything that spends credits requires the network</strong> — which is already true, because it calls a provider.</li>
+  <li><strong>Local dispatch on the user's own provider keys is unmetered by us</strong>, and should be. They are spending their own money with FAL; AONIK has no claim on it and no business counting it.</li>
+</ul>
+
+<p>
+  This is what makes the whole design honest: the offline story covers what the user <em>may do</em>, and the
+  online story covers what they <em>spend</em>. Trying to make one mechanism carry both is where offline licensing
+  schemes go wrong.
+</p>
+
+<h2 id="client">11. What the client must do</h2>
+
+<p>
+  The client is a separate codebase — possibly not even C#. This section is the specification it implements, and it
+  is short on purpose.
+</p>
+
+<ol>
+  <li>Split on the single <code>"."</code>, then run the <strong>three passes</strong> of <a href="#twopass">§5.1</a>: an untrusted decode that reads <code>kid</code> and nothing else, Ed25519 verification over <em>all</em> bytes of the left-hand part exactly as received, then a trusted re-read of every claim from the verified payload. Reject an unknown <code>kid</code>.</li>
+  <li>Reject a token whose <code>sub</code> or <code>tid</code> does not match the signed-in subscriber.</li>
+  <li>Compare <code>exp</code> and <code>gra</code> against the system clock, then apply <a href="#grace">§8</a>.</li>
+  <li><strong>If <code>dev</code> is present, compare it with the current device fingerprint and refuse the token on mismatch</strong> — see below.</li>
+  <li>Enforce <code>lim</code> against <em>locally visible</em> holdings only, and treat the result as provisional (<a href="#provisional">§11.1</a>).</li>
+  <li>Treat a missing, malformed or unverifiable token as <strong>free tier</strong> — never as an error, and never as a reason to refuse to start.</li>
+  <li>Refresh opportunistically and in the background. Never block the UI on it.</li>
+  <li><strong>Independently of refresh</strong>, whenever the network is reachable, fetch the revocation list and compare the held token against <strong>both</strong> its <code>jti</code> <strong>and</strong> its <code>sub</code> (<a href="#revocation">§9</a>). See below — this ordering is load-bearing.</li>
+</ol>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the revocation check must not depend on refresh succeeding</span>
+  <p style="margin-top:0">
+    Rev 2 attached the revocation check to a <em>successful refresh</em>. That defeats it in the one scenario it
+    exists for. A copied or leaked token is being used by someone <strong>who does not have the subscriber's IdP
+    session</strong> — so their refresh cannot succeed, so under that ordering they would never consult the
+    revocation list at all, and the revoked token would stay usable for the whole grace window. The check was
+    gated on the very thing an attacker cannot do.
+  </p>
+  <p style="margin-bottom:0">
+    It also only mentioned <code>jti</code>, while §9 supports subscriber-wide revocation for account compromise —
+    which is the case where the attacker may hold <em>several</em> tokens and revoking one at a time is useless.
+  </p>
+</div>
+
+<ul>
+  <li>The revocation list is <strong>public and unauthenticated</strong> — it carries opaque handles, never raw identifiers (<a href="#privacy">§9.1</a>) — so fetching it needs no session and cannot be blocked by lacking one.</li>
+  <li>It is fetched <strong>opportunistically whenever online</strong>, on the same trigger as refresh but not conditional on it, and either match refuses the token immediately.</li>
+  <li>It is <strong>never consulted offline</strong> and its absence is never a reason to degrade — an offline client cannot fetch it and must not be punished for that (<a href="#revocation">§9</a>).</li>
+  <li><strong>A detected revocation is written down locally, or going offline undoes it.</strong> See below.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "refuse it immediately" lasts exactly until the process restarts</span>
+  <p style="margin-top:0">
+    Rev 3 said an online match refuses the token, and stopped there. But the <strong>token file on disk is
+    unchanged</strong>, and offline verification consults only the signature and the timestamps. So whoever holds
+    a leaked token simply <strong>disconnects and restarts</strong>: the token verifies normally and stays usable
+    for the whole grace window. Detection was purely in memory, and the one action available to an attacker
+    trivially reverses it.
+  </p>
+  <p style="margin-bottom:0">
+    Worse, it inverts the intended incentive — going <em>offline</em> becomes the way to escape revocation, in a
+    product whose whole premise is working offline.
+  </p>
+</div>
+
+<ul>
+  <li><strong>On a match, delete the stored token</strong> and write a local <strong>revocation tombstone</strong> recording the revoked handle.</li>
+  <li><strong>Offline verification consults the tombstones first</strong>, before signature checking. A tombstoned token is refused with no network, permanently, and re-obtaining the same token file does not help.</li>
+  <li>Tombstones are swept once the token they name would have passed <code>gra</code> anyway — after that the token is refused on its own terms and the record is dead weight.</li>
+  <li>Removing the tombstone file is of course possible on a machine the user controls. That is <a href="#threat">§4</a>'s accepted boundary: it is one more step, on a client that could be recompiled instead, and it is not a reason to leave detection in memory where a restart clears it for free.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Step 4 was missing, and an unchecked claim is worse than an absent one</span>
+  An earlier draft listed <code>dev</code> as a claim whose purpose was to make copying visible, then specified a
+  verifier that checked only signature, subscriber, tenant and timestamps. The token would therefore pass
+  unchanged on any machine, and the issue audit row records only the original issuance — so <strong>neither half
+  of the advertised control existed</strong>. A claim nobody checks is not a weak control; it is a documented
+  control that is absent, which is how a mitigation gets counted twice in a threat model.
+  <br><br>
+  Either the verifier compares it, or the claim and every copy-detection statement in this spec come out. This
+  revision takes the first option — while keeping <a href="#threat">§4</a>'s honesty: a modified open-source
+  client can report any fingerprint it likes. <code>dev</code> stops a <em>file</em> being copied between
+  machines. It does not stop someone who edits the client, and it is not claimed to.</div>
+
+<h3 id="provisional">11.1 Offline ceiling checks are provisional, and must say so</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a ceiling is global; an offline client sees one device</span>
+  <p style="margin-top:0">
+    <code>lim</code> was described as <em>"enough to refuse a 26th workspace offline."</em> It is not. The ceiling
+    counts the subscriber's workspaces <strong>everywhere</strong>; an offline client can only see the ones on the
+    machine it is running on. On a second or freshly-installed device the local count starts at zero, so the client
+    happily admits <strong>another</strong> twenty-five — and the customer discovers the problem only at the next
+    sync, as a quota rejection on work they have already done.
+  </p>
+  <p style="margin-bottom:0">
+    That is the worst possible ordering: the refusal arrives after the effort, not before it.
+  </p>
+</div>
+
+<ul>
+  <li><strong>Offline creation is provisional.</strong> A workspace created while offline is marked as such locally, and the client says so plainly — <em>"will be confirmed when you next connect"</em> — rather than implying an entitlement it cannot check.</li>
+  <li><strong>The authoritative claim happens on first sync</strong>, through the server-side ceiling with its <code>RowVersion</code> compare-and-increment. That is the only place the global count is knowable.</li>
+  <li><strong>A rejected provisional workspace is never deleted.</strong> It stays local and fully usable — the free product has no workspace limit — and it simply does not sync. The customer is told they are over their plan's limit and offered the two real choices: upgrade, or free a slot.</li>
+  <li><strong>The refreshed token carries <code>use</code></strong> — the across-all-devices snapshot from <a href="#use-not-counter">§5.2</a> — so the second offline session starts from reality rather than from zero. The client compares <code>use</code> against <code>lim</code> and counts its own provisional creations on top, which means the second device warns at 18 rather than admitting another 25. It is advisory: it may refuse or warn <em>earlier</em>, never permit.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Why this is the right trade rather than a compromise</span>
+  The alternative is refusing to create anything offline that might exceed a limit the client cannot verify —
+  which breaks the local-first promise for every honest customer in order to inconvenience a dishonest one who
+  could edit the client anyway. Provisional creation errs toward the user, keeps their work, and moves the
+  enforcement to the one place it can actually be enforced.
+</div>
+
+<div class="callout">
+  <span class="callout-label">The clock</span>
+  A user can set their clock back. Mitigation is proportionate rather than clever: the client records the highest
+  timestamp it has seen and treats a large backward jump as suspicious, degrading to free tier until it can check
+  in. It does not try to be a trusted time source, because it cannot be one.
+</div>
+
+<h2 id="persistence">12. Persistence</h2>
+
+<ul>
+  <li><code>AnkEntitlementSigningKeys</code> — <code>Kid</code>, algorithm, public key, protected private key, <code>NotBefore</code>, <code>SigningNotAfter</code>, <code>VerifyNotAfter</code>, status. The two <code>NotAfter</code> fields are the <a href="#retirement">§6.1</a> invariant made structural, so a routine rotation cannot strand an offline customer by accident.</li>
+  <li><code>AnkEntitlementTokenIssues</code> — an audit row per issued token: subscriber, <code>jti</code>, <code>kid</code>, device, issued, <code>ExpiresAt</code> and <strong><code>GraceUntil</code></strong>. This is what makes "one token on a hundred machines" observable.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — <code>GraceUntil</code> must be persisted, not derived</span>
+      Rev 2 stored only issuance and expiry, while <a href="#retirement">§6.1</a>'s retirement invariant needs
+      <code>MAX(gra)</code> per <code>kid</code>. <code>exp</code> and <code>gra</code> are <strong>distinct
+      claims</strong>, and the grace window is tenant-configurable and can change after a token is signed — so
+      recomputing <code>gra</code> from <code>ExpiresAt</code> plus today's configuration gives the wrong answer
+      for exactly the tokens that matter. The invariant would have been unenforceable and a routine rotation
+      could still have withdrawn a key while one of its tokens was in grace. Store the value that was actually
+      signed.
+    </div>
+  </li>
+  <li><code>AnkEntitlementRevocations</code> — <code>jti</code> or subscriber, reason, added, and the point at which the entry may be swept.</li>
+  <li>All tenant-scoped, <code>Ank</code>-prefixed, migration generated only against <code>AonikDbContext</code>.</li>
+</ul>
+
+<h2 id="contracts">13. Contracts</h2>
+
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IEntitlementTokenIssuer</code></td><td>Project the live entitlement read into a signed token for a subscriber and optional device.</td></tr>
+    <tr><td><code>IEntitlementKeyRing</code></td><td>The active signing key, and the published verification set.</td></tr>
+    <tr><td><code>IEntitlementRevocationList</code></td><td>Read and publish revocations.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>IEntitlementReader</code> is <strong>unchanged</strong>. This spec projects it; it does not replace it, and
+  every server-side caller keeps reading the database.
+</p>
+
+<h2 id="phasing">14. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>P1</strong> — keys</td><td>Key entity, generation, protected storage, the published verification endpoint.</td><td>A key can be generated, published and rotated with two valid at once.</td></tr>
+    <tr><td><strong>P2</strong> — issue</td><td>Projection from <code>IEntitlementReader</code>, signing, the issue endpoint, the audit row.</td><td>A token verifies against the published key and states the subscriber's real flags and ceilings.</td></tr>
+    <tr><td><strong>P3</strong> — lifecycle</td><td>Refresh, <code>exp</code>/<code>gra</code> configuration, revocation list.</td><td>A revoked token fails at the next online check; an offline client keeps working to <code>gra</code>.</td></tr>
+    <tr><td><strong>P4</strong> — reference verifier</td><td>A small, dependency-free verification implementation plus vectors, published for client authors.</td><td>The vectors pass in a second language, proving the format is implementable from the spec alone.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">15. Acceptance criteria</h2>
+
+<ol>
+  <li>A token verifies offline with the public key alone, and no network call occurs on the verification path.</li>
+  <li>Editing any byte of the payload invalidates the signature.</li>
+  <li>A token signed by a withdrawn <code>kid</code> fails verification.</li>
+  <li>Two signing keys can be valid simultaneously, and rotation invalidates no outstanding token.</li>
+  <li>A key whose <code>SigningNotAfter</code> has passed still verifies tokens it signed until <code>VerifyNotAfter</code>, and <code>VerifyNotAfter</code> cannot be set earlier than <code>MAX(GraceUntil)</code> over the persisted issue rows for that <code>kid</code> — enforced at write time, not by convention. Changing the tenant's grace configuration does not retroactively move an already-signed token's <code>GraceUntil</code>.</li>
+  <li>Signature verification covers <strong>every</strong> byte of the left-hand token part; a token truncated after 64 bytes of signing input fails.</li>
+  <li>A payload whose <code>kid</code> differs between the untrusted pass-1 read and the verified pass-3 read is rejected.</li>
+  <li>A revoked token is refused by a client that <strong>cannot</strong> refresh — the revocation fetch requires no session and is not gated on refresh succeeding.</li>
+  <li>Subscriber-wide revocation refuses every outstanding token of that subscriber, not only the one most recently issued.</li>
+  <li>Editing <code>use</code> downward in a stored token grants no additional workspaces: the server-side ceiling still refuses at the limit.</li>
+  <li>A token detected as revoked while online is <strong>refused after restarting offline</strong> — detection is persisted as a tombstone, not held in memory.</li>
+  <li>A <code>kid</code> present in the client's bundled keys but absent from a fetched key set of higher version is <strong>never used again</strong>, offline or online.</li>
+  <li>A fetched key set with a version lower than the stored one is ignored, so a client cannot be rolled back onto a withdrawn key.</li>
+  <li>A key set failing its root signature is rejected and the previously stored set is retained.</li>
+  <li>Issuing a token whose <code>GraceUntil</code> would exceed the key's <code>VerifyNotAfter</code> either extends the deadline atomically or is refused — <strong>including immediately after the tenant's grace window is lengthened</strong>.</li>
+  <li>Retirement and issuance cannot interleave: both are guarded by the key row's <code>RowVersion</code>.</li>
+  <li>The published revocation list contains <strong>no <code>jti</code> and no subscriber identifier</strong>, and a caller holding a known subscriber id but no token cannot determine that subscriber's revocation status.</li>
+  <li>A client computes both revocation handles from claims it already holds and sends no identifier to the server.</li>
+  <li>An independent implementation loads the published keys and verifies every vector <strong>using only this document</strong>.</li>
+  <li>Every issued token carries a unique <code>jti</code>, and revoking that <code>jti</code> refuses exactly that token and no other token of the same subscriber.</li>
+  <li>A token issued with <code>dev</code> is refused on a machine whose fingerprint differs.</li>
+  <li>A token differing from a valid one only in JSON key order or whitespace <strong>still verifies</strong>, because no implementation re-serialises — and a token with one payload byte flipped does not.</li>
+  <li>A token with base64 padding, three parts, or one part is rejected before parsing.</li>
+  <li>A workspace created offline beyond the ceiling is marked provisional, is <strong>not deleted</strong> when the server later refuses it, and remains usable locally.</li>
+  <li>A token whose <code>sub</code> does not match the signed-in subscriber is refused.</li>
+  <li>Between <code>exp</code> and <code>gra</code>, paid features continue to work with no network.</li>
+  <li>After <code>gra</code>, paid features stop, <strong>every local world remains readable, and the application still starts</strong>.</li>
+  <li>A missing or corrupt token yields the free tier, not an error dialog and not a failure to launch.</li>
+  <li>No counter meter appears in any issued token, enforced by a test over the projection.</li>
+  <li>A revoked token fails at the next online check and is not consulted offline.</li>
+  <li>The published vectors verify in an independent implementation.</li>
+  <li><code>dotnet build</code> and <code>dotnet test Aonik.sln</code> green.</li>
+</ol>
+
+<h2 id="open">16. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td>Default <code>exp</code> and <code>gra</code>?</td><td>7 and 30 days. Long enough for a holiday, short enough that cancelling matters.</td></tr>
+    <tr><td>O2</td><td>Is device binding on by default?</td><td>No. It is a support burden the moment someone changes a motherboard, and it deters only casual copying, which the audit row already surfaces.</td></tr>
+    <tr><td>O3</td><td>How many devices per subscriber?</td><td>Observe before enforcing. Issue freely, watch the audit rows, and set a number once there is evidence rather than a guess.</td></tr>
+    <tr><td>O4</td><td>Should the token carry the workspace byte ceiling, given it changes on purchase?</td><td>Yes — a stale ceiling errs toward the customer, and a top-up simply refreshes sooner. Erring the other way refuses storage someone has paid for.</td></tr>
+    <tr><td>O5</td><td>JWT, or this bespoke format?</td><td>Bespoke and tiny. A JWT library on every client platform is a dependency and a CVE surface for a payload with ten claims and one signature.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Spec 090 · Offline-verifiable entitlement · Draft Rev 4 (Codex rounds 1-3: 15 findings applied) · 2026-08-11 ·
+  Projects <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> ·
+  Required by <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
+</footer>
+
+</body>
+</html>

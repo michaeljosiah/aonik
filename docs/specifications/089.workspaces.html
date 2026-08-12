@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 089 - Workspaces: a versioned tree of files</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 089</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 5 — sync split out to 091)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Module: Aonik.Workspaces</span>
+  <h1>Workspaces: a versioned tree of files</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Implements <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>. A
+    <strong>workspace</strong> is a versioned tree of files owned by a party — shareable, quota'd and
+    syncable. An Arke <em>world</em> is a workspace whose <code>Kind</code> is <code>world</code>, exactly as a
+    personal-finance household is a group whose kind is <code>household</code>. The platform owns the container,
+    the tree, the revisions and the blobs. It <strong>never opens a file</strong>: what a sheet
+    or a canon entry means belongs to the product, and if this module ever learns otherwise the seam has failed.
+  </p>
+  <div class="callout open" style="margin-top:14px">
+    <span class="callout-label">This spec is the server half. The protocol is <a href="091.workspace-sync.html">Spec 091</a>.</span>
+    Sync was originally specified here. Three rounds of adversarial review put <strong>the large majority of
+    findings on the sync half</strong> while the model, the sharing seam and the quota design went quiet after
+    round one — confirming what <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> said
+    up front: <em>"sync is the highest-risk component in the plan, and everything else here is plumbing."</em>
+    Keeping both in one document made the settled half look as unfinished as the hard half and gave reviewers one
+    budget for two different jobs. <strong>089 is now buildable and mergeable on its own</strong>; 091 gets its own
+    review.
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#why">Why a tree, and why here</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">The model</a></li>
+    <li><a href="#addressing">Content addressing</a></li>
+    <li><a href="#revisions">Revisions and the head</a></li>
+    <li><a href="#conflict">Divergence, and how it ends</a></li>
+    <li><a href="#sharing">Sharing a workspace</a></li>
+    <li><a href="#quota">Quota and metering</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#contracts">Contracts in SharedKernel</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Arke Studio is local-first: <em>"Worlds are folders of readable files on the user's own disk… the filesystem as
+  the only durable truth."</em> A commercial cloud tier alongside the free product changes exactly one thing — a
+  world must be able to exist somewhere other than one person's disk.
+</p>
+
+<p>This spec adds the smallest platform capability that makes that true, and nothing else:</p>
+
+<ul>
+  <li>A <strong><code>Workspace</code></strong> — a named, tenant-scoped, party-owned container with a <code>Kind</code>.</li>
+  <li>A <strong><code>WorkspaceRevision</code></strong> — a monotonic snapshot, which <em>is</em> a manifest of <code>path → hash</code>.</li>
+  <li><strong>Content-addressed blobs</strong> through the existing <code>IFileStore</code>, which already returns a SHA-256 on upload.</li>
+  <li>A <strong>pull/push sync protocol</strong> that is, in essence, "here are my hashes; which do you not have?"</li>
+  <li><code>workspace</code> registered as a <strong><code>ShareResourceKind</code></strong>, so
+      <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a>'s invites, expiry and revocation apply unchanged.</li>
+  <li>Workspace count and stored bytes as <strong>meters</strong>, so
+      <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> can price them.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">The folder is the wire format</span>
+  Not for convenience — for independence. The free application is MIT-licensed and must not acquire a dependency on
+  AONIK. It reads and writes folders; a sync client moves them. The local tree stays authoritative offline and the
+  cloud holds a mirror of the same tree, so the product's domain layer never learns this module exists.
+</div>
+
+<h2 id="why">2. Why a tree, and why here</h2>
+
+<p>The platform has two things that look adjacent and are not:</p>
+
+<table>
+  <thead><tr><th>Existing</th><th>What it is</th><th>Why it is not a workspace</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>IFileStore</code> <span class="tag existing">existing</span></td>
+      <td>Upload a blob, get back a storage key, size, content type and SHA-256.</td>
+      <td>No path, no revision, no manifest. It stores <em>a file</em>, not <em>a tree over time</em>. It is the right primitive underneath this spec, and it is reused verbatim.</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Documents</code> <span class="tag existing">existing</span></td>
+      <td>Classification, chunking, embedding and scoped retrieval of individual documents.</td>
+      <td>Built to answer "what does this document say?" A workspace answers "what did this tree look like at revision 7?" Bending one into the other gives one module two incompatible jobs.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.1 Why the platform rather than the product</h3>
+
+<div class="callout p0">
+  <span class="callout-label">The sharing seam decides it</span>
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> §6 asks the owning module
+  <em>"does this owner own these ids?"</em> through an <code>IShareResourceResolver</code>, on the hot path of an
+  authorisation check. If worlds live in Arke, the platform must call the product over HTTP to answer it —
+  inverting the dependency, for an application designed to work offline. If workspaces live here, the resolver is
+  a query against this module's own table.
+</div>
+
+<p>
+  Two further consequences fall out of the same placement. <strong>Quota</strong> is only expressible if the
+  platform knows how many workspaces exist and how large they are. And <strong>two products need it</strong> — Arke
+  Studio and Arke Kids both have worlds, which is the same two-consumer test that put groups in the platform: one
+  consumer is a feature, two is a capability.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+<ul>
+  <li>The <code>Aonik.Workspaces</code> middle-layer module: entities, configurations, <code>WorkspacesDbContext</code>, services.</li>
+  <li>Content-addressed blob storage over <code>IFileStore</code>, including deduplication and reference counting.</li>
+  <li>Revisions as immutable manifests; the head pointer; history.</li>
+  <li>Revision <strong>commit semantics</strong>: <code>CommitId</code> idempotency, sequence allocation and head advancement as one guarded write.</li>
+  <li>Divergence detection, its expression as a <em>proposal</em> rather than a merge, and the operation that resolves it.</li>
+  <li>Server-side validation of everything a commit asserts: paths, blob possession, quota, size.</li>
+  <li><code>workspace</code> as a share resource kind, with a resolver inside this module.</li>
+  <li>Count and byte meters, and the enforcement point for both.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Real-time collaborative editing.</strong> Operational transform and CRDTs are a different product.</li>
+  <li><strong>Merge algorithms.</strong> Divergence produces a proposal; the human decides. See <a href="#conflict">§7</a>.</li>
+  <li><strong>Branching.</strong> One head per workspace.</li>
+  <li><strong>Per-file permissions.</strong> A grant names a workspace, not a path.</li>
+  <li><strong>Any interpretation of file contents.</strong> No parsing, no schema, no validation of what is inside a file.</li>
+  <li><strong>The sync protocol itself</strong> — negotiation, resumable transfer, and applying a pull to a folder on someone's disk. That is <a href="091.workspace-sync.html">Spec 091</a>, and it is the larger and riskier half.</li>
+  <li><strong>Server-side media dispatch</strong> and <strong>offline entitlement</strong> — the latter is <a href="090.offline-verifiable-entitlement.html">Spec 090</a>.</li>
+  <li><strong>Git.</strong> Arke's specification forbids a git dependency (§2.4). Content addressing gives the dedupe without it.</li>
+</ul>
+
+<h2 id="model">4. The model</h2>
+
+<div class="ascii-diagram">Aonik.Workspaces / Entities
+├── Workspace          TenantId, Kind, Name, Slug, OwnerPartyId,
+│                      HeadRevisionId?, FileCount, TotalBytes, Status
+├── WorkspaceRevision   WorkspaceId, Sequence, ParentRevisionId?,
+│                      AuthorPartyId, AuthorUserId?, Message, CreatedAt,
+│                      FileCount, TotalBytes
+├── WorkspaceFile       RevisionId, Path, ContentHash, SizeBytes, ContentType
+└── WorkspaceBlob       TenantId, ContentHash, StorageKey, SizeBytes, RefCount</div>
+
+<table>
+  <thead><tr><th>Entity</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Workspace</code> <span class="tag new">new</span></td>
+      <td><code>Kind</code> is an <strong>open string</strong> with a known-values helper (<code>world</code>), the <code>OrderType</code> / <code>GroupKinds</code> precedent. <code>OwnerPartyId</code> not <code>OwnerUserId</code>, for the reason <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> gives: a member need not have a login, and a child's workspace in Arke Kids has an owner who cannot authenticate.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceRevision</code> <span class="tag new">new</span></td>
+      <td>Immutable. <code>Sequence</code> is monotonic per workspace and is what a client compares. <code>ParentRevisionId</code> is what makes divergence detectable — a revision that does not descend from the head is not a fast-forward.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceFile</code> <span class="tag new">new</span></td>
+      <td>One row per path per revision. <strong>The manifest is the revision.</strong> Paths are stored forward-slash and NFC-normalised; see <a href="#security">§12</a> for why that is a security property and not a tidiness one.</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceBlob</code> <span class="tag new">new</span></td>
+      <td>Content, once, per tenant. <code>RefCount</code> is how a revision can be deleted without orphaning bytes another revision still names.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Naming</span>
+  Platform code says <code>Workspace</code>. "World" is product vocabulary and stays in product UIs, per
+  <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a>.
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> paid three review rounds for the opposite
+  choice, when <code>Household</code> in platform code led the finance contributor to treat an Arke Kids family as a
+  household and refuse the second one.
+</div>
+
+<h2 id="addressing">5. Content addressing</h2>
+
+<p>
+  A blob is identified by the SHA-256 of its bytes.
+</p>
+
+<pre><code>hash = SHA-256(bytes)
+storageKey = "workspaces/{tenantId:N}/blobs/{hash[0..2]}/{hash}"</code></pre>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — <code>IFileStore</code> cannot do this today, and saying otherwise hides a real prerequisite</span>
+  <p style="margin-top:0">
+    An earlier draft of this section claimed the primitive already existed because
+    <code>IFileStore.UploadAsync</code> returns a SHA-256. It does — but it returns it <strong>after</strong>
+    writing the object to a <strong>randomly-named GUID path</strong> it chose itself. There is no write-by-key
+    and no atomic promote. The hash is therefore an <em>output</em>, never an input, so the key above cannot be
+    produced by the interface as it stands.
+  </p>
+  <p style="margin-bottom:0">
+    The consequence if this is not fixed first: two identical uploads write two physical blobs, and only the
+    <em>database</em> row is deduplicated — leaving the second object stranded and paid for. Concurrent uploads
+    of the same content strand more. <strong>P3 therefore extends the storage contract before anything else:</strong>
+  </p>
+</div>
+
+<pre><code>// New on IFileStore (P3, additive — no existing caller changes)
+Task&lt;StagedBlob&gt; StageAsync(Guid tenantId, Stream content, CancellationToken ct);
+//   streams to a temporary key, hashing as it goes; returns (hash, size, tempKey)
+
+Task&lt;PromoteResult&gt; PromoteAsync(StagedBlob staged, string contentKey, CancellationToken ct);
+//   atomically moves temp → content key. If the key already exists, the staged
+//   copy is DISCARDED and the result reports AlreadyPresent. This is the whole
+//   concurrency answer: last writer discards rather than duplicates.</code></pre>
+
+<p>With that in place, three properties follow — stated at the strength they actually hold:</p>
+
+<ul>
+  <li><strong>Dedupe, and only where bytes truly repeat.</strong> An unchanged sheet is stored once across a world's
+      whole history, not once per revision; a reference image shared by ten takes is stored once; a workspace
+      re-synced to a second machine transfers nothing. <strong>This does not extend to the takes themselves</strong>
+      — see the warning below.</li>
+  <li><strong>Cheap sync.</strong> "Which of these hashes do you not have" is answerable without transferring
+      anything, so an unchanged 2GB world syncs in one round trip and no bytes.</li>
+  <li><strong>Integrity.</strong> A downloaded blob is verified against the hash that named it, so a corrupted or
+      substituted object is detected by construction rather than by trust in the store.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Content addressing does not deduplicate near-identical media, and the commercial model must not assume it does</span>
+  SHA-256 deduplicates <strong>byte-identical</strong> blobs. Two independently generated takes of the same shot are
+  <em>visually</em> near-identical and <strong>byte-wise unrelated</strong>; so are two encodes of one source. Each
+  costs its full size. Since takes are the largest objects in a world, the honest planning assumption is that
+  <strong>the media path barely dedupes at all</strong> and the authoring path dedupes very well. Anything better
+  would need chunking or content-aware similarity detection, which is explicitly out of scope
+  (<a href="#scope">§3</a>) — so the byte ceiling in <a href="#quota">§9</a> must be priced against
+  <em>undeduplicated</em> media.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">Reference counting is not optional</span>
+  Deleting a revision must not delete bytes another revision still names, and deleting a <em>workspace</em> must not
+  delete bytes another workspace in the same tenant deduped against. <code>RefCount</code> is maintained in the same
+  transaction as the manifest write; a blob reaching zero is swept, never deleted inline. Getting this wrong
+  destroys data silently and is discovered by a user opening an old revision to find it empty.
+</div>
+
+<h3 id="sweep">5.1 Sweeping must be serialised against new references</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "swept, never deleted inline" describes the timing, not the race</span>
+  <p style="margin-top:0">
+    A reference count that reaches zero is not a stable fact. The sweeper reads <code>RefCount = 0</code> and
+    selects the blob; before it deletes the object, <strong>a new commit legitimately references that hash</strong>
+    — the row still exists, so validation passes and the count increments. The sweeper then deletes the physical
+    object <em>on the strength of an observation that is already stale</em>, and the freshly committed revision
+    points at bytes that are gone.
+  </p>
+  <p style="margin-bottom:0">
+    The symptom is the worst kind: the commit succeeded, the manifest is valid, the database is consistent, and
+    the file is simply missing — discovered much later by a user opening a revision. Deleting <em>lazily</em> does
+    not help, because the window is between the sweeper's read and its delete, wherever that sits in time.
+  </p>
+</div>
+
+<p>Deletion therefore claims the blob before touching storage, and referencing refuses a claimed blob:</p>
+
+<pre><code>SWEEP                                  COMMIT (referencing a hash)
+─────                                  ──────────────────────────
+UPDATE WorkspaceBlobs                  read blob row
+   SET State = Deleting                State == Deleting -> TREAT AS MISSING.
+ WHERE ContentHash = @h                  The client re-uploads; promote finds
+   AND RefCount = 0                      no object and stores it afresh, or
+   AND State = Available                 finds one and reuses it. Either way
+   AND RowVersion = @v                   the caller is never handed a
+                                         reference to bytes being removed.
+0 rows -> someone referenced it
+   or another sweeper claimed it.       Incrementing RefCount is guarded on
+   ABANDON. Do not delete.                State = Available in the SAME
+                                         statement, so a claim that lands
+1 row -> the claim is ours.               between read and write loses.
+   RE-CHECK RefCount = 0 under the
+   claim, delete the object, then
+   delete the row.</code></pre>
+
+<div class="callout ok">
+  <span class="callout-label">Why a tombstone state rather than a lock or a longer delay</span>
+  A lock serialises every commit in a tenant against a background job, which is the wrong trade for a race this
+  rare. A delay only moves the window. The <code>Deleting</code> state makes the two operations
+  <strong>mutually exclusive by data</strong> rather than by timing: whichever writes first wins, the loser sees
+  it and takes the safe branch, and the safe branch for a referencing client is simply "upload it again" — which
+  costs one redundant transfer in a rare case and can never produce a dangling reference. It is the same
+  compare-and-swap discipline as <a href="#cas">§6.2</a> and <code>UsageMeter</code>, applied to a different
+  invariant.
+</div>
+
+<h2 id="revisions">6. Revisions and the head</h2>
+
+<p>
+  A revision is created by presenting a complete manifest — every path in the tree with its hash — plus the parent
+  the client believed it was building on. The server:
+</p>
+
+<ol>
+  <li>rejects the commit if any named hash has no blob (upload first, commit second — never the reverse);</li>
+  <li>compares <code>parentRevisionId</code> to the current head;</li>
+  <li>if they match, appends the revision and advances the head — a <strong>fast-forward</strong>;</li>
+  <li>if they do not, appends the revision <em>without</em> advancing the head and returns
+      <code>Diverged</code>. See <a href="#conflict">§7</a>.</li>
+</ol>
+
+<p>
+  The manifest is complete rather than a delta. That is deliberate: a delta requires the server to trust the
+  client's account of what changed, and a client that omits a deletion silently resurrects a file. A complete
+  manifest makes the revision self-describing and the diff computable server-side.
+</p>
+
+<h3 id="sync-idem">6.1 Commit idempotency is not the sequence number</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the correction</span>
+  <p style="margin-top:0">
+    An earlier draft made the per-workspace <code>Sequence</code> the idempotency key a retried commit lands on.
+    It cannot be, and the reason is that it breaks the divergence flow this spec is built around:
+  </p>
+  <ul style="margin-bottom:0">
+    <li><strong>If the client chooses the sequence,</strong> two clients committing from the same head both choose
+        <em>N+1</em>. The unique index rejects the second — but the second is precisely the case that is supposed
+        to be stored as <code>Diverged</code> and surfaced as a proposal. The design's central mechanic would be
+        unreachable, and the user would see a database error instead of a conflict.</li>
+    <li><strong>If the server assigns the sequence,</strong> a retried commit has no stable value to identify the
+        original by, so a timeout followed by a retry creates a second revision of identical content.</li>
+  </ul>
+</div>
+
+<p>The two concerns are separated:</p>
+
+<table>
+  <thead><tr><th>Field</th><th>Chosen by</th><th>Purpose</th><th>Index</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>CommitId</code> <span class="tag new">new</span></td>
+      <td><strong>Client</strong>, once, before the first attempt — and reused unchanged on every retry</td>
+      <td>Idempotency. A commit whose <code>CommitId</code> already exists returns the original outcome verbatim, including a prior <code>Diverged</code>.</td>
+      <td>Unique <code>(TenantId, WorkspaceId, CommitId)</code></td>
+    </tr>
+    <tr>
+      <td><code>Sequence</code></td>
+      <td><strong>Server</strong>, at commit time, inside the transaction</td>
+      <td>Ordering and history only. Never sent by a client, never used to detect a retry.</td>
+      <td>Unique <code>(TenantId, WorkspaceId, Sequence)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Divergence is then detected where it belongs — by comparing the declared <code>ParentRevisionId</code> against
+  the current head — rather than as a side effect of a uniqueness collision. A diverged commit still receives a
+  sequence and is still stored; it simply does not advance the head.
+</p>
+
+<h3 id="commitbind">6.1.1 A <code>CommitId</code> binds to <em>one</em> request, not to a name</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — replaying an outcome for a different tree is worse than not retrying</span>
+  Treating any matching <code>CommitId</code> as the same operation is unsafe once you consider what a client
+  actually does after a timeout. It does not know whether the commit landed, the author may have kept working,
+  and the client correctly reuses the <code>CommitId</code> — but rebuilds the manifest from a tree that has
+  since <strong>changed</strong>. The server returns the original outcome verbatim, and the client concludes the
+  <em>new</em> tree is committed when it is not. The next pull then treats those edits as absent, and the work is
+  lost silently, with a success response on the record.
+</div>
+
+<p>
+  The idempotency record therefore stores a <strong>canonical request hash</strong> — SHA-256 over the workspace
+  id, the declared parent, and the manifest as a sorted <code>path→hash</code> list — alongside the outcome:
+</p>
+
+<pre><code>same CommitId + same request hash  -> replay the stored outcome (a true retry)
+same CommitId + DIFFERENT hash     -> 409, explicitly: "this CommitId was used
+                                      for a different tree; use a new one"
+                                      Never a silent replay.</code></pre>
+
+<p>
+  The failure mode becomes a loud client bug rather than quiet data loss, which is the correct trade for anything
+  in the commit path.
+</p>
+
+<h3 id="cas">6.2 Advancing the head is a compare-and-swap, not a transaction</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "inside the transaction" is not the same as atomic</span>
+  <p style="margin-top:0">
+    §7.3 said the server assigns the sequence "inside the transaction", which sounds sufficient and is not. Under
+    SQL Server's default <code>READ COMMITTED</code>, two concurrent commits can <strong>both read the same
+    head</strong>, <strong>both classify themselves as fast-forwards</strong>, and then either lose one head
+    update or collide on the sequence index. Neither outcome is the specified one: the loser is supposed to be
+    stored as <code>Diverged</code>, and instead it either vanishes or errors.
+  </p>
+  <p style="margin-bottom:0">
+    The acceptance criterion added in Rev 2 — "two clients committing concurrently from the same head both
+    persist" — was therefore not satisfiable by the mechanism described.
+  </p>
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the Rev 3 CAS guarded the wrong operation, and the loser still died before reaching it</span>
+  <p style="margin-top:0">
+    Rev 3 put the compare-and-swap on the <em>head update</em> while leaving sequence allocation earlier and the
+    revision <code>INSERT</code> earlier still. So two commits reading the same head both compute sequence
+    <em>N+1</em>, and <strong>the loser collides on the unique sequence index during its insert</strong> — it
+    fails there, and never reaches the zero-row CAS path that was supposed to reclassify it as
+    <code>Diverged</code>. The fix guarded a step the loser could not get to.
+  </p>
+  <p style="margin-bottom:0">
+    Sequence allocation and head advancement are <strong>the same atomic decision</strong> and must happen in one
+    guarded write, before any row is inserted.
+  </p>
+</div>
+
+<p>
+  <code>Workspace</code> therefore carries <code>NextSequence</code> alongside <code>HeadRevisionId</code>, and a
+  single <code>RowVersion</code> compare-and-swap consumes the sequence <em>and</em> advances the head:
+</p>
+
+<pre><code>read  workspace (Head = H, NextSequence = S, RowVersion = V)
+classify: parent == H ? FastForward : Diverged
+
+UPDATE Workspaces
+   SET NextSequence   = S + 1,
+       HeadRevisionId = (FastForward ? newRevisionId : HeadRevisionId)
+ WHERE Id = @id AND RowVersion = V
+
+0 rows -> ANOTHER COMMIT WON. Nothing has been inserted, so nothing is
+   orphaned. RE-READ and RE-CLASSIFY: the parent no longer matches, so
+   this commit is now Diverged — the correct answer, reached by the same
+   rule rather than by an exception handler. Bounded retry; each attempt
+   re-classifies from the head it actually observed.
+
+CAS SUCCEEDED -> only now INSERT the revision with sequence S,
+   in the same transaction.</code></pre>
+
+<p>
+  The ordering is what makes it work: <strong>a sequence is only ever consumed by a successful CAS</strong>, so
+  two revisions cannot receive the same one and the unique index never fires in normal operation — it becomes a
+  backstop rather than the mechanism. A diverged commit consumes a sequence too (it is a real revision and must be
+  orderable); it simply leaves <code>HeadRevisionId</code> untouched.
+</p>
+
+<p>
+  This is the identical pattern <code>UsageMeter</code> already uses for ceiling claims, and for the identical
+  reason recorded there: <em>"a point-in-time count that takes no lock and writes no row is a check-then-act race,
+  and it over-admits under exactly the conditions a ceiling exists for."</em> A serializable lock would also work
+  and is rejected — it serialises every commit in a workspace to protect against a rare collision, and the CAS
+  costs nothing when there is no contention.
+</p>
+
+<h2 id="conflict">7. Divergence, and how it ends</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Sync reuses the product's own mechanic</span>
+  Arke Studio's core mechanic is the accept gate: <em>"nothing enters the authored record without a human accept…
+  proposals are ripple-checked against canon."</em> A remote revision that does not descend from the local head is
+  <strong>a proposal</strong>. It is ripple-checked and accepted exactly as a locally-drafted change is.
+  <br><br>
+  This is the most important design decision in the spec, and it is a decision to <em>not</em> build something. No
+  merge algorithm, no three-way diff, no conflict markers, no new vocabulary for the user to learn — because the
+  product already has a word for "a change that has not been accepted yet", and this is one.
+</div>
+
+<p>The platform's part is deliberately small. It:</p>
+
+<ul>
+  <li>detects divergence (parent ≠ head) and says so;</li>
+  <li>stores the divergent revision, so nothing is lost while the human decides;</li>
+  <li>exposes the two manifests and the paths that differ.</li>
+</ul>
+
+<p>
+  It does <strong>not</strong> decide which side wins, because deciding would require understanding what the files
+  mean — which is the line this module must never cross.
+</p>
+
+<h3 id="resolve">7.1 How a divergent revision ends</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the spec stored divergent revisions and never said how they stop being divergent</span>
+  <p style="margin-top:0">
+    "A human decides" was the whole answer, and it left two holes. There was <strong>no operation to record the
+    decision</strong> — so after the human chose the divergent tree, no client had a specified way to advance the
+    cloud head to it. And a <em>rejected</em> revision stayed referenced forever under all-history retention:
+    <strong>its blobs were never released and its bytes were charged to the ceiling indefinitely</strong>, so a
+    user who repeatedly rejected conflicts would accumulate unreachable, unbillable-away storage with no way to
+    reclaim it.
+  </p>
+  <p style="margin-bottom:0">
+    Refusing to <em>merge</em> was right. Refusing to define <em>termination</em> was an omission.
+  </p>
+</div>
+
+<p>
+  <code>ResolveAsync(workspaceId, revisionId, outcome, commitId)</code> — the resolution is itself a commit, with
+  the same idempotency and the same CAS as any other:
+</p>
+
+<table>
+  <thead><tr><th>Outcome</th><th>What the platform does</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Accept</code></td>
+      <td>Writes a <strong>new revision</strong> carrying the divergent manifest, parented on <em>the current head</em>, and advances the head to it under <a href="#cas">§6.2</a>. The divergent revision is marked <code>Superseded</code> and retained.</td>
+      <td><strong>History is never rewritten.</strong> The head is not repointed at a revision whose parent is not its predecessor — that would make the chain a lie and break every history read. A resolution is a normal forward step that happens to carry someone else's tree.</td>
+    </tr>
+    <tr>
+      <td><code>Reject</code></td>
+      <td>Marks it <code>Rejected</code>. After a retention window (proposed: 30 days) the sweeper drops its manifest rows, decrements the blobs it uniquely held, and <strong>releases the corresponding byte claims</strong>.</td>
+      <td>A rejected revision is not history — it is a change that never entered the record. Keeping it briefly makes rejection undoable; keeping it forever makes rejection expensive.</td>
+    </tr>
+    <tr>
+      <td><code>Supersede</code></td>
+      <td>Neither side wins: the client commits a <em>third</em> manifest — the human's edited result — parented on the current head. The divergent revision is marked <code>Superseded</code>.</td>
+      <td>This is what the accept gate actually produces most of the time. The platform stores the outcome; the product decided it, file by file, without the platform reading anything.</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><strong>Unresolved divergent revisions still count against quota</strong> — they are stored bytes. They are listed with their size so the cost is visible, rather than silently accruing.</li>
+  <li><strong>Resolution is idempotent</strong> on the same <code>commitId</code>, and resolving an already-resolved revision returns the recorded outcome rather than acting twice.</li>
+  <li><strong>The platform still decides nothing.</strong> It records which of three outcomes a human chose. Everything that made that choice — ripple checks, canon, the diff the author actually read — happened in the product, on file contents this module never opened.</li>
+</ul>
+
+<h3 id="authority">7.2 Which revision is true</h3>
+
+<table>
+  <thead><tr><th>Situation</th><th>Authority</th></tr></thead>
+  <tbody>
+    <tr><td>Offline, one machine</td><td><strong>The local tree.</strong> The product is local-first; the cloud is a mirror, and a mirror is never the original.</td></tr>
+    <tr><td>Between machines, or with a collaborator</td><td><strong>The cloud head.</strong> It is the only thing both parties can see.</td></tr>
+    <tr><td>Both moved since they last agreed</td><td><strong>Neither, automatically.</strong> The remote arrives as a proposal and a human accepts.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="sharing">8. Sharing a workspace</h2>
+
+<p>
+  Registered as a <code>ShareResourceKind</code>, so every mechanic in
+  <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> applies with no new code: opaque
+  single-use invite tokens, expiry, immediate revocation, ownership validation, and the anonymous preview.
+</p>
+
+<pre><code>ResourceKind   "workspace"
+ResourceIds    ["&lt;the-undersong&gt;", "&lt;copper-saints&gt;"]
+AccessLevel    Write                       ← platform-owned, closed enum, ENFORCED (§10.1)
+TermsJson      { "role": "co-author",      ← the product's words; the platform never reads them
+                 "canComment": true }</code></pre>
+
+<p>
+  The resolver lives in this module and returns <code>ShareResourceRef(Id, "workspace", Name)</code> for workspaces
+  the owner actually owns — omitting the rest, which is what lets grant creation detect a caller naming someone
+  else's ids. Because it is a local query, an authorisation check costs one round trip and never leaves the platform.
+</p>
+
+<h3 id="access">8.1 Read/write <em>is</em> a platform concept, and an earlier draft had this dangerously wrong</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the vulnerability this closes</span>
+  <p style="margin-top:0">
+    An earlier draft said: <em>"Whether the recipient may commit is <code>TermsJson</code> — the product's
+    business, read by the product,"</em> reasoning that a platform enforcing an "editor" role would be
+    interpreting terms, which Spec 086 §6.1 forbids.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>That is a bypassable authorisation boundary and it must not ship.</strong> The commit endpoint is a
+    platform HTTP endpoint. A recipient holding a read-only grant needs only to call it directly — with curl, or
+    with a modified client, which for an MIT-licensed open-source product is a five-minute exercise. The
+    product-side check is decoration; there is nothing behind it. The grant reader answers <em>"is there a
+    grant?"</em>, and the answer for a read-only recipient is <strong>yes</strong>.
+  </p>
+</div>
+
+<p>
+  The fix does not weaken the seam — it draws it in the right place. There is a difference between
+  <strong>authorisation</strong>, which the platform must own because it owns the endpoint, and
+  <strong>product semantics</strong>, which it must never open:
+</p>
+
+<table>
+  <thead><tr><th>Field</th><th>Owner</th><th>Shape</th><th>Read by the platform?</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>AccessLevel</code> <span class="tag new">new</span></td>
+      <td><strong>Platform</strong></td>
+      <td>A closed enum: <code>Read</code> | <code>Write</code> | <code>Owner</code>. Three values, no extension point, no DSL.</td>
+      <td><strong>Yes — and enforced.</strong> This is the whole point.</td>
+    </tr>
+    <tr>
+      <td><code>TermsJson</code></td>
+      <td><strong>Product</strong></td>
+      <td>Anything. <code>{"role":"co-author","canComment":true,"canExport":false}</code></td>
+      <td>Never. Stored and returned verbatim, exactly as <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> §6.1 requires.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <code>IWorkspaceSyncService</code> resolves the caller's effective access <strong>before</strong> accepting a
+  revision, and the rule is a single line with no product involvement:
+</p>
+
+<pre><code>effective = Owner            if caller party == workspace.OwnerPartyId
+          | grant.AccessLevel if an active, unexpired, unrevoked grant names this workspace
+          | none              otherwise
+
+CommitAsync   requires effective &gt;= Write     → 403 otherwise
+UploadBlob    requires effective &gt;= Write     → 403 otherwise (no quota consumption by readers)
+GetManifest   requires effective &gt;= Read
+Delete/Share  requires effective == Owner</code></pre>
+
+<div class="callout ok">
+  <span class="callout-label">Why this does not breach the seam</span>
+  The platform still cannot tell you what a "co-author" is, whether comments are allowed, or what a canon entry
+  means — <code>TermsJson</code> remains opaque and the product remains the only reader. What the platform now
+  knows is <strong>whether this caller may write to this container</strong>, which is not product semantics; it is
+  the access-control question every endpoint owner has to answer for itself. Spec 086 §6.1 forbids the platform
+  interpreting <em>terms</em>. It never asked the platform to leave its own endpoints unguarded.
+</div>
+
+<h2 id="quota">9. Quota and metering</h2>
+
+<table>
+  <thead><tr><th>Meter</th><th>Kind</th><th>Enforced where</th></tr></thead>
+  <tbody>
+    <tr><td><code>workspaces</code></td><td>Ceiling — one held slot per workspace, released on delete</td><td>Create</td></tr>
+    <tr><td><code>workspace-bytes</code></td><td><strong>Weighted ceiling</strong> — <em>n</em> held bytes per stored blob, released when the blob is swept</td><td>Blob upload, before the bytes are accepted</td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — why stored bytes are a ceiling and emphatically not a counter</span>
+  <p style="margin-top:0">
+    An earlier draft made <code>workspace-bytes</code> a counter, <em>"drawn down as blobs are stored, returned on
+    sweep."</em> The second half of that sentence is not implementable against
+    <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a>, and the code is unambiguous:
+    <code>CommitAsync</code> moves the reservation out of <code>Held</code> and into <strong><code>Consumed</code></strong>
+    (<code>UsageMeter.cs:182-183</code>), while release returns only the <em>uncommitted</em> <code>Held</code>
+    portion (<code>UsageMeter.cs:411</code>). <strong>Consumed never decreases</strong> — correctly, because a
+    counter measures a flow that has happened and cannot un-happen.
+  </p>
+  <p style="margin-bottom:0">
+    The consequence had this shipped: a customer uploads 40GB, deletes it, and has permanently burned 40GB of a
+    50GB allowance <strong>while using none of it</strong>. Upload-and-delete cycles would brick the account, and
+    the support ticket would be indistinguishable from a billing fault. Storage is a
+    <strong>level, not a flow</strong> — the same category as a seat count — and a level is what a ceiling models.
+  </p>
+</div>
+
+<p>
+  <a href="090.offline-verifiable-entitlement.html">Spec 090</a> already carries <code>workspace-bytes</code> in
+  <code>lim</code> — its ceilings collection — so this correction also removes a contradiction between the two
+  specs rather than merely fixing one.
+</p>
+
+<h3 id="weighted">9.1 The one extension this needs from Spec 087</h3>
+
+<p>
+  Ceiling claims today are unit-weighted: <code>ClaimAsync</code> tests <code>Held + 1 &gt; ceiling</code> and
+  increments by one, idempotently per <code>HolderRef</code>, under a <code>RowVersion</code> compare-and-increment
+  (<code>UsageMeter.cs:265-300</code>). A byte ceiling needs the same lifecycle with a weight:
+</p>
+
+<pre><code>ClaimAsync(subscriber, meterCode, holderRef, weight: 1)      // additive default — no caller changes
+    → tests Held + weight &gt; ceiling
+    → CeilingClaim.Weight persisted so ReleaseAsync returns the right amount</code></pre>
+
+<p>
+  <code>HolderRef</code> is the <strong>content hash</strong>, which makes the accounting fall out for free:
+  claiming is idempotent per blob, so the same bytes referenced by ten revisions are charged once, and the release
+  happens exactly when the orphan sweeper deletes the blob. Both properties come from machinery Spec 087 already
+  has.
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the weight does not fit in the column, and the numbers are not close</span>
+  <p style="margin-top:0">
+    <code>CeilingHolding.Held</code> is an <strong><code>int</code></strong>
+    (<code>Entities/Usage/CeilingHolding.cs:24</code>), because every ceiling to date has counted seats and
+    profiles. <code>int.MaxValue</code> is <strong>2,147,483,647</strong>. The 200GB figure in
+    <a href="090.offline-verifiable-entitlement.html">Spec 090</a>'s example payload is
+    <strong>214,748,364,800</strong> — <strong>exactly one hundred times larger</strong>, and even a 3GB world
+    overflows it.
+  </p>
+  <p style="margin-bottom:0">
+    So "just add a <code>weight</code> parameter" would silently overflow or truncate on <em>ordinary paid-tier
+    usage</em>, not at some implausible extreme — and a wrapped aggregate does not fail loudly, it under-counts,
+    which means the ceiling stops refusing and the storage bill is discovered later.
+  </p>
+</div>
+
+<p>P6 therefore also migrates the arithmetic, not only the signature:</p>
+
+<ul>
+  <li><code>CeilingHolding.Held</code> and <code>CeilingClaim.Weight</code> become <strong><code>long</code></strong> — bytes are integral and a 64-bit count reaches ~9.2 exabytes, which is not a limit anyone will meet. (<code>EntitlementGrant.Held</code> is already <code>decimal</code>; the ceiling path simply never needed the range until now.)</li>
+  <li>The ceiling <em>value</em> itself, every comparison, and <code>EntitlementExceededException</code>'s quantity and remaining figures all widen with it. A <code>long</code> aggregate compared against an <code>int</code> limit is the same bug one layer up.</li>
+  <li>A migration against <code>AonikDbContext</code> widens the columns. Widening <code>int</code> → <code>bigint</code> is non-breaking for existing rows.</li>
+  <li><strong>An explicit overflow test</strong> claiming more than <code>int.MaxValue</code> bytes across several blobs, in the LocalDB lane — the InMemory provider would not catch a column-width truncation.</li>
+</ul>
+
+<h3 id="transfer">9.2 Quota must move when ownership moves</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a hole between two features that are individually correct</span>
+  <code>IWorkspaceService</code> exposes ownership transfer, and ceiling claims are held against <em>a specific
+  subscriber</em>. Nothing connected the two. So transferring a workspace would leave <strong>the former owner's
+  claims held indefinitely</strong> — paying for storage they no longer have, with no way to release it — while
+  the <strong>recipient gets it for free</strong>, with no check that they have the capacity or even a
+  subscription. Both halves are wrong in opposite directions, and the customer-facing symptom is a billing
+  complaint neither party can explain.
+</div>
+
+<ul>
+  <li><strong>The billing subscriber is stored on the workspace</strong> and is the thing claims are held against — deliberately separate from <code>OwnerPartyId</code>, because they can legitimately differ (an Arke Kids workspace owned by a parent may be billed to a family subscription).</li>
+  <li><strong>Transfer is a claim migration, in one transaction:</strong> compute the workspace's count and byte weight, claim them against the recipient <em>first</em>, and only on success release the former owner's and move the billing subscriber.</li>
+  <li>
+    <strong>Release the former owner's claim for a hash only when no workspace still billed to them references it.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — the elegance of <code>HolderRef</code> = hash is exactly what makes release ambiguous</span>
+      Keying the claim on the content hash gives idempotency for free — ten revisions naming one blob are charged
+      once — but that <em>same</em> idempotency means a subscriber has <strong>one claim covering all their
+      workspaces</strong> that reference the hash. So if they hold two workspaces sharing a blob and transfer only
+      one, releasing "their claim for that hash" leaves <strong>the retained workspace's bytes completely
+      uncharged</strong>, even though the physical blob cannot be swept and we are still paying for it. Repeat it
+      and a subscriber can end up storing a great deal for free, entirely through legitimate use.
+      <br><br>
+      Release therefore requires <strong>per-subscriber reference accounting</strong>: a count of how many
+      workspaces billed to that subscriber reference each hash, decremented on transfer and deletion, with the
+      ceiling claim released only at zero. It is the same reference-counting shape as
+      <code>WorkspaceBlob.RefCount</code>, one level up — physical <code>RefCount</code> answers "may these bytes
+      be deleted?", the per-subscriber count answers "may this subscriber stop paying for them?", and they are
+      genuinely different questions.
+    </div>
+  </li>
+  <li><strong>Insufficient capacity refuses the transfer</strong> with the shortfall named. It does not proceed and over-admit, and it does not strand the workspace between owners.</li>
+  <li><strong>Claim first, release second</strong> — never the reverse. Releasing first opens a window where a concurrent claim consumes the freed allowance and the transfer then fails with the original owner's claim already gone.</li>
+  <li>The same accounting applies to workspace <em>deletion</em>, which is the degenerate transfer: release both meters, once, when the sweeper has actually removed the bytes.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Metered from day one, not later</span>
+  A storage limit retrofitted onto users who have already uploaded 200GB is a support problem, not an engineering
+  one. The byte ceiling is checked <em>before</em> an upload is accepted, so the failure is "you are out of space"
+  rather than a surprise bill or a silent truncation. Price the ceiling against <strong>undeduplicated</strong>
+  media — <a href="#addressing">§5</a> explains why takes do not dedupe.
+</div>
+
+<h2 id="persistence">10. Persistence &amp; migration</h2>
+
+<ul>
+  <li>Four new tables — <code>AnkWorkspaces</code>, <code>AnkWorkspaceRevisions</code>, <code>AnkWorkspaceFiles</code>, <code>AnkWorkspaceBlobs</code> — all tenant-scoped, all <code>Ank</code>-prefixed in <code>dbo</code>.</li>
+  <li>Migration generated <strong>only</strong> against <code>AonikDbContext</code> per <code>CLAUDE.md</code>. <code>WorkspacesDbContext</code> declares none.</li>
+  <li>Unique index on <code>(TenantId, WorkspaceId, Sequence)</code> — <strong>ordering only</strong>. The server assigns it inside the transaction; no client ever sends one.</li>
+  <li>Unique index on <code>(TenantId, WorkspaceId, CommitId)</code> — <strong>this</strong> is the idempotency key a retried commit lands on, and keeping it distinct from <code>Sequence</code> is what allows a divergent commit to be stored rather than rejected (<a href="#sync-idem">§6.1</a>).</li>
+  <li>Unique index on <code>(TenantId, ContentHash)</code> for blobs, which is what makes dedupe a database guarantee rather than an application hope.</li>
+  <li>Unique index on <code>(TenantId, SubscriberKind, SubscriberId, ContentHash)</code> on <code>AnkWorkspaceBlobPossessions</code> — the proof-of-possession record that stops a content hash acting as a bearer capability (§14).</li>
+  <li><code>RowVersion</code> on <code>AnkWorkspaces</code>, which is what makes head advancement a compare-and-swap rather than a read-then-write race (<a href="#cas">§6.2</a>).</li>
+  <li>Unique index on <code>(RevisionId, Path)</code>. A manifest naming one path twice is malformed, and the database is the right place to say so.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The LocalDB lane is mandatory here</span>
+  Three of the four indexes above are filtered or uniqueness-bearing, and the InMemory provider enforces no unique
+  index at all. Per <code>CLAUDE.md</code>, coverage for them belongs in <code>tests/Aonik.Database.Tests</code> —
+  an InMemory test asserting dedupe would pass against a schema that does not dedupe.
+</div>
+
+<h2 id="contracts">11. Contracts in SharedKernel</h2>
+
+<p>New namespace <code>Aonik.SharedKernel.Abstractions.Workspaces</code>. Consumers reference the contracts, never the module.</p>
+
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IWorkspaceService</code></td><td>Create, rename, transfer ownership, delete, list mine.</td></tr>
+    <tr><td><code>IWorkspaceSyncService</code></td><td>Negotiate missing hashes, commit a revision, read a manifest.</td></tr>
+    <tr><td><code>IWorkspaceReader</code></td><td>Read-only projection for other modules — does this party own this workspace, how large is it.</td></tr>
+    <tr><td><code>WorkspaceKinds</code></td><td>Known-values helper. <code>world</code> today.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="security">12. Security</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Control</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Path traversal.</strong> A manifest path of <code>../../etc/passwd</code> or a Windows device name.</td>
+      <td>Paths are validated on commit: relative, forward-slash, no <code>.</code> or <code>..</code> segment, no drive letter, no leading slash, no NTFS stream, no reserved device name. Rejected, not sanitised — silently rewriting a caller's path is how two files become one.</td>
+    </tr>
+    <tr>
+      <td><strong>Reparse-point traversal.</strong> A manifest path <code>linked/scene.txt</code> where <code>linked</code> is a symlink or NTFS junction in the live tree pointing outside the workspace.</td>
+      <td><strong>Lexical validation does not cover this and Rev 2 wrongly implied it did</strong> — <code>linked/scene.txt</code> contains no <code>..</code> and is a perfectly legal relative path, yet a pull writing to it escapes the workspace entirely. The link need not even be hostile: it can arrive from another tool, a restored backup, or the user's own convenience. Every activation operation therefore resolves the target with <strong>no-follow</strong> semantics and verifies the resolved path is still beneath the workspace root before writing; a component that is a reparse point aborts the operation rather than traversing it. Server-side, a commit whose <em>source</em> tree contained a reparse point is refused on the same rule. Checking the string is not checking the destination.</td>
+    </tr>
+    <tr>
+      <td><strong>Filesystem-equivalent path collision.</strong> <code>Scene.txt</code> and <code>scene.txt</code>, or names differing only by trailing dot or space, are two distinct server paths that are <strong>one file on Windows</strong>.</td>
+      <td><strong>NFC alone does not give every client the same tree</strong>, which Rev 2 claimed. During pull the two entries silently overwrite each other and the resulting tree matches no manifest — which then pushes as a spurious revision. A single <em>portable equivalence</em> rule is applied at commit: NFC, then case-fold, then strip trailing dots and spaces per Windows rules, <strong>per path segment</strong>. <strong>A manifest containing any pair that collides under it is rejected as malformed</strong>, with both paths named. Rejecting at commit is the only option that keeps every supported client able to materialise the tree — sanitising would silently merge two authored files. The same normalisation guards the reserved <code>.aonik/</code> prefix (<a href="091.workspace-sync.html#metadata">091 §8.4</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>File/directory prefix collision.</strong> A manifest containing both <code>foo</code> and <code>foo/bar.txt</code>.</td>
+      <td>
+        <strong>Equivalence checking does not catch this and Rev 3 did not consider it.</strong> The two full paths
+        are not equal under case-folding or trailing-character normalisation, so the pair rule passes them — yet
+        <strong>no filesystem can materialise <code>foo</code> as both a regular file and a directory</strong>.
+        A revision committed with that pair fails partway through pull, and because the journal replays toward a
+        target that can never be reached, <strong>recovery retries an impossible operation indefinitely</strong> —
+        the tree is stuck and every subsequent read is gated behind a recovery that cannot finish.
+        A manifest where any path is a <em>segment-boundary prefix</em> of another is therefore rejected at
+        commit, evaluated under the same normalisation so <code>Foo</code> and <code>foo/bar.txt</code> are caught
+        too. This is the class of defect worth rejecting server-side rather than trusting clients to avoid: it is
+        cheap to check once and expensive to recover from.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Hash substitution / the hash as a bearer capability.</strong> A caller commits a manifest naming a hash they never uploaded, to reference someone else's blob and then read the bytes back through their own manifest.</td>
+      <td>
+        <strong>Tenant scope alone is not sufficient, and this is the finding that matters most in this table.</strong>
+        Rev 2 accepted any hash with a blob <em>in this tenant</em> — which is fine when a tenant is one customer,
+        and wrong for Arke Kids, where <strong>one tenant holds many unrelated families</strong>. Guessing is not
+        required either: hashes of shared or previously-seen content are knowable, and a match turns into a read.
+        A content hash is a <em>name</em>, and Rev 2 treated it as an <em>authorisation</em>.
+        <br><br>
+        A commit may therefore only name a hash the caller has <strong>demonstrated possession of</strong>:
+        <ul style="margin:6px 0 0">
+          <li>uploaded by this subscriber (a <code>BlobPossession</code> row per subscriber per hash, written on promote — including when promote discovers the blob already exists, since they still supplied the bytes), <strong>or</strong></li>
+          <li>already reachable by this caller through a workspace they can read.</li>
+        </ul>
+        <strong>Dedupe stays physical; authorisation becomes per-subscriber.</strong> The bytes are still stored
+        once — the saving is preserved — but a reference requires proof, so the hash stops being a bearer token.
+        A commit naming an unpossessed hash is refused as <em>missing</em>, never as <em>forbidden</em>: the
+        distinction would confirm the blob exists and hand back the existence oracle the control just closed.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Quota bypass.</strong> Upload, then check.</td>
+      <td>
+        The byte ceiling is claimed before the stream is accepted and released on failure, using Spec 087's
+        claim/release lifecycle rather than a post-hoc count. Callers without <code>Write</code> access consume no
+        quota because they are refused before staging (<a href="#access">§8.1</a>).
+        <br><br>
+        <strong>But a pre-stream claim can only use a size the caller declared</strong>, and Rev 3 never bound the
+        two together. <code>StageAsync</code> learns the authoritative size as it consumes the stream, so a direct
+        client — not our client, a caller hitting the API — could declare 1MB, send 4GB, and store it. The claim
+        would be honest and the storage would not.
+        <ul style="margin:6px 0 0">
+          <li><strong>A declared length is mandatory.</strong> A chunked upload with no declared total is refused; "we will find out how big it is" is not compatible with claiming quota first.</li>
+          <li><strong>The read is bounded by the claim.</strong> <code>StageAsync</code> aborts the moment the stream exceeds the declared length rather than discovering it afterwards — which also caps the damage a hostile caller can do to disk.</li>
+          <li><strong>Staged size is verified against the declaration before promote.</strong> Any difference in either direction discards the staged object and releases the claim: over-declaring to reserve headroom is as much a quota lie as under-declaring.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Zip-bomb / oversize single file.</strong></td>
+      <td>A per-file ceiling and a per-commit file-count ceiling, both configurable, both enforced before bytes are read.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="phasing">13. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>P1</strong> — contracts</td>
+      <td><code>SharedKernel.Abstractions.Workspaces</code>: interfaces, records, known values. No behaviour.</td>
+      <td>Solution builds; no test change.</td>
+    </tr>
+    <tr>
+      <td><strong>P2</strong> — module + schema</td>
+      <td>The <code>Aonik.Workspaces</code> middle-layer module (references only SharedKernel), four entities, configurations, <code>WorkspacesDbContext</code>, migration against <code>AonikDbContext</code>.</td>
+      <td>Migration reviewed and applies cleanly; the uniqueness and dedupe indexes proven on LocalDB.</td>
+    </tr>
+    <tr>
+      <td><strong>P3</strong> — blobs</td>
+      <td><code>IFileStore.StageAsync</code> / <code>PromoteAsync</code> (<a href="#addressing">§5</a>), streaming hash, reference counting, the <code>Deleting</code> tombstone that serialises sweeping against new references (<a href="#sweep">§5.1</a>), the orphan and staging sweeper as a Worker job.</td>
+      <td>The same bytes uploaded twice store <strong>one physical object</strong>, not one row over two objects; deleting one of two revisions naming a blob keeps the bytes; a blob claimed by the sweeper is reported missing to a referencing commit rather than referenced, and a reference landing first makes the sweeper abandon the deletion; no upload path materialises a blob in memory.</td>
+    </tr>
+    <tr>
+      <td><strong>P4</strong> — revisions</td>
+      <td>Manifest commit; <code>CommitId</code> idempotency bound to a canonical request hash (<a href="#commitbind">&sect;6.1.1</a>); parent comparison; <strong>head advance and sequence allocation as one <code>RowVersion</code> CAS, with re-classification on loss</strong> (<a href="#cas">&sect;6.2</a>); history read; <code>ResolveAsync</code> and the divergent-revision lifecycle (<a href="#resolve">&sect;7.1</a>).</td>
+      <td>A retried commit with the same request hash replays the original outcome, and one with a <em>different</em> manifest is refused 409 rather than replayed; two clients committing concurrently from the same head both persist, the loser re-classified as <code>Diverged</code> rather than erroring; a commit naming an unpossessed hash is refused as missing; accepting a divergent revision advances the head via a new revision parented on the current head, and rejecting one releases its blobs and byte claims after the retention window.</td>
+    </tr>
+    <tr>
+      <td><strong>P5</strong> — sharing &amp; quota</td>
+      <td><code>workspace</code> resolver; <code>AccessLevel</code> enforcement in the workspace service (<a href="#access">&sect;8.1</a>); count and weighted byte ceilings wired to Spec 087, <strong>including the <code>int</code>&nbsp;&rarr;&nbsp;<code>long</code> widening of <code>CeilingHolding.Held</code></strong> (<a href="#weighted">&sect;9.1</a>); per-subscriber <code>BlobPossession</code>; claim migration on ownership transfer (<a href="#transfer">&sect;9.2</a>).</td>
+      <td>A workspace can be shared by invite and revoked; <strong>a read-only grantee calling the commit endpoint directly gets 403</strong>; a 3GB workspace is counted without truncation; exceeding either ceiling refuses before any byte is stored; deleting a workspace returns its held bytes; transferring one moves the claims atomically or refuses.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+
+<ol>
+  <li><code>Aonik.Workspaces</code> references <strong>only</strong> <code>Aonik.SharedKernel</code>.</li>
+  <li>No type in the module names a product concept — no sheet, canon, production, world <em>except</em> as the value of <code>Kind</code>.</li>
+  <li>Identical bytes stored twice occupy one blob, proven on <strong>LocalDB</strong>, where the unique index is real.</li>
+  <li>Deleting a revision that shares a blob with another revision leaves the bytes readable.</li>
+  <li>A commit naming a hash with no blob in this tenant is refused, and no revision is created.</li>
+  <li>A commit whose parent is not the head is <strong>stored</strong>, reported as <code>Diverged</code>, and does <strong>not</strong> advance the head.</li>
+  <li>A commit retried with the same <code>CommitId</code> returns the original outcome and creates no second revision — <strong>including when that outcome was <code>Diverged</code></strong>.</li>
+  <li>Two clients committing concurrently from the same head <strong>both persist</strong>: the first advances the head, the second is stored as <code>Diverged</code>. Neither receives a uniqueness error.</li>
+  <li>No client-supplied <code>Sequence</code> is accepted by any endpoint.</li>
+  <li>A caller holding a <code>Read</code> grant receives <strong>403 from the commit and upload endpoints called directly</strong>, with no product-side check involved.</li>
+  <li>Uploading a blob consumes no quota for a caller who is not permitted to write.</li>
+  <li>Deleting a workspace <strong>returns its held bytes</strong>, and the same bytes can then be uploaded again.</li>
+  <li>The same content hash referenced by ten revisions is charged against the byte ceiling <strong>once</strong>.</li>
+  <li>Retrying a commit with the same <code>CommitId</code> but a different manifest, parent or workspace is <strong>refused with 409</strong>, never replayed as success.</li>
+  <li>Two clients committing concurrently from the same head: one advances the head, the other is re-classified and stored as <code>Diverged</code>. Neither errors, and the losing update is detected by <code>RowVersion</code> rather than by a uniqueness violation — proven in the <strong>LocalDB lane</strong>, since the InMemory provider enforces neither.</li>
+  <li>A commit naming a hash the subscriber has neither uploaded nor can already reach is <strong>refused as missing</strong> — with the same response as a genuinely absent blob, so no existence oracle is offered.</li>
+  <li>A pull whose manifest path traverses a symlink or junction <strong>writes nothing outside the workspace root</strong>; the resolved destination is verified before every write.</li>
+  <li>A manifest containing <code>Scene.txt</code> and <code>scene.txt</code> — or names differing only by trailing dot or space — is rejected at commit with both paths named, rather than materialising as one file.</li>
+  <li>A workspace holding more than <code>int.MaxValue</code> bytes is counted without truncation, and the ceiling still refuses at the limit. LocalDB lane, since InMemory would not catch a column-width truncation.</li>
+  <li>Transferring ownership claims against the recipient <strong>before</strong> releasing the former owner, and refuses the transfer outright when the recipient lacks capacity — leaving both parties' claims unchanged.</li>
+  <li>Two concurrent commits from the same head <strong>both persist with distinct sequences</strong>, and the loser is stored as <code>Diverged</code> — the sequence is consumed only by a successful CAS, so the unique index never fires. LocalDB lane.</li>
+  <li>A manifest naming <code>.AONIK/pull.journal</code>, <code>.aonik./x</code> or any other equivalence-alias of the reserved prefix is refused server-side.</li>
+  <li>A manifest containing both <code>foo</code> and <code>foo/bar.txt</code> is refused at commit, under the same normalisation, so no revision can exist that a filesystem cannot materialise.</li>
+  <li>A blob claimed by the sweeper (<code>State = Deleting</code>) is reported as missing to a referencing commit rather than referenced, and a reference landing first causes the sweeper to abandon the deletion. No revision ever names bytes that were removed.</li>
+  <li>Accepting a divergent revision advances the head via a <strong>new revision parented on the current head</strong>; no head ever points at a revision whose parent is not its predecessor.</li>
+  <li>A rejected divergent revision releases its uniquely-held blobs and its byte claims after the retention window.</li>
+  <li>A subscriber holding two workspaces that share a blob, transferring one, <strong>still holds a byte claim for the retained one</strong>.</li>
+  <li>A path containing <code>..</code>, a drive letter, a leading slash or a reserved device name is rejected at commit.</li>
+  <li>Two paths differing only in Unicode normalisation are treated as one and the commit is refused as malformed.</li>
+  <li>Exceeding the byte ceiling refuses the upload before the stream is consumed, and an upload whose streamed size differs from its declared length is discarded with its claim released.</li>
+  <li>A commit naming any path under <code>.aonik/</code> — or any equivalence-alias of it — is refused server-side, regardless of what the client sent.</li>
+  <li>A workspace shared by invite is listable, revocable and acceptable through Spec 086's existing routes with no workspace-specific code in those routes.</li>
+  <li><code>dotnet build</code> and <code>dotnet test Aonik.sln</code> green, plus the LocalDB lane.</li>
+</ol>
+
+<h2 id="open">15. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>O1</td>
+      <td>Should blobs dedupe across tenants?</td>
+      <td><strong>No.</strong> The storage saving is real but existence becomes probeable by timing, and one tenant's deletion affecting another's read is a support incident nobody can explain.</td>
+    </tr>
+    <tr>
+      <td>O2</td>
+      <td>How much history is retained?</td>
+      <td>All of it until a retention policy exists. Revisions are cheap; blobs are not, so the first cost pressure will come from media, not from history depth.</td>
+    </tr>
+    <tr>
+      <td>O3</td>
+      <td>Does a workspace need a <code>Group</code> owner as well as a party?</td>
+      <td>Not in v1. A studio shares a workspace through a grant; making it group-owned adds a second ownership representation, which is what <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> O1 rejected for groups.</td>
+    </tr>
+    <tr>
+      <td>O4</td>
+      <td>Is the sync client part of the platform or the product?</td>
+      <td>The product. The platform ships the protocol and the contracts; the client that walks a real filesystem belongs with the application that owns the folder.</td>
+    </tr>
+    <tr>
+      <td>O5</td>
+      <td>Should a divergent revision expire?</td>
+      <td>Probably — an unaccepted proposal holding blobs alive indefinitely is a quota leak. Needs a number, so deferred rather than guessed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<footer>
+  Spec 089 · Workspaces · Draft Rev 5 · 2026-08-12 · Codex rounds 1–3 applied; sync split out to
+  <a href="091.workspace-sync.html">Spec 091</a> ·
+  Implements <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> ·
+  Gated by <a href="090.offline-verifiable-entitlement.html">Spec 090</a>
+</footer>
+
+</body>
+</html>

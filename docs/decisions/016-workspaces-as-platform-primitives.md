@@ -1,8 +1,8 @@
 # ADR-016: A Workspace Is a Platform Primitive; a World Is a Kind of One
 
-**Status:** Proposed (principle + seam; mechanism in Spec 089)
+**Status:** Proposed (principle + seam; mechanism in Spec 089, protocol in Spec 091)
 **Date:** 2026-08-01
-**Related:** [ADR-005](005-adopt-module-first-modular-monolith.md) (module-first, no cross-module references) · [ADR-011](011-unify-order-spine-into-ordering-layer.md) (middle-layer module precedent) · [ADR-013](013-product-identity-is-configuration.md) (product identity is configuration) · [ADR-015](015-groups-and-sharing-as-platform-primitives.md) (the precedent extraction) · [Spec 086](../specifications/086.extract-groups-and-sharing-to-platform.html) (groups and sharing) · [Spec 087](../specifications/087.subscriptions-entitlements-and-metered-usage.html) (entitlements and metering)
+**Related:** [ADR-005](005-adopt-module-first-modular-monolith.md) (module-first, no cross-module references) · [ADR-011](011-unify-order-spine-into-ordering-layer.md) (middle-layer module precedent) · [ADR-013](013-product-identity-is-configuration.md) (product identity is configuration) · [ADR-015](015-groups-and-sharing-as-platform-primitives.md) (the precedent extraction) · [Spec 086](../specifications/086.extract-groups-and-sharing-to-platform.html) (groups and sharing) · [Spec 087](../specifications/087.subscriptions-entitlements-and-metered-usage.html) (entitlements and metering) · [Spec 089](../specifications/089.workspaces.html) (the model) · [Spec 091](../specifications/091.workspace-sync.html) (the protocol)
 
 ## Context
 
@@ -67,12 +67,12 @@ work, and in particular **git is not**, which the Arke specification explicitly 
 
 | Question | Answer |
 | --- | --- |
-| **What does the platform own?** | The container, the tree, revisions, blobs, the sync protocol, sharing, quota, tenancy, soft-delete, subject-access export. |
+| **What does the platform own?** | The container, the tree, revisions, blobs, the sync protocol, sharing, quota, tenancy, soft-delete, subject-access export. The model is [Spec 089](../specifications/089.workspaces.html); the protocol was split into [Spec 091](../specifications/091.workspace-sync.html) once three review rounds confirmed this ADR's own warning that sync is where the risk is. |
 | **What does the product own?** | What a sheet is, what canon means, ripple, the accept gate, model sheets, productions — all of it operating on **file contents the platform never opens**. |
 | **How is that enforced?** | The same rule as `TermsJson` in [Spec 086](../specifications/086.extract-groups-and-sharing-to-platform.html) §6.1: the platform stores it and never reads it. If `Aonik.Workspaces` ever learns what a canon entry is, the seam has failed and the module has become a second copy of the product. |
 | **Why is the folder the wire format?** | Because the MIT local application must not gain a dependency on Aonik. It reads and writes folders; a sync client moves them. The local format stays authoritative offline and the cloud holds a mirror of the same tree. |
 | **How does sharing work?** | Register `workspace` as a `ShareResourceKind`. The resolver is then a query against the platform's own table rather than a call back into the product — which is the whole reason workspaces belong here. |
-| **How is it metered?** | Workspace count as a **ceiling** meter, stored bytes as a **counter** meter. Both are [Spec 087](../specifications/087.subscriptions-entitlements-and-metered-usage.html) primitives that only work if the platform knows how many workspaces exist and how large they are. |
+| **How is it metered?** | Workspace count as a **ceiling** meter, stored bytes as a **weighted ceiling** meter. Both are [Spec 087](../specifications/087.subscriptions-entitlements-and-metered-usage.html) primitives that only work if the platform knows how many workspaces exist and how large they are. <br>**Corrected 2026-08-11:** this row originally said stored bytes were a *counter*. They are not, and the error was load-bearing — Spec 087's `CommitAsync` moves a reservation into `Consumed`, which never decreases, so a counter could never return bytes on delete. A customer who uploaded and deleted 40GB would have permanently burned 40GB of allowance while using none of it. Storage is a **level, not a flow**, and a level is a ceiling. See [Spec 089](../specifications/089.workspaces.html) §9. |
 | **Naming** | Platform code says `Workspace`. "World" is product vocabulary and stays in product UIs, per [ADR-013](013-product-identity-is-configuration.md). |
 
 ### Which revision is true
@@ -147,6 +147,25 @@ per-file permissions (a grant names a workspace, not a path).
 | **Ledger authority** | Arke keeps its own append-only spend ledger with provider-reported actuals; AONIK's rule 1 is that the ledger is the source of financial truth. If cloud dispatch spends AONIK credits while local dispatch spends the user's own provider key, the reconciliation rule must be written before either is built. |
 | **Provider key custody in the cloud** | Locally, keys sit in an app-owned encrypted file under the OS key store. Holding a user's keys server-side is a custody and liability change, not a storage decision. |
 | **Server-side media dispatch** | Arke's job queue is local and calls providers directly. Cloud execution is a new subsystem and is where credits are actually consumed, so it must be transactional with metering. |
+
+## Amendment — 2026-08-12: the mechanism is two specifications, not one
+
+This ADR said, in *Consequences → Negative, and accepted*, that **"sync is the highest-risk component
+in the plan, and everything else here is plumbing."** Three rounds of adversarial review on the
+mechanism spec proved that quantitatively: **44 findings, 31 of them P1**, with the large majority
+landing on the sync half while the model, the sharing seam and the quota design went quiet after the
+first round.
+
+The mechanism was therefore split:
+
+| | |
+| --- | --- |
+| [**Spec 089** — Workspaces](../specifications/089.workspaces.html) | The model, content addressing, blob lifecycle, revision commit semantics, divergence resolution, sharing, quota, and every server-side validation. **Settled and buildable.** |
+| [**Spec 091** — Workspace sync](../specifications/091.workspace-sync.html) | Negotiation, resumable transfer, and applying a pull to a live folder without losing authored work. **The hard half, with its own review budget.** |
+
+Nothing in the decision above changes. The split is editorial and sequencing: it lets the settled
+half ship — which is what Arke Kids needs first and what the storage tier is priced on — without
+waiting on the half that is still being argued about.
 
 ## See Also
 
