@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 096</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 2)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Ai</span>
   <h1>Content safety for child-facing generation</h1>
@@ -463,8 +463,59 @@
 </div>
 
 <ul>
-  <li><strong>Measure both error rates from day one.</strong> A safety system reporting only what it caught is reporting half its behaviour.</li>
-  <li><strong>Guardian appeal.</strong> An adult can view blocked content and release it to their child. It is their child; a classifier's opinion should not be final over a parent's — and it produces exactly the labelled data needed to tune thresholds.</li>
+  <li>
+    <strong>Measure both error rates — and be honest that they are measured differently.</strong> A safety system
+    reporting only what it caught is reporting half its behaviour. But the two halves are not symmetric:
+    <ul style="margin-top:6px">
+      <li><strong>False positives are directly countable</strong> from incidents and guardian releases. Every appeal that succeeds is a labelled example, available from the first release.</li>
+      <li><strong>False negatives are not.</strong> By definition they <em>passed</em> and were delivered, so no incident exists and there is no denominator. Rev 1 made per-band false-negative rates a first-release acceptance criterion, which is not implementable — you cannot count what you did not detect, and guardian reports alone catch only the harm someone recognised and bothered to report.</li>
+    </ul>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">What replaces the unimplementable criterion</span>
+      A <strong>scheduled evaluation</strong> rather than a live metric: a held-out corpus of adversarial and
+      ordinary prompts per band, run against the live configuration on a fixed cadence, <strong>labelled by
+      named reviewers</strong> — a defined owner, not "the team". Plus privacy-safe sampling of delivered output
+      for review, at a rate and under access controls agreed in S0, since reviewing children's content is itself
+      processing that needs a basis and a limit. The corpus gives a denominator; sampling catches what the
+      corpus did not anticipate. <strong>Neither is a live rate, and pretending otherwise was the error.</strong>
+    </div>
+  </li>
+  <li>
+    <strong>Guardian appeal — but not an unconditional release.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — Rev 1 handed guardians a bypass of the entire safety boundary</span>
+      <p style="margin-top:0">
+        Rev 1 said an adult "can view blocked content and release it to their child", full stop. That is
+        defensible for a blocked dragon fight and indefensible for everything else: <strong>the classifier is
+        often right</strong>, and the sentence as written let a guardian deliver sexual content, graphic material
+        or explicit self-harm content to a child by clicking through — with L4 described elsewhere in this spec
+        as the last line before the child.
+      </p>
+      <p style="margin-bottom:0">
+        It is also wrong about who a guardian is. A guardian account is not proof of good intent, and the one
+        category where that matters most is precisely the one where an unconditional release capability is most
+        dangerous.
+      </p>
+    </div>
+    <table style="margin-top:10px">
+      <thead><tr><th>Category</th><th>Appeal</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Non-overridable</strong> — sexual content, explicit self-harm instruction, and the <a href="#reporting">§12</a> category</td>
+          <td><strong>No release, by anyone, ever.</strong> The content is not viewable by the guardian either. An appeal here is <strong>a signal, not a request</strong>: it is recorded, and repeated appeals against this category on one account escalate to a person.</td>
+        </tr>
+        <tr>
+          <td><strong>Reviewable</strong> — violence, peril, frightening imagery, everything age-banded</td>
+          <td>The guardian may view and release <strong>to their own child only</strong>. This is where false positives actually live, and where a parent's judgement should outrank a threshold.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:8px">
+      Only the reviewable branch yields labelled tuning data. Nothing in the non-overridable branch is ever
+      released, so nothing there is a "false positive" we act on — if the classifier is wrong about that
+      category, the fix is the classifier, not a manual override.
+    </p>
+  </li>
   <li><strong>Tune per band</strong> rather than globally, since a threshold correct for a five-year-old is absurd for a twelve-year-old.</li>
   <li><strong>Retry with constraint</strong> before refusing outright: a re-generation with tightened structural constraints (<a href="#structural">§7</a>) often produces an acceptable version of the same idea, which is a far better outcome for the child than a refusal.</li>
 </ul>
@@ -586,8 +637,48 @@
 <h2 id="persistence">15. Persistence</h2>
 
 <ul>
-  <li><code>AnkSafetyIncidents</code> — subject party, age band, layer, category, verdict, model and provider, decision, timestamp. Tenant-scoped, <code>Ank</code>-prefixed.</li>
-  <li><code>AnkSafetyArtefacts</code> — short-lived pointers to blocked content held for appeal, with an expiry the sweeper honours and an override for <a href="#reporting">§12</a>.</li>
+  <li>
+    <code>AnkSafetyIncidents</code> — subject party, age band, layer, category, verdict, decision, timestamp,
+    <strong>and the <code>AiRun</code> ids of the generation and of every classifier call that judged it</strong>.
+    Tenant-scoped, <code>Ank</code>-prefixed.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — a model name is not an audit trail, and rule 4 is not optional</span>
+      <p style="margin-top:0">
+        Rev 1 recorded only a model and provider <em>label</em>, and the classifier contract said nothing about
+        how vendors are called. Implemented literally, a classifier could be integrated directly — creating
+        <strong>no <code>AiRun</code> at all</strong> — and a block or a delivery could not be traced back to the
+        exact executions that produced it. When a parent asks why their child saw something, "a model called
+        <code>x</code> said it was fine" is not an answer.
+      </p>
+      <p style="margin-bottom:0">
+        It also breaks a platform rule outright. AONIK's fourth non-negotiable is that <strong>every AI action is
+        auditable, recorded as an <code>AiRun</code></strong> — and a safety classifier is an AI action taken on
+        behalf of a child, which is the last place to make an exception.
+      </p>
+    </div>
+    <ul style="margin-top:8px">
+      <li><strong>Every AI-backed layer runs through the audited pipeline.</strong> Input classification, output classification and the generation itself each produce an <code>AiRun</code>; a classifier that bypasses it is a defect, not an optimisation.</li>
+      <li><strong>The incident stores the run ids</strong>, so a verdict is reconstructible: what was asked, which model answered, what each classifier returned, and what was decided.</li>
+      <li><strong>Retention is aligned</strong> — an <code>AiRun</code> referenced by a live incident is not swept before the incident is, or the trail breaks exactly when it is needed.</li>
+    </ul>
+  </li>
+  <li>
+    <code>AnkSafetyArtefacts</code> — short-lived pointers to blocked content held for appeal, with an expiry and
+    an override for <a href="#reporting">§12</a>.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — Rev 1 referred to "the sweeper" and never built one</span>
+      An expiry column deletes nothing. Rev 1 named a sweeper in passing, put it in no phase, and gave it to no
+      contract — so as specified, <strong>blocked content about children would have been retained
+      indefinitely</strong>, contradicting this spec's own short-retention promise and acceptance criterion 11.
+      A retention policy nothing enforces is a statement of intent, and the gap is invisible precisely because
+      the column looks like the mechanism.
+    </div>
+    <ul style="margin-top:8px">
+      <li><code>ISafetyRetentionSweeper</code> as a <strong>Quartz job in <code>Aonik.Worker</code></strong>, shipped in <strong>S1 with the incident record</strong> rather than left to a later phase — the artefacts start accumulating the moment blocking works.</li>
+      <li><strong>Legal-hold exclusion is explicit</strong>: an artefact under a <a href="#reporting">§12</a> preservation flag is skipped and its skip is logged, so preservation and deletion cannot silently contend.</li>
+      <li><strong>Operational tests</strong>, not just unit ones: the job runs per tenant (<code>EnforceTenantOnWrites</code> rejects cross-tenant writes, so it commits per tenant like every other scheduled job in this platform), and a monitored failure to run is treated as a retention incident rather than a quiet backlog.</li>
+    </ul>
+  </li>
   <li><code>AnkSafetyPolicies</code> — thresholds per band and category, as <strong>data</strong>, so tuning does not require a deployment. Versioned, since a threshold change must be attributable when reviewing an old incident.</li>
   <li>Migrations CLI-generated against <code>AonikDbContext</code> per <code>CLAUDE.md</code>.</li>
 </ul>
@@ -600,7 +691,8 @@
     <tr><td><code>IContentSafetyGate</code></td><td>The boundary. Every child-facing generation passes through it; it fails closed and cannot be bypassed by a caller.</td></tr>
     <tr><td><code>IContentClassifier</code></td><td>One implementation per modality and vendor, selected by configuration — the provider-factory shape used elsewhere in the platform.</td></tr>
     <tr><td><code>ISafetyPolicyReader</code></td><td>Resolves band plus category to a threshold and an action.</td></tr>
-    <tr><td><code>ISafetyIncidentRecorder</code></td><td>Writes the record, applies retention, honours the §12 override.</td></tr>
+    <tr><td><code>ISafetyIncidentRecorder</code></td><td>Writes the record <strong>including the <code>AiRun</code> ids</strong> of the generation and every classifier call (<a href="#persistence">§15</a>).</td></tr>
+    <tr><td><code>ISafetyRetentionSweeper</code></td><td>Deletes expired artefacts, skips anything under a <a href="#reporting">§12</a> hold, and runs per tenant. <strong>Ships in S1</strong>, because the artefacts start accumulating the moment blocking works.</td></tr>
   </tbody>
 </table>
 
@@ -625,8 +717,8 @@
     </tr>
     <tr>
       <td><strong>S1</strong> — the gate</td>
-      <td><code>IContentSafetyGate</code>, the build-time failure for unrouted paths, incident records, fail-closed behaviour.</td>
-      <td>A child-facing generation not routed through the gate <strong>does not compile</strong>; a classifier outage blocks delivery rather than passing content through.</td>
+      <td><code>IContentSafetyGate</code>, the build-time failure for unrouted paths, incident records <strong>carrying <code>AiRun</code> ids</strong>, <strong><code>ISafetyRetentionSweeper</code></strong>, fail-closed behaviour.</td>
+      <td>A child-facing generation not routed through the gate <strong>does not compile</strong>; a classifier outage blocks delivery rather than passing content through; every verdict is traceable to the runs that produced it; <strong>expired artefacts are actually deleted</strong>, with §12 holds skipped.</td>
     </tr>
     <tr>
       <td><strong>S2</strong> — classification</td>
@@ -644,9 +736,14 @@
       <td>A parent can review before delivery, see everything afterwards, and release a false positive — and the child is told when an adult is reviewing.</td>
     </tr>
     <tr>
-      <td><strong>S5</strong> — video and voice</td>
-      <td>Extend to the modalities where classification is hardest and most expensive.</td>
-      <td>Video output is classified before delivery, and the cost is understood well enough to price it.</td>
+      <td><strong>S5</strong> — voice</td>
+      <td>Output classification for generated narration: transcribe, classify the text, and classify the audio for delivery characteristics a transcript does not capture — tone, distress, and content that is frightening in performance rather than in words.</td>
+      <td><strong>Generated speech is classified before a child hears it</strong>, a classifier outage blocks narration rather than passing it through, and the delivered-voice path has its own fail-closed test. <strong>Voice is not enabled by the video phase and does not inherit its coverage.</strong></td>
+    </tr>
+    <tr>
+      <td><strong>S6</strong> — video <span class="tag gap">conditional</span></td>
+      <td>Only on a product decision that resolves <a href="#open">F6</a>. Requires <strong>complete temporal coverage</strong> or a structurally constrained alternative — sampling is explicitly not an acceptable design.</td>
+      <td><strong>Every frame delivered to a child has been covered by classification</strong>, demonstrated on a video containing a single harmful frame. If that cannot be achieved affordably, <strong>the phase does not ship and video stays disabled</strong> — which is a legitimate outcome, not a failure.</td>
     </tr>
   </tbody>
 </table>
@@ -663,7 +760,13 @@
   <li>A blocked generation shows the child a plain, unalarming message with <strong>no category name and no warning styling</strong>.</li>
   <li>An incident record exists for every block, and a guardian can see their own child's records.</li>
   <li>A guardian can view and release blocked content, and the release is recorded as labelled data.</li>
-  <li><strong>Both</strong> false-positive and false-negative rates are measured and reported per band from the first release.</li>
+  <li>False-<strong>positive</strong> rates are counted per band from the first release. False-<strong>negatives</strong> are reported from the <strong>scheduled evaluation</strong> of <a href="#failure">§10.3</a> — a named-owner corpus plus privacy-safe sampling — and <strong>not</strong> claimed as a live metric.</li>
+  <li>A guardian <strong>cannot view or release</strong> content blocked in a non-overridable category, and repeated appeals against that category escalate to a person.</li>
+  <li>Every safety verdict records the <code>AiRun</code> ids of the generation and of each classifier call, and <strong>no classifier reaches a vendor outside the audited pipeline</strong>.</li>
+  <li>An <code>AiRun</code> referenced by a live incident is <strong>not swept</strong> before the incident is.</li>
+  <li>The retention sweeper runs, deletes expired artefacts, and <strong>skips anything under a §12 hold</strong> — with the skip logged. A sweeper that fails to run is surfaced as a retention incident, not a silent backlog.</li>
+  <li><strong>Generated speech is classified before a child hears it</strong>, with its own fail-closed behaviour; voice does not inherit coverage from any other modality.</li>
+  <li>If video ships, <strong>every delivered frame has been covered</strong> — demonstrated with a video containing one harmful frame between sample points. <strong>Frame sampling alone never satisfies this criterion.</strong></li>
   <li>Blocked content itself is deleted on its short retention; the incident record survives.</li>
   <li>Detection at the <a href="#reporting">§12</a> category preserves material, overrides deletion including a subject-access request, restricts access to named individuals, logs every access, and escalates to a person immediately.</li>
   <li>Where guardian review or visibility is active, <strong>the child is told</strong> in age-appropriate terms.</li>
@@ -710,8 +813,20 @@
     <tr>
       <td>F6</td>
       <td>Video classification is expensive and slow. Sample frames, or classify whole?</td>
-      <td>Engineering</td>
-      <td>Frame sampling plus the generating prompt, with sampling density as a policy value. Whole-video classification will not be affordable at S5.</td>
+      <td><strong>Product, not engineering</strong></td>
+      <td>
+        <strong>Neither — and this is now a product decision about whether to ship video at all.</strong>
+        Rev 1 leaned to frame sampling with density as a policy value. That is an engineering convenience that
+        <strong>contradicts this spec's own premise</strong>: sampling cannot establish that a video is safe,
+        because a harmful frame or a short sequence <em>between</em> sample points is delivered even when every
+        sampled frame passes. It cannot coexist with L4 being the last line before a child, nor with zero
+        tolerance on <a href="#threat">§5</a>'s first category.
+        <br><br>
+        The honest options are <strong>complete temporal coverage</strong>, <strong>short generations that can be
+        covered affordably</strong>, <strong>pre-generated and human-reviewed video</strong> for the youngest
+        bands, or <strong>video stays off</strong>. Sampling is not among them, and "we sampled every second
+        frame" is not a sentence anyone wants to say to a parent.
+      </td>
     </tr>
     <tr>
       <td>F7</td>
@@ -723,7 +838,7 @@
 </table>
 
 <footer>
-  Spec 096 · Content safety for child-facing generation · Draft Rev 1 · 2026-08-12 ·
+  Spec 096 · Content safety for child-facing generation · Draft Rev 2 (Codex round 1: 6 findings applied) · 2026-08-12 ·
   <strong>S0 policy work, including counsel, precedes implementation</strong> ·
   Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
   Preserves the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam by operating at

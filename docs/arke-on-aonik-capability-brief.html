@@ -790,7 +790,7 @@ to prevent.</code></pre>
       <td><strong>Verifiable parental consent</strong></td>
       <td><span class="chip gap">GAP</span></td>
       <td><code>PartyConsent</code><br><a href="specifications/095.guardian-relationships-and-verifiable-consent.html"><span class="chip spec">Spec 095</span></a> <span class="chip draft">draft</span></td>
-      <td>Now specified — and the honest position is worse than this row first said: <code>PartyConsent</code> is <strong>a table and a DbSet that nothing writes to</strong>, with no service and no endpoint. It cannot record who consented, how they were verified, or for what purpose. It is replaced, not extended.</td>
+      <td>Now specified. <code>PartyConsent</code> exists and <strong>is in use</strong> — customer data export, import, and an admin view read it — but it has no service and no endpoint that <em>grants</em> consent, and it cannot record who consented, how they were verified, or for what purpose. So as a <em>mechanism</em> it does not exist. Spec 095 adds one alongside and retires this one in stages rather than dropping it.</td>
     </tr>
     <tr>
       <td><strong>Content safety for generated media</strong></td>
