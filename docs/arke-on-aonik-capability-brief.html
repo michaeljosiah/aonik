@@ -71,7 +71,7 @@
 
 <header class="doc-meta">
   <span class="meta-tag">Capability brief</span>
-  <span class="meta-tag status">Draft Rev 2 — for review</span>
+  <span class="meta-tag status">Draft Rev 3 — for review</span>
   <span class="meta-tag client">Products: Arke Studio · Arke Kids</span>
   <span class="meta-tag">2026-08-11</span>
   <h1>Arke Studio &amp; Arke Kids on AONIK</h1>
@@ -132,7 +132,7 @@
   </p>
   <p style="margin-bottom:0">
     What is genuinely missing is <strong>two things and a decision</strong>: a versioned tree of files
-    the platform can own (<a href="specifications/089.workspaces-and-sync.html">Spec 089</a>), an
+    the platform can own (<a href="specifications/089.workspaces.html">Spec 089</a>), an
     entitlement a laptop can verify with no network
     (<a href="specifications/090.offline-verifiable-entitlement.html">Spec 090</a>), and a ruling on
     whether cloud dispatch spends AONIK credits or the user's own provider key — which is a business
@@ -254,7 +254,7 @@
   <tbody>
     <tr>
       <td><strong>A. Storage and continuity</strong> — worlds in the cloud, on every machine, backed up, shareable.</td>
-      <td>Workspaces, sync, quota meters, sharing. <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> + <a href="specifications/090.offline-verifiable-entitlement.html">090</a>.</td>
+      <td>Workspaces, sync, quota meters, sharing. <a href="specifications/089.workspaces.html">Spec 089</a> + <a href="specifications/090.offline-verifiable-entitlement.html">090</a>.</td>
       <td><strong>Buildable now.</strong> No custody change, no metering of third-party spend, no new liability. This is the tier to ship first.</td>
     </tr>
     <tr>
@@ -404,7 +404,7 @@ to prevent.</code></pre>
     <tr>
       <td><strong>002</strong> The world on disk<br><span class="small">layout, formats, versioning, history</span></td>
       <td><span class="chip mirror">MIRROR</span></td>
-      <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
+      <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip spec">Spec 091</span> <span class="chip draft">draft</span></td>
       <td><strong>The central seam.</strong> Arke's on-disk layout stays authoritative locally and is the wire format. The platform mirrors it as <code>Workspace</code> → <code>WorkspaceRevision</code> → <code>WorkspaceFile</code>, with blobs addressed by the SHA-256 <code>IFileStore</code> already returns. A revision <em>is</em> a manifest of path → hash. Explicitly no git, which Arke's spec forbids.</td>
     </tr>
     <tr>
@@ -431,7 +431,7 @@ to prevent.</code></pre>
       <td><strong>004</strong> The accept gate<br><span class="small">proposals, ripples, rebase, chat and form</span></td>
       <td><span class="chip mirror">MIRROR</span></td>
       <td><code>Aonik.Agents</code><br><span class="chip spec">Spec 030</span> <span class="chip built">built</span><br><span class="chip spec">Spec 032</span> <span class="chip built">built</span></td>
-      <td><strong>The deepest alignment in the whole family, arrived at independently.</strong> Arke: <em>"nothing enters the authored record without a human accept."</em> AONIK rule 3: <em>"agents propose; systems execute — never bypass human-in-the-loop for mutations."</em> Two products, two codebases, one principle. Spec 030's durable <code>Proposal</code> and Spec 032's risk-tiered gate are the same mechanic with money at stake instead of canon. <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> exploits this: a divergent remote revision arrives as a proposal and goes through Arke's existing gate, so sync needs no merge algorithm and no new user-facing vocabulary.</td>
+      <td><strong>The deepest alignment in the whole family, arrived at independently.</strong> Arke: <em>"nothing enters the authored record without a human accept."</em> AONIK rule 3: <em>"agents propose; systems execute — never bypass human-in-the-loop for mutations."</em> Two products, two codebases, one principle. Spec 030's durable <code>Proposal</code> and Spec 032's risk-tiered gate are the same mechanic with money at stake instead of canon. <a href="specifications/089.workspaces.html">Spec 089</a> exploits this: a divergent remote revision arrives as a proposal and goes through Arke's existing gate, so sync needs no merge algorithm and no new user-facing vocabulary.</td>
     </tr>
     <tr>
       <td><strong>005</strong> The harness adapter<br><span class="small">OpenCode lifecycle, sessions, confinement, permissions</span></td>
@@ -579,7 +579,7 @@ to prevent.</code></pre>
 <div class="card">
   <p><strong>The question.</strong> A world is a folder. A cloud tier needs it to exist somewhere other than one person's disk. Where does it live, and which copy is true?</p>
 
-  <p><strong>The answer</strong> (<a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>, <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>):</p>
+  <p><strong>The answer</strong> (<a href="decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>, <a href="specifications/089.workspaces.html">Spec 089</a>):</p>
   <div class="flow">
     <div class="node"><b>Workspace</b><br><span class="small">container, owner, head</span></div>
     <span class="arrow">→</span>
@@ -600,7 +600,7 @@ to prevent.</code></pre>
 
   <p><strong>Which copy is true.</strong> The local tree is authoritative on the machine that holds it; the cloud head is authoritative between machines. A remote revision that does not descend from the local head is <strong>not merged and not silently overwritten</strong> — it arrives as a proposal and goes through Arke's existing accept gate. No merge algorithm, no conflict markers, no new vocabulary. The product already has a word for "a change not yet accepted".</p>
 
-  <p class="small"><strong>Status:</strong> <span class="chip draft">specified, not built</span> — <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>, six phases, module does not yet exist.</p>
+  <p class="small"><strong>Status:</strong> <span class="chip draft">specified, not built</span> — <a href="specifications/089.workspaces.html">Spec 089</a> (five phases) and <a href="specifications/091.workspace-sync.html">Spec 091</a> (five phases). The module does not yet exist.</p>
 </div>
 
 <h3 id="seam-2">7.2 The entitlement seam</h3>
@@ -654,7 +654,7 @@ to prevent.</code></pre>
     incur from the provider — and the three must reconcile.
   </p>
 
-  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 093</strong>. <strong>This must be written before any line of model C is built,</strong> not after — an unreconciled second ledger is the kind of defect discovered by an auditor rather than a test.</p>
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 094</strong>. <strong>This must be written before any line of model C is built,</strong> not after — an unreconciled second ledger is the kind of defect discovered by an auditor rather than a test.</p>
 </div>
 
 <h3 id="seam-4">7.4 Provider-key custody</h3>
@@ -685,7 +685,7 @@ to prevent.</code></pre>
     </tbody>
   </table>
 
-  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 092</strong>, needed only if model C is chosen. Option 1 needs no spec, which is the strongest argument for it.</p>
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 093</strong>, needed only if model C is chosen. Option 1 needs no spec, which is the strongest argument for it.</p>
 </div>
 
 <h3 id="seam-5">7.5 Server-side dispatch, and the third axis</h3>
@@ -717,7 +717,7 @@ to prevent.</code></pre>
 
   <p><strong>Ruling for v1: sync a tree; do not author on the server.</strong> That single sentence keeps the cloud tier at "storage and continuity" and prevents the quiet expansion where remote authoring appears one endpoint at a time.</p>
 
-  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 091</strong>, model C only. The v1 ruling is recorded in <a href="specifications/089.workspaces-and-sync.html">Spec 089</a> §4.</p>
+  <p class="small"><strong>Status:</strong> <span class="chip none">no specification</span>. Proposed <strong>Spec 092</strong>, model C only. The v1 ruling is recorded in <a href="specifications/091.workspace-sync.html">Spec 091</a> §4.</p>
 </div>
 
 <h2 id="kids">8. Arke Kids</h2>
@@ -760,7 +760,7 @@ to prevent.</code></pre>
       <td><strong>A child's world</strong></td>
       <td><span class="chip mirror">MIRROR</span></td>
       <td><code>Aonik.Workspaces</code><br><span class="chip spec">Spec 089</span> <span class="chip draft">draft</span></td>
-      <td>Same primitive as Studio, inverted: cloud is primary, local is the cache. <strong>In v1 the owner is the subscribing parent's party</strong>, not the child's — see the note under §8.2. The field is still party-keyed rather than user-keyed, which is what will let ownership move to the child once guardian authority exists (Spec 094).</td>
+      <td>Same primitive as Studio, inverted: cloud is primary, local is the cache. <strong>In v1 the owner is the subscribing parent's party</strong>, not the child's — see the note under §8.2. The field is still party-keyed rather than user-keyed, which is what will let ownership move to the child once guardian authority exists (Spec 095).</td>
     </tr>
     <tr>
       <td><strong>Sharing a story with a grandparent</strong></td>
@@ -858,7 +858,7 @@ to prevent.</code></pre>
     <strong>v1 resolution:</strong> the <strong>subscribing parent's party owns the workspace</strong>; the child
     is a member of the family group with access to it. This is honest about who is accountable — the parent holds
     the subscription, consents on the child's behalf, and can be contacted — and it needs nothing that does not
-    exist. Moving ownership to the child is a Spec 094 follow-up, and the field is party-keyed precisely so that
+    exist. Moving ownership to the child is a Spec 095 follow-up, and the field is party-keyed precisely so that
     move is a data change rather than a schema one.
   </p>
 </div>
@@ -869,7 +869,7 @@ to prevent.</code></pre>
   <li>Kids calls the platform: grant <code>workspace</code>, ids <code>[world-id]</code>, access <code>Read</code>, expires in 30 days, terms <code>{"canComment":true,"canDownload":false}</code>.</li>
   <li>The platform asks <code>Aonik.Workspaces</code>: <em>does this party own <code>world-id</code>?</em> A query against its own table — no HTTP, no cross-module reference, no product callback. <strong>It resolves because the parent is the owner.</strong></li>
   <li>The platform issues a single-use invite, sends it, renders an anonymous preview, records the accept, and enforces expiry and revocation.</li>
-  <li>The grandparent's <code>Read</code> access is enforced <strong>by the platform, at the endpoint</strong> — they cannot commit even by calling the sync API directly (<a href="specifications/089.workspaces-and-sync.html">Spec 089</a> §10.1).</li>
+  <li>The grandparent's <code>Read</code> access is enforced <strong>by the platform, at the endpoint</strong> — they cannot commit even by calling the sync API directly (<a href="specifications/089.workspaces.html">Spec 089</a> §10.1).</li>
   <li>Kids parses <code>TermsJson</code> and decides what "can comment" means. <strong>The platform never opens it.</strong></li>
 </ol>
 
@@ -912,7 +912,7 @@ to prevent.</code></pre>
     <tr>
       <td><code>Aonik.Workspaces</code></td>
       <td><strong>Core</strong></td>
-      <td>Worlds, revisions, files, blobs, sync, quota. <strong>Does not exist.</strong> <a href="specifications/089.workspaces-and-sync.html">Spec 089</a>, six phases. <span class="chip draft">draft</span></td>
+      <td>Worlds, revisions, files, blobs, sharing, quota — <a href="specifications/089.workspaces.html">Spec 089</a>; the sync protocol — <a href="specifications/091.workspace-sync.html">Spec 091</a>. <strong>Neither exists yet.</strong> <span class="chip draft">draft</span></td>
     </tr>
     <tr>
       <td><code>Aonik.Finance</code></td>
@@ -1010,10 +1010,10 @@ to prevent.</code></pre>
   <tbody>
     <tr>
       <td><strong>089</strong></td>
-      <td>Workspaces and sync</td>
+      <td>Workspaces — the model, blobs, revisions, sharing, quota</td>
       <td><span class="chip draft">draft</span></td>
       <td>A</td>
-      <td>Written. Six phases. Highest-risk component in the plan, mitigated by refusing merge and refusing real-time collaboration.</td>
+      <td>Written, five phases. <strong>Settled after three review rounds</strong> — the sync half was split out to 091 precisely because this half went quiet and that one did not.</td>
     </tr>
     <tr>
       <td><strong>090</strong></td>
@@ -1024,41 +1024,48 @@ to prevent.</code></pre>
     </tr>
     <tr>
       <td><strong>091</strong></td>
+      <td>Workspace sync — negotiation, resumable transfer, crash-safe pull</td>
+      <td><span class="chip draft">draft</span></td>
+      <td>A</td>
+      <td><strong>Split out of 089 on 2026-08-12.</strong> Three review rounds put the large majority of findings here while the model went quiet — so it now carries its own review budget. Five phases, sequenced after 089 P1–P4.</td>
+    </tr>
+    <tr>
+      <td><strong>092</strong></td>
       <td>Cloud dispatch and metered execution</td>
       <td><span class="chip none">proposed</span></td>
       <td>C</td>
       <td>Server-side media generation, transactional with counter meters. A new subsystem, not a port of Arke's local queue.</td>
     </tr>
     <tr>
-      <td><strong>092</strong></td>
+      <td><strong>093</strong></td>
       <td>Provider credential custody</td>
       <td><span class="chip none">proposed</span></td>
       <td>C</td>
       <td>Only needed if we hold keys or relationships. Option 1 in §7.4 avoids it entirely.</td>
     </tr>
     <tr>
-      <td><strong>093</strong></td>
+      <td><strong>094</strong></td>
       <td>Spend reconciliation between Arke's ledger and AONIK's</td>
       <td><span class="chip none">proposed</span></td>
       <td>C</td>
       <td><strong>Must precede 091.</strong> Two things called "the ledger" and rule 1 says only one can be true.</td>
     </tr>
     <tr>
-      <td><strong>094</strong></td>
+      <td><strong>095</strong></td>
       <td>Guardian relationships and verifiable parental consent</td>
       <td><span class="chip none">proposed</span></td>
       <td>Kids</td>
       <td>Named as a follow-up in Spec 086 §16. A regulatory precondition, not a feature.</td>
     </tr>
     <tr>
-      <td><strong>095</strong></td>
+      <td><strong>096</strong></td>
       <td>Content safety for child-facing generation</td>
       <td><span class="chip none">proposed</span></td>
       <td>Kids</td>
       <td>No answer on either side today. §12.</td>
     </tr>
     <tr>
-      <td><strong>096</strong></td>
+      <td><strong>097</strong></td>
       <td>Account closure, data export and deletion</td>
       <td><span class="chip none">proposed</span></td>
       <td>A</td>
@@ -1082,7 +1089,7 @@ to prevent.</code></pre>
     not it. AONIK has <code>PartyConsent</code> as an entity and no mechanism behind it.
   </p>
   <p style="margin-bottom:0">
-    <strong>Implication:</strong> Spec 094 is not a nice-to-have that follows launch; it is a
+    <strong>Implication:</strong> Spec 095 is not a nice-to-have that follows launch; it is a
     precondition of it, and it needs a legal read before an engineering one.
   </p>
 </div>
@@ -1138,37 +1145,37 @@ to prevent.</code></pre>
     </tr>
     <tr>
       <td><strong>2</strong></td>
-      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P1–P4</strong> — contracts, module and schema, blobs, revisions</td>
+      <td><a href="specifications/089.workspaces.html">Spec 089</a> <strong>P1–P4</strong> — contracts, module and schema, blobs, revisions</td>
       <td>Storage</td>
       <td>The model without the protocol. Testable in isolation, and it is where content addressing either proves out on real world sizes or does not. P3 is the largest of the four: it must add the <code>StageAsync</code>/<code>PromoteAsync</code> pair to <code>IFileStore</code>, because the existing interface writes to a random GUID path and returns the hash only afterwards — it cannot write by content key.</td>
     </tr>
     <tr>
       <td><strong>3</strong></td>
-      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P5</strong> — the sync protocol, divergence-as-proposal, crash-safe pull</td>
+      <td><a href="specifications/091.workspace-sync.html">Spec 091</a> — the sync protocol: negotiation, resumable transfer, crash-safe pull</td>
       <td>Model A</td>
-      <td>The highest-risk work in the plan. Do it with the revision model already stable underneath so a failure is diagnosably a protocol failure.</td>
+      <td>The highest-risk work in the plan, and now <strong>its own specification</strong> for exactly that reason. Do it with the revision model already stable underneath, so a failure is diagnosably a protocol failure.</td>
     </tr>
     <tr>
       <td><strong>4</strong></td>
-      <td><a href="specifications/089.workspaces-and-sync.html">Spec 089</a> <strong>P6</strong> — register <code>workspace</code> as a share kind; enforce <code>AccessLevel</code>; wire the count and byte ceilings</td>
+      <td><a href="specifications/089.workspaces.html">Spec 089</a> <strong>P5</strong> — register <code>workspace</code> as a share kind; enforce <code>AccessLevel</code>; wire the count and byte ceilings</td>
       <td>A + quota</td>
       <td>Small, because 086 and 087 already did the work — this step is the payoff for the extractions. The one genuine addition is a <strong>weighted</strong> ceiling claim in <code>UsageMeter</code>, since claims are unit-valued today.</td>
     </tr>
     <tr>
       <td><strong>5</strong></td>
-      <td>Spec 096 — closure, export, deletion</td>
+      <td>Spec 097 — closure, export, deletion</td>
       <td>Launch A</td>
       <td>The obligation starts the day the first customer's world is on our disk, not the day someone asks.</td>
     </tr>
     <tr>
       <td><strong>6</strong></td>
-      <td>Specs 094, 095 — consent and content safety</td>
+      <td>Specs 095, 096 — consent and content safety</td>
       <td>Kids</td>
       <td>Preconditions for a child-facing launch. Legal input before engineering.</td>
     </tr>
     <tr>
       <td><strong>7</strong></td>
-      <td>Spec 093, then 092, then 091</td>
+      <td>Spec 094, then 093, then 092</td>
       <td>Model C</td>
       <td><strong>Only if compute is genuinely the business.</strong> In that order: settle which ledger is true, then custody, then execution. Reversing it means building a system whose financial truth is decided afterwards.</td>
     </tr>
@@ -1204,14 +1211,15 @@ to prevent.</code></pre>
 </div>
 
 <footer>
-  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 2 (Codex round 1: 4 findings applied) · 2026-08-11<br>
+  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 3 (Codex round 1 applied; renumbered for the 089/091 split) · 2026-08-11<br>
   Enabling specifications:
   <a href="specifications/086.extract-groups-and-sharing-to-platform.html">086</a> ·
   <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">087</a> ·
   <a href="specifications/088.finance-prerequisites-for-recurring-billing.html">088</a> ·
-  <a href="specifications/089.workspaces-and-sync.html">089</a> ·
+  <a href="specifications/089.workspaces.html">089</a> ·
   <a href="specifications/090.offline-verifiable-entitlement.html">090</a> ·
-  proposed 091–096<br>
+  <a href="specifications/091.workspace-sync.html">091</a> ·
+  proposed 092–097<br>
   Decisions:
   <a href="decisions/013-product-identity-is-configuration.md">ADR-013</a> ·
   <a href="decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> ·
