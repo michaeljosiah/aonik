@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 096</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 2)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Ai</span>
   <h1>Content safety for child-facing generation</h1>
@@ -389,10 +389,23 @@
 <h2 id="bands">9. Age bands</h2>
 
 <p>
-  Bands come from <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a>'s attested birth
-  year. They change three things: what may be asked, how strict the classifiers are, and whether an adult is in
-  the path.
+  Bands change three things: what may be asked, how strict the classifiers are, and whether an adult is in the
+  path.
 </p>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a birth <em>year</em> cannot schedule a band change either</span>
+  A previous draft derived the band from <a href="095.guardian-relationships-and-verifiable-consent.html">Spec
+  095</a>'s <code>BirthYear</code>. That is the same defect 095 already had to fix for its own transitions: a year
+  cannot say when a child turns 6, 10 or 13. Advance bands on 1 January and a <strong>December-born five-year-old
+  gets a ten-year-old's prompts, thresholds and guardian defaults almost twelve months early</strong>; advance
+  them at year end and a January-born child sits in the wrong band for nearly a year. The first error is the
+  dangerous one, and it is the one a naïve implementation makes.
+  <br><br>
+  095 already collects an exact date transiently at enrolment, so the band boundaries are computed and persisted
+  there alongside <code>ConsentAgeOn</code> and <code>MajorityOn</code> — and, like those, they are
+  <strong>birth-date-equivalent data</strong> and protected as such.
+</div>
 
 <table>
   <thead><tr><th>Band</th><th>Request space</th><th>Thresholds</th><th>Guardian review</th></tr></thead>
@@ -416,13 +429,31 @@
       <td>Optional, default off. Visibility remains.</td>
     </tr>
     <tr>
-      <td><strong>13+ under the threshold</strong></td>
+      <td><strong>13 to majority</strong></td>
       <td>Free text.</td>
       <td>Teen-appropriate.</td>
-      <td>Off. Visibility remains while guardian authority does.</td>
+      <td>Off. Visibility remains while the <code>Guardian</code> edge does — to 18, not to 13.</td>
     </tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the last band runs to <em>majority</em>, not to the consent threshold</span>
+  <p style="margin-top:0">
+    A previous draft ended the table at "13+ under the threshold". Once
+    <a href="095.guardian-relationships-and-verifiable-consent.html#twoages">Spec 095 §11.1</a> separated the
+    consent threshold from the end of guardianship, that row stopped covering anyone: a UK 13-year-old begins
+    self-consenting <em>and remains a minor with an active guardian edge until 18</em>. So
+    <strong>ages 13 to 17 matched no row at all</strong> — five years of minors with undefined classifier
+    thresholds and undefined guardian visibility, which under a fail-closed reading means the strictest band and
+    under a permissive one means none.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>Safety banding tracks minority, not consent capacity.</strong> A young person acquiring the right to
+    decide about their own data does not thereby stop being someone this spec protects — the two questions are
+    unrelated, and conflating them was a consequence of fixing the other spec.
+  </p>
+</div>
 
 <div class="callout">
   <span class="callout-label">Unknown age is not the loosest band</span>
@@ -467,7 +498,7 @@
     <strong>Measure both error rates — and be honest that they are measured differently.</strong> A safety system
     reporting only what it caught is reporting half its behaviour. But the two halves are not symmetric:
     <ul style="margin-top:6px">
-      <li><strong>False positives are directly countable</strong> from incidents and guardian releases. Every appeal that succeeds is a labelled example, available from the first release.</li>
+      <li><strong>False positives are countable, but not from releases alone.</strong> A guardian release is a decision to allow, not evidence the classifier erred (<a href="#gate">§8</a>) — it flags a candidate for review. The rate is assigned by <strong>independent review</strong> of those candidates, which is available from the first release but is a review output rather than a click count.</li>
       <li><strong>False negatives are not.</strong> By definition they <em>passed</em> and were delivered, so no incident exists and there is no denominator. Rev 1 made per-band false-negative rates a first-release acceptance criterion, which is not implementable — you cannot count what you did not detect, and guardian reports alone catch only the harm someone recognised and bothered to report.</li>
     </ul>
     <div class="callout p0" style="margin-top:8px">
@@ -510,11 +541,27 @@
         </tr>
       </tbody>
     </table>
-    <p style="margin-top:8px">
-      Only the reviewable branch yields labelled tuning data. Nothing in the non-overridable branch is ever
-      released, so nothing there is a "false positive" we act on — if the classifier is wrong about that
-      category, the fix is the classifier, not a manual override.
-    </p>
+    <div class="callout p0" style="margin-top:10px">
+      <span class="callout-label">P0 — a release is a decision, not ground truth, and treating it as a label is a dangerous loop</span>
+      <p style="margin-top:0">
+        A previous draft called every successful appeal "exactly the labelled data needed to tune thresholds".
+        It is not. <a href="#failure">§10.3</a> says plainly that a parent's judgement <em>may outrank an
+        accurate classification</em> for reviewable content — so a release records that <strong>this guardian
+        chose to allow it</strong>, which is a different fact from <strong>the classifier was wrong</strong>.
+      </p>
+      <p style="margin-bottom:0">
+        Counting them as false positives produces invalid rates, and feeding them back into tuning is worse than
+        useless: it would <strong>teach the system to pass content that reviewers still consider unsafe</strong>,
+        one permissive parent at a time, with the drift showing up as an improving metric. A safety system that
+        learns from the people it is meant to constrain will converge on constraining nobody.
+      </p>
+    </div>
+    <ul style="margin-top:8px">
+      <li>A release is recorded as <strong>a guardian decision</strong>, and is not a label.</li>
+      <li>A <strong>false positive</strong> is assigned only by <strong>independent safety review</strong> — the named reviewers of <a href="#failure">§10.3</a>'s evaluation — looking at the content and the band, not at what a parent chose.</li>
+      <li>Releases are still <strong>useful as a signal</strong>: a category with many releases is a candidate <em>for review</em>, which is how they should influence thresholds — by directing attention, never by moving one automatically.</li>
+      <li>Nothing in the non-overridable branch is ever released, so nothing there is a false positive we act on. If the classifier is wrong about that category, the fix is the classifier.</li>
+    </ul>
   </li>
   <li><strong>Tune per band</strong> rather than globally, since a threshold correct for a five-year-old is absurd for a twelve-year-old.</li>
   <li><strong>Retry with constraint</strong> before refusing outright: a re-generation with tightened structural constraints (<a href="#structural">§7</a>) often produces an acceptable version of the same idea, which is a far better outcome for the child than a refusal.</li>
@@ -638,7 +685,27 @@
 
 <ul>
   <li>
-    <code>AnkSafetyIncidents</code> — subject party, age band, layer, category, verdict, decision, timestamp,
+    <code>AnkSafetyDecisions</code> <span class="tag new">Rev 3</span> — <strong>one row per attempted delivery,
+    not only per block</strong>: subject party, age band, verdict, the categories evaluated, and the
+    <code>AiRun</code> ids of the generation and of every classifier call.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — linking runs only through an <em>incident</em> loses the case that matters most</span>
+      A previous draft attached the run ids to <code>AnkSafetyIncidents</code>, and an incident is written only
+      when something is <strong>blocked</strong>. So a <em>delivered</em> output had a generation
+      <code>AiRun</code> and classifier <code>AiRun</code>s scattered in the audit log with
+      <strong>nothing tying them to the verdict that let it through</strong>. If that delivery were later
+      identified as a false negative — by a parent, or by the §10.3 evaluation — we could not reconstruct which
+      classifiers judged it safe or on what basis. <strong>The audit trail existed for everything except the
+      failures it is for.</strong>
+      <br><br>
+      This also carries no more content than before: the decision row stores <em>the verdict and the run
+      references</em>, never the content itself. It is a few hundred bytes per generation, and it is the
+      difference between being able to answer a parent and not.
+    </div>
+  </li>
+  <li>
+    <code>AnkSafetyIncidents</code> — the subset of decisions that <strong>blocked</strong>, carrying layer,
+    category, the appeal state and the artefact reference. Subject party, age band, verdict, decision, timestamp,
     <strong>and the <code>AiRun</code> ids of the generation and of every classifier call that judged it</strong>.
     Tenant-scoped, <code>Ank</code>-prefixed.
     <div class="callout p0" style="margin-top:8px">
@@ -689,12 +756,31 @@
   <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
   <tbody>
     <tr><td><code>IContentSafetyGate</code></td><td>The boundary. Every child-facing generation passes through it; it fails closed and cannot be bypassed by a caller.</td></tr>
-    <tr><td><code>IContentClassifier</code></td><td>One implementation per modality and vendor, selected by configuration — the provider-factory shape used elsewhere in the platform.</td></tr>
+    <tr><td><code>IContentClassifier</code></td><td>Expresses a <strong>routable use case</strong> per modality — "classify this image for band X" — and resolves its provider and model through <strong><code>AiRoutePolicy</code></strong>. Never a per-vendor implementation chosen by local configuration. See below.</td></tr>
     <tr><td><code>ISafetyPolicyReader</code></td><td>Resolves band plus category to a threshold and an action.</td></tr>
     <tr><td><code>ISafetyIncidentRecorder</code></td><td>Writes the record <strong>including the <code>AiRun</code> ids</strong> of the generation and every classifier call (<a href="#persistence">§15</a>).</td></tr>
     <tr><td><code>ISafetyRetentionSweeper</code></td><td>Deletes expired artefacts, skips anything under a <a href="#reporting">§12</a> hold, and runs per tenant. <strong>Ships in S1</strong>, because the artefacts start accumulating the moment blocking works.</td></tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a second routing mechanism would breach a platform boundary</span>
+  <p style="margin-top:0">
+    A previous draft selected classifier implementations "by modality and vendor, by configuration". That builds
+    a <strong>parallel provider-routing mechanism</strong> alongside the one the platform already mandates:
+    <em>"no hard-coded model usage; all calls resolve through <code>AiRoutePolicy</code>"</em>. Requiring the
+    audited pipeline is not the same rule and does not imply it — the pipeline <em>records</em> whichever vendor
+    was chosen, while routing decides <em>which</em>. Implemented literally, safety would have been the one
+    subsystem making its own model choices, and <a href="060.ai-route-policy-cost-governance.html">Spec 060</a>'s
+    cost governance and fallback would not have applied to it.
+  </p>
+  <p style="margin-bottom:0">
+    The fallback point is the practical one: <a href="#asymmetry">§2</a> fails closed, so <strong>a classifier
+    vendor outage takes the product down</strong>. Central routing is exactly where a second provider is
+    configured — so routing through it is not merely compliance, it is how F1's redundancy requirement is
+    actually delivered.
+  </p>
+</div>
 
 <div class="callout p0">
   <span class="callout-label">The gate must be unbypassable, on the same pattern that already works</span>
@@ -759,11 +845,15 @@
   <li>A blocked generation <strong>releases its meter reservation</strong>; no family is billed for content they were not shown.</li>
   <li>A blocked generation shows the child a plain, unalarming message with <strong>no category name and no warning styling</strong>.</li>
   <li>An incident record exists for every block, and a guardian can see their own child's records.</li>
-  <li>A guardian can view and release blocked content, and the release is recorded as labelled data.</li>
-  <li>False-<strong>positive</strong> rates are counted per band from the first release. False-<strong>negatives</strong> are reported from the <strong>scheduled evaluation</strong> of <a href="#failure">§10.3</a> — a named-owner corpus plus privacy-safe sampling — and <strong>not</strong> claimed as a live metric.</li>
+  <li>A guardian can view and release blocked content <strong>in the reviewable branch only</strong>, and the release is recorded as <strong>a guardian decision</strong> — never as a false-positive label, and never fed directly into threshold tuning.</li>
+  <li>False-<strong>positive</strong> rates are assigned per band by <strong>independent review</strong>, not derived from guardian releases. False-<strong>negatives</strong> are reported from the <strong>scheduled evaluation</strong> of <a href="#failure">§10.3</a> — a named-owner corpus plus privacy-safe sampling — and <strong>not</strong> claimed as a live metric.</li>
   <li>A guardian <strong>cannot view or release</strong> content blocked in a non-overridable category, and repeated appeals against that category escalate to a person.</li>
   <li>Every safety verdict records the <code>AiRun</code> ids of the generation and of each classifier call, and <strong>no classifier reaches a vendor outside the audited pipeline</strong>.</li>
-  <li>An <code>AiRun</code> referenced by a live incident is <strong>not swept</strong> before the incident is.</li>
+  <li>An <code>AiRun</code> referenced by a live decision or incident is <strong>not swept</strong> before it is.</li>
+  <li><strong>Every attempted delivery writes a decision record</strong> — not only blocks — carrying the verdict and the run ids, so a delivery later identified as a false negative can be reconstructed.</li>
+  <li><strong>No classifier resolves its provider or model outside <code>AiRoutePolicy</code></strong>, and a routing policy change redirects classification without a deployment.</li>
+  <li>A person aged 13 to majority resolves to a defined band with defined thresholds — <strong>no age below majority falls outside the table</strong>.</li>
+  <li>Band transitions fire on <strong>stored exact dates</strong>, so a December-born child does not enter an older band in January.</li>
   <li>The retention sweeper runs, deletes expired artefacts, and <strong>skips anything under a §12 hold</strong> — with the skip logged. A sweeper that fails to run is surfaced as a retention incident, not a silent backlog.</li>
   <li><strong>Generated speech is classified before a child hears it</strong>, with its own fail-closed behaviour; voice does not inherit coverage from any other modality.</li>
   <li>If video ships, <strong>every delivered frame has been covered</strong> — demonstrated with a video containing one harmful frame between sample points. <strong>Frame sampling alone never satisfies this criterion.</strong></li>
@@ -838,7 +928,7 @@
 </table>
 
 <footer>
-  Spec 096 · Content safety for child-facing generation · Draft Rev 2 (Codex round 1: 6 findings applied) · 2026-08-12 ·
+  Spec 096 · Content safety for child-facing generation · Draft Rev 3 (Codex rounds 1-2: 12 findings applied) · 2026-08-12 ·
   <strong>S0 policy work, including counsel, precedes implementation</strong> ·
   Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
   Preserves the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam by operating at
