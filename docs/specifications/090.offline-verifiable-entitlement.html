@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 090</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 4)</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Module: Aonik.Subscriptions</span>
   <h1>Offline-verifiable entitlement</h1>
@@ -193,6 +193,7 @@
 <pre><code>{
   "v":    1,
   "jti":  "&lt;uuid — unique per issued token&gt;",
+  "rvh":  "&lt;random per-subscriber revocation handle — §9.1&gt;",
   "sub":  "&lt;subscriber kind&gt;:&lt;subscriber id&gt;",
   "tid":  "&lt;tenant id&gt;",
   "plan": "studio-pro",
@@ -210,6 +211,7 @@
   <thead><tr><th>Claim</th><th>Meaning</th></tr></thead>
   <tbody>
     <tr><td><code>jti</code> <span class="tag new">added Rev 2</span></td><td>Unique per issued token. <strong>Without it, §9's per-token revocation cannot work at all</strong> — the client would have no way to correlate the token it holds with a token-specific revocation entry, leaving only subscriber-wide revocation. It is also what links a token to its audit row, which is what makes "one token on a hundred machines" observable.</td></tr>
+    <tr><td><code>rvh</code> <span class="tag new">added Rev 4</span></td><td>Random per-subscriber revocation handle, rotated on each refresh. It is what lets subscriber-wide revocation be published <strong>without publishing who was revoked</strong> — only a holder of the token can compute the handle to look up (<a href="#privacy">§9.1</a>).</td></tr>
     <tr><td><code>feat</code></td><td>Flag meters, resolved. The client asks "may I?" and never re-derives it from a plan name.</td></tr>
     <tr><td><code>lim</code></td><td>Ceiling meters, resolved to numbers. Enough to refuse a 26th workspace offline — <em>on this device</em>; see <a href="#provisional">§11.1</a> for why that qualifier is load-bearing.</td></tr>
     <tr><td><code>use</code> <span class="tag new">added Rev 3</span></td><td><strong>Advisory snapshot</strong> of ceiling <em>usage across all devices</em> at the moment of issue. Rev 2's §11.1 promised the refreshed token would carry "the true count" and then specified a payload that could not — this is that promise made real. <strong>Never authoritative</strong>: it may only make the client refuse or warn <em>earlier</em>, and may never be used to permit anything the server has not confirmed. See <a href="#use-not-counter">below</a> for why this is not the counter §10 prohibits.</td></tr>
@@ -313,7 +315,37 @@ PASS 3 — TRUSTED
   <li><strong>Rejection rules.</strong> More or fewer than two parts; any character outside the base64url alphabet; padding present; a payload that is not a JSON object; an unrecognised <code>v</code>. All are rejected before parsing, with no partial acceptance.</li>
   <li><strong>Unknown claims are ignored</strong>, so claims can be added without breaking old clients. Unknown <code>kid</code> is <em>not</em> ignored — it is a hard failure (<a href="#keys">§6</a>).</li>
   <li><strong>Timestamps</strong> are integer seconds since the Unix epoch, UTC. Never strings, never milliseconds.</li>
-  <li><strong>Test vectors</strong> ship in P4: a valid token, one with a flipped payload byte, one with a flipped signature byte, one with padding, one with an unknown <code>kid</code>, one expired, one in grace. An implementation is conformant when all seven produce the specified verdict.</li>
+  <li><strong>Test vectors</strong> ship in P4: a valid token, one with a flipped payload byte, one with a flipped signature byte, one with padding, one with an unknown <code>kid</code>, one expired, one in grace. An implementation is conformant when all seven produce the specified verdict — and each vector ships <strong>with its verifying key in the published encoding below</strong>, since a vector whose key cannot be loaded proves nothing.</li>
+</ul>
+
+<h4 id="keyset">The published key set, also specified to the byte</h4>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — a byte-precise token is useless with an ambiguous key</span>
+  §5.1 pinned the token down to the byte and then left the <em>other</em> half of verification unspecified: how
+  <code>kid</code> maps to key bytes, and whether an Ed25519 public key is raw 32-byte material,
+  SubjectPublicKeyInfo, PEM, base64 or base64url. An independent client can therefore implement the token format
+  perfectly and <strong>still be unable to load the key</strong> — which fails the same acceptance criterion, at
+  the same late moment, for the same reason.
+</div>
+
+<pre><code>GET /entitlement/keys        (public, unauthenticated, cacheable)
+
+{
+  "version": 7,                      // monotonic; a LOWER version is IGNORED (§6)
+  "keys": [
+    { "kid": "2026-08-a",
+      "alg": "Ed25519",
+      "key": "&lt;BASE64URL of the RAW 32-byte public key, unpadded&gt;" }
+  ],
+  "sig": "&lt;BASE64URL of the root-key Ed25519 signature&gt;"
+}</code></pre>
+
+<ul>
+  <li><strong>Raw 32-byte keys</strong>, base64url-unpadded — not SPKI, not PEM. Every Ed25519 library accepts raw key material; not all agree on wrapper parsing, and a wrapper buys nothing when the algorithm is fixed at one value.</li>
+  <li><strong>The root signature covers the canonical serialisation of <code>version</code> and <code>keys</code></strong>, using the same trick as §5.1: the response carries the exact signed bytes so no client re-serialises to verify.</li>
+  <li><strong>The set is global, not tenant-scoped.</strong> Tenant-scoping the keys would leak which tenants exist to an unauthenticated caller, and a public key is not a secret — the tenant appears in <code>tid</code> inside the token, where it is signed.</li>
+  <li><strong>The list is complete, never a delta</strong> — that is what makes absence meaningful and withdrawal enforceable (<a href="#keys">§6</a>).</li>
 </ul>
 
 <div class="callout">
@@ -358,6 +390,30 @@ PASS 3 — TRUSTED
   <li>A compromised key is <strong>withdrawn</strong>: removed from the published set, and every token bearing its <code>kid</code> fails verification at the next check.</li>
 </ul>
 
+<div class="callout p0">
+  <span class="callout-label">P0 — withdrawal does not reach a key that shipped inside the client</span>
+  <p style="margin-top:0">
+    Those last two bullets contradict each other and Rev 3 did not notice. Keys are <strong>bundled with the
+    client</strong> so rotation reaches old builds — which means removing a compromised key from the published
+    set <strong>does not remove it from the binary</strong>. At the next online check the client resolves the same
+    <code>kid</code> from its bundled fallback and <strong>keeps accepting forged tokens signed with the leaked
+    private key</strong>, indefinitely, for every build that shipped before the compromise.
+  </p>
+  <p style="margin-bottom:0">
+    This is the one failure the whole key-management section exists to prevent, and the bundling that makes
+    rotation painless is exactly what breaks it. Absence from the fetched set has to be <strong>authoritative and
+    persisted</strong>, not merely absent.
+  </p>
+</div>
+
+<ul>
+  <li>The published key set is <strong>versioned and complete</strong> — it is the full list of valid keys, not a delta — and it is signed by a <strong>long-lived root key</strong> so a client can tell a genuine withdrawal from a stripped or spoofed response.</li>
+  <li><strong>Bundled keys are a bootstrap, never an authority.</strong> They are used only until the first successful fetch; after that the fetched set wins outright.</li>
+  <li>A <code>kid</code> present in the bundle but <strong>absent from a fetched set of higher version</strong> is written to a local <strong>withdrawn-key tombstone</strong> and never used again, offline or online.</li>
+  <li>A fetched set with a version lower than the one already stored is <strong>ignored</strong>, so an attacker cannot roll a client back to a set that still contains the compromised key.</li>
+  <li>The root key's own compromise is out of scope and is handled the way it always is: a client update. It signs nothing but key sets, is used rarely, and can be held far more carefully than a signing key used every few days.</li>
+</ul>
+
 <h3 id="retirement">6.1 The safe-retirement invariant</h3>
 
 <div class="callout p0">
@@ -385,7 +441,24 @@ stops VERIFYING no earlier than T + 30d.</code></pre>
 
 <ul>
   <li><code>NotAfter</code> on <code>AnkEntitlementSigningKeys</code> therefore has <strong>two distinct meanings</strong> and needs two fields: <code>SigningNotAfter</code> (stop issuing with this key) and <code>VerifyNotAfter</code> (stop publishing it), with the second at least the maximum grace beyond the first.</li>
-  <li>The audit rows make this computable rather than assumed: the true retirement date is <code>MAX(gra)</code> across <code>AnkEntitlementTokenIssues</code> for that <code>kid</code>.</li>
+  <li>The audit rows make this computable rather than assumed: the true retirement date is <code>MAX(GraceUntil)</code> across <code>AnkEntitlementTokenIssues</code> for that <code>kid</code>.</li>
+  <li>
+    <strong>The bound is enforced at <em>issue</em> time, not only when <code>VerifyNotAfter</code> is written.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — checking on write leaves the key still signing behind your back</span>
+      Validating <code>VerifyNotAfter</code> when that field is set says nothing about the tokens signed
+      <em>afterwards</em>. The key is still active, so a later token can be issued with a <code>GraceUntil</code>
+      <strong>beyond the stored deadline</strong> — and this is not hypothetical: it happens the moment anyone
+      lengthens the tenant's grace window, which is an ordinary, well-intentioned configuration change. A
+      retirement computed yesterday then silently invalidates a token issued today, during its grace, offline,
+      for a paying customer.
+      <br><br>
+      Issuance therefore <strong>atomically</strong> requires <code>newGraceUntil &lt;= VerifyNotAfter</code>, or
+      extends <code>VerifyNotAfter</code> in the same transaction. And retirement <strong>serialises against
+      in-flight issuance</strong> under the key row's <code>RowVersion</code>, so the check cannot be read by one
+      operation while the other is committing — otherwise the race simply moves rather than closing.
+    </div>
+  </li>
   <li><strong>Compromise is the deliberate exception.</strong> A leaked private key is withdrawn immediately and the breakage is accepted, because the alternative is honouring forged tokens. That is a decision to make loudly, with support forewarned — not a scheduled event.</li>
 </ul>
 
@@ -439,9 +512,45 @@ stops VERIFYING no earlier than T + 30d.</code></pre>
 </p>
 
 <ul>
-  <li>Keyed on token <code>jti</code> or subscriber, published alongside the public keys.</li>
+  <li>Published alongside the public keys, and carrying <strong>opaque handles</strong> rather than <code>jti</code> or subscriber identifiers — see <a href="#privacy">§9.1</a>.</li>
   <li>Consulted <strong>when the client is online anyway</strong>. Never a launch gate; an offline client cannot fetch it and must not be punished for that.</li>
+  <li>A match is <strong>persisted as a local tombstone</strong> so going offline cannot undo it (<a href="#client">§11</a>).</li>
   <li><strong>Small by design.</strong> A list that grows without bound is a list nobody ships. Entries are removed once the token they revoke would have expired regardless.</li>
+</ul>
+
+<h3 id="privacy">9.1 A public list must not name subscribers</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the list and the tenancy model were designed separately, and they conflict</span>
+  <p style="margin-top:0">
+    Rev 3 made the list public and unauthenticated (correctly — an attacker's client must be able to fetch it),
+    and keyed it on <code>jti</code> <em>or subscriber</em>. Put together, that <strong>publishes which
+    subscribers have been revoked</strong>, and revocation is reserved for chargeback fraud, account compromise
+    and leaked credentials. The status is inherently sensitive.
+  </p>
+  <p style="margin-bottom:0">
+    Opacity of the identifier is not the defence: subscriber ids are obtainable through ordinary platform
+    interactions, so anyone holding one can test it against the list. And in the <strong>Arke Kids topology one
+    tenant holds many unrelated families</strong> — so this is a family learning something about another family,
+    not an abstract disclosure.
+  </p>
+</div>
+
+<p>The list therefore publishes <strong>handles nobody can compute without already holding the token</strong>:</p>
+
+<pre><code>token revocation      handle = SHA-256("rvk-t" || jti)
+subscriber revocation handle = SHA-256("rvk-s" || rvh)
+
+rvh   a per-subscriber RANDOM revocation handle, minted at subscription
+      creation, carried as a signed claim in every token, and ROTATED on
+      each issue-with-refresh so an old leaked token cannot be used to
+      watch a subscriber's status over time.</code></pre>
+
+<ul>
+  <li><strong>A client checks by computing its own two handles</strong> from claims it already holds, and looking them up. No identifier is ever sent to the server, so the check works unauthenticated and reveals nothing by being made.</li>
+  <li><strong>Someone without a token learns nothing.</strong> <code>jti</code> and <code>rvh</code> are random, so the handles cannot be enumerated or guessed from a known subscriber id — which is exactly the correlation the raw list allowed.</li>
+  <li><strong>Subscriber-wide revocation still works</strong>, because <code>rvh</code> is stable across the tokens outstanding at the moment of revocation — the case it exists for, where an attacker may hold several.</li>
+  <li>An authenticated per-subscriber lookup was considered and rejected: the client that most needs to check is the one that <em>cannot</em> authenticate, which is the mistake <a href="#client">§11</a> just finished correcting.</li>
 </ul>
 
 <h2 id="metering">10. Metered credits are not entitlements</h2>
@@ -503,9 +612,32 @@ stops VERIFYING no earlier than T + 30d.</code></pre>
 </div>
 
 <ul>
-  <li>The revocation list is <strong>public and unauthenticated</strong> — it names revoked <code>jti</code>s and subscribers, not secrets — so fetching it needs no session and cannot be blocked by lacking one.</li>
+  <li>The revocation list is <strong>public and unauthenticated</strong> — it carries opaque handles, never raw identifiers (<a href="#privacy">§9.1</a>) — so fetching it needs no session and cannot be blocked by lacking one.</li>
   <li>It is fetched <strong>opportunistically whenever online</strong>, on the same trigger as refresh but not conditional on it, and either match refuses the token immediately.</li>
   <li>It is <strong>never consulted offline</strong> and its absence is never a reason to degrade — an offline client cannot fetch it and must not be punished for that (<a href="#revocation">§9</a>).</li>
+  <li><strong>A detected revocation is written down locally, or going offline undoes it.</strong> See below.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — "refuse it immediately" lasts exactly until the process restarts</span>
+  <p style="margin-top:0">
+    Rev 3 said an online match refuses the token, and stopped there. But the <strong>token file on disk is
+    unchanged</strong>, and offline verification consults only the signature and the timestamps. So whoever holds
+    a leaked token simply <strong>disconnects and restarts</strong>: the token verifies normally and stays usable
+    for the whole grace window. Detection was purely in memory, and the one action available to an attacker
+    trivially reverses it.
+  </p>
+  <p style="margin-bottom:0">
+    Worse, it inverts the intended incentive — going <em>offline</em> becomes the way to escape revocation, in a
+    product whose whole premise is working offline.
+  </p>
+</div>
+
+<ul>
+  <li><strong>On a match, delete the stored token</strong> and write a local <strong>revocation tombstone</strong> recording the revoked handle.</li>
+  <li><strong>Offline verification consults the tombstones first</strong>, before signature checking. A tombstoned token is refused with no network, permanently, and re-obtaining the same token file does not help.</li>
+  <li>Tombstones are swept once the token they name would have passed <code>gra</code> anyway — after that the token is refused on its own terms and the record is dead weight.</li>
+  <li>Removing the tombstone file is of course possible on a machine the user controls. That is <a href="#threat">§4</a>'s accepted boundary: it is one more step, on a client that could be recompiled instead, and it is not a reason to leave detection in memory where a restart clears it for free.</li>
 </ul>
 
 <div class="callout p0">
@@ -620,6 +752,15 @@ stops VERIFYING no earlier than T + 30d.</code></pre>
   <li>A revoked token is refused by a client that <strong>cannot</strong> refresh — the revocation fetch requires no session and is not gated on refresh succeeding.</li>
   <li>Subscriber-wide revocation refuses every outstanding token of that subscriber, not only the one most recently issued.</li>
   <li>Editing <code>use</code> downward in a stored token grants no additional workspaces: the server-side ceiling still refuses at the limit.</li>
+  <li>A token detected as revoked while online is <strong>refused after restarting offline</strong> — detection is persisted as a tombstone, not held in memory.</li>
+  <li>A <code>kid</code> present in the client's bundled keys but absent from a fetched key set of higher version is <strong>never used again</strong>, offline or online.</li>
+  <li>A fetched key set with a version lower than the stored one is ignored, so a client cannot be rolled back onto a withdrawn key.</li>
+  <li>A key set failing its root signature is rejected and the previously stored set is retained.</li>
+  <li>Issuing a token whose <code>GraceUntil</code> would exceed the key's <code>VerifyNotAfter</code> either extends the deadline atomically or is refused — <strong>including immediately after the tenant's grace window is lengthened</strong>.</li>
+  <li>Retirement and issuance cannot interleave: both are guarded by the key row's <code>RowVersion</code>.</li>
+  <li>The published revocation list contains <strong>no <code>jti</code> and no subscriber identifier</strong>, and a caller holding a known subscriber id but no token cannot determine that subscriber's revocation status.</li>
+  <li>A client computes both revocation handles from claims it already holds and sends no identifier to the server.</li>
+  <li>An independent implementation loads the published keys and verifies every vector <strong>using only this document</strong>.</li>
   <li>Every issued token carries a unique <code>jti</code>, and revoking that <code>jti</code> refuses exactly that token and no other token of the same subscriber.</li>
   <li>A token issued with <code>dev</code> is refused on a machine whose fingerprint differs.</li>
   <li>A token differing from a valid one only in JSON key order or whitespace <strong>still verifies</strong>, because no implementation re-serialises — and a token with one payload byte flipped does not.</li>
@@ -649,7 +790,7 @@ stops VERIFYING no earlier than T + 30d.</code></pre>
 </table>
 
 <footer>
-  Spec 090 · Offline-verifiable entitlement · Draft Rev 3 (Codex rounds 1-2: 10 findings applied) · 2026-08-11 ·
+  Spec 090 · Offline-verifiable entitlement · Draft Rev 4 (Codex rounds 1-3: 15 findings applied) · 2026-08-11 ·
   Projects <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a> ·
   Required by <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a>
 </footer>
