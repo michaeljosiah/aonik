@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 096 - Content safety for child-facing generation</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 096</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: Aonik.Ai</span>
+  <h1>Content safety for child-facing generation</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Arke Kids asks a generative model to produce a story or a video for a six-year-old. Sometimes it will produce
+    something else. <strong>Neither Aonik nor Arke has any answer to this today</strong> — a grep across the
+    solution finds no moderation, no classification, no safety configuration of any kind. This spec is the answer,
+    and like <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> it is a condition of
+    launching Arke Kids rather than a feature of it.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#asymmetry">Why "mostly safe" is not a target</a></li>
+    <li><a href="#seam">Where safety lives, and the seam it appears to break</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#threat">What actually goes wrong</a></li>
+    <li><a href="#layers">Defence in depth</a></li>
+    <li><a href="#structural">The strongest lever is structural</a></li>
+    <li><a href="#gate">Who is the human in the loop</a></li>
+    <li><a href="#bands">Age bands</a></li>
+    <li><a href="#failure">What happens on a detection</a></li>
+    <li><a href="#disclosure">When a child's own input is the concern</a></li>
+    <li><a href="#reporting">Reporting obligations</a></li>
+    <li><a href="#logging">Evidence, and the tension in keeping it</a></li>
+    <li><a href="#cost">Safety costs money</a></li>
+    <li><a href="#persistence">Persistence</a></li>
+    <li><a href="#contracts">Contracts</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> governs <em>whether we may
+  process</em> a child's data. This one governs <em>what we may produce for them</em>. They are independent
+  obligations and neither substitutes for the other: perfect consent does not make a distressing image
+  acceptable, and a clean classifier does not make unlawful processing lawful.
+</p>
+
+<p>This spec adds:</p>
+
+<ul>
+  <li><strong>A safety boundary at the generation call</strong> — every dispatch on behalf of a child party passes through it, and it fails closed.</li>
+  <li><strong>Layered controls</strong>: constrain what can be asked, choose and configure the model, classify what comes back, and keep a record. No layer is trusted alone.</li>
+  <li><strong>Structural constraint</strong> as the primary lever, because narrowing what <em>can</em> be generated beats filtering what <em>was</em>.</li>
+  <li><strong>A defined response</strong> to a detection, to a false positive, and to the case where a child's own words are the worrying part.</li>
+</ul>
+
+<h2 id="asymmetry">2. Why "mostly safe" is not a target</h2>
+
+<div class="callout p0">
+  <span class="callout-label">The failure here is not statistical</span>
+  <p style="margin-top:0">
+    Most quality problems are rates: a 0.1% error rate on invoice categorisation is a good system. This is not
+    that. <strong>One frightening image reaching one seven-year-old is a complete failure</strong> — for that
+    child, for their parent, and for the product, which will be described by what it did that once and not by
+    what it did correctly a million times.
+  </p>
+  <p style="margin-bottom:0">
+    "The model produced it, not us" is not a defence anyone outside engineering accepts, and it should not be.
+    We chose the model, we chose the prompt, we chose to show the result to a child.
+  </p>
+</div>
+
+<p>Three consequences shape everything below:</p>
+
+<ul>
+  <li><strong>Fail closed.</strong> When a check errors, times out, or is unavailable, the content is <strong>not shown</strong>. An unavailable classifier means an unavailable feature, not an unchecked one.</li>
+  <li><strong>Defence in depth, no single point of trust.</strong> Every layer will miss things. The design assumes that rather than hoping otherwise.</li>
+  <li><strong>Prefer narrowing to filtering.</strong> A generation that cannot produce the bad output beats a filter that catches it afterwards — <a href="#structural">§7</a>.</li>
+</ul>
+
+<h2 id="seam">3. Where safety lives, and the seam it appears to break</h2>
+
+<div class="callout p0">
+  <span class="callout-label">An apparent contradiction, worth resolving explicitly rather than quietly</span>
+  <p style="margin-top:0">
+    <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> and
+    <a href="089.workspaces.html">Spec 089</a> are categorical: the platform stores a workspace and
+    <strong>never opens a file</strong>. If <code>Aonik.Workspaces</code> ever learns what a canon entry is, the
+    seam has failed. But content safety <em>must</em> inspect content. Read naively, this spec and that ADR cannot
+    both be right.
+  </p>
+  <p style="margin-bottom:0">
+    They are both right, because <strong>they operate at different moments.</strong>
+  </p>
+</div>
+
+<div class="ascii-diagram">     a child types an idea
+              │
+              ▼
+     ┌──────────────────────┐
+     │  GENERATION BOUNDARY │   ← safety lives HERE (Aonik.Ai)
+     │  input check         │      content is in flight, not yet a file;
+     │  model + settings    │      it is a request and a response, and
+     │  output check        │      inspecting it is the whole job
+     └──────────────────────┘
+              │  passed
+              ▼
+     the product writes a file
+              │
+              ▼
+     ┌──────────────────────┐
+     │  Aonik.Workspaces    │   ← NEVER inspects (ADR-016)
+     │  path, hash, size    │      by the time bytes arrive here they have
+     │  bytes are opaque    │      already been judged
+     └──────────────────────┘</div>
+
+<p>
+  Safety is a property of <strong>generation</strong>, not of <strong>storage</strong>. By the time content
+  reaches a workspace it has already passed the boundary, and the storage layer's ignorance is preserved intact.
+  This also happens to be the correct place on the merits: it is the only point where the <em>prompt</em>, the
+  <em>model</em>, the <em>age band</em> and the <em>response</em> are all in hand at once. A storage-layer
+  scanner would have the bytes and none of the context.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">A test that keeps this honest</span>
+  <strong>If a file arrives in a workspace by any route other than generation — an import, a sync from another
+  device, a file the parent dropped in — this spec does not inspect it, and neither does the platform.</strong>
+  That is a real, deliberate limit rather than an oversight: Arke Kids is not a virus scanner or a content filter
+  for the family's own files, and a product that quietly began scanning everything a family stored would be a
+  different and much worse thing. Safety covers <em>what we generate</em>, which is what we are responsible for.
+</div>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+
+<h3>4.1 In scope</h3>
+<ul>
+  <li>The safety boundary around every generation dispatched on behalf of a child party.</li>
+  <li>Input classification, provider and model selection, output classification, and structural constraint.</li>
+  <li>Age bands, and how they change what is permitted.</li>
+  <li>Behaviour on detection, on classifier failure, and on false positives.</li>
+  <li>Handling of the case where a child's input suggests they may be at risk.</li>
+  <li>Incident records, retention, and what a parent can be told after the fact.</li>
+</ul>
+
+<h3>4.2 Out of scope</h3>
+<ul>
+  <li><strong>Anything stored rather than generated</strong> — <a href="#seam">§3</a>. Imports, syncs and user files are not scanned.</li>
+  <li><strong>Arke Studio.</strong> Its users are adults working on their own machines with their own keys, and it is MIT-licensed and offline. Imposing a moderation layer there would be both unenforceable and a different product.</li>
+  <li><strong>Consent and lawful basis</strong> — <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a>.</li>
+  <li><strong>Building our own classifiers.</strong> This spec consumes classification; training models is not in it.</li>
+  <li><strong>Moderating human-to-human communication.</strong> Arke Kids has no child-to-stranger messaging, and this spec does not make it safe to add — that would be a materially different risk surface needing its own work.</li>
+</ul>
+
+<h2 id="threat">5. What actually goes wrong</h2>
+
+<p>
+  A spec that will not name the failures is useless to whoever implements the checks. These are the categories,
+  stated plainly and without embellishment.
+</p>
+
+<table>
+  <thead><tr><th>Category</th><th>How it arrives</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Sexual content</strong></td>
+      <td>Rarely from an innocent prompt; more often from ambiguous wording, or a deliberate attempt.</td>
+      <td>Zero tolerance at every band. No context makes this acceptable output for a child.</td>
+    </tr>
+    <tr>
+      <td><strong>Graphic violence and gore</strong></td>
+      <td>Very often from an <em>innocent</em> prompt. "The knight fights the dragon" is a normal request from a six-year-old and has a wide output distribution.</td>
+      <td><strong>The most common real failure.</strong> Needs banding rather than a blanket rule — see <a href="#bands">§9</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Frightening or distressing imagery</strong></td>
+      <td>Body horror, threatening figures, darkness — often from prompts containing no forbidden word at all.</td>
+      <td>Hardest to classify, because "frightening" is age-relative and not a standard classifier label. Structural constraint carries more weight here than filtering.</td>
+    </tr>
+    <tr>
+      <td><strong>Self-harm and suicide content</strong></td>
+      <td>Sometimes from a child's own words rather than the model's.</td>
+      <td>Blocked as output <em>and</em> treated as a signal about the child — <a href="#disclosure">§11</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Hate and demeaning depiction</strong></td>
+      <td>Stereotyped depictions of a group, often without any slur present.</td>
+      <td>A child's story about "a person from another country" should not return a caricature.</td>
+    </tr>
+    <tr>
+      <td><strong>Real-person likeness</strong></td>
+      <td>A child naming a classmate, a teacher, or a celebrity.</td>
+      <td>Generating imagery of a named real child is unacceptable regardless of intent, and this is easy to overlook because the prompt looks harmless.</td>
+    </tr>
+    <tr>
+      <td><strong>Confident falsehood</strong></td>
+      <td>The model states something untrue as fact to an audience with no capacity to evaluate it.</td>
+      <td>Not "unsafe" in the usual sense, and worth stating: a credulous audience makes ordinary hallucination a harm of its own.</td>
+    </tr>
+    <tr>
+      <td><strong>Prompt injection through content</strong></td>
+      <td>Text inside an imported file or an image instructing the model.</td>
+      <td>Treat all content as data, never as instruction — the same rule that governs every other agent surface in this platform.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="layers">6. Defence in depth</h2>
+
+<table>
+  <thead><tr><th>Layer</th><th>Does</th><th>Cannot</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>L1 — structural</strong><br><span class="small">what can be asked at all</span></td>
+      <td>Constrains the request space: templates, curated characters, bounded scene vocabulary. <a href="#structural">§7</a>.</td>
+      <td>Cover free-text entry, which younger bands should largely not have.</td>
+    </tr>
+    <tr>
+      <td><strong>L2 — input</strong><br><span class="small">before dispatch</span></td>
+      <td>Classifies the child's prompt. Cheap, fast, and catches the deliberate cases before any money is spent.</td>
+      <td>Catch the common case, where an innocent prompt yields a bad output.</td>
+    </tr>
+    <tr>
+      <td><strong>L3 — provider</strong><br><span class="small">model and settings</span></td>
+      <td>Model choice, safety settings at their strictest, system prompts, negative prompts.</td>
+      <td><strong>Be relied upon.</strong> See the warning below.</td>
+    </tr>
+    <tr>
+      <td><strong>L4 — output</strong><br><span class="small">before the child sees it</span></td>
+      <td>Classifies what came back, across text, image and video. <strong>The last line before a child.</strong></td>
+      <td>Be perfect, particularly on "frightening", which is not a standard label.</td>
+    </tr>
+    <tr>
+      <td><strong>L5 — human</strong><br><span class="small">guardian review</span></td>
+      <td>Optional guardian review before delivery, for the youngest band or by parental choice. <a href="#gate">§8</a>.</td>
+      <td>Scale to every generation, or be the primary control.</td>
+    </tr>
+    <tr>
+      <td><strong>L6 — after</strong><br><span class="small">record and respond</span></td>
+      <td>Incident records, parent reporting, review of what got through. <a href="#logging">§13</a>.</td>
+      <td>Prevent anything. It is how we learn and how we answer, not a control.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">L3 is necessary and nowhere near sufficient</span>
+  <p style="margin-top:0">
+    Provider safety settings are built for <strong>general audiences</strong>. "Safe for a general audience" and
+    "safe for a six-year-old" are different thresholds, and the gap between them contains most of what actually
+    goes wrong here — the frightening, the violent-but-not-graphic, the age-inappropriately intense.
+  </p>
+  <p style="margin-bottom:0">
+    They also change without notice, differ between vendors, and are outside our control. <strong>Turn every
+    provider safety setting to its strictest available level, then design as though it were not there.</strong>
+  </p>
+</div>
+
+<h2 id="structural">7. The strongest lever is structural</h2>
+
+<div class="callout ok">
+  <span class="callout-label">The design instinct worth internalising</span>
+  <strong>Narrowing what can be generated beats filtering what was.</strong> A filter is an adversarial contest
+  against a model's entire output distribution, run in milliseconds, on every request, forever. A constrained
+  request space is a design decision made once. The second is more reliable and vastly cheaper, and it is
+  underused because filtering feels like the more direct answer.
+</div>
+
+<table>
+  <thead><tr><th>Constraint</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Curated characters</strong></td>
+      <td>The child picks from a designed, pre-vetted cast rather than describing a person freely. Removes the entire real-person-likeness category, and most of the frightening-figure category, at a stroke.</td>
+    </tr>
+    <tr>
+      <td><strong>Story templates</strong></td>
+      <td>Structure supplied, the child supplies the variables. A "a journey to find the lost X" frame with a chosen X has a far narrower output distribution than open text.</td>
+    </tr>
+    <tr>
+      <td><strong>Bounded scene vocabulary</strong></td>
+      <td>Settings, moods and actions from a designed list. The younger the band, the smaller the list.</td>
+    </tr>
+    <tr>
+      <td><strong>Reference-bound imagery</strong></td>
+      <td>Generation anchored to approved reference images — a technique <a href="../arke-on-aonik-capability-brief.html">Arke Studio already has</a> for character consistency, doing safety duty here.</td>
+    </tr>
+    <tr>
+      <td><strong>Pre-generated libraries</strong></td>
+      <td>For the youngest band, some content need not be generated live at all. Reviewed once, served many times, and unsafe output is impossible by construction.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  This is a product decision as much as an engineering one, and it points somewhere useful:
+  <strong>free-text prompting by young children is the single riskiest feature in Arke Kids.</strong> It is worth
+  asking whether the youngest band needs it, rather than assuming it and then defending it with classifiers.
+</p>
+
+<h2 id="gate">8. Who is the human in the loop</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Arke's core mechanic does not transfer, and the reason matters</span>
+  <p style="margin-top:0">
+    Arke Studio's premise is that <em>"nothing enters the authored record without a human accept."</em> It is the
+    product's best idea and this platform reuses it twice — in
+    <a href="../decisions/016-workspaces-as-platform-primitives.md">sync divergence</a> and in the
+    <a href="032.tiered-ai-mutation-approval.html">tiered mutation gate</a>. The obvious move is to reuse it a
+    third time.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>It does not work here.</strong> In Studio the human reviewing the proposal is the author protecting
+    their own record. In Kids the recipient is <em>the person being protected</em> — so putting the child in the
+    review seat means showing them the thing they were supposed to be shielded from, and asking them to judge it.
+    <strong>The accept gate cannot be the safety control when the accepting human is the one at risk.</strong>
+  </p>
+</div>
+
+<p>So the human layer is the <em>guardian</em>, and it is deliberately optional and secondary:</p>
+
+<ul>
+  <li><strong>Guardian pre-review</strong> — generated content is held until an adult approves it. Default <strong>on</strong> for the youngest band, available to any parent who wants it.</li>
+  <li><strong>Guardian visibility</strong> — an adult can always see what has been generated for their child, whether or not they pre-reviewed it. This is a Children's Code parental-controls expectation and simply the right default.</li>
+  <li><strong>Never the primary control.</strong> A parent is not a moderation queue and will approve in bulk within a week. Automated layers must be able to stand alone; guardian review is reassurance, not the mechanism.</li>
+  <li><strong>Transparency to the child.</strong> Where an adult is reviewing or can see their work, the child is told, in age-appropriate terms. The Children's Code is explicit that covert parental monitoring is not acceptable, and a product that lets a parent watch a child secretly is one we should not build regardless.</li>
+</ul>
+
+<h2 id="bands">9. Age bands</h2>
+
+<p>
+  Bands come from <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a>'s attested birth
+  year. They change three things: what may be asked, how strict the classifiers are, and whether an adult is in
+  the path.
+</p>
+
+<table>
+  <thead><tr><th>Band</th><th>Request space</th><th>Thresholds</th><th>Guardian review</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Under 6</strong></td>
+      <td>Curated only. <strong>No free text.</strong></td>
+      <td>Strictest. Mild peril blocked.</td>
+      <td><strong>On by default.</strong></td>
+    </tr>
+    <tr>
+      <td><strong>6–9</strong></td>
+      <td>Templates with bounded free text.</td>
+      <td>Strict. Cartoon peril permitted; injury, weapons-as-threat, and darkness are not.</td>
+      <td>Optional, default on.</td>
+    </tr>
+    <tr>
+      <td><strong>10–12</strong></td>
+      <td>Free text with input classification.</td>
+      <td>Adventure-appropriate. Real jeopardy allowed; graphic depiction is not.</td>
+      <td>Optional, default off. Visibility remains.</td>
+    </tr>
+    <tr>
+      <td><strong>13+ under the threshold</strong></td>
+      <td>Free text.</td>
+      <td>Teen-appropriate.</td>
+      <td>Off. Visibility remains while guardian authority does.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Unknown age is not the loosest band</span>
+  A party with no attested birth year is treated as <strong>under 6</strong> — the strictest — not as an adult.
+  Same reasoning as <a href="095.guardian-relationships-and-verifiable-consent.html">095</a>'s unmapped
+  jurisdiction: the wrong-way default is the one that ends badly, and the cost of being over-strict is a support
+  conversation rather than an incident.
+</div>
+
+<h2 id="failure">10. What happens on a detection</h2>
+
+<p>Three distinct cases, and conflating them produces a product that is either unsafe or unusable.</p>
+
+<h3>10.1 Output blocked</h3>
+<ul>
+  <li>The child sees <strong>a plain, unalarming message</strong> — that this one did not work and they can try again — and never the content, never a category name, never a red warning. A seven-year-old told they triggered a "violence filter" learns they did something wrong; they did not.</li>
+  <li>An incident record is written (<a href="#logging">§13</a>), and the guardian can see it, but is not alarmed by a notification for an ordinary block.</li>
+  <li><strong>The generation is not billed.</strong> Charging a family a story credit for content we refused to show is indefensible — the meter reservation is released (<a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a>), which is exactly what its reserve/release lifecycle is for.</li>
+</ul>
+
+<h3>10.2 The check itself fails</h3>
+<ul>
+  <li><strong>Fail closed.</strong> Classifier down, timed out, or erroring means the content is not delivered.</li>
+  <li>The child sees the same plain message; a failure to check is not their problem to understand.</li>
+  <li><strong>Operationally this is an outage and must page.</strong> A silently degraded classifier that returns "safe" on error is the worst possible defect here, and is the specific thing the fail-closed rule exists to prevent.</li>
+  <li>Not billed, same as above.</li>
+</ul>
+
+<h3>10.3 False positives, which will outnumber true ones</h3>
+
+<div class="callout p0">
+  <span class="callout-label">The failure mode of a safety system nobody plans for</span>
+  <strong>A knight fighting a dragon is the single most common request a six-year-old makes.</strong> A classifier
+  strict enough to block genuinely violent output will block a great deal of ordinary children's storytelling —
+  fairy tales are full of wolves, witches, and characters in real danger, and always have been. A product that
+  refuses half of them is broken in a way that is less catastrophic than the alternative but far more common,
+  and it teaches children that the product does not work.
+</div>
+
+<ul>
+  <li><strong>Measure both error rates from day one.</strong> A safety system reporting only what it caught is reporting half its behaviour.</li>
+  <li><strong>Guardian appeal.</strong> An adult can view blocked content and release it to their child. It is their child; a classifier's opinion should not be final over a parent's — and it produces exactly the labelled data needed to tune thresholds.</li>
+  <li><strong>Tune per band</strong> rather than globally, since a threshold correct for a five-year-old is absurd for a twelve-year-old.</li>
+  <li><strong>Retry with constraint</strong> before refusing outright: a re-generation with tightened structural constraints (<a href="#structural">§7</a>) often produces an acceptable version of the same idea, which is a far better outcome for the child than a refusal.</li>
+</ul>
+
+<h2 id="disclosure">11. When a child's own input is the concern</h2>
+
+<div class="callout p0">
+  <span class="callout-label">This will happen, and both easy answers are wrong</span>
+  <p style="margin-top:0">
+    Children disclose things in stories. Some of what a child types into a storytelling product will suggest they
+    are frightened, hurt, or being harmed. The two instinctive responses are both wrong: <strong>ignoring
+    it</strong> because it is out of scope, and <strong>building automated detection and escalation</strong>
+    because it feels responsible.
+  </p>
+  <p style="margin-bottom:0">
+    The second is worse than it looks. An automated system that flags children as at-risk from story text will be
+    wrong very often — children write about scary things because children write about scary things — and the
+    consequences of being wrong land on a real family. <strong>We are a storytelling product, not a safeguarding
+    service, and we must not act like one.</strong>
+  </p>
+</div>
+
+<p>The position, deliberately narrow:</p>
+
+<ul>
+  <li><strong>We do not run risk-detection classifiers over children's creative writing.</strong> Not because it is hard, but because the false-positive consequences are severe and we are unqualified to act on the true positives.</li>
+  <li><strong>Explicit self-harm and suicide content is blocked as output</strong> — a model must not generate it for a child — and that is a content rule, not a judgement about the child.</li>
+  <li><strong>Age-appropriate signposting.</strong> Where a child's input clearly and explicitly concerns self-harm, the product surfaces a gentle, non-clinical pointer to help, written with professional input. It does not diagnose, alarm, or accuse.</li>
+  <li><strong>Guardian visibility is the honest mechanism.</strong> The adults who can actually help already see what their child creates (<a href="#gate">§8</a>). That is the appropriate channel and it needs no surveillance layer.</li>
+  <li><strong>A defined route for staff.</strong> Where a member of staff encounters something concerning through ordinary support work, there is a written path to a named responsible person — <em>not</em> an ad-hoc decision by whoever saw it. This is a policy artefact, drafted with qualified input, and it is <strong>not automated</strong>.</li>
+</ul>
+
+<p>
+  The one absolute exception is <a href="#reporting">§12</a>, which is not a judgement call and not ours to
+  moderate.
+</p>
+
+<h2 id="reporting">12. Reporting obligations</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Non-negotiable, and stated plainly because a spec that omits it is negligent</span>
+  <p style="margin-top:0">
+    If child sexual abuse material is ever generated, uploaded or detected on this platform, there are
+    <strong>legal obligations to preserve and report</strong> it to the relevant authority, and they are not
+    discretionary, not deletable-and-forget, and not something engineering decides in the moment.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>The correct engineering behaviour is to make the path exist before it is needed.</strong> A written
+    procedure, a named responsible person, a preservation mechanism that does not depend on someone remembering
+    not to delete, and legal counsel engaged in advance. Discovering this obligation during an incident is the
+    worst possible time to learn it.
+  </p>
+</div>
+
+<ul>
+  <li>A written procedure exists <strong>before launch</strong>, drafted with counsel and naming the responsible person and the reporting body for each launch jurisdiction.</li>
+  <li>Preservation is <strong>automatic on detection at this category</strong>, and overrides ordinary retention limits and deletion requests — including a subject-access deletion, which cannot be used to destroy evidence.</li>
+  <li>Access to preserved material is restricted to the named individuals and every access is logged.</li>
+  <li><strong>Provider terms are checked for their own reporting duties</strong>, since generation happens through third parties who have obligations of their own and may act independently.</li>
+  <li>Nothing here is delegated to a classifier's judgement alone: detection at this category escalates to a person, immediately.</li>
+</ul>
+
+<h2 id="logging">13. Evidence, and the tension in keeping it</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Two obligations pulling in opposite directions</span>
+  A parent asking <em>"what did your product show my child?"</em> deserves a real answer, which requires
+  <strong>keeping records</strong>. The Children's Code requires <strong>data minimisation</strong> for children,
+  and every retained generation is a stored record of a child's imagination. Resolving this by keeping everything
+  forever is the easy answer and the wrong one.
+</div>
+
+<table>
+  <thead><tr><th>Record</th><th>Retention</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Safety incidents</strong> — a block, its category, its band, its verdict</td>
+      <td>Longer. Months.</td>
+      <td>Answers the parent's question, tunes the thresholds, evidences that the system works.</td>
+    </tr>
+    <tr>
+      <td><strong>Blocked content itself</strong></td>
+      <td><strong>Short.</strong> Days, only long enough for guardian appeal.</td>
+      <td>Storing the very thing we judged unsafe for a child, indefinitely, would be perverse. Keep the verdict, discard the artefact.</td>
+    </tr>
+    <tr>
+      <td><strong>Delivered content</strong></td>
+      <td>It is the child's work. It lives in their workspace and is theirs.</td>
+      <td>Not a safety record. Governed by <a href="089.workspaces.html">089</a> and the family's own choices.</td>
+    </tr>
+    <tr>
+      <td><strong>Prompts</strong></td>
+      <td>Minimal, and tied to the incident rather than kept as a stream.</td>
+      <td>A log of everything a child ever typed is precisely the dataset the Children's Code exists to discourage.</td>
+    </tr>
+    <tr>
+      <td><strong>§12 category</strong></td>
+      <td><strong>Preserved</strong>, overriding all of the above.</td>
+      <td>Legal obligation. Not a retention policy decision.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="cost">14. Safety costs money</h2>
+
+<p>
+  Worth stating because it interacts with the commercial model rather than sitting outside it. Every generation
+  now carries additional classification calls — potentially several, across text and image — so it is slower and
+  more expensive than the raw generation alone.
+</p>
+
+<ul>
+  <li><strong>Safety is never a paid tier.</strong> The £0 "Peek" tier gets the same protection as the £39.99 one. Selling safety to children would be indefensible, and a cheaper tier that is less safe is not a product decision anyone should be able to make.</li>
+  <li>The cost is <strong>in the unit economics of a generation</strong>, so it belongs in the pricing of story and video credits rather than in a separate meter.</li>
+  <li><strong>Cheap layers run first.</strong> Input classification before dispatch avoids paying for a generation that was never going to be delivered — which is both cheaper and faster.</li>
+  <li>A refused generation <strong>releases its meter reservation</strong> (<a href="#failure">§10.1</a>), so families are never billed for what they were not shown.</li>
+</ul>
+
+<h2 id="persistence">15. Persistence</h2>
+
+<ul>
+  <li><code>AnkSafetyIncidents</code> — subject party, age band, layer, category, verdict, model and provider, decision, timestamp. Tenant-scoped, <code>Ank</code>-prefixed.</li>
+  <li><code>AnkSafetyArtefacts</code> — short-lived pointers to blocked content held for appeal, with an expiry the sweeper honours and an override for <a href="#reporting">§12</a>.</li>
+  <li><code>AnkSafetyPolicies</code> — thresholds per band and category, as <strong>data</strong>, so tuning does not require a deployment. Versioned, since a threshold change must be attributable when reviewing an old incident.</li>
+  <li>Migrations CLI-generated against <code>AonikDbContext</code> per <code>CLAUDE.md</code>.</li>
+</ul>
+
+<h2 id="contracts">16. Contracts</h2>
+
+<table>
+  <thead><tr><th>Contract</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>IContentSafetyGate</code></td><td>The boundary. Every child-facing generation passes through it; it fails closed and cannot be bypassed by a caller.</td></tr>
+    <tr><td><code>IContentClassifier</code></td><td>One implementation per modality and vendor, selected by configuration — the provider-factory shape used elsewhere in the platform.</td></tr>
+    <tr><td><code>ISafetyPolicyReader</code></td><td>Resolves band plus category to a threshold and an action.</td></tr>
+    <tr><td><code>ISafetyIncidentRecorder</code></td><td>Writes the record, applies retention, honours the §12 override.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">The gate must be unbypassable, on the same pattern that already works</span>
+  <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> solved this exact problem for mutating tools:
+  <code>IToolApprovalGate</code> wraps every classified tool, and an <em>unclassified</em> mutating tool
+  <strong>throws at build time</strong> rather than running ungated. Content safety takes the same shape — a
+  child-facing generation path that has not been routed through <code>IContentSafetyGate</code> fails to
+  construct. A gate a caller can forget to call is not a gate, and this platform has already learned that once.
+</div>
+
+<h2 id="phasing">17. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>S0</strong> — policy</td>
+      <td>Age bands, category definitions and thresholds agreed with product; the §12 procedure drafted with counsel; the §11 staff route written with qualified input. <strong>No code.</strong></td>
+      <td>The written policy exists and names people, not roles-in-the-abstract.</td>
+    </tr>
+    <tr>
+      <td><strong>S1</strong> — the gate</td>
+      <td><code>IContentSafetyGate</code>, the build-time failure for unrouted paths, incident records, fail-closed behaviour.</td>
+      <td>A child-facing generation not routed through the gate <strong>does not compile</strong>; a classifier outage blocks delivery rather than passing content through.</td>
+    </tr>
+    <tr>
+      <td><strong>S2</strong> — classification</td>
+      <td>Input and output classifiers for text and image; provider safety settings at strictest; policy as data.</td>
+      <td>Known-bad prompts and outputs are blocked at each band; thresholds change without a deployment.</td>
+    </tr>
+    <tr>
+      <td><strong>S3</strong> — structure</td>
+      <td>Curated characters, templates, bounded vocabulary; no free text under 6.</td>
+      <td>The youngest band cannot submit free text at all, and the measured block rate for that band falls accordingly.</td>
+    </tr>
+    <tr>
+      <td><strong>S4</strong> — guardians</td>
+      <td>Pre-review, visibility, appeal, child-facing transparency.</td>
+      <td>A parent can review before delivery, see everything afterwards, and release a false positive — and the child is told when an adult is reviewing.</td>
+    </tr>
+    <tr>
+      <td><strong>S5</strong> — video and voice</td>
+      <td>Extend to the modalities where classification is hardest and most expensive.</td>
+      <td>Video output is classified before delivery, and the cost is understood well enough to price it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">18. Acceptance criteria</h2>
+
+<ol>
+  <li>A child-facing generation path not routed through <code>IContentSafetyGate</code> <strong>fails to construct</strong>, on the <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> pattern.</li>
+  <li>A classifier that errors or times out causes the content <strong>not to be delivered</strong>, and pages. It never returns "safe" on failure.</li>
+  <li>A party with no attested birth year is treated as the <strong>strictest</strong> band.</li>
+  <li>Under-6 cannot submit free text.</li>
+  <li>Provider safety settings are at their strictest available value, and the system still blocks output they permitted — proven with a case that passes the provider and fails L4.</li>
+  <li>A blocked generation <strong>releases its meter reservation</strong>; no family is billed for content they were not shown.</li>
+  <li>A blocked generation shows the child a plain, unalarming message with <strong>no category name and no warning styling</strong>.</li>
+  <li>An incident record exists for every block, and a guardian can see their own child's records.</li>
+  <li>A guardian can view and release blocked content, and the release is recorded as labelled data.</li>
+  <li><strong>Both</strong> false-positive and false-negative rates are measured and reported per band from the first release.</li>
+  <li>Blocked content itself is deleted on its short retention; the incident record survives.</li>
+  <li>Detection at the <a href="#reporting">§12</a> category preserves material, overrides deletion including a subject-access request, restricts access to named individuals, logs every access, and escalates to a person immediately.</li>
+  <li>Where guardian review or visibility is active, <strong>the child is told</strong> in age-appropriate terms.</li>
+  <li>Nothing in this spec inspects a file that arrived by import or sync — the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam is intact and <code>Aonik.Workspaces</code> gains no content type.</li>
+  <li>Safety behaviour is <strong>identical on the £0 tier</strong> and every paid tier.</li>
+  <li><code>dotnet build</code> and <code>dotnet test Aonik.sln</code> green.</li>
+</ol>
+
+<h2 id="open">19. Open decisions</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Who</th><th>Leaning</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>F1</td>
+      <td>Which classification vendors, and are they contractually suitable for children's data?</td>
+      <td>Engineering + counsel</td>
+      <td>At least two, for redundancy — a single vendor outage otherwise takes the whole product down, since we fail closed. Their data-handling terms are a <a href="095.guardian-relationships-and-verifiable-consent.html#disclosure">095 §9</a> disclosure question too.</td>
+    </tr>
+    <tr>
+      <td>F2</td>
+      <td>Does the youngest band get free-text prompting at all?</td>
+      <td><strong>Product</strong></td>
+      <td><strong>No.</strong> It is the riskiest feature in the product and the least necessary for that age, who are better served by a beautiful curated experience than an open box.</td>
+    </tr>
+    <tr>
+      <td>F3</td>
+      <td>Is guardian pre-review on by default beyond the youngest band?</td>
+      <td>Product</td>
+      <td>Default on to age 9, then off with visibility retained. Parents who want more can opt in.</td>
+    </tr>
+    <tr>
+      <td>F4</td>
+      <td>How long is blocked content retained for appeal?</td>
+      <td>Product + counsel</td>
+      <td>7 days. Long enough for a parent to notice; short enough that we are not warehousing rejected material.</td>
+    </tr>
+    <tr>
+      <td>F5</td>
+      <td>Do we publish our safety approach?</td>
+      <td>Product</td>
+      <td><strong>Yes, in plain language.</strong> Parents choosing a product for their child deserve to know how it works, and the Children's Code expects transparency. It is also a genuine differentiator against products that say nothing.</td>
+    </tr>
+    <tr>
+      <td>F6</td>
+      <td>Video classification is expensive and slow. Sample frames, or classify whole?</td>
+      <td>Engineering</td>
+      <td>Frame sampling plus the generating prompt, with sampling density as a policy value. Whole-video classification will not be affordable at S5.</td>
+    </tr>
+    <tr>
+      <td>F7</td>
+      <td>Who is the named responsible person for §11 and §12?</td>
+      <td><strong>Michael</strong></td>
+      <td>Must be a person, before launch. "Someone will look at it" is not a procedure, and this is the decision most likely to be deferred until it cannot be.</td>
+    </tr>
+  </tbody>
+</table>
+
+<footer>
+  Spec 096 · Content safety for child-facing generation · Draft Rev 1 · 2026-08-12 ·
+  <strong>S0 policy work, including counsel, precedes implementation</strong> ·
+  Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
+  Preserves the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam by operating at
+  the generation boundary · Gate pattern from <a href="032.tiered-ai-mutation-approval.html">Spec 032</a>
+</footer>
+
+</body>
+</html>
