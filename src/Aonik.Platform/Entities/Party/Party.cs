@@ -42,6 +42,13 @@ public class Party : AuditableEntity, ITenantScoped
     /// <summary>When this party next moves safety band. Recomputed on each transition.</summary>
     public DateTime? SafetyBandChangesOn { get; set; }
 
+    /// <summary>
+    /// When advance notice of an upcoming age transition was sent (Spec 095 §11). Idempotency
+    /// marker: without it a daily cron would notify every day for a month, turning a considerate
+    /// feature into a nuisance.
+    /// </summary>
+    public DateTime? AgeTransitionNoticeSentOn { get; set; }
+
     public List<PartyAddress> Addresses { get; set; } = new();
     public List<PartyContact> Contacts { get; set; } = new();
 
