@@ -21,7 +21,7 @@ namespace Aonik.Ai.Services.Safety;
 /// makes an invisible failover possible.
 /// </para>
 /// </summary>
-internal interface ISafetyModelRouter
+public interface ISafetyModelRouter
 {
     /// <summary>
     /// The model to classify with, or a refusal.
@@ -124,6 +124,13 @@ public static class SafetyUseCases
     public const string ClassifyImage = "safety-classify-image";
     public const string ClassifySpeech = "safety-classify-speech";
     public const string ClassifyVideo = "safety-classify-video";
+
+    /// <summary>
+    /// Speech-to-text for the transcript leg. Routed like every other model call — transcription sends
+    /// a child's audio to a third party, so it cannot be the one path that picks its own vendor and
+    /// skips the §16.1 consented-provider check.
+    /// </summary>
+    public const string TranscribeSpeech = "safety-transcribe-speech";
 
     public static string ForModality(string modality) => modality switch
     {

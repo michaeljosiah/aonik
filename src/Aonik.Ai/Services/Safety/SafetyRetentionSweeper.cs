@@ -32,8 +32,17 @@ public interface ISafetyRetentionSweeper
     Task<SafetySweepSummary> SweepAsync(CancellationToken cancellationToken = default);
 }
 
+/// <param name="HoldsExpired">
+/// Pre-review holds nobody acted on, moved to <c>Expired</c>. On the scheduled path rather than on a
+/// later approval attempt: a hold that is merely hidden from the guardian's queue is still a row
+/// carrying a child's content reference, and rows nobody ever returns to would never resolve at all.
+/// </param>
 public sealed record SafetySweepSummary(
-    int ArtefactsDeleted, int ArtefactsHeld, int DecisionsAnonymised, int IncidentsDeleted);
+    int ArtefactsDeleted,
+    int ArtefactsHeld,
+    int DecisionsAnonymised,
+    int IncidentsDeleted,
+    int HoldsExpired);
 
 internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
 {
@@ -81,7 +90,16 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return [.. fromArtefacts.Concat(fromDecisions).Distinct()];
+        var fromHolds = await _dbContext.PendingContentReviews
+            .AsNoTracking().AcrossTenants()
+            .Where(r => !r.IsDeleted
+                && r.State == Entities.Safety.PreReviewStates.Pending
+                && r.ExpiresAt <= now)
+            .Select(r => r.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return [.. fromArtefacts.Concat(fromDecisions).Concat(fromHolds).Distinct()];
     }
 
     public async Task<SafetySweepSummary> SweepAsync(CancellationToken cancellationToken = default)
@@ -92,9 +110,30 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
         var (deleted, held) = await SweepArtefactsAsync(tenantId, now, cancellationToken);
         var anonymised = await AnonymiseDecisionsAsync(tenantId, now, cancellationToken);
         var incidents = await SweepIncidentsAsync(tenantId, now, cancellationToken);
+        var holdsExpired = await ExpireUnattendedHoldsAsync(tenantId, now, cancellationToken);
 
-        return new SafetySweepSummary(deleted, held, anonymised, incidents);
+        return new SafetySweepSummary(deleted, held, anonymised, incidents, holdsExpired);
     }
+
+    /// <summary>
+    /// Resolves pre-review holds nobody acted on (§8).
+    ///
+    /// <para>
+    /// Resolved as <c>Expired</c> and never as approval — an unattended queue must not become an
+    /// approval mechanism. Doing it here rather than on the next decision attempt is the difference
+    /// between a finite window and a growing table of undelivered children's stories that nobody will
+    /// ever open again.
+    /// </para>
+    /// </summary>
+    private async Task<int> ExpireUnattendedHoldsAsync(
+        Guid tenantId, DateTime now, CancellationToken cancellationToken)
+        => await _dbContext.PendingContentReviews
+            .Where(r => r.TenantId == tenantId
+                && r.State == Entities.Safety.PreReviewStates.Pending
+                && r.ExpiresAt <= now)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(r => r.State, Entities.Safety.PreReviewStates.Expired),
+                cancellationToken);
 
     private async Task<(int Deleted, int Held)> SweepArtefactsAsync(
         Guid tenantId, DateTime now, CancellationToken cancellationToken)

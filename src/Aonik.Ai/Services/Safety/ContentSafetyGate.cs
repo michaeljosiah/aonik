@@ -29,6 +29,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
     private readonly IEnumerable<IContentClassifier> _classifiers;
     private readonly ISafetyIncidentRecorder _recorder;
     private readonly IGuardianPreReviewService _preReview;
+    private readonly ISafetyBandReader _bandReader;
     private readonly IUsageMeter? _usageMeter;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
@@ -41,6 +42,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         IEnumerable<IContentClassifier> classifiers,
         ISafetyIncidentRecorder recorder,
         IGuardianPreReviewService preReview,
+        ISafetyBandReader bandReader,
         IUsageMeter? usageMeter,
         ITenantProvider tenantProvider,
         IClock clock,
@@ -52,6 +54,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         _classifiers = classifiers;
         _recorder = recorder;
         _preReview = preReview;
+        _bandReader = bandReader;
         _usageMeter = usageMeter;
         _tenantProvider = tenantProvider;
         _clock = clock;
@@ -92,12 +95,13 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var now = _clock.UtcNow;
 
-        // An unknown band is treated as the strictest, not as an adult. Same reasoning as Spec 095's
-        // unmapped jurisdiction: the wrong-way default is the one that ends badly, and being
-        // over-strict costs a support conversation rather than an incident.
-        var band = string.IsNullOrWhiteSpace(request.SafetyBand)
-            ? SafetyBandDefaults.Strictest
-            : request.SafetyBand;
+        // Read from the party record, never from the request. A caller-supplied band could claim
+        // `adult` for a six-year-old and skip every threshold and every guardian hold with one field.
+        //
+        // An unresolvable band is treated as the strictest, not as an adult. Same reasoning as
+        // Spec 095's unmapped jurisdiction: the wrong-way default is the one that ends badly, and
+        // being over-strict costs a support conversation rather than an incident.
+        var band = await ResolveBandAsync(request.SubjectPartyId, cancellationToken);
 
         var policy = await _policyReader.GetAsync(band, cancellationToken);
 
@@ -158,9 +162,16 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             _logger.LogError(ex,
                 "Content classification failed for {Modality}; refusing delivery and paging.", modality);
 
+            // A multi-leg classifier may have completed runs before failing. Recording the outage
+            // without them would leave an audit trail disconnected from AI executions that actually
+            // happened — the gap §15's run ids exist to close.
+            var completedRunIds = ex is SpeechClassificationFailedException partial
+                ? partial.CompletedRunIds
+                : [];
+
             return await RefuseAsync(
                 request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
-                categories: [], classifierRunIds: [], now, cancellationToken);
+                categories: [], completedRunIds, now, cancellationToken);
         }
 
         var fired = result.Scores
@@ -199,11 +210,35 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             SafetyDecisionOutcome.Allowed,
             Categories: [],
             decisionId,
-            issuePermit ? new ContentDeliveryPermit(decisionId, request.SubjectPartyId, band) : null);
+            issuePermit
+                ? new ContentDeliveryPermit(
+                    decisionId, request.SubjectPartyId, band, modality, reference)
+                : null);
+    }
+
+    private async Task<string> ResolveBandAsync(Guid subjectPartyId, CancellationToken cancellationToken)
+    {
+        string? band = null;
+
+        try
+        {
+            band = await _bandReader.GetSafetyBandAsync(subjectPartyId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A band we cannot read is a band we do not know, and the answer to not knowing is
+            // always the strictest one. Rethrowing would turn a Platform hiccup into an outage for a
+            // path that has a perfectly safe fallback.
+            _logger.LogError(ex,
+                "Could not resolve the safety band for {SubjectId}; applying the strictest band.",
+                subjectPartyId);
+        }
+
+        return string.IsNullOrWhiteSpace(band) ? SafetyBandDefaults.Strictest : band;
     }
 
     private bool IsModalityEnabled(string modality)
-        => _options.Value.EnabledModalities
+        => _options.Value.ResolvedModalities
             .Contains(modality, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

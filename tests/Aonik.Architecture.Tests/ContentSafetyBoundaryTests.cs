@@ -187,6 +187,57 @@ public class ContentSafetyBoundaryTests
     }
 
     [Fact]
+    public void TheGate_Should_ReadTheBandRatherThanBeToldIt()
+    {
+        // A request carrying its own band could claim `adult` for a six-year-old and skip every
+        // threshold and every guardian hold with one field. The only defence that holds is for the
+        // value not to be expressible in the request at all.
+        typeof(SafetyRequest).GetProperty("SafetyBand").Should().BeNull();
+
+        // The gate itself is internal, so it is found by name rather than by type reference.
+        var gate = typeof(Aonik.Ai.AiModule).Assembly
+            .GetType("Aonik.Ai.Services.Safety.ContentSafetyGate")!;
+
+        gate.GetConstructors()[0].GetParameters().Select(p => p.ParameterType)
+            .Should().Contain(typeof(ISafetyBandReader));
+    }
+
+    [Fact]
+    public void APermit_Should_NameTheArtefactItCovers()
+    {
+        // Without this a permit is a bearer token for the subject rather than for the artefact: hold
+        // any valid one and you can pair it with a different reference, laundering unclassified
+        // content through a delivery type that looks checked.
+        typeof(ContentDeliveryPermit).GetProperty(nameof(ContentDeliveryPermit.ContentReference))
+            .Should().NotBeNull();
+        typeof(ContentDeliveryPermit).GetProperty(nameof(ContentDeliveryPermit.Modality))
+            .Should().NotBeNull();
+        typeof(ContentDeliveryPermit).GetMethod(nameof(ContentDeliveryPermit.Authorises))
+            .Should().NotBeNull();
+    }
+
+    [Fact]
+    public void EveryClassificationAdapter_Should_DeclareItsCoverage()
+    {
+        // Required of every adapter, including ones that only judge text, so the question cannot be
+        // skipped by omission. Without it the routed classifier has no way to know whether the vendor
+        // behind it samples, and the S6 rule would only ever bind hand-written stubs.
+        typeof(Aonik.Ai.Services.Safety.ISafetyClassificationProvider)
+            .GetProperty("Coverage")!.PropertyType
+            .Should().Be(typeof(TemporalCoverage));
+    }
+
+    [Fact]
+    public void SpeechTranscription_Should_DeclareItsCoverageToo()
+    {
+        // Transcription is a temporal read of the same audio. A transcriber that sampled would leave
+        // the same hole, and the composite is only as complete as its least complete leg.
+        typeof(ITemporalCoverage)
+            .IsAssignableFrom(typeof(Aonik.Ai.Services.Safety.ISpeechTranscriber))
+            .Should().BeTrue();
+    }
+
+    [Fact]
     public void SpeechTranscription_Should_BeAnUnregisteredSeam()
     {
         // No transcription vendor is configured in this solution, so narration is refused today —
@@ -213,7 +264,7 @@ public class ContentSafetyBoundaryTests
         // F6 is a product decision, and the spec is explicit that video staying off is a legitimate
         // outcome rather than a failure. If this ever fails, it should be because someone took that
         // decision — not because a config default drifted.
-        new Aonik.Ai.Services.Safety.SafetyOptions().EnabledModalities
+        new Aonik.Ai.Services.Safety.SafetyOptions().ResolvedModalities
             .Should().NotContain(SafetyModalities.Video)
             .And.Contain([SafetyModalities.Text, SafetyModalities.Image, SafetyModalities.Speech]);
     }
@@ -230,11 +281,14 @@ public class ContentSafetyBoundaryTests
     [Fact]
     public void SamplingCoverage_Should_ExistAsADistinctDeclaration()
     {
-        // The point of the enum is that a classifier must SAY which it does. A boolean called
-        // "IsComplete" defaulting to true would have been the same design with the wrong default, and
-        // silence must read as sampling.
+        // The point of the enum is that a classifier must SAY which it does.
         Enum.GetValues<TemporalCoverage>().Should().BeEquivalentTo(
-            [TemporalCoverage.Complete, TemporalCoverage.Sampled]);
+            [TemporalCoverage.Unknown, TemporalCoverage.Sampled, TemporalCoverage.Complete]);
+
+        // And the zero value deliberately is not Complete. An uninitialised auto-property, a missing
+        // configuration value or a default deserialisation would otherwise silently claim full
+        // coverage — the one claim that must never be made by accident.
+        default(TemporalCoverage).Should().NotBe(TemporalCoverage.Complete);
     }
 
     [Fact]

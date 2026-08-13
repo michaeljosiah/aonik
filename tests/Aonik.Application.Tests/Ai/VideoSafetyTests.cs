@@ -32,6 +32,13 @@ public class VideoSafetyTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
 
+    /// <summary>
+    /// The band the stub reader reports. The gate reads it from the record rather than the request,
+    /// so a test that wants a different band sets this instead of passing one in. xUnit builds a new
+    /// instance per test, so there is nothing shared here.
+    /// </summary>
+    private string? _band = SafetyBandNames.Age10To12;
+
     private sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; } = new(2026, 8, 13, 12, 0, 0, DateTimeKind.Utc);
@@ -93,7 +100,7 @@ public class VideoSafetyTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new TestClock());
 
-    private static ContentSafetyGate CreateGate(
+    private ContentSafetyGate CreateGate(
         AiDbContext context, SafetyOptions options, params IContentClassifier[] classifiers)
     {
         var wrapped = Microsoft.Extensions.Options.Options.Create(options);
@@ -105,6 +112,7 @@ public class VideoSafetyTests
             new GuardianPreReviewService(
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
+            new StubSafetyBandReader(_band),
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -124,7 +132,7 @@ public class VideoSafetyTests
 
     private static Task<SafetyVerdict> ScreenVideoAsync(ContentSafetyGate gate)
         => gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Video, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Video, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Video, "blob://clip-1"));
 
     // ── Lock one: video is off ───────────────────────────────────────────
@@ -189,7 +197,12 @@ public class VideoSafetyTests
     {
         // The default is the shipped decision. If this ever changes, it should be because someone
         // resolved F6 — not because a test was updated to match a config edit.
-        new SafetyOptions().EnabledModalities.Should().NotContain(SafetyModalities.Video);
+        new SafetyOptions().ResolvedModalities.Should().NotContain(SafetyModalities.Video);
+
+        // Null-by-default, so an operator narrowing the allowlist REPLACES the defaults instead of
+        // adding to them. The configuration binder appends to a pre-populated collection, which would
+        // make this allowlist unable to switch anything off.
+        new SafetyOptions().EnabledModalities.Should().BeNull();
     }
 
     // ── Lock two: sampling is not coverage ───────────────────────────────
@@ -290,7 +303,7 @@ public class VideoSafetyTests
 
         var verdict = await CreateGate(context, new SafetyOptions(), new SamplingSpeechClassifier())
             .ScreenOutputAsync(
-                new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Speech, Guid.NewGuid()),
+                new SafetyRequest(Guid.NewGuid(), SafetyModalities.Speech, Guid.NewGuid()),
                 new GeneratedContent(SafetyModalities.Speech, "blob://narration-1"));
 
         verdict.Allowed.Should().BeFalse();

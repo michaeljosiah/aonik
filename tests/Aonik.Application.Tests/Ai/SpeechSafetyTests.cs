@@ -27,25 +27,38 @@ public class SpeechSafetyTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
 
+    /// <summary>
+    /// The band the stub reader reports. The gate reads it from the record rather than the request,
+    /// so a test that wants a different band sets this instead of passing one in. xUnit builds a new
+    /// instance per test, so there is nothing shared here.
+    /// </summary>
+    private string? _band = SafetyBandNames.Age10To12;
+
     private sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; } = new(2026, 8, 13, 12, 0, 0, DateTimeKind.Utc);
     }
 
-    private sealed class StubClassifier : IContentClassifier
+    private sealed class StubClassifier : IContentClassifier, ITemporalCoverage
     {
         private readonly Dictionary<string, double> _scores;
         private readonly Exception? _throws;
 
         public StubClassifier(
-            string modality, Dictionary<string, double>? scores = null, Exception? throws = null)
+            string modality,
+            Dictionary<string, double>? scores = null,
+            Exception? throws = null,
+            TemporalCoverage coverage = TemporalCoverage.Complete)
         {
             Modality = modality;
             _scores = scores ?? [];
             _throws = throws;
+            Coverage = coverage;
         }
 
         public string Modality { get; }
+
+        public TemporalCoverage Coverage { get; }
 
         public string? LastReference { get; private set; }
 
@@ -65,17 +78,49 @@ public class SpeechSafetyTests
         private readonly string _text;
         private readonly Exception? _throws;
 
-        public StubTranscriber(string text = "and then the door opened", Exception? throws = null)
+        public StubTranscriber(
+            string text = "and then the door opened",
+            Exception? throws = null,
+            TemporalCoverage coverage = TemporalCoverage.Complete)
         {
             _text = text;
             _throws = throws;
+            Coverage = coverage;
         }
 
+        public TemporalCoverage Coverage { get; }
+
+        public string? LastModelName { get; private set; }
+
         public Task<SpeechTranscript> TranscribeAsync(
-            Guid subjectPartyId, string reference, CancellationToken cancellationToken = default)
-            => _throws is not null
+            Guid subjectPartyId, string reference, string modelName,
+            CancellationToken cancellationToken = default)
+        {
+            LastModelName = modelName;
+
+            return _throws is not null
                 ? Task.FromException<SpeechTranscript>(_throws)
                 : Task.FromResult(new SpeechTranscript(_text, Guid.NewGuid()));
+        }
+    }
+
+    private sealed class StubRouter : ISafetyModelRouter
+    {
+        private readonly Exception? _throws;
+
+        public StubRouter(Exception? throws = null) => _throws = throws;
+
+        public List<string> ResolvedUseCases { get; } = [];
+
+        public Task<SafetyRoute> ResolveAsync(
+            Guid subjectPartyId, string useCase, CancellationToken cancellationToken = default)
+        {
+            ResolvedUseCases.Add(useCase);
+
+            return _throws is not null
+                ? Task.FromException<SafetyRoute>(_throws)
+                : Task.FromResult(new SafetyRoute($"model-for-{useCase}", "consented-vendor"));
+        }
     }
 
     private static AiDbContext CreateDbContext()
@@ -90,11 +135,12 @@ public class SpeechSafetyTests
     private static SpeechContentClassifier CreateSpeechClassifier(
         ISpeechTranscriber? transcriber = null,
         IContentClassifier? transcriptClassifier = null,
-        IContentClassifier? audioClassifier = null)
-        => new(transcriber, transcriptClassifier, audioClassifier,
+        IContentClassifier? audioClassifier = null,
+        ISafetyModelRouter? router = null)
+        => new(transcriber, transcriptClassifier, audioClassifier, router ?? new StubRouter(),
             NullLogger<SpeechContentClassifier>.Instance);
 
-    private static ContentSafetyGate CreateGate(AiDbContext context, params IContentClassifier[] classifiers)
+    private ContentSafetyGate CreateGate(AiDbContext context, params IContentClassifier[] classifiers)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
         return new ContentSafetyGate(
@@ -105,6 +151,7 @@ public class SpeechSafetyTests
             new GuardianPreReviewService(
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
+            new StubSafetyBandReader(_band),
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -115,8 +162,8 @@ public class SpeechSafetyTests
     private static ChildNarrationService CreateNarration(ContentSafetyGate gate)
         => new(gate, NullLogger<ChildNarrationService>.Instance);
 
-    private static NarrationRequest ANarration(string band = SafetyBandNames.Age6To9)
-        => new(Guid.NewGuid(), band, "blob://narration-1", Guid.NewGuid());
+    private static NarrationRequest ANarration()
+        => new(Guid.NewGuid(), "blob://narration-1", Guid.NewGuid());
 
     private static ClassificationRequest AClassification()
         => new(Guid.NewGuid(), SafetyBandNames.Age6To9, "blob://narration-1");
@@ -181,7 +228,7 @@ public class SpeechSafetyTests
             new StubClassifier(SafetyModalities.Speech)));
 
         await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Speech, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Speech, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Speech, "blob://narration-1"));
 
         // Three runs, one verdict. Recording only the first would leave the decision
@@ -329,16 +376,147 @@ public class SpeechSafetyTests
     public async Task HeldNarration_Should_NotBePlayable()
     {
         await using var context = CreateDbContext();
+        _band = SafetyBandNames.Under6;
         var gate = CreateGate(context, CreateSpeechClassifier(
             new StubTranscriber(), new StubClassifier(SafetyModalities.Text),
             new StubClassifier(SafetyModalities.Speech)));
 
-        var outcome = await CreateNarration(gate).PrepareAsync(ANarration(SafetyBandNames.Under6));
+        var outcome = await CreateNarration(gate).PrepareAsync(ANarration());
 
         // Pre-review applies to narration exactly as it does to text — a held story is not half-played.
         outcome.Narration.Should().BeNull();
         outcome.Outcome.Should().Be(SafetyDecisionOutcome.HeldForReview);
         outcome.WasUnavailable.Should().BeFalse();
+    }
+
+    // ── Codex round 1 ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Transcription_Should_RouteThroughAiRoutePolicy()
+    {
+        var router = new StubRouter();
+        var transcriber = new StubTranscriber();
+
+        await CreateSpeechClassifier(
+            transcriber, new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech), router)
+            .ClassifyAsync(AClassification());
+
+        // Transcription sends a child's audio to a third party, so it cannot be the one call that
+        // picks its own vendor and skips the §16.1 consented-provider check.
+        router.ResolvedUseCases.Should().Contain(SafetyUseCases.TranscribeSpeech);
+        transcriber.LastModelName.Should().Be($"model-for-{SafetyUseCases.TranscribeSpeech}");
+    }
+
+    [Fact]
+    public async Task AnUnconsentedTranscriptionProvider_Should_RefuseNarration()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(), new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech),
+            new StubRouter(throws: new InvalidOperationException("provider not consented"))));
+
+        (await CreateNarration(gate).PrepareAsync(ANarration())).Narration.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AnEmptyTranscript_Should_RefuseNarration(string transcript)
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(transcript), new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech)));
+
+        var outcome = await CreateNarration(gate).PrepareAsync(ANarration());
+
+        // A successful call returning nothing is a normal failure mode for quiet or unintelligible
+        // audio. Treating it as a clean text leg means nobody classified what was said, and the
+        // delivery-characteristics leg alone would let the narration through.
+        outcome.Narration.Should().BeNull();
+        outcome.WasUnavailable.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ANonFiniteScore_Should_RefuseRatherThanOverwriteAUsableOne()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(),
+            new StubClassifier(
+                SafetyModalities.Text,
+                new Dictionary<string, double> { [SafetyCategories.Sexual] = 0.99 }),
+            new StubClassifier(
+                SafetyModalities.Speech,
+                new Dictionary<string, double> { [SafetyCategories.Sexual] = double.NaN })));
+
+        var outcome = await CreateNarration(gate).PrepareAsync(ANarration());
+
+        // NaN wins Math.Max and then fails every `>= threshold` comparison, so an unusable audio
+        // score could erase a transcript score that was well over the line.
+        outcome.Narration.Should().BeNull();
+        outcome.WasUnavailable.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AFailedAudioLeg_Should_StillRecordTheRunsThatHappened()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(), new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech, throws: new TimeoutException())));
+
+        await CreateNarration(gate).PrepareAsync(ANarration());
+
+        // Transcription and the transcript leg already produced AiRuns. An outage decision
+        // disconnected from AI executions that actually occurred is the audit gap §15 exists to close.
+        var decision = await context.SafetyDecisions.SingleAsync();
+        decision.Outcome.Should().Be(nameof(SafetyDecisionOutcome.CheckUnavailable));
+        decision.ClassifierRunIds!.Split(',').Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ASamplingTranscriber_Should_RefuseNarration()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(coverage: TemporalCoverage.Sampled),
+            new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech)));
+
+        // The composite is only as complete as its least complete leg. Hard-coding completeness here
+        // would let a sampling vendor hide behind a wrapper that claims otherwise.
+        (await CreateNarration(gate).PrepareAsync(ANarration())).Narration.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ASamplingAudioLeg_Should_RefuseNarration()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(), new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech, coverage: TemporalCoverage.Sampled)));
+
+        (await CreateNarration(gate).PrepareAsync(ANarration())).Narration.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task APermitForOtherAudio_Should_NotProducePlayableNarration()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(), new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech)));
+
+        var permit = (await CreateNarration(gate).PrepareAsync(ANarration())).Narration!.Permit;
+
+        // A permit alone was never enough: any valid one could otherwise be paired with a different
+        // reference and unclassified audio laundered through a type that looks checked.
+        var construct = () => new PlayableNarration(permit, "blob://something-else");
+
+        construct.Should().Throw<ArgumentException>();
     }
 
     [Fact]
