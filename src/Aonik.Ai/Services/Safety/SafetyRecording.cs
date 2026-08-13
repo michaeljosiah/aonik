@@ -125,7 +125,9 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
         // reports CanView = false because there is nothing to view, and retention has nothing to
         // enforce. Kept short by design — storing the very thing we judged unsafe for a child,
         // indefinitely, would be perverse — with the §12 hold as the one exception.
-        if (!string.IsNullOrWhiteSpace(contentReference))
+        var preserved = !string.IsNullOrWhiteSpace(contentReference);
+
+        if (preserved)
         {
             _dbContext.SafetyArtefacts.Add(new SafetyArtefact
             {
@@ -152,14 +154,29 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
                 SafetyIncidentId = incident.Id,
                 SubjectPartyId = subjectPartyId,
                 Category = category,
-                RaisedAt = occurredAt
+                RaisedAt = occurredAt,
+                MaterialPreserved = preserved
             });
 
-            _logger.LogCritical(
-                "Reportable safety category {Category} detected for subject {SubjectId} "
-                + "(incident {IncidentId}). Material is preserved under a §12 hold and escalated to the "
-                + "named responsible person. This is not a moderation decision.",
-                category, subjectPartyId, incident.Id);
+            // Said out loud either way. An escalation that implies preservation when none happened is
+            // a false assurance at the worst possible moment, and the responsible person needs to know
+            // whether they are acting on evidence or only on a verdict.
+            if (preserved)
+            {
+                _logger.LogCritical(
+                    "Reportable safety category {Category} detected for subject {SubjectId} "
+                    + "(incident {IncidentId}). Material is preserved under a §12 hold and escalated to "
+                    + "the named responsible person. This is not a moderation decision.",
+                    category, subjectPartyId, incident.Id);
+            }
+            else
+            {
+                _logger.LogCritical(
+                    "Reportable safety category {Category} detected for subject {SubjectId} "
+                    + "(incident {IncidentId}) and NO MATERIAL WAS PRESERVED. The verdict survives; the "
+                    + "content does not. §12 requires preservation — this needs acting on now.",
+                    category, subjectPartyId, incident.Id);
+            }
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);

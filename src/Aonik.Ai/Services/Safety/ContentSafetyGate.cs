@@ -30,6 +30,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
     private readonly ISafetyIncidentRecorder _recorder;
     private readonly IGuardianPreReviewService _preReview;
     private readonly ISafetyBandReader _bandReader;
+    private readonly IPreservedInputStore? _preservedInputStore;
     private readonly IUsageMeter? _usageMeter;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
@@ -43,6 +44,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         ISafetyIncidentRecorder recorder,
         IGuardianPreReviewService preReview,
         ISafetyBandReader bandReader,
+        IPreservedInputStore? preservedInputStore,
         IUsageMeter? usageMeter,
         ITenantProvider tenantProvider,
         IClock clock,
@@ -55,6 +57,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         _recorder = recorder;
         _preReview = preReview;
         _bandReader = bandReader;
+        _preservedInputStore = preservedInputStore;
         _usageMeter = usageMeter;
         _tenantProvider = tenantProvider;
         _clock = clock;
@@ -185,19 +188,33 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             return await RefuseAsync(
                 request, band, modality, layer, policy, SafetyDecisionOutcome.Blocked,
                 fired, result.AllRunIds, now, cancellationToken,
-                // Only an OUTPUT reference is a storage key. At the input layer this value is the
-                // child's raw prompt, and persisting it as an artefact would both break the
-                // never-the-content-itself rule and overflow the column — throwing after the decision
-                // was saved, so the gate would never return its fail-closed verdict or release the
-                // reservation. §11 wants the prompt un-kept anyway.
-                issuePermit ? reference : null);
+                await ResolveArtefactReferenceAsync(request, issuePermit, reference, fired, cancellationToken));
         }
 
         // Guardian pre-review (§8) sits HERE — after every automated layer has allowed the content,
         // never before. Approving a held item can therefore only release something already judged
         // safe: a guardian cannot click past the gate, whatever the product UI later offers them.
-        var held = issuePermit
-            && await _preReview.RequiresPreReviewAsync(request.SubjectPartyId, band, cancellationToken);
+        bool held;
+
+        try
+        {
+            held = issuePermit
+                && await _preReview.RequiresPreReviewAsync(request.SubjectPartyId, band, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Resolving pre-review happens BEFORE the decision is recorded, so a failure here would
+            // otherwise leave a completed classifier run with no decision linking it to the attempted
+            // delivery — and no reservation released. Fails closed like any other unavailable check:
+            // holding instead would need the same database that just refused us.
+            _logger.LogError(ex,
+                "Could not resolve guardian pre-review for {SubjectId}; refusing delivery.",
+                request.SubjectPartyId);
+
+            return await RefuseAsync(
+                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                categories: [], result.AllRunIds, now, cancellationToken);
+        }
 
         // Recorded as HeldForReview from the outset rather than Allowed-then-held. The hold row is
         // deleted once it expires, so a decision saying "allowed" would leave an audit reconstructing
@@ -226,6 +243,67 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 ? new ContentDeliveryPermit(
                     decisionId, request.SubjectPartyId, band, modality, reference)
                 : null);
+    }
+
+    /// <summary>
+    /// What, if anything, a block preserves.
+    ///
+    /// <para>
+    /// An <strong>output</strong> block already has a storage key, so the artefact points at it. An
+    /// <strong>input</strong> block's only artefact is the child's own words: keeping those inline
+    /// would break the never-the-content-itself rule and §11, so ordinarily nothing is preserved.
+    /// </para>
+    ///
+    /// <para>
+    /// <strong>The reportable category inverts that</strong>, and it is the one case where discarding
+    /// evidence is the worse error. The input goes to an access-controlled store and only the key is
+    /// kept. When no store is configured the material is <em>not</em> silently dropped — it is logged
+    /// at critical and the escalation records that nothing was preserved, so the responsible person is
+    /// told they are acting on a record with nothing behind it.
+    /// </para>
+    /// </summary>
+    private async Task<string?> ResolveArtefactReferenceAsync(
+        SafetyRequest request,
+        bool isOutput,
+        string reference,
+        IReadOnlyList<string> fired,
+        CancellationToken cancellationToken)
+    {
+        if (isOutput)
+        {
+            return reference;
+        }
+
+        if (!fired.Any(SafetyCategories.IsReportable))
+        {
+            return null;
+        }
+
+        if (_preservedInputStore is null)
+        {
+            _logger.LogCritical(
+                "A reportable category fired on INPUT for subject {SubjectId} and no preserved-input "
+                + "store is configured. §12 requires preservation and none happened — the escalation "
+                + "records this, and it needs acting on now.", request.SubjectPartyId);
+
+            return null;
+        }
+
+        try
+        {
+            return await _preservedInputStore.PreserveAsync(
+                request.SubjectPartyId, reference, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Never swallowed into a success. A preservation failure recorded as preserved is the
+            // shape of mistake §12 exists to prevent.
+            _logger.LogCritical(ex,
+                "Preserving a reportable input for subject {SubjectId} failed. The block still stands; "
+                + "the material is gone.", request.SubjectPartyId);
+
+            return null;
+        }
     }
 
     private async Task<string> ResolveBandAsync(Guid subjectPartyId, CancellationToken cancellationToken)

@@ -113,6 +113,7 @@ public class VideoSafetyTests
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
             new StubSafetyBandReader(_band),
+            preservedInputStore: null,
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),

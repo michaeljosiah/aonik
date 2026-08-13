@@ -118,6 +118,7 @@ public class SafetyBillingAndMessagingTests
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
             new StubSafetyBandReader(_band),
+            preservedInputStore: null,
             meter,
             new TestTenantProvider(TenantId),
             new TestClock(),

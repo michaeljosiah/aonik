@@ -81,6 +81,7 @@ public class GuardianPreReviewTests
             new SafetyIncidentRecorder(context, options, NullLogger<SafetyIncidentRecorder>.Instance),
             CreateService(context, guardianship),
             new StubSafetyBandReader(_band),
+            preservedInputStore: null,
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
