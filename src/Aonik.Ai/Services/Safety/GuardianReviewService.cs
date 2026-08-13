@@ -39,11 +39,23 @@ public interface IGuardianReviewService
     /// where that matters.
     /// </para>
     /// </summary>
-    Task<AppealOutcome> AppealAsync(
+    Task<AppealResult> AppealAsync(
         Guid guardianPartyId,
         Guid incidentId,
         CancellationToken cancellationToken = default);
 }
+
+/// <param name="Permit">
+/// Non-null only on <see cref="AppealOutcome.Released"/>, and bound to the artefact it released.
+///
+/// <para>
+/// Without it "released" was a status with nothing behind it: the incident said <c>Released</c> and
+/// no caller could cross the delivery boundary, so the API reported a release that could not happen.
+/// The permit carries the <em>original blocked</em> decision, because nothing was re-classified — a
+/// guardian overrode a verdict, and delivery stays traceable to the verdict they overrode.
+/// </para>
+/// </param>
+public sealed record AppealResult(AppealOutcome Outcome, ContentDeliveryPermit? Permit = null);
 
 /// <param name="CanView">False for a non-overridable category — the guardian may not see it either.</param>
 /// <param name="CanRelease">False unless the category is reviewable and undecided.</param>
@@ -169,7 +181,7 @@ internal sealed class GuardianReviewService : IGuardianReviewService
             && !incident.IsUnderLegalHold
             && SafetyCategories.All.Contains(incident.Category);
 
-    public async Task<AppealOutcome> AppealAsync(
+    public async Task<AppealResult> AppealAsync(
         Guid guardianPartyId, Guid incidentId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -179,7 +191,7 @@ internal sealed class GuardianReviewService : IGuardianReviewService
 
         if (incident is null)
         {
-            return AppealOutcome.NotAvailable;
+            return new AppealResult(AppealOutcome.NotAvailable);
         }
 
         if (!await _guardianship.HasAuthorityAsync(
@@ -195,7 +207,7 @@ internal sealed class GuardianReviewService : IGuardianReviewService
         // and when, erasing the record the escalation is built on.
         if (incident.AppealState != SafetyAppealStates.None)
         {
-            return AppealOutcome.NotAvailable;
+            return new AppealResult(AppealOutcome.NotAvailable);
         }
 
         if (!IsReviewable(incident))
@@ -208,20 +220,32 @@ internal sealed class GuardianReviewService : IGuardianReviewService
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             await EscalateIfRepeatedAsync(tenantId, guardianPartyId, cancellationToken);
-            return AppealOutcome.Refused;
+            return new AppealResult(AppealOutcome.Refused);
         }
 
         // The artefact is short-lived by design, so an appeal can expire. That is the intended
         // trade: keeping the very thing we judged unsafe, indefinitely, would be perverse.
-        var artefactExists = await _dbContext.SafetyArtefacts
+        var artefact = await _dbContext.SafetyArtefacts
             .AsNoTracking()
-            .AnyAsync(a => a.TenantId == tenantId
+            .FirstOrDefaultAsync(a => a.TenantId == tenantId
                 && a.SafetyIncidentId == incident.Id
                 && a.ExpiresAt > now, cancellationToken);
 
-        if (!artefactExists)
+        if (artefact is null)
         {
-            return AppealOutcome.NotAvailable;
+            return new AppealResult(AppealOutcome.NotAvailable);
+        }
+
+        var decision = await _dbContext.SafetyDecisions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                d => d.TenantId == tenantId && d.Id == incident.SafetyDecisionId, cancellationToken);
+
+        if (decision is null)
+        {
+            // The verdict a release overrides has to exist to be overridden. Without it there is
+            // nothing to bind a permit to and nothing to make the delivery traceable.
+            return new AppealResult(AppealOutcome.NotAvailable);
         }
 
         incident.AppealState = SafetyAppealStates.Released;
@@ -240,7 +264,14 @@ internal sealed class GuardianReviewService : IGuardianReviewService
             + "Recorded as a decision; a false-positive label requires independent review.",
             guardianPartyId, incident.Id, incident.Category);
 
-        return AppealOutcome.Released;
+        // The permit that makes "released" mean something. Bound to the artefact and carrying the
+        // ORIGINAL blocked decision — nothing was re-classified here, a guardian overrode a verdict,
+        // and delivery stays traceable to the verdict they overrode.
+        return new AppealResult(
+            AppealOutcome.Released,
+            new ContentDeliveryPermit(
+                decision.Id, incident.SubjectPartyId, decision.SafetyBand,
+                decision.Modality, artefact.Reference));
     }
 
     /// <summary>
