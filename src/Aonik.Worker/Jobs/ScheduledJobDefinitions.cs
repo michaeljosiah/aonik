@@ -157,6 +157,13 @@ internal static class ScheduledJobDefinitions
                 "Closes lapsed entitlement grants so breakage is recorded rather than inferred (Spec 087).",
                 options.GrantExpirySweep.CronExpression,
                 options.GrantExpirySweep.Enabled),
+            new ScheduledJobDefinition<AgeTransitionJob>(
+                AgeTransitionJob.Key,
+                new TriggerKey("AgeTransitionJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Age Transitions",
+                "Lapses guardian consent at the consent age and ends guardianship at majority, and moves safety bands (Spec 095 §11).",
+                options.AgeTransition.CronExpression,
+                options.AgeTransition.Enabled),
             new ScheduledJobDefinition<GroupPartyBackfillJob>(
                 GroupPartyBackfillJob.Key,
                 new TriggerKey("GroupPartyBackfillJob-trigger", ScheduledJobGroups.ScheduledJobs),

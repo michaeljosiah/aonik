@@ -23,6 +23,9 @@ public sealed class ScheduledJobOptions
     public UsageReservationSweepJobOptions UsageReservationSweep { get; set; } = new();
     public GrantExpirySweepJobOptions GrantExpirySweep { get; set; } = new();
 
+    // Spec 095 §11 — guardianship and consent age transitions.
+    public AgeTransitionJobOptions AgeTransition { get; set; } = new();
+
     // One-off backfills. Both are disabled by default and enabled by an operator for a single
     // deployment window, following the DocumentIngestionBackfill precedent.
     public GroupPartyBackfillJobOptions GroupPartyBackfill { get; set; } = new();
@@ -260,4 +263,21 @@ public sealed class BoxCartAbandonSweepJobOptions
     /// pass is ample; the transition is idempotent.
     /// </summary>
     public string CronExpression { get; set; } = "0 10 3 * * ?";
+}
+
+/// <summary>Spec 095 §11.</summary>
+public sealed class AgeTransitionJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: daily at 02:15 UTC.
+    ///
+    /// <para>
+    /// Daily is the right cadence and hourly would be wrong in both directions: the boundaries are
+    /// dates rather than instants, so nothing is gained by finer granularity — and every run that
+    /// finds work emits notices, which nobody wants arriving hourly.
+    /// </para>
+    /// </summary>
+    public string CronExpression { get; set; } = "0 15 2 * * ?";
 }
