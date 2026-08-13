@@ -633,6 +633,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<AiTask>(modelBuilder, "AiTasks");
         MapAiTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapAiTable<AiRun>(modelBuilder, "AiRuns");
+        MapAiTable<Aonik.Ai.Entities.Safety.SafetyDecision>(modelBuilder, "SafetyDecisions");
+        MapAiTable<Aonik.Ai.Entities.Safety.SafetyIncident>(modelBuilder, "SafetyIncidents");
+        MapAiTable<Aonik.Ai.Entities.Safety.SafetyArtefact>(modelBuilder, "SafetyArtefacts");
+        MapAiTable<Aonik.Ai.Entities.Safety.SafetyPolicy>(modelBuilder, "SafetyPolicies");
         MapAiTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapAiTable<AiTrace>(modelBuilder, "AiTraces");
         MapAiTable<AiFeedback>(modelBuilder, "AiFeedbacks");

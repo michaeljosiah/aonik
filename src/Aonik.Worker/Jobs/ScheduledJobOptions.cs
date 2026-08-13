@@ -26,6 +26,9 @@ public sealed class ScheduledJobOptions
     // Spec 095 §11 — guardianship and consent age transitions.
     public AgeTransitionJobOptions AgeTransition { get; set; } = new();
 
+    // Spec 096 §13 — content-safety retention.
+    public SafetyRetentionJobOptions SafetyRetention { get; set; } = new();
+
     // One-off backfills. Both are disabled by default and enabled by an operator for a single
     // deployment window, following the DocumentIngestionBackfill precedent.
     public GroupPartyBackfillJobOptions GroupPartyBackfill { get; set; } = new();
@@ -280,4 +283,17 @@ public sealed class AgeTransitionJobOptions
     /// </para>
     /// </summary>
     public string CronExpression { get; set; } = "0 15 2 * * ?";
+}
+
+/// <summary>Spec 096 §13.</summary>
+public sealed class SafetyRetentionJobOptions
+{
+    /// <summary>
+    /// Defaults ON. Every other sweep in this file can be disabled without consequence; this one
+    /// governs how long blocked content about children is kept, so the safe default is that it runs.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Quartz cron (6-field). Default: daily at 03:30 UTC, after the age transitions.</summary>
+    public string CronExpression { get; set; } = "0 30 3 * * ?";
 }

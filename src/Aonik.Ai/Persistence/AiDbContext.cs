@@ -28,6 +28,10 @@ internal class AiDbContext : AonikDbContextBase
     // ── Policy & Execution ─────────────────────────────────────────
     public DbSet<AiPolicy> AiPolicies { get; set; } = null!;
     public DbSet<AiRun> AiRuns { get; set; } = null!;
+    public DbSet<Entities.Safety.SafetyDecision> SafetyDecisions { get; set; } = null!;
+    public DbSet<Entities.Safety.SafetyIncident> SafetyIncidents { get; set; } = null!;
+    public DbSet<Entities.Safety.SafetyArtefact> SafetyArtefacts { get; set; } = null!;
+    public DbSet<Entities.Safety.SafetyPolicy> SafetyPolicies { get; set; } = null!;
     public DbSet<TenantAgentSettings> TenantAgentSettings { get; set; } = null!;
     public DbSet<AiTrace> AiTraces { get; set; } = null!;
     public DbSet<AiFeedback> AiFeedbacks { get; set; } = null!;

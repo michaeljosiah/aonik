@@ -298,6 +298,16 @@ public sealed class AiModule : IModule
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
         services.AddScoped<ITextToSpeechProvider>(sp => sp.GetRequiredService<TProvider>());
+
+        // ── Spec 096 S1 — the content safety gate ────────────────────────────
+        // The gate is the only issuer of ContentDeliveryPermit, and the sweeper ships WITH it: an
+        // expiry column deletes nothing, and artefacts start accumulating the moment blocking works.
+        services.Configure<Services.Safety.SafetyOptions>(
+            configuration.GetSection(Services.Safety.SafetyOptions.SectionName));
+        services.AddScoped<SharedKernel.Abstractions.Safety.ISafetyPolicyReader, Services.Safety.SafetyPolicyReader>();
+        services.AddScoped<Services.Safety.ISafetyIncidentRecorder, Services.Safety.SafetyIncidentRecorder>();
+        services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate, Services.Safety.ContentSafetyGate>();
+        services.AddScoped<Services.Safety.ISafetyRetentionSweeper, Services.Safety.SafetyRetentionSweeper>();
     }
 }
 
