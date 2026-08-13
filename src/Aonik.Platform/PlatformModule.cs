@@ -209,6 +209,9 @@ public sealed class PlatformModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.PaymentInstrumentGuardianVerifier>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifierFactory, Services.Consent.GuardianVerifierFactory>();
         services.AddScoped<Services.Consent.IGuardianVerificationRecorder, Services.Consent.GuardianVerificationRecorder>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianshipReader, Services.Consent.GuardianshipReader>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IConsentReader, Services.Consent.ConsentReader>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IConsentService, Services.Consent.ConsentService>();
 
         services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 

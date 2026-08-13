@@ -52,6 +52,7 @@
     <ProjectReference Include="..\..\src\Aonik.Finance\Aonik.Finance.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Subscriptions\Aonik.Subscriptions.csproj" />
     <ProjectReference Include="..\..\src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
     <ProjectReference Include="..\Aonik.IntegrationTests.Support\Aonik.IntegrationTests.Support.csproj" />
