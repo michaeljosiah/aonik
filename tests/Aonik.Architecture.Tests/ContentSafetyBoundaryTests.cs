@@ -142,6 +142,69 @@ public class ContentSafetyBoundaryTests
         typeof(Aonik.Ai.Services.Safety.ISafetyClassificationProvider).IsInterface.Should().BeTrue();
     }
 
+    // ── S5: the delivered-voice path ─────────────────────────────────────
+
+    [Fact]
+    public void PlayableNarration_Should_RequireAPermitToConstruct()
+    {
+        // The permit trick applied one level down, at the point where bytes reach a child's ears. A
+        // public constructor is fine here precisely because its parameter is unforgeable: a player
+        // accepting this type cannot be handed audio no classifier heard.
+        var constructors = typeof(Aonik.Ai.Services.Safety.PlayableNarration)
+            .GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+
+        constructors.Should().ContainSingle();
+        constructors[0].GetParameters()[0].ParameterType
+            .Should().Be(typeof(ContentDeliveryPermit),
+                "narration that cannot show a permit must not be constructible at all");
+    }
+
+    [Fact]
+    public void NarrationOutcome_Should_CarryTheNarrationRatherThanABoolean()
+    {
+        // Same reasoning as SafetyVerdict.Permit: a bool is advice, an absent object is enforcement.
+        typeof(Aonik.Ai.Services.Safety.NarrationOutcome)
+            .GetProperty(nameof(Aonik.Ai.Services.Safety.NarrationOutcome.Narration))!.PropertyType
+            .Should().Be(typeof(Aonik.Ai.Services.Safety.PlayableNarration));
+    }
+
+    [Fact]
+    public void SpeechClassification_Should_RouteSeparatelyFromEveryOtherModality()
+    {
+        // "Voice is not enabled by the video phase and does not inherit its coverage" (S5). Expressed
+        // structurally: speech resolves its own use case, so configuring video routing enables
+        // nothing here — and an operator can route one away from an outage without touching the other.
+        var useCases = new[]
+        {
+            Aonik.Ai.Services.Safety.SafetyUseCases.ForModality(SafetyModalities.Text),
+            Aonik.Ai.Services.Safety.SafetyUseCases.ForModality(SafetyModalities.Image),
+            Aonik.Ai.Services.Safety.SafetyUseCases.ForModality(SafetyModalities.Speech),
+            Aonik.Ai.Services.Safety.SafetyUseCases.ForModality(SafetyModalities.Video),
+        };
+
+        useCases.Should().OnlyHaveUniqueItems(
+            "a shared use case would let one modality's configuration silently cover another");
+    }
+
+    [Fact]
+    public void SpeechTranscription_Should_BeAnUnregisteredSeam()
+    {
+        // No transcription vendor is configured in this solution, so narration is refused today —
+        // the same deliberate safe state as classification. A stub returning an empty transcript
+        // would look like coverage while providing none, which is worse than nothing.
+        typeof(Aonik.Ai.Services.Safety.ISpeechTranscriber).IsInterface.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ClassificationResult_Should_CarryEveryRunBehindAVerdict()
+    {
+        // Speech produces three runs for one verdict — transcription, transcript, audio. A single-run
+        // contract would leave a narration decision half-reconstructible, which is the specific
+        // failure §15's run ids exist to prevent.
+        typeof(ClassificationResult).GetProperty(nameof(ClassificationResult.AllRunIds))
+            .Should().NotBeNull();
+    }
+
     [Fact]
     public void EveryCategory_Should_BeClassifiable()
     {
