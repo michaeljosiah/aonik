@@ -212,6 +212,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianshipReader, Services.Consent.GuardianshipReader>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentReader, Services.Consent.ConsentReader>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentService, Services.Consent.ConsentService>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IConsentGate, Services.Consent.ConsentGate>();
 
         services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 
