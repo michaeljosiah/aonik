@@ -111,6 +111,27 @@ public sealed class ConsentOptions
 
     /// <summary>Tenant overrides. Raised only; a configured age below the statutory one is ignored.</summary>
     public List<ConsentJurisdictionOptions> Jurisdictions { get; set; } = new();
+
+    /// <summary>
+    /// Government-ID verification (Spec 095 §8). <strong>Off by default, and it must stay off until a
+    /// real document-verification provider is wired.</strong>
+    ///
+    /// <para>
+    /// <c>ComplianceService.ScreenPartyAsync</c> is a stub that always returns Passed — it logs as
+    /// much — and no verification provider exists in the solution. Enabling this against the stub
+    /// would verify <em>every</em> guardian automatically and write consent records citing
+    /// <c>government-id</c>: evidence, in an audit, of a check that never happened. That is strictly
+    /// worse than not offering the method.
+    /// </para>
+    /// </summary>
+    public GovernmentIdVerificationOptions GovernmentIdVerification { get; set; } = new();
+
+    /// <summary>
+    /// How long a signed-form attestation counts as current verification. An attestation is a
+    /// statement about a moment; treating a four-year-old one as current is how a manual process
+    /// quietly becomes no process.
+    /// </summary>
+    public int SignedFormAttestationDays { get; set; } = 365;
 }
 
 public sealed class ConsentJurisdictionOptions
@@ -118,4 +139,10 @@ public sealed class ConsentJurisdictionOptions
     public string Code { get; set; } = string.Empty;
     public int ConsentAge { get; set; }
     public int MajorityAge { get; set; }
+}
+
+public sealed class GovernmentIdVerificationOptions
+{
+    /// <summary>See <see cref="ConsentOptions.GovernmentIdVerification"/> before changing this.</summary>
+    public bool Enabled { get; set; }
 }

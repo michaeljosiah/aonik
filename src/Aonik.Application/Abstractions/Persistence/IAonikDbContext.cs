@@ -51,6 +51,7 @@ public interface IAonikDbContext
     DbSet<ConsentGrant> ConsentGrants { get; set; }
     DbSet<ConsentVerification> ConsentVerifications { get; set; }
     DbSet<LegacyConsent> LegacyConsents { get; set; }
+    DbSet<GuardianAttestation> GuardianAttestations { get; set; }
     DbSet<PersonProfile> PersonProfiles { get; set; }
     DbSet<BusinessProfile> BusinessProfiles { get; set; }
     DbSet<PartyAccount> PartyAccounts { get; set; }
