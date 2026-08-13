@@ -364,7 +364,7 @@ public sealed class AiModule : IModule
         // adapter is. Narration is therefore refused today, which is the correct state.
         services.AddScoped<SharedKernel.Abstractions.Safety.IContentClassifier>(sp =>
             new Services.Safety.SpeechContentClassifier(
-                sp.GetService<Services.Safety.ISpeechTranscriber>(),
+                sp.GetServices<Services.Safety.ISpeechTranscriber>(),
                 RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Text),
                 RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Speech),
                 sp.GetRequiredService<Services.Safety.ISafetyModelRouter>(),

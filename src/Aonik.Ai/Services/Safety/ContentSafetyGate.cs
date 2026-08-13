@@ -184,7 +184,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         {
             return await RefuseAsync(
                 request, band, modality, layer, policy, SafetyDecisionOutcome.Blocked,
-                fired, result.AllRunIds, now, cancellationToken);
+                fired, result.AllRunIds, now, cancellationToken, reference);
         }
 
         var decisionId = await _recorder.RecordAsync(
@@ -296,7 +296,8 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         IReadOnlyList<string> categories,
         IReadOnlyList<Guid> classifierRunIds,
         DateTime now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? contentReference = null)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -309,8 +310,12 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
 
         if (outcome == SafetyDecisionOutcome.Blocked && categories.Count > 0)
         {
+            // The reference travels with the incident so an artefact is written. Passed only on a
+            // Blocked outcome: an unavailable check judged nothing, and preserving content we never
+            // classified would be retention without a reason.
             await _recorder.RecordIncidentAsync(
-                decisionId, request.SubjectPartyId, MostSevere(categories), now, cancellationToken);
+                decisionId, request.SubjectPartyId, MostSevere(categories),
+                contentReference ?? string.Empty, now, cancellationToken);
         }
 
         await ReleaseReservationAsync(request, outcome, cancellationToken);

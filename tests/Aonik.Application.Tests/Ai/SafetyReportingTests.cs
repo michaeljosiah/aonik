@@ -70,19 +70,10 @@ public class SafetyReportingTests
             Guid.NewGuid(), [Guid.NewGuid()], Now));
 
         var decision = await context.SafetyDecisions.AsNoTracking().FirstAsync(d => d.Id == decisionId);
-        await recorder.RecordIncidentAsync(decisionId, decision.SubjectPartyId, category, Now);
+        await recorder.RecordIncidentAsync(
+            decisionId, decision.SubjectPartyId, category, "blob://preserved", Now);
 
         return (await context.SafetyIncidents.AsNoTracking().FirstAsync(i => i.SafetyDecisionId == decisionId)).Id;
-    }
-
-    private static async Task PreserveArtefactAsync(AiDbContext context, Guid incidentId)
-    {
-        context.SafetyArtefacts.Add(new SafetyArtefact
-        {
-            Id = Guid.NewGuid(), TenantId = TenantId, SafetyIncidentId = incidentId,
-            Reference = "blob://preserved", ExpiresAt = Now.AddDays(7), IsUnderLegalHold = true,
-        });
-        await context.SaveChangesAsync();
     }
 
     // ── Escalation is immediate ──────────────────────────────────────────
@@ -134,7 +125,6 @@ public class SafetyReportingTests
     {
         await using var context = CreateDbContext();
         var incidentId = await RecordBlockAsync(context, SafetyCategories.Csam);
-        await PreserveArtefactAsync(context, incidentId);
 
         var outcome = await CreateService(context, Custodian)
             .AccessAsync(Guid.NewGuid(), incidentId, "curiosity");
@@ -156,7 +146,6 @@ public class SafetyReportingTests
     {
         await using var context = CreateDbContext();
         var incidentId = await RecordBlockAsync(context, SafetyCategories.Csam);
-        await PreserveArtefactAsync(context, incidentId);
 
         var outcome = await CreateService(context, Custodian)
             .AccessAsync(Custodian, incidentId, "reporting to authority");
@@ -174,7 +163,6 @@ public class SafetyReportingTests
     {
         await using var context = CreateDbContext();
         var incidentId = await RecordBlockAsync(context, SafetyCategories.Csam);
-        await PreserveArtefactAsync(context, incidentId);
 
         // F7 has not been resolved, so the material is unreachable rather than reachable by whoever
         // holds an admin claim. That is the safe state, not a lockout to work around.
@@ -188,7 +176,6 @@ public class SafetyReportingTests
     {
         await using var context = CreateDbContext();
         var incidentId = await RecordBlockAsync(context, SafetyCategories.Csam);
-        await PreserveArtefactAsync(context, incidentId);
 
         var incident = await context.SafetyIncidents.AsNoTracking().SingleAsync();
         var guardian = Guid.NewGuid();

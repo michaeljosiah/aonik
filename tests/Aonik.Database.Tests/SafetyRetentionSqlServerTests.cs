@@ -291,7 +291,7 @@ public class SafetyRetentionSqlServerTests : IClassFixture<SqlLocalDbFixture>
     // ── Pre-review holds (Spec 096 §8) ───────────────────────────────────
 
     [SkippableFact]
-    public async Task Sweep_Should_ExpireAHoldNobodyActedOn()
+    public async Task Sweep_Should_RemoveAHoldNobodyActedOn()
     {
         RequireSqlServer();
 
@@ -301,15 +301,19 @@ public class SafetyRetentionSqlServerTests : IClassFixture<SqlLocalDbFixture>
 
         var summary = await CreateSweeper(context, tenantId).SweepAsync();
 
-        // Hiding the row from the guardian's queue is not resolving it: it still carries a child's
-        // content reference, and one nobody returns to would stay Pending forever. Here too the
-        // mechanism is ExecuteUpdateAsync, which InMemory does not implement.
         summary.HoldsExpired.Should().Be(1);
 
-        var review = await context.PendingContentReviews.AsNoTracking()
-            .FirstAsync(r => r.Id == reviewId);
-        review.State.Should().Be(PreReviewStates.Expired,
-            "expiry resolves as expiry — an unattended queue must never become an approval mechanism");
+        // Deleted, not marked. Flipping the state to Expired leaves the child id and the content
+        // reference in place forever — and because the tenant scan only looks for pending holds, the
+        // row is never revisited, so a retention path would accumulate exactly the references it
+        // claims to remove. ExecuteDeleteAsync is also the only thing that survives the soft-delete
+        // interceptor, and InMemory implements neither.
+        (await context.PendingContentReviews.AsNoTracking().AnyAsync(r => r.Id == reviewId))
+            .Should().BeFalse();
+
+        (await context.PendingContentReviews.AsNoTracking()
+            .IncludeSoftDeleted().AnyAsync(r => r.Id == reviewId))
+            .Should().BeFalse("a soft-deleted hold still carries the reference it was supposed to drop");
     }
 
     [SkippableFact]
