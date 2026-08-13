@@ -71,7 +71,7 @@
 
 <header class="doc-meta">
   <span class="meta-tag">Capability brief</span>
-  <span class="meta-tag status">Draft Rev 3 — for review</span>
+  <span class="meta-tag status">Draft Rev 5 — for review</span>
   <span class="meta-tag client">Products: Arke Studio · Arke Kids</span>
   <span class="meta-tag">2026-08-11</span>
   <h1>Arke Studio &amp; Arke Kids on AONIK</h1>
@@ -783,20 +783,20 @@ to prevent.</code></pre>
     <tr>
       <td><strong>Guardian relationship</strong></td>
       <td><span class="chip gap">GAP</span></td>
-      <td><code>PartyRelationship</code><br><span class="chip none">no spec</span></td>
-      <td>A <code>Guardian</code> relationship type is named as an explicit follow-up in Spec 086 §16 and deliberately not delivered there. Party relationships exist; this specific type and its semantics do not.</td>
+      <td><code>PartyRelationship</code><br><a href="specifications/095.guardian-relationships-and-verifiable-consent.html"><span class="chip spec">Spec 095</span></a> <span class="chip draft">draft</span></td>
+      <td>Now specified. Party relationships exist; <code>Guardian</code> does not, and <code>PartyRelationshipTypes.Codes</code> is a <strong>closed validation set</strong> enforced in three places, so adding it is a code change rather than data.</td>
     </tr>
     <tr>
       <td><strong>Verifiable parental consent</strong></td>
       <td><span class="chip gap">GAP</span></td>
-      <td><code>PartyConsent</code><br><span class="chip none">no spec</span></td>
-      <td><code>PartyConsent</code> exists as an entity. <em>Verifiable</em> consent — the standard actually required for children — does not. §12.</td>
+      <td><code>PartyConsent</code><br><a href="specifications/095.guardian-relationships-and-verifiable-consent.html"><span class="chip spec">Spec 095</span></a> <span class="chip draft">draft</span></td>
+      <td>Now specified. <code>PartyConsent</code> exists and <strong>is in use</strong> — customer data export, import, and an admin view read it — but it has no service and no endpoint that <em>grants</em> consent, and it cannot record who consented, how they were verified, or for what purpose. So as a <em>mechanism</em> it does not exist. Spec 095 adds one alongside and retires this one in stages rather than dropping it.</td>
     </tr>
     <tr>
       <td><strong>Content safety for generated media</strong></td>
       <td><span class="chip gap">GAP</span></td>
-      <td>—<br><span class="chip none">no spec</span></td>
-      <td>Neither product has an answer. For a child-facing generative product this is not a feature gap; it is a shipping condition. §12.</td>
+      <td><code>Aonik.Ai</code><br><a href="specifications/096.content-safety-for-child-facing-generation.html"><span class="chip spec">Spec 096</span></a> <span class="chip draft">draft</span></td>
+      <td>Now specified. A grep across the solution confirmed the gap was total — no moderation, classification or safety configuration of any kind. Still a shipping condition rather than a feature. §12.</td>
     </tr>
   </tbody>
 </table>
@@ -1052,17 +1052,17 @@ to prevent.</code></pre>
     </tr>
     <tr>
       <td><strong>095</strong></td>
-      <td>Guardian relationships and verifiable parental consent</td>
-      <td><span class="chip none">proposed</span></td>
+      <td><a href="specifications/095.guardian-relationships-and-verifiable-consent.html">Guardian relationships and verifiable parental consent</a></td>
+      <td><span class="chip draft">draft</span></td>
       <td>Kids</td>
-      <td>Named as a follow-up in Spec 086 §16. A regulatory precondition, not a feature.</td>
+      <td><strong>Written 2026-08-12, Rev 5.</strong> Closes the gaps Spec 086 §17.1 deferred. The legal-review gate was <strong>lifted on 2026-08-13</strong>; the assumptions it would have tested are recorded in §15.1 with an owner, and implementation proceeds against them.</td>
     </tr>
     <tr>
       <td><strong>096</strong></td>
-      <td>Content safety for child-facing generation</td>
-      <td><span class="chip none">proposed</span></td>
+      <td><a href="specifications/096.content-safety-for-child-facing-generation.html">Content safety for child-facing generation</a></td>
+      <td><span class="chip draft">draft</span></td>
       <td>Kids</td>
-      <td>No answer on either side today. §12.</td>
+      <td><strong>Written 2026-08-12, Rev 5.</strong> Sits at the generation boundary, so the ADR-016 storage seam stays intact. S0 now runs alongside S1; the reporting procedure and named person are carried as launch obligations rather than code gates (§17.1).</td>
     </tr>
     <tr>
       <td><strong>097</strong></td>
@@ -1089,8 +1089,8 @@ to prevent.</code></pre>
     not it. AONIK has <code>PartyConsent</code> as an entity and no mechanism behind it.
   </p>
   <p style="margin-bottom:0">
-    <strong>Implication:</strong> Spec 095 is not a nice-to-have that follows launch; it is a
-    precondition of it, and it needs a legal read before an engineering one.
+    <strong>Implication:</strong> <a href="specifications/095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> is not a nice-to-have that follows launch; it is a
+    precondition of it, and it needs a legal read before an engineering one — which is why its first phase is counsel with no code. It also found that <code>PartyConsent</code> — which <strong>is</strong> written, by customer data import, and read by export and an admin view — has <strong>no service or endpoint that grants consent</strong>. So the platform has no consent <em>mechanism</em>, and the table is retired in stages rather than dropped.
   </p>
 </div>
 
@@ -1099,7 +1099,7 @@ to prevent.</code></pre>
   A model that produces a story or a video for an eight-year-old can produce something distressing,
   and neither product has a moderation layer. The reputational asymmetry is total: one bad output
   reaches a parent, and no amount of "the model did it" survives that conversation.
-  <strong>Nobody has specified this.</strong> It is the largest unaddressed item in this brief.
+  <strong>Now specified as <a href="specifications/096.content-safety-for-child-facing-generation.html">Spec 096</a></strong>, which had been the largest unaddressed item in this brief. Its central finding: the strongest lever is <em>structural</em> — narrowing what can be generated beats filtering what was — and free-text prompting by the youngest children is the riskiest feature in the product.
 </div>
 
 <div class="callout risk">
@@ -1169,9 +1169,9 @@ to prevent.</code></pre>
     </tr>
     <tr>
       <td><strong>6</strong></td>
-      <td>Specs 095, 096 — consent and content safety</td>
+      <td><a href="specifications/095.guardian-relationships-and-verifiable-consent.html">Spec 095</a>, <a href="specifications/096.content-safety-for-child-facing-generation.html">Spec 096</a> — consent and content safety</td>
       <td>Kids</td>
-      <td>Preconditions for a child-facing launch. Legal input before engineering.</td>
+      <td>Preconditions for a child-facing <strong>launch</strong> — no longer for implementation. Both written; both gates lifted 2026-08-13. What remains genuinely pre-launch is the §12 reporting procedure and its named person, which are obligations rather than reviews.</td>
     </tr>
     <tr>
       <td><strong>7</strong></td>
@@ -1211,7 +1211,7 @@ to prevent.</code></pre>
 </div>
 
 <footer>
-  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 3 (Codex round 1 applied; renumbered for the 089/091 split) · 2026-08-11<br>
+  Arke Studio &amp; Arke Kids on AONIK — capability brief · Draft Rev 5 (095/096 Rev 5; review gates lifted 2026-08-13) · 2026-08-11<br>
   Enabling specifications:
   <a href="specifications/086.extract-groups-and-sharing-to-platform.html">086</a> ·
   <a href="specifications/087.subscriptions-entitlements-and-metered-usage.html">087</a> ·
@@ -1219,7 +1219,9 @@ to prevent.</code></pre>
   <a href="specifications/089.workspaces.html">089</a> ·
   <a href="specifications/090.offline-verifiable-entitlement.html">090</a> ·
   <a href="specifications/091.workspace-sync.html">091</a> ·
-  proposed 092–097<br>
+  <a href="specifications/095.guardian-relationships-and-verifiable-consent.html">095</a> ·
+  <a href="specifications/096.content-safety-for-child-facing-generation.html">096</a> ·
+  proposed 092–094, 097<br>
   Decisions:
   <a href="decisions/013-product-identity-is-configuration.md">ADR-013</a> ·
   <a href="decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> ·
