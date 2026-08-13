@@ -108,7 +108,8 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
 
         try
         {
-            result = await classifier.ClassifyAsync(reference, band, cancellationToken);
+            result = await classifier.ClassifyAsync(
+                new ClassificationRequest(request.SubjectPartyId, band, reference), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

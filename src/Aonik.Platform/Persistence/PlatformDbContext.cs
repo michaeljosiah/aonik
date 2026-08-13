@@ -52,6 +52,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<ConsentVerification> ConsentVerifications { get; set; } = null!;
     public DbSet<LegacyConsent> LegacyConsents { get; set; } = null!;
     public DbSet<GuardianAttestation> GuardianAttestations { get; set; } = null!;
+    public DbSet<ConsentTermsVersion> ConsentTermsVersions { get; set; } = null!;
     public DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
     public DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
     public DbSet<PartyAccount> PartyAccounts { get; set; } = null!;
@@ -183,6 +184,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<ConsentVerification>(modelBuilder, "ConsentVerifications");
         MapTable<LegacyConsent>(modelBuilder, "LegacyConsents");
         MapTable<GuardianAttestation>(modelBuilder, "GuardianAttestations");
+        MapTable<ConsentTermsVersion>(modelBuilder, "ConsentTermsVersions");
         MapTable<PersonProfile>(modelBuilder, "PersonProfiles");
         MapTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
         MapTable<PartyAccount>(modelBuilder, "PartyAccounts");

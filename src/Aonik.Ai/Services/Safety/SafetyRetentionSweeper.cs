@@ -1,6 +1,7 @@
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -67,14 +68,14 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
         var now = _clock.UtcNow;
 
         var fromArtefacts = await _dbContext.SafetyArtefacts
-            .AsNoTracking().IgnoreQueryFilters()
+            .AsNoTracking().AcrossTenants()
             .Where(a => !a.IsDeleted && a.ExpiresAt <= now)
             .Select(a => a.TenantId)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         var fromDecisions = await _dbContext.SafetyDecisions
-            .AsNoTracking().IgnoreQueryFilters()
+            .AsNoTracking().AcrossTenants()
             .Where(d => !d.IsDeleted && d.AnonymisedAt == null && d.ExpiresAt <= now)
             .Select(d => d.TenantId)
             .Distinct()
@@ -113,10 +114,23 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
                 "Safety artefact {ArtefactId} is past expiry but under legal hold; skipped.", artefact.Id);
         }
 
-        _dbContext.SafetyArtefacts.RemoveRange(deletable);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // ExecuteDeleteAsync, NOT RemoveRange — and this is the whole point of the method.
+        //
+        // AonikDbContextBase turns every EntityState.Deleted into IsDeleted = true, which is correct
+        // for ordinary business data (AiModelService says so in as many words) and exactly wrong
+        // here. A retention sweep that marks blocked child content instead of removing it retains it
+        // forever, while reporting that it deleted something — the precise failure §13 exists to
+        // prevent, and one that would have shipped looking like it worked.
+        //
+        // ExecuteDelete bypasses the change tracker, so the interceptor never sees the entity and
+        // the rows are actually gone.
+        var deleted = deletable.Count == 0
+            ? 0
+            : await _dbContext.SafetyArtefacts
+                .Where(a => a.TenantId == tenantId && a.ExpiresAt <= now && !a.IsUnderLegalHold)
+                .ExecuteDeleteAsync(cancellationToken);
 
-        return (deletable.Count, held.Count);
+        return (deleted, held.Count);
     }
 
     /// <summary>
@@ -161,13 +175,10 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
     {
         var cutoff = now.AddDays(-_options.IncidentRetentionDays);
 
-        var expired = await _dbContext.SafetyIncidents
+        // Hard delete, for the same reason as the artefacts above: a soft-deleted incident is a
+        // retained record about a child that every later sweep counts again.
+        return await _dbContext.SafetyIncidents
             .Where(i => i.TenantId == tenantId && !i.IsUnderLegalHold && i.OccurredAt <= cutoff)
-            .ToListAsync(cancellationToken);
-
-        _dbContext.SafetyIncidents.RemoveRange(expired);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return expired.Count;
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }

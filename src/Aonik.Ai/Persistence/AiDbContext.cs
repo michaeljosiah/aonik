@@ -92,6 +92,10 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<AiTask>(modelBuilder, "AiTasks");
         MapTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapTable<AiRun>(modelBuilder, "AiRuns");
+        MapTable<Entities.Safety.SafetyDecision>(modelBuilder, "SafetyDecisions");
+        MapTable<Entities.Safety.SafetyIncident>(modelBuilder, "SafetyIncidents");
+        MapTable<Entities.Safety.SafetyArtefact>(modelBuilder, "SafetyArtefacts");
+        MapTable<Entities.Safety.SafetyPolicy>(modelBuilder, "SafetyPolicies");
         MapTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapTable<AiTrace>(modelBuilder, "AiTraces");
         MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");

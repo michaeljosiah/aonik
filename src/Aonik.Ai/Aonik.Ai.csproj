@@ -13,6 +13,7 @@
 
   <!-- Boundary enforcement: only Api, Infrastructure, and test projects may access internals -->
   <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
     <InternalsVisibleTo Include="Aonik.Api" />
     <InternalsVisibleTo Include="Aonik.Voice" />
     <InternalsVisibleTo Include="Aonik.Migrator" />
