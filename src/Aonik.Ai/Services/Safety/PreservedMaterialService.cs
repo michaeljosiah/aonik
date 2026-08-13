@@ -49,8 +49,18 @@ public interface IPreservedMaterialService
 /// <param name="Reference">The storage key, only when granted.</param>
 public sealed record PreservedAccessOutcome(bool Granted, string? Reference, string? Reason);
 
+/// <param name="MaterialPreserved">
+/// Whether there is evidence behind this escalation. <strong>Null means not recorded</strong> — not
+/// "no". Reaching the custodian matters more than the flag existing: a responsible person who cannot
+/// tell an escalation with evidence from one without it receives the same record either way, which is
+/// the whole reason the field was added.
+/// </param>
 public sealed record OpenEscalation(
-    Guid EscalationId, Guid SafetyIncidentId, string Category, DateTime RaisedAt);
+    Guid EscalationId,
+    Guid SafetyIncidentId,
+    string Category,
+    DateTime RaisedAt,
+    bool? MaterialPreserved);
 
 /// <summary>
 /// Whether a party has material under a §12 hold, for any future erasure path.
@@ -160,7 +170,11 @@ internal sealed class PreservedMaterialService : IPreservedMaterialService, ILeg
             .OrderBy(e => e.RaisedAt)
             .ToListAsync(cancellationToken);
 
-        return [.. open.Select(e => new OpenEscalation(e.Id, e.SafetyIncidentId, e.Category, e.RaisedAt))];
+        return
+        [
+            .. open.Select(e => new OpenEscalation(
+                e.Id, e.SafetyIncidentId, e.Category, e.RaisedAt, e.MaterialPreserved))
+        ];
     }
 
     public async Task<bool> AcknowledgeAsync(

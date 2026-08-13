@@ -390,6 +390,8 @@ public class ContentSafetyGateTests
         var artefact = await context.SafetyArtefacts.SingleAsync();
         artefact.Reference.Should().Be("protected://0");
         artefact.IsUnderLegalHold.Should().BeTrue();
+
+        (await context.SafetyEscalations.SingleAsync()).MaterialPreserved.Should().BeTrue();
     }
 
     [Fact]
@@ -404,6 +406,9 @@ public class ContentSafetyGateTests
         // Not silently dropped. The escalation says plainly that nothing was preserved, so the
         // responsible person knows they are acting on a record with nothing behind it.
         (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+
+        // False, not null. Preservation was required, was attempted, and did not happen — the state a
+        // custodian must see at a glance rather than infer from a missing artefact.
         (await context.SafetyEscalations.SingleAsync()).MaterialPreserved.Should().BeFalse();
     }
 
