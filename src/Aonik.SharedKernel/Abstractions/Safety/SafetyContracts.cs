@@ -124,9 +124,20 @@ public sealed record ClassificationRequest(
 /// every AI action is auditable, and a safety classifier acting on behalf of a child is the last
 /// place to make an exception.
 /// </param>
+/// <param name="AdditionalRunIds">
+/// Further runs behind the same verdict. <strong>Speech needs this</strong>: judging narration means
+/// transcribing it, classifying the transcript, and separately classifying the audio — three runs, one
+/// verdict. Recording only the first would leave the decision half-reconstructible, which is the
+/// specific failure §15's run ids exist to prevent.
+/// </param>
 public sealed record ClassificationResult(
     IReadOnlyDictionary<string, double> Scores,
-    Guid RunId);
+    Guid RunId,
+    IReadOnlyList<Guid>? AdditionalRunIds = null)
+{
+    /// <summary>Every run behind this verdict, in the order they ran.</summary>
+    public IReadOnlyList<Guid> AllRunIds => [RunId, .. AdditionalRunIds ?? []];
+}
 
 /// <summary>
 /// Resolves band plus category to a threshold and an action (Spec 096 §15). Policy is <em>data</em>,

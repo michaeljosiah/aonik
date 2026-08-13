@@ -140,14 +140,14 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         {
             return await RefuseAsync(
                 request, band, modality, layer, policy, SafetyDecisionOutcome.Blocked,
-                fired, [result.RunId], now, cancellationToken);
+                fired, result.AllRunIds, now, cancellationToken);
         }
 
         var decisionId = await _recorder.RecordAsync(
             new SafetyDecisionRecord(
                 tenantId, request.SubjectPartyId, band, modality, layer,
                 SafetyDecisionOutcome.Allowed, Categories: [], policy.Version,
-                request.GenerationRunId, [result.RunId], now),
+                request.GenerationRunId, result.AllRunIds, now),
             cancellationToken);
 
         // Guardian pre-review (§8) sits HERE — after every automated layer has allowed the content,

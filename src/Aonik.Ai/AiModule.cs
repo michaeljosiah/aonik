@@ -335,7 +335,45 @@ public sealed class AiModule : IModule
                     sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.RoutedContentClassifier>>()));
         }
+
+        // ── Spec 096 S5 — voice ──────────────────────────────────────────────
+        // Narration is judged in two legs that both have to run: the transcript as text, and the
+        // audio for what a transcript cannot carry — tone, pacing, distress, a gentle sentence read
+        // in a terrifying voice. The composite refuses if either leg is missing, so voice is never
+        // enabled as a side effect of another modality being configured.
+        //
+        // No ISpeechTranscriber is registered by default, for the same reason no classification
+        // adapter is. Narration is therefore refused today, which is the correct state.
+        services.AddScoped<SharedKernel.Abstractions.Safety.IContentClassifier>(sp =>
+            new Services.Safety.SpeechContentClassifier(
+                sp.GetService<Services.Safety.ISpeechTranscriber>(),
+                RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Text),
+                RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Speech),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.SpeechContentClassifier>>()));
+
+        services.AddScoped<Services.Safety.IChildNarrationService, Services.Safety.ChildNarrationService>();
     }
+
+    /// <summary>
+    /// A routed classifier for one modality, built directly rather than resolved.
+    ///
+    /// <para>
+    /// Resolving <c>IEnumerable&lt;IContentClassifier&gt;</c> from inside a factory that registers an
+    /// <c>IContentClassifier</c> would recurse, so the speech composite constructs its two legs. It
+    /// also keeps the legs honest: each resolves its own route and its own adapter, and a provider
+    /// that does not name <c>speech</c> cannot satisfy the audio leg.
+    /// </para>
+    /// </summary>
+    private static Services.Safety.RoutedContentClassifier RoutedClassifier(
+        IServiceProvider sp, string modality)
+        => new(
+            modality,
+            sp.GetRequiredService<Services.Safety.ISafetyModelRouter>(),
+            sp.GetServices<Services.Safety.ISafetyClassificationProvider>(),
+            sp.GetRequiredService<Persistence.AiDbContext>(),
+            sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
+            sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.RoutedContentClassifier>>());
 }
 
 /// <summary>
