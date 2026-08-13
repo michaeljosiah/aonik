@@ -789,9 +789,29 @@
     <tr><td><code>IContentClassifier</code></td><td>Expresses a <strong>routable use case</strong> per modality — "classify this image for band X" — and resolves its provider and model through <strong><code>AiRoutePolicy</code></strong>. Never a per-vendor implementation chosen by local configuration. See below.</td></tr>
     <tr><td><code>ISafetyPolicyReader</code></td><td>Resolves band plus category to a threshold and an action.</td></tr>
     <tr><td><code>ISafetyIncidentRecorder</code></td><td>Writes the record <strong>including the <code>AiRun</code> ids</strong> of the generation and every classifier call (<a href="#persistence">§15</a>).</td></tr>
-    <tr><td><code>ISafetyRetentionSweeper</code></td><td>Deletes expired artefacts, skips anything under a <a href="#reporting">§12</a> hold, and runs per tenant. <strong>Ships in S1</strong>, because the artefacts start accumulating the moment blocking works.</td></tr>
+    <tr><td><code>ISafetyRetentionSweeper</code></td><td>Deletes expired artefacts, expires unattended pre-review holds, skips anything under a <a href="#reporting">§12</a> hold, and runs per tenant. <strong>Ships in S1</strong>, because the artefacts start accumulating the moment blocking works.</td></tr>
+    <tr><td><code>ISafetyBandReader</code></td><td>The band, read from the party record. <strong>The caller never supplies it</strong> — see below.</td></tr>
+    <tr><td><code>ITemporalCoverage</code></td><td>How much of a temporal artefact a classifier or transcriber actually covered. Makes <a href="#acceptance">§18.23</a> executable rather than aspirational.</td></tr>
+    <tr><td><code>IPreservedMaterialService</code></td><td>The <a href="#reporting">§12</a> path: named-individual access, every attempt logged, escalations that stay queryable until acknowledged.</td></tr>
   </tbody>
 </table>
+
+<div class="callout p0">
+  <span class="callout-label">Two things a caller must not be able to say</span>
+  <p style="margin-top:0">
+    <strong>The safety band is not a request field.</strong> A request that carried its own band could claim
+    <code>adult</code> for a six-year-old and skip every threshold and every guardian hold with one value, so
+    <code>SafetyRequest</code> does not have the property at all and the gate reads it through
+    <code>ISafetyBandReader</code> from the record <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a>'s
+    age-transition job maintains. Unresolvable resolves to the strictest band, never to adult.
+  </p>
+  <p style="margin-bottom:0">
+    <strong>A permit names the artefact it covers.</strong> Carrying only the subject would make it a bearer
+    token: hold any valid permit and you could pair it with a different reference — or pair an image permit with
+    audio — and launder unclassified content through a delivery type that looks checked. The permit carries the
+    modality and the exact content reference, and delivery types verify it.
+  </p>
+</div>
 
 <div class="callout p0">
   <span class="callout-label">P0 — a second routing mechanism would breach a platform boundary</span>
@@ -1031,7 +1051,7 @@
       <td>F3</td>
       <td>Is guardian pre-review on by default beyond the youngest band?</td>
       <td>Product</td>
-      <td>Default on to age 9, then off with visibility retained. Parents who want more can opt in.</td>
+      <td><strong>Implemented as leaning.</strong> Default on to age 9, then off with visibility retained. Parents who want more can opt in — and a guardian may switch it off even for the youngest band, because <a href="#gate">§8</a> is explicit that pre-review is reassurance rather than the control. Guardian preferences stop applying at majority, so a stale setting cannot outlive the authority to change it.</td>
     </tr>
     <tr>
       <td>F4</td>
@@ -1073,7 +1093,7 @@
 </table>
 
 <footer>
-  Spec 096 · Content safety for child-facing generation · Rev 6 (S1–S6 implemented; S0 gate lifted) · 2026-08-13 ·
+  Spec 096 · Content safety for child-facing generation · Rev 7 (S1–S6 implemented; Codex round 1 applied; S0 gate lifted) · 2026-08-13 ·
   S0 gate lifted 2026-08-13; obligations carried in <a href="#carried">§17.2</a> ·
   S6 shipped as <a href="#s6-outcome">video-stays-off, with locks</a>; F6 remains product's to resolve ·
   Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
