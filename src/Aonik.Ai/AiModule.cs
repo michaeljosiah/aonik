@@ -308,6 +308,7 @@ public sealed class AiModule : IModule
         services.AddScoped<Services.Safety.ISafetyIncidentRecorder, Services.Safety.SafetyIncidentRecorder>();
         services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate, Services.Safety.ContentSafetyGate>();
         services.AddScoped<Services.Safety.ISafetyRetentionSweeper, Services.Safety.SafetyRetentionSweeper>();
+        services.AddScoped<Services.Safety.ISafetyModelRouter, Services.Safety.SafetyModelRouter>();
     }
 }
 

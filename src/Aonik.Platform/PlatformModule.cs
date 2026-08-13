@@ -210,6 +210,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.GovernmentIdGuardianVerifier>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.SignedFormGuardianVerifier>();
         services.AddScoped<Services.Consent.IGuardianAttestationService, Services.Consent.GuardianAttestationService>();
+        services.AddScoped<SharedKernel.Abstractions.Safety.IConsentedProviderReader, Services.Consent.ConsentedProviderReader>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifierFactory, Services.Consent.GuardianVerifierFactory>();
         services.AddScoped<Services.Consent.IGuardianVerificationRecorder, Services.Consent.GuardianVerificationRecorder>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianshipReader, Services.Consent.GuardianshipReader>();

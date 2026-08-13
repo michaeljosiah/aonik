@@ -51,7 +51,7 @@ public class ContentSafetyGateTests
         public string Modality { get; }
 
         public Task<ClassificationResult> ClassifyAsync(
-            string reference, string safetyBand, CancellationToken cancellationToken = default)
+            ClassificationRequest request, CancellationToken cancellationToken = default)
             => _throws is not null
                 ? Task.FromException<ClassificationResult>(_throws)
                 : Task.FromResult(new ClassificationResult(_scores, Guid.NewGuid()));

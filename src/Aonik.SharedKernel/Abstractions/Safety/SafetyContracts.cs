@@ -104,10 +104,19 @@ public interface IContentClassifier
     /// never as "safe".
     /// </summary>
     Task<ClassificationResult> ClassifyAsync(
-        string reference,
-        string safetyBand,
+        ClassificationRequest request,
         CancellationToken cancellationToken = default);
 }
+
+/// <param name="SubjectPartyId">
+/// Carried because routing must be intersected with <em>this subject's</em> consented provider list
+/// (&sect;16.1) — a classifier cannot check that without knowing whose content it is holding.
+/// </param>
+/// <param name="Reference">Where the content is. Never the content itself.</param>
+public sealed record ClassificationRequest(
+    Guid SubjectPartyId,
+    string SafetyBand,
+    string Reference);
 
 /// <param name="Scores">Category to confidence, 0–1. Only categories that fired need appear.</param>
 /// <param name="RunId">
