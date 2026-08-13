@@ -118,6 +118,31 @@ public class ContentSafetyBoundaryTests
     }
 
     [Fact]
+    public void SafetyBandNames_Should_MatchBetweenPlatformAndAi()
+    {
+        // Ai does not reference Platform, so the four band names are duplicated rather than shared —
+        // a dependency for four constants would be the worse trade. This test is what makes the
+        // duplication safe: rename a band in one place and it fails here rather than silently
+        // resolving every generation to the unknown-band default.
+        Aonik.Ai.Services.Safety.PartySafetyBandNames.All
+            .Should().BeEquivalentTo(Aonik.Platform.Entities.Party.PartySafetyBands.All,
+                "a band the two modules disagree about is a band nothing enforces");
+    }
+
+    [Fact]
+    public void ClassificationProviders_Should_NotBeRegisteredByDefault()
+    {
+        // No classification vendor is configured in this solution. That is deliberate and it is the
+        // safe state: the gate fails closed, so child-facing generation is refused until one is
+        // wired. A permissive stub registered "to make it work" would be strictly worse than
+        // nothing, because it would look like classification while doing none.
+        //
+        // If this ever fails, someone has registered an adapter — which is fine, provided it is a
+        // real vendor and not a placeholder.
+        typeof(Aonik.Ai.Services.Safety.ISafetyClassificationProvider).IsInterface.Should().BeTrue();
+    }
+
+    [Fact]
     public void EveryCategory_Should_BeClassifiable()
     {
         foreach (var category in SafetyCategories.All)

@@ -309,6 +309,29 @@ public sealed class AiModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate, Services.Safety.ContentSafetyGate>();
         services.AddScoped<Services.Safety.ISafetyRetentionSweeper, Services.Safety.SafetyRetentionSweeper>();
         services.AddScoped<Services.Safety.ISafetyModelRouter, Services.Safety.SafetyModelRouter>();
+        services.AddScoped<Services.Safety.ISafetyPolicyService, Services.Safety.SafetyPolicyService>();
+
+        // One routed classifier per modality. Each resolves its model through AiRoutePolicy and
+        // refuses a provider the subject's terms do not name — so a routing edit cannot redirect a
+        // child's content to a company the family has never heard of.
+        //
+        // NOTE: no ISafetyClassificationProvider is registered by default, because no
+        // classification vendor is configured in this solution. That is not an oversight: the gate
+        // fails closed, so child-facing generation is refused until one is wired. Shipping a
+        // permissive stub would be strictly worse than shipping nothing.
+        foreach (var modality in new[] { SharedKernel.Abstractions.Safety.SafetyModalities.Text, SharedKernel.Abstractions.Safety.SafetyModalities.Image })
+        {
+            var captured = modality;
+            services.AddScoped<SharedKernel.Abstractions.Safety.IContentClassifier>(sp =>
+                new Services.Safety.RoutedContentClassifier(
+                    captured,
+                    sp.GetRequiredService<Services.Safety.ISafetyModelRouter>(),
+                    sp.GetServices<Services.Safety.ISafetyClassificationProvider>(),
+                    sp.GetRequiredService<Persistence.AiDbContext>(),
+                    sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
+                    sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.RoutedContentClassifier>>()));
+        }
     }
 }
 
