@@ -83,6 +83,13 @@ public sealed record SafetyVerdict(
     /// a silently degraded classifier returning "safe" on error is the worst defect available here.
     /// </summary>
     public bool WasUnavailable => Outcome == SafetyDecisionOutcome.CheckUnavailable;
+
+    /// <summary>
+    /// True when the modality is switched off. <strong>Not an outage and must not page</strong> — a
+    /// feature that was never enabled cannot be "down", and conflating the two means an operator is
+    /// paged forever for video that nobody turned on.
+    /// </summary>
+    public bool WasDisabled => Outcome == SafetyDecisionOutcome.ModalityDisabled;
 }
 
 public enum SafetyDecisionOutcome
@@ -98,6 +105,13 @@ public enum SafetyDecisionOutcome
 
     /// <summary>Held for guardian pre-review before delivery (Spec 096 §8). Not a refusal.</summary>
     HeldForReview = 3,
+
+    /// <summary>
+    /// The modality is switched off (Spec 096 S6). Distinct from <see cref="CheckUnavailable"/>: a
+    /// disabled feature is a policy state, an unavailable check is an outage, and only one of them
+    /// should wake somebody up.
+    /// </summary>
+    ModalityDisabled = 4,
 }
 
 /// <summary>

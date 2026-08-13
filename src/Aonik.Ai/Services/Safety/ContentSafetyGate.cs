@@ -96,8 +96,37 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             : request.SafetyBand;
 
         var policy = await _policyReader.GetAsync(band, cancellationToken);
+
+        if (!IsModalityEnabled(modality))
+        {
+            // A switched-off modality is a policy state, not an outage. Video is off because F6 is a
+            // product decision nobody has taken, and paging an operator every time something asks for
+            // it would train them to ignore the alert that matters.
+            return await RefuseAsync(
+                request, band, modality, layer, policy, SafetyDecisionOutcome.ModalityDisabled,
+                categories: [], classifierRunIds: [], now, cancellationToken);
+        }
+
         var classifier = _classifiers.FirstOrDefault(c =>
             string.Equals(c.Modality, modality, StringComparison.OrdinalIgnoreCase));
+
+        if (classifier is not null
+            && SafetyModalities.IsTemporal(modality)
+            && !HasCompleteTemporalCoverage(classifier))
+        {
+            // The S6 acceptance criterion, executable: "frame sampling alone never satisfies this."
+            // A sampling classifier passes every frame it looks at and delivers the one between
+            // sample points, so the refusal cannot depend on the classifier noticing anything — it
+            // depends on what the classifier CLAIMS to have covered. Pages, because someone shipped
+            // a design this spec rejects and it needs fixing rather than tolerating.
+            _logger.LogError(
+                "Classifier for temporal modality {Modality} does not declare complete coverage. "
+                + "Refusing delivery: sampling cannot establish that a generation is safe.", modality);
+
+            return await RefuseAsync(
+                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                categories: [], classifierRunIds: [], now, cancellationToken);
+        }
 
         if (classifier is null)
         {
@@ -168,6 +197,24 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             decisionId,
             issuePermit ? new ContentDeliveryPermit(decisionId, request.SubjectPartyId, band) : null);
     }
+
+    private bool IsModalityEnabled(string modality)
+        => _options.Value.EnabledModalities
+            .Contains(modality, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A temporal classifier must <em>declare</em> complete coverage, and one that says nothing is
+    /// treated as not having it.
+    ///
+    /// <para>
+    /// Silence reads as sampling rather than as completeness, which is the wrong-way default applied
+    /// once more: a classifier that has not thought about coverage has almost certainly not achieved
+    /// it, and the cost of being wrong here is a harmful frame reaching a child.
+    /// </para>
+    /// </summary>
+    private static bool HasCompleteTemporalCoverage(IContentClassifier classifier)
+        => classifier is ITemporalCoverage declared
+            && declared.Coverage == TemporalCoverage.Complete;
 
     private async Task<SafetyVerdict> HoldAsync(
         SafetyRequest request,

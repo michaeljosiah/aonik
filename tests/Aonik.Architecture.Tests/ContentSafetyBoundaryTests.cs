@@ -205,6 +205,47 @@ public class ContentSafetyBoundaryTests
             .Should().NotBeNull();
     }
 
+    // ── S6: the phase that does not ship ─────────────────────────────────
+
+    [Fact]
+    public void Video_Should_StayDisabledUntilF6IsResolved()
+    {
+        // F6 is a product decision, and the spec is explicit that video staying off is a legitimate
+        // outcome rather than a failure. If this ever fails, it should be because someone took that
+        // decision — not because a config default drifted.
+        new Aonik.Ai.Services.Safety.SafetyOptions().EnabledModalities
+            .Should().NotContain(SafetyModalities.Video)
+            .And.Contain([SafetyModalities.Text, SafetyModalities.Image, SafetyModalities.Speech]);
+    }
+
+    [Fact]
+    public void TemporalModalities_Should_CoverVideoAndSpeech()
+    {
+        // "Was it classified?" has a second half for anything that unfolds over time: how much of it.
+        // Listing only video would fix the modality we are not shipping and leave the one we are.
+        SafetyModalities.Temporal.Should().BeEquivalentTo(
+            [SafetyModalities.Video, SafetyModalities.Speech]);
+    }
+
+    [Fact]
+    public void SamplingCoverage_Should_ExistAsADistinctDeclaration()
+    {
+        // The point of the enum is that a classifier must SAY which it does. A boolean called
+        // "IsComplete" defaulting to true would have been the same design with the wrong default, and
+        // silence must read as sampling.
+        Enum.GetValues<TemporalCoverage>().Should().BeEquivalentTo(
+            [TemporalCoverage.Complete, TemporalCoverage.Sampled]);
+    }
+
+    [Fact]
+    public void DisabledAndUnavailable_Should_BeDistinctOutcomes()
+    {
+        // A feature nobody turned on cannot be "down". Only one of these should wake somebody up.
+        SafetyDecisionOutcome.ModalityDisabled.Should().NotBe(SafetyDecisionOutcome.CheckUnavailable);
+
+        typeof(SafetyVerdict).GetProperty(nameof(SafetyVerdict.WasDisabled)).Should().NotBeNull();
+    }
+
     [Fact]
     public void EveryCategory_Should_BeClassifiable()
     {
