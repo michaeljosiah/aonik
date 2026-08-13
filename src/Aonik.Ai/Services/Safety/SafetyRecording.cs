@@ -184,4 +184,11 @@ public sealed class SafetyOptions
 
     /// <summary>Incidents outlive both — they answer the parent's question and tune the thresholds.</summary>
     public int IncidentRetentionDays { get; set; } = 400;
+
+    /// <summary>
+    /// How long content held for guardian pre-review waits before it expires <em>undelivered</em>
+    /// (§8). Long enough that a parent who checks weekly does not lose their child's stories, and
+    /// finite because a hold nobody acts on must resolve — as expiry, never as approval.
+    /// </summary>
+    public int PreReviewHoldDays { get; set; } = 14;
 }

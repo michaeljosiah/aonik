@@ -311,6 +311,8 @@ public sealed class AiModule : IModule
         services.AddScoped<Services.Safety.ISafetyModelRouter, Services.Safety.SafetyModelRouter>();
         services.AddScoped<Services.Safety.ISafetyPolicyService, Services.Safety.SafetyPolicyService>();
         services.AddScoped<SharedKernel.Abstractions.Safety.IRequestConstraint, Services.Safety.BandRequestConstraint>();
+        services.AddScoped<Services.Safety.IGuardianReviewService, Services.Safety.GuardianReviewService>();
+        services.AddScoped<Services.Safety.IGuardianPreReviewService, Services.Safety.GuardianPreReviewService>();
 
         // One routed classifier per modality. Each resolves its model through AiRoutePolicy and
         // refuses a provider the subject's terms do not name — so a routing edit cannot redirect a

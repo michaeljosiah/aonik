@@ -68,6 +68,10 @@ public class ContentSafetyGateTests
 
     private static ContentSafetyGate CreateGate(
         AiDbContext context, params IContentClassifier[] classifiers)
+        => CreateGate(context, new StubGuardianship(), classifiers);
+
+    private static ContentSafetyGate CreateGate(
+        AiDbContext context, StubGuardianship guardianship, params IContentClassifier[] classifiers)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
         return new ContentSafetyGate(
@@ -75,8 +79,12 @@ public class ContentSafetyGateTests
             new SafetyPolicyReader(context, new TestTenantProvider(TenantId)),
             classifiers,
             new SafetyIncidentRecorder(context, options),
+            new GuardianPreReviewService(
+                context, guardianship, new TestTenantProvider(TenantId), new TestClock(),
+                NullLogger<GuardianPreReviewService>.Instance),
             new TestTenantProvider(TenantId),
             new TestClock(),
+            options,
             NullLogger<ContentSafetyGate>.Instance);
     }
 
