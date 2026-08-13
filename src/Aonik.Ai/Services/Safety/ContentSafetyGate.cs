@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Safety;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Ai.Services.Safety;
 
@@ -26,8 +27,10 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
     private readonly ISafetyPolicyReader _policyReader;
     private readonly IEnumerable<IContentClassifier> _classifiers;
     private readonly ISafetyIncidentRecorder _recorder;
+    private readonly IGuardianPreReviewService _preReview;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
+    private readonly IOptions<SafetyOptions> _options;
     private readonly ILogger<ContentSafetyGate> _logger;
 
     public ContentSafetyGate(
@@ -35,16 +38,20 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         ISafetyPolicyReader policyReader,
         IEnumerable<IContentClassifier> classifiers,
         ISafetyIncidentRecorder recorder,
+        IGuardianPreReviewService preReview,
         ITenantProvider tenantProvider,
         IClock clock,
+        IOptions<SafetyOptions> options,
         ILogger<ContentSafetyGate> logger)
     {
         _dbContext = dbContext;
         _policyReader = policyReader;
         _classifiers = classifiers;
         _recorder = recorder;
+        _preReview = preReview;
         _tenantProvider = tenantProvider;
         _clock = clock;
+        _options = options;
         _logger = logger;
     }
 
@@ -143,6 +150,15 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 request.GenerationRunId, [result.RunId], now),
             cancellationToken);
 
+        // Guardian pre-review (§8) sits HERE — after every automated layer has allowed the content,
+        // never before. Approving a held item can therefore only release something already judged
+        // safe: a guardian cannot click past the gate, whatever the product UI later offers them.
+        if (issuePermit
+            && await _preReview.RequiresPreReviewAsync(request.SubjectPartyId, band, cancellationToken))
+        {
+            return await HoldAsync(request, band, modality, reference, decisionId, now, cancellationToken);
+        }
+
         // Every attempt is recorded, allowed included. A delivery later identified as a false
         // negative must be reconstructible — which is exactly what a blocks-only log cannot do.
         return new SafetyVerdict(
@@ -151,6 +167,36 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             Categories: [],
             decisionId,
             issuePermit ? new ContentDeliveryPermit(decisionId, request.SubjectPartyId, band) : null);
+    }
+
+    private async Task<SafetyVerdict> HoldAsync(
+        SafetyRequest request,
+        string band,
+        string modality,
+        string reference,
+        Guid decisionId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        _dbContext.PendingContentReviews.Add(new PendingContentReview
+        {
+            TenantId = _tenantProvider.GetCurrentTenantId(),
+            SafetyDecisionId = decisionId,
+            SubjectPartyId = request.SubjectPartyId,
+            SafetyBand = band,
+            Modality = modality,
+            Reference = reference,
+            State = PreReviewStates.Pending,
+            HeldAt = now,
+            ExpiresAt = now.AddDays(_options.Value.PreReviewHoldDays),
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // No permit, and no incident: nothing was judged unsafe. HeldForReview is deliberately not a
+        // refusal — it must not page like an outage, and the guardian must not be alarmed by it.
+        return new SafetyVerdict(
+            Allowed: false, SafetyDecisionOutcome.HeldForReview, Categories: [], decisionId, Permit: null);
     }
 
     private async Task<SafetyVerdict> RefuseAsync(
