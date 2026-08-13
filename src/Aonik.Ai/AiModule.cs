@@ -389,6 +389,11 @@ public sealed class AiModule : IModule
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.SpeechContentClassifier>>()));
 
         services.AddScoped<Services.Safety.IChildNarrationService, Services.Safety.ChildNarrationService>();
+
+        // Checked at startup as well as in the gate factory. A scoped factory is evaluated lazily, so
+        // on its own it turns a detectable composition error into a first-request failure of the
+        // child-facing flow — a deployment that will not start is the better outcome.
+        services.AddHostedService<Services.Safety.SafetyCompositionValidator>();
     }
 
     /// <summary>

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260813225242_AllowUnknownEscalationPreservation")]
-    partial class AllowUnknownEscalationPreservation
+    [Migration("20260813230704_AddEscalationPreservationStatus")]
+    partial class AddEscalationPreservationStatus
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

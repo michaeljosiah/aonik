@@ -319,12 +319,17 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The narrow window that remains. The key is emitted so a person can link it by hand
-            // rather than the material being orphaned silently.
+            // The reference is deliberately NOT logged. PreservedMaterialService releases it only
+            // after the named-custodian check and records every attempt; emitting it here would put
+            // the key in the ordinary logging pipeline, where anyone with log access could obtain it
+            // outside both controls — a worse outcome than the orphan itself.
+            //
+            // Recovery is therefore by reconciling the store against SafetyArtefacts (objects with no
+            // matching row), not by reading a key out of a log.
             _logger.LogCritical(ex,
-                "Preserved reportable material for incident {IncidentId} at {Reference} but could not "
-                + "link it. The material exists and is NOT under a recorded hold — link it manually.",
-                incidentId, reference);
+                "Preserved reportable material for incident {IncidentId} but could not link it. The "
+                + "object exists in the protected store and is NOT under a recorded hold — reconcile "
+                + "the store against SafetyArtefacts to find it.", incidentId);
         }
     }
 

@@ -86,6 +86,24 @@ public class ContentSafetyGateTests
         }
     }
 
+    /// <summary>Captures what actually reaches the logging pipeline.</summary>
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<ContentSafetyGate>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            Microsoft.Extensions.Logging.LogLevel logLevel,
+            Microsoft.Extensions.Logging.EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Messages.Add(formatter(state, exception));
+    }
+
     private ContentSafetyGate CreateGate(
         AiDbContext context, params IContentClassifier[] classifiers)
         => CreateGate(context, new StubGuardianship(), null, classifiers);
@@ -410,6 +428,69 @@ public class ContentSafetyGateTests
         // False, not null. Preservation was required, was attempted, and did not happen — the state a
         // custodian must see at a glance rather than infer from a missing artefact.
         (await context.SafetyEscalations.SingleAsync()).MaterialPreserved.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnOrphanedPreservedKey_Should_NotReachTheLogs()
+    {
+        await using var context = CreateDbContext();
+        var logger = new CapturingLogger();
+        var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
+
+        // Preservation succeeds, then linking it fails.
+        var gate = new ContentSafetyGate(
+            context,
+            new SafetyPolicyReader(context, new TestTenantProvider(TenantId)),
+            [new StubClassifier(scores: new Dictionary<string, double> { [SafetyCategories.Csam] = 0.99 })],
+            new FailingAttachRecorder(context, options),
+            new GuardianPreReviewService(
+                context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
+                NullLogger<GuardianPreReviewService>.Instance),
+            new StubSafetyBandReader(_band),
+            new RecordingPreservedInputStore(),
+            usageMeter: null,
+            new TestTenantProvider(TenantId),
+            new TestClock(),
+            options,
+            logger);
+
+        await gate.ScreenInputAsync(ARequest(), "the prompt");
+
+        // PreservedMaterialService releases this reference only after the named-custodian check and
+        // records every attempt. Emitting it here would put the key in the ordinary logging pipeline,
+        // where anyone with log access obtains it outside both controls — worse than the orphan.
+        logger.Messages.Should().NotBeEmpty();
+        logger.Messages.Should().NotContain(m => m.Contains("protected://", StringComparison.Ordinal));
+    }
+
+    /// <summary>Records the incident, then fails to link the preserved material.</summary>
+    private sealed class FailingAttachRecorder : ISafetyIncidentRecorder
+    {
+        private readonly SafetyIncidentRecorder _inner;
+
+        public FailingAttachRecorder(
+            AiDbContext context, Microsoft.Extensions.Options.IOptions<SafetyOptions> options)
+            => _inner = new SafetyIncidentRecorder(
+                context, options, NullLogger<SafetyIncidentRecorder>.Instance);
+
+        public Task<Guid> RecordAsync(
+            SafetyDecisionRecord record, CancellationToken cancellationToken = default)
+            => _inner.RecordAsync(record, cancellationToken);
+
+        public Task<Guid> RecordIncidentAsync(
+            Guid decisionId, Guid subjectPartyId, string category, string contentReference,
+            DateTime occurredAt, CancellationToken cancellationToken = default)
+            => _inner.RecordIncidentAsync(
+                decisionId, subjectPartyId, category, contentReference, occurredAt, cancellationToken);
+
+        public Task AttachPreservedMaterialAsync(
+            Guid incidentId, string reference, DateTime occurredAt,
+            CancellationToken cancellationToken = default)
+            => Task.FromException(new InvalidOperationException("database unavailable"));
+
+        public Task MarkPreservationFailedAsync(
+            Guid incidentId, CancellationToken cancellationToken = default)
+            => _inner.MarkPreservationFailedAsync(incidentId, cancellationToken);
     }
 
     [Fact]
