@@ -32,6 +32,8 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<Entities.Safety.SafetyIncident> SafetyIncidents { get; set; } = null!;
     public DbSet<Entities.Safety.SafetyArtefact> SafetyArtefacts { get; set; } = null!;
     public DbSet<Entities.Safety.SafetyPolicy> SafetyPolicies { get; set; } = null!;
+    public DbSet<Entities.Safety.CuratedCharacter> CuratedCharacters { get; set; } = null!;
+    public DbSet<Entities.Safety.StoryTemplate> StoryTemplates { get; set; } = null!;
     public DbSet<TenantAgentSettings> TenantAgentSettings { get; set; } = null!;
     public DbSet<AiTrace> AiTraces { get; set; } = null!;
     public DbSet<AiFeedback> AiFeedbacks { get; set; } = null!;
@@ -96,6 +98,8 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<Entities.Safety.SafetyIncident>(modelBuilder, "SafetyIncidents");
         MapTable<Entities.Safety.SafetyArtefact>(modelBuilder, "SafetyArtefacts");
         MapTable<Entities.Safety.SafetyPolicy>(modelBuilder, "SafetyPolicies");
+        MapTable<Entities.Safety.CuratedCharacter>(modelBuilder, "CuratedCharacters");
+        MapTable<Entities.Safety.StoryTemplate>(modelBuilder, "StoryTemplates");
         MapTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapTable<AiTrace>(modelBuilder, "AiTraces");
         MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");
