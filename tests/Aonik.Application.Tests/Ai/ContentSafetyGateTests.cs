@@ -73,12 +73,32 @@ public class ContentSafetyGateTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new TestClock());
 
+    /// <summary>Stands in for the access-controlled store a reportable input is moved into.</summary>
+    private sealed class RecordingPreservedInputStore : IPreservedInputStore
+    {
+        public List<string> Preserved { get; } = [];
+
+        public Task<string> PreserveAsync(
+            Guid subjectPartyId, string input, CancellationToken cancellationToken = default)
+        {
+            Preserved.Add(input);
+            return Task.FromResult($"protected://{Preserved.Count - 1}");
+        }
+    }
+
     private ContentSafetyGate CreateGate(
         AiDbContext context, params IContentClassifier[] classifiers)
-        => CreateGate(context, new StubGuardianship(), classifiers);
+        => CreateGate(context, new StubGuardianship(), null, classifiers);
 
     private ContentSafetyGate CreateGate(
         AiDbContext context, StubGuardianship guardianship, params IContentClassifier[] classifiers)
+        => CreateGate(context, guardianship, null, classifiers);
+
+    private ContentSafetyGate CreateGate(
+        AiDbContext context,
+        StubGuardianship guardianship,
+        IPreservedInputStore? preservedInputStore,
+        params IContentClassifier[] classifiers)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
         return new ContentSafetyGate(
@@ -90,6 +110,7 @@ public class ContentSafetyGateTests
                 context, guardianship, new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
             new StubSafetyBandReader(_band),
+            preservedInputStore,
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -97,7 +118,7 @@ public class ContentSafetyGateTests
             NullLogger<ContentSafetyGate>.Instance);
     }
 
-    private static SafetyRequest ARequest(string band = "6-9", Guid? runId = null)
+    private static SafetyRequest ARequest(Guid? runId = null)
         => new(Guid.NewGuid(), SafetyModalities.Text, runId);
 
     private static GeneratedContent AnOutput() => new(SafetyModalities.Text, "blob://story-1");
@@ -347,6 +368,84 @@ public class ContentSafetyGateTests
         (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
         (await context.SafetyIncidents.AnyAsync()).Should().BeTrue(
             "the incident still exists — it is the content pointer that must not");
+    }
+
+    [Fact]
+    public async Task AReportableInput_Should_BePreservedThroughTheProtectedStore()
+    {
+        await using var context = CreateDbContext();
+        var store = new RecordingPreservedInputStore();
+        var gate = CreateGate(
+            context,
+            new StubGuardianship(),
+            store,
+            new StubClassifier(scores: new Dictionary<string, double> { [SafetyCategories.Csam] = 0.99 }));
+
+        await gate.ScreenInputAsync(ARequest(), "the prompt");
+
+        // The one case where discarding an input is the worse error. Not stored inline — the prompt
+        // goes to an access-controlled store and only the key is kept.
+        store.Preserved.Should().ContainSingle().Which.Should().Be("the prompt");
+
+        var artefact = await context.SafetyArtefacts.SingleAsync();
+        artefact.Reference.Should().Be("protected://0");
+        artefact.IsUnderLegalHold.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AReportableInput_WithNoStore_Should_RecordThatNothingWasPreserved()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new StubClassifier(
+            scores: new Dictionary<string, double> { [SafetyCategories.Csam] = 0.99 }));
+
+        await gate.ScreenInputAsync(ARequest(), "the prompt");
+
+        // Not silently dropped. The escalation says plainly that nothing was preserved, so the
+        // responsible person knows they are acting on a record with nothing behind it.
+        (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+        (await context.SafetyEscalations.SingleAsync()).MaterialPreserved.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnOrdinaryInputBlock_Should_NotReachTheProtectedStore()
+    {
+        await using var context = CreateDbContext();
+        var store = new RecordingPreservedInputStore();
+        var gate = CreateGate(
+            context,
+            new StubGuardianship(),
+            store,
+            new StubClassifier(
+                scores: new Dictionary<string, double> { [SafetyCategories.GraphicViolence] = 0.99 }));
+
+        await gate.ScreenInputAsync(ARequest(), "a knight fights a dragon");
+
+        // §11: a child's own input is not material we keep. Only the reportable category inverts that.
+        store.Preserved.Should().BeEmpty();
+        (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AFailureResolvingPreReview_Should_StillRecordADecisionAndRelease()
+    {
+        await using var context = CreateDbContext();
+        var meter = new ThrowingPreReviewHarness.RecordingMeter();
+        var gate = ThrowingPreReviewHarness.CreateGate(context, TenantId, meter);
+
+        var reservationId = Guid.NewGuid();
+        var verdict = await gate.ScreenOutputAsync(
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid(), reservationId),
+            AnOutput());
+
+        // Pre-review resolves BEFORE the decision is recorded, so a failure there would otherwise
+        // leave a completed classifier run with no decision linking it to the attempted delivery —
+        // and no reservation released.
+        verdict.WasUnavailable.Should().BeTrue();
+        verdict.Permit.Should().BeNull();
+        (await context.SafetyDecisions.SingleAsync()).Outcome
+            .Should().Be(nameof(SafetyDecisionOutcome.CheckUnavailable));
+        meter.Released.Should().ContainSingle().Which.Should().Be(reservationId);
     }
 
     [Fact]

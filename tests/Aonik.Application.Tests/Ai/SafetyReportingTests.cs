@@ -118,6 +118,40 @@ public class SafetyReportingTests
             "preservation is automatic on detection and does not depend on someone remembering");
     }
 
+    [Fact]
+    public async Task AnEscalationWithNothingPreserved_Should_SaySoOnTheRecord()
+    {
+        await using var context = CreateDbContext();
+        var recorder = CreateRecorder(context);
+
+        var decisionId = await recorder.RecordAsync(new SafetyDecisionRecord(
+            TenantId, Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Text,
+            SafetyLayers.Input, SafetyDecisionOutcome.Blocked, [SafetyCategories.Csam], "v1",
+            null, [Guid.NewGuid()], Now));
+
+        var decision = await context.SafetyDecisions.AsNoTracking().FirstAsync(d => d.Id == decisionId);
+
+        // The input path with no preserved-input store configured: nothing to preserve.
+        await recorder.RecordIncidentAsync(
+            decisionId, decision.SubjectPartyId, SafetyCategories.Csam, string.Empty, Now);
+
+        // An escalation that implies preservation when none happened is a false assurance at the
+        // worst possible moment. The responsible person has to know whether they are acting on
+        // evidence or only on a verdict.
+        var escalation = await context.SafetyEscalations.SingleAsync();
+        escalation.MaterialPreserved.Should().BeFalse();
+        (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnEscalationWithMaterial_Should_RecordThatItWasPreserved()
+    {
+        await using var context = CreateDbContext();
+        await RecordBlockAsync(context, SafetyCategories.Csam);
+
+        (await context.SafetyEscalations.SingleAsync()).MaterialPreserved.Should().BeTrue();
+    }
+
     // ── Access is restricted, and every attempt is logged ────────────────
 
     [Fact]

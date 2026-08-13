@@ -28,6 +28,19 @@ public class SafetyEscalation : AuditableEntity, ITenantScoped
 
     public DateTime RaisedAt { get; set; }
 
+    /// <summary>
+    /// Whether the material itself was actually preserved, or only the verdict.
+    ///
+    /// <para>
+    /// <strong>False is a worse emergency than the escalation itself</strong>, and it must be said out
+    /// loud rather than inferred from an absent artefact row. §12 requires preservation; if the store
+    /// is unconfigured or failed, the responsible person needs to know they are acting on a record with
+    /// nothing behind it — an escalation that silently implies preservation is a false assurance at the
+    /// worst possible moment.
+    /// </para>
+    /// </summary>
+    public bool MaterialPreserved { get; set; }
+
     /// <summary>Null until a named person has actually looked. This is the field that matters.</summary>
     public DateTime? AcknowledgedAt { get; set; }
 

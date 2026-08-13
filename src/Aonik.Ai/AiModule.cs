@@ -317,6 +317,10 @@ public sealed class AiModule : IModule
                 sp.GetRequiredService<Services.Safety.ISafetyIncidentRecorder>(),
                 sp.GetRequiredService<Services.Safety.IGuardianPreReviewService>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.Safety.ISafetyBandReader>(),
+                // No protected store is configured, so a reportable INPUT block preserves nothing —
+                // loudly. See IPreservedInputStore: the gap is logged at critical and recorded on the
+                // escalation rather than left to look like preservation happened.
+                sp.GetService<Services.Safety.IPreservedInputStore>(),
                 sp.GetService<SharedKernel.Abstractions.Subscriptions.IUsageMeter>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
