@@ -1,4 +1,4 @@
-namespace Aonik.Platform.Entities.Party;
+namespace Aonik.SharedKernel.Abstractions.Consent;
 
 /// <summary>
 /// Consent purposes (Spec 095 §10.1). One grant per purpose — blanket consent is the failure mode
@@ -73,8 +73,8 @@ public static class ConsentVerificationMethods
     /// </summary>
     public const string SelfAuthenticated = "self-authenticated";
 
-    /// <summary>Predates any verification. Carried only on <see cref="LegacyConsent"/>, never on a
-    /// <see cref="ConsentGrant"/>, and authorises nothing.</summary>
+    /// <summary>Predates any verification. Carried only on the legacy archive, never on a
+    /// <c>ConsentGrant</c>, and authorises nothing.</summary>
     public const string LegacyUnverified = "legacy-unverified";
 
     /// <summary>Methods valid on a ConsentGrant. Excludes <see cref="LegacyUnverified"/>.</summary>

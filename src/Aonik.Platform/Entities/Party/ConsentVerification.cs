@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Platform.Entities.Party;
