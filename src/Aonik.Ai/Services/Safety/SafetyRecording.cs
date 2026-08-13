@@ -37,12 +37,42 @@ public interface ISafetyIncidentRecorder
     /// to show and the retention sweeper has nothing to sweep. Both would look implemented and do
     /// nothing — the artefact table would only ever be populated by tests.
     /// </param>
-    Task RecordIncidentAsync(
+    Task<Guid> RecordIncidentAsync(
         Guid decisionId,
         Guid subjectPartyId,
         string category,
         string contentReference,
         DateTime occurredAt,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Links material preserved <em>after</em> the incident was written (Spec 096 §12).
+    ///
+    /// <para>
+    /// Separate from <see cref="RecordIncidentAsync"/> because the external store write cannot come
+    /// first. If it did and the database write then failed, the only copy of the key would vanish with
+    /// the request, leaving reportable material in protected storage with no legal-hold row, no access
+    /// audit and no cleanup path. Recording the incident first narrows that to an incident that names
+    /// the failure — and logs the key at critical so it is recoverable by hand.
+    /// </para>
+    /// </summary>
+    Task AttachPreservedMaterialAsync(
+        Guid incidentId,
+        string reference,
+        DateTime occurredAt,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records that preservation was required and did not happen.
+    ///
+    /// <para>
+    /// Distinct from leaving the flag null. <c>null</c> means nobody has determined it — a legacy row,
+    /// or a decision still in flight. <c>false</c> means we tried and the evidence is gone, which is
+    /// the state a custodian must be able to see at a glance rather than infer from a missing artefact.
+    /// </para>
+    /// </summary>
+    Task MarkPreservationFailedAsync(
+        Guid incidentId,
         CancellationToken cancellationToken = default);
 }
 
@@ -90,7 +120,7 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
         return decision.Id;
     }
 
-    public async Task RecordIncidentAsync(
+    public async Task<Guid> RecordIncidentAsync(
         Guid decisionId,
         Guid subjectPartyId,
         string category,
@@ -155,7 +185,10 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
                 SubjectPartyId = subjectPartyId,
                 Category = category,
                 RaisedAt = occurredAt,
-                MaterialPreserved = preserved
+                // Null, not false, when the answer is not yet known: an input block preserves after
+                // the incident is written, so "we have not recorded this" must stay distinguishable
+                // from "the evidence was lost".
+                MaterialPreserved = preserved ? true : null
             });
 
             // Said out loud either way. An escalation that implies preservation when none happened is
@@ -173,12 +206,58 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
             {
                 _logger.LogCritical(
                     "Reportable safety category {Category} detected for subject {SubjectId} "
-                    + "(incident {IncidentId}) and NO MATERIAL WAS PRESERVED. The verdict survives; the "
-                    + "content does not. §12 requires preservation — this needs acting on now.",
+                    + "(incident {IncidentId}); preservation is still pending or unavailable. "
+                    + "§12 requires it — if it does not follow, this needs acting on now.",
                     category, subjectPartyId, incident.Id);
             }
         }
 
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return incident.Id;
+    }
+
+    public async Task AttachPreservedMaterialAsync(
+        Guid incidentId,
+        string reference,
+        DateTime occurredAt,
+        CancellationToken cancellationToken = default)
+    {
+        var incident = await _dbContext.SafetyIncidents
+            .FirstAsync(i => i.Id == incidentId, cancellationToken);
+
+        _dbContext.SafetyArtefacts.Add(new SafetyArtefact
+        {
+            Id = Guid.NewGuid(),
+            TenantId = incident.TenantId,
+            SafetyIncidentId = incident.Id,
+            Reference = reference,
+            ExpiresAt = occurredAt.AddDays(_options.ArtefactRetentionDays),
+            IsUnderLegalHold = incident.IsUnderLegalHold
+        });
+
+        var escalation = await _dbContext.SafetyEscalations
+            .FirstOrDefaultAsync(e => e.SafetyIncidentId == incident.Id, cancellationToken);
+
+        if (escalation is not null)
+        {
+            escalation.MaterialPreserved = true;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task MarkPreservationFailedAsync(
+        Guid incidentId, CancellationToken cancellationToken = default)
+    {
+        var escalation = await _dbContext.SafetyEscalations
+            .FirstOrDefaultAsync(e => e.SafetyIncidentId == incidentId, cancellationToken);
+
+        if (escalation is null)
+        {
+            return;
+        }
+
+        escalation.MaterialPreserved = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

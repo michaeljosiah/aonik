@@ -238,6 +238,41 @@ public class ContentSafetyBoundaryTests
     }
 
     [Fact]
+    public void Classifying_Should_RequirePreservation()
+    {
+        // The pairing is not obvious, which is exactly why it is enforced rather than documented.
+        // Classification is the exciting half; preservation is the half nobody remembers until an
+        // incident. A vendor wired without a protected store gives a system that can DETECT the
+        // reporting category and cannot keep what it detected — the worst combination, because it
+        // looks fully operational.
+        var classifying = () => Aonik.Ai.Services.Safety.SafetyComposition
+            .RequirePreservationWhenClassifying(
+                [new StubClassificationProvider()], preservedInputStore: null);
+
+        classifying.Should().Throw<InvalidOperationException>();
+
+        // And the two states that are fine: nothing classifies (today), or both are present.
+        var neither = () => Aonik.Ai.Services.Safety.SafetyComposition
+            .RequirePreservationWhenClassifying([], preservedInputStore: null);
+
+        neither.Should().NotThrow("a system that cannot classify has nothing to preserve");
+    }
+
+    private sealed class StubClassificationProvider : Aonik.Ai.Services.Safety.ISafetyClassificationProvider
+    {
+        public string Provider => "vendor";
+
+        public IReadOnlySet<string> SupportedModalities => new HashSet<string> { SafetyModalities.Text };
+
+        public TemporalCoverage Coverage => TemporalCoverage.Complete;
+
+        public Task<IReadOnlyDictionary<string, double>> ScoreAsync(
+            string modality, string reference, string safetyBand, string modelName,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+    }
+
+    [Fact]
     public void SpeechTranscription_Should_BeAnUnregisteredSeam()
     {
         // No transcription vendor is configured in this solution, so narration is refused today —

@@ -39,7 +39,13 @@ public class SafetyEscalation : AuditableEntity, ITenantScoped
     /// worst possible moment.
     /// </para>
     /// </summary>
-    public bool MaterialPreserved { get; set; }
+    /// <remarks>
+    /// <strong>Nullable on purpose.</strong> <c>null</c> means not recorded — a legacy row, or an
+    /// input block whose preservation has not resolved yet. Backfilling those as <c>false</c> would
+    /// assert that evidence was lost when it may be sitting under a legal hold, corrupting the audit
+    /// this column exists to clarify.
+    /// </remarks>
+    public bool? MaterialPreserved { get; set; }
 
     /// <summary>Null until a named person has actually looked. This is the field that matters.</summary>
     public DateTime? AcknowledgedAt { get; set; }

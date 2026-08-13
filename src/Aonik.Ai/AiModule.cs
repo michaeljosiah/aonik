@@ -310,7 +310,20 @@ public sealed class AiModule : IModule
         // Subscriptions to be registered in order to keep children safe, and a host that omits it
         // simply has nothing to release.
         services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate>(sp =>
-            new Services.Safety.ContentSafetyGate(
+        {
+            // The gate does not CONSTRUCT without somewhere to preserve reportable material, once
+            // anything is able to classify at all.
+            //
+            // Today nothing is, so this passes trivially and child-facing generation is refused for
+            // a different reason. The day someone wires a classification vendor it stops passing —
+            // which is the point: §12 preservation must not become the thing you remember to add
+            // second, and "we logged that we lost it" is not preservation. Same shape as Spec 032's
+            // refusal to let an unclassified mutating tool exist.
+            Services.Safety.SafetyComposition.RequirePreservationWhenClassifying(
+                sp.GetServices<Services.Safety.ISafetyClassificationProvider>(),
+                sp.GetService<Services.Safety.IPreservedInputStore>());
+
+            return new Services.Safety.ContentSafetyGate(
                 sp.GetRequiredService<Persistence.AiDbContext>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.Safety.ISafetyPolicyReader>(),
                 sp.GetServices<SharedKernel.Abstractions.Safety.IContentClassifier>(),
@@ -325,7 +338,8 @@ public sealed class AiModule : IModule
                 sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Services.Safety.SafetyOptions>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.ContentSafetyGate>>()));
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.ContentSafetyGate>>());
+        });
         services.AddScoped<Services.Safety.IPreservedMaterialService, Services.Safety.PreservedMaterialService>();
         services.AddScoped<Services.Safety.ILegalHoldReader>(sp =>
             (Services.Safety.PreservedMaterialService)sp.GetRequiredService<Services.Safety.IPreservedMaterialService>());

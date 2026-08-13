@@ -138,8 +138,11 @@ public class SafetyReportingTests
         // An escalation that implies preservation when none happened is a false assurance at the
         // worst possible moment. The responsible person has to know whether they are acting on
         // evidence or only on a verdict.
+        // Null, not false: at incident-write time nobody has determined it yet. False is reserved for
+        // "we tried and the evidence is gone", which the gate records afterwards — the distinction a
+        // custodian needs and would lose if both collapsed to false.
         var escalation = await context.SafetyEscalations.SingleAsync();
-        escalation.MaterialPreserved.Should().BeFalse();
+        escalation.MaterialPreserved.Should().BeNull();
         (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
     }
 
