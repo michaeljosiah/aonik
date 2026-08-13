@@ -149,6 +149,8 @@ internal class PartyService : IPartyService
             throw new InvalidOperationException($"Unknown relationship type '{request.RelationshipTypeCode}'.");
         }
 
+        RejectPrivilegedRelationshipType(request.RelationshipTypeCode);
+
         var displayName = ResolveDisplayName(request.DisplayName, request.FirstName, request.LastName);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var now = _clock.UtcNow;
@@ -230,6 +232,8 @@ internal class PartyService : IPartyService
         {
             throw new InvalidOperationException($"Unknown relationship type '{request.RelationshipTypeCode}'.");
         }
+
+        RejectPrivilegedRelationshipType(request.RelationshipTypeCode);
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var relationship = new PartyRelationship
@@ -427,6 +431,8 @@ internal class PartyService : IPartyService
             throw new InvalidOperationException($"Unknown relationship type '{normalizedTypeCode}'.");
         }
 
+        RejectPrivilegedRelationshipType(normalizedTypeCode);
+
         // PartyRelationship is ITenantScoped, so the query filter restricts this to the current tenant.
         var relationship = await _dbContext.PartyRelationships
             .FirstOrDefaultAsync(entity => entity.Id == relationshipId, cancellationToken);
@@ -523,5 +529,34 @@ internal class PartyService : IPartyService
                 CreatedAt = now
             });
         }
+    }
+
+    /// <summary>
+    /// Spec 095 §7.2. Every other relationship code merely <em>describes</em> — asserting someone is a
+    /// Sibling grants nothing — so this service validates set membership and nothing else. A code that
+    /// <em>authorises</em> cannot travel that path.
+    ///
+    /// <para>
+    /// The concrete risk: this method is fed caller-supplied codes by ordinary finance workflows
+    /// (<c>OrderService</c> and <c>PayoutBeneficiaryService</c> both pass a request field straight
+    /// through), so without this refusal an order-creation request could mint a Guardian edge that
+    /// <c>IGuardianshipReader</c> would later trust for access to a child's data.
+    /// </para>
+    ///
+    /// <para>
+    /// Failing closed here is the control. Relying on every present and future caller to know which
+    /// codes are privileged is not one.
+    /// </para>
+    /// </summary>
+    private static void RejectPrivilegedRelationshipType(string? relationshipTypeCode)
+    {
+        if (!PartyRelationshipTypes.IsPrivileged(relationshipTypeCode))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Relationship type '{relationshipTypeCode}' carries authority and cannot be created through the " +
+            "generic party relationship API. Use the consent service, which verifies the guardian first.");
     }
 }
