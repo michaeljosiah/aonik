@@ -56,11 +56,18 @@ public interface IContentSafetyGate
 /// because L2 runs before dispatch — requiring it would force an implementation to fabricate an AI
 /// execution that never happened in order to log a block correctly.
 /// </param>
+/// <param name="UsageReservationId">
+/// The Spec 087 meter hold covering this generation, when the caller took one. <strong>The gate
+/// releases it on any outcome other than <see cref="SafetyDecisionOutcome.Allowed"/></strong> — §10.1
+/// is blunt that charging a family a story credit for content we refused to show is indefensible, and
+/// leaving that to caller discipline means it is wrong on the paths nobody tested.
+/// </param>
 public sealed record SafetyRequest(
     Guid SubjectPartyId,
     string SafetyBand,
     string Modality,
-    Guid? GenerationRunId = null);
+    Guid? GenerationRunId = null,
+    Guid? UsageReservationId = null);
 
 /// <param name="Reference">Where the content is, for the classifier. Never inlined into a record.</param>
 public sealed record GeneratedContent(string Modality, string Reference);

@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Safety;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Aonik.Ai.Services.Safety;
@@ -42,11 +43,16 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
 {
     private readonly AiDbContext _dbContext;
     private readonly SafetyOptions _options;
+    private readonly ILogger<SafetyIncidentRecorder> _logger;
 
-    public SafetyIncidentRecorder(AiDbContext dbContext, IOptions<SafetyOptions> options)
+    public SafetyIncidentRecorder(
+        AiDbContext dbContext,
+        IOptions<SafetyOptions> options,
+        ILogger<SafetyIncidentRecorder> logger)
     {
         _dbContext = dbContext;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<Guid> RecordAsync(
@@ -91,7 +97,7 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
         // Denormalised at write time, deliberately. Deriving these at read time would let a later
         // policy edit retroactively make a sealed incident releasable, or drop a legal hold that was
         // correct when it was applied.
-        _dbContext.SafetyIncidents.Add(new SafetyIncident
+        var incident = new SafetyIncident
         {
             Id = Guid.NewGuid(),
             TenantId = decision.TenantId,
@@ -102,7 +108,33 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
             IsUnderLegalHold = SafetyCategories.IsReportable(category),
             AppealState = SafetyAppealStates.None,
             OccurredAt = occurredAt
-        });
+        };
+
+        _dbContext.SafetyIncidents.Add(incident);
+
+        if (SafetyCategories.IsReportable(category))
+        {
+            // §12: detection at this category escalates to a person, immediately — so the escalation
+            // is written in the SAME call and the same transaction as the incident. An escalation
+            // that depends on a scheduler having run is not immediate, and a notification that failed
+            // to send leaves no trace at all. A row does, and "nobody acknowledged it" stays
+            // queryable, which is the failure that actually happens.
+            _dbContext.SafetyEscalations.Add(new SafetyEscalation
+            {
+                Id = Guid.NewGuid(),
+                TenantId = decision.TenantId,
+                SafetyIncidentId = incident.Id,
+                SubjectPartyId = subjectPartyId,
+                Category = category,
+                RaisedAt = occurredAt
+            });
+
+            _logger.LogCritical(
+                "Reportable safety category {Category} detected for subject {SubjectId} "
+                + "(incident {IncidentId}). Material is preserved under a §12 hold and escalated to the "
+                + "named responsible person. This is not a moderation decision.",
+                category, subjectPartyId, incident.Id);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -215,4 +247,16 @@ public sealed class SafetyOptions
         SharedKernel.Abstractions.Safety.SafetyModalities.Image,
         SharedKernel.Abstractions.Safety.SafetyModalities.Speech,
     ];
+
+    /// <summary>
+    /// Party ids of the <strong>named individuals</strong> who may reach preserved §12 material.
+    ///
+    /// <para>
+    /// Individuals, not a role: a role grants access to whoever later acquires it, which is exactly
+    /// the property §12 rules out. <strong>Empty by default</strong> — F7 has not been resolved, so
+    /// nobody can reach it. That is the safe state rather than a lockout to work around, and it is the
+    /// state a deployment should be embarrassed to leave in place before launch.
+    /// </para>
+    /// </summary>
+    public IList<string> PreservedMaterialCustodians { get; set; } = [];
 }

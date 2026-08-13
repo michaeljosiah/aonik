@@ -36,6 +36,8 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<Entities.Safety.StoryTemplate> StoryTemplates { get; set; } = null!;
     public DbSet<Entities.Safety.PendingContentReview> PendingContentReviews { get; set; } = null!;
     public DbSet<Entities.Safety.ChildSafetyPreference> ChildSafetyPreferences { get; set; } = null!;
+    public DbSet<Entities.Safety.SafetyEscalation> SafetyEscalations { get; set; } = null!;
+    public DbSet<Entities.Safety.PreservedMaterialAccess> PreservedMaterialAccesses { get; set; } = null!;
     public DbSet<TenantAgentSettings> TenantAgentSettings { get; set; } = null!;
     public DbSet<AiTrace> AiTraces { get; set; } = null!;
     public DbSet<AiFeedback> AiFeedbacks { get; set; } = null!;
@@ -104,6 +106,8 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<Entities.Safety.StoryTemplate>(modelBuilder, "StoryTemplates");
         MapTable<Entities.Safety.PendingContentReview>(modelBuilder, "PendingContentReviews");
         MapTable<Entities.Safety.ChildSafetyPreference>(modelBuilder, "ChildSafetyPreferences");
+        MapTable<Entities.Safety.SafetyEscalation>(modelBuilder, "SafetyEscalations");
+        MapTable<Entities.Safety.PreservedMaterialAccess>(modelBuilder, "PreservedMaterialAccesses");
         MapTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapTable<AiTrace>(modelBuilder, "AiTraces");
         MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");

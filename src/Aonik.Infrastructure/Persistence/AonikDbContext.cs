@@ -643,6 +643,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<Aonik.Ai.Entities.Safety.StoryTemplate>(modelBuilder, "StoryTemplates");
         MapAiTable<Aonik.Ai.Entities.Safety.PendingContentReview>(modelBuilder, "PendingContentReviews");
         MapAiTable<Aonik.Ai.Entities.Safety.ChildSafetyPreference>(modelBuilder, "ChildSafetyPreferences");
+        MapAiTable<Aonik.Ai.Entities.Safety.SafetyEscalation>(modelBuilder, "SafetyEscalations");
+        MapAiTable<Aonik.Ai.Entities.Safety.PreservedMaterialAccess>(modelBuilder, "PreservedMaterialAccesses");
         MapAiTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapAiTable<AiTrace>(modelBuilder, "AiTraces");
         MapAiTable<AiFeedback>(modelBuilder, "AiFeedbacks");
