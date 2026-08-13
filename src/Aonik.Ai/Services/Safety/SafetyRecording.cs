@@ -191,4 +191,28 @@ public sealed class SafetyOptions
     /// finite because a hold nobody acts on must resolve — as expiry, never as approval.
     /// </summary>
     public int PreReviewHoldDays { get; set; } = 14;
+
+    /// <summary>
+    /// Modalities a child may be delivered at all (Spec 096 S6).
+    ///
+    /// <para>
+    /// <strong>Video is deliberately absent.</strong> F6 is a product decision that has not been
+    /// taken, and the spec is explicit that video staying off is a legitimate outcome rather than a
+    /// failure — sampling cannot establish that a video is safe, and it is the only affordable option
+    /// on the table. Listing the enabled set makes "off" a configured, testable state rather than an
+    /// accident of nobody having registered a classifier.
+    /// </para>
+    ///
+    /// <para>
+    /// Adding <c>video</c> here does not enable it on its own: the gate still requires a classifier
+    /// declaring <see cref="Aonik.SharedKernel.Abstractions.Safety.TemporalCoverage.Complete"/>. Two
+    /// locks, because this is the one a deadline argues hardest against.
+    /// </para>
+    /// </summary>
+    public IList<string> EnabledModalities { get; set; } =
+    [
+        SharedKernel.Abstractions.Safety.SafetyModalities.Text,
+        SharedKernel.Abstractions.Safety.SafetyModalities.Image,
+        SharedKernel.Abstractions.Safety.SafetyModalities.Speech,
+    ];
 }

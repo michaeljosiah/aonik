@@ -80,6 +80,51 @@ public static class SafetyModalities
     public const string Image = "image";
     public const string Video = "video";
     public const string Speech = "speech";
+
+    /// <summary>
+    /// Modalities that unfold over time, where "was it classified?" has a second half: <em>how much
+    /// of it</em> (Spec 096 §17 S6, F6).
+    ///
+    /// <para>
+    /// A still image is either classified or it is not. A video is not: a harmful frame <em>between</em>
+    /// sample points is delivered even when every sampled frame passes, so "we classified it" can be
+    /// true and mean almost nothing. Speech has the same hole for the same reason, which is why it is
+    /// here too rather than only video.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlySet<string> Temporal =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Video, Speech };
+
+    public static bool IsTemporal(string modality) => Temporal.Contains(modality);
+}
+
+/// <summary>
+/// How much of a temporal artefact a classifier actually covered (Spec 096 F6).
+///
+/// <para>
+/// This exists so that <strong>"frame sampling alone never satisfies this criterion"</strong> is a
+/// property of the code rather than a sentence in a document. A classifier declares its coverage and
+/// the gate refuses anything short of complete — so an implementer who later ships sampling gets a
+/// refusal, not a silent downgrade of the guarantee.
+/// </para>
+/// </summary>
+public interface ITemporalCoverage
+{
+    TemporalCoverage Coverage { get; }
+}
+
+public enum TemporalCoverage
+{
+    /// <summary>Every frame, or every sample, of the delivered artefact was classified.</summary>
+    Complete = 0,
+
+    /// <summary>
+    /// Only sample points were classified. <strong>Never acceptable for child-facing delivery</strong>:
+    /// sampling cannot establish that a video is safe, and it cannot coexist with L4 being the last
+    /// line before a child. "We sampled every second frame" is not a sentence anyone wants to say to a
+    /// parent.
+    /// </summary>
+    Sampled = 1,
 }
 
 /// <summary>

@@ -116,8 +116,10 @@ public class ContentSafetyGateTests
         await using var context = CreateDbContext();
         var gate = CreateGate(context, new StubClassifier(SafetyModalities.Text));
 
+        // Image, not video: video is disabled outright (S6), which is a different case with a
+        // different outcome. This one is about an ENABLED modality nothing can judge.
         var verdict = await gate.ScreenOutputAsync(
-            ARequest(runId: Guid.NewGuid()), new GeneratedContent(SafetyModalities.Video, "blob://v"));
+            ARequest(runId: Guid.NewGuid()), new GeneratedContent(SafetyModalities.Image, "blob://i"));
 
         verdict.Allowed.Should().BeFalse(
             "a missing classifier is an unavailable feature, not an unchecked one");

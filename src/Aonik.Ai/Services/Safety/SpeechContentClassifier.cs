@@ -47,7 +47,7 @@ public sealed record SpeechTranscript(string Text, Guid RunId);
 /// quietly assumes narration is covered has an unclassified path to a child's ears.
 /// </para>
 /// </summary>
-internal sealed class SpeechContentClassifier : IContentClassifier
+internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCoverage
 {
     private readonly ISpeechTranscriber? _transcriber;
     private readonly IContentClassifier? _transcriptClassifier;
@@ -67,6 +67,13 @@ internal sealed class SpeechContentClassifier : IContentClassifier
     }
 
     public string Modality => SafetyModalities.Speech;
+
+    /// <summary>
+    /// Both legs run over the whole artefact — the full transcript, and the full waveform. Speech has
+    /// the same temporal hole video does, so the claim is declared rather than assumed: a future
+    /// implementation that classified one-second windows would have to say so here and be refused.
+    /// </summary>
+    public TemporalCoverage Coverage => TemporalCoverage.Complete;
 
     public async Task<ClassificationResult> ClassifyAsync(
         ClassificationRequest request, CancellationToken cancellationToken = default)
