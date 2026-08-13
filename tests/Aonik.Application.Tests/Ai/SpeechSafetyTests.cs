@@ -81,14 +81,18 @@ public class SpeechSafetyTests
         public StubTranscriber(
             string text = "and then the door opened",
             Exception? throws = null,
-            TemporalCoverage coverage = TemporalCoverage.Complete)
+            TemporalCoverage coverage = TemporalCoverage.Complete,
+            string provider = "consented-vendor")
         {
             _text = text;
             _throws = throws;
             Coverage = coverage;
+            Provider = provider;
         }
 
         public TemporalCoverage Coverage { get; }
+
+        public string Provider { get; }
 
         public string? LastModelName { get; private set; }
 
@@ -137,7 +141,9 @@ public class SpeechSafetyTests
         IContentClassifier? transcriptClassifier = null,
         IContentClassifier? audioClassifier = null,
         ISafetyModelRouter? router = null)
-        => new(transcriber, transcriptClassifier, audioClassifier, router ?? new StubRouter(),
+        => new(
+            transcriber is null ? [] : [transcriber],
+            transcriptClassifier, audioClassifier, router ?? new StubRouter(),
             NullLogger<SpeechContentClassifier>.Instance);
 
     private ContentSafetyGate CreateGate(AiDbContext context, params IContentClassifier[] classifiers)
@@ -517,6 +523,66 @@ public class SpeechSafetyTests
         var construct = () => new PlayableNarration(permit, "blob://something-else");
 
         construct.Should().Throw<ArgumentException>();
+    }
+
+    // ── Codex round 2 ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Transcription_Should_UseTheAdapterForTheRoutedProvider()
+    {
+        var routed = new StubTranscriber(provider: "consented-vendor");
+        var other = new StubTranscriber(provider: "some-other-vendor");
+
+        var classifier = new SpeechContentClassifier(
+            [other, routed],
+            new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech),
+            new StubRouter(),
+            NullLogger<SpeechContentClassifier>.Instance);
+
+        await classifier.ClassifyAsync(AClassification());
+
+        // The router consent-checks route.Provider. Taking whichever adapter DI happened to hand over
+        // would send a child's audio to a company that check never saw.
+        routed.LastModelName.Should().NotBeNull();
+        other.LastModelName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NoAdapterForTheRoutedProvider_Should_RefuseNarration()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new SpeechContentClassifier(
+            [new StubTranscriber(provider: "some-other-vendor")],
+            new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(SafetyModalities.Speech),
+            new StubRouter(),
+            NullLogger<SpeechContentClassifier>.Instance));
+
+        // Refuses rather than substituting. Routing to a provider we have no adapter for is a
+        // misconfiguration, and falling back to one we do have defeats the consent check.
+        (await CreateNarration(gate).PrepareAsync(ANarration())).Narration.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AnInvalidScore_Should_StillRecordTheRunsThatHappened()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, CreateSpeechClassifier(
+            new StubTranscriber(),
+            new StubClassifier(SafetyModalities.Text),
+            new StubClassifier(
+                SafetyModalities.Speech,
+                new Dictionary<string, double> { [SafetyCategories.Sexual] = double.NaN })));
+
+        await CreateNarration(gate).PrepareAsync(ANarration());
+
+        // All three legs completed before the scores were found unusable, so all three runs exist —
+        // and the audit gap does not stop mattering because the failure came from the scores rather
+        // than the call.
+        var decision = await context.SafetyDecisions.SingleAsync();
+        decision.Outcome.Should().Be(nameof(SafetyDecisionOutcome.CheckUnavailable));
+        decision.ClassifierRunIds!.Split(',').Should().HaveCount(3);
     }
 
     [Fact]

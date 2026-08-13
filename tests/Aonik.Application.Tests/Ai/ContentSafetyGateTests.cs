@@ -294,6 +294,55 @@ public class ContentSafetyGateTests
         incident.IsUnderLegalHold.Should().BeFalse();
     }
 
+    // ── The artefact a block leaves behind (Codex round 2) ───────────────
+
+    [Fact]
+    public async Task ABlock_Should_PreserveTheContentForGuardianAppeal()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new StubClassifier(
+            scores: new Dictionary<string, double> { [SafetyCategories.GraphicViolence] = 0.99 }));
+
+        await gate.ScreenOutputAsync(ARequest(runId: Guid.NewGuid()), AnOutput());
+
+        // Without this the appeal flow is implemented and inert: every guardian listing reports
+        // CanView = false because there is nothing to view, and the retention sweeper has nothing to
+        // sweep. Both would look finished and do nothing.
+        var incident = await context.SafetyIncidents.SingleAsync();
+        var artefact = await context.SafetyArtefacts.SingleAsync();
+
+        artefact.SafetyIncidentId.Should().Be(incident.Id);
+        artefact.Reference.Should().Be("blob://story-1");
+        artefact.IsUnderLegalHold.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AReportableBlock_Should_PreserveUnderLegalHold()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new StubClassifier(
+            scores: new Dictionary<string, double> { [SafetyCategories.Csam] = 0.99 }));
+
+        await gate.ScreenOutputAsync(ARequest(runId: Guid.NewGuid()), AnOutput());
+
+        // Preservation is automatic on detection and overrides ordinary retention (§12) — it must not
+        // depend on someone remembering not to delete.
+        (await context.SafetyArtefacts.SingleAsync()).IsUnderLegalHold.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AnUnavailableCheck_Should_PreserveNothing()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new StubClassifier(throws: new TimeoutException()));
+
+        await gate.ScreenOutputAsync(ARequest(runId: Guid.NewGuid()), AnOutput());
+
+        // Nothing was judged, so there is no verdict to appeal and no reason to keep the content.
+        // Preserving it would be retention without a purpose.
+        (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+    }
+
     // ── Bands and thresholds ─────────────────────────────────────────────
 
     [Fact]

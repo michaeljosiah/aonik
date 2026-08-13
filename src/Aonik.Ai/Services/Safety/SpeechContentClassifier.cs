@@ -15,6 +15,18 @@ namespace Aonik.Ai.Services.Safety;
 public interface ISpeechTranscriber : ITemporalCoverage
 {
     /// <summary>
+    /// Matches <c>AiProvider.Name</c>, so routing and this registry agree on one identifier.
+    ///
+    /// <para>
+    /// Selection is by <em>routed</em> provider, exactly as <c>RoutedContentClassifier</c> does. Taking
+    /// whichever transcriber DI happened to hand over would either fail despite a valid configured
+    /// failover, or send a child's audio to a provider the consent check never saw — which is the
+    /// §16.1 rule the routing exists to enforce, defeated one adapter later.
+    /// </para>
+    /// </summary>
+    string Provider { get; }
+
+    /// <summary>
     /// Transcribe audio at <paramref name="reference"/>. Throwing is a legitimate outcome: the gate
     /// turns it into <c>CheckUnavailable</c> and the narration is not played.
     /// </summary>
@@ -75,20 +87,20 @@ public sealed class SpeechClassificationFailedException : Exception
 /// </summary>
 internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCoverage
 {
-    private readonly ISpeechTranscriber? _transcriber;
+    private readonly IReadOnlyList<ISpeechTranscriber> _transcribers;
     private readonly IContentClassifier? _transcriptClassifier;
     private readonly IContentClassifier? _audioClassifier;
     private readonly ISafetyModelRouter _router;
     private readonly ILogger<SpeechContentClassifier> _logger;
 
     public SpeechContentClassifier(
-        ISpeechTranscriber? transcriber,
+        IEnumerable<ISpeechTranscriber> transcribers,
         IContentClassifier? transcriptClassifier,
         IContentClassifier? audioClassifier,
         ISafetyModelRouter router,
         ILogger<SpeechContentClassifier> logger)
     {
-        _transcriber = transcriber;
+        _transcribers = [.. transcribers];
         _transcriptClassifier = transcriptClassifier;
         _audioClassifier = audioClassifier;
         _router = router;
@@ -109,7 +121,8 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
     /// </para>
     /// </summary>
     public TemporalCoverage Coverage
-        => CoverageOf(_transcriber) == TemporalCoverage.Complete
+        => _transcribers.Count > 0
+            && _transcribers.All(t => t.Coverage == TemporalCoverage.Complete)
             && CoverageOf(_transcriptClassifier) == TemporalCoverage.Complete
             && CoverageOf(_audioClassifier) == TemporalCoverage.Complete
                 ? TemporalCoverage.Complete
@@ -131,14 +144,14 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
     public async Task<ClassificationResult> ClassifyAsync(
         ClassificationRequest request, CancellationToken cancellationToken = default)
     {
-        if (_transcriber is null || _transcriptClassifier is null || _audioClassifier is null)
+        if (_transcribers.Count == 0 || _transcriptClassifier is null || _audioClassifier is null)
         {
             // Named individually, because "speech classification unavailable" sends an operator
             // looking in three places at once on the day it matters.
             _logger.LogError(
-                "Speech classification is not configured — transcriber: {HasTranscriber}, "
+                "Speech classification is not configured — transcribers: {TranscriberCount}, "
                 + "transcript classifier: {HasTranscriptClassifier}, audio classifier: {HasAudioClassifier}.",
-                _transcriber is not null, _transcriptClassifier is not null, _audioClassifier is not null);
+                _transcribers.Count, _transcriptClassifier is not null, _audioClassifier is not null);
 
             // Refuses rather than degrading to whichever leg happens to be available. Half-classified
             // narration is not classified narration, and the gate must be told that plainly.
@@ -154,8 +167,21 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
         var route = await _router.ResolveAsync(
             request.SubjectPartyId, SafetyUseCases.TranscribeSpeech, cancellationToken);
 
+        // The adapter for the ROUTED provider, not whichever one DI handed over. Taking the latter
+        // would either fail despite a valid configured failover, or send a child's audio to a company
+        // the consent check above never saw — the §16.1 rule defeated one adapter later.
+        var transcriber = _transcribers.FirstOrDefault(t =>
+            string.Equals(t.Provider, route.Provider, StringComparison.OrdinalIgnoreCase));
+
+        if (transcriber is null)
+        {
+            throw new SpeechClassificationFailedException(
+                $"No transcription adapter for routed provider '{route.Provider}'. Refusing rather "
+                + "than substituting a provider the subject's terms may not name.", []);
+        }
+
         // Leg one: what was said.
-        var transcript = await _transcriber.TranscribeAsync(
+        var transcript = await transcriber.TranscribeAsync(
             request.SubjectPartyId, request.Reference, route.ModelName, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(transcript.Text))
@@ -178,10 +204,12 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
             _audioClassifier, request,
             [transcript.RunId, .. textResult.AllRunIds], "audio", cancellationToken);
 
+        IReadOnlyList<Guid> everyRun = [.. textResult.AllRunIds, .. audioResult.AllRunIds];
+
         return new ClassificationResult(
-            Merge(textResult.Scores, audioResult.Scores),
+            Merge(textResult.Scores, audioResult.Scores, [transcript.RunId, .. everyRun]),
             transcript.RunId,
-            [.. textResult.AllRunIds, .. audioResult.AllRunIds]);
+            everyRun);
     }
 
     /// <summary>
@@ -214,7 +242,9 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
     /// </para>
     /// </summary>
     private static IReadOnlyDictionary<string, double> Merge(
-        IReadOnlyDictionary<string, double> text, IReadOnlyDictionary<string, double> audio)
+        IReadOnlyDictionary<string, double> text,
+        IReadOnlyDictionary<string, double> audio,
+        IReadOnlyList<Guid> completedRunIds)
     {
         var merged = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
@@ -225,9 +255,13 @@ internal sealed class SpeechContentClassifier : IContentClassifier, ITemporalCov
             // was over the line. A provider that returns nonsense is a provider we cannot use.
             if (!double.IsFinite(score) || score < 0 || score > 1)
             {
+                // Both legs completed before we found this, so their runs exist and must be named:
+                // an outage decision disconnected from AI executions that actually happened is the
+                // audit gap §15 exists to close, and it does not stop mattering because the failure
+                // came from the scores rather than the call.
                 throw new SpeechClassificationFailedException(
                     $"A classifier returned an unusable score for '{category}'; refusing rather than "
-                    + "merging it.", []);
+                    + "merging it.", completedRunIds);
             }
 
             merged[category] = merged.TryGetValue(category, out var existing)

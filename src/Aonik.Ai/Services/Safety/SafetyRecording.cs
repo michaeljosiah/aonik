@@ -31,10 +31,17 @@ public interface ISafetyIncidentRecorder
 {
     Task<Guid> RecordAsync(SafetyDecisionRecord record, CancellationToken cancellationToken = default);
 
+    /// <param name="contentReference">
+    /// Where the blocked content is. <strong>Required, and the reason this parameter exists at all</strong>:
+    /// without it nothing ever writes a <c>SafetyArtefact</c>, so the guardian appeal flow has nothing
+    /// to show and the retention sweeper has nothing to sweep. Both would look implemented and do
+    /// nothing — the artefact table would only ever be populated by tests.
+    /// </param>
     Task RecordIncidentAsync(
         Guid decisionId,
         Guid subjectPartyId,
         string category,
+        string contentReference,
         DateTime occurredAt,
         CancellationToken cancellationToken = default);
 }
@@ -87,6 +94,7 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
         Guid decisionId,
         Guid subjectPartyId,
         string category,
+        string contentReference,
         DateTime occurredAt,
         CancellationToken cancellationToken = default)
     {
@@ -111,6 +119,24 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
         };
 
         _dbContext.SafetyIncidents.Add(incident);
+
+        // The artefact is what a guardian appeal actually looks at, and what the sweeper deletes.
+        // Recording an incident without one leaves both flows implemented and inert: every listing
+        // reports CanView = false because there is nothing to view, and retention has nothing to
+        // enforce. Kept short by design — storing the very thing we judged unsafe for a child,
+        // indefinitely, would be perverse — with the §12 hold as the one exception.
+        if (!string.IsNullOrWhiteSpace(contentReference))
+        {
+            _dbContext.SafetyArtefacts.Add(new SafetyArtefact
+            {
+                Id = Guid.NewGuid(),
+                TenantId = decision.TenantId,
+                SafetyIncidentId = incident.Id,
+                Reference = contentReference,
+                ExpiresAt = occurredAt.AddDays(_options.ArtefactRetentionDays),
+                IsUnderLegalHold = incident.IsUnderLegalHold
+            });
+        }
 
         if (SafetyCategories.IsReportable(category))
         {

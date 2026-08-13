@@ -33,9 +33,9 @@ public interface ISafetyRetentionSweeper
 }
 
 /// <param name="HoldsExpired">
-/// Pre-review holds nobody acted on, moved to <c>Expired</c>. On the scheduled path rather than on a
-/// later approval attempt: a hold that is merely hidden from the guardian's queue is still a row
-/// carrying a child's content reference, and rows nobody ever returns to would never resolve at all.
+/// Pre-review holds nobody acted on, removed. On the scheduled path rather than on a later approval
+/// attempt: a hold that is merely hidden from the guardian's queue is still a row carrying a child's
+/// content reference, and rows nobody ever returns to would never resolve at all.
 /// </param>
 public sealed record SafetySweepSummary(
     int ArtefactsDeleted,
@@ -116,13 +116,22 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
     }
 
     /// <summary>
-    /// Resolves pre-review holds nobody acted on (§8).
+    /// Removes pre-review holds nobody acted on (§8).
     ///
     /// <para>
-    /// Resolved as <c>Expired</c> and never as approval — an unattended queue must not become an
-    /// approval mechanism. Doing it here rather than on the next decision attempt is the difference
-    /// between a finite window and a growing table of undelivered children's stories that nobody will
-    /// ever open again.
+    /// The hold expires <em>undelivered</em> — never as approval, because an unattended queue must not
+    /// become an approval mechanism. Doing it here rather than on the next decision attempt is the
+    /// difference between a finite window and a growing table of undelivered children's stories that
+    /// nobody will ever open again.
+    /// </para>
+    ///
+    /// <para>
+    /// <strong>Deleted, not marked.</strong> Flipping the state to <c>Expired</c> leaves the child id
+    /// and the content reference in place forever, and because the tenant scan only looks for
+    /// <em>pending</em> holds the row is never revisited — so a retention path would accumulate
+    /// precisely the references it claims to remove. The <em>decision</em> record survives and carries
+    /// the verdict; the pointer to the content does not, which is the same trade §13 makes for
+    /// artefacts.
     /// </para>
     /// </summary>
     private async Task<int> ExpireUnattendedHoldsAsync(
@@ -131,9 +140,10 @@ internal sealed class SafetyRetentionSweeper : ISafetyRetentionSweeper
             .Where(r => r.TenantId == tenantId
                 && r.State == Entities.Safety.PreReviewStates.Pending
                 && r.ExpiresAt <= now)
-            .ExecuteUpdateAsync(
-                s => s.SetProperty(r => r.State, Entities.Safety.PreReviewStates.Expired),
-                cancellationToken);
+            // ExecuteDeleteAsync, not RemoveRange: AonikDbContextBase turns Deleted into
+            // IsDeleted = true, which would retain the row and its reference while reporting a
+            // deletion. Same trap the artefact sweep already had to learn.
+            .ExecuteDeleteAsync(cancellationToken);
 
     private async Task<(int Deleted, int Held)> SweepArtefactsAsync(
         Guid tenantId, DateTime now, CancellationToken cancellationToken)
