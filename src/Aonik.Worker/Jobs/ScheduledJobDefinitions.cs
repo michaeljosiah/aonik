@@ -157,6 +157,13 @@ internal static class ScheduledJobDefinitions
                 "Closes lapsed entitlement grants so breakage is recorded rather than inferred (Spec 087).",
                 options.GrantExpirySweep.CronExpression,
                 options.GrantExpirySweep.Enabled),
+            new ScheduledJobDefinition<SafetyRetentionJob>(
+                SafetyRetentionJob.Key,
+                new TriggerKey("SafetyRetentionJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Safety Retention Sweep",
+                "Deletes expired blocked content and anonymises expired safety decisions, skipping legal holds (Spec 096 §13).",
+                options.SafetyRetention.CronExpression,
+                options.SafetyRetention.Enabled),
             new ScheduledJobDefinition<AgeTransitionJob>(
                 AgeTransitionJob.Key,
                 new TriggerKey("AgeTransitionJob-trigger", ScheduledJobGroups.ScheduledJobs),

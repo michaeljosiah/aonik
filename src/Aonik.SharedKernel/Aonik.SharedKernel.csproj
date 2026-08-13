@@ -15,6 +15,18 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!--
+    Spec 096 §16. ContentDeliveryPermit's constructor is internal so that NOTHING outside the safety
+    module can manufacture one: a delivery path takes a permit rather than a boolean, which turns
+    "did you remember to check?" from a convention into a compile-time requirement. Aonik.Ai holds
+    the gate that issues them; the test assemblies assert that the boundary holds.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Ai" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Architecture.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="FluentValidation" Version="12.1.0" />
