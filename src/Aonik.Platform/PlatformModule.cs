@@ -207,6 +207,9 @@ public sealed class PlatformModule : IModule
         // "unverified" fallback registered — consent without verification is not consent.
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentJurisdictionResolver, Services.Consent.ConsentJurisdictionResolver>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.PaymentInstrumentGuardianVerifier>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.GovernmentIdGuardianVerifier>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.SignedFormGuardianVerifier>();
+        services.AddScoped<Services.Consent.IGuardianAttestationService, Services.Consent.GuardianAttestationService>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifierFactory, Services.Consent.GuardianVerifierFactory>();
         services.AddScoped<Services.Consent.IGuardianVerificationRecorder, Services.Consent.GuardianVerificationRecorder>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianshipReader, Services.Consent.GuardianshipReader>();

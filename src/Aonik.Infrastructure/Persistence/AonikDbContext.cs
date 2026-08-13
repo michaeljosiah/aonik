@@ -88,6 +88,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ConsentGrant> ConsentGrants { get; set; } = null!;
     public virtual DbSet<ConsentVerification> ConsentVerifications { get; set; } = null!;
     public virtual DbSet<LegacyConsent> LegacyConsents { get; set; } = null!;
+    public virtual DbSet<GuardianAttestation> GuardianAttestations { get; set; } = null!;
     public virtual DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
     public virtual DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
     public virtual DbSet<PartyAccount> PartyAccounts { get; set; } = null!;
@@ -426,6 +427,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<ConsentGrant>(modelBuilder, "ConsentGrants");
         MapPlatformTable<ConsentVerification>(modelBuilder, "ConsentVerifications");
         MapPlatformTable<LegacyConsent>(modelBuilder, "LegacyConsents");
+        MapPlatformTable<GuardianAttestation>(modelBuilder, "GuardianAttestations");
         MapPlatformTable<PersonProfile>(modelBuilder, "PersonProfiles");
         MapPlatformTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
         MapPlatformTable<PartyAccount>(modelBuilder, "PartyAccounts");
