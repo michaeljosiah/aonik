@@ -75,6 +75,7 @@ public sealed class PlatformModule : IModule
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
+        services.Configure<Services.Consent.ConsentOptions>(configuration.GetSection(Services.Consent.ConsentOptions.SectionName));
         services.Configure<UserLifecycleOptions>(configuration.GetSection("UserLifecycle"));
         services.Configure<AzureMonitorAlertOptions>(configuration.GetSection("Operations:Alerts:AzureMonitor"));
 
@@ -200,6 +201,15 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IDemoSeedContributor, Services.Seeding.PlatformDemoSeedContributor>();
 
         // ── Platform Domain Agent ────────────────────────────────────
+        // ── Spec 095 G2 — guardian verification ──────────────────────────────
+        // One IGuardianVerifier per method; the factory picks the strongest that is both accepted in
+        // the jurisdiction and actually available for the party. There is deliberately no
+        // "unverified" fallback registered — consent without verification is not consent.
+        services.AddScoped<SharedKernel.Abstractions.Consent.IConsentJurisdictionResolver, Services.Consent.ConsentJurisdictionResolver>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifier, Services.Consent.PaymentInstrumentGuardianVerifier>();
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianVerifierFactory, Services.Consent.GuardianVerifierFactory>();
+        services.AddScoped<Services.Consent.IGuardianVerificationRecorder, Services.Consent.GuardianVerificationRecorder>();
+
         services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 
         return services;

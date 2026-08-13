@@ -119,6 +119,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerInvoiceHistoryReader, Services.Finance.Readers.CustomerInvoiceHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerPaymentHistoryReader, Services.Finance.Readers.CustomerPaymentHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.IFxQuoteReader, Services.Finance.Readers.FxQuoteReader>();
+        // Spec 095 §8 — the narrow read Platform's consent path needs to verify a guardian by
+        // their standing payment authorisation, without Platform referencing Finance.
+        services.AddScoped<SharedKernel.Abstractions.Consent.IGuardianMandateReader, Services.Finance.Readers.GuardianMandateReader>();
         // Customer-facing order projection + cancel (the remittance-rich shape the Simi order
         // tools surface) and FX rate history — the read/command contracts that let the PF agent
         // surface relocate off Aonik.Finance.Contracts (Spec 027 S-Contracts / #118).
