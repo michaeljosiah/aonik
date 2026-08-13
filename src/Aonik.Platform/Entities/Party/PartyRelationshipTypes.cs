@@ -21,6 +21,23 @@ public static class PartyRelationshipTypes
     /// </summary>
     public const string Recipient = PartyRelationshipTypeCodes.Recipient;
 
+    /// <summary>
+    /// Legal authority to act for a child (Spec 095 §7). Deliberately NOT a synonym for
+    /// <see cref="Mother"/> or <see cref="Father"/>: those describe family structure, this describes
+    /// authority, and they diverge in both directions — foster and kinship carers, step-parents with
+    /// a responsibility agreement, and biological parents who do not hold it.
+    ///
+    /// <para>
+    /// <strong>Privileged.</strong> Every other code in this set merely describes, so
+    /// <c>PartyService.CreateRelationshipAsync</c> validates set membership and nothing else. That is
+    /// unsafe for a code that <em>authorises</em>: the generic path is fed caller-supplied codes by
+    /// ordinary finance workflows, so an order request could otherwise mint an edge that
+    /// <c>IGuardianshipReader</c> later trusts for access to a child's data. See
+    /// <see cref="Privileged"/>.
+    /// </para>
+    /// </summary>
+    public const string Guardian = "Guardian";
+
     public static readonly IReadOnlyList<PartyRelationshipTypeDefinition> All =
         new List<PartyRelationshipTypeDefinition>
         {
@@ -33,11 +50,34 @@ public static class PartyRelationshipTypes
             new(Friend, Friend, 7),
             new(Business, Business, 8),
             new(Other, Other, 9),
-            new(Recipient, Recipient, 10)
+            new(Recipient, Recipient, 10),
+            new(Guardian, Guardian, 11, IsPrivileged: true)
         };
 
     public static readonly IReadOnlySet<string> Codes =
         new HashSet<string>(All.Select(type => type.Code), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Codes that grant authority rather than describe a relationship. These are rejected by the
+    /// generic <c>IPartyService</c> create and update paths and may only be written by the service
+    /// that owns their verification — for <see cref="Guardian"/>, that is the consent service.
+    ///
+    /// <para>
+    /// Marked here rather than remembered, so a future authority-carrying code inherits the refusal
+    /// instead of re-learning why it is needed.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlySet<string> Privileged =
+        new HashSet<string>(
+            All.Where(type => type.IsPrivileged).Select(type => type.Code),
+            StringComparer.OrdinalIgnoreCase);
+
+    public static bool IsPrivileged(string? code)
+        => !string.IsNullOrWhiteSpace(code) && Privileged.Contains(code);
 }
 
-public record PartyRelationshipTypeDefinition(string Code, string DisplayName, int SortOrder);
+public record PartyRelationshipTypeDefinition(
+    string Code,
+    string DisplayName,
+    int SortOrder,
+    bool IsPrivileged = false);

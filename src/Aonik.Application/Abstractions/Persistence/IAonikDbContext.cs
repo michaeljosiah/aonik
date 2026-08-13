@@ -48,6 +48,9 @@ public interface IAonikDbContext
     DbSet<PartyAddress> PartyAddresses { get; set; }
     DbSet<PartyContact> PartyContacts { get; set; }
     DbSet<PartyConsent> PartyConsents { get; set; }
+    DbSet<ConsentGrant> ConsentGrants { get; set; }
+    DbSet<ConsentVerification> ConsentVerifications { get; set; }
+    DbSet<LegacyConsent> LegacyConsents { get; set; }
     DbSet<PersonProfile> PersonProfiles { get; set; }
     DbSet<BusinessProfile> BusinessProfiles { get; set; }
     DbSet<PartyAccount> PartyAccounts { get; set; }

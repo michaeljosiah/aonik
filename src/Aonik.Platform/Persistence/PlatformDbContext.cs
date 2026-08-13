@@ -48,6 +48,9 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<PartyAddress> PartyAddresses { get; set; } = null!;
     public DbSet<PartyContact> PartyContacts { get; set; } = null!;
     public DbSet<PartyConsent> PartyConsents { get; set; } = null!;
+    public DbSet<ConsentGrant> ConsentGrants { get; set; } = null!;
+    public DbSet<ConsentVerification> ConsentVerifications { get; set; } = null!;
+    public DbSet<LegacyConsent> LegacyConsents { get; set; } = null!;
     public DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
     public DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
     public DbSet<PartyAccount> PartyAccounts { get; set; } = null!;
@@ -175,6 +178,9 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<PartyAddress>(modelBuilder, "PartyAddresses");
         MapTable<PartyContact>(modelBuilder, "PartyContacts");
         MapTable<PartyConsent>(modelBuilder, "PartyConsents");
+        MapTable<ConsentGrant>(modelBuilder, "ConsentGrants");
+        MapTable<ConsentVerification>(modelBuilder, "ConsentVerifications");
+        MapTable<LegacyConsent>(modelBuilder, "LegacyConsents");
         MapTable<PersonProfile>(modelBuilder, "PersonProfiles");
         MapTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
         MapTable<PartyAccount>(modelBuilder, "PartyAccounts");
