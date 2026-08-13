@@ -24,6 +24,17 @@ public interface ISafetyClassificationProvider
     IReadOnlySet<string> SupportedModalities { get; }
 
     /// <summary>
+    /// How much of a temporal artefact this adapter actually covers (Spec 096 S6).
+    ///
+    /// <para>
+    /// Required of every adapter, including ones that only judge text, so the question cannot be
+    /// skipped by omission. Without it the routed classifier has no way to know whether the vendor
+    /// behind it samples, and the S6 rule would only ever bind hand-written stubs.
+    /// </para>
+    /// </summary>
+    TemporalCoverage Coverage { get; }
+
+    /// <summary>
     /// Category to confidence, 0–1. Throwing is a legitimate outcome: the gate turns it into
     /// <c>CheckUnavailable</c> and refuses delivery, which is the behaviour we want on a bad day.
     /// </summary>
@@ -46,7 +57,7 @@ public interface ISafetyClassificationProvider
 /// an audit note rather than a control.
 /// </para>
 /// </summary>
-internal sealed class RoutedContentClassifier : IContentClassifier
+internal sealed class RoutedContentClassifier : IContentClassifier, ITemporalCoverage
 {
     private readonly ISafetyModelRouter _router;
     private readonly IEnumerable<ISafetyClassificationProvider> _providers;
@@ -74,6 +85,32 @@ internal sealed class RoutedContentClassifier : IContentClassifier
     }
 
     public string Modality { get; }
+
+    /// <summary>
+    /// Carried up from the adapters, so the production path can satisfy the S6 rule rather than only
+    /// hand-written stubs being able to.
+    ///
+    /// <para>
+    /// <strong>Every</strong> registered adapter for this modality must declare complete coverage, not
+    /// just one: routing chooses between them at classify time and we cannot know which without a
+    /// database round trip, so a single sampling adapter in the pool means we cannot promise anything.
+    /// No adapters at all is also not complete — a claim about coverage requires something to cover it.
+    /// </para>
+    /// </summary>
+    public TemporalCoverage Coverage
+    {
+        get
+        {
+            var forThisModality = _providers
+                .Where(p => p.SupportedModalities.Contains(Modality))
+                .ToList();
+
+            return forThisModality.Count > 0
+                && forThisModality.TrueForAll(p => p.Coverage == TemporalCoverage.Complete)
+                    ? TemporalCoverage.Complete
+                    : TemporalCoverage.Sampled;
+        }
+    }
 
     public async Task<ClassificationResult> ClassifyAsync(
         ClassificationRequest request, CancellationToken cancellationToken = default)

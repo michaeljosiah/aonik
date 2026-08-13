@@ -28,6 +28,13 @@ namespace Aonik.Application.Tests.Ai;
 public class GuardianPreReviewTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
+
+    /// <summary>
+    /// The band the stub reader reports. The gate reads it from the record rather than the request,
+    /// so a test that wants a different band sets this instead of passing one in. xUnit builds a new
+    /// instance per test, so there is nothing shared here.
+    /// </summary>
+    private string? _band = SafetyBandNames.Under6;
     private static readonly DateTime Now = new(2026, 8, 13, 12, 0, 0, DateTimeKind.Utc);
 
     private sealed class TestClock : IClock
@@ -63,7 +70,7 @@ public class GuardianPreReviewTests
         => new(context, guardianship, new TestTenantProvider(TenantId), new TestClock(),
             NullLogger<GuardianPreReviewService>.Instance);
 
-    private static ContentSafetyGate CreateGate(
+    private ContentSafetyGate CreateGate(
         AiDbContext context, StubGuardianship guardianship, IContentClassifier classifier)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
@@ -73,6 +80,7 @@ public class GuardianPreReviewTests
             [classifier],
             new SafetyIncidentRecorder(context, options, NullLogger<SafetyIncidentRecorder>.Instance),
             CreateService(context, guardianship),
+            new StubSafetyBandReader(_band),
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -90,7 +98,7 @@ public class GuardianPreReviewTests
         var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
 
         var verdict = await gate.ScreenOutputAsync(
-            new SafetyRequest(child, SafetyBandNames.Under6, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(child, SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         verdict.Outcome.Should().Be(SafetyDecisionOutcome.HeldForReview);
@@ -110,7 +118,7 @@ public class GuardianPreReviewTests
         var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
 
         await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Under6, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         // Nothing was judged unsafe. Filing an incident would put an ordinary held story in the
@@ -128,7 +136,7 @@ public class GuardianPreReviewTests
             new CleanClassifier(new Dictionary<string, double> { [SafetyCategories.Sexual] = 0.99 }));
 
         var verdict = await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Under6, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         // The load-bearing assertion of this file. Pre-review holds what the layers ALLOWED; blocked
@@ -141,19 +149,57 @@ public class GuardianPreReviewTests
     }
 
     [Fact]
-    public async Task Age6To9_Should_NotBeHeldByDefault()
+    public async Task Age6To9_Should_BeHeldByDefault()
     {
         await using var context = CreateDbContext();
+        _band = SafetyBandNames.Age6To9;
         var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
 
         var verdict = await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
-        // Holding every story for an eight-year-old would make the product unusable and train the
+        // F3: "Default on to age 9, then off with visibility retained." The two youngest bands get
+        // pre-review without a parent asking for it.
+        verdict.Outcome.Should().Be(SafetyDecisionOutcome.HeldForReview);
+    }
+
+    [Fact]
+    public async Task Age10To12_Should_NotBeHeldByDefault()
+    {
+        await using var context = CreateDbContext();
+        _band = SafetyBandNames.Age10To12;
+        var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
+
+        var verdict = await gate.ScreenOutputAsync(
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
+            new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
+
+        // Holding every story for an eleven-year-old would make the product unusable and train the
         // guardian to approve without looking — which is worse than not holding at all.
         verdict.Allowed.Should().BeTrue();
         verdict.Permit.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task AnAdult_Should_NotBeHeld_EvenWithAStaleGuardianPreference()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+
+        await CreateService(context, guardianship).SetPreReviewAsync(guardian, child, enabled: true);
+
+        _band = SafetyBandNames.Adult;
+        var verdict = await CreateGate(context, guardianship, new CleanClassifier()).ScreenOutputAsync(
+            new SafetyRequest(child, SafetyModalities.Text, Guid.NewGuid()),
+            new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
+
+        // Guardianship ends at majority. A preference set during childhood would otherwise keep
+        // holding this person's content forever, with nobody left holding the authority to release it
+        // or to switch the setting off — a stale flag outliving every party who could act on it.
+        verdict.Allowed.Should().BeTrue();
     }
 
     [Fact]
@@ -163,7 +209,7 @@ public class GuardianPreReviewTests
         var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
 
         var verdict = await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), "", SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         verdict.Outcome.Should().Be(SafetyDecisionOutcome.HeldForReview,
@@ -177,7 +223,7 @@ public class GuardianPreReviewTests
         var gate = CreateGate(context, new StubGuardianship(), new CleanClassifier());
 
         var verdict = await gate.ScreenInputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Under6, SafetyModalities.Text), "a dragon");
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text), "a dragon");
 
         // L2 judges what the child asked for, not what they are about to see. Holding a prompt for
         // parental approval would stop the generation before anything exists to review.
@@ -196,7 +242,7 @@ public class GuardianPreReviewTests
         var guardianship = new StubGuardianship().Add(guardian, child);
 
         var verdict = await CreateGate(context, guardianship, new CleanClassifier()).ScreenOutputAsync(
-            new SafetyRequest(child, SafetyBandNames.Under6, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(child, SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         var held = await context.PendingContentReviews.SingleAsync();
@@ -318,7 +364,7 @@ public class GuardianPreReviewTests
         await CreateService(context, guardianship).SetPreReviewAsync(guardian, child, enabled: false);
 
         var verdict = await CreateGate(context, guardianship, new CleanClassifier()).ScreenOutputAsync(
-            new SafetyRequest(child, SafetyBandNames.Under6, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(child, SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         // Permitted deliberately: a parent is not a moderation queue, and the automated layers were
@@ -338,7 +384,7 @@ public class GuardianPreReviewTests
         await CreateService(context, guardianship).SetPreReviewAsync(guardian, child, enabled: true);
 
         var verdict = await CreateGate(context, guardianship, new CleanClassifier()).ScreenOutputAsync(
-            new SafetyRequest(child, SafetyBandNames.Age10To12, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(child, SafetyModalities.Text, Guid.NewGuid()),
             new GeneratedContent(SafetyModalities.Text, "blob://story-1"));
 
         verdict.Outcome.Should().Be(SafetyDecisionOutcome.HeldForReview,

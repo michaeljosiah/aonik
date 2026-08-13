@@ -115,8 +115,13 @@ public interface ITemporalCoverage
 
 public enum TemporalCoverage
 {
-    /// <summary>Every frame, or every sample, of the delivered artefact was classified.</summary>
-    Complete = 0,
+    /// <summary>
+    /// Nothing was declared. <strong>The zero value deliberately is not <see cref="Complete"/></strong>:
+    /// an uninitialised auto-property, a missing configuration value or a default deserialisation would
+    /// otherwise silently claim full coverage, which is the one claim that must never be made by
+    /// accident. Treated exactly as <see cref="Sampled"/>.
+    /// </summary>
+    Unknown = 0,
 
     /// <summary>
     /// Only sample points were classified. <strong>Never acceptable for child-facing delivery</strong>:
@@ -125,6 +130,9 @@ public enum TemporalCoverage
     /// parent.
     /// </summary>
     Sampled = 1,
+
+    /// <summary>Every frame, or every sample, of the delivered artefact was classified.</summary>
+    Complete = 2,
 }
 
 /// <summary>

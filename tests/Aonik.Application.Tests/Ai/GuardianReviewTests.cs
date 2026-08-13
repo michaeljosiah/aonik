@@ -240,6 +240,120 @@ public class GuardianReviewTests
         listed[0].CanRelease.Should().BeTrue();
     }
 
+    // ── Codex round 1 ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AViewableIncident_Should_CarryTheArtefactToView()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+        SeedIncident(context, child, SafetyCategories.GraphicViolence);
+
+        var listed = await CreateService(context, guardianship).ListForGuardianAsync(guardian, child);
+
+        // A CanView flag with nothing behind it is a review flow that does not work.
+        listed[0].ArtefactReference.Should().Be("blob://blocked");
+    }
+
+    [Fact]
+    public async Task ANonOverridableIncident_Should_CarryNoArtefactReference()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+        SeedIncident(context, child, SafetyCategories.Csam);
+
+        var listed = await CreateService(context, guardianship).ListForGuardianAsync(guardian, child);
+
+        listed[0].ArtefactReference.Should().BeNull(
+            "the reference is the content, and this is the category no guardian may see");
+    }
+
+    [Fact]
+    public async Task AnExpiredArtefact_Should_LeaveNothingToView()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+        SeedIncident(context, child, SafetyCategories.GraphicViolence, withArtefact: false);
+
+        var listed = await CreateService(context, guardianship).ListForGuardianAsync(guardian, child);
+
+        listed[0].CanView.Should().BeFalse();
+        listed[0].ArtefactReference.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AnUnknownCategory_Should_NotBeReleasable()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+
+        // The policy reader blocks unrecognised labels at a low threshold precisely so a classifier
+        // that grows a new one does not become silently unenforced. Deciding releasability from set
+        // membership alone would undo that here — handing the guardian exactly the categories nobody
+        // has classified yet.
+        var incidentId = SeedIncident(context, child, "some-new-label");
+
+        var service = CreateService(context, guardianship);
+
+        (await service.ListForGuardianAsync(guardian, child))[0].CanRelease.Should().BeFalse();
+        (await service.AppealAsync(guardian, incidentId)).Should().Be(AppealOutcome.Refused);
+    }
+
+    [Fact]
+    public async Task ASecondAppealOnASealedIncident_Should_NotOverwriteTheFirst()
+    {
+        await using var context = CreateDbContext();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(first, child).Add(second, child);
+
+        var incidentId = SeedIncident(context, child, SafetyCategories.Csam);
+        var service = CreateService(context, guardianship);
+
+        await service.AppealAsync(first, incidentId);
+        (await service.AppealAsync(second, incidentId)).Should().Be(AppealOutcome.NotAvailable);
+
+        // Who first reached for a sealed incident is the record the escalation is built on; a retry
+        // overwriting it erases exactly the evidence that matters.
+        (await context.SafetyIncidents.SingleAsync()).AppealDecidedByPartyId.Should().Be(first);
+    }
+
+    [Fact]
+    public async Task Escalation_Should_CountAppealsByGuardian_NotByChild()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var guardianship = new StubGuardianship();
+        var service = CreateService(context, guardianship);
+
+        // One sealed incident for each of three different wards. Counting by child, this guardian
+        // never reaches the threshold — which is the pattern §8 most wants to see.
+        const int threshold = 3;
+
+        foreach (var _ in Enumerable.Range(0, threshold))
+        {
+            var ward = Guid.NewGuid();
+            guardianship.Add(guardian, ward);
+            await service.AppealAsync(guardian, SeedIncident(context, ward, SafetyCategories.Csam));
+        }
+
+        var refusals = await context.SafetyIncidents
+            .CountAsync(i => i.AppealDecidedByPartyId == guardian
+                && i.AppealState == SafetyAppealStates.Refused);
+
+        refusals.Should().Be(threshold,
+            "the identity that matters is the guardian's, not the protected child's");
+    }
+
     [Fact]
     public async Task Appeal_Should_BeUnavailable_ForAnUnknownIncident()
     {

@@ -26,6 +26,13 @@ namespace Aonik.Application.Tests.Ai;
 public class ContentSafetyGateTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
+
+    /// <summary>
+    /// The band the stub reader reports. The gate reads it from the record rather than the request,
+    /// so a test that wants a different band sets this instead of passing one in. xUnit builds a new
+    /// instance per test, so there is nothing shared here.
+    /// </summary>
+    private string? _band = SafetyBandNames.Age10To12;
     private static readonly DateTime Now = new(2026, 8, 13, 12, 0, 0, DateTimeKind.Utc);
 
     private sealed class TestClock : IClock
@@ -66,11 +73,11 @@ public class ContentSafetyGateTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new TestClock());
 
-    private static ContentSafetyGate CreateGate(
+    private ContentSafetyGate CreateGate(
         AiDbContext context, params IContentClassifier[] classifiers)
         => CreateGate(context, new StubGuardianship(), classifiers);
 
-    private static ContentSafetyGate CreateGate(
+    private ContentSafetyGate CreateGate(
         AiDbContext context, StubGuardianship guardianship, params IContentClassifier[] classifiers)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
@@ -82,6 +89,7 @@ public class ContentSafetyGateTests
             new GuardianPreReviewService(
                 context, guardianship, new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
+            new StubSafetyBandReader(_band),
             usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -90,7 +98,7 @@ public class ContentSafetyGateTests
     }
 
     private static SafetyRequest ARequest(string band = "6-9", Guid? runId = null)
-        => new(Guid.NewGuid(), band, SafetyModalities.Text, runId);
+        => new(Guid.NewGuid(), SafetyModalities.Text, runId);
 
     private static GeneratedContent AnOutput() => new(SafetyModalities.Text, "blob://story-1");
 
@@ -292,11 +300,15 @@ public class ContentSafetyGateTests
     public async Task UnknownBand_Should_BeTreatedAsTheStrictest()
     {
         await using var context = CreateDbContext();
+
+        // No band on the party record — the case a caller could previously paper over by asserting
+        // one in the request.
+        _band = null;
         var gate = CreateGate(context, new StubClassifier(
             scores: new Dictionary<string, double> { [SafetyCategories.Frightening] = 0.45 }));
 
         var verdict = await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), "", SafetyModalities.Text, Guid.NewGuid()), AnOutput());
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()), AnOutput());
 
         verdict.Allowed.Should().BeFalse();
 

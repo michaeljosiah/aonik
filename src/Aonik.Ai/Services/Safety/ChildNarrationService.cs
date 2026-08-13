@@ -33,11 +33,15 @@ public interface IChildNarrationService
 
 /// <param name="AudioReference">Where the synthesised audio is. Never the audio itself.</param>
 /// <param name="GenerationRunId">The synthesis run, so the decision is traceable to what produced it.</param>
+/// <remarks>
+/// Carries no safety band. The gate resolves it from the subject's record, so this path cannot be
+/// handed <c>adult</c> for a six-year-old.
+/// </remarks>
 public sealed record NarrationRequest(
     Guid SubjectPartyId,
-    string SafetyBand,
     string AudioReference,
-    Guid? GenerationRunId = null);
+    Guid? GenerationRunId = null,
+    Guid? UsageReservationId = null);
 
 /// <param name="Narration">Non-null only when the gate issued a permit. Absence is the enforcement.</param>
 public sealed record NarrationOutcome(
@@ -69,6 +73,17 @@ public sealed class PlayableNarration
     {
         ArgumentNullException.ThrowIfNull(permit);
         ArgumentException.ThrowIfNullOrWhiteSpace(audioReference);
+
+        if (!permit.Authorises(SafetyModalities.Speech, audioReference))
+        {
+            // A permit alone was never enough. Any valid one could otherwise be paired with a
+            // different reference — or with an image permit — and unclassified audio laundered
+            // through a type that looks checked. The permit must cover THIS audio.
+            throw new ArgumentException(
+                "The permit does not cover this audio. A permit authorises one artefact in one "
+                + "modality, and pairing it with anything else would deliver unclassified content.",
+                nameof(permit));
+        }
 
         Permit = permit;
         AudioReference = audioReference;
@@ -104,9 +119,9 @@ internal sealed class ChildNarrationService : IChildNarrationService
         var verdict = await _gate.ScreenOutputAsync(
             new SafetyRequest(
                 request.SubjectPartyId,
-                request.SafetyBand,
                 SafetyModalities.Speech,
-                request.GenerationRunId),
+                request.GenerationRunId,
+                request.UsageReservationId),
             new GeneratedContent(SafetyModalities.Speech, request.AudioReference),
             cancellationToken);
 

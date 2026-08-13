@@ -316,6 +316,7 @@ public sealed class AiModule : IModule
                 sp.GetServices<SharedKernel.Abstractions.Safety.IContentClassifier>(),
                 sp.GetRequiredService<Services.Safety.ISafetyIncidentRecorder>(),
                 sp.GetRequiredService<Services.Safety.IGuardianPreReviewService>(),
+                sp.GetRequiredService<SharedKernel.Abstractions.Safety.ISafetyBandReader>(),
                 sp.GetService<SharedKernel.Abstractions.Subscriptions.IUsageMeter>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
                 sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
@@ -366,6 +367,7 @@ public sealed class AiModule : IModule
                 sp.GetService<Services.Safety.ISpeechTranscriber>(),
                 RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Text),
                 RoutedClassifier(sp, SharedKernel.Abstractions.Safety.SafetyModalities.Speech),
+                sp.GetRequiredService<Services.Safety.ISafetyModelRouter>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.SpeechContentClassifier>>()));
 
         services.AddScoped<Services.Safety.IChildNarrationService, Services.Safety.ChildNarrationService>();

@@ -288,6 +288,109 @@ public class SafetyRetentionSqlServerTests : IClassFixture<SqlLocalDbFixture>
             .Should().NotContain(tenantId);
     }
 
+    // ── Pre-review holds (Spec 096 §8) ───────────────────────────────────
+
+    [SkippableFact]
+    public async Task Sweep_Should_ExpireAHoldNobodyActedOn()
+    {
+        RequireSqlServer();
+
+        var tenantId = Guid.NewGuid();
+        await using var context = CreateContext(tenantId);
+        var reviewId = await SeedHoldAsync(context, tenantId, Now.AddDays(-1));
+
+        var summary = await CreateSweeper(context, tenantId).SweepAsync();
+
+        // Hiding the row from the guardian's queue is not resolving it: it still carries a child's
+        // content reference, and one nobody returns to would stay Pending forever. Here too the
+        // mechanism is ExecuteUpdateAsync, which InMemory does not implement.
+        summary.HoldsExpired.Should().Be(1);
+
+        var review = await context.PendingContentReviews.AsNoTracking()
+            .FirstAsync(r => r.Id == reviewId);
+        review.State.Should().Be(PreReviewStates.Expired,
+            "expiry resolves as expiry — an unattended queue must never become an approval mechanism");
+    }
+
+    [SkippableFact]
+    public async Task Sweep_Should_LeaveALiveHoldAlone()
+    {
+        RequireSqlServer();
+
+        var tenantId = Guid.NewGuid();
+        await using var context = CreateContext(tenantId);
+        await SeedHoldAsync(context, tenantId, Now.AddDays(7));
+
+        (await CreateSweeper(context, tenantId).SweepAsync()).HoldsExpired.Should().Be(0);
+    }
+
+    [SkippableFact]
+    public async Task FindTenantsWithWork_Should_SeeATenantWithOnlyAnExpiredHold()
+    {
+        RequireSqlServer();
+
+        var tenantId = Guid.NewGuid();
+        await using var context = CreateContext(tenantId);
+        await SeedHoldAsync(context, tenantId, Now.AddDays(-1));
+
+        // Without this the job never visits the tenant, and the sweep that resolves the hold never
+        // runs — a per-tenant job is only as good as the list of tenants it is given.
+        (await CreateSweeper(context, tenantId).FindTenantsWithWorkAsync()).Should().Contain(tenantId);
+    }
+
+    [SkippableFact]
+    public async Task OneSafetyPreference_Should_BeEnforcedPerChild()
+    {
+        RequireSqlServer();
+
+        var tenantId = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        await using var context = CreateContext(tenantId);
+
+        context.ChildSafetyPreferences.Add(new ChildSafetyPreference
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, SubjectPartyId = child,
+            PreReviewEnabled = true, SetByPartyId = Guid.NewGuid(), SetAt = Now,
+        });
+        await context.SaveChangesAsync();
+
+        context.ChildSafetyPreferences.Add(new ChildSafetyPreference
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, SubjectPartyId = child,
+            PreReviewEnabled = false, SetByPartyId = Guid.NewGuid(), SetAt = Now,
+        });
+
+        // Two authorised guardians updating concurrently both observe no row and both insert; a later
+        // read then picks an arbitrary one of them, and whether a child's content is held becomes
+        // nondeterministic. The filtered unique index is the only thing that can prevent it, and it is
+        // enforced by SQL Server alone — InMemory would pass this happily.
+        var act = async () => await context.SaveChangesAsync();
+
+        await act.Should().ThrowAsync<DbUpdateException>();
+    }
+
+    private static async Task<Guid> SeedHoldAsync(
+        AiDbContext context, Guid tenantId, DateTime expiresAt)
+    {
+        var review = new PendingContentReview
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            SafetyDecisionId = Guid.NewGuid(),
+            SubjectPartyId = Guid.NewGuid(),
+            SafetyBand = SafetyBandNames.Under6,
+            Modality = SafetyModalities.Text,
+            Reference = "blob://story-1",
+            State = PreReviewStates.Pending,
+            HeldAt = Now.AddDays(-20),
+            ExpiresAt = expiresAt,
+        };
+
+        context.PendingContentReviews.Add(review);
+        await context.SaveChangesAsync();
+        return review.Id;
+    }
+
     private void RequireSqlServer()
         => Skip.IfNot(_db.IsAvailable, _db.SkipReason ?? "SQL Server LocalDB unavailable.");
 }

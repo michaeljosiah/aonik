@@ -25,6 +25,13 @@ public class SafetyBillingAndMessagingTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
 
+    /// <summary>
+    /// The band the stub reader reports. The gate reads it from the record rather than the request,
+    /// so a test that wants a different band sets this instead of passing one in. xUnit builds a new
+    /// instance per test, so there is nothing shared here.
+    /// </summary>
+    private string? _band = SafetyBandNames.Age10To12;
+
     private sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; } = new(2026, 8, 13, 12, 0, 0, DateTimeKind.Utc);
@@ -98,7 +105,7 @@ public class SafetyBillingAndMessagingTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new TestClock());
 
-    private static ContentSafetyGate CreateGate(
+    private ContentSafetyGate CreateGate(
         AiDbContext context, IUsageMeter? meter, params IContentClassifier[] classifiers)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new SafetyOptions());
@@ -110,6 +117,7 @@ public class SafetyBillingAndMessagingTests
             new GuardianPreReviewService(
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
+            new StubSafetyBandReader(_band),
             meter,
             new TestTenantProvider(TenantId),
             new TestClock(),
@@ -118,7 +126,7 @@ public class SafetyBillingAndMessagingTests
     }
 
     private static SafetyRequest ARequest(Guid reservationId, string band = SafetyBandNames.Age6To9)
-        => new(Guid.NewGuid(), band, SafetyModalities.Text, Guid.NewGuid(), reservationId);
+        => new(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid(), reservationId);
 
     private static GeneratedContent AnOutput() => new(SafetyModalities.Text, "blob://story-1");
 
@@ -159,10 +167,10 @@ public class SafetyBillingAndMessagingTests
         await using var context = CreateDbContext();
         var meter = new RecordingMeter();
         var reservationId = Guid.NewGuid();
+        _band = SafetyBandNames.Under6;
         var gate = CreateGate(context, meter, new StubClassifier());
 
-        await gate.ScreenOutputAsync(
-            ARequest(reservationId, SafetyBandNames.Under6), AnOutput());
+        await gate.ScreenOutputAsync(ARequest(reservationId), AnOutput());
 
         // A hold can last two weeks and a reservation cannot, so keeping it would only mean the
         // platform's own sweeper expiring it later. Charging for a story a parent had to approve by
@@ -222,7 +230,7 @@ public class SafetyBillingAndMessagingTests
             new Dictionary<string, double> { [SafetyCategories.Sexual] = 0.99 }));
 
         await gate.ScreenOutputAsync(
-            new SafetyRequest(Guid.NewGuid(), SafetyBandNames.Age6To9, SafetyModalities.Text, Guid.NewGuid()),
+            new SafetyRequest(Guid.NewGuid(), SafetyModalities.Text, Guid.NewGuid()),
             AnOutput());
 
         meter.Released.Should().BeEmpty();

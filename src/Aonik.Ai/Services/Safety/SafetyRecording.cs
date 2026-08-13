@@ -241,12 +241,30 @@ public sealed class SafetyOptions
     /// locks, because this is the one a deadline argues hardest against.
     /// </para>
     /// </summary>
-    public IList<string> EnabledModalities { get; set; } =
-    [
-        SharedKernel.Abstractions.Safety.SafetyModalities.Text,
-        SharedKernel.Abstractions.Safety.SafetyModalities.Image,
-        SharedKernel.Abstractions.Safety.SafetyModalities.Speech,
-    ];
+    /// <remarks>
+    /// Deliberately null-by-default rather than pre-populated. The configuration binder <em>adds</em>
+    /// to an already-initialised collection instead of replacing it, so a pre-populated default would
+    /// make this allowlist unable to switch anything off: an operator narrowing it to text and image
+    /// during a speech incident would still have speech enabled. Null means "nobody configured this",
+    /// and <see cref="ResolvedModalities"/> supplies the defaults on read.
+    /// </remarks>
+    public IList<string>? EnabledModalities { get; set; }
+
+    /// <summary>
+    /// The modalities actually in force. <strong>Video is absent from the defaults</strong> — F6 is a
+    /// product decision that has not been taken, and the spec is explicit that video staying off is a
+    /// legitimate outcome rather than a failure. An explicitly configured empty list means exactly
+    /// that: everything off.
+    /// </summary>
+    public IReadOnlyCollection<string> ResolvedModalities
+        => EnabledModalities is { } configured
+            ? [.. configured]
+            :
+        [
+            SharedKernel.Abstractions.Safety.SafetyModalities.Text,
+            SharedKernel.Abstractions.Safety.SafetyModalities.Image,
+            SharedKernel.Abstractions.Safety.SafetyModalities.Speech,
+        ];
 
     /// <summary>
     /// Party ids of the <strong>named individuals</strong> who may reach preserved §12 material.

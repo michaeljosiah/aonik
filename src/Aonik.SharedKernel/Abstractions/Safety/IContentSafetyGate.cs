@@ -48,8 +48,12 @@ public interface IContentSafetyGate
         CancellationToken cancellationToken = default);
 }
 
-/// <param name="SubjectPartyId">The child the content is for. Their band drives every threshold.</param>
-/// <param name="SafetyBand">One of <c>PartySafetyBands</c>, from Spec 095's attested dates.</param>
+/// <param name="SubjectPartyId">
+/// The child the content is for. Their band drives every threshold, and the gate resolves it through
+/// <see cref="ISafetyBandReader"/> — <strong>the caller does not supply it</strong>. A request that
+/// carried its own band could claim <c>adult</c> for a six-year-old and skip every threshold and every
+/// guardian hold with one field.
+/// </param>
 /// <param name="Modality">Text, image, video or speech.</param>
 /// <param name="GenerationRunId">
 /// The <c>AiRun</c> of the generation, when one exists. <strong>Null for an input-stage screen</strong>,
@@ -64,7 +68,6 @@ public interface IContentSafetyGate
 /// </param>
 public sealed record SafetyRequest(
     Guid SubjectPartyId,
-    string SafetyBand,
     string Modality,
     Guid? GenerationRunId = null,
     Guid? UsageReservationId = null);
@@ -136,11 +139,14 @@ public enum SafetyDecisionOutcome
 /// </summary>
 public sealed class ContentDeliveryPermit
 {
-    internal ContentDeliveryPermit(Guid decisionId, Guid subjectPartyId, string safetyBand)
+    internal ContentDeliveryPermit(
+        Guid decisionId, Guid subjectPartyId, string safetyBand, string modality, string contentReference)
     {
         DecisionId = decisionId;
         SubjectPartyId = subjectPartyId;
         SafetyBand = safetyBand;
+        Modality = modality;
+        ContentReference = contentReference;
     }
 
     /// <summary>The recorded decision this permit came from, so delivery is traceable to a verdict.</summary>
@@ -149,4 +155,23 @@ public sealed class ContentDeliveryPermit
     public Guid SubjectPartyId { get; }
 
     public string SafetyBand { get; }
+
+    /// <summary>The modality that was classified. A speech permit does not authorise an image.</summary>
+    public string Modality { get; }
+
+    /// <summary>
+    /// The <em>exact</em> content this permit covers.
+    ///
+    /// <para>
+    /// Without it a permit is a bearer token for the subject rather than for the artefact: hold any
+    /// valid one and you can pair it with a different reference, laundering unclassified content
+    /// through a delivery type that looks checked. <see cref="Authorises"/> is what closes that.
+    /// </para>
+    /// </summary>
+    public string ContentReference { get; }
+
+    /// <summary>Whether this permit covers exactly this artefact in exactly this modality.</summary>
+    public bool Authorises(string modality, string contentReference)
+        => string.Equals(Modality, modality, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(ContentReference, contentReference, StringComparison.Ordinal);
 }

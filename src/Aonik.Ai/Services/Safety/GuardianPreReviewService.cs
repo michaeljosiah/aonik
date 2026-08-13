@@ -119,6 +119,14 @@ internal sealed class GuardianPreReviewService : IGuardianPreReviewService
     public async Task<bool> RequiresPreReviewAsync(
         Guid subjectPartyId, string safetyBand, CancellationToken cancellationToken = default)
     {
+        if (!PreReviewDefaults.AppliesTo(safetyBand))
+        {
+            // Checked before the row is read, so a preference set during childhood cannot survive
+            // majority. Guardianship has ended by then, and a stale "hold everything" would outlive
+            // every party with the authority to release it or turn it off.
+            return false;
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var preference = await _dbContext.ChildSafetyPreferences
@@ -208,7 +216,9 @@ internal sealed class GuardianPreReviewService : IGuardianPreReviewService
         // verdict, which is what keeps delivery traceable to the classifiers that actually ran.
         return new PreReviewDecision(
             PreReviewOutcome.Approved,
-            new ContentDeliveryPermit(review.SafetyDecisionId, review.SubjectPartyId, review.SafetyBand));
+            new ContentDeliveryPermit(
+                review.SafetyDecisionId, review.SubjectPartyId, review.SafetyBand,
+                review.Modality, review.Reference));
     }
 
     public async Task SetPreReviewAsync(
@@ -282,13 +292,28 @@ internal static class PreReviewDefaults
     /// </summary>
     public static bool DefaultFor(string safetyBand) => safetyBand switch
     {
+        // F3: "Default on to age 9, then off with visibility retained." Parents who want more can
+        // opt in; the two youngest bands get it without asking.
         SafetyBandNames.Under6 => true,
-        SafetyBandNames.Age6To9 => false,
+        SafetyBandNames.Age6To9 => true,
         SafetyBandNames.Age10To12 => false,
         SafetyBandNames.Age13ToMajority => false,
         SafetyBandNames.Adult => false,
         _ => true,
     };
+
+    /// <summary>
+    /// Whether guardian preferences apply to this band at all.
+    ///
+    /// <para>
+    /// They do not once the subject is an adult. Guardianship ends at majority, so a preference set
+    /// while the subject was a child would otherwise keep holding their content forever with nobody
+    /// left holding the authority to release it or to switch it off — the stale setting outliving
+    /// every party who could act on it.
+    /// </para>
+    /// </summary>
+    public static bool AppliesTo(string safetyBand)
+        => !string.Equals(safetyBand, SafetyBandNames.Adult, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
