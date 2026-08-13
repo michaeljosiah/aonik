@@ -306,7 +306,24 @@ public sealed class AiModule : IModule
             configuration.GetSection(Services.Safety.SafetyOptions.SectionName));
         services.AddScoped<SharedKernel.Abstractions.Safety.ISafetyPolicyReader, Services.Safety.SafetyPolicyReader>();
         services.AddScoped<Services.Safety.ISafetyIncidentRecorder, Services.Safety.SafetyIncidentRecorder>();
-        services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate, Services.Safety.ContentSafetyGate>();
+        // Constructed via a factory because IUsageMeter is optional here: Aonik.Ai must not require
+        // Subscriptions to be registered in order to keep children safe, and a host that omits it
+        // simply has nothing to release.
+        services.AddScoped<SharedKernel.Abstractions.Safety.IContentSafetyGate>(sp =>
+            new Services.Safety.ContentSafetyGate(
+                sp.GetRequiredService<Persistence.AiDbContext>(),
+                sp.GetRequiredService<SharedKernel.Abstractions.Safety.ISafetyPolicyReader>(),
+                sp.GetServices<SharedKernel.Abstractions.Safety.IContentClassifier>(),
+                sp.GetRequiredService<Services.Safety.ISafetyIncidentRecorder>(),
+                sp.GetRequiredService<Services.Safety.IGuardianPreReviewService>(),
+                sp.GetService<SharedKernel.Abstractions.Subscriptions.IUsageMeter>(),
+                sp.GetRequiredService<SharedKernel.Abstractions.Multitenancy.ITenantProvider>(),
+                sp.GetRequiredService<SharedKernel.Abstractions.IClock>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Services.Safety.SafetyOptions>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.ContentSafetyGate>>()));
+        services.AddScoped<Services.Safety.IPreservedMaterialService, Services.Safety.PreservedMaterialService>();
+        services.AddScoped<Services.Safety.ILegalHoldReader>(sp =>
+            (Services.Safety.PreservedMaterialService)sp.GetRequiredService<Services.Safety.IPreservedMaterialService>());
         services.AddScoped<Services.Safety.ISafetyRetentionSweeper, Services.Safety.SafetyRetentionSweeper>();
         services.AddScoped<Services.Safety.ISafetyModelRouter, Services.Safety.SafetyModelRouter>();
         services.AddScoped<Services.Safety.ISafetyPolicyService, Services.Safety.SafetyPolicyService>();

@@ -101,10 +101,11 @@ public class SpeechSafetyTests
             context,
             new SafetyPolicyReader(context, new TestTenantProvider(TenantId)),
             classifiers,
-            new SafetyIncidentRecorder(context, options),
+            new SafetyIncidentRecorder(context, options, NullLogger<SafetyIncidentRecorder>.Instance),
             new GuardianPreReviewService(
                 context, new StubGuardianship(), new TestTenantProvider(TenantId), new TestClock(),
                 NullLogger<GuardianPreReviewService>.Instance),
+            usageMeter: null,
             new TestTenantProvider(TenantId),
             new TestClock(),
             options,

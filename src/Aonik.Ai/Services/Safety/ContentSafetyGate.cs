@@ -3,6 +3,7 @@ using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Safety;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
     private readonly IEnumerable<IContentClassifier> _classifiers;
     private readonly ISafetyIncidentRecorder _recorder;
     private readonly IGuardianPreReviewService _preReview;
+    private readonly IUsageMeter? _usageMeter;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly IOptions<SafetyOptions> _options;
@@ -39,6 +41,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         IEnumerable<IContentClassifier> classifiers,
         ISafetyIncidentRecorder recorder,
         IGuardianPreReviewService preReview,
+        IUsageMeter? usageMeter,
         ITenantProvider tenantProvider,
         IClock clock,
         IOptions<SafetyOptions> options,
@@ -49,6 +52,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         _classifiers = classifiers;
         _recorder = recorder;
         _preReview = preReview;
+        _usageMeter = usageMeter;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _options = options;
@@ -239,6 +243,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await ReleaseReservationAsync(request, SafetyDecisionOutcome.HeldForReview, cancellationToken);
 
         // No permit, and no incident: nothing was judged unsafe. HeldForReview is deliberately not a
         // refusal — it must not page like an outage, and the guardian must not be alarmed by it.
@@ -273,9 +278,50 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 decisionId, request.SubjectPartyId, MostSevere(categories), now, cancellationToken);
         }
 
+        await ReleaseReservationAsync(request, outcome, cancellationToken);
+
         // Never a permit. The absence is the enforcement: a caller cannot deliver by ignoring this
         // result, because it has nothing to deliver with.
         return new SafetyVerdict(Allowed: false, outcome, categories, decisionId, Permit: null);
+    }
+
+    /// <summary>
+    /// Nothing the child was not shown is billed (§10.1, §10.2, §18.6).
+    ///
+    /// <para>
+    /// Released on <em>every</em> non-allowed outcome, including <c>HeldForReview</c>. A hold can last
+    /// two weeks and a meter reservation cannot, so keeping it would only mean the platform's own
+    /// sweeper expiring it later; and charging a family for a story their parent had to approve by
+    /// hand is a worse trade than the credit is worth.
+    /// </para>
+    ///
+    /// <para>
+    /// Wrapped, because a billing failure must never become a delivery. If the release throws, the
+    /// content still does not go out — the family is over-charged by one credit, which is a support
+    /// conversation rather than an incident.
+    /// </para>
+    /// </summary>
+    private async Task ReleaseReservationAsync(
+        SafetyRequest request, SafetyDecisionOutcome outcome, CancellationToken cancellationToken)
+    {
+        if (request.UsageReservationId is not { } reservationId
+            || outcome == SafetyDecisionOutcome.Allowed
+            || _usageMeter is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _usageMeter.ReleaseAsync(reservationId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Failed to release usage reservation {ReservationId} after a {Outcome} verdict. "
+                + "The content is still withheld; the family may have been charged for it.",
+                reservationId, outcome);
+        }
     }
 
     /// <summary>
