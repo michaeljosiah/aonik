@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 096</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 4)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 5) — ready to implement</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Ai</span>
   <h1>Content safety for child-facing generation</h1>
@@ -865,8 +865,8 @@
   <tbody>
     <tr>
       <td><strong>S0</strong> — policy</td>
-      <td>Age bands, category definitions and thresholds agreed with product; the §12 procedure drafted with counsel; the §11 staff route written with qualified input. <strong>No code.</strong></td>
-      <td>The written policy exists and names people, not roles-in-the-abstract.</td>
+      <td>Age bands, category definitions and thresholds agreed with product. <strong>Runs alongside S1 rather than gating it</strong> — the schema and the gate do not depend on the numbers, only on there being numbers.</td>
+      <td>Thresholds exist as data. <strong>Two items are carried separately and do not gate code</strong> — see below.</td>
     </tr>
     <tr>
       <td><strong>S1</strong> — the gate</td>
@@ -900,6 +900,45 @@
     </tr>
   </tbody>
 </table>
+
+<h3 id="carried">17.1 What S0 no longer gates, and what still has to exist</h3>
+
+<div class="callout open">
+  <span class="callout-label">Decision — 2026-08-13, Michael</span>
+  An earlier revision made S0 a <strong>blocking</strong> phase requiring counsel and qualified input before any
+  code. That gate is <strong>removed</strong>; S0 now runs alongside S1. The distinction that matters is between
+  <em>advice</em>, which was gating and no longer is, and <em>obligations and duties of care</em>, which are not
+  advice and do not stop being true because a review was skipped.
+</div>
+
+<table>
+  <thead><tr><th>Item</th><th>Was</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Band and category thresholds</strong></td>
+      <td>Agreed before code</td>
+      <td><span class="chip reuse">parallel</span> They are <a href="#persistence">§15</a> policy <em>data</em>, and S1's schema does not depend on their values. Ship the mechanism, tune the numbers.</td>
+    </tr>
+    <tr>
+      <td><strong>The <a href="#reporting">§12</a> reporting procedure</strong></td>
+      <td>Drafted with counsel before code</td>
+      <td><span class="chip mirror">still required, not a code gate</span> <strong>This is a legal obligation, not legal advice.</strong> The technical parts — preservation that overrides deletion, restricted access, access logging — are built in S1 regardless. What is carried is the written procedure and the named person, and <strong>it must exist before the product is put in front of a child</strong>, which is a later date than before the first commit.</td>
+    </tr>
+    <tr>
+      <td><strong>The <a href="#disclosure">§11</a> staff route</strong></td>
+      <td>Written with qualified input before code</td>
+      <td><span class="chip mirror">still required, not a code gate</span> No code implements it — §11's whole position is that this is <em>not</em> automated. It is a written path to a named person, needed before launch rather than before implementation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">The one thing that does not move</span>
+  <strong>F7 — the named responsible person for §11 and §12 — still has to be a person, before a child uses
+  this.</strong> Removing the review gate changes when the paperwork is done; it does not remove the duty, and
+  "someone will look at it" remains not a procedure. This is the item most likely to be deferred until it cannot
+  be, which is why it is repeated here rather than left in the open-decisions table.
+</div>
 
 <h2 id="acceptance">18. Acceptance criteria</h2>
 
@@ -998,8 +1037,8 @@
 </table>
 
 <footer>
-  Spec 096 · Content safety for child-facing generation · Draft Rev 4 (Codex rounds 1-3: 16 findings applied) · 2026-08-12 ·
-  <strong>S0 policy work, including counsel, precedes implementation</strong> ·
+  Spec 096 · Content safety for child-facing generation · Draft Rev 5 (Codex rounds 1-3 applied; S0 gate lifted) · 2026-08-12 ·
+  S0 gate lifted 2026-08-13; obligations carried in <a href="#carried">§17.1</a> ·
   Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
   Preserves the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam by operating at
   the generation boundary · Gate pattern from <a href="032.tiered-ai-mutation-approval.html">Spec 032</a>

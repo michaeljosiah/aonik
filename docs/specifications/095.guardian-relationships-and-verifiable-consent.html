@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 095</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 4) — requires legal review</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 5) — ready to implement</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Platform</span>
   <h1>Guardian relationships and verifiable parental consent</h1>
@@ -1040,9 +1040,9 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
   <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
   <tbody>
     <tr>
-      <td><strong>G0</strong> — legal review</td>
-      <td>Counsel confirms thresholds, methods, retention and the <a href="#disclosure">§9</a> disclosure reading. <strong>No code.</strong></td>
-      <td>The <a href="#open">§17</a> decisions are closed by someone qualified to close them. <strong>Nothing below starts first.</strong></td>
+      <td><strong>G0</strong> — assumptions recorded</td>
+      <td>The <a href="#open">§17</a> questions are written down as <strong>stated assumptions with an owner</strong> rather than answered by counsel. <strong>Non-blocking</strong> — see <a href="#assumptions">§15.1</a>.</td>
+      <td>Every legal assumption this design rests on is explicit and attributable, so it can be revisited without archaeology. Implementation proceeds in parallel.</td>
     </tr>
     <tr>
       <td><strong>G1</strong> — model</td>
@@ -1076,6 +1076,57 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
     </tr>
   </tbody>
 </table>
+
+<h3 id="assumptions">15.1 The assumptions this design rests on</h3>
+
+<div class="callout open">
+  <span class="callout-label">Decision — 2026-08-13, Michael</span>
+  <p style="margin-top:0">
+    Earlier revisions made legal review a <strong>blocking</strong> first phase. That gate is
+    <strong>removed</strong> by decision of the product owner; implementation proceeds on the assumptions below.
+  </p>
+  <p style="margin-bottom:0">
+    The analysis is kept rather than deleted, because its value does not depend on being a gate. What follows is
+    what this design <em>assumes to be true</em>. If an assumption turns out to be wrong, this section is the
+    list of what has to change — which is a more useful artefact than a phase nobody ran.
+  </p>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Assumed</th><th>If wrong</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>Sending a child's prompt to a third-party model provider is <strong>disclosure</strong>, so the higher verification bar applies (<a href="#disclosure">§9</a>).</td>
+      <td><strong>Nothing.</strong> This assumption is the conservative one — being wrong means we built to a higher standard than required, which costs friction and no rework.</td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>A verified payment instrument is sufficient verifiable parental consent in the launch jurisdiction.</td>
+      <td><strong>G2 is rebuilt.</strong> The fallback methods in <a href="#verifiable">§8</a> exist partly for this, so the shape survives — but the happy path would change.</td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>UK-only launch, consent threshold 13, majority 18.</td>
+      <td><strong>Configuration, not code.</strong> <a href="#ages">§5</a> makes the threshold data precisely so this is cheap. Adding a jurisdiction is a config row plus a review.</td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>Consent records are retained after withdrawal for a period we choose, not one prescribed to us.</td>
+      <td>A retention value changes. No structural impact — the field exists either way.</td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>A DPIA is advisable but does not gate launch.</td>
+      <td><strong>This is the one with real exposure.</strong> A DPIA is normally expected for services likely to be accessed by children, and doing it after launch means doing some of the design twice.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Owner: Michael.</strong> Recorded so that a future reader can tell the difference between something we
+  decided and something we never considered — the two look identical in a spec that omits both.
+</p>
 
 <h2 id="acceptance">16. Acceptance criteria</h2>
 
@@ -1175,8 +1226,8 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
 </table>
 
 <footer>
-  Spec 095 · Guardian relationships and verifiable parental consent · Draft Rev 4 (Codex rounds 1-3: 22 findings applied) · 2026-08-12 ·
-  <strong>Requires legal review (G0) before implementation</strong> ·
+  Spec 095 · Guardian relationships and verifiable parental consent · Draft Rev 5 (Codex rounds 1-3 applied; G0 gate lifted) · 2026-08-12 ·
+  Legal-review gate removed by decision 2026-08-13; assumptions recorded in <a href="#assumptions">§15.1</a> ·
   Closes gaps deferred by <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> §17.1 ·
   Unblocks child-owned workspaces in <a href="089.workspaces.html">Spec 089</a> ·
   Paired with <a href="096.content-safety-for-child-facing-generation.html">Spec 096</a>
