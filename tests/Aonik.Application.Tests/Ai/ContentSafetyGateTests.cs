@@ -331,6 +331,25 @@ public class ContentSafetyGateTests
     }
 
     [Fact]
+    public async Task ABlockedPrompt_Should_NotBeStoredAsAnArtefact()
+    {
+        await using var context = CreateDbContext();
+        var gate = CreateGate(context, new StubClassifier(
+            scores: new Dictionary<string, double> { [SafetyCategories.SelfHarm] = 0.99 }));
+
+        var verdict = await gate.ScreenInputAsync(ARequest(), new string('x', 3000));
+
+        // At the input layer the "reference" is the child's raw prompt, not a storage key. Writing it
+        // into an artefact would break the never-the-content-itself rule AND overflow the column —
+        // throwing after the decision was saved, so the gate would never return its fail-closed
+        // verdict or release the reservation. §11 wants the prompt un-kept regardless.
+        verdict.Allowed.Should().BeFalse();
+        (await context.SafetyArtefacts.AnyAsync()).Should().BeFalse();
+        (await context.SafetyIncidents.AnyAsync()).Should().BeTrue(
+            "the incident still exists — it is the content pointer that must not");
+    }
+
+    [Fact]
     public async Task AnUnavailableCheck_Should_PreserveNothing()
     {
         await using var context = CreateDbContext();

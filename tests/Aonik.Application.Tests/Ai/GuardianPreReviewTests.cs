@@ -109,6 +109,12 @@ public class GuardianPreReviewTests
         held.SubjectPartyId.Should().Be(child);
         held.SafetyDecisionId.Should().Be(verdict.DecisionId);
         held.State.Should().Be(PreReviewStates.Pending);
+
+        // Recorded as HeldForReview, not Allowed-then-held. The hold row is deleted once it expires,
+        // so a decision saying "allowed" would leave an audit reconstructing this as delivered with
+        // nothing left to show it never reached the child.
+        (await context.SafetyDecisions.SingleAsync()).Outcome
+            .Should().Be(nameof(SafetyDecisionOutcome.HeldForReview));
     }
 
     [Fact]

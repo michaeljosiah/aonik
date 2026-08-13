@@ -100,7 +100,7 @@ public class GuardianReviewTests
 
         var outcome = await CreateService(context, guardianship).AppealAsync(guardian, incidentId);
 
-        outcome.Should().Be(AppealOutcome.Refused,
+        outcome.Outcome.Should().Be(AppealOutcome.Refused,
             "a guardian account is not proof of good intent, and this is where that matters most");
 
         (await context.SafetyIncidents.SingleAsync()).AppealState
@@ -148,9 +148,47 @@ public class GuardianReviewTests
 
         // Where false positives actually live: a knight fighting a dragon is the most common request
         // a six-year-old makes, and a parent's judgement should outrank a threshold there.
-        outcome.Should().Be(AppealOutcome.Released);
+        outcome.Outcome.Should().Be(AppealOutcome.Released);
         (await context.SafetyIncidents.SingleAsync()).AppealState
             .Should().Be(SafetyAppealStates.Released);
+
+        // Without a permit, "released" was a status with nothing behind it — the incident said
+        // Released and no caller could cross the delivery boundary, so the API reported a release
+        // that could not happen.
+        outcome.Permit.Should().NotBeNull();
+        outcome.Permit!.Authorises(SafetyModalities.Text, "blob://blocked").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ARefusedAppeal_Should_YieldNoPermit()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+        var incidentId = SeedIncident(context, child, SafetyCategories.Csam);
+
+        var outcome = await CreateService(context, guardianship).AppealAsync(guardian, incidentId);
+
+        // The absence is the enforcement, exactly as it is at the gate.
+        outcome.Permit.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AReleasedPermit_Should_CarryTheOriginalBlockedDecision()
+    {
+        await using var context = CreateDbContext();
+        var guardian = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        var guardianship = new StubGuardianship().Add(guardian, child);
+        var incidentId = SeedIncident(context, child, SafetyCategories.GraphicViolence);
+
+        var outcome = await CreateService(context, guardianship).AppealAsync(guardian, incidentId);
+
+        // Nothing was re-classified: a guardian overrode a verdict, and delivery stays traceable to
+        // the verdict they overrode rather than to a fresh one that never happened.
+        var incident = await context.SafetyIncidents.AsNoTracking().SingleAsync();
+        outcome.Permit!.DecisionId.Should().Be(incident.SafetyDecisionId);
     }
 
     [Fact]
@@ -167,7 +205,7 @@ public class GuardianReviewTests
 
         // The intended trade: keeping the very thing we judged unsafe, indefinitely, would be
         // perverse, so an appeal window is short and can close.
-        (await CreateService(context, guardianship).AppealAsync(guardian, incidentId))
+        (await CreateService(context, guardianship).AppealAsync(guardian, incidentId)).Outcome
             .Should().Be(AppealOutcome.NotAvailable);
     }
 
@@ -185,7 +223,7 @@ public class GuardianReviewTests
 
         await service.AppealAsync(guardian, incidentId);
 
-        (await service.AppealAsync(guardian, incidentId)).Should().Be(AppealOutcome.NotAvailable);
+        (await service.AppealAsync(guardian, incidentId)).Outcome.Should().Be(AppealOutcome.NotAvailable);
     }
 
     // ── Authority ────────────────────────────────────────────────────────
@@ -304,7 +342,7 @@ public class GuardianReviewTests
         var service = CreateService(context, guardianship);
 
         (await service.ListForGuardianAsync(guardian, child))[0].CanRelease.Should().BeFalse();
-        (await service.AppealAsync(guardian, incidentId)).Should().Be(AppealOutcome.Refused);
+        (await service.AppealAsync(guardian, incidentId)).Outcome.Should().Be(AppealOutcome.Refused);
     }
 
     [Fact]
@@ -320,7 +358,7 @@ public class GuardianReviewTests
         var service = CreateService(context, guardianship);
 
         await service.AppealAsync(first, incidentId);
-        (await service.AppealAsync(second, incidentId)).Should().Be(AppealOutcome.NotAvailable);
+        (await service.AppealAsync(second, incidentId)).Outcome.Should().Be(AppealOutcome.NotAvailable);
 
         // Who first reached for a sealed incident is the record the escalation is built on; a retry
         // overwriting it erases exactly the evidence that matters.
@@ -361,6 +399,6 @@ public class GuardianReviewTests
 
         (await CreateService(context, new StubGuardianship())
             .AppealAsync(Guid.NewGuid(), Guid.NewGuid()))
-            .Should().Be(AppealOutcome.NotAvailable);
+            .Outcome.Should().Be(AppealOutcome.NotAvailable);
     }
 }

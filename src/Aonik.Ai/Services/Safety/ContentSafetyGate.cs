@@ -184,21 +184,33 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         {
             return await RefuseAsync(
                 request, band, modality, layer, policy, SafetyDecisionOutcome.Blocked,
-                fired, result.AllRunIds, now, cancellationToken, reference);
+                fired, result.AllRunIds, now, cancellationToken,
+                // Only an OUTPUT reference is a storage key. At the input layer this value is the
+                // child's raw prompt, and persisting it as an artefact would both break the
+                // never-the-content-itself rule and overflow the column — throwing after the decision
+                // was saved, so the gate would never return its fail-closed verdict or release the
+                // reservation. §11 wants the prompt un-kept anyway.
+                issuePermit ? reference : null);
         }
-
-        var decisionId = await _recorder.RecordAsync(
-            new SafetyDecisionRecord(
-                tenantId, request.SubjectPartyId, band, modality, layer,
-                SafetyDecisionOutcome.Allowed, Categories: [], policy.Version,
-                request.GenerationRunId, result.AllRunIds, now),
-            cancellationToken);
 
         // Guardian pre-review (§8) sits HERE — after every automated layer has allowed the content,
         // never before. Approving a held item can therefore only release something already judged
         // safe: a guardian cannot click past the gate, whatever the product UI later offers them.
-        if (issuePermit
-            && await _preReview.RequiresPreReviewAsync(request.SubjectPartyId, band, cancellationToken))
+        var held = issuePermit
+            && await _preReview.RequiresPreReviewAsync(request.SubjectPartyId, band, cancellationToken);
+
+        // Recorded as HeldForReview from the outset rather than Allowed-then-held. The hold row is
+        // deleted once it expires, so a decision saying "allowed" would leave an audit reconstructing
+        // this as delivered — with nothing left to show it never reached the child.
+        var decisionId = await _recorder.RecordAsync(
+            new SafetyDecisionRecord(
+                tenantId, request.SubjectPartyId, band, modality, layer,
+                held ? SafetyDecisionOutcome.HeldForReview : SafetyDecisionOutcome.Allowed,
+                Categories: [], policy.Version,
+                request.GenerationRunId, result.AllRunIds, now),
+            cancellationToken);
+
+        if (held)
         {
             return await HoldAsync(request, band, modality, reference, decisionId, now, cancellationToken);
         }
