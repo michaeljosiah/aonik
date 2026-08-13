@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
 namespace Aonik.Ai.Services.Safety;
 
 /// <summary>
@@ -63,4 +66,34 @@ public static class SafetyComposition
             + "detect that category without keeping what it detected is worse than one that cannot "
             + "detect it — it looks operational. Register a protected store.");
     }
+}
+
+/// <summary>
+/// Fails the host at startup when the safety composition is unsafe (Spec 096 §12).
+///
+/// <para>
+/// The same check runs inside the gate's factory, but a scoped factory is evaluated lazily: the host
+/// would start clean and the exception would surface on the first child-facing request instead. A
+/// composition error that is detectable before serving traffic should be detected before serving
+/// traffic — that is the difference between a deployment that will not start and an outage.
+/// </para>
+/// </summary>
+internal sealed class SafetyCompositionValidator : IHostedService
+{
+    private readonly IServiceProvider _services;
+
+    public SafetyCompositionValidator(IServiceProvider services) => _services = services;
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _services.CreateScope();
+
+        SafetyComposition.RequirePreservationWhenClassifying(
+            scope.ServiceProvider.GetServices<ISafetyClassificationProvider>(),
+            scope.ServiceProvider.GetService<IPreservedInputStore>());
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
