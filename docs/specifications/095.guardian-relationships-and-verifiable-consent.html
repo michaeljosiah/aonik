@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 095</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 3) — requires legal review</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 4) — requires legal review</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Platform</span>
   <h1>Guardian relationships and verifiable parental consent</h1>
@@ -295,7 +295,32 @@
 
 <ul>
   <li><strong>Store the minimum that answers the question.</strong> Where a birth year suffices to place a child in an age band, store the year and not the full date. A product that needs to say "happy birthday" can ask separately, with its own consent.</li>
-  <li><strong>Age bands are the working unit</strong> — under-13, 13-to-threshold, at-or-over — because everything downstream (consent, defaults, <a href="096.content-safety-for-child-facing-generation.html">096</a>'s content bands) is banded rather than continuous.</li>
+  <li>
+    <strong>Two separate bandings, deliberately.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — one field cannot carry both partitions, and a previous draft made it try</span>
+      <code>Party.AgeBand</code> was defined here as the three-way <em>consent</em> partition — under-13,
+      13-to-threshold, at-or-over — with a note that <a href="096.content-safety-for-child-facing-generation.html">Spec
+      096</a> consumes it. But 096 needs <strong>four safety partitions</strong>: under 6, 6&ndash;9, 10&ndash;12,
+      and 13-to-majority. <strong>A six-year-old and a twelve-year-old share a consent band while needing
+      completely different prompts and thresholds</strong>, and the safety banding deliberately does <em>not</em>
+      change at the consent threshold. The two documents were prescribing incompatible partitions for a single
+      stored field.
+    </div>
+    <table style="margin-top:8px">
+      <thead><tr><th>Field</th><th>Partition</th><th>Answers</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td><code>ConsentBand</code></td><td>under-13 · 13-to-threshold · at-or-over</td><td>Who may consent, and to what</td><td>This spec</td></tr>
+        <tr><td><code>SafetyBand</code></td><td>under-6 · 6&ndash;9 · 10&ndash;12 · 13-to-majority</td><td>What may be generated, and how strictly</td><td><a href="096.content-safety-for-child-facing-generation.html">Spec 096</a></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:8px">
+      Both derive from the same attested date and both are stored with their own transition dates. They are
+      <strong>not derivable from one another</strong> and no code should try: they answer unrelated questions,
+      change on different dates, and are set by different authorities — a jurisdiction's legislature for one, our
+      own product judgement for the other.
+    </p>
+  </li>
   <li><strong>A child's declared age is attested by the guardian</strong> and the attestation is part of the consent record, so a false declaration is a traceable act by an identified adult rather than an anonymous checkbox.</li>
 </ul>
 
@@ -356,7 +381,24 @@
 
 <ul>
   <li><strong><code>PartyService</code> refuses <code>Guardian</code> outright.</strong> The generic create and update paths reject it with "guardian relationships are created through the consent service" — so the finance workflows are safe by construction rather than by their callers behaving. <strong>Failing closed in the shared path is the control</strong>; anything else relies on every future caller knowing.</li>
-  <li><strong>Only <code>IConsentService</code> may write one</strong>, and only inside the enrolment transaction of <a href="#enrolment">§12.2</a>, where guardian verification has already succeeded.</li>
+  <li>
+    <strong>Only <code>IConsentService</code> may write one</strong> — through exactly two operations, both of
+    which verify first.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — enrolment alone made multiplicity unreachable</span>
+      A previous draft allowed a <code>Guardian</code> edge to be created <em>only</em> inside
+      <code>EnrolChildAsync</code>, which creates a <strong>new child</strong>. So once a child existed there was
+      <strong>no authorised operation that could add a second guardian</strong> — you would have had to enrol a
+      duplicate child. That makes <a href="#guardian">§7</a>'s multiplicity requirement and the entire
+      withdrawal-wins rule in <a href="#disagreement">§7.1</a> unimplementable, since both presuppose a child can
+      have more than one guardian. The rule intended to stop unverified edges also stopped the legitimate ones.
+    </div>
+    <ul style="margin-top:8px">
+      <li><code>EnrolChildAsync</code> — creates the child and their <strong>first</strong> guardian (<a href="#enrolment">§12.2</a>).</li>
+      <li><code>AddGuardianAsync(childPartyId, newGuardianPartyId, verification)</code> — targets an <strong>existing</strong> child. The new guardian is verified to the same standard as the first (<a href="#verifiable">§8</a>); an <strong>existing active guardian must authorise the addition</strong>, so authority cannot be granted to oneself; and the operation is audited with both parties recorded.</li>
+      <li>The generic-path refusal is unchanged: <code>PartyService</code> still rejects <code>Guardian</code> outright, so neither operation weakens <a href="#privilege">§7.2</a>.</li>
+    </ul>
+  </li>
   <li><strong>Privileged codes are marked as such in the type definition</strong>, not remembered. A future code carrying authority inherits the refusal automatically instead of re-learning this lesson — and a test asserts that every privileged code is rejected by the generic path.</li>
 </ul>
 
@@ -624,10 +666,31 @@ which stores the derivation, not the DOB.</code></pre>
 <p>
   What the derivation <em>does</em> buy is narrower: two fields that are each used for one scheduled purpose,
   rather than a general-purpose birth date available to every query and every export. That is a real
-  data-minimisation gain in <em>use</em>, and it is the only claim now made for it. Where a guardian will not
-  attest a full date, the platform falls back to <strong>1 January of the birth year</strong> — the conservative
-  end, granting the young person their rights at the earliest defensible moment rather than the latest.
+  data-minimisation gain in <em>use</em>, and it is the only claim now made for it.
 </p>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — there is no fallback, and the "1 January" one recreated the defect it was meant to soften</span>
+  <p style="margin-top:0">
+    A previous draft fell back to <strong>1 January of the birth year</strong> when a guardian would not attest an
+    exact date, calling it the conservative end. It is not conservative; it is <strong>wrong in a different
+    direction for every boundary at once</strong>. A December-born child would enter the looser 6, 10 and 13
+    safety bands up to eleven months early — the exact defect the exact-date change was made to fix — and
+    <code>MajorityOn</code> could <strong>deactivate their guardian's authority before they are legally an
+    adult</strong>. It also contradicts two acceptance criteria in this document.
+  </p>
+  <p style="margin-bottom:0">
+    There is no single fallback date that is safe for all four boundaries, because they want opposite
+    conservatism: later is safer for banding, earlier is better for the young person's own rights.
+    <strong>So there is no fallback.</strong>
+  </p>
+</div>
+
+<ul>
+  <li><strong>An exact date of birth is required to enrol a child.</strong> Without one, enrolment does not complete.</li>
+  <li>The friction is proportionate: the guardian is already being verified with a payment instrument or a government ID (<a href="#verifiable">§8</a>). <strong>Attesting a date is a far smaller ask than what they have already done</strong>, and the correctness of four scheduled boundaries depends on it.</li>
+  <li>Refusing to invent a date is also the honest position. A guessed boundary is not a smaller error than a missing one — it is the same error, made silently, for every child.</li>
+</ul>
 
 <h3 id="ageupsteps">11.2 The consent-threshold transition</h3>
 
@@ -636,8 +699,24 @@ which stores the derivation, not the DOB.</code></pre>
 <ol>
   <li><strong>Both parties are notified in advance</strong> — the child and the guardians — so the transition is expected rather than abrupt.</li>
   <li><strong>The young person is offered their own account</strong>, and the platform grants the credentials to bind their existing <code>PartyId</code> to a new <code>UserId</code>. They keep everything: the party is the same person throughout, which is exactly why <a href="../decisions/015-groups-and-sharing-as-platform-primitives.md">ADR-015</a> keyed membership on party rather than user.</li>
-  <li><strong>Guardian <em>consents</em> lapse</strong> and the young person consents for themselves from that point. <strong>The <code>Guardian</code> edge stays active until <code>MajorityOn</code></strong> (<a href="#twoages">§11.1</a>) — they are still a minor, and their guardian retains the duties that come with that.</li>
-  <li><strong>Workspace ownership transfers to them</strong> — the deferral in <a href="089.workspaces.html">Spec 089</a> that this spec exists to close (<a href="#unlocks">§12</a>), and the reason its <code>OwnerPartyId</code> is party-keyed.</li>
+  <li><strong>Guardian <em>consents</em> lapse</strong> and the young person consents for themselves from that point — see <a href="#selfconsent">§11.3</a>, because "consents for themselves" had no valid record shape. <strong>The <code>Guardian</code> edge stays active until <code>MajorityOn</code></strong> (<a href="#twoages">§11.1</a>) — they are still a minor, and their guardian retains the duties that come with that.</li>
+  <li>
+    <strong>Workspace ownership does <em>not</em> transfer, because it was already theirs.</strong>
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">P0 — a previous draft specified two incompatible ownership models at once</span>
+      <a href="#unlocks">§12</a> says this spec's whole contribution is that <strong>the child owns their own
+      world</strong>, with a guardian able to act for them through the resolver. §11 then said ownership
+      "transfers to them" at age-up — which either contradicts that, or invokes
+      <a href="089.workspaces.html#transfer">089 §9.2</a>'s transfer path, <strong>which also migrates billing
+      claims and can refuse outright when the recipient lacks capacity</strong>. A young person could have been
+      locked out of their own childhood work by a quota check on the day they became entitled to it.
+    </div>
+    <ul style="margin-top:8px">
+      <li><strong>Age-up is an authority change, not a transfer.</strong> <code>OwnerPartyId</code> is unchanged because it already names them; what ends is the guardian's ability to act on their behalf.</li>
+      <li><strong>Billing is the part that does move</strong>, and 089 already separates it: <code>OwnerPartyId</code> and the billing subscriber are distinct fields precisely so a parent can pay for a workspace a child owns. At age-up the billing subscriber moves to the young person's own subscription — or the workspace stays billed to the family, which is often what everyone wants and should be offered.</li>
+      <li><strong>A capacity refusal must never orphan them from their work.</strong> If neither billing arrangement can be established, the workspace remains theirs and readable; it is sync and quota that pause, not access — the same rule as a lapsed entitlement in <a href="090.offline-verifiable-entitlement.html">Spec 090</a>.</li>
+    </ul>
+  </li>
   <li><strong>If they do not respond, the account is suspended rather than deleted or continued.</strong> Continuing would be processing without a basis; deleting would destroy years of a person's creative work at the moment they became entitled to it. Suspension is the only defensible middle, and the data is retained for a defined window so they can claim it.</li>
 </ol>
 
@@ -647,6 +726,35 @@ which stores the derivation, not the DOB.</code></pre>
   <a href="089.workspaces.html#transfer">089 §9.2</a> specifies. Age-up is the ordinary case that machinery
   exists for, not an exotic one.
 </p>
+
+<h3 id="selfconsent">11.3 What a self-consent actually looks like</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the schema had no shape for the grant the age-up flow depends on</span>
+  <a href="#record">§10</a> defines <code>GrantedByPartyId</code> as <strong>the guardian</strong>, and
+  <a href="#acceptance">§16</a> requires every grant to carry a <code>VerificationMethod</code> drawn from the
+  <em>parental</em>-verification mechanisms of <a href="#verifiable">§8</a>. So when a young person consents for
+  themselves at <code>ConsentAgeOn</code>, an implementer has two options and both are wrong: <strong>leave the
+  account suspended forever</strong>, or <strong>manufacture guardian-verification data</strong> for a person who
+  has no guardian consenting on their behalf. The transition this spec is proudest of had nowhere to write its
+  result.
+</div>
+
+<table>
+  <thead><tr><th>Field</th><th>Guardian consent</th><th>Self-consent</th></tr></thead>
+  <tbody>
+    <tr><td><code>SubjectPartyId</code></td><td>The child</td><td>Themselves</td></tr>
+    <tr><td><code>GrantedByPartyId</code></td><td>The guardian</td><td><strong>The same party as the subject.</strong> That equality <em>is</em> the marker of a self-grant — no separate flag to forget to set, and no row where the field is empty.</td></tr>
+    <tr><td><code>VerificationMethod</code></td><td>Payment instrument, ID, signed form</td><td><strong><code>self-authenticated</code></strong> — a distinct method, not a parental one wearing a disguise.</td></tr>
+    <tr><td><code>VerificationRef</code></td><td>Authorisation or check outcome</td><td>The authenticated session that granted it, through the platform's existing IdP.</td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><strong><code>self-authenticated</code> is only valid where <code>GrantedByPartyId == SubjectPartyId</code></strong> and the subject is at or over <code>ConsentAgeOn</code> for their jurisdiction. It cannot be used to consent on anyone else's behalf, and it cannot be used by a child below the threshold.</li>
+  <li>It is <strong>genuinely a verification</strong>, not an absence of one: the person proved who they are by signing in to an account bound to their own party. That is the same standard any adult self-consent on this platform meets.</li>
+  <li>Guardian-verification methods remain <strong>invalid for a self-grant</strong>, so the two cannot be confused in either direction.</li>
+</ul>
 
 <h2 id="unlocks">12. What guardian authority unlocks</h2>
 
@@ -722,7 +830,9 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
   is checkable before the child exists.
 
   IN ONE TRANSACTION:
-    create the child Party (BirthYear, AgeUpOn -- §11.1)
+    create the child Party: attested DOB -> ConsentAgeOn, MajorityOn,
+                            and the SAFETY band dates (Spec 096); the
+                            DOB column itself is not kept (§6)
     create the Guardian edge          (the ONLY path that may -- §7.2)
     write the service-core ConsentGrant and any purposes granted
     add the child to the family Group (Spec 086)
@@ -838,7 +948,7 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
       atomically, without waiting for a replacement. See <a href="#expiry">&sect;10.2</a>.
     </div></li>
   <li><code>AnkConsentVerifications</code> — one row per verification attempt including failures, since a pattern of failed attempts on one child is itself a signal worth having.</li>
-  <li><code>Party</code> gains <code>BirthYear</code>, <code>AgeBand</code> (derived, stored for query), and the two computed transition dates <code>ConsentAgeOn</code> and <code>MajorityOn</code> (<a href="#twoages">§11.1</a>). <strong>The attested date of birth is used to compute them and is never persisted.</strong></li>
+  <li><code>Party</code> gains <code>BirthYear</code>, <strong><code>ConsentBand</code> and <code>SafetyBand</code> as separate stored fields</strong> (<a href="#assurance">§6</a>), and the computed transition dates <code>ConsentAgeOn</code> and <code>MajorityOn</code> (<a href="#twoages">§11.1</a>). <strong>The attested date of birth is used to compute them and is never persisted.</strong></li>
   <li><code>PartyRelationshipTypes</code> gains <code>Guardian</code>, which touches the three <code>PartyService</code> validation sites that read <code>Codes</code>.</li>
   <li>
     <strong>The existing <code>AnkPartyConsents</code> table is <em>not</em> dropped in this spec.</strong>
@@ -875,7 +985,23 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
           because nothing violating them is ever written to it.
         </div>
         <ul style="margin-top:8px">
-          <li><code>AnkLegacyConsents</code> is <strong>read-only</strong> after the migration &mdash; an archive, not a second consent mechanism.</li>
+          <li>
+            <code>AnkLegacyConsents</code> is <strong>append-only through one controlled path</strong>, and
+            otherwise read-only &mdash; an archive, not a second consent mechanism.
+            <div class="callout p0" style="margin-top:8px">
+              <span class="callout-label">Strictly read-only left restored bundles with nowhere to go</span>
+              Step 3 keeps <strong>pre-migration export bundles importable</strong>. Those bundles carry none of
+              <code>GrantedByPartyId</code>, <code>TermsVersion</code> or <code>Jurisdiction</code>, so they
+              cannot enter <code>AnkConsentGrants</code> &mdash; and a strictly read-only archive refuses them
+              too. <strong>Restoring a customer's own backup would have failed with no valid destination</strong>,
+              which is a data-loss bug wearing an invariant's clothes.
+              <br><br>
+              So the archive accepts writes from <strong>the legacy-bundle importer alone</strong>: append-only,
+              audited, and marked with the bundle version it came from. Nothing else may write to it, it still
+              authorises nothing, and <code>IConsentReader</code> still never reads it &mdash; the invariant that
+              mattered is intact, and the one that was merely tidy is relaxed.
+            </div>
+          </li>
           <li><strong><code>IConsentReader</code> never consults it</strong>, so a legacy row cannot authorise anything &mdash; the correct treatment for consent obtained before any verification existed.</li>
           <li>It answers historical questions and keeps the data-export bundle whole. It grants nothing.</li>
         </ul>
@@ -958,7 +1084,7 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
   <li><strong><code>PartyService.CreateRelationshipAsync</code> and its update path refuse <code>Guardian</code></strong>, proven by a test that drives them the way <code>OrderService</code> does — with a caller-supplied code. Every code marked privileged is refused by the same test, so a future one inherits the protection.</li>
   <li>A child, their guardian edge and their first consent are created in <strong>one transaction or not at all</strong>; there is no endpoint that creates a child party alone.</li>
   <li>Granting a new <code>TermsVersion</code> <strong>revokes the prior version atomically</strong>, and two active grants for one subject and purpose cannot coexist — proven on <strong>LocalDB</strong>, where the filtered unique index is real.</li>
-  <li>A generation routed <strong>locally</strong> proceeds with <code>service-core</code> alone and no <code>generation-disclosure</code> grant; a local job <strong>is refused rather than silently retried remotely</strong> when the local route fails.</li>
+  <li>A generation routed <strong>locally</strong> proceeds without a <code>generation-disclosure</code> grant, but <strong>still requires <code>safety-classification</code></strong> while classifiers are external (<a href="#route">§12.3</a>) — <code>service-core</code> alone is <em>not</em> sufficient for any route that exists today. A local job <strong>is refused rather than silently retried remotely</strong> when the local route fails.</li>
   <li>Crossing <code>ConsentAgeOn</code> lapses guardian consents <strong>while leaving the <code>Guardian</code> edge active</strong>; only <code>MajorityOn</code> deactivates the edge.</li>
   <li>Both transitions are scheduled from <strong>stored dates</strong>, and the attested date of birth is <strong>not persisted anywhere</strong> after they are computed.</li>
   <li>The three existing <code>AnkPartyConsents</code> consumers — customer data export, import, and the admin view — <strong>continue to work</strong> across the migration, and no consent row is destroyed by it.</li>
@@ -966,6 +1092,12 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
   <li>Publishing a new current <code>TermsVersion</code> <strong>revokes affected active grants at publication</strong>, without waiting for a replacement grant &mdash; and processing for those purposes stops until re-consent.</li>
   <li>A failed enrolment <strong>persists its verification attempt</strong>, keyed on the guardian and an <code>EnrolmentAttemptId</code>, while creating no party, relationship, consent or membership.</li>
   <li>A generation routed locally still requires <code>safety-classification</code> while classifiers are external; a family refusing it is refused <strong>generation</strong>, not silently given unclassified output.</li>
+  <li>Enrolment <strong>requires an exact attested date of birth</strong> and completes without one under no circumstances; <strong>no boundary date is ever inferred from a year</strong>.</li>
+  <li><code>ConsentBand</code> and <code>SafetyBand</code> are <strong>separate stored fields</strong>, and neither is derived from the other.</li>
+  <li>A second guardian can be added to an <strong>existing</strong> child through <code>AddGuardianAsync</code> — verified to the same standard, authorised by an existing active guardian, and audited — <strong>without enrolling a duplicate child</strong>. Multiplicity and withdrawal-wins are therefore reachable.</li>
+  <li>A self-consent has <code>GrantedByPartyId == SubjectPartyId</code> and <code>VerificationMethod = self-authenticated</code>; that method is <strong>rejected</strong> for any grant where they differ, or where the subject is below <code>ConsentAgeOn</code>.</li>
+  <li>Age-up <strong>does not invoke a workspace ownership transfer</strong> — <code>OwnerPartyId</code> already names the young person — and a billing-capacity refusal <strong>never removes their access to their own work</strong>.</li>
+  <li>A pre-migration export bundle <strong>still restores</strong> after the migration, through the controlled legacy-import path, and nothing it writes can authorise anything.</li>
   <li><code>ConsentAgeOn</code> and <code>MajorityOn</code> are handled as <strong>birth-date-equivalent personal data</strong> &mdash; same access controls, retention and DPIA treatment as a stored date of birth would receive.</li>
   <li>A child party may have several active guardians, each able to act independently.</li>
   <li><strong>Any one guardian's withdrawal takes immediate effect</strong> regardless of other active grants, and re-granting is a fresh, deliberate act.</li>
@@ -1043,7 +1175,7 @@ ENROLMENT is the exception, and is gated differently -- §12.2.</code></pre>
 </table>
 
 <footer>
-  Spec 095 · Guardian relationships and verifiable parental consent · Draft Rev 3 (Codex rounds 1-2: 14 findings applied) · 2026-08-12 ·
+  Spec 095 · Guardian relationships and verifiable parental consent · Draft Rev 4 (Codex rounds 1-3: 22 findings applied) · 2026-08-12 ·
   <strong>Requires legal review (G0) before implementation</strong> ·
   Closes gaps deferred by <a href="086.extract-groups-and-sharing-to-platform.html">Spec 086</a> §17.1 ·
   Unblocks child-owned workspaces in <a href="089.workspaces.html">Spec 089</a> ·

@@ -58,7 +58,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 096</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 3)</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 4)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Ai</span>
   <h1>Content safety for child-facing generation</h1>
@@ -639,6 +639,17 @@
   <thead><tr><th>Record</th><th>Retention</th><th>Why</th></tr></thead>
   <tbody>
     <tr>
+      <td><strong>Safety decisions</strong> — one per attempted delivery: verdict, band, policy version, run ids. <strong>No content.</strong></td>
+      <td><strong>Bounded, and short by default.</strong> Proposed: 90 days in full, then <strong>anonymised</strong> — subject party dropped, the aggregate kept for evaluation.</td>
+      <td>
+        A row per generation is a <em>lot</em> of rows about one child, and a previous draft gave it no lifetime
+        at all while using it to pin <code>AiRun</code>s — so the design retained an unbounded history of every
+        child's every generation <strong>and held their model runs open indefinitely</strong>. That is the
+        opposite of the minimisation this same section argues for. <code>ISafetyRetentionSweeper</code> owns the
+        expiry and the anonymisation, alongside artefacts; the §12 hold overrides both.
+      </td>
+    </tr>
+    <tr>
       <td><strong>Safety incidents</strong> — a block, its category, its band, its verdict</td>
       <td>Longer. Months.</td>
       <td>Answers the parent's question, tunes the thresholds, evidences that the system works.</td>
@@ -685,9 +696,28 @@
 
 <ul>
   <li>
-    <code>AnkSafetyDecisions</code> <span class="tag new">Rev 3</span> — <strong>one row per attempted delivery,
-    not only per block</strong>: subject party, age band, verdict, the categories evaluated, and the
-    <code>AiRun</code> ids of the generation and of every classifier call.
+    <code>AnkSafetyDecisions</code> — <strong>one row per attempted delivery, not only per block</strong>:
+    subject party, safety band, verdict, the categories evaluated, <strong>the applied
+    <code>SafetyPolicyVersion</code></strong>, the classifier <code>AiRun</code> ids, and a
+    <strong>nullable</strong> generation <code>AiRun</code> id.
+    <div class="callout p0" style="margin-top:8px">
+      <span class="callout-label">Two corrections to this schema</span>
+      <p style="margin-top:0">
+        <strong>The generation run must be nullable.</strong> An L2 input block happens
+        <em>before dispatch</em> — that is the layer's whole purpose, and it is the cheap fail-closed path — so
+        no generation run exists. A non-null column would force an implementation either to skip persisting the
+        block or to <strong>fabricate an AI execution that never happened</strong>, corrupting the audit log in
+        the name of completing it. The classifier runs are still required; the generation run is present only for
+        post-dispatch outcomes.
+      </p>
+      <p style="margin-bottom:0">
+        <strong>The applied policy version must be recorded.</strong> Versioning <code>AnkSafetyPolicies</code>
+        does not by itself make an old verdict attributable — a reviewer looking at last month's block would have
+        to <em>infer</em> which threshold applied from timestamps, which is guesswork the moment a policy is
+        changed and re-changed. Persisting the version on the decision makes "why was this blocked?" answerable
+        exactly, which is the question §10.3's evaluation is built on.
+      </p>
+    </div>
     <div class="callout p0" style="margin-top:8px">
       <span class="callout-label">P0 — linking runs only through an <em>incident</em> loses the case that matters most</span>
       A previous draft attached the run ids to <code>AnkSafetyIncidents</code>, and an incident is written only
@@ -791,6 +821,43 @@
   construct. A gate a caller can forget to call is not a gate, and this platform has already learned that once.
 </div>
 
+<h3 id="consented">16.1 Routing is bounded by what the family consented to</h3>
+
+<div class="callout p0">
+  <span class="callout-label">P0 — the redundancy argued for in the last revision can silently breach consent</span>
+  <p style="margin-top:0">
+    Routing classifiers through <code>AiRoutePolicy</code> was the right correction, and it introduced a new
+    hole. <a href="095.guardian-relationships-and-verifiable-consent.html#disclosure">Spec 095 §9</a> requires the
+    consent text to <strong>name the external companies</strong> a child's content is sent to, and makes that list
+    part of the versioned terms. But <code>IConsentReader</code> checks only subject and purpose — so
+    <strong>a routing edit, or an automatic failover, can send a child's content to a company the family has
+    never heard of</strong>, without publishing terms or re-obtaining consent. Nothing in either spec would have
+    caught it.
+  </p>
+  <p style="margin-bottom:0">
+    It is the most likely way this design breaches consent in production, precisely because failover is supposed
+    to be automatic and invisible.
+  </p>
+</div>
+
+<ul>
+  <li><strong>Route selection for a child-facing generation is intersected with the provider list in the subject's active <code>TermsVersion</code>.</strong> A provider outside it is not a candidate, at any priority.</li>
+  <li><strong>Adding a provider is a terms change</strong>, with the <a href="095.guardian-relationships-and-verifiable-consent.html#expiry">publication-time revocation</a> that implies — not a configuration edit.</li>
+  <li><strong>Failover outside the list refuses</strong> and fails closed, rather than switching. The child sees the ordinary message; the operator sees an alert.</li>
+  <li>
+    <strong>So name every candidate provider up front, including failover ones.</strong>
+    <div class="callout ok" style="margin-top:8px">
+      <span class="callout-label">The operational consequence, which is genuinely awkward and worth accepting</span>
+      A vendor added during an incident cannot be used until terms are published and families re-consent — which
+      is exactly when you least want that constraint. The answer is to consent to the <em>full candidate set</em>
+      in advance rather than to the current one, so failover stays within it. That makes the terms slightly
+      longer and slightly less specific, and it is the right trade: a family who agreed to a named set of
+      companies is being told the truth, whereas one who agreed to a single provider and got a different one is
+      not.
+    </div>
+  </li>
+</ul>
+
 <h2 id="phasing">17. Phasing &amp; tasks</h2>
 
 <table>
@@ -850,8 +917,11 @@
   <li>A guardian <strong>cannot view or release</strong> content blocked in a non-overridable category, and repeated appeals against that category escalate to a person.</li>
   <li>Every safety verdict records the <code>AiRun</code> ids of the generation and of each classifier call, and <strong>no classifier reaches a vendor outside the audited pipeline</strong>.</li>
   <li>An <code>AiRun</code> referenced by a live decision or incident is <strong>not swept</strong> before it is.</li>
-  <li><strong>Every attempted delivery writes a decision record</strong> — not only blocks — carrying the verdict and the run ids, so a delivery later identified as a false negative can be reconstructed.</li>
-  <li><strong>No classifier resolves its provider or model outside <code>AiRoutePolicy</code></strong>, and a routing policy change redirects classification without a deployment.</li>
+  <li><strong>Every attempted delivery writes a decision record</strong> — not only blocks — carrying the verdict, the applied <strong>policy version</strong> and the run ids, so a delivery later identified as a false negative can be reconstructed exactly rather than inferred from timestamps.</li>
+  <li>An <strong>L2 input block persists a decision and an incident with a null generation run</strong>, and <strong>no fabricated <code>AiRun</code> is ever written</strong> for a generation that did not happen.</li>
+  <li>Safety decisions are <strong>expired and anonymised on a bounded schedule</strong> by <code>ISafetyRetentionSweeper</code>, and an <code>AiRun</code> is unpinned when its decision is — so the pin cannot retain runs indefinitely.</li>
+  <li><strong>No classifier resolves its provider or model outside <code>AiRoutePolicy</code></strong> — and routing for a child-facing generation is <strong>restricted to providers named in that subject's active terms</strong> (<a href="#consented">§16.1</a>). A policy edit cannot redirect a child's content to an unnamed company.</li>
+  <li><strong>Failover to a provider not named in the active terms is a refusal, not a switch.</strong> The generation fails closed and the child sees the ordinary "did not work" message.</li>
   <li>A person aged 13 to majority resolves to a defined band with defined thresholds — <strong>no age below majority falls outside the table</strong>.</li>
   <li>Band transitions fire on <strong>stored exact dates</strong>, so a December-born child does not enter an older band in January.</li>
   <li>The retention sweeper runs, deletes expired artefacts, and <strong>skips anything under a §12 hold</strong> — with the skip logged. A sweeper that fails to run is surfaced as a retention incident, not a silent backlog.</li>
@@ -928,7 +998,7 @@
 </table>
 
 <footer>
-  Spec 096 · Content safety for child-facing generation · Draft Rev 3 (Codex rounds 1-2: 12 findings applied) · 2026-08-12 ·
+  Spec 096 · Content safety for child-facing generation · Draft Rev 4 (Codex rounds 1-3: 16 findings applied) · 2026-08-12 ·
   <strong>S0 policy work, including counsel, precedes implementation</strong> ·
   Paired with <a href="095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> ·
   Preserves the <a href="../decisions/016-workspaces-as-platform-primitives.md">ADR-016</a> seam by operating at

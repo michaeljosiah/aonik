@@ -1090,7 +1090,7 @@ to prevent.</code></pre>
   </p>
   <p style="margin-bottom:0">
     <strong>Implication:</strong> <a href="specifications/095.guardian-relationships-and-verifiable-consent.html">Spec 095</a> is not a nice-to-have that follows launch; it is a
-    precondition of it, and it needs a legal read before an engineering one — which is why its first phase is counsel with no code. It also found that <code>PartyConsent</code> is a table nothing writes to, so the platform has no consent mechanism at all.
+    precondition of it, and it needs a legal read before an engineering one — which is why its first phase is counsel with no code. It also found that <code>PartyConsent</code> — which <strong>is</strong> written, by customer data import, and read by export and an admin view — has <strong>no service or endpoint that grants consent</strong>. So the platform has no consent <em>mechanism</em>, and the table is retired in stages rather than dropped.
   </p>
 </div>
 
