@@ -21,6 +21,8 @@ public interface IWorkspaceDataContext
     DbSet<WorkspaceFile> Files { get; }
     DbSet<WorkspaceBlob> Blobs { get; }
     DbSet<BlobPossession> Possessions { get; }
+    DbSet<BlobUploadSession> UploadSessions { get; }
+    DbSet<BlobUploadPart> UploadParts { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

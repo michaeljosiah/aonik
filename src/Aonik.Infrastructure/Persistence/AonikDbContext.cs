@@ -682,6 +682,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapWorkspacesTable<Aonik.Workspaces.Entities.WorkspaceFile>(modelBuilder, "WorkspaceFiles");
         MapWorkspacesTable<Aonik.Workspaces.Entities.WorkspaceBlob>(modelBuilder, "WorkspaceBlobs");
         MapWorkspacesTable<Aonik.Workspaces.Entities.BlobPossession>(modelBuilder, "BlobPossessions");
+        MapWorkspacesTable<Aonik.Workspaces.Entities.BlobUploadSession>(modelBuilder, "BlobUploadSessions");
+        MapWorkspacesTable<Aonik.Workspaces.Entities.BlobUploadPart>(modelBuilder, "BlobUploadParts");
         MapAgentsTable<TenantHttpTool>(modelBuilder, "TenantHttpTools");
         MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
