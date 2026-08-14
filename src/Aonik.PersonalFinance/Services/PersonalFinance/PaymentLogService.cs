@@ -4,6 +4,7 @@ using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.PersonalFinance.Services;
@@ -84,7 +85,7 @@ internal sealed class PaymentLogService : IPaymentLogService
         if (request.IdempotencyKey is Guid key)
         {
             var existing = await _dbContext.PaymentLogs
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .FirstOrDefaultAsync(
                     p => p.TenantId == tenantId && p.UserId == userId && p.IdempotencyKey == key,
                     cancellationToken);
@@ -225,7 +226,7 @@ internal sealed class PaymentLogService : IPaymentLogService
 
         // Soft-deleted rows are hidden by the global filter — bypass it to find one.
         var log = await _dbContext.PaymentLogs
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .FirstOrDefaultAsync(
                 p => p.Id == id && p.TenantId == tenantId && p.UserId == userId && p.IsDeleted,
                 cancellationToken);

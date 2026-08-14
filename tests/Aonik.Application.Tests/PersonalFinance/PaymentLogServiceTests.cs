@@ -5,6 +5,7 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -283,7 +284,7 @@ public class PaymentLogServiceTests
         await service.SoftDeleteAsync(log.Id);
 
         // Age the soft-delete past the 30-day restore window.
-        var deletedRow = await context.PaymentLogs.IgnoreQueryFilters().FirstAsync(p => p.Id == log.Id);
+        var deletedRow = await context.PaymentLogs.IncludeSoftDeleted().FirstAsync(p => p.Id == log.Id);
         deletedRow.DeletedAt = DateTime.UtcNow.AddDays(-40);
         await context.SaveChangesAsync();
 

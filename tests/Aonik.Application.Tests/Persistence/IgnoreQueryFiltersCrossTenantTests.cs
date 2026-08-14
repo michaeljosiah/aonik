@@ -90,6 +90,25 @@ namespace Aonik.Application.Tests.Persistence;
 ///     <c>CustomerInsightSnapshotJobUserEnumerator.cs</c>
 ///     → D — cron jobs that enumerate ACROSS all tenants and dispatch per-tenant work.
 ///     The downstream worker re-binds tenant context per dispatch.</item>
+///   <item><c>Aonik.Finance/Services/Remittance/RemittanceOrderService.cs</c>
+///     (webhook pipeline: <c>ProcessWebhookAsync</c>, <c>LocateRemittancePayoutAsync</c>,
+///     <c>PayoutMatchesProviderAsync</c>, <c>StoreUntranslatableEventAsync</c> — Connectors,
+///     PartnerWebhookEvents, Orders, OrderItems, Payouts lookups)
+///     → D — partner callbacks carry no ambient tenant. Lookups key on globally-unique
+///     values (entity PKs, <c>ClientReference REM-{orderId:N}</c>) or provider-scoped
+///     references cross-checked against the payout's own provider; the payout's TenantId
+///     is stamped onto the inbox row before any settlement write, and signature
+///     validation gates every state change (Spec 042 §9.2).</item>
+///   <item><c>Aonik.Platform/Services/Consent/AgeTransitionService.cs</c>
+///     (<c>FindTenantsWithWorkAsync</c>)
+///     → D — cron fan-out enumerator returning the distinct TenantIds with due age
+///     transitions; keeps soft-delete semantics by hand via <c>!p.IsDeleted</c>. Writes
+///     happen downstream inside per-tenant scopes guarded by <c>EnforceTenantOnWrites</c>.</item>
+///   <item><c>Aonik.PersonalFinance/Services/PersonalFinance/PaymentLogService.cs</c>
+///     (<c>CreateAsync</c> idempotency replay, <c>RestoreAsync</c>)
+///     → A — both keep <c>TenantId == tenantId &amp;&amp; UserId == userId</c> in the
+///     WHERE; the bypass exists only to see soft-deleted rows (replay-after-delete and
+///     restore-window behaviour covered by <c>PaymentLogServiceTests</c>).</item>
 /// </list>
 ///
 /// <para>
