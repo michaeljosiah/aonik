@@ -286,7 +286,7 @@ public sealed class UpdateNotificationPreferencesRequestValidator : Validator<Up
 {
     public UpdateNotificationPreferencesRequestValidator()
     {
-        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email!).Email().When(x => !string.IsNullOrEmpty(x.Email));
     }
 }
 
@@ -294,7 +294,7 @@ public sealed class UpdateMarketingPreferencesRequestValidator : Validator<Updat
 {
     public UpdateMarketingPreferencesRequestValidator()
     {
-        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email!).Email().When(x => !string.IsNullOrEmpty(x.Email));
     }
 }
 
@@ -361,7 +361,7 @@ public sealed class UpdateTenantRequestValidator : Validator<UpdateTenantRequest
         RuleFor(x => x.Industry).MaximumLength(128);
         RuleFor(x => x.CompanySize).MaximumLength(64);
         RuleFor(x => x.Website).MaximumLength(2048);
-        RuleFor(x => x.ContactEmail).Email().When(x => !string.IsNullOrEmpty(x.ContactEmail));
+        RuleFor(x => x.ContactEmail!).Email().When(x => !string.IsNullOrEmpty(x.ContactEmail));
         RuleFor(x => x.ContactMobile)
             .Matches(@"^\+[1-9]\d{7,14}$").WithMessage("ContactMobile must be in E.164 format.")
             .When(x => !string.IsNullOrEmpty(x.ContactMobile));
@@ -578,7 +578,7 @@ public sealed class CreatePartyRequestValidator : Validator<CreatePartyRequest>
         RuleFor(x => x.Phone)
             .Matches(@"^\+[1-9]\d{7,14}$").WithMessage("Phone must be in E.164 format.")
             .When(x => !string.IsNullOrEmpty(x.Phone));
-        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email!).Email().When(x => !string.IsNullOrEmpty(x.Email));
         RuleFor(x => x.CountryCode)
             .Length(2).Matches("^[A-Z]{2}$")
             .When(x => !string.IsNullOrEmpty(x.CountryCode));
@@ -596,7 +596,7 @@ public sealed class CreateRelatedPartyRequestValidator : Validator<CreateRelated
         RuleFor(x => x.Phone)
             .Matches(@"^\+[1-9]\d{7,14}$").WithMessage("Phone must be in E.164 format.")
             .When(x => !string.IsNullOrEmpty(x.Phone));
-        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email!).Email().When(x => !string.IsNullOrEmpty(x.Email));
         RuleFor(x => x.CountryCode)
             .Length(2).Matches("^[A-Z]{2}$")
             .When(x => !string.IsNullOrEmpty(x.CountryCode));

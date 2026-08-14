@@ -636,10 +636,10 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
     /// fallback profile. Used so admins can set a vendor-wide default model on the provider
     /// row and only override per chat-speech setting when needed.
     /// </summary>
-    private static string ResolveModelId(string? perTenantOverride, string? providerDefault, string fallback)
+    private static string? ResolveModelId(string? perTenantOverride, string? providerDefault, string? fallback)
     {
-        if (!string.IsNullOrWhiteSpace(perTenantOverride)) return perTenantOverride!;
-        if (!string.IsNullOrWhiteSpace(providerDefault)) return providerDefault!;
+        if (!string.IsNullOrWhiteSpace(perTenantOverride)) return perTenantOverride;
+        if (!string.IsNullOrWhiteSpace(providerDefault)) return providerDefault;
         return fallback;
     }
 

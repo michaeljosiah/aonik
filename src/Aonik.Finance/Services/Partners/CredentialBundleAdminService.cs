@@ -94,7 +94,7 @@ internal sealed class CredentialBundleAdminService : FinanceServiceBase, ICreden
         }
 
         var bundle = await _bundleService.UpsertAsync(
-            new CredentialBundleWriteRequest(request.Ref, request.Name, request.ConnectorKind, request.Secrets),
+            new CredentialBundleWriteRequest(normalizedRef, request.Name, request.ConnectorKind, request.Secrets),
             cancellationToken);
         return await LoadListItemAsync(bundle.Ref, cancellationToken);
     }
