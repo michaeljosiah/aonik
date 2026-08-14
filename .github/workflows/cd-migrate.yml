@@ -147,7 +147,7 @@ jobs:
             echo "Applying Quartz schema (idempotent — uses IF NOT EXISTS)..."
             # Install sqlcmd via the mssql-tools package
             curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc > /dev/null
-            sudo add-apt-repository "$(curl -sSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list)" 2>/dev/null || true
+            sudo add-apt-repository "$(curl -sSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list")" 2>/dev/null || true
             sudo apt-get update -qq && sudo apt-get install -y -qq sqlcmd 2>/dev/null || sudo apt-get install -y -qq mssql-tools18 unixodbc-dev 2>/dev/null || true
 
             # Parse connection string components
@@ -174,14 +174,14 @@ jobs:
           set -euo pipefail
 
           mode="${{ inputs.mode }}"
-          args=""
+          args=()
 
           case "$mode" in
             migrate-only)
-              args="--migrate-only"
+              args+=(--migrate-only)
               ;;
             seed-only)
-              args="--seed-only"
+              args+=(--seed-only)
               ;;
             migrate-and-seed)
               # default behaviour — no args needed
@@ -189,7 +189,7 @@ jobs:
           esac
 
           if [ "${{ inputs.reset }}" = "true" ]; then
-            args="$args --reset"
+            args+=(--reset)
           fi
 
           echo "Running migrator (mode: ${mode}, reset: ${{ inputs.reset }})..."
@@ -197,7 +197,7 @@ jobs:
             --project src/Aonik.Migrator/Aonik.Migrator.csproj \
             --configuration Release \
             --no-build \
-            -- $args
+            -- "${args[@]}"
 
       - name: Restart API container after --reset
         if: ${{ !inputs.dry_run && inputs.reset }}
