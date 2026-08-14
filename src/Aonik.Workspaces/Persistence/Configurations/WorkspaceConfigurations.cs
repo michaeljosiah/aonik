@@ -112,3 +112,38 @@ public class BlobPossessionConfiguration : IEntityTypeConfiguration<BlobPossessi
             .HasFilter("[IsDeleted] = 0");
     }
 }
+
+public class BlobUploadSessionConfiguration : IEntityTypeConfiguration<BlobUploadSession>
+{
+    public void Configure(EntityTypeBuilder<BlobUploadSession> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.SubscriberKind).IsRequired().HasMaxLength(32);
+        builder.Property(x => x.DeclaredHash).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
+
+        builder.HasMany(x => x.Parts)
+            .WithOne()
+            .HasForeignKey(p => p.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // The resume lookup, and the sweep predicate.
+        builder.HasIndex(x => new { x.TenantId, x.SubscriberKind, x.SubscriberId, x.DeclaredHash, x.Status });
+        builder.HasIndex(x => new { x.TenantId, x.Status, x.ExpiresAt });
+    }
+}
+
+public class BlobUploadPartConfiguration : IEntityTypeConfiguration<BlobUploadPart>
+{
+    public void Configure(EntityTypeBuilder<BlobUploadPart> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.StorageKey).IsRequired().HasMaxLength(512);
+
+        // One row per part per session. Two rows for one part number would append the same bytes twice
+        // into the assembly, and the hash check would then reject a blob the client sent correctly.
+        builder.HasIndex(x => new { x.TenantId, x.SessionId, x.PartNumber })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+    }
+}

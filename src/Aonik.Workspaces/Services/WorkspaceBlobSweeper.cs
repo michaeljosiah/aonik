@@ -44,6 +44,7 @@ public interface IWorkspaceBlobSweeper
 /// <param name="Abandoned">
 /// Claimed, then found referenced again before the delete. Not a failure — it is the mechanism working.
 /// </param>
+/// <param name="StagingRemoved">Abandoned upload sessions reclaimed. No longer always zero (Spec 091 §7).</param>
 public sealed record BlobSweepSummary(int Deleted, int Abandoned, int StagingRemoved);
 
 internal sealed class WorkspaceBlobSweeper : IWorkspaceBlobSweeper
@@ -181,17 +182,66 @@ internal sealed class WorkspaceBlobSweeper : IWorkspaceBlobSweeper
     /// find them. An abandoned multi-gigabyte upload is invisible and billed.
     /// </para>
     /// </summary>
-    private Task<int> SweepStagingAsync(Guid tenantId, DateTime now, CancellationToken cancellationToken)
+    /// <summary>
+    /// Removes abandoned upload sessions and their parts (Spec 091 §7).
+    ///
+    /// <para>
+    /// This was a no-op until 091 gave staging a database record. Before that an abandoned multi-gigabyte upload
+    /// had no row at all — nothing could find it without enumerating a storage prefix, which <c>IFileStore</c>
+    /// cannot do — so it was invisible and paid for. The session row is what makes it sweepable.
+    /// </para>
+    /// </summary>
+    private async Task<int> SweepStagingAsync(
+        Guid tenantId, DateTime now, CancellationToken cancellationToken)
     {
-        // Deliberately not implemented against IFileStore yet: enumerating a prefix is a capability the
-        // contract does not have, and inventing one here would be a second storage abstraction. Tracked
-        // as the remaining piece of §5's staging sweep; the object-side listing lands with the store
-        // extension it needs.
-        _logger.LogDebug(
-            "Staging sweep for tenant {TenantId} is a no-op until IFileStore can enumerate a prefix.",
-            tenantId);
+        var stale = await _dbContext.UploadSessions
+            .Include(s => s.Parts)
+            .Where(s => s.TenantId == tenantId
+                && (s.Status != Entities.UploadSessionStatuses.Open || s.ExpiresAt <= now))
+            .Take(_options.SweepBatchSize)
+            .ToListAsync(cancellationToken);
 
-        return Task.FromResult(0);
+        var removed = 0;
+
+        foreach (var session in stale)
+        {
+            var allDeleted = true;
+
+            foreach (var part in session.Parts)
+            {
+                try
+                {
+                    await _fileStore.DeleteAsync(part.StorageKey, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The row stays so the next pass tries again. Dropping it would strand the object
+                    // exactly as the pre-091 path did.
+                    _logger.LogWarning(ex,
+                        "Could not delete upload part {StorageKey}; leaving the session for the next pass.",
+                        part.StorageKey);
+
+                    allDeleted = false;
+                    break;
+                }
+            }
+
+            if (!allDeleted)
+            {
+                continue;
+            }
+
+            _dbContext.UploadParts.RemoveRange(session.Parts);
+            _dbContext.UploadSessions.Remove(session);
+            removed++;
+        }
+
+        if (removed > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return removed;
     }
 }
 
@@ -211,4 +261,26 @@ public sealed class WorkspaceOptions
     public int UnreferencedGraceHours { get; set; } = 24;
 
     public int SweepBatchSize { get; set; } = 500;
+
+    /// <summary>
+    /// Above this, an upload goes through the multipart path (Spec 091 §7).
+    ///
+    /// <para>
+    /// 32MB. Below it the part bookkeeping costs more than the retry it saves; above it a failed transfer is
+    /// painful on a domestic uplink.
+    /// </para>
+    /// </summary>
+    public long MultipartThresholdBytes { get; set; } = 32L * 1024 * 1024;
+
+    public int PartSizeBytes { get; set; } = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// How long an open upload session survives without progress.
+    ///
+    /// <para>
+    /// Long enough that a client resuming the next morning still has its parts, and finite because incomplete
+    /// uploads must not be billable and must not accumulate.
+    /// </para>
+    /// </summary>
+    public int UploadSessionHours { get; set; } = 48;
 }

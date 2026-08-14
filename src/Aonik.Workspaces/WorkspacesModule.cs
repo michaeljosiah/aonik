@@ -48,6 +48,7 @@ public static class WorkspacesModule
         services.AddScoped<Services.IWorkspaceBlobSweeper, Services.WorkspaceBlobSweeper>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceSyncService, Services.WorkspaceSyncService>();
         services.AddScoped<Services.IBlobPossessionService, Services.BlobPossessionService>();
+        services.AddScoped<Services.IWorkspaceUploadService, Services.WorkspaceUploadService>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceService, Services.WorkspaceService>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceReader>(
             sp => (Services.WorkspaceService)sp.GetRequiredService<SharedKernel.Abstractions.Workspaces.IWorkspaceService>());
