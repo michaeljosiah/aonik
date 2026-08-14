@@ -1,4 +1,5 @@
 using Aonik.Groups;
+using Aonik.Workspaces;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Messaging.Outbox;
@@ -28,6 +29,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddGroupsModule(builder.Configuration);
+builder.Services.AddWorkspacesModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);

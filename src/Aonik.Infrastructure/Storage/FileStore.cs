@@ -110,6 +110,58 @@ public class FileStore : IFileStore
         await _blobStorage.DeleteAsync(new[] { storageKey }, cancellationToken);
     }
 
+    public async Task<StagedBlob> StageAsync(
+        Guid tenantId,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        // A temp key per attempt. Two clients staging the same content must not collide here — they
+        // converge later, at the content key, which is the only place convergence is safe.
+        var tempKey = StoragePath.Combine(
+            "workspaces", tenantId.ToString("N"), "staging", $"{Guid.NewGuid():N}");
+
+        await using var hashing = new HashingReadStream(content);
+
+        // Single pass. The hash is computed off the bytes as the store pulls them, so a non-seekable
+        // multi-gigabyte upload never has to be buffered to be hashed.
+        await _blobStorage.WriteAsync(tempKey, hashing, append: false, cancellationToken);
+
+        return new StagedBlob(tenantId, hashing.GetHashHex(), hashing.BytesRead, tempKey);
+    }
+
+    public async Task<PromoteResult> PromoteAsync(
+        StagedBlob staged,
+        string contentKey,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(staged);
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentKey);
+
+        var existing = await _blobStorage.ExistsAsync([contentKey], cancellationToken);
+
+        if (existing.FirstOrDefault())
+        {
+            // Someone got here first with byte-identical content — the key IS the hash, so there is
+            // nothing to reconcile and nothing worth keeping. Discarding rather than overwriting is
+            // what stops concurrent uploads of the same bytes stranding objects nobody references.
+            await _blobStorage.DeleteAsync([staged.TempKey], cancellationToken);
+            return new PromoteResult(PromoteOutcome.AlreadyPresent, contentKey, staged.SizeBytes);
+        }
+
+        await using (var source = await _blobStorage.OpenReadAsync(staged.TempKey, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Staged object {staged.TempKey} is missing; it may have been swept before promotion."))
+        {
+            await _blobStorage.WriteAsync(contentKey, source, append: false, cancellationToken);
+        }
+
+        await _blobStorage.DeleteAsync([staged.TempKey], cancellationToken);
+
+        return new PromoteResult(PromoteOutcome.Stored, contentKey, staged.SizeBytes);
+    }
+
     public string GetUrl(string storageKey)
     {
         if (!string.IsNullOrWhiteSpace(_contentTypeOptions.PublicBaseUrl))
