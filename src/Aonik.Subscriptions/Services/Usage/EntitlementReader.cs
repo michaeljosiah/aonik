@@ -46,7 +46,7 @@ internal sealed class EntitlementReader : IEntitlementReader
             .Where(s => s.TenantId == tenantId
                         && s.SubscriberKind == subscriber.Kind
                         && s.SubscriberId == subscriber.Id
-                        && SubscriptionStatuses.OccupiesActiveSlot.Contains(s.Status))
+                        && SubscriptionStatuses.OccupiesActiveSlotQueryable.Contains(s.Status))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (subscription is null)

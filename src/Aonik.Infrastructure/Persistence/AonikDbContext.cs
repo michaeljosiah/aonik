@@ -477,6 +477,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapSubscriptionsTable<UsageRecord>(modelBuilder, "UsageRecords");
         MapSubscriptionsTable<CeilingHolding>(modelBuilder, "CeilingHoldings");
         MapSubscriptionsTable<CeilingClaim>(modelBuilder, "CeilingClaims");
+        MapSubscriptionsTable<Aonik.Subscriptions.Entities.Entitlements.EntitlementSigningKey>(modelBuilder, "EntitlementSigningKeys");
+        MapSubscriptionsTable<Aonik.Subscriptions.Entities.Entitlements.EntitlementTokenIssue>(modelBuilder, "EntitlementTokenIssues");
+        MapSubscriptionsTable<Aonik.Subscriptions.Entities.Entitlements.EntitlementRevocation>(modelBuilder, "EntitlementRevocations");
         MapCommerceTable<ProductVariant>(modelBuilder, "ProductVariants");
         MapCommerceTable<ProductCategory>(modelBuilder, "ProductCategories");
         MapCommerceTable<ProductMedia>(modelBuilder, "ProductMedia");

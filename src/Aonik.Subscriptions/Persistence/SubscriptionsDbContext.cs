@@ -31,6 +31,9 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
     public DbSet<CeilingHolding> CeilingHoldings => Set<CeilingHolding>();
     public DbSet<CeilingClaim> CeilingClaims => Set<CeilingClaim>();
+    public DbSet<Entities.Entitlements.EntitlementSigningKey> EntitlementSigningKeys => Set<Entities.Entitlements.EntitlementSigningKey>();
+    public DbSet<Entities.Entitlements.EntitlementTokenIssue> EntitlementTokenIssues => Set<Entities.Entitlements.EntitlementTokenIssue>();
+    public DbSet<Entities.Entitlements.EntitlementRevocation> EntitlementRevocations => Set<Entities.Entitlements.EntitlementRevocation>();
 
     public SubscriptionsDbContext(
         DbContextOptions<SubscriptionsDbContext> options,
@@ -69,6 +72,9 @@ internal sealed class SubscriptionsDbContext : AonikDbContextBase
         MapTable<UsageRecord>(modelBuilder, "UsageRecords");
         MapTable<CeilingHolding>(modelBuilder, "CeilingHoldings");
         MapTable<CeilingClaim>(modelBuilder, "CeilingClaims");
+        MapTable<Entities.Entitlements.EntitlementSigningKey>(modelBuilder, "EntitlementSigningKeys");
+        MapTable<Entities.Entitlements.EntitlementTokenIssue>(modelBuilder, "EntitlementTokenIssues");
+        MapTable<Entities.Entitlements.EntitlementRevocation>(modelBuilder, "EntitlementRevocations");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
