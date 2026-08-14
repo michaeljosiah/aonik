@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.Workspaces</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Spec 089 / ADR-016 — workspaces as a platform primitive.
+
+    A MIDDLE-LAYER module referencing ONLY SharedKernel, where Aonik.Ordering and Aonik.Groups sit,
+    and for the same forced reason: Platform already references PersonalFinance, while
+    PersonalFinance deliberately references only SharedKernel. Putting Workspaces inside Platform
+    would require PersonalFinance -> Platform and invert an existing edge.
+
+    Acceptance criterion 1 is literally this ProjectReference list: only SharedKernel. And criterion
+    2 is that no type here names a product concept — no sheet, canon, production or world, except as
+    the VALUE of Kind. "World" is Arke's word and stays in Arke's UI (ADR-013).
+
+    The canonical migration stream stays in AonikDbContext; WorkspacesDbContext declares none.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Platform" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <InternalsVisibleTo Include="Aonik.Database.Tests" />
+    <InternalsVisibleTo Include="Aonik.Architecture.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+  </ItemGroup>
+
+</Project>

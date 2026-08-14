@@ -39,6 +39,7 @@
     <ProjectReference Include="..\..\src\Aonik.Agents\Aonik.Agents.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Application\Aonik.Application.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Workspaces\Aonik.Workspaces.csproj" />
   </ItemGroup>
 
 </Project>
