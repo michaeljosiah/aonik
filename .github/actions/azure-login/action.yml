@@ -23,14 +23,14 @@ runs:
   steps:
     - name: Azure login (Service Principal Secret fallback)
       if: ${{ inputs.client_secret != '' }}
-      uses: azure/login@v2
+      uses: azure/login@v3
       with:
         creds: >-
           {"clientId":"${{ inputs.client_id }}","clientSecret":"${{ inputs.client_secret }}","subscriptionId":"${{ inputs.subscription_id }}","tenantId":"${{ inputs.tenant_id }}"}
 
     - name: Azure login (OIDC)
       if: ${{ inputs.client_secret == '' }}
-      uses: azure/login@v2
+      uses: azure/login@v3
       with:
         client-id: ${{ inputs.client_id }}
         tenant-id: ${{ inputs.tenant_id }}
