@@ -52,4 +52,58 @@ public interface IFileStore
     /// it returns the full CDN/public URL.
     /// </summary>
     string GetUrl(string storageKey);
+
+    /// <summary>
+    /// Streams content to a temporary key, hashing as it goes (Spec 089 §5).
+    ///
+    /// <para>
+    /// <see cref="UploadAsync"/> cannot serve content addressing, and saying otherwise hid a real prerequisite.
+    /// It returns a SHA-256 — but <em>after</em> writing the object to a randomly-named GUID path it chose
+    /// itself. The hash is an <strong>output, never an input</strong>, so a key derived from the hash cannot be
+    /// produced by it. Two identical uploads would write two physical objects and only the database row would
+    /// dedupe, leaving the second stranded and paid for.
+    /// </para>
+    ///
+    /// <para>
+    /// Nothing is materialised in memory: the hash is computed off the bytes as they stream past.
+    /// </para>
+    /// </summary>
+    Task<StagedBlob> StageAsync(
+        Guid tenantId,
+        Stream content,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Moves a staged object to its content key (Spec 089 §5).
+    ///
+    /// <para>
+    /// <strong>If the key already exists the staged copy is discarded</strong> and the result reports
+    /// <see cref="PromoteOutcome.AlreadyPresent"/>. That is the whole concurrency answer: last writer discards
+    /// rather than duplicates. Because the key <em>is</em> the hash, a racing writer that gets there first wrote
+    /// byte-identical content, so there is nothing to reconcile.
+    /// </para>
+    /// </summary>
+    Task<PromoteResult> PromoteAsync(
+        StagedBlob staged,
+        string contentKey,
+        CancellationToken cancellationToken = default);
 }
+
+/// <param name="ContentHash">Lowercase hex SHA-256, computed while streaming.</param>
+/// <param name="TempKey">Where the bytes are until they are promoted or swept.</param>
+public sealed record StagedBlob(
+    Guid TenantId,
+    string ContentHash,
+    long SizeBytes,
+    string TempKey);
+
+public enum PromoteOutcome
+{
+    /// <summary>The staged object became the content object.</summary>
+    Stored = 0,
+
+    /// <summary>Something already held these exact bytes; the staged copy was discarded.</summary>
+    AlreadyPresent = 1,
+}
+
+public sealed record PromoteResult(PromoteOutcome Outcome, string ContentKey, long SizeBytes);

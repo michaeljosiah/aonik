@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,5 +17,36 @@ public static class WorkspacesModule
 {
     public static IServiceCollection AddWorkspacesModule(
         this IServiceCollection services, IConfiguration configuration)
-        => services;
+    {
+        services.Configure<Services.WorkspaceOptions>(
+            configuration.GetSection(Services.WorkspaceOptions.SectionName));
+
+        // Unlike Groups, this module owns its context outright. Groups defers the choice because a
+        // membership write must share a transaction with a contributor's reaction in another module;
+        // nothing here reaches outside itself, so deferring would be ceremony.
+        services.AddDbContext<Persistence.WorkspacesDbContext>((sp, options) =>
+        {
+            if (configuration.GetValue<bool>("UseInMemoryDatabase"))
+            {
+                options.UseInMemoryDatabase(
+                    configuration.GetValue<string>("InMemoryDatabaseName") ?? $"WorkspacesDb_{Guid.NewGuid()}");
+            }
+            else
+            {
+                options.UseSqlServer(
+                    configuration.GetConnectionString("DefaultConnection")
+                        ?? configuration.GetConnectionString("AonikDb")
+                        ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;",
+                    sql => sql.EnableRetryOnFailure());
+            }
+        });
+
+        services.AddScoped<Persistence.IWorkspaceDataContext>(
+            sp => sp.GetRequiredService<Persistence.WorkspacesDbContext>());
+
+        services.AddScoped<Services.IWorkspaceBlobService, Services.WorkspaceBlobService>();
+        services.AddScoped<Services.IWorkspaceBlobSweeper, Services.WorkspaceBlobSweeper>();
+
+        return services;
+    }
 }

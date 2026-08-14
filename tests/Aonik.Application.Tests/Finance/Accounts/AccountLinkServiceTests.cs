@@ -139,6 +139,17 @@ public class AccountLinkServiceTests
             => Task.CompletedTask;
 
         public string GetUrl(string storageKey) => $"https://storage.test/{storageKey}";
+
+        // Spec 089 §5 additions. Nothing in this test exercises content addressing, so they throw
+        // rather than returning a plausible-looking hash — a fake that quietly answers a question the
+        // test never asked is how a future test comes to depend on a value nobody chose.
+        public Task<StagedBlob> StageAsync(
+            Guid tenantId, Stream content, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<PromoteResult> PromoteAsync(
+            StagedBlob staged, string contentKey, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class FakeAccountLinkProviderGateway : IPersonalAccountLinkProviderGateway

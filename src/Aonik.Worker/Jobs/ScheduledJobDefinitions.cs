@@ -1,4 +1,4 @@
-﻿using Aonik.Platform.Entities.Operations;
+using Aonik.Platform.Entities.Operations;
 using Quartz;
 
 namespace Aonik.Worker.Jobs;
@@ -164,6 +164,13 @@ internal static class ScheduledJobDefinitions
                 "Deletes expired blocked content and anonymises expired safety decisions, skipping legal holds (Spec 096 §13).",
                 options.SafetyRetention.CronExpression,
                 options.SafetyRetention.Enabled),
+            new ScheduledJobDefinition<WorkspaceBlobSweepJob>(
+                WorkspaceBlobSweepJob.Key,
+                new TriggerKey("WorkspaceBlobSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Workspace Blob Sweep",
+                "Reclaims workspace blobs nothing references, claiming each before deleting so a concurrent commit is never left dangling (Spec 089 §5.1).",
+                options.WorkspaceBlobSweep.CronExpression,
+                options.WorkspaceBlobSweep.Enabled),
             new ScheduledJobDefinition<AgeTransitionJob>(
                 AgeTransitionJob.Key,
                 new TriggerKey("AgeTransitionJob-trigger", ScheduledJobGroups.ScheduledJobs),

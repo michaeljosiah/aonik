@@ -1,4 +1,4 @@
-﻿namespace Aonik.Worker.Jobs;
+namespace Aonik.Worker.Jobs;
 
 /// <summary>
 /// Configuration for all Quartz-scheduled background jobs.
@@ -28,6 +28,9 @@ public sealed class ScheduledJobOptions
 
     // Spec 096 §13 — content-safety retention.
     public SafetyRetentionJobOptions SafetyRetention { get; set; } = new();
+
+    // Spec 089 §5.1 — workspace blob reclamation.
+    public WorkspaceBlobSweepJobOptions WorkspaceBlobSweep { get; set; } = new();
 
     // One-off backfills. Both are disabled by default and enabled by an operator for a single
     // deployment window, following the DocumentIngestionBackfill precedent.
@@ -283,6 +286,19 @@ public sealed class AgeTransitionJobOptions
     /// </para>
     /// </summary>
     public string CronExpression { get; set; } = "0 15 2 * * ?";
+}
+
+/// <summary>Spec 089 §5.1.</summary>
+public sealed class WorkspaceBlobSweepJobOptions
+{
+    /// <summary>
+    /// Defaults ON. Without it RefCount is a column describing an intention: every deleted revision
+    /// leaves its blobs behind, and a world's takes are the largest objects in the system.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Quartz cron (6-field). Default: daily at 04:15 UTC, after the safety sweep.</summary>
+    public string CronExpression { get; set; } = "0 15 4 * * ?";
 }
 
 /// <summary>Spec 096 §13.</summary>
