@@ -20,8 +20,17 @@ public class CeilingHolding : AuditableEntity, ITenantScoped
 
     public string MeterCode { get; set; } = string.Empty;
 
-    /// <summary>Slots currently claimed.</summary>
-    public int Held { get; set; }
+    /// <summary>
+    /// Slots currently claimed — <strong><c>long</c>, not <c>int</c></strong> (Spec 089 §9.1).
+    ///
+    /// <para>
+    /// Every ceiling to date has counted seats and profiles, where <c>int</c> was ample. A byte ceiling is not
+    /// close: <c>int.MaxValue</c> is 2,147,483,647 and a 200GB allowance is 214,748,364,800 — exactly one
+    /// hundred times larger, and even a 3GB world overflows it. A wrapped aggregate does not fail loudly; it
+    /// under-counts, so the ceiling stops refusing and the storage bill is discovered later.
+    /// </para>
+    /// </summary>
+    public long Held { get; set; }
 
     public List<CeilingClaim> Claims { get; set; } = new();
 }

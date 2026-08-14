@@ -143,6 +143,21 @@ public interface IShareGrantReader
         Guid memberPartyId,
         string resourceKind,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// What an active grant permits this party on this resource, or null when there is none (Spec 089 §8.1).
+    ///
+    /// <para>
+    /// Separate from <see cref="HasGrantAsync"/> because the answer to <em>"is there a grant?"</em> for a
+    /// read-only recipient is <strong>yes</strong> — which is precisely why a commit endpoint asking that
+    /// question is unguarded.
+    /// </para>
+    /// </summary>
+    Task<string?> GetAccessLevelAsync(
+        Guid memberPartyId,
+        string resourceKind,
+        Guid resourceId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

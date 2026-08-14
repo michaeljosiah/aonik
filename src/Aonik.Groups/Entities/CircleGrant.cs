@@ -1,5 +1,7 @@
 using Aonik.SharedKernel.Primitives;
 
+using Aonik.SharedKernel.Abstractions.Groups;
+
 namespace Aonik.PersonalFinance.Entities;
 
 /// <summary>
@@ -42,6 +44,19 @@ public class CircleGrant : AuditableEntity, ITenantScoped
     /// never reads it, which is what keeps one domain's redaction rules off a platform entity.
     /// </summary>
     public string? TermsJson { get; set; }
+
+    /// <summary>
+    /// What the recipient may DO, as opposed to what the product calls them (Spec 089 §8.1).
+    ///
+    /// <para>
+    /// Platform-owned, a closed set, and <strong>enforced</strong> — deliberately distinct from
+    /// <see cref="TermsJson"/>, which stays opaque. Spec 086 §6.1 forbids the platform interpreting terms; it
+    /// never asked the platform to leave its own endpoints unguarded, and a commit endpoint that trusts a
+    /// product-side "editor" check has nothing behind it: a read-only recipient calling it directly with curl is
+    /// a five-minute exercise on an MIT-licensed client.
+    /// </para>
+    /// </summary>
+    public string AccessLevel { get; set; } = ShareAccessLevels.Read;
 
     /// <summary>all | entities | docsOnly.</summary>
     public string Scope { get; set; } = "entities";

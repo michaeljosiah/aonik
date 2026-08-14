@@ -1,5 +1,7 @@
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.SharedKernel.Abstractions.Workspaces;
 using Aonik.Workspaces.Entities;
 using Aonik.Workspaces.Persistence;
@@ -27,6 +29,8 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
 
     private readonly IWorkspaceDataContext _dbContext;
     private readonly IWorkspaceBlobService _blobs;
+    private readonly IShareGrantReader _grants;
+    private readonly IBlobPossessionService _possessions;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly ILogger<WorkspaceSyncService> _logger;
@@ -34,24 +38,32 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     public WorkspaceSyncService(
         IWorkspaceDataContext dbContext,
         IWorkspaceBlobService blobs,
+        IShareGrantReader grants,
+        IBlobPossessionService possessions,
         ITenantProvider tenantProvider,
         IClock clock,
         ILogger<WorkspaceSyncService> logger)
     {
         _dbContext = dbContext;
         _blobs = blobs;
+        _grants = grants;
+        _possessions = possessions;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _logger = logger;
     }
 
     /// <summary>
-    /// Owner or nothing, until P5 wires grants.
+    /// Owner, then the level on an active grant, then nothing (Spec 089 §8.1).
     ///
     /// <para>
-    /// Deliberately stricter than the finished rule rather than looser. A stub that returned <c>Write</c> for
-    /// everyone would make every commit test pass and leave the endpoint open in the window between phases —
-    /// which is the shape of the vulnerability §8.1 exists to close, arriving by a different route.
+    /// The grant's <c>AccessLevel</c> is read and <strong>enforced</strong>, which is the whole point. An earlier
+    /// draft made writability part of <c>TermsJson</c> — the product's business — reasoning that a platform
+    /// enforcing an "editor" role would be interpreting terms. That is a bypassable authorisation boundary: the
+    /// commit endpoint is a platform HTTP endpoint, and a read-only recipient needs only to call it directly,
+    /// with curl or a modified client, which for an MIT-licensed product is a five-minute exercise. The
+    /// product-side check is decoration; there is nothing behind it, and the grant reader's answer to <em>"is
+    /// there a grant?"</em> for a read-only recipient is <strong>yes</strong>.
     /// </para>
     /// </summary>
     public async Task<WorkspaceAccessLevel> ResolveAccessAsync(
@@ -67,7 +79,27 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
             .Select(w => (Guid?)w.OwnerPartyId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return ownerPartyId == callerPartyId ? WorkspaceAccessLevel.Owner : WorkspaceAccessLevel.None;
+        if (ownerPartyId is null)
+        {
+            return WorkspaceAccessLevel.None;
+        }
+
+        if (ownerPartyId == callerPartyId)
+        {
+            return WorkspaceAccessLevel.Owner;
+        }
+
+        var granted = await _grants.GetAccessLevelAsync(
+            callerPartyId, WorkspaceShareResource.Kind, workspaceId, cancellationToken);
+
+        return granted switch
+        {
+            ShareAccessLevels.Write => WorkspaceAccessLevel.Write,
+            ShareAccessLevels.Read => WorkspaceAccessLevel.Read,
+            // Anything unrecognised is nothing. A level the platform does not know is not a level it
+            // can enforce, and treating it as read would let a future value widen access by accident.
+            _ => WorkspaceAccessLevel.None,
+        };
     }
 
     public async Task<BlobNegotiationResult> NegotiateAsync(
@@ -189,6 +221,44 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
             + $"gave up after {MaxCasAttempts} attempts. Re-read the head and try again.");
     }
 
+    /// <summary>
+    /// Charge the billing subscriber for content this workspace now names, refusing before any byte is accepted.
+    ///
+    /// <para>
+    /// A storage limit retrofitted onto users who have already uploaded 200GB is a support problem rather than an
+    /// engineering one. Checking before acceptance makes the failure "you are out of space" instead of a surprise
+    /// bill or a silent truncation.
+    /// </para>
+    /// </summary>
+    private async Task ChargeForManifestAsync(
+        Guid tenantId,
+        Guid workspaceId,
+        IReadOnlyList<ManifestEntry> manifest,
+        CancellationToken cancellationToken)
+    {
+        var billing = await _dbContext.Workspaces
+            .AsNoTracking()
+            .Where(w => w.TenantId == tenantId && w.Id == workspaceId)
+            .Select(w => new { w.BillingSubscriberKind, w.BillingSubscriberId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (billing is null || billing.BillingSubscriberId == Guid.Empty)
+        {
+            // A workspace with no billing subscriber predates metering. Charging a subscriber that does
+            // not exist would throw on every commit; leaving it uncharged is visible in the possession
+            // table rather than silent.
+            return;
+        }
+
+        var subscriber = new SubscriberRef(billing.BillingSubscriberKind, billing.BillingSubscriberId);
+
+        var hashSizes = manifest
+            .GroupBy(e => e.ContentHash, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().SizeBytes, StringComparer.OrdinalIgnoreCase);
+
+        await _possessions.AcquireAsync(subscriber, hashSizes, cancellationToken);
+    }
+
     private async Task<CommitRevisionResult> WriteRevisionAsync(
         Guid tenantId,
         CommitRevisionRequest request,
@@ -222,6 +292,11 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
 
             return new CommitRevisionResult(CommitOutcome.Diverged, Guid.Empty, 0, null, unreferenceable);
         }
+
+        // Charged before the manifest lands, so an over-quota commit refuses rather than storing a
+        // revision the subscriber cannot pay for. EntitlementExceededException propagates with the
+        // shortfall named.
+        await ChargeForManifestAsync(tenantId, request.WorkspaceId, manifest, cancellationToken);
 
         var totalBytes = manifest.Sum(e => e.SizeBytes);
 

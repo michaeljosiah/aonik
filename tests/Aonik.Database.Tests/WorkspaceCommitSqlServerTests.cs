@@ -1,6 +1,8 @@
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Storage;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.SharedKernel.Abstractions.Workspaces;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
@@ -69,15 +71,73 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
             new TestCurrentUserProvider(Guid.NewGuid()),
             new TestClock());
 
-    private static WorkspaceSyncService CreateSync(WorkspacesDbContext context, Guid tenantId)
+    private static WorkspaceSyncService CreateSync(
+        WorkspacesDbContext context, Guid tenantId, IShareGrantReader? grants = null)
     {
         var blobs = new WorkspaceBlobService(
             context, new NoopFileStore(), new TestTenantProvider(tenantId), new TestClock(),
             NullLogger<WorkspaceBlobService>.Instance);
 
+        var possessions = new BlobPossessionService(
+            context, new UnmeteredMeter(), new TestTenantProvider(tenantId),
+            NullLogger<BlobPossessionService>.Instance);
+
         return new WorkspaceSyncService(
-            context, blobs, new TestTenantProvider(tenantId), new TestClock(),
+            context, blobs, grants ?? new NoGrants(), possessions,
+            new TestTenantProvider(tenantId), new TestClock(),
             NullLogger<WorkspaceSyncService>.Instance);
+    }
+
+    /// <summary>No grants at all — the commit tests are about the head, not about sharing.</summary>
+    private sealed class NoGrants : IShareGrantReader
+    {
+        public Task<bool> HasGrantAsync(
+            Guid memberPartyId, string resourceKind, Guid resourceId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<ShareGrantDto>> GetActiveGrantsAsync(
+            Guid memberPartyId, string resourceKind, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ShareGrantDto>>([]);
+
+        public Task<string?> GetAccessLevelAsync(
+            Guid memberPartyId, string resourceKind, Guid resourceId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+    }
+
+    /// <summary>
+    /// Accepts every claim. Quota is exercised in its own tests; here it would only obscure what the
+    /// commit path is doing.
+    /// </summary>
+    private sealed class UnmeteredMeter : IUsageMeter
+    {
+        public Task ClaimSlotAsync(
+            SubscriberRef subscriber, string meterCode, string holderRef, long weight = 1,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task ReleaseSlotAsync(
+            SubscriberRef subscriber, string meterCode, string holderRef,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<UsageReservationRef> ReserveAsync(
+            SubscriberRef subscriber, string meterCode, decimal quantity, string idempotencyKey,
+            TimeSpan? holdFor = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<UsageCommitResult> CommitAsync(
+            Guid reservationId, decimal actualQuantity, UsageSource source,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task ReleaseAsync(Guid reservationId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<bool> HasFlagAsync(
+            SubscriberRef subscriber, string meterCode, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 
     private static async Task<Workspace> SeedWorkspaceAsync(

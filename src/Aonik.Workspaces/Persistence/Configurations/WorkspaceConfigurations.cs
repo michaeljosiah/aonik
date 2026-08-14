@@ -18,6 +18,7 @@ public class WorkspaceConfiguration : IEntityTypeConfiguration<Workspace>
         // backfill — starts where a new workspace does. A column that begins at 0 for old rows and 1
         // for new ones makes the first sequence depend on how the row arrived.
         builder.Property(x => x.NextSequence).HasDefaultValue(1L);
+        builder.Property(x => x.BillingSubscriberKind).IsRequired().HasMaxLength(32);
 
         builder.HasIndex(x => new { x.TenantId, x.OwnerPartyId });
 
@@ -92,5 +93,22 @@ public class WorkspaceBlobConfiguration : IEntityTypeConfiguration<WorkspaceBlob
 
         // The sweeper's predicate: unreferenced, and not already being deleted by another pass.
         builder.HasIndex(x => new { x.TenantId, x.RefCount, x.IsDeleting });
+    }
+}
+
+public class BlobPossessionConfiguration : IEntityTypeConfiguration<BlobPossession>
+{
+    public void Configure(EntityTypeBuilder<BlobPossession> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.SubscriberKind).IsRequired().HasMaxLength(32);
+        builder.Property(x => x.ContentHash).IsRequired().HasMaxLength(64);
+
+        // One possession row per subscriber per hash. Two rows would each hold their own count and the
+        // ceiling claim would be released by whichever reached zero first, while the other still
+        // referenced the bytes.
+        builder.HasIndex(x => new { x.TenantId, x.SubscriberKind, x.SubscriberId, x.ContentHash })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
