@@ -2,6 +2,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -63,7 +64,7 @@ internal sealed class AgeTransitionService
 
         return await _dbContext.Parties
             .AsNoTracking()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Where(p => !p.IsDeleted
                 && ((p.ConsentAgeOn != null && p.ConsentAgeOn <= noticeHorizon)
                     || (p.MajorityOn != null && p.MajorityOn <= noticeHorizon)

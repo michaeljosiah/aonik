@@ -143,7 +143,7 @@ public sealed class CreateReceiverRequestValidator : Validator<CreateReceiverReq
             .MaximumLength(32)
             .Matches(@"^\+[1-9]\d{7,14}$").WithMessage("Phone must be in E.164 format.")
             .When(x => !string.IsNullOrEmpty(x.Phone));
-        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email).OptionalEmail().When(x => !string.IsNullOrEmpty(x.Email));
         RuleFor(x => x.CountryCode)
             .Length(2).Matches("^[A-Z]{2}$")
             .When(x => !string.IsNullOrEmpty(x.CountryCode));
@@ -378,7 +378,7 @@ public sealed class CreateCatalogBillerRequestValidator : Validator<CreateCatalo
         RuleFor(x => x.SupportPhone)
             .MaximumLength(32)
             .When(x => !string.IsNullOrEmpty(x.SupportPhone));
-        RuleFor(x => x.SupportEmail).Email().When(x => !string.IsNullOrEmpty(x.SupportEmail));
+        RuleFor(x => x.SupportEmail).OptionalEmail().When(x => !string.IsNullOrEmpty(x.SupportEmail));
         RuleFor(x => x.SortOrder).InclusiveBetween(0, 1_000_000);
     }
 }
@@ -396,7 +396,7 @@ public sealed class UpdateCatalogBillerRequestValidator : Validator<UpdateCatalo
         RuleFor(x => x.SupportPhone)
             .MaximumLength(32)
             .When(x => !string.IsNullOrEmpty(x.SupportPhone));
-        RuleFor(x => x.SupportEmail).Email().When(x => !string.IsNullOrEmpty(x.SupportEmail));
+        RuleFor(x => x.SupportEmail).OptionalEmail().When(x => !string.IsNullOrEmpty(x.SupportEmail));
         RuleFor(x => x.SortOrder)
             .InclusiveBetween(0, 1_000_000)
             .When(x => x.SortOrder.HasValue);
