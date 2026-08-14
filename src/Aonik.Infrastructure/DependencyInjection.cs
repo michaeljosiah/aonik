@@ -186,6 +186,11 @@ public static class DependencyInjection
             .SetApplicationName("Aonik")
             .PersistKeysToDbContext<AonikDbContext>();
 
+        // Spec 090 — Ed25519 lives here because the BCL has none and the module must not take the
+        // package dependency itself; the key protector rides the same DataProtection root as settings.
+        services.AddSingleton<Aonik.SharedKernel.Abstractions.Entitlements.IEd25519Signer, Entitlements.BouncyCastleEd25519Signer>();
+        services.AddSingleton<Aonik.SharedKernel.Abstractions.Entitlements.IEntitlementKeyProtector, Entitlements.EntitlementKeyProtector>();
+
         services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
 
         // Infrastructure Services (implementations that wrap external systems)

@@ -81,6 +81,13 @@ public sealed class SubscriptionsModule : IModule
         services.AddScoped<UsageLedgerPoster>();
         services.AddScoped<IUsageMeter, UsageMeter>();
 
+        // Spec 090 — offline-verifiable entitlement. The issuer projects IEntitlementReader; it does
+        // not replace it, and every server-side caller keeps reading the database.
+        services.Configure<Services.Entitlements.EntitlementTokenOptions>(
+            configuration.GetSection(Services.Entitlements.EntitlementTokenOptions.SectionName));
+        services.AddScoped<SharedKernel.Abstractions.Entitlements.IEntitlementKeyRing, Services.Entitlements.EntitlementKeyRing>();
+        services.AddScoped<SharedKernel.Abstractions.Entitlements.IEntitlementTokenIssuer, Services.Entitlements.EntitlementTokenIssuer>();
+
         // Spec 087 P5 - the ledger side. The accounts are declared for Finance to create at
         // provisioning; the resolver plugs this module's order types into Finance's settlement
         // seam (Spec 088 §9) without either module referencing the other.

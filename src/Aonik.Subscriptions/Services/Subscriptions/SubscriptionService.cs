@@ -66,7 +66,7 @@ internal sealed class SubscriptionService : ISubscriptionService
             .AnyAsync(s => s.TenantId == tenantId
                            && s.SubscriberKind == subscriber.Kind
                            && s.SubscriberId == subscriber.Id
-                           && SubscriptionStatuses.OccupiesActiveSlot.Contains(s.Status),
+                           && SubscriptionStatuses.OccupiesActiveSlotQueryable.Contains(s.Status),
                 cancellationToken);
 
         if (occupied)
@@ -218,7 +218,7 @@ internal sealed class SubscriptionService : ISubscriptionService
             .Where(s => s.TenantId == tenantId
                         && s.SubscriberKind == subscriber.Kind
                         && s.SubscriberId == subscriber.Id
-                        && SubscriptionStatuses.OccupiesActiveSlot.Contains(s.Status))
+                        && SubscriptionStatuses.OccupiesActiveSlotQueryable.Contains(s.Status))
             .FirstOrDefaultAsync(cancellationToken);
 
         return subscription is null ? null : Map(subscription);

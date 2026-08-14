@@ -63,6 +63,14 @@ public static class SubscriptionStatuses
     /// with that index — a subscriber may hold any number of <see cref="Cancelled"/> or
     /// <see cref="Expired"/> subscriptions, but only one of these.
     /// </summary>
+    /// <summary>
+    /// The same statuses as <see cref="OccupiesActiveSlot"/>, as an array <strong>for use inside EF
+    /// queries</strong>. The relational provider translates array <c>Contains</c> to <c>IN</c>;
+    /// <c>IReadOnlySet.Contains</c> it refuses to translate at all — a failure InMemory never surfaces,
+    /// which is exactly the class of gap the SQL Server test lane exists for.
+    /// </summary>
+    public static readonly string[] OccupiesActiveSlotQueryable = ["trialing", "active", "past_due"];
+
     public static readonly IReadOnlySet<string> OccupiesActiveSlot =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Trialing, Active, PastDue };
 

@@ -397,7 +397,7 @@ internal sealed class UsageMeter : IUsageMeter
             .Where(s => s.TenantId == tenantId
                         && s.SubscriberKind == subscriber.Kind
                         && s.SubscriberId == subscriber.Id
-                        && SubscriptionStatuses.OccupiesActiveSlot.Contains(s.Status))
+                        && SubscriptionStatuses.OccupiesActiveSlotQueryable.Contains(s.Status))
             .Select(s => (Guid?)s.PlanVersionId)
             .FirstOrDefaultAsync(cancellationToken);
 
