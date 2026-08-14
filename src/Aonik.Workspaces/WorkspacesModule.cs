@@ -46,6 +46,7 @@ public static class WorkspacesModule
 
         services.AddScoped<Services.IWorkspaceBlobService, Services.WorkspaceBlobService>();
         services.AddScoped<Services.IWorkspaceBlobSweeper, Services.WorkspaceBlobSweeper>();
+        services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceSyncService, Services.WorkspaceSyncService>();
 
         return services;
     }

@@ -14,6 +14,11 @@ public class WorkspaceConfiguration : IEntityTypeConfiguration<Workspace>
         builder.Property(x => x.Slug).IsRequired().HasMaxLength(120);
         builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
 
+        // Defaulted in the database as well as the entity, so a row created by any path — including a
+        // backfill — starts where a new workspace does. A column that begins at 0 for old rows and 1
+        // for new ones makes the first sequence depend on how the row arrived.
+        builder.Property(x => x.NextSequence).HasDefaultValue(1L);
+
         builder.HasIndex(x => new { x.TenantId, x.OwnerPartyId });
 
         // Filtered so a deleted workspace's slug is reusable, and so soft-deleted rows do not block a
