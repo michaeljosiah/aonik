@@ -160,7 +160,17 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         return workspace;
     }
 
-    private static async Task<string> SeedBlobAsync(WorkspacesDbContext context, Guid tenantId, string seed)
+    /// <summary>
+    /// Seeds the blob AND the possession row.
+    ///
+    /// <para>
+    /// Since Spec 091 §6 a physical blob is not enough: negotiation and commit answer from what the caller
+    /// possesses, not from what exists in the tenant. Seeding only the blob would model a hash belonging to
+    /// somebody else, which every commit here would then correctly refuse.
+    /// </para>
+    /// </summary>
+    private static async Task<string> SeedBlobAsync(
+        WorkspacesDbContext context, Guid tenantId, string seed, Guid? possessedBy = null)
     {
         var hash = System.Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(seed)))
@@ -175,6 +185,20 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
             SizeBytes = seed.Length,
             RefCount = 0,
         });
+
+        if (possessedBy is { } subscriberId)
+        {
+            context.Possessions.Add(new BlobPossession
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                SubscriberKind = SubscriberKinds.Party,
+                SubscriberId = subscriberId,
+                ContentHash = hash,
+                SizeBytes = seed.Length,
+                WorkspaceCount = 0,
+            });
+        }
 
         await context.SaveChangesAsync();
         return hash;
@@ -200,7 +224,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
 
         var result = await CreateSync(context, tenantId)
             .CommitAsync(ACommit(workspace.Id, null, ("scenes/one.md", hash)), owner);
@@ -222,7 +246,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var first = await sync.CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
@@ -244,7 +268,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var root = await sync.CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
@@ -300,7 +324,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var request = ACommit(workspace.Id, null, ("a.md", hash));
@@ -324,8 +348,8 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
-        var other = await SeedBlobAsync(context, tenantId, "act two");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
+        var other = await SeedBlobAsync(context, tenantId, "act two", owner);
         var sync = CreateSync(context, tenantId);
 
         var request = ACommit(workspace.Id, null, ("a.md", hash));
@@ -354,8 +378,8 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var a = await SeedBlobAsync(context, tenantId, "act one");
-        var b = await SeedBlobAsync(context, tenantId, "act two");
+        var a = await SeedBlobAsync(context, tenantId, "act one", owner);
+        var b = await SeedBlobAsync(context, tenantId, "act two", owner);
         var sync = CreateSync(context, tenantId);
 
         var request = ACommit(workspace.Id, null, ("a.md", a), ("b.md", b));
@@ -382,7 +406,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var root = await sync.CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
@@ -418,7 +442,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var root = await sync.CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
@@ -448,7 +472,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
         var sync = CreateSync(context, tenantId);
 
         var root = await sync.CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
@@ -478,7 +502,7 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
         var owner = Guid.NewGuid();
         await using var context = CreateContext(tenantId);
         var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
-        var hash = await SeedBlobAsync(context, tenantId, "act one");
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
 
         // Until P5 wires grants the rule is owner-or-nothing, which is stricter than the finished one
         // rather than looser. A stub returning Write for everyone would leave the endpoint open in the

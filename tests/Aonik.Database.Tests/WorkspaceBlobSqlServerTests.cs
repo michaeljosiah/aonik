@@ -1,6 +1,7 @@
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Storage;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 using Aonik.Workspaces.Entities;
@@ -190,11 +191,23 @@ public class WorkspaceBlobSqlServerTests : IClassFixture<SqlLocalDbFixture>
             context, tenantId, refCount: 0, createdAt: Now.AddDays(-2), deleting: true);
 
         var service = CreateBlobService(context, tenantId, new RecordingFileStore());
+        var subscriber = new SubscriberRef(SubscriberKinds.Party, Guid.NewGuid());
+
+        // Possession, so the hash is reachable by every route EXCEPT the deletion claim — otherwise
+        // this would pass for the wrong reason.
+        context.Possessions.Add(new BlobPossession
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId,
+            SubscriberKind = subscriber.Kind, SubscriberId = subscriber.Id,
+            ContentHash = blob.ContentHash, SizeBytes = blob.SizeBytes, WorkspaceCount = 0,
+        });
+        await context.SaveChangesAsync();
 
         // The other half of the mechanism. A commit that referenced this would produce a manifest
         // pointing at bytes the sweeper is about to remove; the safe branch for the client is to
         // upload again, which costs one redundant transfer and can never dangle.
-        (await service.FindMissingAsync([blob.ContentHash])).Should().Contain(blob.ContentHash);
+        (await service.FindMissingAsync(subscriber, Guid.NewGuid(), [blob.ContentHash]))
+            .Should().Contain(blob.ContentHash);
         (await service.AddReferencesAsync([blob.ContentHash])).Should().Contain(blob.ContentHash);
 
         (await context.Blobs.AsNoTracking().FirstAsync(b => b.Id == blob.Id))

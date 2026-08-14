@@ -110,8 +110,11 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     {
         await RequireAsync(workspaceId, callerPartyId, WorkspaceAccessLevel.Read, cancellationToken);
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var subscriber = await BillingSubscriberAsync(tenantId, workspaceId, cancellationToken);
+
         return new BlobNegotiationResult(
-            await _blobs.FindMissingAsync(contentHashes, cancellationToken));
+            await _blobs.FindMissingAsync(subscriber, callerPartyId, contentHashes, cancellationToken));
     }
 
     public async Task<CommitRevisionResult> CommitAsync(
@@ -135,8 +138,16 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
 
         // Upload first, commit second — never the reverse. Cheap and early, so an obviously incomplete
         // client is refused before any sequence is consumed.
+        //
+        // Scoped to the caller, not to the tenant. Accepting any hash with a blob in this tenant is fine
+        // when a tenant is one customer and wrong for Arke Kids, where one tenant holds many unrelated
+        // families — a content hash is a NAME, and treating it as an AUTHORISATION makes it a bearer
+        // token. Refused as MISSING rather than forbidden, because the distinction would confirm the
+        // blob exists and hand back the existence oracle the control just closed.
+        var subscriber = await BillingSubscriberAsync(tenantId, request.WorkspaceId, cancellationToken);
+
         var missing = await _blobs.FindMissingAsync(
-            [.. manifest.Select(e => e.ContentHash)], cancellationToken);
+            subscriber, callerPartyId, [.. manifest.Select(e => e.ContentHash)], cancellationToken);
 
         if (missing.Count > 0)
         {
@@ -219,6 +230,34 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
         throw new InvalidOperationException(
             $"Workspace {request.WorkspaceId} is under sustained commit contention; "
             + $"gave up after {MaxCasAttempts} attempts. Re-read the head and try again.");
+    }
+
+    /// <summary>
+    /// The subscriber a workspace's possession and quota are held against.
+    ///
+    /// <para>
+    /// Falls back to the owning party when no billing subscriber is recorded, which is the shape of a workspace
+    /// created before metering existed. Falling back to <em>nothing</em> would make every hash unreachable and
+    /// every commit refuse.
+    /// </para>
+    /// </summary>
+    private async Task<SubscriberRef> BillingSubscriberAsync(
+        Guid tenantId, Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var billing = await _dbContext.Workspaces
+            .AsNoTracking()
+            .Where(w => w.TenantId == tenantId && w.Id == workspaceId)
+            .Select(w => new { w.BillingSubscriberKind, w.BillingSubscriberId, w.OwnerPartyId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (billing is null)
+        {
+            return new SubscriberRef(SubscriberKinds.Party, Guid.Empty);
+        }
+
+        return billing.BillingSubscriberId == Guid.Empty
+            ? new SubscriberRef(SubscriberKinds.Party, billing.OwnerPartyId)
+            : new SubscriberRef(billing.BillingSubscriberKind, billing.BillingSubscriberId);
     }
 
     /// <summary>
