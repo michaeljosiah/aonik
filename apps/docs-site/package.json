@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/generate-api-reference.mjs",
+    "prebuild": "node scripts/generate-api-reference.mjs && node scripts/copy-repo-docs.mjs",
     "build": "next build",
     "start": "next start",
     "gen:api": "node scripts/generate-api-reference.mjs",
+    "gen:repo-docs": "node scripts/copy-repo-docs.mjs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
