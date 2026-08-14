@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline-verifiable entitlement tokens</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.doc-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="doc-meta">
+  <span class="meta-tag">Feature guide</span>
+  <span class="meta-tag">Modules: Aonik.Subscriptions · SharedKernel · Infrastructure</span>
+  <h1>Offline-verifiable entitlement tokens</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    How a desktop app on a plane, or a child's tablet in a school with no Wi-Fi, proves the family's
+    subscription is real — with zero network, no JWT library, and a revocation list that names nobody.
+    Implements <a href="../specifications/090.offline-verifiable-entitlement.html">Spec 090</a>.
+    Back to the <a href="arke-platform.html">index</a>.
+  </p>
+</header>
+
+<h2>The problem</h2>
+
+<p>
+  Arke Studio and Arke Kids run on devices that go offline for days. "Check the subscription" cannot mean
+  "call the server", but it also cannot mean "trust a flag in a local file", because a flag is edited in
+  seconds. And subscriptions <em>change</em>: they lapse, upgrade, and occasionally must be cut off
+  immediately. So the device needs three things it can hold locally and trust cryptographically:
+</p>
+
+<ol>
+  <li><strong>A token</strong> — a signed statement of what this subscriber is entitled to, with a validity window.</li>
+  <li><strong>The published key set</strong> — the public keys that make signatures checkable.</li>
+  <li><strong>The revocation list</strong> — the short list of tokens that died early.</li>
+</ol>
+
+<p>
+  All three refresh opportunistically whenever the device is online. Verification itself touches nothing but
+  those three local artefacts and the clock.
+</p>
+
+<h2>The token on the wire</h2>
+
+<p>Deliberately not a JWT. Two base64url segments, one dot:</p>
+
+<pre>token         = SIGNING_INPUT "." BASE64URL(signature)
+SIGNING_INPUT = BASE64URL(payload-json)
+
+signature     = Ed25519( ASCII bytes of SIGNING_INPUT, exactly as transmitted )</pre>
+
+<div class="callout p0">
+  <span class="callout-label">The one rule everything else follows from: no canonicalisation, ever</span>
+  The signature covers the <em>bytes that arrived</em>, not a re-serialisation of what they parse to. The
+  verifier never re-encodes, never normalises JSON key order, never tolerates padding or whitespace and then
+  strips it. Every historical class of token-library vulnerability — <code>alg</code> confusion, "sign the
+  canonical form, verify the parsed form", parser differentials — lives in the gap between what was signed
+  and what was interpreted. This format removes the gap by construction: if the bytes differ, the signature
+  fails; there is no second representation to disagree with the first.
+</div>
+
+<p>Consequences of that rule, each of which is a test:</p>
+
+<ul>
+  <li><strong>Strict base64url</strong>: unpadded, exact alphabet, nothing else. A token with padding, whitespace, or a stray character is <code>Malformed</code> — not cleaned up and retried.</li>
+  <li><strong>Exactly two segments.</strong> The splitter returns the original substring for the signing input — never a reassembled one.</li>
+  <li><strong>Integer Unix seconds only</strong> for every timestamp. No ISO strings, no fractions — nothing that two parsers could read differently.</li>
+  <li><strong>No <code>alg</code> field.</strong> The algorithm is Ed25519 because the format says so, not because the token asked.</li>
+  <li>Swapping the payload of one valid token onto the signature of another is <code>BadSignature</code>, proven by test with two real tokens.</li>
+</ul>
+
+<h3>The payload</h3>
+
+<pre>{
+  "v": 1,                              format version
+  "jti": "…",                          unique token id (revocation by id)
+  "rvh": "…",                          random revocation handle — see privacy, below
+  "sub": "family:1f3a…",               subscriber as kind:id
+  "tid": "…",                          tenant
+  "plan": "studio-pro",
+  "feat": ["export", "sync", …],       feature flags, SORTED
+  "lim": { "workspace-bytes": 214…, }  ceilings, SORTED, integers (long)
+  "use": { "workspace-bytes": 12…, }   held usage at issue, same shape
+  "iat": 1765713600,                   issued
+  "exp": 1766318400,                   expires        (default: iat + 7 days)
+  "gra": 1768910400,                   grace ends     (default: exp + 30 days)
+  "dev": "…",                          optional device binding
+  "kid": "…"                           which key signed this
+}</pre>
+
+<p>
+  <code>feat</code>, <code>lim</code> and <code>use</code> are sorted so the payload for a given entitlement
+  state is deterministic — useful for tests and diffing, and harmless since sorting happens at
+  <em>issue</em>, on the side that is about to sign, never at verification.
+</p>
+
+<h3>Expiry versus grace: two windows, two meanings</h3>
+
+<div class="ascii-diagram">iat ──────────── exp ─────────────────────────── gra
+ │   Valid        │   ValidInGrace                │   Expired
+ │   full product │   product works, degraded:    │   stop
+ │                │   "please reconnect soon"     │</div>
+
+<p>
+  A seven-day expiry with a thirty-day grace is the compromise between two bad extremes: a long-lived token
+  means a cancelled subscription keeps working for months offline; a short one means a family holiday kills
+  the product on day three. Inside grace the device works but nags; past grace it stops. The verifier
+  reports the two states as distinct verdicts (<code>Valid</code> / <code>ValidInGrace</code>) and the
+  product decides what "degraded" means.
+</p>
+
+<h2>Verification: three passes, because the first one lies</h2>
+
+<p>
+  <code>EntitlementTokenVerifier</code> lives in SharedKernel so the desktop client can compile the exact
+  same code. It is a pure function of (token, key resolver, signature primitive, clock) and it reads the
+  payload <strong>twice</strong>, deliberately:
+</p>
+
+<div class="ascii-diagram">PASS 1  — UNTRUSTED PEEK
+  split; strict-decode payload; read ONE field: "kid".
+  Nothing else from this pass is kept. The kid is needed to pick a
+  key, so it must be read pre-verification — that is unavoidable —
+  but it is attacker-controlled until the signature says otherwise.
+      kid unknown / absent → UnknownKey / Malformed
+
+PASS 2  — VERIFY
+  Ed25519.Verify(publicKey(kid), ASCII(signing input as received), sig)
+      false → BadSignature
+
+PASS 3  — TRUSTED READ
+  re-read the payload from the now-verified bytes; build the result
+  from THIS pass only. Includes re-checking that the payload's kid
+  equals the key actually used in pass 2.
+  then: now ≤ exp → Valid;  ≤ gra → ValidInGrace;  else Expired</div>
+
+<div class="callout ok">
+  <span class="callout-label">Why the discipline is worth two extra reads</span>
+  Everything read before signature verification is untrusted input steering the verifier itself. Keeping the
+  passes physically separate makes the dangerous state — data extracted from an unverified token — impossible
+  to leak into the result by accident: pass 1's parse is discarded, and pass 3 cannot run unless pass 2
+  succeeded. The kid re-check in pass 3 closes the last inch: a payload whose kid differs from the key that
+  verified it is a splice, not a token.
+</div>
+
+<h2>Keys: rotation, retirement, and the invariant that makes both safe</h2>
+
+<p>
+  Signing keys are Ed25519 pairs stored in <code>AnkEntitlementSigningKeys</code>: public key as raw 32
+  bytes (base64url), private key encrypted at rest with ASP.NET DataProtection, and three lifecycle dates —
+  <code>NotBefore</code>, <code>SigningNotAfter</code> (stop signing; default lifetime 90 days), and
+  <code>VerifyNotAfter</code> (stop being published for verification). Status is
+  <code>Active</code> → <code>Retiring</code> → <code>Withdrawn</code>.
+</p>
+
+<h3>Rotation is routine</h3>
+
+<p>
+  <code>Rotate</code> creates a new Active key and moves the predecessor to Retiring: it signs nothing new
+  but <strong>stays published</strong>, because tokens it signed are still in the field and must keep
+  verifying. Withdrawal is the emergency path — a compromised key vanishes from the published set
+  immediately, and every token it signed dies with it. That is the correct cost of a compromise.
+</p>
+
+<h3>The retirement invariant, enforced where the race is</h3>
+
+<div class="callout p0">
+  <span class="callout-label">A key may not stop being publishable while a live token depends on it</span>
+  Formally: <code>VerifyNotAfter ≥ max(gra)</code> over every token the key signed. The naive
+  implementation — issue the token, then update the key's date — has a race: between the two writes an
+  operator retires the key, and a token issued a moment ago is unverifiable tomorrow. Checked-then-written
+  is two facts with a gap between them.
+</div>
+
+<p>The issuer closes it the same way every other race in this platform is closed — one guarded statement:</p>
+
+<pre>UPDATE AnkEntitlementSigningKeys
+   SET VerifyNotAfter = MAX(VerifyNotAfter, @graceUntil)
+ WHERE Kid = @kid AND Status &lt;&gt; 'withdrawn'
+
+1 row  → the key is committed to outlive this token; NOW sign and issue
+0 rows → the key was withdrawn mid-issue; REFUSE to issue
+         (never sign with a key that cannot promise verification)</pre>
+
+<p>
+  The issued token's <code>GraceUntil</code> is also <strong>persisted</strong> on its audit row
+  (<code>AnkEntitlementTokenIssues</code>) rather than derived on demand — grace policy can change, and a
+  revocation sweep that re-derived "when does this token leave the field?" under the <em>new</em> policy
+  would sweep entries early or late. The row records the promise as it was made.
+</p>
+
+<h3>The published key set: complete, versioned, absence is authoritative</h3>
+
+<ul>
+  <li><strong>Complete, never a delta.</strong> A client replaces its cached set wholesale. Deltas require the client to merge, and a missed delta means a key that should be gone is still trusted.</li>
+  <li><strong>Monotonic version</strong> (derived from key count + withdrawals) so a stale set can never overwrite a fresher one.</li>
+  <li><strong>Signed</strong> as a unit, so a network position cannot feed the device a key it likes.</li>
+  <li><strong>Absence is authoritative — even for keys bundled in the installer.</strong> Shipping first-run keys in the app binary is fine for bootstrap, but a bundled key missing from the current published set is <em>not trusted</em>. Otherwise a withdrawn-because-compromised launch key would remain valid on every install forever.</li>
+</ul>
+
+<h2>Revocation without a naming problem</h2>
+
+<p>
+  The revocation list is downloaded by <strong>every device of every customer</strong>. If revoking a
+  subscriber meant publishing their subscriber id, the list would be a public feed of "these families
+  cancelled / were cut off". So nothing on the list identifies anyone:
+</p>
+
+<ul>
+  <li>At issue, every token gets an <code>rvh</code> — 16 random bytes, base64url. Random, not derived: a hash of the subscriber id would be brute-forceable offline against a list of known ids.</li>
+  <li><strong>Revoke one token</strong> → its <code>jti</code> is listed.</li>
+  <li><strong>Revoke a subscriber</strong> → the <em>handles</em> of their outstanding tokens are listed. A device checks its own token's <code>rvh</code> against the list; an outsider sees opaque strings with no join key to any person.</li>
+  <li>Every entry carries <code>SweepAfter</code> = the persisted grace end of the token it kills. Past that moment the token is dead by expiry anyway, so the entry leaves the list — the list stays small because it only ever covers tokens that could otherwise still be alive.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Honest limit</span>
+  Revocation reaches a device when the device next fetches the list. A machine that stays offline through
+  its token's whole grace window never learns — that is the floor set by "works offline", and it is bounded:
+  grace ends, and the token dies of old age at most 37 days after issue.
+</div>
+
+<h2>Why BouncyCastle</h2>
+
+<table>
+  <thead><tr><th>Option</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td>.NET 10 base class library</td><td>No Ed25519. (NIST curves and RSA only.)</td></tr>
+    <tr><td>NSec / libsodium</td><td>Excellent, but a native binary per runtime identifier — a packaging tax on every platform the desktop client and server ship to.</td></tr>
+    <tr><td><strong>BouncyCastle.Cryptography 2.7</strong></td><td><strong>Chosen.</strong> Pure managed, one NuGet package everywhere, mature Ed25519.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The dependency is quarantined behind <code>IEd25519Signer</code> — a two-method interface (sign, verify)
+  over raw 32-byte keys — implemented in <code>Aonik.Infrastructure</code>. SharedKernel's verifier and the
+  Subscriptions issuer see only the interface, so if the BCL grows Ed25519, the swap is one file. The
+  implementation pre-checks lengths and maps any provider exception to <code>false</code>: a verifier must
+  have exactly two outcomes, and "threw" is not one of them.
+</p>
+
+<h2>What is deliberately not here yet</h2>
+
+<ul>
+  <li><strong>HTTP endpoints</strong> for token fetch, key set, and revocation list — the services and formats are done and fully tested; exposing them is a thin FastEndpoints slice for when the desktop client is ready to consume them.</li>
+  <li><strong>Device binding enforcement</strong> — <code>dev</code> is carried in the payload; deciding how hard to bind (and what a family's device limit is) is product policy.</li>
+</ul>
+
+<footer>
+  Feature guide · Offline-verifiable entitlement tokens · Sources:
+  <a href="../specifications/090.offline-verifiable-entitlement.html">Spec 090</a>,
+  implementation in <code>src/Aonik.Subscriptions/Services/Entitlements</code>,
+  <code>src/Aonik.SharedKernel/Abstractions/Entitlements</code>,
+  <code>src/Aonik.Infrastructure/Entitlements</code> ·
+  Back to the <a href="arke-platform.html">index</a>.
+</footer>
+</body>
+</html>

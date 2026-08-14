@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arke on AONIK — how the platform work fits together</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.doc-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="doc-meta">
+  <span class="meta-tag">Feature guide</span>
+  <span class="meta-tag">Index</span>
+  <h1>Arke on AONIK — how the platform work fits together</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A plain-language guide to the platform features built for Arke Studio and Arke Kids: versioned file
+    workspaces, the sync protocol, offline entitlement tokens, and content safety for children. Each page
+    explains what the thing is, why it is shaped the way it is, and how the flows actually run.
+  </p>
+</header>
+
+<h2>Start here</h2>
+
+<table>
+  <thead><tr><th>Page</th><th>What it covers</th><th>Spec</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><a href="workspaces-and-blobs.html">Workspaces &amp; content-addressed storage</a></td>
+      <td>The versioned tree of files: how bytes are stored once, how commits work, how two people editing at once is resolved by a human instead of a merge algorithm, and how storage is billed.</td>
+      <td><a href="../specifications/089.workspaces.html">089</a></td>
+    </tr>
+    <tr>
+      <td><a href="workspace-sync-protocol.html">The sync protocol</a></td>
+      <td>How a desktop client and the server agree on what needs transferring, how a 4GB upload survives a dropped connection, and why "which hashes are you missing?" is answered per caller.</td>
+      <td><a href="../specifications/091.workspace-sync.html">091</a></td>
+    </tr>
+    <tr>
+      <td><a href="offline-entitlement-tokens.html">Offline entitlement tokens</a></td>
+      <td>How a desktop app knows what the customer paid for when there is no network: a signed token, the key rotation that never strands an offline customer, and a revocation list that names nobody.</td>
+      <td><a href="../specifications/090.offline-verifiable-entitlement.html">090</a></td>
+    </tr>
+    <tr>
+      <td><a href="child-content-safety.html">Content safety for children</a></td>
+      <td>The gate every child-facing generation passes through, why it fails closed, what a guardian can and cannot release, and the legal-preservation path built before it is needed.</td>
+      <td><a href="../specifications/096.content-safety-for-child-facing-generation.html">096</a>, <a href="../specifications/095.guardian-relationships-and-verifiable-consent.html">095</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>The one-paragraph version</h2>
+
+<p>
+  Arke Studio is a desktop authoring product where nothing enters the record without a human accepting it.
+  Arke Kids is a child-facing companion built on the same worlds. AONIK gives both of them their platform
+  layer: a <strong>workspace</strong> is a versioned tree of files (an Arke <em>world</em> is a workspace of
+  kind <code>world</code>); <strong>sync</strong> moves those trees between machines without ever merging
+  anything automatically; an <strong>entitlement token</strong> lets the desktop app prove what was paid for
+  while offline; and the <strong>content safety gate</strong> sits between every AI generation and every
+  child, failing closed. The platform stores containers, revisions and bytes — it never opens a file and it
+  never learns what a "sheet" or a "canon entry" means. That seam is deliberate and tested.
+</p>
+
+<h2>Where the code lives</h2>
+
+<div class="ascii-diagram">src/
+├── Aonik.SharedKernel/                cross-cutting contracts — every module references ONLY this
+│   └── Abstractions/
+│       ├── Workspaces/                IWorkspaceService, IWorkspaceSyncService, models
+│       ├── Entitlements/              token format, verifier, key ring, issuer contracts
+│       ├── Safety/                    IContentSafetyGate, permits, categories, bands
+│       ├── Subscriptions/             IUsageMeter, IEntitlementReader (Spec 087)
+│       └── Groups/                    sharing grants + AccessLevel (Spec 086)
+├── Aonik.Workspaces/                  the workspace module (references only SharedKernel)
+│   ├── Entities/                      Workspace, WorkspaceRevision, WorkspaceFile,
+│   │                                  WorkspaceBlob, BlobPossession, BlobUploadSession
+│   └── Services/                      blob store, sync service, upload service, sweeper
+├── Aonik.Subscriptions/               plans, meters, usage — and entitlement tokens (090)
+│   └── Services/Entitlements/         EntitlementKeyRing, EntitlementTokenIssuer
+├── Aonik.Ai/                          the content safety gate and everything behind it (096)
+│   └── Services/Safety/               gate, classifiers, guardian review, preservation
+├── Aonik.Platform/                    parties, guardianship, consent, age bands (095)
+├── Aonik.Groups/                      sharing machinery both features reuse (086)
+├── Aonik.Infrastructure/              EF Core migrations, FileStore, Ed25519, DataProtection
+└── Aonik.Worker/                      Quartz jobs: sweepers, age transitions, retention</div>
+
+<p>
+  The rule that shapes everything: <strong>modules never reference each other.</strong> They reference
+  <code>Aonik.SharedKernel</code> and communicate through its contracts. When the safety gate needs a child's
+  age band, it asks <code>ISafetyBandReader</code> — a SharedKernel interface Platform implements — rather
+  than referencing Platform. An architecture test fails the build if <code>Aonik.Workspaces</code> ever
+  references anything except SharedKernel.
+</p>
+
+<h2>Libraries used, and why each one</h2>
+
+<table>
+  <thead><tr><th>Library</th><th>Used for</th><th>Why this one</th></tr></thead>
+  <tbody>
+    <tr><td><code>EF Core 10</code> + SQL Server</td><td>All persistence. One migration stream through <code>AonikDbContext</code>; module contexts are runtime views, never migration sources.</td><td>Single physical database with module isolation at the DI layer. All tables are <code>Ank</code>-prefixed in <code>dbo</code>.</td></tr>
+    <tr><td><code>FastEndpoints</code></td><td>HTTP endpoints.</td><td>House standard — endpoint-per-class with typed request/response.</td></tr>
+    <tr><td><code>Quartz.NET</code></td><td>The background jobs: blob sweeper, safety retention, age transitions.</td><td>House standard. Every sweep job enumerates tenants first, then works inside one tenant scope at a time, because the platform rejects cross-tenant writes.</td></tr>
+    <tr><td><code>FluentStorage</code></td><td>Blob storage behind <code>IFileStore</code> — local disk in dev, cloud in prod.</td><td>Already the platform's storage seam; 089 extended it with <code>StageAsync</code>/<code>PromoteAsync</code> rather than replacing it.</td></tr>
+    <tr><td><code>BouncyCastle.Cryptography</code> 2.7</td><td>Ed25519 signatures for entitlement tokens.</td><td>.NET 10's base library has no Ed25519. BouncyCastle is pure managed — no native binary per platform, so container images and local dev stay simple. Confined to one file behind an <code>IEd25519Signer</code> interface.</td></tr>
+    <tr><td>ASP.NET <code>DataProtection</code></td><td>Encrypting signing keys at rest.</td><td>Same key-protection root the settings system already uses; private keys are ciphertext in the database and never leave the server.</td></tr>
+    <tr><td><code>xUnit</code> + <code>FluentAssertions</code></td><td>All tests.</td><td>House standard. Two lanes: InMemory for logic, SQL Server LocalDB for anything the InMemory provider cannot express.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Why two test lanes matter here</span>
+  Several core guarantees are <em>single guarded SQL statements</em> — a compare-and-swap on the workspace
+  head, the sweeper's deletion claim, the entitlement key's retirement bound. The InMemory provider does not
+  implement <code>ExecuteUpdateAsync</code> at all, so a test there could only assert the shape of the code,
+  not the property. Those tests run against SQL Server LocalDB (<code>tests/Aonik.Database.Tests</code>),
+  where the statement is real and the filtered unique indexes actually enforce. This lane has caught real
+  bugs the InMemory lane structurally could not — including an <code>IReadOnlySet.Contains</code> that the
+  relational provider refuses to translate.
+</div>
+
+<h2>Design principles that repeat across every page</h2>
+
+<h3>1. Fail closed, and make the safe state the default state</h3>
+<p>
+  A classifier outage blocks content rather than passing it. An unknown age band is treated as the youngest,
+  not as an adult. A missing entitlement key refuses to issue rather than inventing one. An empty custodian
+  list means preserved material is unreachable, not reachable by whoever has an admin claim. In every case
+  the question was: <em>which wrong default ends badly?</em> — and the design takes the other one.
+</p>
+
+<h3>2. Compare-and-swap by data, not locks by timing</h3>
+<p>
+  Three separate features needed to stop two concurrent operations trampling each other: advancing a
+  workspace head, sweeping an unreferenced blob, and retiring a signing key. All three use the same shape —
+  a single guarded <code>UPDATE</code> whose <code>WHERE</code> clause states the invariant, where zero rows
+  affected means "you lost, re-read and reclassify". No locks, because a lock serialises everyone to protect
+  against a rare race; the CAS costs nothing when there is no contention.
+</p>
+
+<h3>3. Enforcement is a type, not a convention</h3>
+<p>
+  Content cannot be delivered to a child without a <code>ContentDeliveryPermit</code>, and only the safety
+  gate can construct one — the constructor is internal. A delivery path takes a permit rather than a boolean,
+  so "did you remember to check?" is a compile error rather than a code-review hope. The same pattern guards
+  playable narration (the permit must name the exact audio it covers) and mirrors Spec 032's rule that an
+  unclassified mutating AI tool fails at build time.
+</p>
+
+<h3>4. A name is not an authorisation</h3>
+<p>
+  A content hash names bytes; it must never <em>grant</em> them. A grant's existence is not the same as what
+  it permits. A plan name is not a feature list. Wherever a caller could present an identifier and receive
+  access, the platform checks a separate, explicit record: <code>BlobPossession</code> for hashes,
+  <code>AccessLevel</code> for grants, resolved <code>feat</code>/<code>lim</code> claims for plans.
+</p>
+
+<h3>5. The platform never reads meaning</h3>
+<p>
+  <code>TermsJson</code> on a share grant is stored and returned verbatim — the product defines what a
+  "co-author" is. Workspace files are bytes with hashes — the platform never opens one. Divergent revisions
+  are resolved by a human through the product's accept gate — the platform records which of three outcomes
+  they chose and decides nothing. This is what lets one platform serve Payabo, Arke and future products
+  without embedding any product's vocabulary.
+</p>
+
+<h2>The features at a glance</h2>
+
+<div class="ascii-diagram">                       ┌────────────────────────────────────────┐
+                       │            Arke desktop app            │
+                       │  (authoring, accept gate, local tree)  │
+                       └───┬──────────────┬──────────────┬──────┘
+                           │ sync         │ verify        │ generate (Kids)
+                           ▼              ▼               ▼
+   ┌───────────────────────────┐  ┌──────────────┐  ┌─────────────────────┐
+   │ Workspaces (089/091)      │  │ Entitlement  │  │ Content safety (096)│
+   │  negotiate → upload →     │  │ token (090)  │  │  L1 constrain       │
+   │  commit (CAS) → resolve   │  │  Ed25519,    │  │  L2 screen input    │
+   │  blobs stored once,       │  │  offline     │  │  L3 provider set    │
+   │  swept when unreferenced  │  │  verify      │  │  L4 screen output   │
+   └───────────┬───────────────┘  └──────┬───────┘  │  L5 guardian review │
+               │ quota (claim/release)   │ project  └──────────┬──────────┘
+               ▼                         ▼                     │ band, guardianship
+   ┌────────────────────────────────────────────┐   ┌──────────▼──────────┐
+   │ Subscriptions / metering (087)             │   │ Platform (095)      │
+   │  plans, flags, counters, weighted ceilings │   │  parties, consent,  │
+   └────────────────────────────────────────────┘   │  age bands          │
+                                                    └─────────────────────┘</div>
+
+<h2>What is deliberately not finished</h2>
+
+<table>
+  <thead><tr><th>Item</th><th>State</th><th>Who unblocks it</th></tr></thead>
+  <tbody>
+    <tr><td>Sync client (091 S3–S5)</td><td>The pull journal, crash-safe apply and accept-gate diff are the Arke <em>desktop client's</em> work and live in that repository. The server half (negotiation + transfer) is complete.</td><td>Arke client team</td></tr>
+    <tr><td>Content classification vendor</td><td>No vendor is wired, so the safety gate refuses all child-facing generation — the correct state. Wiring a vendor without a preserved-material store refuses to <em>start</em>.</td><td>Product + counsel (096 F1)</td></tr>
+    <tr><td>Video generation</td><td>Off by configuration, with a second lock: a video classifier must declare complete temporal coverage or it is refused before being called. Frame sampling can never satisfy it.</td><td>Product (096 F6)</td></tr>
+    <tr><td>Named responsible person</td><td>The §12 custodian list is empty, so preserved material is unreachable. Safe, but not shippable.</td><td>Michael (096 F7)</td></tr>
+    <tr><td>Rejected-revision sweep</td><td>A rejected divergent revision keeps its blobs for an undo window; the job that releases them after the window is not yet wired.</td><td>Engineering (small)</td></tr>
+    <tr><td>Entitlement HTTP endpoints</td><td>Issue/keys/revocations are services with contracts; the public <code>GET /entitlement/keys</code> and issue endpoints are thin wiring not yet exposed.</td><td>Engineering (small)</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Feature guide index · Written 2026-08-14 · Sources: Specs 086, 087, 089, 090, 091, 095, 096 and the
+  implementation merged through PR #313.
+</footer>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The workspace sync protocol</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
+    header.doc-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="doc-meta">
+  <span class="meta-tag">Feature guide</span>
+  <span class="meta-tag">Module: Aonik.Workspaces</span>
+  <h1>The workspace sync protocol</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    How a desktop client and the platform exchange only the bytes the other side is missing — without
+    letting a file hash become a password, and without a 2GB upload restarting from zero. Implements the
+    server side of <a href="../specifications/091.workspace-sync.html">Spec 091</a>.
+    Back to the <a href="arke-platform.html">index</a>.
+  </p>
+</header>
+
+<h2>The shape of a sync</h2>
+
+<p>
+  Arke Studio is a desktop product; the workspace lives on the author's machine and the platform holds the
+  synced copy. Sync is built entirely from the primitives in
+  <a href="workspaces-and-blobs.html">workspaces &amp; blobs</a> — content hashes, complete manifests, the
+  guarded commit. A push is three round-trips, and the middle one is usually nearly empty:
+</p>
+
+<div class="ascii-diagram">CLIENT                                        SERVER
+──────                                        ──────
+1. NEGOTIATE
+   "here is the manifest I want to     ───►   For each hash: can THIS CALLER
+    commit: [path → hash, size]"              already reach it?
+                                       ◄───   "missing: [these hashes]"
+
+2. TRANSFER (only what was missing)
+   small blob → single-shot upload     ───►   stage → hash → promote (dedupe)
+   large blob → multipart session      ───►   parts → assemble → verify → promote
+
+3. COMMIT
+   full manifest + parent + CommitId   ───►   guarded CAS on the head
+                                       ◄───   FastForward (head moved)
+                                              or Diverged (stored, needs a human)</div>
+
+<p>
+  A pull is the mirror image: fetch the head revision's manifest, diff against the local tree, download the
+  hashes the client lacks. Because a manifest is complete and every entry is a hash, the diff needs no
+  server-side "what changed" endpoint — two lists and set arithmetic.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Where the rest of the protocol lives</span>
+  Spec 091's client-side slices — the local snapshot store and journal, the filesystem watcher, and the
+  pull/merge loop — belong to the Arke desktop client repository, not this platform. This page documents the
+  server's half: negotiation, transfer, and the invariants that make both safe to expose over HTTP.
+</div>
+
+<h2>Negotiation is scoped to the caller, not the tenant</h2>
+
+<p>
+  The first version of "which hashes are missing?" checked whether the blob row existed in the tenant. That
+  is the natural implementation and it is wrong, in a way worth spelling out because it is the mistake most
+  likely to be re-introduced by an optimisation:
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">A hash is a name, not an authorisation</span>
+  If "the tenant has these bytes" means "you don't need to upload them", then <em>knowing a hash</em> is
+  enough to attach the bytes to your own workspace: commit a manifest naming the hash, skip the upload the
+  negotiation excused you from, then pull — and read content you never possessed. The hash has become a
+  bearer token. The same check is also an <strong>existence oracle</strong>: probe any hash and the answer
+  "not missing" confirms someone in the tenant stores that exact file.
+</div>
+
+<p>
+  So negotiation answers a different question: <em>can this caller already reach these bytes?</em> A hash is
+  reported as already-present only if it is in the caller's reachable set —
+</p>
+
+<pre>reachable(caller) =  possession rows of the caller's billing subscriber
+                   ∪ hashes named by revisions of workspaces the caller can access
+                   − blobs the sweeper has claimed (IsDeleting)</pre>
+
+<p>
+  — and everything else is reported as <strong>missing</strong>, including hashes the tenant physically
+  holds. The refusal deliberately reads as <em>missing</em>, never <em>forbidden</em>: a "forbidden" answer
+  is itself the existence oracle, confirming the bytes exist while declining to share them. "Missing" is
+  indistinguishable from the bytes never having been uploaded at all.
+</p>
+
+<h3>What happens when two people upload the same file</h3>
+
+<p>
+  The caller then uploads bytes the server already has. That is the designed outcome, not waste:
+</p>
+
+<div class="ascii-diagram">Alice uploads photo.jpg      → staged, hashed, promoted, possession recorded
+Bob  negotiates same hash    → "missing" (Bob has never possessed it)
+Bob  uploads the same bytes  → staged, hashed, promote says AlreadyPresent,
+                               staged copy DISCARDED — and Bob's possession
+                               is recorded ANYWAY
+Bob  negotiates again        → "" (empty — Bob now legitimately reaches it)
+
+storage objects for this content: exactly one</div>
+
+<div class="callout ok">
+  <span class="callout-label">The one-line rule that keeps this safe</span>
+  Possession is granted by <strong>demonstrating the bytes</strong>, never by naming the hash. Bob proved he
+  holds the file by streaming it; the server merely declined to store a second copy. The
+  <code>AlreadyPresent</code> branch <em>still writes the possession row</em> — this is the exact spot a
+  future "skip the bookkeeping, the blob exists" optimisation would re-open the bearer-token hole, which is
+  why an end-to-end test pins the whole sequence above, including the final empty negotiation.
+</div>
+
+<h2>Large files: the multipart session</h2>
+
+<p>
+  Arke worlds carry media. A blob above the threshold (default <strong>32&nbsp;MB</strong>) is transferred
+  as a session of numbered parts (default <strong>8&nbsp;MB</strong> each) instead of one HTTP body, because
+  a consumer connection that drops at 99% of a 2&nbsp;GB upload must cost one part, not the whole file.
+</p>
+
+<div class="ascii-diagram">Begin(declaredHash, declaredLength)
+  │  an OPEN session already exists for this caller + declared hash?
+  │    → return IT, with which parts it already holds   ◄── resume is just
+  │  else create session (expires in 48h)                    Begin again
+  ▼
+UploadPart(n, bytes)      1-based, contiguous, any order, idempotent:
+  │                       re-sending a received part overwrites the same
+  │                       storage key — a no-op, not an error
+  ▼
+GetMissingParts()         the client's restart question: "what do you
+  │                       still need?" — parts, not bytes, so a crashed
+  │                       client re-reads its own file and sends the gaps
+  ▼
+Complete()
+  │  all parts present? → assemble as ONE STREAM (parts opened lazily,
+  │  nothing buffered whole) → stage → the staged hash MUST equal the
+  │  declared hash → promote → possession recorded via the same path
+  │  as a single-shot upload
+  ▼
+(or Abort() — parts deleted, session closed)</div>
+
+<p>
+  Sessions and parts are database rows (<code>BlobUploadSession</code>, <code>BlobUploadPart</code>), which
+  is what makes two things work: resume survives a client crash because the server's record of received
+  parts <em>is</em> the resume state, and abandoned uploads are sweepable because staging finally has
+  something the sweeper can see — the daily sweep removes sessions that are expired or no longer open,
+  along with their part objects. (The earlier blob-store phase had to ship that sweep as a documented no-op;
+  the session row is what made it real.)
+</p>
+
+<h3>The two bounds an upload must respect</h3>
+
+<p>
+  <code>Begin</code> takes a declared hash and a declared length. Both are <em>claims</em>, and each is
+  enforced at the point where it can actually be checked:
+</p>
+
+<table>
+  <thead><tr><th>Bound</th><th>Enforced</th><th>What it prevents</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Declared length</strong></td>
+      <td>While bytes stream in. Every part body is read through a bounding stream capped at the space the
+        declaration has left; one byte past it aborts the part <em>and the session</em>.</td>
+      <td>A client (or attacker) declaring 10&nbsp;MB and streaming 10&nbsp;GB into staging. Quota is charged
+        on real size at registration, but disk is consumed <em>during</em> the upload — the declaration is
+        the only bound that exists early enough.</td>
+    </tr>
+    <tr>
+      <td><strong>Declared hash</strong></td>
+      <td>At <code>Complete</code>, after assembly — the first moment the whole content exists to hash. The
+        staged result must hash to exactly the declared value; a mismatch discards the staged bytes and fails
+        loudly.</td>
+      <td><strong>Hash substitution</strong>: declare the hash of popular content, upload junk. If the junk
+        were registered under the declared hash, every future dedupe against that hash — including other
+        subscribers' — would silently resolve to junk. The declared hash selects the <em>session</em>; only
+        the verified hash may name the <em>blob</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Why resume keys on the declared hash</span>
+  A crashed client has no session id — it has the file. On restart it re-hashes locally and calls
+  <code>Begin</code> with the same declaration; the server finds the open session for
+  (caller,&nbsp;declared&nbsp;hash) and hands back the part map. The declared hash is safe as a lookup key
+  precisely because it authorises nothing: it never becomes a blob identity until the bytes prove it.
+</div>
+
+<h2>Commit and pull, briefly</h2>
+
+<p>
+  Step 3 of a push is the commit documented in full in
+  <a href="workspaces-and-blobs.html">workspaces &amp; blobs</a>: complete manifest, client
+  <code>CommitId</code> bound to a request hash (retry replays; same id with a different tree is a loud
+  <code>409</code>), one guarded SQL statement consuming the sequence and advancing the head, and the losing
+  side of a race reclassified as <em>Diverged</em> rather than failed. Divergence then waits for a human —
+  Arke's accept gate — and resolves as Accept, Reject, or Supersede.
+</p>
+
+<p>
+  Pull needs almost nothing beyond reads: the head revision, its manifest, and blob downloads by hash —
+  where "by hash" is again bounded by the caller's reachable set. A download request for a hash outside it
+  is, of course, <em>missing</em>.
+</p>
+
+<h2>Defaults</h2>
+
+<table>
+  <thead><tr><th>Setting</th><th>Default</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><code>MultipartThresholdBytes</code></td><td>32&nbsp;MB</td><td>Below this, single-shot stage/promote.</td></tr>
+    <tr><td><code>PartSizeBytes</code></td><td>8&nbsp;MB</td><td>The unit of retry.</td></tr>
+    <tr><td><code>UploadSessionHours</code></td><td>48</td><td>An open session past this is abandoned and swept, parts included.</td></tr>
+    <tr><td><code>UnreferencedGraceHours</code></td><td>24</td><td>A completed blob sits legitimately at zero references until its commit lands; the sweeper waits this long before treating zero as abandonment.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Feature guide · The workspace sync protocol · Sources:
+  <a href="../specifications/091.workspace-sync.html">Spec 091</a>,
+  implementation in <code>src/Aonik.Workspaces</code> (<code>WorkspaceUploadService</code>,
+  <code>WorkspaceBlobService</code>, <code>WorkspaceSyncService</code>) ·
+  Back to the <a href="arke-platform.html">index</a>.
+</footer>
+</body>
+</html>
