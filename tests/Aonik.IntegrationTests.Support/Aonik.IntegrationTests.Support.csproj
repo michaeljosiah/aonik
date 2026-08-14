@@ -16,6 +16,13 @@
 
   <ItemGroup>
     <PackageReference Include="Testcontainers.MsSql" Version="4.12.0" />
+    <!--
+      Security pin (NU1903): Testcontainers pulls SSH.NET 2025.1.0, which has the
+      arbitrary-file-write advisory CVE-2026-48798 / GHSA-q939-rpr3-3284; 2026.0.0
+      is the patched floor. Testcontainers only touches SSH.NET for remote-Docker
+      SSH tunnels, which our fixtures never open.
+    -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="Respawn" Version="7.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <!--

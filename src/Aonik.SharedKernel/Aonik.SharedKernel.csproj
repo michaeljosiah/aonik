@@ -39,15 +39,6 @@
       AonikDbContextBase.OnModelCreating, keeping module write paths consistent.
     -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.1" />
-    <!--
-      Bumped to 10.0.8 to match the transitive minimum demanded by
-      Microsoft.Extensions.AI 10.6.0 (which Microsoft.Agents.AI 1.9.0 brings in).
-      Without these, SharedKernel produces NU1605 (package downgrade detected)
-      when consumers resolve the graph.
-    -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
     <!--
       The agent contributor contract (Abstractions.Agents.IDomainAgentDescriptor)
       returns Microsoft.Agents.AI.AIAgent and accepts a Microsoft.Extensions.AI
