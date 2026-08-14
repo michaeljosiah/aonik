@@ -52,6 +52,17 @@ public static class RevisionStates
 
     /// <summary>A divergent revision a human rejected. Its blobs are released after the retention window.</summary>
     public const string Rejected = "rejected";
+
+    /// <summary>
+    /// A divergent revision a human resolved by committing a third tree — their edited result — rather than
+    /// picking a side.
+    ///
+    /// <para>
+    /// This is what the accept gate actually produces most of the time, and it is why the platform stores three
+    /// outcomes rather than two. It never learns what the human reconciled; it records that they did.
+    /// </para>
+    /// </summary>
+    public const string Superseded = "superseded";
 }
 
 /// <summary>

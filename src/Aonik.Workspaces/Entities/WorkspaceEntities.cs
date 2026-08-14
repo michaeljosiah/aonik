@@ -41,6 +41,19 @@ public class Workspace : AuditableEntity, ITenantScoped
     /// </summary>
     public Guid? HeadRevisionId { get; set; }
 
+    /// <summary>
+    /// The next sequence a commit may take (Spec 089 §6.2).
+    ///
+    /// <para>
+    /// It lives here, beside the head, because <strong>allocating a sequence and advancing the head are the same
+    /// atomic decision</strong>. An earlier revision of the spec allocated the sequence first and guarded only the
+    /// head update; two commits reading the same head then both computed N+1 and the loser collided on the unique
+    /// sequence index during its insert — dying before it could reach the guard meant to reclassify it as
+    /// diverged. One guarded write over both fields is what makes the loser reclassifiable instead of dead.
+    /// </para>
+    /// </summary>
+    public long NextSequence { get; set; } = 1;
+
     public int FileCount { get; set; }
 
     /// <summary><c>long</c>. A 3GB workspace is ordinary here and must be counted without truncation.</summary>

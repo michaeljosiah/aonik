@@ -105,4 +105,10 @@ public enum DivergenceResolution
 
     /// <summary>Release its blobs and byte claims after the retention window.</summary>
     Reject = 1,
+
+    /// <summary>
+    /// Neither side won: the human committed a third tree, their edited result, through a normal commit. This
+    /// only records that the divergent revision stopped being a live proposal.
+    /// </summary>
+    Supersede = 2,
 }
