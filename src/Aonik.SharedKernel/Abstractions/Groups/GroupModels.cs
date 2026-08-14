@@ -60,7 +60,8 @@ public sealed record ShareGrantDto(
     IReadOnlyList<Guid> ResourceIds,
     string? TermsJson,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string AccessLevel = ShareAccessLevels.Read);
 
 /// <summary>
 /// An opaque, single-use, expiring invitation to join someone's circle of access.
@@ -159,6 +160,11 @@ public sealed record InviteGroupMemberCommand(
 /// cannot be resolved back, and the grant would then be written with a null member — a dangling
 /// pending grant instead of the active one the caller asked for. Goes with the columns.
 /// </param>
+/// <param name="AccessLevel">
+/// One of <see cref="ShareAccessLevels"/>. <strong>Defaults to read</strong>: a grant whose level nobody stated
+/// is the least dangerous one, and the alternative default would hand write access to every existing caller that
+/// has not been updated.
+/// </param>
 public sealed record CreateShareGrantCommand(
     string Scope,
     string ResourceKind,
@@ -166,7 +172,8 @@ public sealed record CreateShareGrantCommand(
     Guid? MemberPartyId = null,
     Guid? MemberUserId = null,
     Guid? GroupId = null,
-    string? TermsJson = null);
+    string? TermsJson = null,
+    string AccessLevel = ShareAccessLevels.Read);
 
 /// <summary>Mint an invite carrying the grant terms, to be materialised on accept.</summary>
 public sealed record CreateShareInviteCommand(

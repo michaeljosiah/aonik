@@ -20,6 +20,7 @@ public interface IWorkspaceDataContext
     DbSet<WorkspaceRevision> Revisions { get; }
     DbSet<WorkspaceFile> Files { get; }
     DbSet<WorkspaceBlob> Blobs { get; }
+    DbSet<BlobPossession> Possessions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

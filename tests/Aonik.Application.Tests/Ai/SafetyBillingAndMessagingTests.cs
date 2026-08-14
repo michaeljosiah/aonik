@@ -82,7 +82,7 @@ public class SafetyBillingAndMessagingTests
             => throw new NotSupportedException();
 
         public Task ClaimSlotAsync(
-            SubscriberRef subscriber, string meterCode, string holderRef,
+            SubscriberRef subscriber, string meterCode, string holderRef, long weight = 1,
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

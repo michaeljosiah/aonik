@@ -63,10 +63,15 @@ public interface IUsageMeter
     /// returns the slot.
     /// </summary>
     /// <exception cref="EntitlementExceededException">The ceiling is already fully claimed.</exception>
+    /// <param name="weight">
+    /// How much of the ceiling this holder occupies. One for a seat or a profile; the blob's size for a byte
+    /// ceiling (Spec 089 §9.1). Additive with a default, so no existing caller changes.
+    /// </param>
     Task ClaimSlotAsync(
         SubscriberRef subscriber,
         string meterCode,
         string holderRef,
+        long weight = 1,
         CancellationToken cancellationToken = default);
 
     /// <summary>

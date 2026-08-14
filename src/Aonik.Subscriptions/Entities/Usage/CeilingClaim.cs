@@ -20,5 +20,16 @@ public class CeilingClaim : AuditableEntity, ITenantScoped
     /// <summary>The stable identity of the object occupying the slot — e.g. a child profile id.</summary>
     public string HolderRef { get; set; } = string.Empty;
 
+    /// <summary>
+    /// How much of the ceiling this holder occupies (Spec 089 §9.1).
+    ///
+    /// <para>
+    /// One for a seat or a profile; the blob's size for a byte ceiling. Persisted rather than recomputed so
+    /// release returns exactly what the claim took — recomputing at release time would read the object's size
+    /// after it had changed, or after it was gone.
+    /// </para>
+    /// </summary>
+    public long Weight { get; set; } = 1;
+
     public DateTime ClaimedAt { get; set; }
 }

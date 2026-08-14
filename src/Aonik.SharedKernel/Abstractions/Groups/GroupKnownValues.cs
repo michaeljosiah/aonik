@@ -98,3 +98,22 @@ public static class GroupTransitionKinds
     public const string MemberRemoved = "member-removed";
     public const string OwnershipTransferred = "ownership-transferred";
 }
+
+/// <summary>
+/// What a share grant permits (Spec 089 §8.1). Three values, no extension point, no DSL.
+///
+/// <para>
+/// The platform reads this and only this. It still cannot tell you what a "co-author" is, whether comments are
+/// allowed, or what a canon entry means — <c>TermsJson</c> remains the product's and the product remains its only
+/// reader. What the platform now knows is whether this caller may write to this container, which is the
+/// access-control question every endpoint owner has to answer for itself.
+/// </para>
+/// </summary>
+public static class ShareAccessLevels
+{
+    public const string Read = "read";
+    public const string Write = "write";
+
+    public static readonly IReadOnlySet<string> All =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Read, Write };
+}

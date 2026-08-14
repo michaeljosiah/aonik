@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions.Workspaces;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Workspaces.Entities;
@@ -30,6 +31,19 @@ public class Workspace : AuditableEntity, ITenantScoped
     /// child's workspace in Arke Kids has an owner who cannot authenticate.
     /// </summary>
     public Guid OwnerPartyId { get; set; }
+
+    /// <summary>
+    /// Who the ceiling claims are held against (Spec 089 §9.2).
+    ///
+    /// <para>
+    /// Deliberately separate from <see cref="OwnerPartyId"/>, because they can legitimately differ — an Arke
+    /// Kids workspace owned by a parent may be billed to a family subscription. Storing only the owner would
+    /// make transfer and billing the same decision, and they are not.
+    /// </para>
+    /// </summary>
+    public string BillingSubscriberKind { get; set; } = SubscriberKinds.Party;
+
+    public Guid BillingSubscriberId { get; set; }
 
     /// <summary>
     /// The revision a fresh clone gets. Null until the first commit.
@@ -185,4 +199,38 @@ public class WorkspaceBlob : AuditableEntity, ITenantScoped
     public bool IsDeleting { get; set; }
 
     public DateTime? DeletingSince { get; set; }
+}
+
+/// <summary>
+/// How many workspaces billed to one subscriber reference one blob (Spec 089 §9.2).
+///
+/// <para>
+/// <strong>Keying the ceiling claim on the content hash is what makes release ambiguous.</strong> The hash gives
+/// idempotency for free — ten revisions naming one blob are charged once — but that same idempotency means a
+/// subscriber has <em>one</em> claim covering every workspace of theirs that references it. Transfer one of two
+/// such workspaces and releasing "their claim for that hash" leaves the retained workspace's bytes completely
+/// uncharged, while the physical blob cannot be swept and we are still paying for it. Repeat it and a subscriber
+/// stores a great deal for free, entirely through legitimate use.
+/// </para>
+///
+/// <para>
+/// So this is the same reference-counting shape as <see cref="WorkspaceBlob.RefCount"/>, one level up, and the
+/// two answer genuinely different questions: physical <c>RefCount</c> answers <em>may these bytes be deleted?</em>,
+/// this answers <em>may this subscriber stop paying for them?</em>
+/// </para>
+/// </summary>
+public class BlobPossession : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+
+    public string SubscriberKind { get; set; } = SubscriberKinds.Party;
+
+    public Guid SubscriberId { get; set; }
+
+    public string ContentHash { get; set; } = string.Empty;
+
+    public long SizeBytes { get; set; }
+
+    /// <summary>Workspaces billed to this subscriber that reference the hash. The claim is released at zero.</summary>
+    public int WorkspaceCount { get; set; }
 }

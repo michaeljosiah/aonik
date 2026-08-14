@@ -47,6 +47,14 @@ public static class WorkspacesModule
         services.AddScoped<Services.IWorkspaceBlobService, Services.WorkspaceBlobService>();
         services.AddScoped<Services.IWorkspaceBlobSweeper, Services.WorkspaceBlobSweeper>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceSyncService, Services.WorkspaceSyncService>();
+        services.AddScoped<Services.IBlobPossessionService, Services.BlobPossessionService>();
+        services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceService, Services.WorkspaceService>();
+        services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceReader>(
+            sp => (Services.WorkspaceService)sp.GetRequiredService<SharedKernel.Abstractions.Workspaces.IWorkspaceService>());
+
+        // Registering the kind is all it takes to inherit every Spec 086 mechanic — invite tokens,
+        // expiry, revocation, ownership validation — with no new code.
+        services.AddScoped<SharedKernel.Abstractions.Groups.IShareResourceResolver, Services.WorkspaceShareResourceResolver>();
 
         return services;
     }

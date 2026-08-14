@@ -241,8 +241,16 @@ internal sealed class UsageMeter : IUsageMeter
         SubscriberRef subscriber,
         string meterCode,
         string holderRef,
+        long weight = 1,
         CancellationToken cancellationToken = default)
     {
+        if (weight < 1)
+        {
+            // A zero- or negative-weight claim would occupy a slot the release path then returns as a
+            // credit, which is a way to grow an allowance by claiming and releasing.
+            throw new InvalidStateException("A ceiling claim must weigh at least 1.");
+        }
+
         await _authorization.EnsureCanActForAsync(subscriber, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(holderRef))
@@ -284,13 +292,13 @@ internal sealed class UsageMeter : IUsageMeter
         if (alreadyClaimed)
             return;
 
-        if (holding.Held + 1 > ceiling)
-            throw new EntitlementExceededException(meterCode, 1, Math.Max(0, ceiling - holding.Held));
+        if (holding.Held + weight > ceiling)
+            throw new EntitlementExceededException(meterCode, weight, Math.Max(0, ceiling - holding.Held));
 
         // Compare-and-increment. RowVersion on the holding is what stops two callers at the limit
         // both succeeding: a point-in-time count that takes no lock and writes no row is a
         // check-then-act race, and it over-admits under exactly the conditions a ceiling exists for.
-        holding.Held += 1;
+        holding.Held += weight;
 
         _dbContext.CeilingClaims.Add(new CeilingClaim
         {
@@ -298,6 +306,7 @@ internal sealed class UsageMeter : IUsageMeter
             TenantId = tenantId,
             CeilingHoldingId = holding.Id,
             HolderRef = holderRef,
+            Weight = weight,
             ClaimedAt = _clock.UtcNow
         });
 
@@ -333,7 +342,11 @@ internal sealed class UsageMeter : IUsageMeter
             return;
 
         _dbContext.CeilingClaims.Remove(claim);
-        holding.Held = Math.Max(0, holding.Held - 1);
+
+        // Returns what the claim actually took, from the row rather than from a recomputation. The
+        // object's size may have changed, or the object may be gone — which is precisely when release
+        // runs.
+        holding.Held = Math.Max(0, holding.Held - claim.Weight);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -357,7 +370,7 @@ internal sealed class UsageMeter : IUsageMeter
     // ---- internals ---------------------------------------------------------------------------
 
     /// <summary>The subscriber's ceiling for a meter, from the pinned plan version.</summary>
-    private async Task<int> CeilingAllowanceAsync(
+    private async Task<long> CeilingAllowanceAsync(
         Guid tenantId,
         SubscriberRef subscriber,
         string meterCode,
@@ -369,7 +382,9 @@ internal sealed class UsageMeter : IUsageMeter
         if (entitlement is null)
             throw new EntitlementExceededException(meterCode, 1, 0);
 
-        return (int)decimal.Truncate(entitlement.Allowance);
+        // long, for the same reason Held is: a long aggregate compared against an int limit is the
+        // same overflow one layer up.
+        return (long)decimal.Truncate(entitlement.Allowance);
     }
 
     private async Task<Entities.Catalogue.PlanEntitlement?> ActiveEntitlementAsync(

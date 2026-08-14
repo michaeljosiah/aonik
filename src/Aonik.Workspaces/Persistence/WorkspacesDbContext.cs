@@ -21,6 +21,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
     public DbSet<WorkspaceRevision> Revisions => Set<WorkspaceRevision>();
     public DbSet<WorkspaceFile> Files => Set<WorkspaceFile>();
     public DbSet<WorkspaceBlob> Blobs => Set<WorkspaceBlob>();
+    public DbSet<BlobPossession> Possessions => Set<BlobPossession>();
 
     public WorkspacesDbContext(
         DbContextOptions<WorkspacesDbContext> options,
@@ -49,6 +50,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
         MapTable<WorkspaceRevision>(modelBuilder, "WorkspaceRevisions");
         MapTable<WorkspaceFile>(modelBuilder, "WorkspaceFiles");
         MapTable<WorkspaceBlob>(modelBuilder, "WorkspaceBlobs");
+        MapTable<BlobPossession>(modelBuilder, "BlobPossessions");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

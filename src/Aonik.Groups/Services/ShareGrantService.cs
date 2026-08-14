@@ -124,6 +124,11 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
             ResourceKind = command.ResourceKind,
             EntityIdsJson = SerializeIds(command.ResourceIds),
             TermsJson = command.TermsJson,
+            // Unrecognised levels fall back to read rather than throwing. A caller sending nonsense
+            // gets the least dangerous grant, not an outage — and not write.
+            AccessLevel = ShareAccessLevels.All.Contains(command.AccessLevel)
+                ? command.AccessLevel.ToLowerInvariant()
+                : ShareAccessLevels.Read,
             Scope = scope,
             // Pending only when there is genuinely no member yet. Keyed on either identifier, because
             // a member known by user but not yet by party is still a member.
@@ -431,6 +436,34 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
             || grant.ResourceIds.Contains(resourceId));
     }
 
+    public async Task<string?> GetAccessLevelAsync(
+        Guid memberPartyId,
+        string resourceKind,
+        Guid resourceId,
+        CancellationToken cancellationToken = default)
+    {
+        var grants = await GetActiveGrantsAsync(memberPartyId, resourceKind, cancellationToken);
+
+        var applicable = grants
+            .Where(grant =>
+                string.Equals(grant.Scope, ShareScopes.All, StringComparison.OrdinalIgnoreCase)
+                || grant.ResourceIds.Contains(resourceId))
+            .ToList();
+
+        if (applicable.Count == 0)
+        {
+            return null;
+        }
+
+        // The highest level any active grant gives. Two grants naming one resource is legitimate — a
+        // direct share and a group one — and taking the lowest would let a stale read-only grant quietly
+        // revoke write access the owner deliberately gave.
+        return applicable.Any(g =>
+            string.Equals(g.AccessLevel, ShareAccessLevels.Write, StringComparison.OrdinalIgnoreCase))
+            ? ShareAccessLevels.Write
+            : ShareAccessLevels.Read;
+    }
+
     public async Task<IReadOnlyList<ShareGrantDto>> GetActiveGrantsAsync(
         Guid memberPartyId,
         string resourceKind,
@@ -692,7 +725,8 @@ internal sealed class ShareGrantService : IShareGrantService, IShareGrantReader
         ParseIds(grant.EntityIdsJson),
         grant.TermsJson,
         grant.Status,
-        grant.CreatedAt);
+        grant.CreatedAt,
+        grant.AccessLevel);
 
     private static ShareInviteDto ToDto(CircleInvite invite) => new(
         invite.Id,
