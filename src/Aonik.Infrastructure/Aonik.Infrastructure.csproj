@@ -41,6 +41,7 @@
       stays intact. Mirrors the PersonalFinance arrangement above.
     -->
     <ProjectReference Include="..\Aonik.Documents\Aonik.Documents.csproj" />
+    <ProjectReference Include="..\Aonik.Workspaces\Aonik.Workspaces.csproj" />
   </ItemGroup>
 
   <ItemGroup>

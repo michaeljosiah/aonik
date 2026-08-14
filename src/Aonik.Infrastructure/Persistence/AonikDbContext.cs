@@ -1,4 +1,4 @@
-﻿using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
@@ -344,6 +344,14 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // fully-qualified names stay valid and the move itself needs no migration.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Groups.Persistence.GroupsDbContext).Assembly);
 
+        // Apply Workspaces configurations from Aonik.Workspaces (Spec 089 / ADR-016). Applied HERE,
+        // before ConfigureRowVersions, and not only through the MapWorkspacesTable calls below: an
+        // entity that reaches this model solely through a table mapping is registered AFTER row
+        // versions are configured, and is scaffolded with a plain varbinary(max) concurrency column
+        // that SQL Server can never later ALTER into a rowversion.
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(Aonik.Workspaces.WorkspacesModule).Assembly);
+
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
 
@@ -668,6 +676,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<ToolApprovalRequest>(modelBuilder, "ToolApprovalRequests");
         MapAgentsTable<TenantSkill>(modelBuilder, "TenantSkills");
         MapAgentsTable<TenantMcpServer>(modelBuilder, "TenantMcpServers");
+
+        MapWorkspacesTable<Aonik.Workspaces.Entities.Workspace>(modelBuilder, "Workspaces");
+        MapWorkspacesTable<Aonik.Workspaces.Entities.WorkspaceRevision>(modelBuilder, "WorkspaceRevisions");
+        MapWorkspacesTable<Aonik.Workspaces.Entities.WorkspaceFile>(modelBuilder, "WorkspaceFiles");
+        MapWorkspacesTable<Aonik.Workspaces.Entities.WorkspaceBlob>(modelBuilder, "WorkspaceBlobs");
         MapAgentsTable<TenantHttpTool>(modelBuilder, "TenantHttpTools");
         MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
@@ -693,6 +706,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     private static void MapCommerceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
         => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Commerce, tableName);
+
+    private static void MapWorkspacesTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+        => MapModuleTable<TEntity>(modelBuilder, ModuleTablePrefixes.Default, tableName);
 
     private static void MapSubscriptionsTable<TEntity>(ModelBuilder modelBuilder, string tableName)
         where TEntity : class
