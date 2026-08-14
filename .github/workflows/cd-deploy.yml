@@ -121,6 +121,18 @@ on:
       # using the Hyperlight or Disabled provider.
       AI__CODEACT__NONCESIGNINGKEY:
         required: false
+      # App-settings secrets forwarded to the containers via the env block
+      # below. Optional — each is only consulted when its provider is enabled
+      # in the target environment (OpenAI, Auth0 management API, Keycloak
+      # admin client, Plaid).
+      AI__OPENAI__APIKEY:
+        required: false
+      AUTH__AUTH0__MANAGEMENTCLIENTSECRET:
+        required: false
+      AUTH__KEYCLOAK__ADMINCLIENTSECRET:
+        required: false
+      FINANCE__PERSONALFINANCE__PLAID__SECRET:
+        required: false
 
 permissions:
   id-token: write

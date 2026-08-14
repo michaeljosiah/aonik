@@ -156,6 +156,9 @@ jobs:
 
           release_version="${GITHUB_SHA}"
           workload_name="${WORKLOAD_NAME:-aonik}"
+          # ENVIRONMENT_NAME is assigned in the job-level env block above, so
+          # SC2153 ("may not be assigned") is a false positive here.
+          # shellcheck disable=SC2153
           environment_name="${ENVIRONMENT_NAME}"
 
           normalized_workload=$(echo "$workload_name" | tr '[:upper:]' '[:lower:]')
