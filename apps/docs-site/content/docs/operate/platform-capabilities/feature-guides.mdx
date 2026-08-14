@@ -1,0 +1,53 @@
+---
+title: Feature guides
+description: Deep-dive guides to the Arke-supporting platform features - workspaces and content-addressed storage, the sync protocol, offline entitlement tokens, and child content safety.
+---
+
+Long-form guides to the platform features that support Arke Studio and Arke Kids,
+written for someone who wants to understand not just what each feature does but
+why it is built the way it is — the flows, the libraries chosen, and the race
+conditions each guarded statement closes.
+
+These are full-page documents in the same style as the platform's specifications,
+so they open outside the docs chrome. Each links back to the specification it
+implements, and those links resolve here too — the specifications and ADRs are
+served alongside the guides.
+
+<Cards>
+  <Card
+    title="The Arke platform on AONIK"
+    description="Start here. The module map, every library and why it was chosen, the two test lanes, and five recurring design principles."
+    href="/features/arke-platform.html"
+  />
+  <Card
+    title="Workspaces & content-addressed storage"
+    description="The workspace model, stage/promote content addressing, the sweeper claim race, revisions and the sequence+head CAS, sharing, and weighted quota."
+    href="/features/workspaces-and-blobs.html"
+  />
+  <Card
+    title="The workspace sync protocol"
+    description="Negotiate, transfer, commit. Caller-scoped negotiation, multipart resume, and the two bounds every upload must respect."
+    href="/features/workspace-sync-protocol.html"
+  />
+  <Card
+    title="Offline-verifiable entitlement tokens"
+    description="A signed token a device can verify with zero network - the format, three-pass verification, key rotation, and revocation that names nobody."
+    href="/features/offline-entitlement-tokens.html"
+  />
+  <Card
+    title="Content safety for child-facing generation"
+    description="The fail-closed gate between generative AI and a child - six defence layers, age bands, the guardian appeal boundary, and the unforgeable permit."
+    href="/features/child-content-safety.html"
+  />
+</Cards>
+
+## Where these come from
+
+The guides live in the repository at `docs/features/` and are copied into this
+site at build time, together with the folders they reference:
+
+- `/specifications/` — the numbered platform specifications (HTML)
+- `/decisions/` — architecture decision records (raw markdown)
+- `/architecture/`, `/observability/`, `/runbooks/` — supporting notes
+
+The canonical source of truth is the repository; this site republishes it.
