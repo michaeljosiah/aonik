@@ -59,6 +59,18 @@ public static class CommonValidationRules
             .EmailAddress().WithMessage("Email is not in a valid format.");
 
     /// <summary>
+    /// Optional email for nullable properties — same format and length rules
+    /// as <see cref="Email{T}(IRuleBuilder{T, string})"/> minus the non-empty
+    /// requirement. Combine with <c>.When(x => !string.IsNullOrEmpty(x.Email))</c>
+    /// at the call site, mirroring the RequiredText/OptionalText split for
+    /// reference-typed rules (nullability alone cannot overload).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> OptionalEmail<T>(this IRuleBuilder<T, string?> ruleBuilder)
+        => ruleBuilder
+            .MaximumLength(254).WithMessage("Email may not exceed 254 characters.")
+            .EmailAddress().WithMessage("Email is not in a valid format.");
+
+    /// <summary>
     /// Phone numbers stored in E.164 form: leading '+' followed by 8-15 digits.
     /// </summary>
     public static IRuleBuilderOptions<T, string> PhoneE164<T>(this IRuleBuilder<T, string> ruleBuilder)

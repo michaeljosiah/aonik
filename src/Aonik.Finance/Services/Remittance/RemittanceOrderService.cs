@@ -21,6 +21,7 @@ using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Persistence;
 using Aonik.SharedKernel.Primitives;
 
 using PricingModels = Aonik.Finance.Contracts.Models.Pricing;
@@ -543,7 +544,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         var payout = await LocateRemittancePayoutAsync(providerCode, translated.Reference, cancellationToken);
         var candidateConnectorId = payout?.ConnectorId ?? Guid.Empty;
         var candidateConnector = candidateConnectorId != Guid.Empty
-            ? await _db.Connectors.IgnoreQueryFilters()
+            ? await _db.Connectors.AcrossTenants()
                 .FirstOrDefaultAsync(c => c.Id == candidateConnectorId, cancellationToken)
             : null;
 
@@ -556,9 +557,9 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
         // Connector-aware dedupe: keyed by ConnectorId once resolved, else by ProviderCode.
         var existingEvent = resolvedConnectorId is { } resolved
-            ? await _db.PartnerWebhookEvents.IgnoreQueryFilters()
+            ? await _db.PartnerWebhookEvents.AcrossTenants()
                 .FirstOrDefaultAsync(e => e.ConnectorId == resolved && e.PayloadHash == payloadHash, cancellationToken)
-            : await _db.PartnerWebhookEvents.IgnoreQueryFilters()
+            : await _db.PartnerWebhookEvents.AcrossTenants()
                 .FirstOrDefaultAsync(
                     e => e.ConnectorId == null && e.ProviderCode == providerCode && e.PayloadHash == payloadHash,
                     cancellationToken);
@@ -624,10 +625,10 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
         var item = payout.OrderItemId is null
             ? null
-            : await _db.OrderItems.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == payout.OrderItemId, cancellationToken);
+            : await _db.OrderItems.AcrossTenants().FirstOrDefaultAsync(i => i.Id == payout.OrderItemId, cancellationToken);
         var order = item is null
             ? null
-            : await _db.Orders.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.Id == item.OrderId, cancellationToken);
+            : await _db.Orders.AcrossTenants().FirstOrDefaultAsync(o => o.Id == item.OrderId, cancellationToken);
 
         if (order is null || item is null || !string.Equals(order.OrderType, RemittanceOrderType, StringComparison.OrdinalIgnoreCase))
         {
@@ -1034,7 +1035,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         if (!string.IsNullOrEmpty(reference.ClientReference))
         {
             var byClient = await _db.Payouts
-                .IgnoreQueryFilters()
+                .AcrossTenants()
                 .FirstOrDefaultAsync(p => p.ClientReference == reference.ClientReference, cancellationToken);
             if (byClient is not null)
             {
@@ -1048,7 +1049,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         }
 
         var candidates = await _db.Payouts
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Where(p => p.ProviderReference == reference.ProviderReference)
             .ToListAsync(cancellationToken);
 
@@ -1077,7 +1078,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         }
 
         var item = await _db.OrderItems
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .FirstOrDefaultAsync(i => i.Id == payout.OrderItemId, cancellationToken);
         var details = TryDeserializeDetails(item?.DetailsJson);
         return details is not null
@@ -1154,7 +1155,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         string providerCode, string payloadHash, string body, CancellationToken cancellationToken)
     {
         var exists = await _db.PartnerWebhookEvents
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .AnyAsync(e => e.ProviderCode == providerCode && e.PayloadHash == payloadHash, cancellationToken);
         if (exists)
         {

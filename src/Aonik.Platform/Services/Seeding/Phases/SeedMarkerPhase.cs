@@ -230,9 +230,9 @@ internal sealed class SeedMarkerPhase
         tenant.City = snapshot.City;
         tenant.StateProvince = snapshot.StateProvince;
         tenant.AddressLine1 = snapshot.AddressLine1;
-        tenant.SupportedCountriesJson = snapshot.SupportedCountriesJson;
-        tenant.AllowedOriginCountriesJson = snapshot.AllowedOriginCountriesJson;
-        tenant.AllowedDestinationCountriesJson = snapshot.AllowedDestinationCountriesJson;
+        tenant.SupportedCountriesJson = snapshot.SupportedCountriesJson ?? string.Empty;
+        tenant.AllowedOriginCountriesJson = snapshot.AllowedOriginCountriesJson ?? string.Empty;
+        tenant.AllowedDestinationCountriesJson = snapshot.AllowedDestinationCountriesJson ?? string.Empty;
         tenant.UpdatedAt = _clock.UtcNow;
         tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
 
