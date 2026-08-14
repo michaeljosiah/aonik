@@ -13,12 +13,23 @@
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.1.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.14.0-beta.1" />
+    <!--
+      Security bump (NU1902): OTel 1.14.0 is flagged by the 2026-08 advisory batch —
+      OTLP exporter CVE-2026-42191 / GHSA-4625-4j76-fww9, CVE-2026-40891 /
+      GHSA-mr8r-92fq-pj8p, CVE-2026-40182 / GHSA-q834-8qmm-v933, and Api
+      CVE-2026-40894 / GHSA-g94r-2vxg-569j; all patched at 1.15.3. Exporter +
+      Hosting at 1.15.3 lift the transitive SDK/Api to the patched floor. The
+      instrumentation packages version independently (no 1.15.3 exists), so they
+      ride the latest 1.15.x of their own lines; SqlClient moves off the 1.14
+      beta onto its stable line. The Azure Monitor distro stays at 1.4.0 — its
+      OTel floors are >= 1.14.0, satisfied by 1.15.x.
+    -->
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.15.2" />
   </ItemGroup>
 
 </Project>
