@@ -1,6 +1,8 @@
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Storage;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
+using Aonik.SharedKernel.Abstractions.Workspaces;
 using Aonik.Workspaces.Entities;
 using Aonik.Workspaces.Persistence;
 
@@ -23,18 +25,25 @@ public interface IWorkspaceBlobService
     /// object.
     /// </para>
     /// </summary>
-    Task<BlobStoreResult> StoreAsync(Stream content, CancellationToken cancellationToken = default);
+    Task<BlobStoreResult> StoreAsync(
+        SubscriberRef subscriber, Stream content, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Which of these hashes the tenant does <strong>not</strong> hold.
+    /// Which of these hashes the <strong>caller</strong> does not possess and cannot reach (Spec 091 &sect;6).
     ///
     /// <para>
-    /// A blob under a deletion claim counts as missing. Reporting it as present would let a client skip the
-    /// upload and then commit a manifest naming bytes that are being removed.
+    /// Relative to the caller, never to physical storage. Answering from blob existence breaks in both
+    /// directions for a hash that exists but belongs to another subscriber: say "present" and it leaks the
+    /// existence oracle 089 &sect;12 closed <em>and</em> the client skips the upload, so commit then refuses the
+    /// hash as unpossessed and the client is deadlocked. Negotiation and commit have to answer the same
+    /// question, which is what makes the protocol terminate.
     /// </para>
     /// </summary>
     Task<IReadOnlyList<string>> FindMissingAsync(
-        IReadOnlyList<string> contentHashes, CancellationToken cancellationToken = default);
+        SubscriberRef subscriber,
+        Guid callerPartyId,
+        IReadOnlyList<string> contentHashes,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Claim a reference for each hash, or report which could not be claimed.
@@ -84,7 +93,7 @@ internal sealed class WorkspaceBlobService : IWorkspaceBlobService
         => $"workspaces/{tenantId:N}/blobs/{contentHash[..2]}/{contentHash}";
 
     public async Task<BlobStoreResult> StoreAsync(
-        Stream content, CancellationToken cancellationToken = default)
+        SubscriberRef subscriber, Stream content, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -108,6 +117,13 @@ internal sealed class WorkspaceBlobService : IWorkspaceBlobService
                 existing.DeletingSince = null;
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
+
+            // Possession is established EVEN THOUGH the object already existed. The caller supplied the
+            // bytes, so they have demonstrated possession and the physical object is simply reused. This
+            // is the path that closes the negotiation loop, and the one an implementation is most likely
+            // to "optimise" back into a leak.
+            await RecordPossessionAsync(
+                tenantId, subscriber, staged.ContentHash, existing.SizeBytes, cancellationToken);
 
             return new BlobStoreResult(staged.ContentHash, existing.SizeBytes, AlreadyPresent: true);
         }
@@ -136,8 +152,14 @@ internal sealed class WorkspaceBlobService : IWorkspaceBlobService
                 "Blob {ContentHash} was inserted concurrently; treating as already present.",
                 staged.ContentHash);
 
+            await RecordPossessionAsync(
+                tenantId, subscriber, staged.ContentHash, staged.SizeBytes, cancellationToken);
+
             return new BlobStoreResult(staged.ContentHash, staged.SizeBytes, AlreadyPresent: true);
         }
+
+        await RecordPossessionAsync(
+            tenantId, subscriber, staged.ContentHash, staged.SizeBytes, cancellationToken);
 
         return new BlobStoreResult(
             staged.ContentHash,
@@ -146,27 +168,148 @@ internal sealed class WorkspaceBlobService : IWorkspaceBlobService
     }
 
     public async Task<IReadOnlyList<string>> FindMissingAsync(
-        IReadOnlyList<string> contentHashes, CancellationToken cancellationToken = default)
+        SubscriberRef subscriber,
+        Guid callerPartyId,
+        IReadOnlyList<string> contentHashes,
+        CancellationToken cancellationToken = default)
     {
         if (contentHashes.Count == 0)
         {
             return [];
         }
 
+        var reachable = await ReachableHashesAsync(
+            subscriber, callerPartyId, contentHashes, cancellationToken);
+
+        return
+        [
+            .. contentHashes
+                .Where(h => !reachable.Contains(h))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    /// <summary>
+    /// The two routes to possession (089 &sect;12): uploaded by this subscriber, or already reachable through a
+    /// workspace this caller can read.
+    ///
+    /// <para>
+    /// <strong>Tenant scope alone is not sufficient</strong>, and that is the finding this replaces. Accepting
+    /// any hash with a blob in the tenant is fine when a tenant is one customer and wrong for Arke Kids, where
+    /// one tenant holds many unrelated families. Guessing is not required either — hashes of shared or
+    /// previously-seen content are knowable, and a match turns into a read. A content hash is a <em>name</em>;
+    /// treating it as an <em>authorisation</em> is what makes it a bearer token.
+    /// </para>
+    /// </summary>
+    private async Task<HashSet<string>> ReachableHashesAsync(
+        SubscriberRef subscriber,
+        Guid callerPartyId,
+        IReadOnlyList<string> contentHashes,
+        CancellationToken cancellationToken)
+    {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var held = await _dbContext.Blobs
+        // Route one: they supplied the bytes.
+        var possessed = await _dbContext.Possessions
             .AsNoTracking()
-            .Where(b => b.TenantId == tenantId
-                && contentHashes.Contains(b.ContentHash)
-                // A claimed blob is missing as far as any caller is concerned.
-                && !b.IsDeleting)
+            .Where(p => p.TenantId == tenantId
+                && p.SubscriberKind == subscriber.Kind
+                && p.SubscriberId == subscriber.Id
+                && contentHashes.Contains(p.ContentHash))
+            .Select(p => p.ContentHash)
+            .ToListAsync(cancellationToken);
+
+        var reachable = possessed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Route two: it is already in a workspace they can read.
+        var readableWorkspaceIds = await _dbContext.Workspaces
+            .AsNoTracking()
+            .Where(w => w.TenantId == tenantId
+                && w.OwnerPartyId == callerPartyId
+                && w.Status == WorkspaceStatuses.Active)
+            .Select(w => w.Id)
+            .ToListAsync(cancellationToken);
+
+        if (readableWorkspaceIds.Count > 0)
+        {
+            var revisionIds = await _dbContext.Revisions
+                .AsNoTracking()
+                .Where(r => r.TenantId == tenantId && readableWorkspaceIds.Contains(r.WorkspaceId))
+                .Select(r => r.Id)
+                .ToListAsync(cancellationToken);
+
+            var named = await _dbContext.Files
+                .AsNoTracking()
+                .Where(f => f.TenantId == tenantId
+                    && revisionIds.Contains(f.RevisionId)
+                    && contentHashes.Contains(f.ContentHash))
+                .Select(f => f.ContentHash)
+                .ToListAsync(cancellationToken);
+
+            reachable.UnionWith(named);
+        }
+
+        if (reachable.Count == 0)
+        {
+            return reachable;
+        }
+
+        // Whatever route got here, a blob the sweeper has claimed is missing as far as any caller is
+        // concerned: reporting it present lets a client skip the upload and commit a manifest naming
+        // bytes that are being removed.
+        var claimedHashes = reachable.ToList();
+
+        var claimed = await _dbContext.Blobs
+            .AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.IsDeleting && claimedHashes.Contains(b.ContentHash))
             .Select(b => b.ContentHash)
             .ToListAsync(cancellationToken);
 
-        var heldSet = held.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        reachable.ExceptWith(claimed);
 
-        return [.. contentHashes.Where(h => !heldSet.Contains(h)).Distinct(StringComparer.OrdinalIgnoreCase)];
+        return reachable;
+    }
+
+    /// <summary>
+    /// Records that a subscriber supplied these bytes.
+    ///
+    /// <para>
+    /// <c>WorkspaceCount</c> starts at zero: possession is proof they supplied the bytes, which is a different
+    /// fact from a workspace referencing them. The count rises when a manifest names it, and the ceiling claim
+    /// rides with that — an upload nobody commits should not be billed forever.
+    /// </para>
+    /// </summary>
+    private async Task RecordPossessionAsync(
+        Guid tenantId,
+        SubscriberRef subscriber,
+        string contentHash,
+        long sizeBytes,
+        CancellationToken cancellationToken)
+    {
+        var already = await _dbContext.Possessions
+            .AsNoTracking()
+            .AnyAsync(p => p.TenantId == tenantId
+                && p.SubscriberKind == subscriber.Kind
+                && p.SubscriberId == subscriber.Id
+                && p.ContentHash == contentHash, cancellationToken);
+
+        if (already)
+        {
+            return;
+        }
+
+        _dbContext.Possessions.Add(new BlobPossession
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            SubscriberKind = subscriber.Kind,
+            SubscriberId = subscriber.Id,
+            ContentHash = contentHash,
+            SizeBytes = sizeBytes,
+            WorkspaceCount = 0,
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<string>> AddReferencesAsync(
