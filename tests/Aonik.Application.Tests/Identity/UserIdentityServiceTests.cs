@@ -67,6 +67,96 @@ public class UserIdentityServiceTests
         public string? CorrelationId { get; }
     }
 
+    [Fact]
+    public async Task ResolvePendingTenantByEmailAsync_ShouldReturnUniquePendingTenant()
+    {
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var context = new PlatformDbContext(options, new TestTenantProvider(tenantId));
+        context.Users.Add(new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
+            ExternalSubject = BootstrapIdentityConstants.CreatePendingOwnerSubject("owner@example.com"),
+            Email = "Owner@Example.com",
+            Status = "Active"
+        });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+
+        var resolved = await service.ResolvePendingTenantByEmailAsync(" owner@example.COM ");
+
+        resolved.Should().Be(tenantId);
+    }
+
+    [Fact]
+    public async Task ResolvePendingTenantByEmailAsync_ShouldReturnNull_WhenNoPendingPlaceholderMatches()
+    {
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var context = new PlatformDbContext(options, new TestTenantProvider(tenantId));
+        context.Users.Add(new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = "https://issuer.example.com/",
+            ExternalSubject = "linked-subject",
+            Email = "owner@example.com",
+            Status = "Active"
+        });
+        await context.SaveChangesAsync();
+
+        var resolved = await CreateService(context).ResolvePendingTenantByEmailAsync("owner@example.com");
+
+        resolved.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ResolvePendingTenantByEmailAsync_ShouldReturnNull_WhenEmailIsPendingInMultipleTenants()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var context = new PlatformDbContext(options, new TestTenantProvider(tenantA));
+        context.Users.AddRange(
+            PendingUser(tenantA, "shared@example.com"),
+            PendingUser(tenantB, "shared@example.com"));
+        await context.SaveChangesAsync();
+
+        var resolved = await CreateService(context).ResolvePendingTenantByEmailAsync("shared@example.com");
+
+        resolved.Should().BeNull("an ambiguous email must never choose a tenant arbitrarily");
+    }
+
+    private static UserIdentityService CreateService(PlatformDbContext context)
+        => new(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            new TestAuditLogWriter(),
+            new TestCorrelationContext("corr-pending-tenant"));
+
+    private static User PendingUser(Guid tenantId, string email)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
+            ExternalSubject = BootstrapIdentityConstants.CreatePendingOwnerSubject(email),
+            Email = email,
+            Status = "Active"
+        };
+
 
     [Fact]
     public async Task ResolveOrCreateUserAsync_ShouldRejectFirstLogin_WhenNoPendingPlaceholderExists()

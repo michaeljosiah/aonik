@@ -248,6 +248,14 @@ public static class AonikAuthenticationSetup
         {
             tenantId = await ResolveFromUserAssociationAsync(dbContext, iss, sub, context.HttpContext.RequestAborted);
         }
+        var userIdentityService = context.HttpContext.RequestServices
+            .GetRequiredService<IUserIdentityService>();
+        if (tenantId == null)
+        {
+            tenantId = await userIdentityService.ResolvePendingTenantByEmailAsync(
+                email,
+                context.HttpContext.RequestAborted);
+        }
 
         if (tenantId == null)
         {
@@ -260,9 +268,6 @@ public static class AonikAuthenticationSetup
         var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
         tenantContext.TenantId = tenantId.Value;
         tenantContext.ResolutionSource = "Authentication";
-
-        var userIdentityService = context.HttpContext.RequestServices
-            .GetRequiredService<IUserIdentityService>();
 
         var user = await userIdentityService.ResolveOrCreateUserAsync(
             iss,

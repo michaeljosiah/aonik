@@ -4,6 +4,10 @@ namespace Aonik.Platform.Contracts.Services.Identity;
 
 public interface IUserIdentityService
 {
+    Task<Guid?> ResolvePendingTenantByEmailAsync(
+        string? email,
+        CancellationToken ct = default);
+
     Task<User> ResolveOrCreateUserAsync(
         string externalIssuer,
         string externalSubject,

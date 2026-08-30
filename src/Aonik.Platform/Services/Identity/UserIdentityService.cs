@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
@@ -30,6 +31,32 @@ internal class UserIdentityService : IUserIdentityService
         _logger = logger;
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
+    }
+
+    public async Task<Guid?> ResolvePendingTenantByEmailAsync(
+        string? email,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        var normalizedEmail = email.Trim().ToUpperInvariant();
+        var tenantIds = await _dbContext.Users
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(user =>
+                user.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
+                user.Email != null &&
+                user.Email.ToUpper() == normalizedEmail &&
+                user.Status == "Active")
+            .Select(user => user.TenantId)
+            .Distinct()
+            .Take(2)
+            .ToListAsync(ct);
+
+        return tenantIds.Count == 1 ? tenantIds[0] : null;
     }
 
     public async Task<User> ResolveOrCreateUserAsync(
