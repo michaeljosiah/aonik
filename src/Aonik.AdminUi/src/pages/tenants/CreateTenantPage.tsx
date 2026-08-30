@@ -82,7 +82,7 @@ export function CreateTenantPage() {
     let active = true;
     const loadCurrencies = async () => {
       try {
-        const response = await catalogService.getCurrencies();
+        const response = await catalogService.getTenantCurrencies();
         if (!active) return;
         setCurrencyOptions(response.currencies ?? []);
       } catch {
