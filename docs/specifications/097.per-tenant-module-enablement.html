@@ -589,7 +589,8 @@ public sealed class ModuleEnablementSet
 <h3>12.3 Integration event handlers</h3>
 <ul>
   <li><code>ITenantScopedEvent : IIntegrationEvent { Guid TenantId { get; } }</code> <span class="tag new">new</span>. Existing events that carry a tenant id (<code>TenantProvisionedEvent</code>, the order and party events) adopt it.</li>
-  <li>The event dispatcher skips a handler whose assembly module is disabled for the event's tenant. Events without a tenant, and handlers in core modules, are never skipped.</li>
+  <li><strong>Handlers are not gated.</strong> <em>Rev 3 reversal:</em> an earlier draft had the dispatcher skip a handler whose module was disabled for the event's tenant. Review found that this loses committed work permanently. An integration event announces something that already happened, and both dispatchers record each delivery, so a skip is a discard, not a deferral. Disabling Subscriptions between a usage drawdown committing and its outbox message draining would have dropped the revenue-recognition and provider-cost journal entries for good, leaving entitlement state diverged from the ledger even after the module came back on. Since the ledger is the source of financial truth, a reaction to committed work must complete.</li>
+  <li>The rule this settles: <strong>the module gate belongs at the entry points</strong>, where new activity is refused (HTTP, agents, jobs, proposals), not on the reaction to work already done. A handler keeping its module's data consistent with what happened is not the module doing new work; refusing to run it corrupts that state rather than protecting it.</li>
 </ul>
 
 <h3>12.4 Provisioning and demo seed</h3>
@@ -597,6 +598,7 @@ public sealed class ModuleEnablementSet
   <li><code>TenantProvisioner</code> resolves the module set <em>before</em> the contributor loop (today the pack applier runs after it; the module step moves ahead) and skips any <code>ITenantProvisioningContributor</code> whose <code>ModuleName</code> maps to a disabled module. Commerce's own manifest check becomes redundant and can be removed.</li>
   <li><code>IDemoSeedContributor</code> is skipped on the same rule, so a demo toggle never seeds sample rows for a module the tenant does not have.</li>
   <li><code>ILedgerAccountContributor</code> is skipped on the same rule inside Finance's provisioning contributor, so a disabled module's ledger accounts are not created for the tenant.</li>
+  <li><strong>Ledger accounts are contributed across modules</strong>, so enabling a module must run more than its own contributor. Subscriptions supplies its account codes through an <code>ILedgerAccountContributor</code>, and that seam is walked by <em>Finance's</em> provisioning contributor. When a module transitioning on contributes ledger accounts, the owner of that seam runs too, otherwise the toggle reports success and the first posting fails on a missing account code.</li>
   <li><code>ModuleName</code> on those seams is aligned to the catalogue ids in the same change (the values are currently PascalCase module names).</li>
 </ul>
 

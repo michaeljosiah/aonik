@@ -191,7 +191,10 @@ function AppLayout() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+    // Re-fetches when the tenant's module set changes: the configuration endpoint omits agents from
+    // disabled modules, so without this dependency the selector would keep offering an agent the
+    // backend gate now refuses, and picking it would fail with module.disabled (Spec 097 §12.1).
+  }, [isAuthenticated, manifest]);
 
   // Auto-collapse main nav on the AI chat page and keep it collapsed there;
   // restore whatever it was on the way out. Adjusted during render (the React

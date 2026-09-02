@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/select';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
-import { useModuleEnabled } from '@/modules';
 import { tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import type { CreateTenantRequest, TenantEnvironment } from '@/types';
 
@@ -40,7 +39,19 @@ const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Prod', label: 'Production' },
 ];
 
-const initialCurrencies: { code: string; name: string }[] = [];
+// Host-level fallback. This form provisions a NEW tenant, whose own pack decides whether Finance is
+// on, so its currency choices must not be derived from whichever organisation the host admin happens
+// to have selected (Spec 097 §10.2). The Finance-served catalogue replaces these when it answers.
+const initialCurrencies: { code: string; name: string }[] = [
+  { code: 'USD', name: 'US Dollar' },
+  { code: 'GBP', name: 'Pound Sterling' },
+  { code: 'EUR', name: 'Euro' },
+  { code: 'NGN', name: 'Nigerian Naira' },
+  { code: 'KES', name: 'Kenyan Shilling' },
+  { code: 'ZAR', name: 'South African Rand' },
+  { code: 'GHS', name: 'Ghanaian Cedi' },
+  { code: 'CAD', name: 'Canadian Dollar' },
+];
 
 // Spec 065 — the business-type config packs an operator can provision a tenant as.
 // TODO: source these from the installed pack manifests via an API rather than hard-coding.
@@ -79,29 +90,26 @@ export function CreateTenantPage() {
     return at > 0 && at < trimmed.length - 1;
   };
 
-  // Spec 097: the currency catalog is served by the Finance module. A
-  // Platform-owned page must not call a module the manifest says is off
-  // (the 403 `module.disabled` would only surface as an empty selector).
-  // Absent manifest fails open, matching useModules.
-  const financeEnabled = useModuleEnabled('finance');
-
+  // Spec 097: the currency catalogue is served by the Finance module, which the host admin's own
+  // selected organisation may have switched off — but the tenant being created is a different tenant
+  // whose pack may enable Finance. So the load is always attempted and a refusal simply leaves the
+  // host-level fallback above in place, rather than an empty selector that silently forces USD.
   useEffect(() => {
-    if (!financeEnabled) return undefined;
     let active = true;
     const loadCurrencies = async () => {
       try {
         const response = await catalogService.getTenantCurrencies();
         if (!active) return;
-        setCurrencyOptions(response.currencies ?? []);
+        if (response.currencies?.length) setCurrencyOptions(response.currencies);
       } catch {
-        // keep defaults
+        // Finance off for the selected org, or the catalogue is unreachable — keep the fallback.
       }
     };
     loadCurrencies();
     return () => {
       active = false;
     };
-  }, [financeEnabled]);
+  }, []);
 
   // Mirror the sheet's open/closed state to the route. Closing the
   // panel (X, overlay click, Escape, or Cancel) sends the user back

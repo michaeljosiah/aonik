@@ -7,6 +7,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Modules;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.SharedKernel.Events;
@@ -519,7 +520,23 @@ internal sealed class TenantModuleService : IModuleEnablementReader, ITenantModu
 
         var context = new TenantProvisioningContext(tenant.Id, tenant.DefaultCurrency, userId, now, tenant.BusinessType);
 
-        foreach (var moduleId in OrderByHardDependencies(enabledIds))
+        // A module's own contributor is not always the whole story. Ledger accounts are contributed
+        // ACROSS modules: Subscriptions supplies its 2210/4100/4110/5100 codes through an
+        // ILedgerAccountContributor, and that seam is walked by FINANCE's provisioning contributor.
+        // Enabling Subscriptions on a tenant that already has Finance would therefore report success
+        // with none of those accounts created, and the first usage posting would fail in the journal
+        // writer on a missing code. So when a module transitioning on contributes ledger accounts,
+        // the owner of that seam runs too. It is idempotent, and the memo above means it sees the
+        // set being committed, so it creates exactly the accounts the newly enabled modules need.
+        var seamOwners = _serviceProvider.GetServices<ILedgerAccountContributor>()
+            .Select(contributor => contributor.ModuleName)
+            .Where(moduleName => enabledIds.Contains(moduleName, StringComparer.Ordinal))
+            .Any()
+            ? new[] { ModuleIds.Finance }.Where(owner =>
+                !enabledIds.Contains(owner, StringComparer.Ordinal) && after.Contains(owner)).ToList()
+            : [];
+
+        foreach (var moduleId in OrderByHardDependencies(enabledIds).Concat(seamOwners))
         {
             foreach (var contributor in contributors.Where(candidate => string.Equals(candidate.ModuleName, moduleId, StringComparison.Ordinal)))
             {

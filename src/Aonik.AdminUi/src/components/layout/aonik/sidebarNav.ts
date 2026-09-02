@@ -84,7 +84,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         moduleId: 'finance',
         children: [
           { id: 'billing-invoices', label: 'Invoices', icon: 'invoice', href: '/billing/invoices' },
-          { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts' },
+          { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts', moduleId: 'personal-finance' },
           {
             id: 'ledger',
             label: 'Ledger',
@@ -151,10 +151,13 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         ],
       },
       {
+        // Its only destination is the document list, so it follows Documents. Tombstones stays
+        // reachable by URL as a Platform surface.
         id: 'compliance',
         label: 'Compliance',
         icon: 'clipcheck',
         href: '/compliance',
+        moduleId: 'documents',
       },
       {
         id: 'ai-agents-parent',
@@ -207,7 +210,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
           { id: 'settings-communication', label: 'Communication', icon: 'bell', href: '/settings/communication' },
           { id: 'settings-notification-templates', label: 'Notification Templates', icon: 'list', href: '/settings/notification-templates' },
           { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways', moduleId: 'finance' },
-          { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech' },
+          { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech', moduleId: 'voice' },
         ],
       },
     ],

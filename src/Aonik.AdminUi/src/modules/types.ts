@@ -12,6 +12,16 @@ export interface ModuleRouteConfig {
   element: ComponentType;
   /** If true, this route has dynamic segments (e.g. ":id") — useful for breadcrumb generation */
   isDynamic?: boolean;
+  /**
+   * Backend module ids this route's data comes from, when they differ from its owning UI module's
+   * `requires`. A UI module is a packaging unit, not a data boundary: the platform module registers
+   * /settings/speech (Voice endpoints) and the document pages (Documents endpoints), and the finance
+   * module registers /accounts (PersonalFinance endpoints). Without this the route stays registered
+   * for a tenant with that module off, so the page mounts, every request answers 403 module.disabled,
+   * and the interceptor cannot recognise it as belonging to the disabled module. Absent manifest =
+   * rendered, matching the fail-open rule everywhere else.
+   */
+  requires?: string[];
 }
 
 /**

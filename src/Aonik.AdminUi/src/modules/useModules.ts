@@ -11,7 +11,7 @@ import {
   resolveBreadcrumb,
 } from './registry';
 import type { NavigationSection } from '@/types';
-import { isBackendModuleEnabled, resolveEnabledUiModules } from './enablement';
+import { isBackendModuleEnabled, resolveEnabledUiModules, filterRoutesByBackendModules} from './enablement';
 import {
   fetchManifestOnce,
   getManifestTenantKey,
@@ -107,7 +107,12 @@ export function useModules() {
   }, [enabledModuleIds, manifest]);
 
   const routes = useMemo(() => {
-    const allRoutes = getAggregatedRoutes(enabledModuleIds);
+    // Two filters, in order: the owning UI module's `requires`, then each route's own — a route can
+    // draw its data from a module its owner does not require (speech, documents, accounts).
+    const allRoutes = filterRoutesByBackendModules(
+      getAggregatedRoutes(enabledModuleIds),
+      manifest?.enabledModules,
+    );
 
     // Apply runtime overrides: remove disabled routes
     if (manifest?.disabledRoutes?.length) {

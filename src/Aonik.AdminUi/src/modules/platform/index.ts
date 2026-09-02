@@ -164,11 +164,14 @@ const routes = [
   // Platform-owned registry and compliance surfaces (Spec 097 §10.1): never module-gated.
   { path: '/customers', element: CustomersListPage },
   { path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
-  // /compliance had a single Documents tile — collapse straight to the list.
-  { path: '/compliance', element: redirectTo('/compliance/documents') },
-  { path: '/compliance/documents', element: DocumentsListPage },
-  { path: '/compliance/documents/new', element: DocumentCreatePage },
-  { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true },
+  // /compliance had a single Documents tile — collapse straight to the list, and follow Documents
+  // for the same reason the list itself does: the redirect leads nowhere else.
+  { path: '/compliance', element: redirectTo('/compliance/documents'), requires: ['documents'] },
+  // The document pages are Platform-registered but every request they make hits the Documents
+  // module, so they follow it rather than their host (Spec 097 §10.2).
+  { path: '/compliance/documents', element: DocumentsListPage, requires: ['documents'] },
+  { path: '/compliance/documents/new', element: DocumentCreatePage, requires: ['documents'] },
+  { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true, requires: ['documents'] },
   { path: '/access/users', element: AccessUsersPage },
   { path: '/access/users/:userId', element: UserDetailPage, isDynamic: true },
   { path: '/access/roles', element: AccessRolesPage },
@@ -192,7 +195,8 @@ const routes = [
   // legacy /settings/voice and /settings/text-to-speech routes were retired in Phase D
   // (host-default credential management is now done via the API direct or the unified
   // ProviderEditPanel API key field).
-  { path: '/settings/speech', element: SettingsSpeechPage },
+  // Speech settings read and write the Voice module's endpoints exclusively.
+  { path: '/settings/speech', element: SettingsSpeechPage, requires: ['voice'] },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
   { path: '/settings/system-tools', element: SystemToolsPage },

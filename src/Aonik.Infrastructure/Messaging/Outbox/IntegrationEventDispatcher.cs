@@ -65,10 +65,14 @@ public sealed class IntegrationEventDispatcher : IIntegrationEventDispatcher
 
         var handleMethod = handlerType.GetMethod(nameof(IEventHandler<IIntegrationEvent>.HandleAsync))!;
 
-        // Spec 097 §12.3: resolved at most once per message, and only when a handler is gated.
-        ModuleEnablementSet? enablement = null;
-        var enablementResolved = false;
-
+        // Spec 097 §12.3: handlers are NOT module-gated, deliberately. An outbox message is work the
+        // tenant already committed while the module was on; refusing to react to it corrupts state
+        // rather than protecting it. Skipping (and recording) a usage-drawdown handler because
+        // Subscriptions was switched off between the commit and the drain would permanently lose the
+        // revenue-recognition and provider-cost journal entries, leaving entitlement state
+        // inconsistent with the ledger for good — the ledger is the source of financial truth, so a
+        // reaction to committed work must complete. The module gate belongs at the ENTRY points
+        // (HTTP, agents, jobs, proposals), which is where new activity is refused.
         foreach (var handler in handlers)
         {
             var handlerName = handler!.GetType().FullName!;
@@ -81,36 +85,6 @@ public sealed class IntegrationEventDispatcher : IIntegrationEventDispatcher
                 _logger.LogDebug("Handler {Handler} already processed event {EventId}; skipping.",
                     handlerName, message.EventId);
                 continue;
-            }
-
-            var gatedModuleId = TenantScopedHandlerGate.GatedModuleId(handler.GetType());
-            if (gatedModuleId is not null)
-            {
-                if (!enablementResolved)
-                {
-                    enablement = await TenantScopedHandlerGate.TryResolveAsync(_serviceProvider, integrationEvent, cancellationToken);
-                    enablementResolved = true;
-                }
-
-                if (enablement is not null && !enablement.IsEnabled(gatedModuleId))
-                {
-                    // A skip is a completed delivery for this handler: the tenant had the module off
-                    // when the event was delivered. The inbox row is recorded so a retry of the same
-                    // outbox message (after a later handler fails) does not re-evaluate the gate, and
-                    // the message is never left pending for a module the tenant switched off.
-                    // Re-enabling the module later does not replay history through this handler.
-                    _logger.LogDebug(
-                        "Skipping handler {Handler} for event {EventId} ({EventType}): module '{ModuleId}' is disabled for tenant {TenantId}; marking processed.",
-                        handlerName, message.EventId, message.EventType, gatedModuleId, enablement.TenantId);
-
-                    _dbContext.Set<InboxMessage>().Add(new InboxMessage
-                    {
-                        EventId = message.EventId,
-                        HandlerName = handlerName,
-                        ProcessedAt = _clock.UtcNow,
-                    });
-                    continue;
-                }
             }
 
             try

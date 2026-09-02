@@ -100,10 +100,17 @@ public class TenantModuleServiceProvisioningTests
             serviceProvider);
 
     private static IServiceProvider BuildProvider(IEnumerable<ITenantProvisioningContributor> contributors)
+        => BuildProvider(contributors, []);
+
+    private static IServiceProvider BuildProvider(
+        IEnumerable<ITenantProvisioningContributor> contributors,
+        IEnumerable<ILedgerAccountContributor> accountContributors)
     {
         var services = new ServiceCollection();
         foreach (var contributor in contributors)
             services.AddSingleton(contributor);
+        foreach (var accountContributor in accountContributors)
+            services.AddSingleton(accountContributor);
         return services.BuildServiceProvider();
     }
 
@@ -154,6 +161,62 @@ public class TenantModuleServiceProvisioningTests
     private RecordingContributor Contributor(string moduleName) => new(moduleName, _callLog);
 
     // ── provisioning on enable ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_Should_RunTheLedgerSeamOwner_When_TheEnabledModuleContributesAccounts()
+    {
+        // Subscriptions supplies its 2210/4100/4110/5100 codes through an ILedgerAccountContributor,
+        // and that seam is walked by FINANCE's provisioning contributor. Enabling Subscriptions on a
+        // tenant that already has Finance would otherwise report success with none of those accounts
+        // created, and the first usage posting would fail on a missing code.
+        await SeedRowAsync(ModuleIds.Subscriptions, isEnabled: false);
+        var subscriptions = Contributor(ModuleIds.Subscriptions);
+        var finance = Contributor(ModuleIds.Finance);
+        ITenantModuleService service = CreateService(BuildProvider(
+            [subscriptions, finance],
+            [new FakeAccountContributor(ModuleIds.Subscriptions, "2210")]));
+
+        await service.UpdateAsync(_tenantId, [new TenantModuleToggle(ModuleIds.Subscriptions, true, "metered billing")]);
+
+        subscriptions.Calls.Should().Be(1);
+        finance.Calls.Should().Be(1, "the owner of the ledger-account seam runs so the new module's accounts exist");
+        _callLog.Should().Equal($"contributor:{ModuleIds.Subscriptions}", $"contributor:{ModuleIds.Finance}");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_NotRunTheLedgerSeamOwnerTwice_When_ItIsItselfComingOn()
+    {
+        await SeedFinanceChainOffAsync();
+        var subscriptions = Contributor(ModuleIds.Subscriptions);
+        var finance = Contributor(ModuleIds.Finance);
+        ITenantModuleService service = CreateService(BuildProvider(
+            [subscriptions, finance],
+            [new FakeAccountContributor(ModuleIds.Subscriptions, "2210")]));
+
+        await service.UpdateAsync(_tenantId, [
+            new TenantModuleToggle(ModuleIds.Finance, true, "payments"),
+            new TenantModuleToggle(ModuleIds.Subscriptions, true, "metered billing"),
+        ]);
+
+        finance.Calls.Should().Be(1, "it already ran as a module coming on; the seam must not add a second pass");
+        subscriptions.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_NotRunTheLedgerSeamOwner_When_NoEnabledModuleContributesAccounts()
+    {
+        await SeedRowAsync(ModuleIds.Groups, isEnabled: false);
+        var groups = Contributor(ModuleIds.Groups);
+        var finance = Contributor(ModuleIds.Finance);
+        ITenantModuleService service = CreateService(BuildProvider(
+            [groups, finance],
+            [new FakeAccountContributor(ModuleIds.Subscriptions, "2210")]));
+
+        await service.UpdateAsync(_tenantId, [new TenantModuleToggle(ModuleIds.Groups, true, "circles")]);
+
+        groups.Calls.Should().Be(1);
+        finance.Calls.Should().Be(0, "groups contributes no ledger accounts, so the seam owner has nothing to add");
+    }
 
     [Fact]
     public async Task UpdateAsync_Should_RunTheFinanceContributorExactlyOnce_When_EnablingFinanceThatWasOff()

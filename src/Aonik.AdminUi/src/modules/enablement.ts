@@ -146,17 +146,30 @@ export function resolveDisabledModuleForPath(
   const enabledBackend = new Set(manifest.enabledModules ?? []);
   const enabledUi = new Set(resolveEnabledUiModules(modules, manifest.enabledModules ?? []) ?? []);
 
-  for (const mod of modules) {
-    if (enabledUi.has(mod.id)) continue;
-    if (!mod.routes.some((route) => matchesRoutePath(route.path, path))) continue;
-
-    const backendModuleId = (mod.requires ?? []).find((id) => !enabledBackend.has(id)) ?? mod.id;
+  const describe = (uiModuleId: string, uiModuleName: string, backendModuleId: string) => {
     const described = (manifest.modules ?? []).find((m) => m.id === backendModuleId);
-    return {
-      uiModuleId: mod.id,
-      backendModuleId,
-      name: described?.name ?? mod.name,
-    };
+    return { uiModuleId, backendModuleId, name: described?.name ?? uiModuleName };
+  };
+
+  for (const mod of modules) {
+    if (!enabledUi.has(mod.id)) {
+      if (!mod.routes.some((route) => matchesRoutePath(route.path, path))) continue;
+      const backendModuleId = (mod.requires ?? []).find((id) => !enabledBackend.has(id)) ?? mod.id;
+      return describe(mod.id, mod.name, backendModuleId);
+    }
+
+    // The owning module is enabled, but an individual route can still draw its data from a module
+    // that is off — /settings/speech and the document pages sit in the always-enabled platform
+    // module, /accounts sits in finance. Without this the page would mount and fail request by
+    // request with no explanation.
+    const gatedRoute = mod.routes.find((route) =>
+      matchesRoutePath(route.path, path)
+      && (route.requires ?? []).some((id) => !enabledBackend.has(id)));
+
+    if (gatedRoute) {
+      const backendModuleId = (gatedRoute.requires ?? []).find((id) => !enabledBackend.has(id))!;
+      return describe(mod.id, mod.name, backendModuleId);
+    }
   }
 
   return null;
@@ -176,8 +189,10 @@ export function pathRequiresBackendModule(
   path: string,
 ): boolean {
   return modules.some((mod) =>
-    (mod.requires ?? []).includes(backendModuleId)
-    && mod.routes.some((route) => matchesRoutePath(route.path, path)));
+    mod.routes.some((route) =>
+      matchesRoutePath(route.path, path)
+      && ((mod.requires ?? []).includes(backendModuleId)
+        || (route.requires ?? []).includes(backendModuleId))));
 }
 
 /**
@@ -190,4 +205,18 @@ export function isBackendModuleEnabled(
 ): boolean {
   if (!manifest) return true;
   return manifest.enabledModules.includes(moduleId);
+}
+
+/**
+ * Drop routes whose own `requires` names a backend module the manifest reports as off, leaving
+ * routes from enabled modules untouched. Applied after the UI-module filter, so it only ever
+ * removes a route the owning module would otherwise have kept. A missing manifest keeps everything.
+ */
+export function filterRoutesByBackendModules<T extends { requires?: string[] }>(
+  routes: T[],
+  enabledBackendIds: string[] | undefined,
+): T[] {
+  if (enabledBackendIds === undefined) return routes;
+  const enabled = new Set(enabledBackendIds);
+  return routes.filter((route) => (route.requires ?? []).every((id) => enabled.has(id)));
 }

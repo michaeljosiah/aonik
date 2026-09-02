@@ -18,11 +18,14 @@ using Moq;
 namespace Aonik.Application.Tests.Events;
 
 /// <summary>
-/// Spec 097 §12.3 for the outbox path: the dispatcher skips a handler whose module is disabled for
-/// the event's tenant and records the inbox row anyway, so the skip is a completed delivery rather
-/// than something retried forever. Lives here rather than in Aonik.Infrastructure.Tests because the
-/// only handlers in non-core module assemblies are internal, and Commerce exposes its internals to
-/// this project only.
+/// Spec 097 §12.3 for the outbox path: the dispatcher delivers to EVERY handler regardless of the
+/// tenant's module state. An outbox message is work the tenant already committed while the module
+/// was on, and the dispatcher records each delivery permanently, so skipping one would discard it
+/// for good — for a usage drawdown that means the revenue-recognition and provider-cost journal
+/// entries are never posted and entitlement state diverges from the ledger for ever, even after the
+/// module is switched back on. Lives here rather than in Aonik.Infrastructure.Tests because the only
+/// handlers in non-core module assemblies are internal, and Commerce exposes its internals to this
+/// project only.
 /// </summary>
 public class IntegrationEventDispatcherModuleGateTests
 {
@@ -30,7 +33,7 @@ public class IntegrationEventDispatcherModuleGateTests
     private static readonly DateTime Now = new(2026, 9, 2, 10, 0, 0, DateTimeKind.Utc);
 
     [Fact]
-    public async Task DispatchAsync_Should_SkipHandlerAndRecordInbox_When_ModuleIsDisabledForTenant()
+    public async Task DispatchAsync_Should_StillRunHandlerAndRecordInbox_When_ModuleIsDisabledForTenant()
     {
         // Arrange
         var checkout = new Mock<ICheckoutService>();
@@ -46,12 +49,13 @@ public class IntegrationEventDispatcherModuleGateTests
 
         // Assert
         checkout.Verify(
-            c => c.ConfirmPaymentAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            Times.Once,
+            "the payment already completed, so the handler that reconciles its order must still run");
         recording.Received.Should().ContainSingle();
 
         var inbox = dbContext.ChangeTracker.Entries<InboxMessage>().Select(e => e.Entity).ToList();
-        inbox.Should().HaveCount(2, "both the skipped and the executed handler count as delivered");
+        inbox.Should().HaveCount(2, "every handler ran, and each delivery is recorded");
         inbox.Should().ContainSingle(x =>
             x.EventId == message.EventId
             && x.HandlerName == typeof(CommercePaymentCompletedHandler).FullName

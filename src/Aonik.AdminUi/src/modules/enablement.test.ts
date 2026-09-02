@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import type { NavigationSection } from '@/types';
 import {
   filterNavByModules,
+  filterRoutesByBackendModules,
   isBackendModuleEnabled,
   matchesRoutePath,
   pathRequiresBackendModule,
@@ -305,5 +306,78 @@ describe('isBackendModuleEnabled', () => {
   it('reads enabledModules from the manifest', () => {
     expect(isBackendModuleEnabled(manifest(['finance']), 'finance')).toBe(true);
     expect(isBackendModuleEnabled(manifest(['finance']), 'commerce')).toBe(false);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Per-route module requirements (Spec 097 §10.2). A UI module is a packaging
+// unit, not a data boundary: the always-enabled platform module registers the
+// speech and document pages, and the finance module registers the customer
+// account pages, each of which draws from a different backend module.
+// ---------------------------------------------------------------------------
+
+const crossModuleRegistry: AdminModule[] = [
+  {
+    ...uiModule('platform', undefined, ['/settings']),
+    routes: [
+      { path: '/settings', element: Noop },
+      { path: '/settings/speech', element: Noop, requires: ['voice'] },
+      { path: '/compliance/documents', element: Noop, requires: ['documents'] },
+    ],
+  },
+  {
+    ...uiModule('finance', ['finance'], ['/orders/activity']),
+    routes: [
+      { path: '/orders/activity', element: Noop },
+      { path: '/accounts', element: Noop, requires: ['personal-finance'] },
+    ],
+  },
+];
+
+describe('filterRoutesByBackendModules', () => {
+  const routes = crossModuleRegistry.flatMap((m) => m.routes);
+
+  it('keeps everything without a manifest', () => {
+    expect(filterRoutesByBackendModules(routes, undefined)).toHaveLength(routes.length);
+  });
+
+  it('drops only the routes whose own module is off', () => {
+    const kept = filterRoutesByBackendModules(routes, ['platform', 'finance', 'documents', 'personal-finance']);
+    expect(kept.map((r) => r.path)).toEqual(['/settings', '/compliance/documents', '/orders/activity', '/accounts']);
+  });
+
+  it('keeps routes that require nothing', () => {
+    const kept = filterRoutesByBackendModules(routes, ['platform']);
+    expect(kept.map((r) => r.path)).toEqual(['/settings', '/orders/activity']);
+  });
+});
+
+describe('per-route requirements', () => {
+  const withVoiceOff = manifest(['platform', 'finance', 'documents', 'personal-finance']);
+
+  it('explains a route whose own module is off even though its owner is enabled', () => {
+    const match = resolveDisabledModuleForPath(crossModuleRegistry, withVoiceOff, '/settings/speech');
+    expect(match?.backendModuleId).toBe('voice');
+    expect(match?.uiModuleId).toBe('platform');
+  });
+
+  it('leaves a sibling route in the same module alone', () => {
+    expect(resolveDisabledModuleForPath(crossModuleRegistry, withVoiceOff, '/settings')).toBeNull();
+  });
+
+  it('explains an account page when personal finance is off but finance is on', () => {
+    const match = resolveDisabledModuleForPath(
+      crossModuleRegistry,
+      manifest(['platform', 'finance', 'voice', 'documents']),
+      '/accounts',
+    );
+    expect(match?.backendModuleId).toBe('personal-finance');
+  });
+
+  it('lets the interceptor recognise a route by its own requirement', () => {
+    expect(pathRequiresBackendModule(crossModuleRegistry, 'voice', '/settings/speech')).toBe(true);
+    expect(pathRequiresBackendModule(crossModuleRegistry, 'personal-finance', '/accounts')).toBe(true);
+    expect(pathRequiresBackendModule(crossModuleRegistry, 'voice', '/settings')).toBe(false);
   });
 });

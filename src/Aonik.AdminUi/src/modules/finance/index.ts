@@ -106,9 +106,11 @@ const navigation: NavigationSection[] = [
 // Routes
 // ---------------------------------------------------------------------------
 const routes = [
-  { path: '/accounts', element: AccountsListPage },
-  { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true },
-  { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true },
+  // Customer accounts are served by the PersonalFinance module (/admin/accounts/*), not Finance,
+  // so they follow personal-finance independently of their host module (Spec 097 §10.2).
+  { path: '/accounts', element: AccountsListPage, requires: ['personal-finance'] },
+  { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true, requires: ['personal-finance'] },
+  { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true, requires: ['personal-finance'] },
   // /orders is a vestigial landing page (two tiles). Collapse it to the
   // activity list — the "Create" path is reachable from there.
   { path: '/orders', element: redirectTo('/orders/activity') },
