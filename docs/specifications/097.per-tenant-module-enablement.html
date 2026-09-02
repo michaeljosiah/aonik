@@ -471,6 +471,8 @@ public sealed class ModuleEnablementSet
   <li>Both are thrown as <code>ModuleDependencyException</code> and mapped in <code>ExceptionHandlerConfiguration</code> next to the existing <code>PermissionDeniedException</code> branch.</li>
   <li>On the GET, the tenancy guard is the same one the <code>/features</code> endpoints use: a tenant admin may only read their own tenant, a cross-tenant read needs the <code>Tenants.Read</code> permission, and an unknown tenant is a 404. The PUT needs no tenancy guard because only <code>PlatformAdmin</code> reaches it.</li>
   <li>Every successful update writes <code>AuditEventNames.TenantModulesUpdated</code> (with before/after per module and the reason) and publishes <code>TenantModulesChangedEvent</code>.</li>
+  <li><strong>Enabling provisions</strong> <em>(Rev 3, review finding P1-1)</em>: before anything is persisted, the service runs every <code>ITenantProvisioningContributor</code> whose <code>ModuleName</code> maps to a module that transitions off → on in the <em>resolved</em> set (a dependency the cascade switches on counts), dependencies first, with the ambient tenant switched to the target and the scoped memo pre-seeded with the post-toggle set so Finance's <code>ILedgerAccountContributor</code> gating sees the set being committed. Contributors are idempotent, so re-enabling an already-provisioned module is a no-op. A throwing contributor is audited as <code>AuditEventNames.TenantModulesProvisioningFailed</code>, nothing is persisted, and the request fails with <code>ModuleProvisioningException</code> → <code>500 { error, code: "module.provisioning_failed", moduleId, contributor }</code>, which the caller may simply retry.</li>
+  <li><strong>One transaction</strong> <em>(Rev 3, review finding P1-2)</em>: the module rows, the outbox message and the audit row commit together — the audit writer saves through the same scoped context inside an explicit transaction opened under the execution strategy — so a failure between them leaves no half-applied, unaudited state. The cache entry for the tenant is invalidated only after the commit, and always after it, even if the in-process event publish that follows throws.</li>
 </ul>
 
 <h2 id="adminui">10. Admin UI</h2>
@@ -546,7 +548,7 @@ public sealed class ModuleEnablementSet
   <li>Resolve the owning type: FastEndpoints exposes an <code>EndpointDefinition</code> in the endpoint metadata (its <code>EndpointType</code>); minimal APIs expose the handler's <code>MethodInfo</code> (its <code>DeclaringType</code>); delegate-mapped endpoints such as the Voice WebSocket map expose neither, so the middleware falls back to the mapped <code>RequestDelegate</code>'s declaring type, walked out of any compiler-generated closure to its outermost type. Then the assembly's <code>AonikModuleAttribute</code>. No attribute (Api-hosted endpoints, Platform) → continue the pipeline.</li>
   <li>Core module → continue.</li>
   <li>Endpoint carries <code>ModuleGateExempt</code> metadata (<code>Options(x =&gt; x.WithMetadata(new ModuleGateExempt()))</code>) → continue. This exists so that an exemption is a visible, reviewable decision rather than an accident; no endpoint is expected to need it at launch.</li>
-  <li>Tenant not resolved → continue. There is nothing to gate against, and the tenant middleware already decides who may be anonymous. Storefront and other public endpoints that resolve the tenant anonymously by header or subdomain <em>are</em> gated, which is the correct outcome for a shop whose Commerce module is off.</li>
+  <li>Tenant not resolved → continue. There is nothing to gate against, and the tenant middleware already decides who may be anonymous. Storefront and other public endpoints that resolve the tenant anonymously by header or subdomain <em>are</em> gated, which is the correct outcome for a shop whose Commerce module is off. <em>Rev 3 (review finding P1-3):</em> this pass-through is deliberate, and its counterpart is <code>IModuleGate</code> (SharedKernel, implemented in Platform over the reader): an anonymous processor that only learns its owning tenant from the payload re-checks enablement the moment it does, before any write — see <a href="#beyond-http">§12.5</a>.</li>
   <li>Reader says disabled → throw <code>ModuleDisabledException(moduleId)</code>, mapped to <code>403 { error, code: "module.disabled", moduleId }</code> in <code>ExceptionHandlerConfiguration</code>.</li>
 </ol>
 
@@ -597,6 +599,24 @@ public sealed class ModuleEnablementSet
   <li><code>ILedgerAccountContributor</code> is skipped on the same rule inside Finance's provisioning contributor, so a disabled module's ledger accounts are not created for the tenant.</li>
   <li><code>ModuleName</code> on those seams is aligned to the catalogue ids in the same change (the values are currently PascalCase module names).</li>
 </ul>
+
+<h3>12.5 Late-resolving provider callbacks</h3>
+<p>
+  <em>Rev 3 (review finding P1-3).</em> Four anonymous endpoints in non-core assemblies resolve their tenant from the
+  payload rather than from the request, so the HTTP gate in <a href="#http-gate">§11</a> passes them through. Each
+  now calls <code>IModuleGate.EnsureEnabledAsync(tenantId, moduleId)</code> as soon as the owning tenant is known and
+  before any write, answering <code>403 module.disabled</code> and persisting nothing:
+</p>
+<ul>
+  <li><code>POST /partners/webhooks/{providerCode}</code> — <code>RemittanceOrderService.ProcessWebhookAsync</code>, gated on the located payout's tenant, before the inbox row and before the signature is trusted (<code>finance</code>).</li>
+  <li><code>POST /personal-finance/account-links/webhooks/plaid</code> and <code>POST /admin/accounts/webhooks/plaid</code> — both Plaid processors, gated on the connection's tenant right after it is found (<code>personal-finance</code>).</li>
+  <li><code>POST /ai/codeact/call-tool/{nonce}</code> — gated on the tenant carried by the signed nonce, before any budget is spent, answered in the bridge's own envelope (<code>personal-finance</code>).</li>
+</ul>
+<p>
+  Left alone on purpose: the storefront and other <code>/public/*</code> endpoints (they resolve the tenant before the
+  middleware, so the HTTP gate already covers them), core-module endpoints, and the read-only circle-invite preview,
+  whose DTO does not expose the owning tenant.
+</p>
 
 <h2 id="packs">13. Config packs</h2>
 
@@ -684,11 +704,11 @@ public sealed class ModuleEnablementSet
 <h2 id="testing">16. Testing</h2>
 
 <ul>
-  <li><strong>Aonik.Application.Tests:</strong> catalogue is acyclic and core modules have no non-core hard dependencies; resolver applies defaults, overlays rows, forces core, closes over dependencies; service rejects core toggles, missing dependencies and enabled dependents with the right codes; pack applier writes rows for a declaring pack and none for the base pack, and never disables on re-apply.</li>
-  <li><strong>Aonik.Api.Tests</strong> (these boot the whole DI container, which is what catches a bad registration): manifest requires authentication and reflects the tenant's rows; the gate returns 403 for a Commerce endpoint when off and 200 when on; a Platform endpoint is unaffected either way; the toggle endpoint's 409 cases; the existing <code>AdminManifestEndpointTests</code> rewritten for the authenticated shape.</li>
-  <li><strong>Aonik.Database.Tests</strong> (SQL Server LocalDB): the unique index rejects a duplicate (tenant, module) row and <code>RowVersion</code> detects a concurrent toggle. The InMemory provider is structurally unable to fail on either.</li>
+  <li><strong>Aonik.Application.Tests:</strong> catalogue is acyclic and core modules have no non-core hard dependencies; resolver applies defaults, overlays rows, forces core, closes over dependencies; service rejects core toggles, missing dependencies and enabled dependents with the right codes; pack applier writes rows for a declaring pack and none for the base pack, and never disables on re-apply. <em>Rev 3:</em> <code>TenantModuleServiceProvisioningTests</code> — enabling runs the module's contributor exactly once, dependencies first, including a module the cascade switches on; toggling off or re-enabling an already-on module runs none; a throwing contributor persists nothing, publishes nothing and audits the failure; the real Finance contributor creates the ledger for a tenant provisioned without it and leaves an already-provisioned tenant untouched; contributors see the post-toggle set. <code>TenantModuleServiceWriteTests</code> — an audit-writer failure persists nothing and keeps the cache; a post-commit failure still invalidates it. Service-level gate tests on the remittance webhook and both Plaid processors prove a denying <code>IModuleGate</code> mutates nothing.</li>
+  <li><strong>Aonik.Api.Tests</strong> (these boot the whole DI container, which is what catches a bad registration): manifest requires authentication and reflects the tenant's rows; the gate returns 403 for a Commerce endpoint when off and 200 when on; a Platform endpoint is unaffected either way; the toggle endpoint's 409 cases; the existing <code>AdminManifestEndpointTests</code> rewritten for the authenticated shape. <em>Rev 3:</em> <code>ModuleGateCallbackTests</code> — the partner webhook, the admin Plaid webhook and the CodeAct callback answer 403 <code>module.disabled</code> and persist nothing when the payload's tenant has the module off, and proceed as before when it is on; <code>ExceptionHandlerClassificationTests</code> — module-gate and dependency responses are logged once under <code>Aonik.PolicyResponse</code> with their real status and never stamp the span as an error, a genuine fault keeps its error logging, and a provisioning failure returns the typed 500 body without the inner exception's text.</li>
+  <li><strong>Aonik.Database.Tests</strong> (SQL Server LocalDB): the unique index rejects a duplicate (tenant, module) row and <code>RowVersion</code> detects a concurrent toggle. The InMemory provider is structurally unable to fail on either. <em>Rev 3:</em> <code>TenantModuleServiceTransactionTests</code> — rows, outbox message and audit commit together under the retrying execution strategy; a failure after the audit save rolls all three back; a provisioning failure persists only its own audit row.</li>
   <li><strong>Aonik.Worker:</strong> a job with a module id skips a tenant that has it off.</li>
-  <li><strong>Aonik.AdminUi</strong> (vitest): the three pure functions in <a href="#adminui">§10.5</a>.</li>
+  <li><strong>Aonik.AdminUi</strong> (vitest): the three pure functions in <a href="#adminui">§10.5</a>. <em>Rev 3:</em> <code>visibleTabs.test.ts</code> — every customer-detail tab and Finance sub-tab is tagged with the module that serves it (Orders and Finance → <code>finance</code>, the five Finance sub-tabs → <code>personal-finance</code>, Commerce, Documents) and hidden when it is off, failing open without a manifest; <code>manifestCache.test.ts</code> — a manifest response that completes after an invalidation never overwrites the cache with pre-toggle data, whichever order the requests finish in.</li>
   <li><strong>Manual:</strong> run the AppHost, sign in as a host admin, toggle Commerce off for the dev tenant, and walk the success signal in <a href="#ask">§2</a>. Then <code>dotnet build Aonik.sln</code>, because the Migrator and MCP hosts are not compiled by <code>dotnet test</code>.</li>
 </ul>
 

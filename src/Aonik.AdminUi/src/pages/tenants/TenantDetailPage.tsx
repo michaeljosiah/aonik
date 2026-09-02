@@ -36,6 +36,7 @@ import { useIsHostAdmin } from '@/hooks/useIsHostAdmin';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
+import { useModuleEnabled } from '@/modules';
 import type { TenantHealthResult } from '@/services/tenantService';
 import type { Tenant, UpdateTenantRequest, TenantStatus, TenantEnvironment } from '@/types';
 
@@ -80,7 +81,14 @@ export function TenantDetailPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof UpdateTenantRequest, string>>>({});
   const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(currencies);
 
+  // Spec 097: the currency catalog is served by the Finance module. A
+  // Platform-owned page must not call a module the manifest says is off
+  // (the 403 `module.disabled` would only surface as an empty selector).
+  // Absent manifest fails open, matching useModules.
+  const financeEnabled = useModuleEnabled('finance');
+
   useEffect(() => {
+    if (!financeEnabled) return undefined;
     let active = true;
     const loadCurrencies = async () => {
       try {
@@ -95,7 +103,7 @@ export function TenantDetailPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [financeEnabled]);
 
   const loadTenant = useCallback(async () => {
     if (!tenantId) return;

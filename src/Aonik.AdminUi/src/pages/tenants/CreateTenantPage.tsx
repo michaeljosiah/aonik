@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
+import { useModuleEnabled } from '@/modules';
 import { tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import type { CreateTenantRequest, TenantEnvironment } from '@/types';
 
@@ -78,7 +79,14 @@ export function CreateTenantPage() {
     return at > 0 && at < trimmed.length - 1;
   };
 
+  // Spec 097: the currency catalog is served by the Finance module. A
+  // Platform-owned page must not call a module the manifest says is off
+  // (the 403 `module.disabled` would only surface as an empty selector).
+  // Absent manifest fails open, matching useModules.
+  const financeEnabled = useModuleEnabled('finance');
+
   useEffect(() => {
+    if (!financeEnabled) return undefined;
     let active = true;
     const loadCurrencies = async () => {
       try {
@@ -93,7 +101,7 @@ export function CreateTenantPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [financeEnabled]);
 
   // Mirror the sheet's open/closed state to the route. Closing the
   // panel (X, overlay click, Escape, or Cancel) sends the user back

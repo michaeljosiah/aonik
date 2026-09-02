@@ -285,8 +285,17 @@ public class ModuleEnablementGateTests : IClassFixture<CustomWebApplicationFacto
         nextCalled.Should().BeFalse();
     }
 
+    /// <summary>
+    /// The unresolved-tenant branch is an intentional pass-through for pre-tenant requests, not an
+    /// exemption. With no tenant there is nothing to gate against, and the tenant middleware has already
+    /// decided who may be anonymous. Enforcement for requests that resolve their tenant LATER — a partner
+    /// payout webhook, an account-aggregator webhook, the sandbox tool callback — moves into the
+    /// processor, which re-checks through <see cref="IModuleGate"/> the moment it knows the owning
+    /// tenant (Codex P1-3; see <c>ModuleGateCallbackTests</c>). This test pins the middleware half of
+    /// that contract: pass through, and do not even cost a reader lookup.
+    /// </summary>
     [Fact]
-    public async Task Middleware_Should_SkipGate_When_TenantIsNotResolved()
+    public async Task Middleware_Should_PassThroughWithoutALookup_When_TenantIsNotResolved_BecauseCallbackProcessorsRecheck()
     {
         // Arrange
         var reader = new FakeModuleReader(Guid.NewGuid(), enabled: new HashSet<string>(StringComparer.Ordinal));

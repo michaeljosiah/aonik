@@ -13,4 +13,10 @@ public static class ModuleErrorCodes
 
     /// <summary>409: disabling a module that an enabled module still hard-depends on.</summary>
     public const string DependentsEnabled = "module.dependents_enabled";
+
+    /// <summary>
+    /// 500: enabling a module failed because one of its provisioning contributors threw. The toggle was
+    /// not persisted; contributors are idempotent, so the same request can be retried once the fault is fixed.
+    /// </summary>
+    public const string ProvisioningFailed = "module.provisioning_failed";
 }

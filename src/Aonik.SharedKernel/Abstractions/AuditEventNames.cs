@@ -36,6 +36,13 @@ public static class AuditEventNames
     public const string TenantModulesUpdated = "TenantModulesUpdated";
 
     /// <summary>
+    /// Spec 097 §9 — an enablement was rejected because a provisioning contributor threw while the
+    /// module was being switched on; nothing about the tenant's module set changed. Distinct from
+    /// <see cref="TenantModulesUpdated"/> so operators can query failed attempts apart from applied changes.
+    /// </summary>
+    public const string TenantModulesProvisioningFailed = "TenantModulesProvisioningFailed";
+
+    /// <summary>
     /// Spec 097 §12.1 — an approved proposal was not executed because its handler's module is
     /// disabled for the tenant; the proposal was moved to its terminal Failed state.
     /// </summary>

@@ -12,7 +12,7 @@
 //   • Template's "Orders" tab is omitted because the orders endpoint can't
 //     filter by party today.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -50,6 +50,13 @@ import type {
   OrderListItem,
 } from '@/types';
 
+import {
+  ensureVisibleTab,
+  resolveCustomerTabs,
+  type CustomerTabKey,
+  type FinanceSubTabKey,
+  type ModuleGatedTab,
+} from './lib/visibleTabs';
 import { AccountsSubTab } from './finance/AccountsSubTab';
 import { BudgetsSubTab } from './finance/BudgetsSubTab';
 import { CommitmentsSubTab } from './finance/CommitmentsSubTab';
@@ -74,30 +81,16 @@ const VERIFICATION_TONE: Record<string, PillTone> = {
   Rejected: 'danger',
 };
 
-type TabKey = 'overview' | 'finance' | 'orders' | 'commerce' | 'insights' | 'documents' | 'activity';
-type FinanceSubKey = 'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph';
+type TabKey = CustomerTabKey;
+type FinanceSubKey = FinanceSubTabKey;
 
 const ORDERS_PAGE_SIZE = 25;
 
-// One party, every lens (Spec 081). Commerce is module-gated at render — a billing-only
-// tenant never sees it, and there is never a second customer view.
-const TABS: Array<{ value: TabKey; label: string; module?: string }> = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'orders', label: 'Orders' },
-  { value: 'commerce', label: 'Commerce', module: 'commerce' },
-  { value: 'insights', label: 'Insights' },
-  { value: 'documents', label: 'Documents' },
-  { value: 'activity', label: 'Activity' },
-];
-
-const FINANCE_SUBS: Array<{ value: FinanceSubKey; label: string }> = [
-  { value: 'accounts', label: 'Accounts' },
-  { value: 'transactions', label: 'Transactions' },
-  { value: 'budgets', label: 'Budgets' },
-  { value: 'commitments', label: 'Commitments' },
-  { value: 'graph', label: 'Financial graph' },
-];
+// One party, every lens (Spec 081). The tab list, its module tags and the
+// visibility rule live in ./lib/visibleTabs so the exact rule rendered here is
+// the one the unit tests cover: every domain tab is gated by the backend
+// module that serves it, the Platform-owned lenses always render, and an
+// absent manifest fails open.
 
 
 function formatDateTime(value?: string | null): string {
@@ -151,15 +144,13 @@ export function CustomerDetailPage() {
   const navigate = useNavigate();
   const { manifest } = useModules();
 
-  // Module gating: a manifest that omits commerce hides the tab entirely (no dead tab);
-  // an absent manifest fails OPEN, matching useModules' own degradation.
-  const isTabVisible = useCallback(
-    (tab: { module?: string }) =>
-      !tab.module || !manifest || manifest.enabledModules.includes(tab.module),
+  // Module gating (Spec 097 §10.1): a manifest that omits a module hides the
+  // tabs that module serves entirely (no dead tab that 403s on click); an
+  // absent manifest fails OPEN, matching useModules' own degradation.
+  const { tabs: visibleTabs, financeSubTabs: visibleFinanceSubs } = useMemo(
+    () => resolveCustomerTabs(manifest),
     [manifest],
   );
-  const visibleTabs = TABS.filter(isTabVisible);
-  const commerceVisible = isTabVisible({ module: 'commerce' });
   const { partyId } = useParams<{ partyId: string }>();
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -169,8 +160,12 @@ export function CustomerDetailPage() {
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [financeSub, setFinanceSub] = useState<FinanceSubKey>('accounts');
+  const [requestedTab, setActiveTab] = useState<TabKey>('overview');
+  const [requestedFinanceSub, setFinanceSub] = useState<FinanceSubKey>('accounts');
+  // A module toggled off while its tab is open (the manifest re-fetches after
+  // a toggle) must not strand the page on a tab with no button and no content.
+  const activeTab = ensureVisibleTab(requestedTab, visibleTabs, 'overview');
+  const financeSub = ensureVisibleTab(requestedFinanceSub, visibleFinanceSubs, 'accounts');
 
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -567,6 +562,7 @@ export function CustomerDetailPage() {
 
       {activeTab === 'finance' && (
         <FinanceTab
+          subTabs={visibleFinanceSubs}
           financeSub={financeSub}
           onSubChange={setFinanceSub}
           userId={customer.userId}
@@ -590,7 +586,7 @@ export function CustomerDetailPage() {
         />
       )}
 
-      {activeTab === 'commerce' && commerceVisible && partyId && <CommerceTab partyId={partyId} />}
+      {activeTab === 'commerce' && partyId && <CommerceTab partyId={partyId} />}
 
       {activeTab === 'orders' && (
         <OrdersSpineTab
@@ -828,12 +824,33 @@ function OverviewTab({
 // ─── Finance tab ─────────────────────────────────────────────────────────
 
 interface FinanceTabProps {
+  /** Sub-tabs whose owning module is enabled (Spec 097 §10.1); empty when Personal Finance is off. */
+  subTabs: ReadonlyArray<ModuleGatedTab<FinanceSubKey>>;
   financeSub: FinanceSubKey;
   onSubChange: (sub: FinanceSubKey) => void;
   userId: string | null | undefined;
 }
 
-function FinanceTab({ financeSub, onSubChange, userId }: FinanceTabProps) {
+function FinanceTab({ subTabs, financeSub, onSubChange, userId }: FinanceTabProps) {
+  // Every sub-tab is served by a module the manifest says is off: never mount
+  // one (it would only 403 with module.disabled). Say so instead.
+  if (subTabs.length === 0) {
+    return (
+      <AonikCard>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <Globe className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-tertiary)]">
+            No finance views are enabled for this organisation.
+          </p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            Accounts, transactions, budgets and commitments appear here once the
+            Personal Finance module is enabled.
+          </p>
+        </div>
+      </AonikCard>
+    );
+  }
+
   if (!userId) {
     return (
       <AonikCard>
@@ -850,11 +867,14 @@ function FinanceTab({ financeSub, onSubChange, userId }: FinanceTabProps) {
     );
   }
 
+  // Only a visible sub-tab may mount its component, whatever was requested.
+  const activeSub = subTabs.some((sub) => sub.value === financeSub) ? financeSub : subTabs[0].value;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-0.5">
-        {FINANCE_SUBS.map((sub) => {
-          const isActive = financeSub === sub.value;
+        {subTabs.map((sub) => {
+          const isActive = activeSub === sub.value;
           return (
             <button
               key={sub.value}
@@ -873,11 +893,11 @@ function FinanceTab({ financeSub, onSubChange, userId }: FinanceTabProps) {
         })}
       </div>
 
-      {financeSub === 'accounts' && <AccountsSubTab key="accounts" userId={userId} />}
-      {financeSub === 'transactions' && <TransactionsSubTab key="transactions" userId={userId} />}
-      {financeSub === 'budgets' && <BudgetsSubTab key="budgets" userId={userId} />}
-      {financeSub === 'commitments' && <CommitmentsSubTab key="commitments" userId={userId} />}
-      {financeSub === 'graph' && <FinancialGraphSubTab key="graph" userId={userId} />}
+      {activeSub === 'accounts' && <AccountsSubTab key="accounts" userId={userId} />}
+      {activeSub === 'transactions' && <TransactionsSubTab key="transactions" userId={userId} />}
+      {activeSub === 'budgets' && <BudgetsSubTab key="budgets" userId={userId} />}
+      {activeSub === 'commitments' && <CommitmentsSubTab key="commitments" userId={userId} />}
+      {activeSub === 'graph' && <FinancialGraphSubTab key="graph" userId={userId} />}
     </div>
   );
 }

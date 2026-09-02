@@ -8,6 +8,7 @@ using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Storage;
+using Aonik.SharedKernel.Modules;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -52,6 +53,7 @@ internal sealed class AccountLinkService : IAccountLinkService
         IPartyReader partyReader,
         IFileStore fileStore,
         IOptions<AccountConnectionSyncOptions> syncOptions,
+        IModuleGate moduleGate,
         ILogger<AccountLinkService> logger)
     {
         _tenantProvider = tenantProvider;
@@ -83,6 +85,7 @@ internal sealed class AccountLinkService : IAccountLinkService
         _plaidWebhookProcessor = new PlaidAccountWebhookProcessor(
             financeDbContext,
             tenantContext,
+            moduleGate,
             syncOptions,
             logger);
 

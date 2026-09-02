@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Aonik.Platform.Contracts.Models.Modules;
 using Aonik.Platform.Contracts.Services.Modules;
+using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Modules;
 using Aonik.Platform.Persistence;
@@ -49,7 +50,11 @@ public class TenantModuleServiceWriteTests
     }
 
     /// <summary>Builds the service with its ambient tenant set to <paramref name="ambientTenantId"/> (defaults to the test tenant).</summary>
-    private TenantModuleService CreateService(Guid? ambientTenantId = null, IPermissionService? permissions = null)
+    private TenantModuleService CreateService(
+        Guid? ambientTenantId = null,
+        IPermissionService? permissions = null,
+        IAuditLogWriter? audit = null,
+        IEventBus? bus = null)
     {
         var ambient = ambientTenantId ?? _tenantId;
         return new TenantModuleService(
@@ -59,14 +64,24 @@ public class TenantModuleServiceWriteTests
             new FixedClock(FixedNow),
             _user,
             new FixedCorrelationContext("corr-1"),
-            _audit,
-            _bus,
+            audit ?? _audit,
+            bus ?? _bus,
             new FakeTenantContext { TenantId = ambient, ResolutionSource = "Test" },
             permissions ?? new AllowAllPermissionService());
     }
 
-    private ITenantModuleService CreateAdminService(Guid? ambientTenantId = null, IPermissionService? permissions = null)
-        => CreateService(ambientTenantId, permissions);
+    private ITenantModuleService CreateAdminService(
+        Guid? ambientTenantId = null,
+        IPermissionService? permissions = null,
+        IAuditLogWriter? audit = null,
+        IEventBus? bus = null)
+        => CreateService(ambientTenantId, permissions, audit, bus);
+
+    private async Task<List<Aonik.SharedKernel.Events.Outbox.OutboxMessage>> LoadOutboxAsync()
+    {
+        await using var context = new PlatformDbContext(_options, new TestTenantProvider(_tenantId), _user);
+        return await context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>().ToListAsync();
+    }
 
     private void SeedTenant(Guid tenantId)
     {
@@ -398,6 +413,99 @@ public class TenantModuleServiceWriteTests
             "the write path drops the cached set itself rather than waiting on the event handler");
     }
 
+    // ── UpdateAsync: atomicity of rows, outbox and audit (Codex P1-2) ───────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_Should_PersistNothingAndKeepTheCache_When_TheAuditWriterThrows()
+    {
+        IModuleEnablementReader reader = CreateService();
+        (await reader.GetAsync(_tenantId)).IsEnabled(ModuleIds.Commerce).Should().BeTrue("warm the cache first");
+        var service = CreateAdminService(audit: new ThrowingAuditLogWriter());
+
+        var act = () => service.UpdateAsync(_tenantId, [new TenantModuleToggle(ModuleIds.Commerce, false, "no shop")]);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("audit store unavailable");
+        (await LoadRowsAsync(_tenantId)).Should().BeEmpty("the toggle rides the same unit of work as the audit record");
+        (await LoadOutboxAsync()).Should().BeEmpty("the outbox message rides the same unit of work as the audit record");
+        _bus.Published.Should().BeEmpty("nothing changed, so nothing is announced");
+
+        var cached = await _cache.TryGetAsync<IReadOnlySet<string>>(TenantModuleService.CacheKey(_tenantId));
+        cached.HasValue.Should().BeTrue("a rolled-back change must not invalidate the cache");
+        cached.Value.Should().Contain(ModuleIds.Commerce);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_WriteOneAuditRecord_When_AFailedAttemptLeftOneOnTheTracker()
+    {
+        // PlatformDbContext enables EnableRetryOnFailure, so the commit delegate is replayed on a
+        // transient failure. A rollback does not untrack, so the audit row the failed attempt added is
+        // still Added when the retry runs — the exact state seeded here. Without the detach the retry
+        // commits two audit rows for one toggle. A real transient failure cannot be induced on the
+        // InMemory provider (its execution strategy never retries), so the precondition is seeded
+        // directly; the SQL Server lane covers the transaction itself.
+        var dbContext = new PlatformDbContext(_options, new TestTenantProvider(_tenantId), _user, new FixedClock(FixedNow));
+        var service = new TenantModuleService(
+            dbContext,
+            _cache,
+            NullLogger<TenantModuleService>.Instance,
+            new FixedClock(FixedNow),
+            _user,
+            new FixedCorrelationContext("corr-1"),
+            new ContextWritingAuditLogWriter(dbContext, FixedNow),
+            _bus,
+            new FakeTenantContext { TenantId = _tenantId, ResolutionSource = "Test" },
+            new AllowAllPermissionService());
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            Timestamp = FixedNow,
+            ActorType = "User",
+            ActorId = _user.UserId,
+            Action = AuditEventNames.TenantModulesUpdated,
+            ResourceType = "TenantModules",
+            ResourceId = _tenantId,
+            DetailsJson = "{\"attempt\":1}",
+            CorrelationId = "corr-1",
+            CreatedAt = FixedNow,
+            CreatedBy = _user.UserId,
+        });
+
+        await ((ITenantModuleService)service).UpdateAsync(
+            _tenantId, [new TenantModuleToggle(ModuleIds.Commerce, false, "no shop")]);
+
+        await using var verification = new PlatformDbContext(
+            _options, new TestTenantProvider(_tenantId), _user, new FixedClock(FixedNow));
+        var audits = await verification.AuditLogs
+            .Where(log => log.Action == AuditEventNames.TenantModulesUpdated)
+            .ToListAsync();
+
+        audits.Should().ContainSingle("the abandoned attempt's audit row is detached before this attempt writes its own");
+        audits.Single().DetailsJson.Should().NotContain("attempt", "the surviving record is the one this attempt wrote");
+        (await LoadRowsAsync(_tenantId)).Should().ContainSingle(row => row.ModuleId == ModuleIds.Commerce);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_StillInvalidateTheCache_When_AStepAfterTheCommitThrows()
+    {
+        IModuleEnablementReader reader = CreateService();
+        (await reader.GetAsync(_tenantId)).IsEnabled(ModuleIds.Commerce).Should().BeTrue("warm the cache first");
+        var service = CreateAdminService(bus: new ThrowingEventBus());
+
+        var act = () => service.UpdateAsync(_tenantId, [new TenantModuleToggle(ModuleIds.Commerce, false)]);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("bus down");
+        (await LoadRowsAsync(_tenantId)).Should().ContainSingle(row => row.ModuleId == ModuleIds.Commerce && !row.IsEnabled,
+            "the change committed before the in-process publication ran");
+        (await LoadOutboxAsync()).Should().ContainSingle();
+        _audit.Entries.Should().ContainSingle();
+
+        IModuleEnablementReader fresh = CreateService();
+        (await fresh.GetAsync(_tenantId)).IsEnabled(ModuleIds.Commerce).Should().BeFalse(
+            "a committed change is followed by invalidation no matter how the request ends, so this host never enforces stale state");
+    }
+
     [Fact]
     public async Task UpdateAsync_Should_NotTouchAnotherTenant()
     {
@@ -458,6 +566,27 @@ public class TenantModuleServiceWriteTests
         string? CorrelationId,
         string? DetailsJson);
 
+    private sealed class ThrowingAuditLogWriter : IAuditLogWriter
+    {
+        public Task LogAsync(
+            string action,
+            string resourceType,
+            Guid resourceId,
+            Guid tenantId,
+            Guid? actorId,
+            string? correlationId,
+            string? detailsJson = null,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("audit store unavailable");
+    }
+
+    private sealed class ThrowingEventBus : IEventBus
+    {
+        public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+            where TEvent : IIntegrationEvent
+            => throw new InvalidOperationException("bus down");
+    }
+
     private sealed class RecordingEventBus : IEventBus
     {
         public List<IIntegrationEvent> Published { get; } = [];
@@ -467,6 +596,42 @@ public class TenantModuleServiceWriteTests
         {
             Published.Add(@event);
             return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// Writes through the caller's context exactly as the production <c>AuditLogWriter</c> does, so a test
+    /// can observe what the tracker actually holds. The recording fake above never touches the context.
+    /// </summary>
+    private sealed class ContextWritingAuditLogWriter(PlatformDbContext dbContext, DateTime now) : IAuditLogWriter
+    {
+        public Task LogAsync(
+            string action,
+            string resourceType,
+            Guid resourceId,
+            Guid tenantId,
+            Guid? actorId,
+            string? correlationId,
+            string? detailsJson = null,
+            CancellationToken cancellationToken = default)
+        {
+            dbContext.AuditLogs.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Timestamp = now,
+                ActorType = "User",
+                ActorId = actorId ?? Guid.Empty,
+                Action = action,
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                DetailsJson = detailsJson ?? string.Empty,
+                CorrelationId = correlationId ?? string.Empty,
+                CreatedAt = now,
+                CreatedBy = actorId ?? Guid.Empty,
+            });
+
+            return dbContext.SaveChangesAsync(cancellationToken);
         }
     }
 }

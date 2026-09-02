@@ -4,6 +4,7 @@ using Aonik.PersonalFinance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using FastEndpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +26,9 @@ namespace Aonik.PersonalFinance.Endpoints.Agents;
 /// </para>
 /// <list type="number">
 ///   <item>Decode + signature-validate nonce → 401 on failure.</item>
+///   <item>Re-check that the nonce's tenant has the Personal Finance module enabled → 403
+///   <c>module.disabled</c> otherwise (Spec 097 §11). The call is anonymous, so the HTTP module gate
+///   had no tenant to check; the signed nonce is the first trustworthy tenant this request carries.</item>
 ///   <item>Consume one unit of the nonce's callback budget → 429 if exhausted.</item>
 ///   <item>Assert sub-agent name is one of the registered Spec 025 sub-agents → 400 otherwise.</item>
 ///   <item>Assert requested tool name is in the nonce's whitelist → 403 otherwise.</item>
@@ -49,15 +53,18 @@ public sealed class CodeActCallbackEndpoint : Endpoint<CodeActCallbackRequest, C
 
     private readonly CodeActCallbackNonceService _nonceService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IModuleGate _moduleGate;
     private readonly ILogger<CodeActCallbackEndpoint> _logger;
 
     public CodeActCallbackEndpoint(
         CodeActCallbackNonceService nonceService,
         IHttpContextAccessor httpContextAccessor,
+        IModuleGate moduleGate,
         ILogger<CodeActCallbackEndpoint> logger)
     {
         _nonceService = nonceService;
         _httpContextAccessor = httpContextAccessor;
+        _moduleGate = moduleGate;
         _logger = logger;
     }
 
@@ -75,7 +82,7 @@ public sealed class CodeActCallbackEndpoint : Endpoint<CodeActCallbackRequest, C
             s.Response(200, "Tool invoked, result returned");
             s.Response(400, "Invalid sub-agent identifier in nonce payload");
             s.Response(401, "Nonce signature invalid, expired, or replayed");
-            s.Response(403, "Requested tool name not in nonce whitelist");
+            s.Response(403, "Requested tool name not in nonce whitelist, or the nonce's tenant has the Personal Finance module disabled (code: module.disabled)");
             s.Response(404, "Tool name does not exist in the resolved sub-agent slice");
             s.Response(429, "Per-nonce callback budget exhausted");
             s.Response(500, "Unexpected error invoking the host tool");
@@ -101,6 +108,26 @@ public sealed class CodeActCallbackEndpoint : Endpoint<CodeActCallbackRequest, C
                         Code: "nonce_invalid",
                         Message: $"NonceValidationResult={validation} | nonceLen={nonceLen} | nonceHead=\"{nonceHead}\" | signingKeyBytes={signingKeyByteLength}")),
                 statusCode: 401,
+                cancellation: ct);
+            return;
+        }
+
+        // The nonce is the first trustworthy tenant this anonymous request carries; the HTTP module gate
+        // ran before it was decoded. Refuse before any budget is spent or any tool runs (Spec 097 §11).
+        // The bridge's own envelope is kept so the sandbox-side reader sees a typed code, not a bare 403.
+        if (!await _moduleGate.IsEnabledAsync(payload.TenantId, ModuleIds.PersonalFinance, ct))
+        {
+            _logger.LogInformation(
+                "CodeAct callback refused: module {ModuleId} is disabled for tenant {TenantId} (run {RunId}).",
+                ModuleIds.PersonalFinance, payload.TenantId, payload.RunId);
+            await Send.ResponseAsync(
+                new CodeActCallbackResponse(
+                    Status: "error",
+                    Result: null,
+                    Error: new CodeActCallbackError(
+                        Code: ModuleErrorCodes.Disabled,
+                        Message: $"Module '{ModuleIds.PersonalFinance}' is disabled for this tenant.")),
+                statusCode: 403,
                 cancellation: ct);
             return;
         }

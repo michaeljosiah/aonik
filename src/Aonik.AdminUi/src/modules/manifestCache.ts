@@ -26,6 +26,11 @@ interface InFlightEntry {
 
 let manifestCache: CacheEntry | null = null;
 let manifestInFlight: InFlightEntry | null = null;
+// Generation counter. Every invalidation bumps it; a request captures the
+// generation it started under and may only write the cache while that
+// generation is still current. Without this, a request already in flight
+// when a toggle invalidates the cache could finish LAST and re-populate the
+// cache with pre-toggle data for another TTL.
 let manifestVersion = 0;
 const listeners = new Set<() => void>();
 
@@ -34,7 +39,11 @@ export function getManifestTenantKey(): string {
   return getSelectedTenant()?.tenantId ?? '';
 }
 
-/** Monotonic counter bumped by every invalidation. Hooks re-fetch on change. */
+/**
+ * Monotonic generation bumped by every invalidation. Hooks re-fetch on change
+ * and in-flight requests older than the current generation never populate
+ * the cache.
+ */
 export function getManifestVersion(): number {
   return manifestVersion;
 }
@@ -65,6 +74,17 @@ export function invalidateModuleManifest(): void {
   }
 }
 
+function freshCacheFor(tenantId: string): RuntimeModuleManifest | null {
+  if (
+    manifestCache
+    && manifestCache.tenantId === tenantId
+    && Date.now() - manifestCache.timestamp < MANIFEST_CACHE_TTL_MS
+  ) {
+    return manifestCache.data;
+  }
+  return null;
+}
+
 /**
  * Fetch the manifest for the currently selected tenant through the shared
  * API client (bearer token + X-Tenant-Id). Single-flight and cached per
@@ -72,25 +92,31 @@ export function invalidateModuleManifest(): void {
  *
  * Resolves `null` on any failure — transport errors, 401/403 from the
  * manifest itself, or an unresolvable tenant — so callers stay fail-open.
+ *
+ * Generation-guarded: a response that lands after an invalidation is never
+ * written to the cache, and its awaiters receive the replacement request's
+ * result, so the newest data always wins regardless of completion order.
  */
 export function fetchManifestOnce(): Promise<RuntimeModuleManifest | null> {
   const tenantId = getManifestTenantKey();
 
-  if (
-    manifestCache
-    && manifestCache.tenantId === tenantId
-    && Date.now() - manifestCache.timestamp < MANIFEST_CACHE_TTL_MS
-  ) {
-    return Promise.resolve(manifestCache.data);
+  const cached = freshCacheFor(tenantId);
+  if (cached) {
+    return Promise.resolve(cached);
   }
 
   if (manifestInFlight && manifestInFlight.tenantId === tenantId) {
     return manifestInFlight.promise;
   }
 
-  const promise = api
+  // The generation this request belongs to. An invalidation while it is in
+  // flight makes its response stale: it must not be cached, and callers that
+  // awaited it are handed the replacement request's result instead.
+  const generation = manifestVersion;
+
+  const promise: Promise<RuntimeModuleManifest | null> = api
     .get<RuntimeModuleManifest>('/admin/manifest')
-    .then((data) => {
+    .then((data): RuntimeModuleManifest | null | Promise<RuntimeModuleManifest | null> => {
       if (!data || !Array.isArray(data.enabledModules)) {
         return null;
       }
@@ -99,11 +125,23 @@ export function fetchManifestOnce(): Promise<RuntimeModuleManifest | null> {
         modules: Array.isArray(data.modules) ? data.modules : [],
         featureFlags: data.featureFlags ?? {},
       };
-      // Only cache when the selected tenant has not changed underneath us.
-      if (getManifestTenantKey() === tenantId) {
+
+      const currentTenantId = getManifestTenantKey();
+      const isCurrent = manifestVersion === generation && currentTenantId === tenantId;
+      if (isCurrent) {
         manifestCache = { tenantId, data: normalised, timestamp: Date.now() };
+        return normalised;
       }
-      return normalised;
+
+      // Stale: an invalidation (module toggle, tenant switch, logout) raced
+      // this response. Never write the cache. Prefer whatever is newest for
+      // the tenant now selected — the replacement request if one is running,
+      // else a fresh cache entry — and only fall back to this payload
+      // (uncached, fail-open) when there is nothing newer to hand back.
+      if (manifestInFlight && manifestInFlight.tenantId === currentTenantId && manifestInFlight.promise !== promise) {
+        return manifestInFlight.promise;
+      }
+      return freshCacheFor(currentTenantId) ?? normalised;
     })
     .catch(() => null)
     .finally(() => {

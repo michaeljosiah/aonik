@@ -52,7 +52,13 @@ namespace Aonik.Api.Middleware;
 ///   <item><see cref="ModuleGateExempt"/> metadata on the endpoint: continue. A greppable, reviewable opt-out.</item>
 ///   <item>No resolved tenant: continue. There is nothing to gate against; the tenant middleware already
 ///   decided who may be anonymous. Storefront endpoints that resolve the tenant anonymously by header
-///   or subdomain DO reach the next step, which is intended for a shop whose Commerce module is off.</item>
+///   or subdomain DO reach the next step, which is intended for a shop whose Commerce module is off.
+///   This pass-through is deliberate and is NOT the end of enforcement: a pre-tenant request that
+///   resolves its tenant later — an anonymous provider callback that finds the owning tenant on the
+///   payout or connection it references, the sandbox tool callback that finds it in a signed nonce —
+///   re-checks through <see cref="IModuleGate"/> the moment that tenant is known, before it mutates
+///   anything. The middleware cannot do that for it, because the tenant does not exist yet when the
+///   middleware runs.</item>
 ///   <item>Reader says disabled: throw <see cref="ModuleDisabledException"/>. Otherwise run the rest of
 ///   the pipeline inside a log scope carrying <c>ModuleId</c> and <c>TenantId</c>, so a denied or
 ///   slow call is one query away in observability.</item>
@@ -107,7 +113,9 @@ public sealed class ModuleEnablementMiddleware
             return;
         }
 
-        // 5. No tenant, no gate. The tenant middleware owns the anonymous decision.
+        // 5. No tenant, no gate. The tenant middleware owns the anonymous decision. Callback processors that
+        //    resolve their tenant later re-check through IModuleGate (see the remarks) — this branch is a
+        //    pass-through for pre-tenant requests, not an exemption.
         var tenantProvider = context.RequestServices.GetRequiredService<ITenantProvider>();
         if (!tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {

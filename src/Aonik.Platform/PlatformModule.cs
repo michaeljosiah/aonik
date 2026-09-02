@@ -168,6 +168,9 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Services.Modules.TenantModuleService>();
         services.AddScoped<IModuleEnablementReader>(sp => sp.GetRequiredService<Services.Modules.TenantModuleService>());
         services.AddScoped<Contracts.Services.Modules.ITenantModuleService>(sp => sp.GetRequiredService<Services.Modules.TenantModuleService>());
+        // Spec 097 §11 — the in-process gate for code paths that resolve their tenant after the HTTP gate
+        // ran (anonymous provider callbacks). Scoped so it shares the reader's per-request memo.
+        services.AddScoped<IModuleGate, Services.Modules.ModuleGate>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<IInviteAcceptanceService, InviteAcceptanceService>();
         services.AddScoped<IUserSessionBlocklist, UserSessionBlocklist>();

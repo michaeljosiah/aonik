@@ -19,10 +19,17 @@ public interface ITenantModuleService
     /// <summary>
     /// Applies <paramref name="toggles"/> atomically. Throws <see cref="ArgumentException"/> for an
     /// unknown, core or duplicated id, and <see cref="Aonik.SharedKernel.Modules.ModuleDependencyException"/>
-    /// when the result would violate the hard-dependency graph (nothing is cascaded silently). On
-    /// success the change is audited, <see cref="Aonik.SharedKernel.Events.Integration.TenantModulesChangedEvent"/>
-    /// is published and the tenant's cached set is invalidated. Authorisation is the endpoint's
-    /// (PlatformAdmin policy); this method carries no tenancy guard of its own.
+    /// when the result would violate the hard-dependency graph (nothing is cascaded silently).
+    /// Every module that transitions from off to on in the resolved set (a dependency the cascade
+    /// switches on included) is provisioned first — its
+    /// <see cref="Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor"/>s run, dependencies
+    /// before dependents — so a module is never reported enabled without the resources its endpoints
+    /// assume; a throwing contributor surfaces as <see cref="ModuleProvisioningException"/>, is audited,
+    /// and leaves the module state untouched. The rows, the outbox message and the audit record commit
+    /// in one database transaction; only then is
+    /// <see cref="Aonik.SharedKernel.Events.Integration.TenantModulesChangedEvent"/> published and the
+    /// tenant's cached set invalidated. Authorisation is the endpoint's (PlatformAdmin policy); this
+    /// method carries no tenancy guard of its own.
     /// </summary>
     Task<TenantModuleList> UpdateAsync(
         Guid tenantId,
