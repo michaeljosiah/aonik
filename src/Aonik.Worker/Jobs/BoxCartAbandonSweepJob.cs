@@ -1,5 +1,6 @@
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Platform.Entities.Operations;
+using Aonik.SharedKernel.Modules;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -12,7 +13,8 @@ namespace Aonik.Worker.Jobs;
 /// Transitions box-cart sessions idle beyond the configured window to Abandoned (Spec 068 A6) so
 /// a stale anonymous session cannot pin size-plan authoring forever. Sweeps across all tenants
 /// under a system context; clustering-safe via Quartz job storage and the idempotent status
-/// transition (only Open, order-less box carts move).
+/// transition (only Open, order-less box carts move). Tenants whose Commerce module is off are
+/// skipped and counted in the execution result (Spec 097 §12.2).
 /// </summary>
 [DisallowConcurrentExecution]
 internal sealed class BoxCartAbandonSweepJob : IJob
@@ -22,15 +24,18 @@ internal sealed class BoxCartAbandonSweepJob : IJob
     private readonly ICartMaintenanceService _maintenance;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<BoxCartAbandonSweepJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public BoxCartAbandonSweepJob(
         ICartMaintenanceService maintenance,
         IOptions<ScheduledJobOptions> options,
-        ILogger<BoxCartAbandonSweepJob> logger)
+        ILogger<BoxCartAbandonSweepJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _maintenance = maintenance;
         _options = options.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -41,8 +46,14 @@ internal sealed class BoxCartAbandonSweepJob : IJob
             return;
         }
 
-        var abandoned = await _maintenance.AbandonIdleBoxCartsAsync(cancellationToken: context.CancellationToken);
-        context.Result = $"Abandoned {abandoned} idle box cart(s).";
+        var tenants = await _maintenance.FindTenantsWithIdleBoxCartsAsync(cancellationToken: context.CancellationToken);
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenants, ModuleIds.Commerce, "Box cart abandon sweep", _logger, context.CancellationToken);
+
+        var abandoned = gate.Enabled.Count == 0
+            ? 0
+            : await _maintenance.AbandonIdleBoxCartsAsync(tenantIds: gate.Enabled, cancellationToken: context.CancellationToken);
+        context.Result = $"Abandoned {abandoned} idle box cart(s)." + gate.Note;
         if (abandoned > 0)
         {
             _logger.LogInformation("Box cart abandon sweep transitioned {Count} idle session(s).", abandoned);

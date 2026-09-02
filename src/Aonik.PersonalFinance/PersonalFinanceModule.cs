@@ -38,6 +38,7 @@ namespace Aonik.PersonalFinance;
 public sealed class PersonalFinanceModule : IModule
 {
     public static string Name => "PersonalFinance";
+    public static string Id => ModuleIds.PersonalFinance;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

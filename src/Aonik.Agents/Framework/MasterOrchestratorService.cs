@@ -30,6 +30,7 @@ namespace Aonik.Agents.Framework;
 internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 {
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly DescriptorModuleFilter _moduleFilter;
     private readonly IMcpToolProvider _mcpToolProvider;
     private readonly IAgentConfigurationService _configService;
     private readonly IAiModelResolver _modelResolver;
@@ -162,6 +163,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
     public MasterOrchestratorService(
         IEnumerable<IDomainAgentDescriptor> descriptors,
+        DescriptorModuleFilter moduleFilter,
         IMcpToolProvider mcpToolProvider,
         IAgentConfigurationService configService,
         IAiModelResolver modelResolver,
@@ -175,6 +177,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         ILogger<MasterOrchestratorService> logger)
     {
         _descriptors = descriptors;
+        _moduleFilter = moduleFilter;
         _mcpToolProvider = mcpToolProvider;
         _configService = configService;
         _modelResolver = modelResolver;
@@ -429,6 +432,15 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     /// active flag) and applies them via the overloaded
     /// <see cref="IDomainAgentDescriptor.Build(IChatClient, IServiceProvider, string?, IReadOnlySet{string}?)"/>.
     /// </summary>
+    /// <summary>
+    /// The domain agents the orchestrator may delegate to for the current tenant: every registered
+    /// descriptor minus those whose module is disabled (Spec 097 §12.1). This is the exact set
+    /// <see cref="BuildAllToolsAsync"/> turns into tools; exposed so the gate can be asserted without
+    /// building agents.
+    /// </summary>
+    internal Task<IReadOnlyList<IDomainAgentDescriptor>> ResolveDelegableDescriptorsAsync(CancellationToken cancellationToken)
+        => _moduleFilter.FilterAsync(_descriptors, cancellationToken);
+
     private async Task<List<AITool>> BuildAllToolsAsync(CancellationToken cancellationToken)
     {
         var tools = new List<AITool>();
@@ -479,8 +491,12 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 reminderTools.Count);
         }
 
-        // Build domain agents as tools, applying any configuration overrides
-        foreach (var descriptor in _descriptors)
+        // Build domain agents as tools, applying any configuration overrides.
+        // Spec 097 §12.1: a module disabled for this tenant contributes no agent, so the
+        // orchestrator cannot delegate to it. The orchestrator's own descriptor lives in the
+        // Agents module (core) and is never filtered.
+        var delegable = await ResolveDelegableDescriptorsAsync(cancellationToken);
+        foreach (var descriptor in delegable)
         {
             try
             {

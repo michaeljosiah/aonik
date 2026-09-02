@@ -2,10 +2,6 @@ import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
 import {
-  CustomersListPage,
-  CustomerDetailPage,
-} from '@/pages/customers';
-import {
   AccountsListPage,
   AccountConnectionDetailPage,
   AccountTransactionsPage,
@@ -19,11 +15,6 @@ import {
   LedgerAccountsPage,
   LedgerJournalEntriesPage,
 } from '@/pages/ledger';
-import {
-  DocumentsListPage,
-  DocumentDetailPage,
-  DocumentCreatePage,
-} from '@/pages/compliance';
 import {
   CatalogLandingPage,
   CatalogCountriesPage,
@@ -50,17 +41,14 @@ import { redirectTo, wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 // One unlabeled operational section. Ordering is intentionally curated to
 // match the current admin shell IA rather than the original starterkit
-// group labels.
+// group labels. Customers (the party registry) and Compliance are
+// Platform-owned (Spec 097 §10.1) and live in the platform module, so they
+// stay when Finance is off; the finance-specific customer tabs are gated
+// inside the customer page instead.
 const navigation: NavigationSection[] = [
   {
     id: 'operations',
     items: [
-      {
-        id: 'party-profiles',
-        label: 'Customers',
-        icon: 'Building2',
-        href: '/customers',
-      },
       {
         id: 'orders',
         label: 'Orders',
@@ -118,8 +106,6 @@ const navigation: NavigationSection[] = [
 // Routes
 // ---------------------------------------------------------------------------
 const routes = [
-  { path: '/customers', element: CustomersListPage },
-  { path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
   { path: '/accounts', element: AccountsListPage },
   { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true },
   { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true },
@@ -144,11 +130,6 @@ const routes = [
   { path: '/catalog/billers/:billerId/services/:serviceId', element: CatalogBillerServiceDetailPage, isDynamic: true },
   { path: '/catalog/partners', element: CatalogPartnersPage },
   { path: '/catalog/partners/:partnerId', element: CatalogPartnerDetailPage, isDynamic: true },
-  // /compliance had a single Documents tile — collapse straight to the list.
-  { path: '/compliance', element: redirectTo('/compliance/documents') },
-  { path: '/compliance/documents', element: DocumentsListPage },
-  { path: '/compliance/documents/new', element: DocumentCreatePage },
-  { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true },
   { path: '/settings/autonumbering', element: AutonumberingPage },
   { path: '/settings/fx-rates', element: FxRatesPage },
 ];
@@ -158,7 +139,6 @@ const routes = [
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
   // Page panels — wrapped full-page components
-  { id: 'customers', title: 'Customers', type: 'internal', category: 'page', componentKey: 'customers-list', route: '/customers' },
   { id: 'accounts', title: 'Accounts', type: 'internal', category: 'page', componentKey: 'accounts-list', route: '/accounts' },
   { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', category: 'page', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
   { id: 'orders-activity', title: 'Order Activity', type: 'internal', category: 'page', componentKey: 'orders-list', route: '/orders/activity' },
@@ -177,7 +157,6 @@ const panels: WorkspacePanelConfig[] = [
 ];
 
 const panelComponents = {
-  'customers-list': wrapPage(CustomersListPage),
   'accounts-list': wrapPage(AccountsListPage),
   'orders-list': wrapPage(OrdersListPage),
   'bill-payment-form': wrapPage(BillPaymentOrderFormPage),
@@ -212,13 +191,11 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/customers', trail: ['Customers'] },
   { pathPrefix: '/accounts', trail: ['Accounts'] },
   { pathPrefix: '/orders/bill-payments', trail: [{ label: 'Orders', href: '/orders' }, 'Bill Payments'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
   { pathPrefix: '/ledger', trail: ['Accounting'] },
   { pathPrefix: '/catalog', trail: ['Catalog'] },
-  { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/billing/invoices', trail: [{ label: 'Billing', href: '/billing' }, 'Invoices'] },
 ];
 
@@ -228,6 +205,7 @@ const breadcrumbs = [
 export const financeModule: AdminModule = {
   id: 'finance',
   name: 'Finance',
+  requires: ['finance'],
   navigation,
   routes,
   panels,

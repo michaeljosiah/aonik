@@ -33,6 +33,13 @@ public static class AuditEventNames
     public const string TenantProvisioned = "TenantProvisioned";
     public const string TenantUpdated = "TenantUpdated";
     public const string TenantFeaturesUpdated = "TenantFeaturesUpdated";
+    public const string TenantModulesUpdated = "TenantModulesUpdated";
+
+    /// <summary>
+    /// Spec 097 §12.1 — an approved proposal was not executed because its handler's module is
+    /// disabled for the tenant; the proposal was moved to its terminal Failed state.
+    /// </summary>
+    public const string ProposalBlockedByModuleGate = "ProposalBlockedByModuleGate";
     public const string TenantDemoSeeded = "TenantDemoSeeded";
     public const string TenantDemoReversed = "TenantDemoReversed";
     public const string PermissionsSeeded = "PermissionsSeeded";

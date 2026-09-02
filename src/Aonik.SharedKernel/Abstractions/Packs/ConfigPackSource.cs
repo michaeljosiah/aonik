@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text.Json;
+using Aonik.SharedKernel.Modules;
 
 namespace Aonik.SharedKernel.Abstractions.Packs;
 
@@ -46,7 +47,42 @@ public sealed class ConfigPackSource : IConfigPackSource
             return null; // no manifest for this type → no-op
         }
 
-        return JsonSerializer.Deserialize<ConfigPackManifest>(stream, Options)
+        var manifest = JsonSerializer.Deserialize<ConfigPackManifest>(stream, Options)
             ?? throw new InvalidOperationException($"Config pack '{businessType}{ResourceSuffix}' failed to deserialize.");
+
+        Validate(manifest, $"{businessType}{ResourceSuffix}");
+        return manifest;
+    }
+
+    /// <summary>
+    /// Validates a manifest against the module catalogue (Spec 097 §13): every entry of
+    /// <see cref="ConfigPackManifest.Modules"/> must be a canonical <see cref="ModuleIds"/> id, compared
+    /// case-sensitively. A pack that names an unknown module fails to load — loudly, at first use — rather
+    /// than silently provisioning a tenant with the wrong module set. Public so tooling and tests can
+    /// validate a manifest that did not come from the embedded resources.
+    /// </summary>
+    /// <param name="manifest">The manifest to validate.</param>
+    /// <param name="packName">A label for the pack used in the error message (e.g. the resource file name).</param>
+    /// <exception cref="InvalidOperationException">A module id is blank or not in the catalogue.</exception>
+    public static void Validate(ConfigPackManifest manifest, string packName)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+
+        foreach (var moduleId in manifest.Modules)
+        {
+            if (string.IsNullOrWhiteSpace(moduleId))
+            {
+                throw new InvalidOperationException(
+                    $"Config pack '{packName}' declares a blank module id; every entry of 'modules' must be a catalogue id.");
+            }
+
+            if (!ModuleCatalog.IsKnown(moduleId))
+            {
+                var known = string.Join(", ", ModuleCatalog.All.Select(descriptor => descriptor.Id));
+                throw new InvalidOperationException(
+                    $"Config pack '{packName}' declares module '{moduleId}', which is not a module in the catalogue. " +
+                    $"Module ids are case-sensitive canonical ids; known ids: {known}.");
+            }
+        }
     }
 }

@@ -11,7 +11,9 @@ namespace Aonik.SharedKernel.Abstractions;
 public interface IDemoSeedContributor
 {
     /// <summary>
-    /// Module name for logging/diagnostics (e.g. "Finance").
+    /// The owning module's canonical catalogue id — a <see cref="Modules.ModuleIds"/> constant such as
+    /// <c>ModuleIds.Finance</c>. The demo seed gates on it through <see cref="Modules.ModuleCatalog"/>
+    /// (Spec 097 §12.4): a contributor whose module is disabled for the tenant is skipped.
     /// </summary>
     string ModuleName { get; }
 

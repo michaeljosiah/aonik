@@ -28,8 +28,11 @@ import {
   DollarSign,
   Calendar,
   User,
+  Blocks,
 } from 'lucide-react';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
+import { TenantModulesPanel } from '@/components/modules/TenantModulesPanel';
+import { useIsHostAdmin } from '@/hooks/useIsHostAdmin';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
@@ -61,6 +64,8 @@ const currencies = [] as { code: string; name: string }[];
 
 export function TenantDetailPage() {
   const navigate = useNavigate();
+  // Only host admins may change module state (Spec 097); everyone else reads.
+  const { isHostAdmin } = useIsHostAdmin();
   const { id: tenantId } = useParams<{ id: string }>();
   
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -677,6 +682,26 @@ export function TenantDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Modules (Spec 097) — host-managed per-tenant module enablement */}
+            {tenantId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Blocks className="w-5 h-5" />
+                    Modules
+                  </CardTitle>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {isHostAdmin
+                      ? 'Choose which platform modules this organisation can use. Core modules are always on.'
+                      : 'Module state is managed by the host administrator. Core modules are always on.'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <TenantModulesPanel tenantId={tenantId} readOnly={!isHostAdmin} />
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}

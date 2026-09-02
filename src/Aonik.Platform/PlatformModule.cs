@@ -45,11 +45,16 @@ namespace Aonik.Platform;
 public sealed class PlatformModule : IModule
 {
     public static string Name => "Platform";
+    public static string Id => ModuleIds.Platform;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,
         IConfiguration configuration)
     {
+        // Spec 097 §5: a bad module catalogue (unknown dependency, cycle, core resting on non-core)
+        // must fail startup, not a request.
+        ModuleCatalog.Validate();
+
         // Register PlatformDbContext
         // Shares the same physical database as the monolithic AonikDbContext
         // using dbo schema + module table prefixes.
@@ -158,6 +163,11 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
         services.AddScoped<ICustomerDataService, CustomerDataService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
+        // Spec 097 §7 — per-tenant module enablement. One scoped instance serves the SharedKernel read
+        // contract (and, in the next slice, the write contract) so the per-request memo is shared.
+        services.AddScoped<Services.Modules.TenantModuleService>();
+        services.AddScoped<IModuleEnablementReader>(sp => sp.GetRequiredService<Services.Modules.TenantModuleService>());
+        services.AddScoped<Contracts.Services.Modules.ITenantModuleService>(sp => sp.GetRequiredService<Services.Modules.TenantModuleService>());
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<IInviteAcceptanceService, InviteAcceptanceService>();
         services.AddScoped<IUserSessionBlocklist, UserSessionBlocklist>();

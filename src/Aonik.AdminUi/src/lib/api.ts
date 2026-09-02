@@ -28,6 +28,21 @@ export function setAccessTokenGetter(getter: () => Promise<string | null>) {
   getAccessTokenFn = getter;
 }
 
+// Module gate (Spec 097): decides whether a 403 `module.disabled` for `moduleId`
+// should navigate to the explanation page. The app shell registers a predicate
+// backed by the module registry (which imports every page, so it cannot be
+// imported here). Without one, no 403 ever turns into a navigation — the caller
+// gets the rejection with a userMessage and renders its own error.
+export type ModuleDisabledRedirectPredicate = (moduleId: string, pathname: string) => boolean;
+
+let moduleDisabledRedirectPredicate: ModuleDisabledRedirectPredicate | null = null;
+
+export function setModuleDisabledRedirectPredicate(predicate: ModuleDisabledRedirectPredicate | null) {
+  moduleDisabledRedirectPredicate = predicate;
+}
+
+export const MODULE_DISABLED_USER_MESSAGE = 'This feature is not enabled for this organisation.';
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -232,6 +247,26 @@ apiClient.interceptors.response.use(
     // Handle other errors
     if (error.response?.status === 403) {
       console.error('Access forbidden:', error.response.data);
+
+      // Module gate (Spec 097): the tenant does not have this module enabled.
+      // Navigate to the explanatory page ONLY when the page the user is on is
+      // owned by that module (same full-page navigation the 401 path uses;
+      // api.ts has no router dependency). A shared page — the home dashboard,
+      // a customer record — that merely called a gated endpoint keeps the
+      // rejection and renders its own message; bouncing it would loop.
+      const body = error.response.data as { code?: unknown; moduleId?: unknown } | null | undefined;
+      if (body && body.code === 'module.disabled' && typeof body.moduleId === 'string' && body.moduleId.length > 0) {
+        try {
+          const pathname = window.location.pathname;
+          const pageBelongsToModule = moduleDisabledRedirectPredicate?.(body.moduleId, pathname) ?? false;
+          if (pageBelongsToModule && !pathname.startsWith('/module-disabled')) {
+            window.location.href = `/module-disabled/${encodeURIComponent(body.moduleId)}`;
+          }
+        } catch {
+          // Navigation is best-effort; the rejection below still carries the message.
+        }
+        return Promise.reject({ ...error, userMessage: MODULE_DISABLED_USER_MESSAGE, moduleId: body.moduleId });
+      }
     }
 
     if (error.response?.status === 404) {

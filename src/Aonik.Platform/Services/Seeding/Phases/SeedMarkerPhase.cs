@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Entities.Settings;
@@ -64,9 +65,9 @@ internal sealed class SeedMarkerPhase
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
-        var financeResults = GetContributorResults("Finance");
-        var agentsResults = GetContributorResults("Agents");
-        var platformResults = GetContributorResults("Platform");
+        var financeResults = GetContributorResults(ModuleIds.Finance);
+        var agentsResults = GetContributorResults(ModuleIds.Agents);
+        var platformResults = GetContributorResults(ModuleIds.Platform);
 
         var payload = new
         {

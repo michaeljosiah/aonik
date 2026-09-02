@@ -19,6 +19,7 @@ namespace Aonik.Finance;
 public sealed class FinanceModule : IModule
 {
     public static string Name => "Finance";
+    public static string Id => ModuleIds.Finance;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

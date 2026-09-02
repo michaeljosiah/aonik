@@ -2,6 +2,7 @@ using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;
+using Aonik.Platform.Entities.Modules;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
@@ -94,6 +95,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
     // Features
     public DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
+    public DbSet<TenantModule> TenantModules { get; set; } = null!;
 
     // Reference Data
     public DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
@@ -216,6 +218,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
         MapTable<Setting>(modelBuilder, "Settings");
         MapTable<TenantFeature>(modelBuilder, "TenantFeatures");
+        MapTable<TenantModule>(modelBuilder, "TenantModules");
 
         MapTable<ReferenceDataItem>(modelBuilder, "ReferenceData");
         MapTable<Country>(modelBuilder, "Countries");

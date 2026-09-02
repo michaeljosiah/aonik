@@ -2,7 +2,7 @@
   "businessType": "simi",
   "version": 1,
   "displayName": "Simi",
-  "modules": ["PersonalFinance"],
+  "modules": ["personal-finance", "groups", "documents", "ai", "agents", "voice"],
   "settings": {
     "Branding.AgentDisplayName": "Simi",
     "Branding.StatementVerificationPrefix": "SIMI"

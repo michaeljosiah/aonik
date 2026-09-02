@@ -7,6 +7,7 @@ import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider }
 import { isElectron, electronAPI, type AuthTokenSet } from '@/lib/electron';
 import { clearSelectedTenant } from '@/lib/tenantContext';
 import { invalidateTenantBootstrap } from '@/hooks/useTenantBootstrap';
+import { invalidateModuleManifest } from '@/modules/manifestCache';
 
 // Unified user type
 export interface AuthUser {
@@ -40,7 +41,9 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Hook to use auth context
+// Hook to use auth context. Colocated with the provider on purpose (they share
+// the context object); the hook is a stable export, so fast refresh is unaffected.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -64,7 +67,7 @@ const mockUser: AuthUser = {
 };
 
 
-  const login = useCallback(async (_options?: LoginOptions) => {
+  const login = useCallback(async () => {
     setIsAuthenticated(true);
   }, []);
 
@@ -165,11 +168,11 @@ function useMsalAuth(): AuthContextType {
     }
   }, [instance, accounts]);
 
-  // Acquire token on mount if authenticated
+  // Acquire token on mount if authenticated. Deferred to a microtask so the
+  // effect body itself never sets state; acquisition is asynchronous anyway.
   useEffect(() => {
-    if (isAuthenticated && accounts[0]) {
-      getAccessToken();
-    }
+    if (!isAuthenticated || !accounts[0]) return;
+    void Promise.resolve().then(() => getAccessToken());
   }, [isAuthenticated, accounts, getAccessToken]);
 
   return {
@@ -272,6 +275,7 @@ function useAuth0Auth(): AuthContextType {
       // that's actually a tenant-mismatch.
       clearSelectedTenant();
       invalidateTenantBootstrap();
+      invalidateModuleManifest();
 
       if (isElectron) {
         await auth0Logout({ openUrl: false });
@@ -351,11 +355,11 @@ function useAuth0Auth(): AuthContextType {
     }
   }, [getAccessTokenSilently, loginWithRedirect]);
 
-  // Acquire token on mount if authenticated
+  // Acquire token on mount if authenticated. Deferred to a microtask so the
+  // effect body itself never sets state; acquisition is asynchronous anyway.
   useEffect(() => {
-    if (isAuthenticated) {
-      getAccessToken();
-    }
+    if (!isAuthenticated) return;
+    void Promise.resolve().then(() => getAccessToken());
   }, [isAuthenticated, getAccessToken]);
 
   return {
@@ -434,6 +438,7 @@ function useKeycloakAuth(): AuthContextType {
       // tenant context first so the next sign-in starts clean.
       clearSelectedTenant();
       invalidateTenantBootstrap();
+      invalidateModuleManifest();
       await oidc.signoutRedirect();
     } catch (error) {
       console.error('Keycloak logout error:', error);
@@ -622,6 +627,7 @@ function useElectronAuth(): AuthContextType {
   const logout = useCallback(async () => {
     clearSelectedTenant();
     invalidateTenantBootstrap();
+    invalidateModuleManifest();
     if (electronAPI) {
       await electronAPI.auth.cancel().catch(() => undefined);
     }

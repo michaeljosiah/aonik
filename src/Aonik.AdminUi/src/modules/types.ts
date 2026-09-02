@@ -60,6 +60,27 @@ export interface AdminModule {
   workspaceTemplates?: WorkspaceTemplate[];
   /** Breadcrumb mappings */
   breadcrumbs: ModuleBreadcrumb[];
+  /**
+   * Backend module ids (Spec 097) this UI module depends on. The UI module
+   * is enabled only when every listed id appears in the manifest's
+   * `enabledModules`. Empty or absent means the module is always enabled.
+   */
+  requires?: string[];
+}
+
+/**
+ * One backend module as described by the admin manifest (Spec 097).
+ */
+export interface ManifestModule {
+  /** Canonical backend module id (e.g. "finance", "commerce") */
+  id: string;
+  name: string;
+  description: string;
+  /** Core modules are always enabled and cannot be switched off */
+  isCore: boolean;
+  isEnabled: boolean;
+  /** Hard dependencies (backend module ids) */
+  dependsOn: string[];
 }
 
 /**
@@ -67,8 +88,10 @@ export interface AdminModule {
  * Controls which modules/features are visible per tenant/user/feature-flag.
  */
 export interface RuntimeModuleManifest {
-  /** Module IDs that are enabled for the current tenant/user */
+  /** Backend module IDs that are enabled for the current tenant (sorted) */
   enabledModules: string[];
+  /** Every known backend module with its enablement state for the tenant */
+  modules: ManifestModule[];
   /** Feature flags — key is "moduleId:featureId", value is enabled */
   featureFlags: Record<string, boolean>;
   /** Disabled route paths (override build-time routes) */

@@ -32,6 +32,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
     private readonly IFusionCache _cache;
     private readonly ILogger<AgentConfigurationService> _logger;
+    private readonly DescriptorModuleFilter? _moduleFilter;
 
     private static readonly FusionCacheEntryOptions ResolvedEntryOptions = new(TimeSpan.FromSeconds(60))
     {
@@ -45,7 +46,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         IAiModelResolver modelResolver,
         IEnumerable<IDomainAgentDescriptor> descriptors,
         IFusionCache cache,
-        ILogger<AgentConfigurationService> logger)
+        ILogger<AgentConfigurationService> logger,
+        DescriptorModuleFilter? moduleFilter = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -53,10 +55,40 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         _descriptors = descriptors;
         _cache = cache;
         _logger = logger;
+        _moduleFilter = moduleFilter;
     }
 
     private static string ResolvedCacheKey(Guid tenantId, string agentName)
         => $"agent-config:v1:{tenantId:N}:{agentName}";
+
+    /// <summary>
+    /// Case-insensitive descriptor lookup honouring the module gate (Spec 097 §12.1): throws
+    /// <see cref="Aonik.SharedKernel.Modules.ModuleDisabledException"/> when the agent exists but
+    /// its module is disabled for the current tenant. Optional filter keeps direct construction
+    /// (unit tests) working without Platform.
+    /// </summary>
+    private async Task<IDomainAgentDescriptor?> FindDescriptorAsync(string agentName, CancellationToken cancellationToken)
+        => _moduleFilter is null
+            ? _descriptors.FirstOrDefault(d => string.Equals(d.Name, agentName, StringComparison.OrdinalIgnoreCase))
+            : await _moduleFilter.FindAsync(_descriptors, agentName, cancellationToken);
+
+    /// <summary>Names of code-based agents hidden from the current tenant by the module gate.</summary>
+    private async Task<HashSet<string>> HiddenDescriptorNamesAsync(CancellationToken cancellationToken)
+    {
+        var hidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_moduleFilter is null)
+            return hidden;
+
+        var visible = await _moduleFilter.FilterAsync(_descriptors, cancellationToken);
+        var visibleNames = visible.Select(d => d.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var descriptor in _descriptors)
+        {
+            if (!visibleNames.Contains(descriptor.Name))
+                hidden.Add(descriptor.Name);
+        }
+
+        return hidden;
+    }
 
     public async Task<IReadOnlyList<AgentConfigurationResponse>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -82,6 +114,11 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             .OrderBy(a => a.Name)
             .ToList();
 
+        // Spec 097 §12.1: rows for agents whose module is disabled for this tenant are not listed.
+        var hiddenNames = await HiddenDescriptorNamesAsync(cancellationToken);
+        if (hiddenNames.Count > 0)
+            agents = agents.Where(a => !hiddenNames.Contains(a.Name)).ToList();
+
         // Batch-resolve model names for agents that have ModelId set
         var modelNames = await ResolveModelNamesAsync(
             agents.Where(a => a.ModelId.HasValue).Select(a => a.ModelId!.Value).Distinct(),
@@ -96,6 +133,11 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         string agentName,
         CancellationToken cancellationToken = default)
     {
+        // Spec 097 §12.1: a code-based agent whose module is off for this tenant is not readable by
+        // name either (throws ModuleDisabledException → 403 module.disabled). Custom / DB-only agents
+        // have no descriptor and are untouched.
+        await FindDescriptorAsync(agentName, cancellationToken);
+
         _tenantProvider.TryGetCurrentTenantId(out var tenantId);
 
         return await _cache.GetOrSetAsync<AgentConfigurationResponse?>(
@@ -151,13 +193,14 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        // Code-based descriptor as ultimate fallback — resolved through the module gate first
+        // (Spec 097 §12.1), so a disabled module's agent cannot be configured by name.
+        var descriptor = await FindDescriptorAsync(agentName, cancellationToken);
+
         // Load the global default to use as baseline for fields not provided
         var globalDefault = await _dbContext.Agents
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Name == agentName && a.TenantId == null, cancellationToken);
-
-        // Also get code-based descriptor as ultimate fallback
-        var descriptor = _descriptors.FirstOrDefault(d => d.Name == agentName);
 
         // Try to find existing tenant override. Use IgnoreQueryFilters
         // so we also see soft-deleted rows — the unique index
@@ -258,6 +301,9 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         string agentName,
         CancellationToken cancellationToken = default)
     {
+        // Spec 097 §12.1: same gate as the read and upsert paths.
+        await FindDescriptorAsync(agentName, cancellationToken);
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var existing = await _dbContext.Agents
@@ -285,8 +331,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         string agentName,
         CancellationToken cancellationToken = default)
     {
-        var descriptor = _descriptors.FirstOrDefault(d =>
-            string.Equals(d.Name, agentName, StringComparison.OrdinalIgnoreCase))
+        var descriptor = await FindDescriptorAsync(agentName, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"No hard-coded descriptor exists for agent '{agentName}' — cannot reset prompt.");
 
@@ -330,8 +375,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     {
         ArgumentNullException.ThrowIfNull(serviceProvider);
 
-        var descriptor = _descriptors.FirstOrDefault(d =>
-            string.Equals(d.Name, agentName, StringComparison.OrdinalIgnoreCase))
+        var descriptor = await FindDescriptorAsync(agentName, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"No hard-coded descriptor exists for agent '{agentName}' — cannot reset toolset.");
 

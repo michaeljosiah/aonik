@@ -1,3 +1,5 @@
+using Aonik.SharedKernel.Modules;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,10 +15,14 @@ namespace Aonik.Workspaces;
 /// manifest naming content the tenant does not possess before possession is a thing the module can answer.
 /// </para>
 /// </summary>
-public static class WorkspacesModule
+public sealed class WorkspacesModule : IModule
 {
-    public static IServiceCollection AddWorkspacesModule(
-        this IServiceCollection services, IConfiguration configuration)
+    public static string Name => "Workspaces";
+    public static string Id => ModuleIds.Workspaces;
+
+    public static IServiceCollection ConfigureServices(
+        IServiceCollection services,
+        IConfiguration configuration)
     {
         services.Configure<Services.WorkspaceOptions>(
             configuration.GetSection(Services.WorkspaceOptions.SectionName));
@@ -59,4 +65,12 @@ public static class WorkspacesModule
 
         return services;
     }
+}
+
+public static class WorkspacesModuleExtensions
+{
+    public static IServiceCollection AddWorkspacesModule(
+        this IServiceCollection services,
+        IConfiguration configuration)
+        => WorkspacesModule.ConfigureServices(services, configuration);
 }

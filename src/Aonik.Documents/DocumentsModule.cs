@@ -2,6 +2,7 @@ using Aonik.Documents.Persistence;
 using Aonik.Documents.Services;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Events;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,9 +16,10 @@ namespace Aonik.Documents;
 /// and endpoints are registered as they land in subsequent commits on this branch;
 /// the canonical migration stream stays in <c>AonikDbContext</c>.
 /// </summary>
-public sealed class DocumentsModule
+public sealed class DocumentsModule : IModule
 {
     public static string Name => "Documents";
+    public static string Id => ModuleIds.Documents;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

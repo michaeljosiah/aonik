@@ -12,6 +12,7 @@ using Aonik.Platform.Contracts.Services.Seeding;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Modules;
 using System.Collections.Concurrent;
 
 using Aonik.Platform.Services.Seeding.Phases;
@@ -34,6 +35,7 @@ internal class DemoSeedService : IDemoSeedService
     private readonly ICorrelationContext _correlationContext;
     private readonly IPermissionService _permissionService;
     private readonly ITenantContext _tenantContext;
+    private readonly IModuleEnablementReader? _moduleReader;
     private readonly IdentityRoleSeedPhase _identityRolePhase;
     private readonly PartySeedPhase _partyPhase;
     private readonly CrossBorderTenantSeedPhase _crossBorderTenantPhase;
@@ -57,7 +59,8 @@ internal class DemoSeedService : IDemoSeedService
         PartySeedPhase partyPhase,
         CrossBorderTenantSeedPhase crossBorderTenantPhase,
         SeedMarkerPhase markerPhase,
-        ReverseSeedPhase reverseSeedPhase)
+        ReverseSeedPhase reverseSeedPhase,
+        IModuleEnablementReader moduleReader)
     {
         _dbContext = dbContext;
         _contributors = contributors;
@@ -68,6 +71,7 @@ internal class DemoSeedService : IDemoSeedService
         _correlationContext = correlationContext;
         _permissionService = permissionService;
         _tenantContext = tenantContext;
+        _moduleReader = moduleReader;
         _identityRolePhase = identityRolePhase;
         _partyPhase = partyPhase;
         _crossBorderTenantPhase = crossBorderTenantPhase;
@@ -100,7 +104,8 @@ internal class DemoSeedService : IDemoSeedService
         ITenantContext tenantContext,
         FinanceDbContext financeDbContext,
         IPersonalFinanceDemoDataReverser personalFinanceDemoDataReverser,
-        IAgentDemoCleanup agentDemoCleanup)
+        IAgentDemoCleanup agentDemoCleanup,
+        IModuleEnablementReader? moduleReader = null)
         : this(
             dbContext,
             contributors,
@@ -117,7 +122,9 @@ internal class DemoSeedService : IDemoSeedService
             new PartySeedPhase(dbContext, clock, currentUserProvider),
             new CrossBorderTenantSeedPhase(dbContext, clock, currentUserProvider),
             new SeedMarkerPhase(dbContext, clock, currentUserProvider, contributors),
-            new ReverseSeedPhase(dbContext, financeDbContext, personalFinanceDemoDataReverser, agentDemoCleanup))
+            new ReverseSeedPhase(dbContext, financeDbContext, personalFinanceDemoDataReverser, agentDemoCleanup),
+            // Spec 097 §12.4: tests that omit the reader get no module filtering (every contributor runs).
+            moduleReader!)
     {
     }
 
@@ -149,6 +156,17 @@ internal class DemoSeedService : IDemoSeedService
             var operations = new List<string>();
             var seedContext = new DemoSeedContext(tenantId, normalizedSeedType, _clock.UtcNow, _currentUserProvider.GetCurrentUserId(), tenantBusinessType);
 
+            // Spec 097 §12.4: resolve the tenant's module set once; contributors for disabled modules are
+            // skipped in every phase so a demo toggle never seeds sample rows for a module the tenant lacks.
+            var modules = _moduleReader is null ? null : await _moduleReader.GetAsync(tenantId, cancellationToken);
+            var activeContributors = _contributors
+                .Where(contributor => !IsModuleDisabled(contributor.ModuleName, modules))
+                .ToList();
+            foreach (var skipped in _contributors.Except(activeContributors))
+            {
+                operations.Add($"Skipped {skipped.ModuleName} demo seed: module disabled for tenant");
+            }
+
             // Phase 1: Identity seed
             var identitySeed = new IdentitySeedService(_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
             await identitySeed.SeedAsync(cancellationToken);
@@ -162,7 +180,7 @@ internal class DemoSeedService : IDemoSeedService
             ClearTrackingIfSupported(_dbContext);
 
             // Phase 3: Module catalog categories (biller categories via contributors)
-            await SeedContributorsAsync(DemoSeedPhase.CatalogCategories, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.CatalogCategories, seedContext, operations, cancellationToken);
             ClearContributorTracking();
 
             // Phase 4: Tenant admin role
@@ -170,12 +188,12 @@ internal class DemoSeedService : IDemoSeedService
             ClearTrackingIfSupported(_dbContext);
 
             // Phase 5: Bill collection partner (via contributors)
-            await SeedContributorsAsync(DemoSeedPhase.BillCollectionPartner, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.BillCollectionPartner, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             ClearContributorTracking();
 
             // Phase 6: Demo catalog (via contributors)
-            await SeedContributorsAsync(DemoSeedPhase.Catalog, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.Catalog, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
 
             // Phase 7: Parties (Platform-only)
@@ -190,12 +208,12 @@ internal class DemoSeedService : IDemoSeedService
             ClearTrackingIfSupported(_dbContext);
 
             // Phase 8: Pricing (via contributors)
-            await SeedContributorsAsync(DemoSeedPhase.Pricing, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.Pricing, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             ClearContributorTracking();
 
             // Phase 8.5: Workflows (Agents module)
-            await SeedContributorsAsync(DemoSeedPhase.Workflows, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.Workflows, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             ClearContributorTracking();
 
@@ -216,12 +234,12 @@ internal class DemoSeedService : IDemoSeedService
                 ClearTrackingIfSupported(_dbContext);
 
                 // Phase 12: Cross-border partner network (via contributors)
-                await SeedContributorsAsync(DemoSeedPhase.CrossBorderPartnerNetwork, seedContext, operations, cancellationToken);
+                await SeedContributorsAsync(activeContributors, DemoSeedPhase.CrossBorderPartnerNetwork, seedContext, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
                 ClearContributorTracking();
 
                 // Phase 13: Cross-border catalog (via contributors)
-                await SeedContributorsAsync(DemoSeedPhase.CrossBorderCatalog, seedContext, operations, cancellationToken);
+                await SeedContributorsAsync(activeContributors, DemoSeedPhase.CrossBorderCatalog, seedContext, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
 
                 // Phase 14: Cross-border parties (Platform-only)
@@ -229,12 +247,12 @@ internal class DemoSeedService : IDemoSeedService
                 ClearTrackingIfSupported(_dbContext);
 
                 // Phase 15: Households (via contributors)
-                await SeedContributorsAsync(DemoSeedPhase.Households, seedContext, operations, cancellationToken);
+                await SeedContributorsAsync(activeContributors, DemoSeedPhase.Households, seedContext, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
                 ClearContributorTracking();
 
                 // Phase 16: Cross-border pricing (via contributors)
-                await SeedContributorsAsync(DemoSeedPhase.CrossBorderPricing, seedContext, operations, cancellationToken);
+                await SeedContributorsAsync(activeContributors, DemoSeedPhase.CrossBorderPricing, seedContext, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
                 ClearContributorTracking();
 
@@ -251,7 +269,7 @@ internal class DemoSeedService : IDemoSeedService
             }
 
             // Phase 18: Activity
-            await SeedContributorsAsync(DemoSeedPhase.Activity, seedContext, operations, cancellationToken);
+            await SeedContributorsAsync(activeContributors, DemoSeedPhase.Activity, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             ClearContributorTracking();
 
@@ -336,14 +354,29 @@ internal class DemoSeedService : IDemoSeedService
         }
     }
 
-    private async Task SeedContributorsAsync(DemoSeedPhase phase, DemoSeedContext context, List<string> operations, CancellationToken cancellationToken)
+    private static async Task SeedContributorsAsync(
+        IReadOnlyList<IDemoSeedContributor> contributors,
+        DemoSeedPhase phase,
+        DemoSeedContext context,
+        List<string> operations,
+        CancellationToken cancellationToken)
     {
-        foreach (var contributor in _contributors)
+        foreach (var contributor in contributors)
         {
             var ops = await contributor.SeedAsync(phase, context, cancellationToken);
             operations.AddRange(ops);
         }
     }
+
+    /// <summary>
+    /// Spec 097 §12.4: same rule as the provisioner — skip only a known, non-core catalogue module that
+    /// resolved off for the tenant. Core modules and names the catalogue does not know always run.
+    /// </summary>
+    internal static bool IsModuleDisabled(string moduleName, ModuleEnablementSet? modules)
+        => modules is not null
+           && ModuleCatalog.IsKnown(moduleName)
+           && !ModuleCatalog.CoreIds.Contains(moduleName)
+           && !modules.IsEnabled(moduleName);
 
     private void ClearContributorTracking()
     {

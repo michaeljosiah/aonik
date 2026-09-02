@@ -11,7 +11,10 @@ namespace Aonik.SharedKernel.Abstractions.Ledgers;
 /// </summary>
 public interface ILedgerAccountContributor
 {
-    /// <summary>Module name, for provisioning diagnostics.</summary>
+    /// <summary>
+    /// The owning module's canonical catalogue id (a <see cref="Modules.ModuleIds"/> constant), for
+    /// provisioning diagnostics and any module gate that consults it.
+    /// </summary>
     string ModuleName { get; }
 
     /// <summary>

@@ -53,8 +53,18 @@ public interface IInventoryService
     /// <summary>Releases all held reservations for a holder, freeing the stock.</summary>
     Task ReleaseAsync(Guid holdRef, CancellationToken cancellationToken = default);
 
-    /// <summary>Releases every held reservation whose TTL has expired, regardless of stock-item kind. Returns the number released.</summary>
-    Task<int> ReleaseExpiredAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Tenants that hold at least one expired reservation as of <paramref name="asOfUtc"/>. The Worker
+    /// sweep narrows this list to the tenants whose Commerce module is enabled (Spec 097 §12.2) before
+    /// calling <see cref="ReleaseExpiredAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> FindTenantsWithExpiredReservationsAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Releases every held reservation whose TTL has expired, regardless of stock-item kind. Returns the
+    /// number released. When <paramref name="tenantIds"/> is given only those tenants are swept.
+    /// </summary>
+    Task<int> ReleaseExpiredAsync(DateTime? asOfUtc = null, IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default);
 
     // ── Variant-keyed wrappers (the original Spec 042 surface; checkout/bundle callers unchanged) ──
 

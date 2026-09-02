@@ -18,7 +18,7 @@ public record DocumentUploadedEvent(
     Guid DocumentFileId,
     Guid OwnerPartyId,
     DocumentClassification Classification,
-    string ContentType) : IIntegrationEvent;
+    string ContentType) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a document's chunks have been embedded and become searchable.
@@ -27,7 +27,7 @@ public record DocumentUploadedEvent(
 public record DocumentIndexedEvent(
     Guid TenantId,
     Guid DocumentId,
-    int ChunkCount) : IIntegrationEvent;
+    int ChunkCount) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a document is deleted. Triggers vector purge and Compliance orphan
@@ -37,4 +37,4 @@ public record DocumentIndexedEvent(
 public record DocumentDeletedEvent(
     Guid TenantId,
     Guid DocumentId,
-    Guid OwnerPartyId) : IIntegrationEvent;
+    Guid OwnerPartyId) : ITenantScopedEvent;

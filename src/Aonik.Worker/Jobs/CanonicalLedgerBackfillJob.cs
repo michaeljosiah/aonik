@@ -1,6 +1,7 @@
 using Aonik.Finance.Persistence;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -29,15 +30,18 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<CanonicalLedgerBackfillJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public CanonicalLedgerBackfillJob(
         FinanceDbContext dbContext,
         ITenantContext tenantContext,
-        ILogger<CanonicalLedgerBackfillJob> logger)
+        ILogger<CanonicalLedgerBackfillJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -56,6 +60,12 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
             .ToListAsync(ct);
 
         var byTenant = ledgers.GroupBy(l => l.TenantId).ToList();
+
+        // Spec 097 §12.2: a tenant with Finance off cannot post, so nothing here is marked for it.
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, byTenant.Select(t => t.Key).ToList(), ModuleIds.Finance, "Canonical ledger backfill", _logger, ct);
+        var enabledTenants = gate.Enabled.ToHashSet();
+        byTenant = byTenant.Where(t => enabledTenants.Contains(t.Key)).ToList();
 
         var marked = 0;
         var alreadySet = 0;
@@ -106,6 +116,8 @@ internal sealed class CanonicalLedgerBackfillJob : IJob
         _logger.LogInformation(
             "Canonical ledger backfill: {Marked} marked, {AlreadySet} already set, {Ambiguous} ambiguous, {Tenants} tenants scanned.",
             marked, alreadySet, ambiguous.Count, byTenant.Count);
+
+        context.Result = $"Marked {marked}, already set {alreadySet}, ambiguous {ambiguous.Count}." + gate.Note;
 
         if (ambiguous.Count > 0)
         {

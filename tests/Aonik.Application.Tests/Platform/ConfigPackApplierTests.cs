@@ -7,6 +7,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Packs;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Modules;
 using Aonik.TestSupport.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ public sealed class ConfigPackApplierTests
 
         var pack = source.Get("food-commerce");
         pack.Should().NotBeNull();
-        pack!.Modules.Should().Contain("Commerce");
+        pack!.Modules.Should().Contain(ModuleIds.Commerce);
         pack.ReferenceData.Should().ContainSingle().Which.Items.Should().HaveCount(5);
 
         source.Get("nonexistent-type").Should().BeNull();
@@ -53,7 +54,7 @@ public sealed class ConfigPackApplierTests
         var settings = await db.Settings
             .Where(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant)
             .ToListAsync();
-        settings.Select(s => s.Key).Should().BeEquivalentTo("Commerce.Enabled", "Branding.AgentDisplayName");
+        settings.Select(s => s.Key).Should().BeEquivalentTo("Branding.AgentDisplayName");
 
         referenceData.Upserts.Should().HaveCount(5);
         referenceData.Upserts.Should().OnlyContain(u => u.Type == "unit_of_measure" && u.TenantId == tenantId);
@@ -90,8 +91,8 @@ public sealed class ConfigPackApplierTests
         SeedTenant(db, tenantId, "food-commerce");
         db.Settings.Add(new global::Aonik.Platform.Entities.Settings.Setting
         {
-            Key = "Commerce.Enabled",
-            Value = "false", // an existing (admin-edited) value
+            Key = "Branding.AgentDisplayName",
+            Value = "Pantry", // an existing (admin-edited) value
             Scope = SettingScope.Tenant,
             TenantId = tenantId,
         });
@@ -101,9 +102,9 @@ public sealed class ConfigPackApplierTests
 
         await applier.ApplyAsync(tenantId, "food-commerce");
 
-        // The pack sets Commerce.Enabled=true, but the pre-existing value must survive (never overwrite).
-        var existing = await db.Settings.SingleAsync(s => s.TenantId == tenantId && s.Key == "Commerce.Enabled");
-        existing.Value.Should().Be("false");
+        // The pack sets Branding.AgentDisplayName=Kitchen, but the pre-existing value must survive (never overwrite).
+        var existing = await db.Settings.SingleAsync(s => s.TenantId == tenantId && s.Key == "Branding.AgentDisplayName");
+        existing.Value.Should().Be("Pantry");
     }
 
     [Fact]
@@ -136,7 +137,7 @@ public sealed class ConfigPackApplierTests
         await applier.ApplyAsync(tenantId, "food-commerce"); // re-apply must not clobber or duplicate
 
         referenceData.Upserts.Should().HaveCount(5); // inserted once; skipped on re-apply (Codex review)
-        (await db.Settings.CountAsync(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant)).Should().Be(2);
+        (await db.Settings.CountAsync(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant)).Should().Be(1);
     }
 
     // ── helpers ─────────────────────────────────────────────────────────

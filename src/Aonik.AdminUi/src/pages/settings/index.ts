@@ -11,3 +11,4 @@ export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
 export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';
 export { GlobalSettingsPage } from './GlobalSettingsPage';
+export { SettingsModulesPage } from './SettingsModulesPage';

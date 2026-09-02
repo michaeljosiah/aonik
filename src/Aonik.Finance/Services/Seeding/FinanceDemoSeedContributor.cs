@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Seeding.Phases;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Modules;
 
 namespace Aonik.Finance.Services.Seeding;
 
@@ -90,7 +91,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     {
     }
 
-    public string ModuleName => "Finance";
+    public string ModuleName => ModuleIds.Finance;
 
     public async Task<IReadOnlyList<string>> SeedAsync(
         DemoSeedPhase phase,

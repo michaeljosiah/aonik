@@ -79,6 +79,7 @@ const breadcrumbs = [
 export const commerceModule: AdminModule = {
   id: 'commerce',
   name: 'Commerce',
+  requires: ['commerce'],
   navigation,
   routes,
   panels: [],

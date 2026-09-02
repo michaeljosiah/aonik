@@ -5,6 +5,7 @@ using System.Text.Json;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Api.Configuration;
@@ -130,6 +131,31 @@ public static class ExceptionHandlerConfiguration
                 {
                     error = ex.Message,
                     permissionKey = permissionDenied.PermissionKey,
+                });
+                return;
+
+            case ModuleDisabledException moduleDisabled:
+                // 403 with a typed code — the module exists but is switched off for this tenant
+                // (Spec 097 §11). The Admin UI routes this to its module-disabled page; a 404 would
+                // hide "disabled" behind "does not exist" for anyone debugging a customer report.
+                await WriteJsonAsync(context, StatusCodes.Status403Forbidden, new
+                {
+                    error = ex.Message,
+                    code = moduleDisabled.Code,
+                    moduleId = moduleDisabled.ModuleId,
+                });
+                return;
+
+            case ModuleDependencyException moduleDependency:
+                // 409 Conflict — a module toggle that would leave the tenant's set dependency-
+                // inconsistent (Spec 097 §9). relatedModuleIds lists the missing dependencies or the
+                // still-enabled dependents so the UI can offer the cascade explicitly.
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = ex.Message,
+                    code = moduleDependency.Code,
+                    moduleId = moduleDependency.ModuleId,
+                    relatedModuleIds = moduleDependency.RelatedModuleIds,
                 });
                 return;
 

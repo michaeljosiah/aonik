@@ -6,7 +6,9 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Modules;
 
 namespace Aonik.Agents.Services;
 
@@ -17,19 +19,30 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private readonly IClock _clock;
     private readonly IProposalDispatcher _dispatcher;
     private readonly IProposalRejectionDispatcher _rejectionDispatcher;
+    private readonly IAuditLogWriter? _auditLogWriter;
+    private readonly ICorrelationContext? _correlationContext;
 
+    /// <param name="auditLogWriter">
+    /// Optional: records a proposal that could not execute because its handler's module is off for
+    /// the tenant (Spec 097 §12.1). Hosts and tests that compose the service without the audit
+    /// graph still work; the outcome is then visible only on the proposal row and in the logs.
+    /// </param>
     public ProposalApprovalService(
         AgentsDbContext dbContext,
         ICurrentUserProvider currentUserProvider,
         IClock clock,
         IProposalDispatcher dispatcher,
-        IProposalRejectionDispatcher rejectionDispatcher)
+        IProposalRejectionDispatcher rejectionDispatcher,
+        IAuditLogWriter? auditLogWriter = null,
+        ICorrelationContext? correlationContext = null)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
         _clock = clock;
         _dispatcher = dispatcher;
         _rejectionDispatcher = rejectionDispatcher;
+        _auditLogWriter = auditLogWriter;
+        _correlationContext = correlationContext;
     }
 
     public async Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken ct = default)
@@ -118,6 +131,17 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         {
             result = await _dispatcher.DispatchAsync(ToDetail(proposal), ct);
         }
+        catch (ModuleDisabledException ex)
+        {
+            // Spec 097 §12.1: the handler's module is switched off for this tenant, so the
+            // dispatcher never ran it. Nothing moved, but the proposal must not return to Proposed
+            // either — re-approving it would only hit the same gate. It lands in Failed (terminal)
+            // for every tier with the reason on the audit trail; once the module is back on, the
+            // agent proposes afresh. The exception propagates so the caller sees 403 module.disabled.
+            await MarkFailedAsync(proposal);
+            await AuditModuleDisabledAsync(proposal, ex, ct);
+            throw;
+        }
         catch
         {
             // High: a money dispatch whose outcome is unknown must not return to
@@ -204,6 +228,34 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // CancellationToken.None — the caller's token may already be cancelled
         // but we still need to roll back the row we just committed.
         await _dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
+    private async Task AuditModuleDisabledAsync(Proposal proposal, ModuleDisabledException ex, CancellationToken ct)
+    {
+        if (_auditLogWriter is null)
+        {
+            return;
+        }
+
+        var reason = $"{ex.Code}: module '{ex.ModuleId}' is disabled for tenant {proposal.TenantId}; proposal {proposal.Id} ({proposal.ProposalType}) was not executed and is now Failed.";
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.ProposalBlockedByModuleGate,
+            "Proposal",
+            proposal.Id,
+            proposal.TenantId,
+            proposal.ApprovedByUserId,
+            _correlationContext?.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId = proposal.Id,
+                proposalType = proposal.ProposalType,
+                code = ex.Code,
+                moduleId = ex.ModuleId,
+                status = ProposalStatus.Failed.ToString(),
+                reason,
+            }),
+            ct);
     }
 
     private async Task MarkFailedAsync(Proposal proposal)

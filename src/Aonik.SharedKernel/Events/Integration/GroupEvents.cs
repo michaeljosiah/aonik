@@ -14,41 +14,41 @@ namespace Aonik.SharedKernel.Events.Integration;
 public record HouseholdCreatedEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid OwnerUserId) : IIntegrationEvent;
+    Guid OwnerUserId) : ITenantScopedEvent;
 
 public record HouseholdMemberInvitedEvent(
     Guid TenantId,
     Guid HouseholdId,
     Guid InvitedUserId,
     Guid InvitedByUserId,
-    string Role) : IIntegrationEvent;
+    string Role) : ITenantScopedEvent;
 
 public record HouseholdInvitationAcceptedEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
+    Guid UserId) : ITenantScopedEvent;
 
 public record HouseholdInvitationDeclinedEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
+    Guid UserId) : ITenantScopedEvent;
 
 public record HouseholdMemberRemovedEvent(
     Guid TenantId,
     Guid HouseholdId,
     Guid UserId,
-    Guid RemovedByUserId) : IIntegrationEvent;
+    Guid RemovedByUserId) : ITenantScopedEvent;
 
 public record HouseholdMemberLeftEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid UserId) : IIntegrationEvent;
+    Guid UserId) : ITenantScopedEvent;
 
 public record HouseholdOwnershipTransferredEvent(
     Guid TenantId,
     Guid HouseholdId,
     Guid PreviousOwnerUserId,
-    Guid NewOwnerUserId) : IIntegrationEvent;
+    Guid NewOwnerUserId) : ITenantScopedEvent;
 
 // ── Generic: party-keyed, published by the group service ─────────────────────
 //
@@ -67,7 +67,7 @@ public record GroupCreatedEvent(
     Guid GroupId,
     string Kind,
     Guid OwnerPartyId,
-    Guid? OwnerUserId) : IIntegrationEvent;
+    Guid? OwnerUserId) : ITenantScopedEvent;
 
 /// <param name="MemberUserId">Null for a member who cannot log in. Subscribers must tolerate that.</param>
 public record GroupMemberAddedEvent(
@@ -76,7 +76,7 @@ public record GroupMemberAddedEvent(
     Guid MemberPartyId,
     Guid? MemberUserId,
     string Role,
-    Guid ActorPartyId) : IIntegrationEvent;
+    Guid ActorPartyId) : ITenantScopedEvent;
 
 public record GroupMemberInvitedEvent(
     Guid TenantId,
@@ -84,23 +84,23 @@ public record GroupMemberInvitedEvent(
     Guid MemberPartyId,
     Guid? MemberUserId,
     string Role,
-    Guid ActorPartyId) : IIntegrationEvent;
+    Guid ActorPartyId) : ITenantScopedEvent;
 
 public record GroupInvitationAcceptedEvent(
     Guid TenantId,
     Guid GroupId,
     Guid MemberPartyId,
-    Guid? MemberUserId) : IIntegrationEvent;
+    Guid? MemberUserId) : ITenantScopedEvent;
 
 public record GroupMemberRemovedEvent(
     Guid TenantId,
     Guid GroupId,
     Guid MemberPartyId,
     Guid? MemberUserId,
-    Guid ActorPartyId) : IIntegrationEvent;
+    Guid ActorPartyId) : ITenantScopedEvent;
 
 public record GroupOwnershipTransferredEvent(
     Guid TenantId,
     Guid GroupId,
     Guid FromPartyId,
-    Guid ToPartyId) : IIntegrationEvent;
+    Guid ToPartyId) : ITenantScopedEvent;

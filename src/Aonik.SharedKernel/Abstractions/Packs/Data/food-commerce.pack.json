@@ -2,9 +2,8 @@
   "businessType": "food-commerce",
   "version": 1,
   "displayName": "Food Commerce",
-  "modules": ["Commerce"],
+  "modules": ["commerce", "ai", "agents"],
   "settings": {
-    "Commerce.Enabled": "true",
     "Branding.AgentDisplayName": "Kitchen"
   },
   "agents": [],
