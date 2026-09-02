@@ -57,7 +57,7 @@ public class GetMeterEndpoint : EndpointWithoutRequest<MeterResponse>
     public override void Configure()
     {
         Get("/subscriptions/admin/meters/{meterId:guid}");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "Read one meter.");
     }
 
@@ -84,7 +84,7 @@ public class ListMetersEndpoint : EndpointWithoutRequest<IReadOnlyList<MeterResp
     public override void Configure()
     {
         Get("/subscriptions/admin/meters");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "List the tenant's meters — the authority for valid meter codes.");
     }
 

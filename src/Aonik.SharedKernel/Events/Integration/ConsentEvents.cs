@@ -23,7 +23,7 @@ public record AgeTransitionApproachingEvent(
     Guid SubjectPartyId,
     IReadOnlyList<Guid> GuardianPartyIds,
     string Transition,
-    DateTime OccursOn) : IIntegrationEvent;
+    DateTime OccursOn) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a party reaches their jurisdiction's consent age (Spec 095 §11.2).
@@ -37,7 +37,7 @@ public record AgeTransitionApproachingEvent(
 public record ConsentAgeReachedEvent(
     Guid TenantId,
     Guid SubjectPartyId,
-    IReadOnlyList<string> LapsedPurposes) : IIntegrationEvent;
+    IReadOnlyList<string> LapsedPurposes) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a party reaches majority (Spec 095 §11.1). All guardian authority has ended.
@@ -45,7 +45,7 @@ public record ConsentAgeReachedEvent(
 public record MajorityReachedEvent(
     Guid TenantId,
     Guid SubjectPartyId,
-    IReadOnlyList<Guid> FormerGuardianPartyIds) : IIntegrationEvent;
+    IReadOnlyList<Guid> FormerGuardianPartyIds) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a party moves safety band (Spec 096 §9) — what may be generated for them, and how
@@ -56,7 +56,7 @@ public record SafetyBandChangedEvent(
     Guid TenantId,
     Guid SubjectPartyId,
     string PreviousBand,
-    string NewBand) : IIntegrationEvent;
+    string NewBand) : ITenantScopedEvent;
 
 /// <summary>Known values for <see cref="AgeTransitionApproachingEvent.Transition"/>.</summary>
 public static class AgeTransitionKinds

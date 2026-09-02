@@ -7,6 +7,15 @@ import {
   AccessPermissionsPage,
   UserDetailPage,
 } from '@/pages/access';
+import {
+  CustomersListPage,
+  CustomerDetailPage,
+} from '@/pages/customers';
+import {
+  DocumentsListPage,
+  DocumentDetailPage,
+  DocumentCreatePage,
+} from '@/pages/compliance';
 import { TombstonesPage } from '@/pages/compliance/TombstonesPage';
 import {
   TenantsListPage,
@@ -26,6 +35,7 @@ import {
   BackgroundJobsPage,
   BackgroundJobDetailPage,
   GlobalSettingsPage,
+  SettingsModulesPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
 import { TasksPage } from '@/pages/tasks';
@@ -42,14 +52,28 @@ import { ContentWizardPage } from '@/pages/ContentWizardPage';
 import { MediaLibraryPage } from '@/pages/MediaLibraryPage';
 import { BackgroundJobsPanel } from '@/workspace/apps/BackgroundJobsPanel';
 import { AuditLogPanel } from '@/workspace/apps/AuditLogPanel';
-import { wrapPage } from '../utils';
+import { redirectTo, wrapPage } from '../utils';
 
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
-// Single unlabeled host-only section. Ordering is curated to match the
-// current shell IA: Team, then Admin.
+// The operational section is shared with the finance module (sections merge
+// by id): Customers is the Platform-owned party registry (Spec 097 §10.1) and
+// stays whatever modules are on; its finance tabs are gated inside the page.
+// Then a single unlabeled host-only section, curated to match the current
+// shell IA: Team, then Admin.
 const navigation: NavigationSection[] = [
+  {
+    id: 'operations',
+    items: [
+      {
+        id: 'party-profiles',
+        label: 'Customers',
+        icon: 'Building2',
+        href: '/customers',
+      },
+    ],
+  },
   {
     id: 'admin-host',
     audience: 'host',
@@ -137,6 +161,17 @@ const navigation: NavigationSection[] = [
 // Routes
 // ---------------------------------------------------------------------------
 const routes = [
+  // Platform-owned registry and compliance surfaces (Spec 097 §10.1): never module-gated.
+  { path: '/customers', element: CustomersListPage },
+  { path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
+  // /compliance had a single Documents tile — collapse straight to the list, and follow Documents
+  // for the same reason the list itself does: the redirect leads nowhere else.
+  { path: '/compliance', element: redirectTo('/compliance/documents'), requires: ['documents'] },
+  // The document pages are Platform-registered but every request they make hits the Documents
+  // module, so they follow it rather than their host (Spec 097 §10.2).
+  { path: '/compliance/documents', element: DocumentsListPage, requires: ['documents'] },
+  { path: '/compliance/documents/new', element: DocumentCreatePage, requires: ['documents'] },
+  { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true, requires: ['documents'] },
   { path: '/access/users', element: AccessUsersPage },
   { path: '/access/users/:userId', element: UserDetailPage, isDynamic: true },
   { path: '/access/roles', element: AccessRolesPage },
@@ -160,11 +195,14 @@ const routes = [
   // legacy /settings/voice and /settings/text-to-speech routes were retired in Phase D
   // (host-default credential management is now done via the API direct or the unified
   // ProviderEditPanel API key field).
-  { path: '/settings/speech', element: SettingsSpeechPage },
+  // Speech settings read and write the Voice module's endpoints exclusively.
+  { path: '/settings/speech', element: SettingsSpeechPage, requires: ['voice'] },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
   { path: '/settings/system-tools', element: SystemToolsPage },
   { path: '/settings/notification-templates', element: NotificationTemplatesPage },
+  // Spec 097 — read-only view of the tenant's module enablement.
+  { path: '/settings/modules', element: SettingsModulesPage },
   { path: '/cms/content-blocks', element: ContentBlocksListPage },
   { path: '/cms/content-blocks/new', element: ContentBlockEditPage },
   { path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
@@ -182,6 +220,7 @@ const routes = [
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
   // Page panels — wrapped full-page components
+  { id: 'customers', title: 'Customers', type: 'internal', category: 'page', componentKey: 'customers-list', route: '/customers' },
   { id: 'access-users', title: 'Users', type: 'internal', category: 'page', componentKey: 'access-users', route: '/access/users' },
   { id: 'access-roles', title: 'Roles', type: 'internal', category: 'page', componentKey: 'access-roles', route: '/access/roles' },
   { id: 'access-permissions', title: 'Permissions', type: 'internal', category: 'page', componentKey: 'access-permissions', route: '/access/permissions' },
@@ -201,6 +240,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', category: 'page', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
   { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', category: 'page', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
+  { id: 'settings-modules', title: 'Modules', type: 'internal', category: 'page', componentKey: 'settings-modules', route: '/settings/modules' },
   { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', category: 'page', componentKey: 'content-blocks', route: '/cms/content-blocks' },
   { id: 'cms-media', title: 'Media Library', type: 'internal', category: 'page', componentKey: 'media-library', route: '/cms/media' },
   { id: 'observability', title: 'Observability', type: 'internal', category: 'page', componentKey: 'observability', route: '/admin/observability' },
@@ -210,6 +250,7 @@ const panels: WorkspacePanelConfig[] = [
 ];
 
 const panelComponents = {
+  'customers-list': wrapPage(CustomersListPage),
   'access-users': wrapPage(AccessUsersPage),
   'access-roles': wrapPage(AccessRolesPage),
   'access-permissions': wrapPage(AccessPermissionsPage),
@@ -226,6 +267,7 @@ const panelComponents = {
   'background-jobs': wrapPage(BackgroundJobsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),
+  'settings-modules': wrapPage(SettingsModulesPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
   'observability': wrapPage(ObservabilityPage),
@@ -251,6 +293,8 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
+  { pathPrefix: '/customers', trail: ['Customers'] },
+  { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/access', trail: ['Team'] },
   { pathPrefix: '/admin/observability/traces', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Traces'] },
   { pathPrefix: '/admin/observability/logs', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Logs'] },
@@ -259,6 +303,7 @@ const breadcrumbs = [
   { pathPrefix: '/admin/observability', trail: [{ label: 'Admin', href: '/admin' }, 'Observability'] },
   { pathPrefix: '/admin', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
+  { pathPrefix: '/settings/modules', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Settings', href: '/settings' }, 'Modules'] },
   { pathPrefix: '/settings', trail: [{ label: 'Admin', href: '/admin' }, 'Settings'] },
   { pathPrefix: '/cms', trail: [{ label: 'Admin', href: '/admin' }, 'Content'] },
 ];
@@ -269,6 +314,7 @@ const breadcrumbs = [
 export const platformModule: AdminModule = {
   id: 'platform',
   name: 'Platform',
+  requires: [],
   navigation,
   routes,
   panels,

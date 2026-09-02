@@ -87,12 +87,14 @@ import {
   AiChatPage,
 } from '@/pages';
 import { WorkspacePage } from '@/workspace/WorkspacePage';
-import { useModules } from '@/modules';
+import { useModules, getModules, resolveDisabledModuleForPath, pathRequiresBackendModule } from '@/modules';
+import type { RuntimeModuleManifest } from '@/modules';
+import { ModuleDisabledPage } from '@/pages/ModuleDisabledPage';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { TenantResolutionGate } from '@/components/TenantResolutionGate';
-import { setAccessTokenGetter } from '@/lib/api';
+import { setAccessTokenGetter, setModuleDisabledRedirectPredicate } from '@/lib/api';
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
@@ -114,6 +116,14 @@ function ApiAuthSetup() {
   useEffect(() => {
     setAccessTokenGetter(getAccessToken);
   }, [getAccessToken]);
+
+  // Spec 097: a 403 module.disabled navigates to the explanation page only when
+  // the current route is owned by a UI module that requires the refused module.
+  useEffect(() => {
+    setModuleDisabledRedirectPredicate((moduleId, pathname) =>
+      pathRequiresBackendModule(getModules(), moduleId, pathname));
+    return () => setModuleDisabledRedirectPredicate(null);
+  }, []);
 
   return null;
 }
@@ -141,59 +151,67 @@ function AppLayout() {
   const activeChatAgentId = isAiChat ? routeChatAgentId : selectedAgentId;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAiChat, setShowAiChat] = useState(false);
-  const previousSidebarCollapsed = useRef<boolean | null>(null);
+  // Sidebar state saved when the AI chat page collapsed it, restored on leaving.
+  const [sidebarBeforeAiChat, setSidebarBeforeAiChat] = useState<boolean | null>(null);
+  const [wasAiChat, setWasAiChat] = useState(isAiChat);
   const preFullscreenSidebarState = useRef<boolean | null>(null);
   const preChatSidebarState = useRef<boolean | null>(null);
 
   // Module system: aggregated routes and breadcrumbs
-  const { routes, getBreadcrumb } = useModules();
+  const { routes, getBreadcrumb, manifest } = useModules();
 
   const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry]);
 
-  const fetchAgents = useCallback(async () => {
-    try {
-      const configs = await agentConfigService.list();
-      const items: AiAgentSelectorItem[] = configs
-        .filter((a) => a.isActive)
-        .map((a) => ({
-          id: a.name,
-          title: a.name
-            .replace(/-agent$/, '')
-            .replace(/-/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase()),
-          description: a.description || a.domain,
-          group: a.agentType === 1 ? ('personal' as const) : ('agents' as const),
-          icon: a.agentType === 1 ? ('centrali' as const) : ('fox' as const),
-        }));
-
-      // Orchestrator always first in its group
-      setAgents([orchestratorEntry, ...items]);
-    } catch {
-      // Keep default entry on error
-    }
-  }, []);
-
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchAgents();
-    }
-  }, [isAuthenticated, fetchAgents]);
+    if (!isAuthenticated) return undefined;
+    let cancelled = false;
+    agentConfigService
+      .list()
+      .then((configs) => {
+        if (cancelled) return;
+        const items: AiAgentSelectorItem[] = configs
+          .filter((a) => a.isActive)
+          .map((a) => ({
+            id: a.name,
+            title: a.name
+              .replace(/-agent$/, '')
+              .replace(/-/g, ' ')
+              .replace(/\b\w/g, (c) => c.toUpperCase()),
+            description: a.description || a.domain,
+            group: a.agentType === 1 ? ('personal' as const) : ('agents' as const),
+            icon: a.agentType === 1 ? ('centrali' as const) : ('fox' as const),
+          }));
 
-  // Auto-collapse main nav on AI chat page.
-  useEffect(() => {
+        // Orchestrator always first in its group
+        setAgents([orchestratorEntry, ...items]);
+      })
+      .catch(() => {
+        // Keep default entry on error
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetches when the tenant's module set changes: the configuration endpoint omits agents from
+    // disabled modules, so without this dependency the selector would keep offering an agent the
+    // backend gate now refuses, and picking it would fail with module.disabled (Spec 097 §12.1).
+  }, [isAuthenticated, manifest]);
+
+  // Auto-collapse main nav on the AI chat page and keep it collapsed there;
+  // restore whatever it was on the way out. Adjusted during render (the React
+  // "storing information from previous renders" pattern) rather than in an
+  // effect, so no effect body sets state.
+  if (wasAiChat !== isAiChat) {
+    setWasAiChat(isAiChat);
     if (isAiChat) {
-      if (previousSidebarCollapsed.current === null) {
-        previousSidebarCollapsed.current = sidebarCollapsed;
-      }
+      setSidebarBeforeAiChat(sidebarCollapsed);
       setSidebarCollapsed(true);
-      return;
+    } else if (sidebarBeforeAiChat !== null) {
+      setSidebarCollapsed(sidebarBeforeAiChat);
+      setSidebarBeforeAiChat(null);
     }
-
-    if (previousSidebarCollapsed.current !== null) {
-      setSidebarCollapsed(previousSidebarCollapsed.current);
-      previousSidebarCollapsed.current = null;
-    }
-  }, [isAiChat, sidebarCollapsed]);
+  } else if (isAiChat && !sidebarCollapsed) {
+    setSidebarCollapsed(true);
+  }
 
   // Handle fullscreen state changes - auto-collapse sidebar for maximum screen real estate
   const handleFullscreenChange = (isFullscreen: boolean) => {
@@ -288,8 +306,10 @@ function AppLayout() {
               <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
               <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />
               <Route path="/setup-guides/:slug" element={<SetupGuidePage />} />
-              {/* Fallback */}
-              <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
+              {/* Module gate landing (Spec 097) — the API client redirects here on 403 module.disabled */}
+              <Route path="/module-disabled/:moduleId" element={<ModuleDisabledPage />} />
+              {/* Fallback — a route owned by a disabled module explains itself instead of 404ing */}
+              <Route path="*" element={<RouteFallback manifest={manifest} />} />
             </Routes>
           </main>
           {showAiChat && (
@@ -310,6 +330,20 @@ function AppLayout() {
       </div>
     </div>
   );
+}
+
+/**
+ * Catch-all element. When the unmatched path belongs to a UI module the
+ * manifest has disabled, render the module-disabled explanation; otherwise
+ * the plain not-found placeholder.
+ */
+function RouteFallback({ manifest }: { manifest: RuntimeModuleManifest | null }) {
+  const location = useLocation();
+  const disabled = resolveDisabledModuleForPath(getModules(), manifest, location.pathname);
+  if (disabled) {
+    return <ModuleDisabledPage moduleId={disabled.backendModuleId} />;
+  }
+  return <PlaceholderPage title="Page Not Found" />;
 }
 
 function PlaceholderPage({ title }: { title: string }) {

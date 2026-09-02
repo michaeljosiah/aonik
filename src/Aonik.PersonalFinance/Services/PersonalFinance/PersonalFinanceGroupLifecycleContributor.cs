@@ -6,6 +6,7 @@ using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Events.Integration;
 using Aonik.SharedKernel.Persistence;
+using Aonik.SharedKernel.Modules;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -51,7 +52,7 @@ internal sealed class PersonalFinanceGroupLifecycleContributor : IGroupLifecycle
         _clock = clock;
     }
 
-    public string ModuleName => "PersonalFinance";
+    public string ModuleName => ModuleIds.PersonalFinance;
 
     public async Task<string?> VetoAsync(GroupTransition transition, CancellationToken cancellationToken = default)
     {

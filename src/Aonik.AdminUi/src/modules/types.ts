@@ -12,6 +12,16 @@ export interface ModuleRouteConfig {
   element: ComponentType;
   /** If true, this route has dynamic segments (e.g. ":id") — useful for breadcrumb generation */
   isDynamic?: boolean;
+  /**
+   * Backend module ids this route's data comes from, when they differ from its owning UI module's
+   * `requires`. A UI module is a packaging unit, not a data boundary: the platform module registers
+   * /settings/speech (Voice endpoints) and the document pages (Documents endpoints), and the finance
+   * module registers /accounts (PersonalFinance endpoints). Without this the route stays registered
+   * for a tenant with that module off, so the page mounts, every request answers 403 module.disabled,
+   * and the interceptor cannot recognise it as belonging to the disabled module. Absent manifest =
+   * rendered, matching the fail-open rule everywhere else.
+   */
+  requires?: string[];
 }
 
 /**
@@ -60,6 +70,27 @@ export interface AdminModule {
   workspaceTemplates?: WorkspaceTemplate[];
   /** Breadcrumb mappings */
   breadcrumbs: ModuleBreadcrumb[];
+  /**
+   * Backend module ids (Spec 097) this UI module depends on. The UI module
+   * is enabled only when every listed id appears in the manifest's
+   * `enabledModules`. Empty or absent means the module is always enabled.
+   */
+  requires?: string[];
+}
+
+/**
+ * One backend module as described by the admin manifest (Spec 097).
+ */
+export interface ManifestModule {
+  /** Canonical backend module id (e.g. "finance", "commerce") */
+  id: string;
+  name: string;
+  description: string;
+  /** Core modules are always enabled and cannot be switched off */
+  isCore: boolean;
+  isEnabled: boolean;
+  /** Hard dependencies (backend module ids) */
+  dependsOn: string[];
 }
 
 /**
@@ -67,8 +98,10 @@ export interface AdminModule {
  * Controls which modules/features are visible per tenant/user/feature-flag.
  */
 export interface RuntimeModuleManifest {
-  /** Module IDs that are enabled for the current tenant/user */
+  /** Backend module IDs that are enabled for the current tenant (sorted) */
   enabledModules: string[];
+  /** Every known backend module with its enablement state for the tenant */
+  modules: ManifestModule[];
   /** Feature flags — key is "moduleId:featureId", value is enabled */
   featureFlags: Record<string, boolean>;
   /** Disabled route paths (override build-time routes) */

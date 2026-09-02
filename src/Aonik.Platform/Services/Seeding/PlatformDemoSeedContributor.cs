@@ -2,6 +2,7 @@ using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -28,7 +29,7 @@ internal sealed class PlatformDemoSeedContributor : IDemoSeedContributor
         _logger = logger;
     }
 
-    public string ModuleName => "Platform";
+    public string ModuleName => ModuleIds.Platform;
 
     public async Task<IReadOnlyList<string>> SeedAsync(
         DemoSeedPhase phase,

@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Modules;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -22,6 +23,14 @@ public interface IDomainAgentDescriptor
 
     /// <summary>Agent description for use in agent-as-tool composition.</summary>
     string Description { get; }
+
+    /// <summary>
+    /// The module this agent belongs to (Spec 097 §12.1): by default the
+    /// <see cref="AonikModuleAttribute"/> of the assembly that declares the descriptor.
+    /// The Agents runtime hides the agent from tenants that have this module disabled.
+    /// <c>null</c> means the agent is never gated.
+    /// </summary>
+    string? ModuleId => ModuleCatalog.TryGetModuleId(GetType());
 
     /// <summary>
     /// The agent's system instructions/prompt text. Used to seed global defaults

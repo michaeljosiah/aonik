@@ -4,6 +4,7 @@ using Aonik.PersonalFinance.Services;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -37,15 +38,18 @@ internal sealed class GroupPartyBackfillJob : IJob
     private readonly AonikDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<GroupPartyBackfillJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public GroupPartyBackfillJob(
         AonikDbContext dbContext,
         ITenantContext tenantContext,
-        ILogger<GroupPartyBackfillJob> logger)
+        ILogger<GroupPartyBackfillJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -54,6 +58,11 @@ internal sealed class GroupPartyBackfillJob : IJob
 
         var partyByUser = await BuildPartyLookupAsync(ct);
         var tenantIds = await FindTenantsWithWorkAsync(ct);
+
+        // Spec 097 §12.2: a tenant with Groups off keeps its rows untouched.
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenantIds, ModuleIds.Groups, "Group party backfill", _logger, ct);
+        tenantIds = gate.Enabled.ToList();
 
         // Users the job could not resolve. Kept as (tenant, user) pairs rather than a count so the
         // operator has something to act on — "seven rows failed" is not a fixable report.
@@ -89,6 +98,10 @@ internal sealed class GroupPartyBackfillJob : IJob
             "Group party backfill: {Tenants} tenant(s); {Kinds} group kind(s) and {Rows} row(s) populated; "
             + "{Skipped} live row(s) left unresolved.",
             tenantIds.Count, totals.Kinds, totals.Populated, totals.Unresolvable);
+
+        context.Result =
+            $"Backfilled {tenantIds.Count} tenant(s); {totals.Kinds} group kind(s) and {totals.Populated} row(s) populated; "
+            + $"{totals.Unresolvable} unresolved." + gate.Note;
 
         if (unresolved.Count > 0)
         {

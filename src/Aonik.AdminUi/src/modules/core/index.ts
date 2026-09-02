@@ -97,6 +97,7 @@ const breadcrumbs = [
 export const coreModule: AdminModule = {
   id: 'core',
   name: 'Core',
+  requires: [],
   navigation,
   routes,
   panels,

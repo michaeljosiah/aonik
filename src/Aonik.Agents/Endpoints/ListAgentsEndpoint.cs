@@ -1,4 +1,5 @@
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Framework;
 using Aonik.SharedKernel.Abstractions.Agents;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
@@ -12,10 +13,12 @@ namespace Aonik.Agents.Endpoints;
 internal sealed class ListAgentsEndpoint : EndpointWithoutRequest<ListAgentsResponse>
 {
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly DescriptorModuleFilter _moduleFilter;
 
-    public ListAgentsEndpoint(IEnumerable<IDomainAgentDescriptor> descriptors)
+    public ListAgentsEndpoint(IEnumerable<IDomainAgentDescriptor> descriptors, DescriptorModuleFilter moduleFilter)
     {
         _descriptors = descriptors;
+        _moduleFilter = moduleFilter;
     }
 
     public override void Configure()
@@ -34,7 +37,10 @@ internal sealed class ListAgentsEndpoint : EndpointWithoutRequest<ListAgentsResp
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var agents = _descriptors.Select(d => new AgentInfo
+        // Spec 097 §12.1: agents from modules disabled for this tenant are not listed.
+        var visible = await _moduleFilter.FilterAsync(_descriptors, ct);
+
+        var agents = visible.Select(d => new AgentInfo
         {
             Name = d.Name,
             Description = d.Description

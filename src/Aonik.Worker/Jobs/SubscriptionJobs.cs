@@ -1,5 +1,6 @@
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Aonik.Subscriptions.Services.Subscriptions;
 using Aonik.Subscriptions.Services.Usage;
 
@@ -27,17 +28,20 @@ internal sealed class SubscriptionRenewalJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<SubscriptionRenewalJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public SubscriptionRenewalJob(
         SubscriptionRenewalService renewals,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
-        ILogger<SubscriptionRenewalJob> logger)
+        ILogger<SubscriptionRenewalJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _renewals = renewals;
         _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -54,9 +58,11 @@ internal sealed class SubscriptionRenewalJob : IJob
         var needsReauthorisation = 0;
 
         var tenants = await _renewals.FindTenantsWithWorkAsync(context.CancellationToken);
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenants, ModuleIds.Subscriptions, "Subscription renewal", _logger, context.CancellationToken);
 
         await TenantScopedJob.ForEachTenantAsync(
-            _tenantContext, tenants, "subscription-renewal",
+            _tenantContext, gate.Enabled, "subscription-renewal",
             async ct =>
             {
                 var due = await _renewals.FindDueAsync(ct);
@@ -87,7 +93,7 @@ internal sealed class SubscriptionRenewalJob : IJob
             _logger,
             context.CancellationToken);
 
-        context.Result = $"Renewed {settled}, past due {pastDue}, closed {closed}, needs re-authorisation {needsReauthorisation}.";
+        context.Result = $"Renewed {settled}, past due {pastDue}, closed {closed}, needs re-authorisation {needsReauthorisation}." + gate.Note;
 
         if (needsReauthorisation > 0)
         {
@@ -116,17 +122,20 @@ internal sealed class SubscriptionDunningJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<SubscriptionDunningJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public SubscriptionDunningJob(
         SubscriptionRenewalService renewals,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
-        ILogger<SubscriptionDunningJob> logger)
+        ILogger<SubscriptionDunningJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _renewals = renewals;
         _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -141,9 +150,11 @@ internal sealed class SubscriptionDunningJob : IJob
         var expired = 0;
 
         var tenants = await _renewals.FindTenantsWithWorkAsync(context.CancellationToken);
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenants, ModuleIds.Subscriptions, "Subscription dunning", _logger, context.CancellationToken);
 
         await TenantScopedJob.ForEachTenantAsync(
-            _tenantContext, tenants, "subscription-dunning",
+            _tenantContext, gate.Enabled, "subscription-dunning",
             async ct =>
             {
                 var retryable = await _renewals.FindRetryableAsync(ct);
@@ -169,7 +180,7 @@ internal sealed class SubscriptionDunningJob : IJob
             _logger,
             context.CancellationToken);
 
-        context.Result = $"Recovered {recovered}, expired {expired}.";
+        context.Result = $"Recovered {recovered}, expired {expired}." + gate.Note;
 
         if (expired > 0)
             _logger.LogWarning("{Count} subscription(s) exhausted their retries and were expired.", expired);
@@ -191,17 +202,20 @@ internal sealed class UsageReservationSweepJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<UsageReservationSweepJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public UsageReservationSweepJob(
         UsageSweeper sweeper,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
-        ILogger<UsageReservationSweepJob> logger)
+        ILogger<UsageReservationSweepJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _sweeper = sweeper;
         _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -213,13 +227,15 @@ internal sealed class UsageReservationSweepJob : IJob
         }
 
         var tenants = await _sweeper.FindTenantsWithWorkAsync(context.CancellationToken);
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenants, ModuleIds.Subscriptions, "Usage reservation sweep", _logger, context.CancellationToken);
 
         var expired = await TenantScopedJob.ForEachTenantAsync(
-            _tenantContext, tenants, "usage-reservation-sweep",
+            _tenantContext, gate.Enabled, "usage-reservation-sweep",
             ct => _sweeper.ExpireStaleReservationsAsync(ct),
             _logger,
             context.CancellationToken);
-        context.Result = $"Expired {expired} stale usage reservation(s).";
+        context.Result = $"Expired {expired} stale usage reservation(s)." + gate.Note;
 
         if (expired > 0)
             _logger.LogInformation("Usage reservation sweep returned {Count} stale hold(s).", expired);
@@ -242,17 +258,20 @@ internal sealed class GrantExpirySweepJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<GrantExpirySweepJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public GrantExpirySweepJob(
         UsageSweeper sweeper,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
-        ILogger<GrantExpirySweepJob> logger)
+        ILogger<GrantExpirySweepJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _sweeper = sweeper;
         _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -264,13 +283,15 @@ internal sealed class GrantExpirySweepJob : IJob
         }
 
         var tenants = await _sweeper.FindTenantsWithWorkAsync(context.CancellationToken);
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader, tenants, ModuleIds.Subscriptions, "Grant expiry sweep", _logger, context.CancellationToken);
 
         var closed = await TenantScopedJob.ForEachTenantAsync(
-            _tenantContext, tenants, "grant-expiry-sweep",
+            _tenantContext, gate.Enabled, "grant-expiry-sweep",
             ct => _sweeper.CloseExpiredGrantsAsync(ct),
             _logger,
             context.CancellationToken);
-        context.Result = $"Closed {closed} expired entitlement grant(s).";
+        context.Result = $"Closed {closed} expired entitlement grant(s)." + gate.Note;
 
         if (closed > 0)
             _logger.LogInformation("Grant expiry sweep closed {Count} lapsed grant(s).", closed);

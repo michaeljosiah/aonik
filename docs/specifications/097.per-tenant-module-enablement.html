@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 097 - Per-tenant module enablement</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 097</span>
+  <span class="meta-tag status-draft">Status: Implemented (Rev 3) — P1 to P4 in the working tree, pending PR review</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: SharedKernel · Platform · Api · Worker · AdminUi</span>
+  <h1>Per-tenant module enablement</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    AONIK is modular by construction (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>)
+    but not yet by operation. Every module is registered for every tenant, the Admin UI's module manifest is a
+    hard-coded list, and nothing on the server knows or cares whether a tenant has a module switched on.
+    This spec makes module enablement a <strong>per-tenant, runtime property with one vocabulary end to end</strong>:
+    a module catalogue, a persisted enablement row, a tenant-scoped manifest the Admin UI reads, gating of
+    navigation, settings and tabs on that manifest, and a server-side gate so a disabled module is
+    <em>denied</em>, not merely hidden.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#ask">The ask and the success signal</a></li>
+    <li><a href="#today">What exists today</a></li>
+    <li><a href="#decisions">Decisions</a></li>
+    <li><a href="#catalog">The module catalogue</a></li>
+    <li><a href="#persistence">Persistence</a></li>
+    <li><a href="#resolution">Resolution and caching</a></li>
+    <li><a href="#manifest">The manifest</a></li>
+    <li><a href="#admin-api">Admin API</a></li>
+    <li><a href="#adminui">Admin UI</a></li>
+    <li><a href="#http-gate">Server-side enforcement (HTTP)</a></li>
+    <li><a href="#beyond-http">Beyond HTTP: agents, jobs, events, provisioning</a></li>
+    <li><a href="#packs">Config packs</a></li>
+    <li><a href="#contracts">Contracts</a></li>
+    <li><a href="#phasing">Phasing &amp; tasks</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#out-of-scope">Out of scope</a></li>
+    <li><a href="#open">Open decisions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>This spec adds:</p>
+
+<ul>
+  <li><strong>One module vocabulary.</strong> A <code>ModuleCatalog</code> in SharedKernel with canonical ids, a core flag, and a declared dependency graph. Backend module names, config-pack module lists, and Admin UI module ids all align to it.</li>
+  <li><strong>Persisted per-tenant enablement.</strong> A <code>TenantModule</code> row per (tenant, module), seeded by the tenant's config pack at provisioning and toggled by admins afterwards.</li>
+  <li><strong>A real manifest.</strong> <code>GET /admin/manifest</code> becomes authenticated and tenant-scoped, and the Admin UI fetches it through the shared API client so the server knows which tenant is asking.</li>
+  <li><strong>UI that follows the manifest.</strong> Every sidebar subtree, settings tile and module-owned tab carries a module id and disappears when its module is off. Deep links to a disabled module land on an explanatory page, not a dead route.</li>
+  <li><strong>Hide <em>and</em> deny.</strong> A global FastEndpoints pre-processor resolves every endpoint to its module by assembly and returns <code>403 module.disabled</code> for a tenant that has it off. Agents, scheduled jobs, event handlers and provisioning contributors honour the same set.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Nothing is torn down</span>
+  Every module stays compiled and registered in every host. Enablement is a runtime property of a tenant,
+  resolved per request from a cached read, and can change without a deployment. The current behaviour of every
+  existing tenant is preserved by default (<a href="#decisions">§4</a>).
+</div>
+
+<h2 id="ask">2. The ask and the success signal</h2>
+
+<p>
+  The product requirement, as stated: <em>users should be able to turn specific modules on or off, and that should
+  immediately change the menu system, so that modules not turned on do not have their menu items, settings or
+  configuration available.</em>
+</p>
+
+<h4>Success signal</h4>
+<p>
+  A host admin opens a tenant and switches <strong>Commerce</strong> off. On the tenant admin's next navigation the
+  Commerce section is gone from the sidebar, its settings tiles are gone, the Commerce tab on a customer record is
+  gone, and a bookmarked <code>/commerce/products</code> shows "Commerce is not enabled for this organisation" with a
+  link the host admin can act on. Every <code>/commerce/*</code> API call for that tenant returns
+  <code>403 module.disabled</code>. The commerce agent no longer appears in the agent list, and the low-stock scan
+  job skips that tenant. Switching Commerce back on restores all of it. No deployment happened at any point.
+</p>
+
+<h2 id="today">3. What exists today</h2>
+
+<p>
+  A review of the module setup on 2026-09-02 found the UI roughly two-thirds of the way there and the backend almost
+  nowhere. The scaffolding exists; the toggle behind it does not.
+</p>
+
+<table>
+  <thead><tr><th>Area</th><th>State</th><th></th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Backend module contract</td>
+      <td><code>IModule</code> (<code>src/Aonik.SharedKernel/Modules/IModule.cs</code>) exposes only <code>Name</code> and <code>ConfigureServices</code>. No enable/disable, no dependencies. Groups, Workspaces and Documents do not implement it at all.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Composition roots</td>
+      <td>Api and Worker <code>Program.cs</code> register every module unconditionally. The FastEndpoints assembly list omits <code>Aonik.Subscriptions</code>, whose 14 endpoints rely on the AppDomain probing the comment above the list warns against.</td>
+      <td><span class="tag existing">existing</span></td>
+    </tr>
+    <tr>
+      <td>Admin UI module registry</td>
+      <td><code>AdminModule</code> (<code>src/modules/types.ts</code>) contributes navigation, routes, panels and breadcrumbs; <code>registry.ts</code> aggregates them filtered by an enabled-id list; <code>useModules()</code> fetches a manifest and filters routes by it.</td>
+      <td><span class="tag existing">existing</span></td>
+    </tr>
+    <tr>
+      <td>Manifest endpoint</td>
+      <td><code>GetAdminManifestEndpoint</code> returns a hard-coded literal of six UI module ids, is <code>AllowAnonymous</code>, and the UI fetches it with a bare <code>fetch()</code> that sends no bearer token and no <code>X-Tenant-Id</code>. Even a dynamic manifest could not know which tenant is asking. The API test locks the literal in.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Sidebar</td>
+      <td><code>sidebarNav.ts</code> is the live navigation tree, by its own header comment; the per-module navigation arrays are aggregated but never rendered (<a href="059.commerce-adminui-module-and-navigation.html">Spec 059</a>'s consolidation is unimplemented). Only the Commerce subtree carries a <code>moduleId</code> (<a href="073.admin-ui-commerce-foundation.html">Spec 073 §3</a>). Bill Payments, Remittances, Billing, Ledger, AI &amp; Agents and the Finance/AI settings children are untagged.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Customer detail tabs</td>
+      <td>Module-gated on <code>manifest.enabledModules</code> (<a href="081.admin-ui-customer-detail-unified.html">Spec 081</a>). The one in-page gate that already works the intended way.</td>
+      <td><span class="tag existing">existing</span></td>
+    </tr>
+    <tr>
+      <td>Settings landing</td>
+      <td><code>SettingsLandingPage</code> tiles (payment gateways, FX, speech, AI policies) carry no module id.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Config packs</td>
+      <td><code>ConfigPackManifest.Modules</code> is declared per business type (<a href="065.business-type-configuration-packs.html">Spec 065 §8</a>) and read by exactly one consumer, the Commerce provisioning contributor, at provision time. It is never persisted. The food-commerce pack also writes a <code>Commerce.Enabled</code> setting that nothing reads.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Tenant feature store</td>
+      <td><code>TenantFeature</code> + <code>DatabaseFeatureManager</code> + <code>GET/PUT /admin/tenants/{id}/features</code>: a tenant-scoped, expiring, audited flag store. The setup wizard writes fine-grained flags into it. <code>IFeatureManager.IsEnabledAsync</code> has no callers anywhere in <code>src/</code>.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Vocabulary</td>
+      <td>Three of them. Backend names (<code>Platform</code>, <code>Finance</code>, <code>PersonalFinance</code>, …), pack names (<code>Commerce</code>, <code>PersonalFinance</code>), UI ids (<code>core</code>, <code>finance</code>, <code>agent-command-center</code>, …). No mapping exists. PersonalFinance, Voice, Documents and Subscriptions have no UI module.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Enforcement</td>
+      <td>None. No endpoint pre-processor consults enablement; <code>RequirePermission</code> is the right template. Quartz job definitions carry no module; every module's event handlers subscribe unconditionally; <code>IDomainAgentDescriptor</code> has no module field.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Dependencies</td>
+      <td>Undeclared. Commerce and Subscriptions consume Finance's <code>IInvoiceWriter</code>/<code>IPaymentInitiator</code>; Commerce implements Ordering's <code>IOrderService</code>; PersonalFinance reads Finance through the ADR-006 read contracts. Nothing can validate that a set of toggles is coherent.</td>
+      <td><span class="tag gap">gap</span></td>
+    </tr>
+    <tr>
+      <td>Self-identifying seams</td>
+      <td><code>ITenantProvisioningContributor</code>, <code>IDemoSeedContributor</code> and <code>ILedgerAccountContributor</code> each expose a <code>ModuleName</code>. The "module declares itself" pattern has precedent.</td>
+      <td><span class="tag existing">existing</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">4. Decisions</h2>
+
+<table>
+  <thead><tr><th>Question</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Unit of enablement</strong></td>
+      <td><strong>The tenant, at runtime.</strong> Many tenants share one deployment, so a deployment-scoped switch would not deliver the ask. All modules remain compiled and registered in every host; enablement is data. Deployment-level exclusion is out of scope (<a href="#out-of-scope">§18</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>Vocabulary</strong></td>
+      <td><strong>One catalogue, canonical kebab-case ids</strong> (<a href="#catalog">§5</a>). Backend assemblies declare their id with an assembly attribute; packs use the same ids; UI modules map to backend ids through a <code>requires</code> list rather than being renamed, because one UI module legitimately spans several backend modules and some backend modules have no UI.</td>
+    </tr>
+    <tr>
+      <td><strong>Core modules</strong></td>
+      <td><code>platform</code>, <code>ordering</code>, <code>ai</code> and <code>agents</code> cannot be disabled. Platform is identity and tenancy; Ordering is the order spine both Finance and Commerce stand on (<a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>) and has no UI or endpoints of its own. AI and Agents are core because the platform is AI-native: every domain module contributes agents, approvals and the run queue are cross-cutting, and a tenant that wants fewer AI surfaces configures its agents (Spec 033) rather than switching the substrate off. <em>Decided 2026-09-02.</em></td>
+    </tr>
+    <tr>
+      <td><strong>Defaults</strong></td>
+      <td><strong>Absent row means the catalogue default, and every module defaults to on.</strong> Existing tenants therefore behave exactly as today with no data migration. Provisioning a new tenant with a pack that <em>declares</em> modules writes explicit rows (<a href="#packs">§13</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>Dependencies</strong></td>
+      <td>Declared in the catalogue as <em>hard</em> (the module cannot function without it) or <em>soft</em> (the module degrades gracefully). Hard dependencies are enforced on toggle: the request is rejected with the missing or dependent modules listed. <strong>Never cascade silently</strong>; the UI shows the cascade and resubmits with the full set.</td>
+    </tr>
+    <tr>
+      <td><strong>Hide and deny</strong></td>
+      <td>The manifest hides; the HTTP gate denies. The UI keeps its fail-open behaviour on a transport failure, which is acceptable precisely because the server enforces.</td>
+    </tr>
+    <tr>
+      <td><strong>Store</strong></td>
+      <td><strong>A dedicated <code>TenantModule</code> row, not a reserved name in <code>TenantFeature</code>.</strong> Modules are a first-class concept with a dependency graph and a UI of their own; the feature store has expiry semantics that do not fit and free-text names. Feature flags remain the <em>within-module</em> layer (a follow-up wires <code>IFeatureManager</code> to real callers).</td>
+    </tr>
+    <tr>
+      <td><strong>Who toggles</strong></td>
+      <td><strong>Host admins only.</strong> Changing module state is a <code>PlatformAdmin</code> action on the tenant's detail page. Tenant admins can <em>see</em> their module state (read-only, under <code>AdminPolicy</code>) so the disabled-module page can explain itself, but cannot change it. <em>Decided 2026-09-02.</em></td>
+    </tr>
+    <tr>
+      <td><strong>Disabled endpoint status</strong></td>
+      <td><code>403</code> with a typed body <code>{ error, code: "module.disabled", moduleId }</code>, not <code>404</code>. The UI can name the module and offer the fix; an operator debugging a customer report can tell "disabled" from "does not exist" (<a href="#open">§19.1</a>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Principle worth recording</span>
+  "Module enablement is tenant configuration, resolved at runtime, enforced on the server" is a platform-wide rule
+  in the spirit of <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a>. If the team wants it
+  recorded, it is a one-page ADR-017; this spec does not depend on that.
+</div>
+
+<h2 id="catalog">5. The module catalogue</h2>
+
+<p>
+  <code>Aonik.SharedKernel.Modules.ModuleCatalog</code> <span class="tag new">new</span> is a static, code-defined
+  list of <code>ModuleDescriptor</code> records. It lives in SharedKernel so every host, module and the CLI can read
+  it without a back-pointing dependency on Platform. It is the single source of truth for ids, display names, core
+  status and dependencies; nothing else is allowed to spell a module id as a bare string.
+</p>
+
+<pre><code>public sealed record ModuleDescriptor(
+    string Id,                       // canonical kebab-case id, e.g. "personal-finance"
+    string Name,                     // display name
+    string Description,
+    bool IsCore,                     // cannot be disabled
+    IReadOnlyList&lt;string&gt; DependsOn,      // hard: enforced on toggle
+    IReadOnlyList&lt;string&gt; SoftDependsOn,  // documented; degrades
+    bool DefaultEnabled = true);
+
+public static class ModuleIds
+{
+    public const string Platform = "platform";
+    public const string Ordering = "ordering";
+    public const string Finance = "finance";
+    public const string Commerce = "commerce";
+    public const string Subscriptions = "subscriptions";
+    public const string Groups = "groups";
+    public const string Workspaces = "workspaces";
+    public const string PersonalFinance = "personal-finance";
+    public const string Ai = "ai";
+    public const string Agents = "agents";
+    public const string Voice = "voice";
+    public const string Documents = "documents";
+}</code></pre>
+
+<table>
+  <thead><tr><th>Id</th><th>Assembly</th><th>Core</th><th>Hard depends on</th><th>Soft depends on</th><th>Admin UI surfaces today</th></tr></thead>
+  <tbody>
+    <tr><td><code>platform</code></td><td>Aonik.Platform</td><td>yes</td><td>—</td><td>—</td><td>Team, Content, Compliance, Tenants, Observability, most Settings</td></tr>
+    <tr><td><code>ordering</code></td><td>Aonik.Ordering</td><td>yes</td><td>—</td><td>—</td><td>none (no endpoints, no nav)</td></tr>
+    <tr><td><code>ai</code></td><td>Aonik.Ai</td><td>yes</td><td>—</td><td>—</td><td>Models, Policies, Usage, Traces, Speech settings</td></tr>
+    <tr><td><code>agents</code></td><td>Aonik.Agents</td><td>yes</td><td><code>ai</code></td><td>—</td><td>Agents, Playground, Tasks, Approvals, Chat panel</td></tr>
+    <tr><td><code>finance</code></td><td>Aonik.Finance</td><td>no</td><td><code>ordering</code></td><td><code>agents</code></td><td>Orders, Bill Payments, Remittances, Billing, Ledger, Payment gateways, FX</td></tr>
+    <tr><td><code>commerce</code></td><td>Aonik.Commerce</td><td>no</td><td><code>ordering</code>, <code>finance</code></td><td><code>agents</code></td><td>Commerce section, Customers → Commerce tab</td></tr>
+    <tr><td><code>subscriptions</code></td><td>Aonik.Subscriptions</td><td>no</td><td><code>ordering</code>, <code>finance</code></td><td><code>groups</code></td><td>none yet</td></tr>
+    <tr><td><code>groups</code></td><td>Aonik.Groups</td><td>no</td><td>—</td><td>—</td><td>none yet</td></tr>
+    <tr><td><code>workspaces</code></td><td>Aonik.Workspaces</td><td>no</td><td><code>groups</code>, <code>subscriptions</code> (<a href="#open">§19.5</a>)</td><td>—</td><td>none yet</td></tr>
+    <tr><td><code>personal-finance</code></td><td>Aonik.PersonalFinance</td><td>no</td><td>—</td><td><code>finance</code>, <code>groups</code>, <code>documents</code>, <code>agents</code></td><td>none yet (admin endpoints exist)</td></tr>
+    <tr><td><code>voice</code></td><td>Aonik.Voice</td><td>no</td><td><code>ai</code>, <code>agents</code></td><td>—</td><td>Speech settings (tenant voice provider)</td></tr>
+    <tr><td><code>documents</code></td><td>Aonik.Documents</td><td>no</td><td>—</td><td><code>ai</code></td><td>none yet</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The hard/soft split above is derived from each assembly's imports of other modules' SharedKernel contracts.
+  <code>personal-finance</code> is deliberately <em>soft</em> on <code>finance</code>: Simi is personal finance
+  without money movement, and the ADR-006 read contracts already return empty results when there is nothing to read.
+  Where the table says "verify", the implementer confirms at the seam and adjusts the descriptor; the graph must
+  remain acyclic, and a startup self-check (with a unit test) proves it.
+</p>
+
+<h3>Assembly attribute</h3>
+<p>
+  Each module assembly declares its id once: <code>[assembly: AonikModule(ModuleIds.Commerce)]</code>
+  <span class="tag new">new</span>. Everything that needs to know "which module does this type belong to" (the HTTP
+  gate, agent descriptors, job definitions, event handlers) resolves it from <code>Type.Assembly</code>. This is what
+  makes the gate complete by construction: an endpoint cannot be forgotten, because it lives in an assembly.
+  <code>Aonik.Api</code>, <code>Aonik.Application</code>, <code>Aonik.Infrastructure</code> and
+  <code>Aonik.SharedKernel</code> carry no attribute and are never gated.
+</p>
+
+<h3>IModule hygiene</h3>
+<p>
+  <code>IModule</code> gains <code>static abstract string Id</code> (returning the catalogue id) and Groups,
+  Workspaces and Documents implement the interface like the other nine. This is cosmetic today but stops the
+  vocabulary drifting again. The FastEndpoints assembly list in Api <code>Program.cs</code> adds
+  <code>Aonik.Subscriptions</code> while we are there.
+</p>
+
+<h2 id="persistence">6. Persistence</h2>
+
+<p><code>TenantModule</code> <span class="tag new">new</span>, <code>src/Aonik.Platform/Entities/Modules/TenantModule.cs</code>:</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>TenantId</code></td><td>Guid</td><td><code>ITenantScoped</code>; global query filter applies</td></tr>
+    <tr><td><code>ModuleId</code></td><td>string(64)</td><td>catalogue id; validated against <code>ModuleCatalog</code> in the service, never free text</td></tr>
+    <tr><td><code>IsEnabled</code></td><td>bool</td><td></td></tr>
+    <tr><td><code>Source</code></td><td>string(16)</td><td><code>pack</code> or <code>explicit</code>; how the row came to exist</td></tr>
+    <tr><td><code>Reason</code></td><td>string(2048)?</td><td>free text, audited</td></tr>
+    <tr><td><code>RowVersion</code></td><td>rowversion</td><td>optimistic concurrency on concurrent toggles</td></tr>
+    <tr><td>audit columns</td><td></td><td>from <code>AuditableEntity</code></td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>Table <code>AnkTenantModules</code>, unique index on <code>(TenantId, ModuleId)</code>.</li>
+  <li><code>TenantModuleConfiguration : IEntityTypeConfiguration&lt;TenantModule&gt;</code> in <code>src/Aonik.Platform/Persistence/Configurations/Modules/</code>. <strong>The configuration must map <code>RowVersion</code> with <code>IsRowVersion()</code></strong>; a new entity without a configuration scaffolds it as <code>varbinary(max)</code>, which SQL Server can never alter to <code>rowversion</code>.</li>
+  <li><code>DbSet&lt;TenantModule&gt;</code> on <code>AonikDbContext</code> and <code>PlatformDbContext</code>.</li>
+  <li>Migration generated <strong>only</strong> by <code>dotnet ef migrations add AddTenantModules --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>, reviewed for exactly one new table and one index, and applied locally before commit. No hand-written migration, no backfill SQL: the default-on rule in <a href="#decisions">§4</a> means existing tenants need no rows.</li>
+</ul>
+
+<h2 id="resolution">7. Resolution and caching</h2>
+
+<p><code>IModuleEnablementReader</code> <span class="tag new">new</span>, <code>Aonik.SharedKernel.Modules</code>:</p>
+
+<pre><code>public interface IModuleEnablementReader
+{
+    Task&lt;ModuleEnablementSet&gt; GetAsync(Guid tenantId, CancellationToken ct = default);
+    Task&lt;IReadOnlyList&lt;Guid&gt;&gt; FilterEnabledTenantsAsync(
+        IEnumerable&lt;Guid&gt; tenantIds, string moduleId, CancellationToken ct = default);
+}
+
+public sealed class ModuleEnablementSet
+{
+    public Guid TenantId { get; }
+    public IReadOnlySet&lt;string&gt; Enabled { get; }
+    public bool IsEnabled(string moduleId) =&gt; Enabled.Contains(moduleId);
+}</code></pre>
+
+<p>Implemented in Platform by <code>TenantModuleService</code>, which also owns the writes (<a href="#admin-api">§9</a>). Resolution:</p>
+
+<ol>
+  <li>Start from the catalogue: every module with <code>DefaultEnabled</code>, plus every core module.</li>
+  <li>Overlay the tenant's rows: an explicit <code>IsEnabled</code> wins over the default.</li>
+  <li>Force core modules on regardless of rows.</li>
+  <li>Take the <strong>dependency closure</strong>: a module whose hard dependency resolved off is reported off, even if its own row says on. The resolved set is always dependency-consistent, so callers never need to reason about the graph.</li>
+</ol>
+
+<ul>
+  <li><strong>Cache:</strong> FusionCache, key <code>tenant-modules:{tenantId}</code>, <strong>60-second</strong> TTL with fail-safe, removed on every write. The reader is registered scoped and memoises within a request, so the HTTP gate, the manifest and the agent resolver share one lookup. <em>Rev 3:</em> the TTL was reduced from five minutes because the outbox is dispatched by the Worker, so a second API replica learns of a toggle only when its cache entry expires; one minute is the documented propagation bound.</li>
+  <li><strong>Cross-host invalidation:</strong> <code>TenantModulesChangedEvent</code> (<a href="#contracts">§14</a>) is published on write, in-process in the API that handled the toggle and through the transactional outbox for the Worker; a Platform handler removes the cache entry wherever it runs. Until then, the Worker or another API replica may act on the previous state for at most one TTL, which is acceptable.</li>
+  <li><strong>Failure:</strong> a database failure surfaces as an exception. The reader never answers "all on" or "all off" on an error; that is the caller's decision, and for the HTTP gate the request fails.</li>
+</ul>
+
+<h2 id="manifest">8. The manifest</h2>
+
+<p><code>GET /admin/manifest</code> <span class="tag mutate">mutate</span>:</p>
+
+<ul>
+  <li><code>AllowAnonymous()</code> is replaced by <code>Policies("AdminUserPolicy")</code>. The tenant is resolved by the existing <code>TenantContextMiddleware</code> from the bearer token and <code>X-Tenant-Id</code>; the endpoint reads it from <code>ITenantProvider</code>.</li>
+  <li><code>enabledModules</code> now carries <strong>canonical backend ids</strong> from the reader, sorted.</li>
+  <li>New <code>modules[]</code>: the catalogue projected with state, <code>{ id, name, description, isCore, isEnabled, dependsOn }</code>, so the UI can render module management and explain a disabled route without a second call.</li>
+  <li><code>featureFlags</code>, <code>disabledRoutes</code> and <code>disabledNavItems</code> keep their current shape and, for now, their hard-coded values. Wiring <code>featureFlags</code> to the tenant feature store is the within-module follow-up, not this spec.</li>
+</ul>
+
+<p><code>useModules()</code> <span class="tag mutate">mutate</span>:</p>
+
+<ul>
+  <li>Replaces the bare <code>fetch()</code> with <code>api.get('/admin/manifest')</code> from <code>src/lib/api.ts</code>, which attaches the bearer token and the selected tenant's <code>X-Tenant-Id</code>. The fetch runs only once the user is authenticated; signed-out routes such as the login page and the setup guides render fail-open with no manifest, so the authenticated call can never bounce a first-run visitor to the login page.</li>
+  <li>The module-level cache is keyed by tenant id and invalidated on tenant switch (alongside <code>invalidateTenantBootstrap</code>) and after a successful module toggle.</li>
+  <li>Fail-open on transport failure stays. A <code>401</code>/<code>403</code> from the manifest itself is treated the same way (the app's auth flow handles the session; the server gate handles safety).</li>
+</ul>
+
+<h3>Mapping UI modules to backend modules</h3>
+<p>
+  <code>AdminModule</code> gains <code>requires?: string[]</code> <span class="tag extend">extend</span>: the backend
+  module ids the UI module needs. A UI module is enabled when every id in <code>requires</code> is in
+  <code>manifest.enabledModules</code>; an empty or absent list means always enabled.
+</p>
+
+<table>
+  <thead><tr><th>UI module</th><th><code>requires</code></th></tr></thead>
+  <tbody>
+    <tr><td><code>core</code></td><td><code>[]</code></td></tr>
+    <tr><td><code>platform</code></td><td><code>[]</code></td></tr>
+    <tr><td><code>finance</code></td><td><code>['finance']</code></td></tr>
+    <tr><td><code>commerce</code></td><td><code>['commerce']</code></td></tr>
+    <tr><td><code>agent-command-center</code></td><td><code>['agents']</code></td></tr>
+    <tr><td><code>agent-extensions</code></td><td><code>['agents']</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>useModules()</code> derives <code>enabledUiModuleIds</code> from the manifest and the registry with a pure
+  function <code>resolveEnabledUiModules(registry, enabledBackendIds)</code>, and passes <em>that</em> to the
+  existing <code>getAggregated*</code> helpers, which keep taking UI ids. The <code>NavItem.moduleId</code> and
+  <code>SettingsTile.moduleId</code> fields carry <strong>backend</strong> ids, because a nav subtree is owned by a
+  backend module, not by a UI packaging unit.
+</p>
+
+<h2 id="admin-api">9. Admin API</h2>
+
+<table>
+  <thead><tr><th>Endpoint</th><th>Policy</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>GET /admin/tenants/{tenantId}/modules</code> <span class="tag new">new</span></td>
+      <td><code>AdminPolicy</code></td>
+      <td>Returns <code>TenantModuleListResponse(TenantId, Modules[])</code> where each item is <code>{ ModuleId, Name, Description, IsCore, DependsOn[], SoftDependsOn[], IsEnabled, Source: "core" | "default" | "pack" | "explicit", Reason, UpdatedAt, UpdatedBy }</code>. Every catalogue module appears, whether or not a row exists.</td>
+    </tr>
+    <tr>
+      <td><code>PUT /admin/tenants/{tenantId}/modules</code> <span class="tag new">new</span></td>
+      <td><code>PlatformAdmin</code></td>
+      <td>Body <code>TenantModuleUpdateRequest(Modules[]: { ModuleId, IsEnabled, Reason? })</code>. Validator: known ids only, no core ids, no duplicates. Applied as one transaction; returns the full list as above. Host admins only: a <code>TenantAdmin</code> caller receives 403.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Service rules, evaluated against the <em>resulting</em> set:</p>
+
+<ul>
+  <li><strong>Enabling</strong> a module whose hard dependencies would not all be enabled → <code>409</code> <code>{ code: "module.dependency_missing", moduleId, missing[] }</code>.</li>
+  <li><strong>Disabling</strong> a module that an enabled module hard-depends on → <code>409</code> <code>{ code: "module.dependents_enabled", moduleId, dependents[] }</code>.</li>
+  <li>Both are thrown as <code>ModuleDependencyException</code> and mapped in <code>ExceptionHandlerConfiguration</code> next to the existing <code>PermissionDeniedException</code> branch.</li>
+  <li>On the GET, the tenancy guard is the same one the <code>/features</code> endpoints use: a tenant admin may only read their own tenant, a cross-tenant read needs the <code>Tenants.Read</code> permission, and an unknown tenant is a 404. The PUT needs no tenancy guard because only <code>PlatformAdmin</code> reaches it.</li>
+  <li>Every successful update writes <code>AuditEventNames.TenantModulesUpdated</code> (with before/after per module and the reason) and publishes <code>TenantModulesChangedEvent</code>.</li>
+  <li><strong>Enabling provisions</strong> <em>(Rev 3, review finding P1-1)</em>: before anything is persisted, the service runs every <code>ITenantProvisioningContributor</code> whose <code>ModuleName</code> maps to a module that transitions off → on in the <em>resolved</em> set (a dependency the cascade switches on counts), dependencies first, with the ambient tenant switched to the target and the scoped memo pre-seeded with the post-toggle set so Finance's <code>ILedgerAccountContributor</code> gating sees the set being committed. Contributors are idempotent, so re-enabling an already-provisioned module is a no-op. A throwing contributor is audited as <code>AuditEventNames.TenantModulesProvisioningFailed</code>, nothing is persisted, and the request fails with <code>ModuleProvisioningException</code> → <code>500 { error, code: "module.provisioning_failed", moduleId, contributor }</code>, which the caller may simply retry.</li>
+  <li><strong>One transaction</strong> <em>(Rev 3, review finding P1-2)</em>: the module rows, the outbox message and the audit row commit together — the audit writer saves through the same scoped context inside an explicit transaction opened under the execution strategy — so a failure between them leaves no half-applied, unaudited state. The cache entry for the tenant is invalidated only after the commit, and always after it, even if the in-process event publish that follows throws.</li>
+</ul>
+
+<h2 id="adminui">10. Admin UI</h2>
+
+<h3>10.1 Sidebar tagging</h3>
+<p>
+  <code>sidebarNav.ts</code> stays the live tree (whether to finish Spec 059's consolidation is
+  <a href="#open">§19.4</a>). Every subtree owned by a non-core module gets a <code>moduleId</code>; the filtering in
+  <code>AonikSidebar</code> already honours it and needs no change. Untagged items are Platform's and always render.
+</p>
+
+<table>
+  <thead><tr><th>Section / item id</th><th><code>moduleId</code></th></tr></thead>
+  <tbody>
+    <tr><td><code>transact / orders</code></td><td><code>finance</code></td></tr>
+    <tr><td><code>transact / customers</code></td><td>none — the customer registry is Platform's (one top-level registry; domain views are module-gated tabs)</td></tr>
+    <tr><td><code>transact / approvals</code></td><td>none (Agents is core)</td></tr>
+    <tr><td><code>products / bill-payments</code>, <code>remittances</code>, <code>billing</code> (incl. <code>ledger</code>)</td><td><code>finance</code></td></tr>
+    <tr><td><code>products / commerce</code></td><td><code>commerce</code> (already tagged)</td></tr>
+    <tr><td><code>platform / team</code>, <code>content</code>, <code>compliance</code></td><td>none</td></tr>
+    <tr><td><code>platform / ai-agents-parent</code></td><td>none (AI and Agents are core)</td></tr>
+    <tr><td><code>host / settings-global / settings-finance</code></td><td><code>finance</code></td></tr>
+    <tr><td><code>host / settings-global / settings-ai</code></td><td>none (AI is core; the Speech page inside it is gated by <code>voice</code> at tile level)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  A parent whose children are all filtered out already collapses (the sidebar's <code>filterItems</code> drops
+  childless parents), so tagging children is enough where a parent mixes modules.
+</p>
+
+<h3>10.2 Settings tiles and in-page gates</h3>
+<ul>
+  <li><code>SettingsTile</code> gains <code>moduleId?</code> <span class="tag extend">extend</span>: payment gateways and FX → <code>finance</code>; speech → <code>voice</code>; AI policies stay untagged (core). The landing page filters tiles through the manifest; a section with no tiles left is not rendered.</li>
+  <li><code>useModuleEnabled(moduleId): boolean</code> <span class="tag new">new</span> for buttons, cards and dashboard widgets that belong to a module (fail-open when the manifest is absent, like everything else).</li>
+  <li>Customer detail tabs keep their existing <code>tab.module</code> gate; the values are already canonical.</li>
+</ul>
+
+<h3>10.3 Module management</h3>
+<ul>
+  <li><strong>Host view:</strong> a "Modules" card on <code>TenantDetailPage</code> lists the catalogue for that tenant with a switch per non-core module, its dependency line ("needs Finance"), the reason field, and who changed it last. Core modules render as locked. The card is editable only for host admins (the same portal-admin resolution the sidebar uses); any other viewer of the page sees it read-only. A <code>409</code> from the API renders inline as "Also enable Finance and Ordering?" / "Disable Commerce first" with a one-click resubmit that includes the cascade.</li>
+  <li><strong>Tenant view:</strong> the same component behind a new <code>/settings/modules</code> tile ("Modules", section Platform) for the selected tenant, <strong>always read-only</strong>: it shows what is on and off and says that the host administrator manages it. Only host admins change module state, and only from the tenant detail page.</li>
+  <li>On success both views invalidate the manifest cache so the sidebar updates on the spot, which is the "immediately" in the ask.</li>
+</ul>
+
+<h3>10.4 Disabled-module page and API interceptor</h3>
+<ul>
+  <li><code>ModuleDisabledPage</code> <span class="tag new">new</span>. <code>useModules()</code> already strips a disabled UI module's routes, so a deep link currently falls to the generic "Page Not Found". Instead, the catch-all route asks the registry whether the path belongs to any <em>registered</em> UI module; if it does and that module is disabled, it renders "Commerce is not enabled for this organisation", naming the module from <code>manifest.modules</code> and linking to <code>/settings/modules</code> (or the tenant's detail page for host admins).</li>
+  <li>The API client's error interceptor maps a <code>403</code> with <code>code === "module.disabled"</code> to the same page <strong>only when the current path belongs to a UI module that requires the refused backend module</strong>, so a stale tab that still shows a disabled module cannot keep calling it. Anywhere else, the dashboard for instance, the call is rejected with a user-facing message and no navigation; otherwise a widget calling a disabled module would redirect-loop the home page. Dashboard widgets that call a module's endpoints gate themselves with <code>useModuleEnabled</code>.</li>
+</ul>
+
+<h3>10.5 Tests</h3>
+<p>
+  The repo's vitest environment is <code>node</code>, so the logic is extracted into pure functions with tests:
+  <code>filterNavByModules(sections, enabledSet)</code>, <code>resolveEnabledUiModules(registry, enabledIds)</code>,
+  and <code>resolveDisabledModuleForPath(registry, manifest, path)</code>. Component behaviour is verified manually
+  through the AppHost run (<a href="#testing">§16</a>).
+</p>
+
+<h2 id="http-gate">11. Server-side enforcement (HTTP)</h2>
+
+<p>
+  <code>ModuleEnablementMiddleware</code> <span class="tag new">new</span>, registered once in Api
+  <code>Program.cs</code> immediately after tenant validation and before FastEndpoints, so it runs for every
+  endpoint with no per-endpoint opt-in. <em>Rev 2 refinement:</em> the gate is ASP.NET Core middleware rather
+  than a FastEndpoints pre-processor because <code>Program.cs</code> also maps minimal-API and WebSocket
+  endpoints from module assemblies (the Voice endpoints, for one) that a pre-processor would never see. Routing
+  has already resolved the endpoint by the time the middleware runs, so both kinds are visible through
+  <code>HttpContext.GetEndpoint()</code>. Order of resolution:
+</p>
+
+<ol>
+  <li>Resolve the owning type: FastEndpoints exposes an <code>EndpointDefinition</code> in the endpoint metadata (its <code>EndpointType</code>); minimal APIs expose the handler's <code>MethodInfo</code> (its <code>DeclaringType</code>); delegate-mapped endpoints such as the Voice WebSocket map expose neither, so the middleware falls back to the mapped <code>RequestDelegate</code>'s declaring type, walked out of any compiler-generated closure to its outermost type. Then the assembly's <code>AonikModuleAttribute</code>. No attribute (Api-hosted endpoints, Platform) → continue the pipeline.</li>
+  <li>Core module → continue.</li>
+  <li>Endpoint carries <code>ModuleGateExempt</code> metadata (<code>Options(x =&gt; x.WithMetadata(new ModuleGateExempt()))</code>) → continue. This exists so that an exemption is a visible, reviewable decision rather than an accident; no endpoint is expected to need it at launch.</li>
+  <li>Tenant not resolved → continue. There is nothing to gate against, and the tenant middleware already decides who may be anonymous. Storefront and other public endpoints that resolve the tenant anonymously by header or subdomain <em>are</em> gated, which is the correct outcome for a shop whose Commerce module is off. <em>Rev 3 (review finding P1-3):</em> this pass-through is deliberate, and its counterpart is <code>IModuleGate</code> (SharedKernel, implemented in Platform over the reader): an anonymous processor that only learns its owning tenant from the payload re-checks enablement the moment it does, before any write — see <a href="#beyond-http">§12.5</a>.</li>
+  <li>Reader says disabled → throw <code>ModuleDisabledException(moduleId)</code>, mapped to <code>403 { error, code: "module.disabled", moduleId }</code> in <code>ExceptionHandlerConfiguration</code>.</li>
+</ol>
+
+<ul>
+  <li>Cost is one cached read per request, shared with the manifest and the agent resolver through the scoped memo.</li>
+  <li>The resolved module id is pushed into the request log scope as <code>ModuleId</code>, so a denied call is one query away in observability.</li>
+  <li>The <code>Commerce.Enabled</code> pack setting is removed from the food-commerce pack; the module row is the only switch.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Why the gate keys on the assembly</span>
+  Route prefixes are not a reliable module boundary here: Platform serves <code>/personal-finance/*</code> routes,
+  Finance serves <code>/admin/*</code>, <code>/host/*</code> and <code>/public/*</code>, and PersonalFinance serves
+  <code>/admin/*</code> too. An endpoint's assembly is the one fact that is always right and can never be forgotten
+  when a new endpoint is added. Per-endpoint attributes would reintroduce the "unclassified tool" failure mode that
+  <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> had to close with a build-time exception.
+</div>
+
+<h2 id="beyond-http">12. Beyond HTTP: agents, jobs, events, provisioning</h2>
+
+<h3>12.1 Agents</h3>
+<ul>
+  <li><code>IDomainAgentDescriptor</code> gains <code>string ModuleId</code> <span class="tag extend">extend</span> with a default implementation that reads the attribute from <code>GetType().Assembly</code>. No descriptor needs editing.</li>
+  <li><code>DomainAgentResolver</code>, <code>ListAgentsEndpoint</code>, <code>PlaygroundStreamingEndpoint</code>, <code>AgentConfigurationService</code> and <code>MasterOrchestratorService</code> filter descriptors through the reader for the current tenant. A disabled module contributes no agent and therefore no tools; the orchestrator cannot delegate to it.</li>
+  <li>Voice pipelines resolve agents through the same resolver and inherit the behaviour.</li>
+  <li>By-name paths go through the same filter: resolving, upserting or deleting an agent override for a disabled module's agent is refused, and the playground gate runs before the response stream starts so the 403 is observable.</li>
+  <li><strong>Approved proposals</strong> (Spec 030) are subject to the same rule: before executing, the dispatcher resolves the handler's module from its assembly and the proposal's tenant set; a disabled non-core module fails the proposal with a <code>module.disabled</code> reason in the audit record and returns 403 to the approver, and the handler never runs.</li>
+</ul>
+
+<h3>12.2 Scheduled jobs</h3>
+<ul>
+  <li><code>IScheduledJobDefinition</code> (Worker) gains <code>string? ModuleId</code> <span class="tag extend">extend</span>. Jobs that iterate tenants pass their id list through <code>FilterEnabledTenantsAsync</code>; jobs with no tenant loop check the reader per tenant-scoped unit of work.</li>
+  <li>Starting assignment, to be confirmed job by job at implementation: <code>LowStockScan</code>, <code>InventoryReservationSweep</code>, <code>BoxCartAbandonSweep</code> → <code>commerce</code>; <code>SubscriptionJobs</code> → <code>subscriptions</code>; <code>CustomerInsightSnapshot</code>, <code>CustomerInsightAiSummary</code>, <code>FinancialConnectionRecurringSync</code> → <code>personal-finance</code>; <code>DocumentIngestionBackfill</code> → <code>documents</code>; <code>WorkspaceBlobSweep</code> → <code>workspaces</code>; <code>GroupPartyBackfill</code> → <code>groups</code>; <code>CanonicalLedgerBackfill</code> → <code>finance</code>; <code>AiCostGuard</code> → <code>ai</code>; <code>AgeTransition</code>, <code>SafetyRetention</code>, <code>StaleSessionDetector</code>, <code>WorkItemDispatch</code> → none (Platform).</li>
+  <li>The job still fires on schedule; it simply does nothing for tenants that have its module off, and records that in its execution result.</li>
+  <li><strong>Filter before batching.</strong> A job that selects a bounded batch of due work must filter the tenant set through the reader <em>before</em> taking the batch; otherwise a disabled tenant's due rows occupy the batch on every run and starve enabled tenants. Review found exactly this on the recurring bank-sync and document-backfill jobs; both now query only rows whose tenant is enabled and never advance a disabled tenant's schedule.</li>
+</ul>
+
+<h3>12.3 Integration event handlers</h3>
+<ul>
+  <li><code>ITenantScopedEvent : IIntegrationEvent { Guid TenantId { get; } }</code> <span class="tag new">new</span>. Existing events that carry a tenant id (<code>TenantProvisionedEvent</code>, the order and party events) adopt it.</li>
+  <li><strong>Handlers are not gated.</strong> <em>Rev 3 reversal:</em> an earlier draft had the dispatcher skip a handler whose module was disabled for the event's tenant. Review found that this loses committed work permanently. An integration event announces something that already happened, and both dispatchers record each delivery, so a skip is a discard, not a deferral. Disabling Subscriptions between a usage drawdown committing and its outbox message draining would have dropped the revenue-recognition and provider-cost journal entries for good, leaving entitlement state diverged from the ledger even after the module came back on. Since the ledger is the source of financial truth, a reaction to committed work must complete.</li>
+  <li>The rule this settles: <strong>the module gate belongs at the entry points</strong>, where new activity is refused (HTTP, agents, jobs, proposals), not on the reaction to work already done. A handler keeping its module's data consistent with what happened is not the module doing new work; refusing to run it corrupts that state rather than protecting it.</li>
+</ul>
+
+<h3>12.4 Provisioning and demo seed</h3>
+<ul>
+  <li><code>TenantProvisioner</code> resolves the module set <em>before</em> the contributor loop (today the pack applier runs after it; the module step moves ahead) and skips any <code>ITenantProvisioningContributor</code> whose <code>ModuleName</code> maps to a disabled module. Commerce's own manifest check becomes redundant and can be removed.</li>
+  <li><code>IDemoSeedContributor</code> is skipped on the same rule, so a demo toggle never seeds sample rows for a module the tenant does not have.</li>
+  <li><code>ILedgerAccountContributor</code> is skipped on the same rule inside Finance's provisioning contributor, so a disabled module's ledger accounts are not created for the tenant.</li>
+  <li><strong>Ledger accounts are contributed across modules</strong>, so enabling a module must run more than its own contributor. Subscriptions supplies its account codes through an <code>ILedgerAccountContributor</code>, and that seam is walked by <em>Finance's</em> provisioning contributor. When a module transitioning on contributes ledger accounts, the owner of that seam runs too, otherwise the toggle reports success and the first posting fails on a missing account code.</li>
+  <li><code>ModuleName</code> on those seams is aligned to the catalogue ids in the same change (the values are currently PascalCase module names).</li>
+</ul>
+
+<h3>12.5 Late-resolving provider callbacks</h3>
+<p>
+  <em>Rev 3 (review finding P1-3).</em> Four anonymous endpoints in non-core assemblies resolve their tenant from the
+  payload rather than from the request, so the HTTP gate in <a href="#http-gate">§11</a> passes them through. Each
+  now calls <code>IModuleGate.EnsureEnabledAsync(tenantId, moduleId)</code> as soon as the owning tenant is known and
+  before any write, answering <code>403 module.disabled</code> and persisting nothing:
+</p>
+<ul>
+  <li><code>POST /partners/webhooks/{providerCode}</code> — <code>RemittanceOrderService.ProcessWebhookAsync</code>, gated on the located payout's tenant, before the inbox row and before the signature is trusted (<code>finance</code>).</li>
+  <li><code>POST /personal-finance/account-links/webhooks/plaid</code> and <code>POST /admin/accounts/webhooks/plaid</code> — both Plaid processors, gated on the connection's tenant right after it is found (<code>personal-finance</code>).</li>
+  <li><code>POST /ai/codeact/call-tool/{nonce}</code> — gated on the tenant carried by the signed nonce, before any budget is spent, answered in the bridge's own envelope (<code>personal-finance</code>).</li>
+</ul>
+<p>
+  Left alone on purpose: the storefront and other <code>/public/*</code> endpoints (they resolve the tenant before the
+  middleware, so the HTTP gate already covers them), core-module endpoints, and the read-only circle-invite preview,
+  whose DTO does not expose the owning tenant.
+</p>
+
+<h2 id="packs">13. Config packs</h2>
+
+<ul>
+  <li><code>ConfigPackManifest.Modules</code> values become catalogue ids. The applier validates them against the catalogue and fails the pack load on an unknown id.</li>
+  <li><strong>Semantics for a new tenant.</strong> A pack that <em>declares</em> modules is authoritative: the declared modules, their transitive hard dependencies and the core modules are on; every other module is off. A pack that declares no modules (the <code>base</code> pack) leaves the catalogue defaults, so a generic tenant gets everything, as today.</li>
+  <li><code>ConfigPackApplier.ApplyModulesAsync</code> <span class="tag new">new</span> writes an explicit row for every catalogue module with <code>Source = pack</code> <strong>only during initial provisioning</strong> (the tenant has no module rows yet and no applied pack version). Every other application, including a re-apply of a newer pack version and the CLI, is <strong>additive only</strong>: it creates or enables rows for newly declared modules and their dependencies, never creates a disabling row, and never touches an explicit row, matching the applier's existing "never overwrite admin edits" rule. <em>Rev 2 clarification:</em> without this distinction, re-applying a declaring pack to an existing tenant that relied on defaults would silently narrow its module set.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Pack lists must be revised in the same change</span>
+  Today <code>simi.pack.json</code> declares only <code>PersonalFinance</code> and
+  <code>food-commerce.pack.json</code> only <code>Commerce</code>, because nothing consumed the lists. Under the
+  semantics above, a freshly provisioned Simi tenant would have AI, agents, voice, documents and groups off, and its
+  mobile app would start receiving <code>403 module.disabled</code>. The pack revision is therefore part of P1, not
+  a follow-up. Starting point: <code>simi</code> → <code>personal-finance, groups, documents, ai, agents, voice</code>;
+  <code>food-commerce</code> → <code>commerce, ai, agents</code> (Finance and Ordering are implied). Existing
+  tenants are unaffected either way, because they have no rows and resolve to the defaults.
+</div>
+
+<h2 id="contracts">14. Contracts</h2>
+
+<table>
+  <thead><tr><th>Contract</th><th>Where</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>ModuleCatalog</code>, <code>ModuleDescriptor</code>, <code>ModuleIds</code></td><td>SharedKernel.Modules</td><td>The vocabulary and the dependency graph. Validated acyclic at startup.</td></tr>
+    <tr><td><code>AonikModuleAttribute</code></td><td>SharedKernel.Modules</td><td>Assembly-level module identity; the source every gate resolves from.</td></tr>
+    <tr><td><code>IModuleEnablementReader</code>, <code>ModuleEnablementSet</code></td><td>SharedKernel.Modules</td><td>The read side. Cached, dependency-closed, never guesses on failure.</td></tr>
+    <tr><td><code>ITenantModuleService</code></td><td>Platform.Contracts.Services.Modules</td><td><code>GetAsync</code> / <code>UpdateAsync</code> with dependency validation, audit and event publication.</td></tr>
+    <tr><td><code>TenantModule</code></td><td>Platform.Entities.Modules</td><td>The row (<a href="#persistence">§6</a>).</td></tr>
+    <tr><td><code>TenantModulesChangedEvent(TenantId, Enabled[], Disabled[], ChangedBy)</code></td><td>SharedKernel.Events.Integration</td><td>Cache invalidation across hosts; a hook for anything that reacts to a module coming on.</td></tr>
+    <tr><td><code>ITenantScopedEvent</code></td><td>SharedKernel.Events</td><td>Lets the dispatcher know which tenant an event belongs to.</td></tr>
+    <tr><td><code>ModuleDisabledException</code>, <code>ModuleDependencyException</code></td><td>SharedKernel.Modules</td><td>Mapped to <code>403 module.disabled</code> and <code>409 module.dependency_missing</code> / <code>module.dependents_enabled</code>.</td></tr>
+    <tr><td><code>ModuleEnablementMiddleware</code> (Api), <code>ModuleGateExempt</code> (SharedKernel.Modules)</td><td>Api / SharedKernel</td><td>The HTTP gate and its explicit exemption marker. The marker lives in SharedKernel so a module can attach it to its own endpoint without referencing Api.</td></tr>
+    <tr><td><code>AuditEventNames.TenantModulesUpdated</code></td><td>SharedKernel.Abstractions</td><td>Audit name for toggles.</td></tr>
+    <tr><td><code>AdminModule.requires</code>, <code>SettingsTile.moduleId</code>, <code>RuntimeModuleManifest.modules</code>, <code>useModuleEnabled</code>, <code>ModuleDisabledPage</code></td><td>AdminUi</td><td>The UI half (<a href="#adminui">§10</a>).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="phasing">15. Phasing &amp; tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Work</th><th>Ships when</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>P1</strong> — backend foundation</td>
+      <td>Catalogue, <code>ModuleIds</code>, assembly attributes on all twelve module assemblies, <code>IModule.Id</code> + the three missing implementations, Subscriptions added to the FastEndpoints list. <code>TenantModule</code> entity, configuration, DbSets, CLI-generated migration. Reader/service with caching and the changed event. Admin GET/PUT endpoints with validation, audit, 409 mapping. Manifest authenticated and tenant-scoped. Pack applier module step, pack ids and lists revised, <code>Commerce.Enabled</code> removed, provisioner order fixed.</td>
+      <td>Toggling a module through the API changes that tenant's manifest and no other tenant's; existing tenants' manifests are unchanged from today; Api.Tests boot the full container green.</td>
+    </tr>
+    <tr>
+      <td><strong>P2</strong> — Admin UI</td>
+      <td>Manifest via the API client; <code>requires</code> on the six UI modules; sidebar and settings tagging; <code>useModuleEnabled</code>; module management on tenant detail and <code>/settings/modules</code>; <code>ModuleDisabledPage</code> and the 403 interceptor; pure-function tests.</td>
+      <td>Switching Commerce off for a tenant removes its section, tiles, customer tab and deep-link page on the next navigation, with no dead links; switching it on restores them.</td>
+    </tr>
+    <tr>
+      <td><strong>P3</strong> — HTTP enforcement</td>
+      <td>The gate middleware, exemption marker, exception mapping, log scope.</td>
+      <td>For a tenant with a module off, every endpoint in that module's assembly returns <code>403 module.disabled</code>; Api.Tests prove it with one endpoint per non-core module and one core endpoint that still answers.</td>
+    </tr>
+    <tr>
+      <td><strong>P4</strong> — beyond HTTP</td>
+      <td>Agent descriptor filtering, job module ids and tenant filtering, tenant-scoped events and handler skipping, provisioning and demo-seed skipping.</td>
+      <td>A disabled module contributes no agent to the list or the orchestrator, its jobs skip the tenant and say so, and its handlers do not run for that tenant's events.</td>
+    </tr>
+    <tr>
+      <td><strong>P5</strong> — follow-ups (separate specs)</td>
+      <td>Wire <code>IFeatureManager</code> to real callers as the within-module layer; Spec 059's navigation consolidation; a manifest for the mobile clients; entitlement-driven enablement from <a href="087.subscriptions-entitlements-and-metered-usage.html">Spec 087</a>.</td>
+      <td>Not part of this spec's acceptance.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>P1 and P2 can be built in parallel once the manifest shape in <a href="#manifest">§8</a> is agreed; P3 and P4 depend on P1 only.</p>
+
+<div class="callout ok">
+  <span class="callout-label">Rev 3 status</span>
+  P1 to P4 were implemented on 2026-09-02 (migration <code>20260902090653_AddTenantModules</code>). The implementation
+  was reviewed by seven independent lenses; the nineteen findings that survived adversarial refutation are folded into
+  the sections above (the middleware's delegate fallback in <a href="#http-gate">§11</a>, the initial-provisioning rule in
+  <a href="#packs">§13</a>, the filter-before-batching rule and the proposal gate in <a href="#beyond-http">§12</a>, the
+  interceptor predicate in <a href="#adminui">§10.4</a>, the 60-second cache bound in <a href="#resolution">§7</a>).
+  P5 items remain follow-ups.
+</div>
+
+<h2 id="testing">16. Testing</h2>
+
+<ul>
+  <li><strong>Aonik.Application.Tests:</strong> catalogue is acyclic and core modules have no non-core hard dependencies; resolver applies defaults, overlays rows, forces core, closes over dependencies; service rejects core toggles, missing dependencies and enabled dependents with the right codes; pack applier writes rows for a declaring pack and none for the base pack, and never disables on re-apply. <em>Rev 3:</em> <code>TenantModuleServiceProvisioningTests</code> — enabling runs the module's contributor exactly once, dependencies first, including a module the cascade switches on; toggling off or re-enabling an already-on module runs none; a throwing contributor persists nothing, publishes nothing and audits the failure; the real Finance contributor creates the ledger for a tenant provisioned without it and leaves an already-provisioned tenant untouched; contributors see the post-toggle set. <code>TenantModuleServiceWriteTests</code> — an audit-writer failure persists nothing and keeps the cache; a post-commit failure still invalidates it. Service-level gate tests on the remittance webhook and both Plaid processors prove a denying <code>IModuleGate</code> mutates nothing.</li>
+  <li><strong>Aonik.Api.Tests</strong> (these boot the whole DI container, which is what catches a bad registration): manifest requires authentication and reflects the tenant's rows; the gate returns 403 for a Commerce endpoint when off and 200 when on; a Platform endpoint is unaffected either way; the toggle endpoint's 409 cases; the existing <code>AdminManifestEndpointTests</code> rewritten for the authenticated shape. <em>Rev 3:</em> <code>ModuleGateCallbackTests</code> — the partner webhook, the admin Plaid webhook and the CodeAct callback answer 403 <code>module.disabled</code> and persist nothing when the payload's tenant has the module off, and proceed as before when it is on; <code>ExceptionHandlerClassificationTests</code> — module-gate and dependency responses are logged once under <code>Aonik.PolicyResponse</code> with their real status and never stamp the span as an error, a genuine fault keeps its error logging, and a provisioning failure returns the typed 500 body without the inner exception's text.</li>
+  <li><strong>Aonik.Database.Tests</strong> (SQL Server LocalDB): the unique index rejects a duplicate (tenant, module) row and <code>RowVersion</code> detects a concurrent toggle. The InMemory provider is structurally unable to fail on either. <em>Rev 3:</em> <code>TenantModuleServiceTransactionTests</code> — rows, outbox message and audit commit together under the retrying execution strategy; a failure after the audit save rolls all three back; a provisioning failure persists only its own audit row.</li>
+  <li><strong>Aonik.Worker:</strong> a job with a module id skips a tenant that has it off.</li>
+  <li><strong>Aonik.AdminUi</strong> (vitest): the three pure functions in <a href="#adminui">§10.5</a>. <em>Rev 3:</em> <code>visibleTabs.test.ts</code> — every customer-detail tab and Finance sub-tab is tagged with the module that serves it (Orders and Finance → <code>finance</code>, the five Finance sub-tabs → <code>personal-finance</code>, Commerce, Documents) and hidden when it is off, failing open without a manifest; <code>manifestCache.test.ts</code> — a manifest response that completes after an invalidation never overwrites the cache with pre-toggle data, whichever order the requests finish in.</li>
+  <li><strong>Manual:</strong> run the AppHost, sign in as a host admin, toggle Commerce off for the dev tenant, and walk the success signal in <a href="#ask">§2</a>. Then <code>dotnet build Aonik.sln</code>, because the Migrator and MCP hosts are not compiled by <code>dotnet test</code>.</li>
+</ul>
+
+<h2 id="acceptance">17. Acceptance criteria</h2>
+
+<ol>
+  <li>Every module assembly carries an <code>AonikModuleAttribute</code> whose id is in <code>ModuleCatalog</code>; a unit test enumerates the solution's module assemblies and fails on a missing or unknown id.</li>
+  <li>The catalogue's hard-dependency graph is acyclic, and no core module hard-depends on a non-core one.</li>
+  <li>A tenant with no <code>TenantModule</code> rows resolves to exactly the set that is enabled today (all modules), so no existing tenant changes behaviour on deploy.</li>
+  <li><code>GET /admin/manifest</code> returns 401 unauthenticated and, when authenticated, an <code>enabledModules</code> list that differs between two tenants with different rows.</li>
+  <li>The Admin UI fetches the manifest with the bearer token and <code>X-Tenant-Id</code>, and re-fetches on tenant switch and after a toggle.</li>
+  <li>With Commerce off: no Commerce sidebar entry, no Commerce settings tile, no Commerce customer tab, and <code>/commerce/products</code> renders <code>ModuleDisabledPage</code> naming Commerce. With Finance off: Orders, Bill Payments, Remittances, Billing, Ledger, payment-gateway and FX tiles are gone, and Customers remains.</li>
+  <li><code>PUT /admin/tenants/{id}/modules</code> returns 403 for a <code>TenantAdmin</code>, rejects a core module (including <code>ai</code> and <code>agents</code>), a missing hard dependency and an enabled dependent with the specified 409 codes, and applies a valid request atomically with an audit event and a published <code>TenantModulesChangedEvent</code>.</li>
+  <li>For a tenant with a module off, any endpoint in that module's assembly returns <code>403 { code: "module.disabled", moduleId }</code>; the same request returns its normal response once the module is on again, without a restart.</li>
+  <li>Storefront endpoints that resolve the tenant anonymously are gated the same way.</li>
+  <li>A disabled module's agents are absent from <code>/ai/agents</code>, the playground and the orchestrator's delegation set for that tenant.</li>
+  <li>A scheduled job with a module id skips tenants that have the module off and records the skip in its execution result.</li>
+  <li>Provisioning a tenant from a pack that declares modules yields explicit rows for every catalogue module, with the declared set plus dependencies plus core on and everything else off; provisioning from the base pack yields no rows.</li>
+  <li>The revised Simi and food-commerce packs provision tenants whose mobile and storefront flows do not hit <code>module.disabled</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> and <code>dotnet build Aonik.sln</code> are green, and the Database.Tests lane covers the index and the row version.</li>
+</ol>
+
+<h2 id="out-of-scope">18. Out of scope</h2>
+
+<ul>
+  <li><strong>Deployment-level exclusion</strong> (not registering a module's services at all). A future <code>Modules:Disabled</code> host setting could layer on top of the same catalogue, but nothing here needs it.</li>
+  <li><strong>Per-user module visibility.</strong> Roles and permissions already govern who sees what within an enabled module.</li>
+  <li><strong>Mobile client manifests</strong> for Payabo and Simi. The reader and the HTTP gate apply to them already; a consumer-facing manifest endpoint is a follow-up.</li>
+  <li><strong>The MCP hosts</strong> (<code>Aonik.Finance.Mcp</code>, <code>Aonik.Platform.Mcp</code>). They are separate processes serving one configured tenant and do not run the API pipeline; gating their tool lists on that tenant's module set is a small follow-up on the same reader.</li>
+  <li><strong>Entitlement-driven enablement</strong> (a plan that turns modules on). Spec 087 can feed the same toggle later.</li>
+  <li><strong>Wiring feature flags</strong> beyond leaving the manifest's <code>featureFlags</code> shape intact.</li>
+  <li><strong>Spec 059's navigation consolidation</strong> into module-contributed arrays.</li>
+  <li>A pack marketplace, operator-authored modules, or a module DSL.</li>
+</ul>
+
+<h2 id="open">19. Open decisions</h2>
+
+<ol>
+  <li><strong>403 vs 404 for a disabled module's endpoints.</strong> The spec picks 403 with a typed code so the UI and operators can name the module. 404 would be the choice if not revealing which modules exist mattered more; it does not for an admin-facing platform.</li>
+  <li><strong>Tenant-admin self-service.</strong> <em>Decided 2026-09-02: host admins only.</em> The PUT is <code>PlatformAdmin</code>; the tenant view is read-only.</li>
+  <li><strong>Should <code>ai</code> and <code>agents</code> be core?</strong> <em>Decided 2026-09-02: yes.</em> Both are core; a tenant that wants fewer AI surfaces configures its agents rather than disabling the substrate.</li>
+  <li><strong>Finish Spec 059 now?</strong> Rendering the module-contributed navigation arrays instead of <code>sidebarNav.ts</code> would make tagging unnecessary, but it is a larger IA change with its own review. The spec tags the live tree and leaves consolidation separate.</li>
+  <li><strong>Workspaces → Subscriptions: hard or soft?</strong> Workspaces imports the Subscriptions contracts for entitlement checks. If those reads degrade to "unlimited" when Subscriptions is off, relax to soft; if they block creation, keep hard.</li>
+</ol>
+
+<footer>
+  Spec 097 · Per-tenant module enablement · Rev 3 (P1 to P4 implemented; review findings folded in) · 2026-09-02 ·
+  Builds on <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>,
+  <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> and
+  <a href="../decisions/014-business-type-configuration-packs.md">ADR-014</a> ·
+  Completes the manifest seam sketched in <a href="059.commerce-adminui-module-and-navigation.html">Spec 059</a>,
+  <a href="073.admin-ui-commerce-foundation.html">Spec 073 §3</a> and <a href="081.admin-ui-customer-detail-unified.html">Spec 081</a> ·
+  Consumes <a href="065.business-type-configuration-packs.html">Spec 065 §8</a>'s pack module list ·
+  Gate pattern from <a href="032.tiered-ai-mutation-approval.html">Spec 032</a>
+</footer>
+</body>
+</html>

@@ -1522,6 +1522,54 @@ export interface TenantFeatureUpdateRequest {
   features: TenantFeatureToggleRequest[];
 }
 
+// Per-tenant module enablement (Spec 097). Mirrors the
+// GET/PUT /admin/tenants/{tenantId}/modules wire contract exactly.
+export type TenantModuleSource = 'core' | 'default' | 'pack' | 'explicit';
+
+export interface TenantModuleItemResponse {
+  moduleId: string;
+  name: string;
+  description: string;
+  isCore: boolean;
+  dependsOn: string[];
+  softDependsOn: string[];
+  isEnabled: boolean;
+  source: TenantModuleSource;
+  reason?: string | null;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
+export interface TenantModuleListResponse {
+  tenantId: string;
+  modules: TenantModuleItemResponse[];
+}
+
+export interface TenantModuleToggleRequest {
+  moduleId: string;
+  isEnabled: boolean;
+  reason?: string | null;
+}
+
+export interface TenantModuleUpdateRequest {
+  modules: TenantModuleToggleRequest[];
+}
+
+/** 409 body returned when a toggle violates the module dependency graph. */
+export interface ModuleDependencyErrorBody {
+  error: string;
+  code: 'module.dependency_missing' | 'module.dependents_enabled';
+  moduleId: string;
+  relatedModuleIds: string[];
+}
+
+/** 403 body returned by the module gate when a disabled module is called. */
+export interface ModuleDisabledErrorBody {
+  error: string;
+  code: 'module.disabled';
+  moduleId: string;
+}
+
 export type DemoSeedType = 'BillCollection' | 'CrossBorderPayments';
 
 export interface DemoSeedResponse {

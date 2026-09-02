@@ -1,6 +1,7 @@
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Ai.Services;
@@ -18,7 +19,7 @@ internal class AiTenantProvisioningContributor : ITenantProvisioningContributor
         _dbContext = dbContext;
     }
 
-    public string ModuleName => "Ai";
+    public string ModuleName => ModuleIds.Ai;
 
     public async Task<TenantProvisioningContribution> ContributeProvisioningAsync(
         TenantProvisioningContext context,

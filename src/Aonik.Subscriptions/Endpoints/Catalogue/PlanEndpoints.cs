@@ -52,7 +52,7 @@ public class GetPlanEndpoint : EndpointWithoutRequest<PlanResponse>
     public override void Configure()
     {
         Get("/subscriptions/admin/plans/{planId:guid}");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "Read a plan with all its versions and their entitlements.");
     }
 
@@ -79,7 +79,7 @@ public class ListPlansEndpoint : EndpointWithoutRequest<IReadOnlyList<PlanRespon
     public override void Configure()
     {
         Get("/subscriptions/admin/plans");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "List plans. Retired plans are excluded unless includeRetired=true.");
     }
 

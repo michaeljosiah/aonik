@@ -23,6 +23,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useTheme } from '@/contexts';
 import type { NavItem, NavigationSection } from '@/types';
 import { useModules } from '@/modules';
+import { filterNavByModules } from '@/modules/enablement';
+import { invalidateModuleManifest } from '@/modules/manifestCache';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 import { identityService } from '@/services/identityService';
@@ -477,19 +479,19 @@ function WorkspaceSwitcher() {
   const tenant = getSelectedTenant();
   const [isOpen, setIsOpen] = useState(false);
   const [tenants, setTenants] = useState<MyTenantSummary[] | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Loading while the popover is open and neither a result nor an error has landed.
+  const loading = isOpen && tenants === null && error === null;
 
   // Lazy-fetch tenants the first time the popover opens.
   useEffect(() => {
-    if (!isOpen || tenants !== null || loading) return;
+    if (!isOpen || tenants !== null) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     tenantService
       .listMyTenants()
       .then((res) => {
         if (cancelled) return;
+        setError(null);
         setTenants(res.tenants);
       })
       .catch((err) => {
@@ -500,14 +502,11 @@ function WorkspaceSwitcher() {
             : '') || 'Could not load workspaces.',
         );
         setTenants([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [isOpen, tenants, loading]);
+  }, [isOpen, tenants]);
 
   // Outside click + Esc close.
   useEffect(() => {
@@ -544,6 +543,8 @@ function WorkspaceSwitcher() {
       subdomain: next.subdomain,
       environment: next.environment,
     });
+    // Never serve the previous tenant's module manifest, even briefly.
+    invalidateModuleManifest();
     // Hard reload onto the home route — modules, routes, breadcrumbs,
     // and tenant-scoped API caches all rebind cleanly that way.
     window.location.assign('/');
@@ -924,48 +925,35 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
   const isPortalAdmin = resolvePortalAdmin(navRoles);
   const disabledNavIds = useMemo(() => new Set(manifest?.disabledNavItems ?? []), [manifest]);
   const disabledRoutes = useMemo(() => new Set(manifest?.disabledRoutes ?? []), [manifest]);
-  // Module enablement (Spec 073 §3): null = no manifest (fail-open, render
-  // everything); a Set = only items whose moduleId is enabled render. Items
-  // without a moduleId are unaffected either way.
+  // Module enablement (Spec 097 §8): null = no manifest (fail-open, render
+  // everything); a Set of BACKEND module ids = only items whose moduleId is
+  // enabled render. Items without a moduleId are unaffected either way. The
+  // rule itself lives in modules/enablement.ts (filterNavByModules).
   const enabledModules = useMemo(
     () => (manifest ? new Set(manifest.enabledModules) : null),
     [manifest],
   );
 
+  // Non-module visibility: runtime nav/route overrides and audience.
   const isItemVisible = useCallback(
     (it: NavItem) => {
       if (disabledNavIds.has(it.id)) return false;
       if (it.href && disabledRoutes.has(it.href)) return false;
-      if (it.moduleId && enabledModules && !enabledModules.has(it.moduleId)) return false;
       if (it.audience === 'host') return isPortalAdmin;
       if (it.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
       return true;
     },
-    [disabledNavIds, disabledRoutes, enabledModules, isPortalAdmin, isLoadingNavRoles],
+    [disabledNavIds, disabledRoutes, isPortalAdmin, isLoadingNavRoles],
   );
 
-  const filterItems = useCallback(
-    (items: NavItem[]): NavItem[] =>
-      items.reduce<NavItem[]>((acc, item) => {
-        if (!isItemVisible(item)) return acc;
-        const filteredChildren = item.children?.filter(isItemVisible);
-        const filteredChildGroups = item.childGroups
-          ?.map((g) => ({ ...g, items: g.items.filter(isItemVisible) }))
-          .filter((g) => g.items.length > 0);
-        const hasVisibleChildren = (filteredChildren?.length ?? 0) > 0 || (filteredChildGroups?.length ?? 0) > 0;
-        const hasVisibleHref = Boolean(item.href && !disabledRoutes.has(item.href));
-        if (!hasVisibleChildren && !hasVisibleHref) return acc;
-        acc.push({ ...item, children: filteredChildren, childGroups: filteredChildGroups });
-        return acc;
-      }, []),
-    [disabledRoutes, isItemVisible],
-  );
-
-  const visibleSections = SIDEBAR_NAV.filter((s: NavigationSection) => {
-    if (s.audience === 'host') return isPortalAdmin;
-    if (s.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
-    return true;
-  });
+  const visibleSections = useMemo(() => {
+    const audienceSections = SIDEBAR_NAV.filter((s: NavigationSection) => {
+      if (s.audience === 'host') return isPortalAdmin;
+      if (s.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
+      return true;
+    });
+    return filterNavByModules(audienceSections, enabledModules, { isItemVisible });
+  }, [enabledModules, isItemVisible, isPortalAdmin, isLoadingNavRoles]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -1015,7 +1003,7 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
         {/* Nav groups */}
         <nav className="-mx-1 mt-1 flex-1 overflow-y-auto overflow-x-visible px-1">
           {visibleSections.map((section) => {
-            const items = filterItems(section.items);
+            const items = section.items;
             if (items.length === 0) return null;
             return (
               <div key={section.id} className="mb-2.5">

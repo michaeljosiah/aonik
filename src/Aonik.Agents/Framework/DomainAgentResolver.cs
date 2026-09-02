@@ -25,6 +25,7 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
     private readonly IAgentConfigurationService _configService;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _services;
+    private readonly DescriptorModuleFilter _moduleFilter;
     private readonly ILogger<DomainAgentResolver> _logger;
 
     private readonly Dictionary<string, DomainAgentResolution> _cache =
@@ -35,12 +36,14 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
         IAgentConfigurationService configService,
         IChatClient chatClient,
         IServiceProvider services,
+        DescriptorModuleFilter moduleFilter,
         ILogger<DomainAgentResolver> logger)
     {
         _descriptors = descriptors;
         _configService = configService;
         _chatClient = chatClient;
         _services = services;
+        _moduleFilter = moduleFilter;
         _logger = logger;
     }
 
@@ -51,11 +54,12 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
         if (_cache.TryGetValue(agentId, out var cached))
             return cached;
 
-        var descriptor = _descriptors.FirstOrDefault(
-            d => string.Equals(d.Name, agentId, StringComparison.OrdinalIgnoreCase))
+        // Module gate (Spec 097 §12.1): a descriptor whose module is disabled for the tenant is
+        // refused with ModuleDisabledException rather than reported as unknown.
+        var descriptor = await _moduleFilter.FindAsync(_descriptors, agentId, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"No domain agent descriptor registered with name '{agentId}'. " +
-                $"Available: {string.Join(", ", _descriptors.Select(d => d.Name))}");
+                $"Available: {string.Join(", ", (await _moduleFilter.FilterAsync(_descriptors, cancellationToken)).Select(d => d.Name))}");
 
         var config = await _configService.GetResolvedAsync(agentId, cancellationToken);
 

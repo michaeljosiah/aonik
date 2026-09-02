@@ -14,6 +14,7 @@ using Aonik.Finance.Services.Remittance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Modules;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -170,7 +171,7 @@ public class RemittanceOrderServiceTests
 
     private static RemittanceOrderService CreateService(
         FinanceDbContext db, Guid tenantId, IClock? clock = null, IConfiguration? configuration = null,
-        IPartnerPayoutConnector? payoutConnector = null, Guid? userId = null)
+        IPartnerPayoutConnector? payoutConnector = null, Guid? userId = null, IModuleGate? moduleGate = null)
     {
         var simulated = new SimulatedPartnerConnector();
         var translator = new SimulatedPartnerWebhookTranslator();
@@ -193,6 +194,7 @@ public class RemittanceOrderServiceTests
             configuration ?? new ConfigurationBuilder().Build(),
             new TestSettingProvider(),
             effectiveClock,
+            moduleGate ?? TestModuleGate.AllowAll,
             NullLogger<RemittanceOrderService>.Instance);
     }
 
@@ -202,7 +204,8 @@ public class RemittanceOrderServiceTests
         IReadOnlyCollection<IPartnerPayoutConnector> payoutConnectors,
         IClock? clock = null,
         IConfiguration? configuration = null,
-        Guid? userId = null)
+        Guid? userId = null,
+        IModuleGate? moduleGate = null)
     {
         var simulated = new SimulatedPartnerConnector();
         var translator = new SimulatedPartnerWebhookTranslator();
@@ -225,6 +228,7 @@ public class RemittanceOrderServiceTests
             configuration ?? new ConfigurationBuilder().Build(),
             new TestSettingProvider(),
             effectiveClock,
+            moduleGate ?? TestModuleGate.AllowAll,
             NullLogger<RemittanceOrderService>.Instance);
     }
 
@@ -704,6 +708,58 @@ public class RemittanceOrderServiceTests
         // Duplicate delivery must not double-settle.
         await service.ProcessWebhookAsync(envelope);
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_Should_RefuseAndMutateNothing_When_OwningTenantHasFinanceOff()
+    {
+        // Spec 097 §11: the callback is anonymous, so the HTTP module gate had no tenant to check. The
+        // processor learns the owning tenant from the payout it locates and must re-check enablement
+        // there — before the inbox row, before the signature is even trusted, before any settlement.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var (order, payout) = SeedTransmittedRemittance(db, tenantId);
+        await db.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Finance:Partners:Webhooks:Simulated:SigningSecret"] = Signature
+            })
+            .Build();
+        var gate = TestModuleGate.Denying(ModuleIds.Finance);
+        var service = CreateService(db, tenantId, configuration: configuration, moduleGate: gate);
+
+        // A correctly signed, otherwise-settleable callback: the only thing standing in its way is the module.
+        var envelope = BuildPayoutWebhook(payout.ClientReference, payout.ProviderReference, "Succeeded");
+        var act = () => service.ProcessWebhookAsync(envelope);
+
+        (await act.Should().ThrowAsync<ModuleDisabledException>()).Which.ModuleId.Should().Be(ModuleIds.Finance);
+        gate.Calls.Should().ContainSingle().Which.Should().Be((tenantId, ModuleIds.Finance),
+            "the gate must be asked about the tenant the payout resolved to, not the ambient one");
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatuses.Transmitted, "no settlement may run");
+        (await db.Payouts.SingleAsync()).Status.Should().Be("Processing", "the payout must not be touched");
+        (await db.PartnerWebhookEvents.AsNoTracking().CountAsync()).Should().Be(0, "no inbox row is recorded for a module that is off");
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_Should_NotConsultTheGate_When_NoPayoutMatches()
+    {
+        // With no payout there is no owning tenant to gate against; the callback is stored as an
+        // unmatched event exactly as before (the gate is a re-check, never a second tenant resolver).
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        await db.SaveChangesAsync();
+
+        var gate = TestModuleGate.Denying(ModuleIds.Finance);
+        var service = CreateService(db, tenantId, moduleGate: gate);
+
+        await service.ProcessWebhookAsync(BuildPayoutWebhook("REM-NONE", "pr_none", "Succeeded"));
+
+        gate.Calls.Should().BeEmpty();
     }
 
     [Fact]

@@ -26,6 +26,7 @@ namespace Aonik.Ai;
 public sealed class AiModule : IModule
 {
     public static string Name => "Ai";
+    public static string Id => ModuleIds.Ai;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

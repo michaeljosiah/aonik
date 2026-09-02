@@ -1,6 +1,7 @@
 using Aonik.PersonalFinance.Persistence;
 using Aonik.PersonalFinance.Services.Seeding.Phases;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Modules;
 
 namespace Aonik.PersonalFinance.Services.Seeding;
 
@@ -54,7 +55,7 @@ internal sealed class PersonalFinanceDemoSeedContributor : IDemoSeedContributor
     {
     }
 
-    public string ModuleName => "PersonalFinance";
+    public string ModuleName => ModuleIds.PersonalFinance;
 
     public async Task<IReadOnlyList<string>> SeedAsync(
         DemoSeedPhase phase,

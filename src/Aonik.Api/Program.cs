@@ -64,6 +64,7 @@ builder.Services.AddFastEndpoints(o =>
         typeof(AonikVoiceModule).Assembly,
         typeof(DocumentsModule).Assembly,
         typeof(CommerceModule).Assembly,
+        typeof(SubscriptionsModule).Assembly,
     ];
 });
 
@@ -202,6 +203,11 @@ app.UseAonikLogScopeEnrichment();
 app.UseAuthorization();
 // 5. Tenant validation (validates tenant status only)
 app.UseTenantValidation();
+// 5a. Per-tenant module gate (Spec 097 §11). Middleware rather than a FastEndpoints
+//     pre-processor so the minimal-API and WebSocket maps below are covered too.
+//     Runs after auth + tenant context + authorization and before FastEndpoints,
+//     inside the exception handler that maps ModuleDisabledException to 403.
+app.UseModuleEnablement();
 
 // Verify Plaid webhook signatures before FastEndpoints binds/handles the anonymous
 // webhook endpoints (H13). No-op for every other path and in Plaid-simulation mode.

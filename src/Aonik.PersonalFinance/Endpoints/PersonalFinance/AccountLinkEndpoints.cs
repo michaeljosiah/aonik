@@ -314,8 +314,10 @@ internal sealed class PlaidAccountLinkWebhookEndpoint : Endpoint<PlaidAccountLin
         Summary(s =>
         {
             s.Summary = "Receive Plaid webhook";
-            s.Description = "Processes incoming webhook notifications from Plaid for account link events such as transaction updates and connection status changes.";
+            s.Description = "Processes incoming webhook notifications from Plaid for account link events such as transaction updates and connection status changes. "
+                + "Anonymous, so the owning tenant is resolved from the referenced connection and module enablement is re-checked there (Spec 097 §11).";
             s.Response(200, "Webhook processed successfully");
+            s.Response(403, "The owning tenant has the Personal Finance module disabled (code: module.disabled); nothing was recorded");
         });
         Options(x => x.WithTags("Personal Finance"));
     }

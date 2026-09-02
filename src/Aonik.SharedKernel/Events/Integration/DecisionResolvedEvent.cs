@@ -18,4 +18,4 @@ public sealed record DecisionResolvedEvent(
     Guid? AiRunId,
     string Outcome,
     string? Segment,
-    string? ContextJson) : IIntegrationEvent;
+    string? ContextJson) : ITenantScopedEvent;

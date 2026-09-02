@@ -15,7 +15,7 @@ public record OrderCreatedEvent(
     string OrderType,
     Guid? PayerPartyId,
     decimal AmountIn,
-    string CurrencyIn) : IIntegrationEvent;
+    string CurrencyIn) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when an Order's status changes (e.g. Submitted, Approved, Completed, Cancelled).
@@ -25,7 +25,7 @@ public record OrderStatusChangedEvent(
     Guid TenantId,
     Guid OrderId,
     string PreviousStatus,
-    string NewStatus) : IIntegrationEvent;
+    string NewStatus) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a Payment is completed successfully.
@@ -36,7 +36,7 @@ public record PaymentCompletedEvent(
     Guid PaymentId,
     Guid? OrderId,
     decimal Amount,
-    string Currency) : IIntegrationEvent;
+    string Currency) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when an Invoice is issued to a customer.
@@ -47,7 +47,7 @@ public record InvoiceIssuedEvent(
     Guid InvoiceId,
     Guid CustomerAccountId,
     decimal TotalAmount,
-    string Currency) : IIntegrationEvent;
+    string Currency) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when an Invoice is fully paid.
@@ -56,7 +56,7 @@ public record InvoiceIssuedEvent(
 public record InvoicePaidEvent(
     Guid TenantId,
     Guid InvoiceId,
-    Guid CustomerAccountId) : IIntegrationEvent;
+    Guid CustomerAccountId) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a ledger journal entry is posted.
@@ -67,7 +67,7 @@ public record JournalEntryPostedEvent(
     Guid JournalEntryId,
     Guid LedgerId,
     decimal Amount,
-    string Currency) : IIntegrationEvent;
+    string Currency) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when an account sync (Open Banking) completes for a user.
@@ -79,7 +79,7 @@ public record AccountSyncCompletedEvent(
     Guid ExternalAccountId,
     DateTime SyncTimestamp,
     int TransactionCount,
-    bool BalanceUpdated) : IIntegrationEvent;
+    bool BalanceUpdated) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a chat conversation session ends (explicit close or inactivity timeout).
@@ -88,7 +88,7 @@ public record AccountSyncCompletedEvent(
 public record ConversationSessionEndedEvent(
     Guid TenantId,
     Guid UserId,
-    Guid ChatThreadId) : IIntegrationEvent;
+    Guid ChatThreadId) : ITenantScopedEvent;
 
 // The Household* membership events moved to GroupEvents.cs (Spec 086 §12). The two below stay:
 // they are about a personal-finance ACCOUNT being shared into a household, not about the membership
@@ -97,9 +97,9 @@ public record ConversationSessionEndedEvent(
 public record HouseholdAccountSharedEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid AccountId) : IIntegrationEvent;
+    Guid AccountId) : ITenantScopedEvent;
 
 public record HouseholdAccountUnsharedEvent(
     Guid TenantId,
     Guid HouseholdId,
-    Guid AccountId) : IIntegrationEvent;
+    Guid AccountId) : ITenantScopedEvent;
