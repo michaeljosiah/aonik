@@ -19,4 +19,11 @@ public static class ModuleErrorCodes
     /// not persisted; contributors are idempotent, so the same request can be retried once the fault is fixed.
     /// </summary>
     public const string ProvisioningFailed = "module.provisioning_failed";
+
+    /// <summary>
+    /// Another request changed this tenant's module set between the validation snapshot and the
+    /// commit, so the dependency checks were made against state that no longer holds. The caller
+    /// re-reads and re-submits; nothing was written.
+    /// </summary>
+    public const string ConcurrentChange = "module.concurrent_change";
 }

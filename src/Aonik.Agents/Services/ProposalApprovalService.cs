@@ -138,8 +138,15 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
             // either — re-approving it would only hit the same gate. It lands in Failed (terminal)
             // for every tier with the reason on the audit trail; once the module is back on, the
             // agent proposes afresh. The exception propagates so the caller sees 403 module.disabled.
-            await MarkFailedAsync(proposal);
+            //
+            // The audit is written BEFORE the terminal transition, and deliberately not swallowed.
+            // The two live in different DbContexts, so they cannot share a transaction; ordering them
+            // this way is what keeps them consistent. Failing first leaves the proposal approvable, so
+            // the operator can retry and the gate will re-attempt the record. Failing second would
+            // leave a terminal proposal with no audit and no way to recreate one, because a terminal
+            // proposal can never be approved again.
             await AuditModuleDisabledAsync(proposal, ex, ct);
+            await MarkFailedAsync(proposal);
             throw;
         }
         catch

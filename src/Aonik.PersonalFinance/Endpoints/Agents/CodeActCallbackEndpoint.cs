@@ -120,15 +120,17 @@ public sealed class CodeActCallbackEndpoint : Endpoint<CodeActCallbackRequest, C
             _logger.LogInformation(
                 "CodeAct callback refused: module {ModuleId} is disabled for tenant {TenantId} (run {RunId}).",
                 ModuleIds.PersonalFinance, payload.TenantId, payload.RunId);
-            await Send.ResponseAsync(
+            // Send.ResultAsync, not Send.ResponseAsync: the house rule bans the latter, and a typed
+            // JSON result carries the bridge's envelope and the 403 together, which Send.ForbiddenAsync
+            // cannot (the sandbox-side reader needs the typed code, not a bare status).
+            await Send.ResultAsync(Microsoft.AspNetCore.Http.Results.Json(
                 new CodeActCallbackResponse(
                     Status: "error",
                     Result: null,
                     Error: new CodeActCallbackError(
                         Code: ModuleErrorCodes.Disabled,
                         Message: $"Module '{ModuleIds.PersonalFinance}' is disabled for this tenant.")),
-                statusCode: 403,
-                cancellation: ct);
+                statusCode: 403));
             return;
         }
 

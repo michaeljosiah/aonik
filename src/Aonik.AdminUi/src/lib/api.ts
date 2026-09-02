@@ -43,6 +43,34 @@ export function setModuleDisabledRedirectPredicate(predicate: ModuleDisabledRedi
 
 export const MODULE_DISABLED_USER_MESSAGE = 'This feature is not enabled for this organisation.';
 
+/** True when the app is running under HashRouter (the packaged desktop build). */
+function isHashRouting(): boolean {
+  return typeof window !== 'undefined' && window.location.hash.startsWith('#/');
+}
+
+/**
+ * The route the user is actually on, whichever router is in use: the hash in the desktop build,
+ * the pathname on the web. Query and fragment are stripped so callers get a bare path to match.
+ */
+export function currentRoutePath(): string {
+  if (typeof window === 'undefined') return '/';
+  if (isHashRouting()) {
+    const raw = window.location.hash.slice(1);
+    const end = raw.search(/[?#]/);
+    return end === -1 ? raw : raw.slice(0, end);
+  }
+  return window.location.pathname;
+}
+
+/** Navigate to an app route without a router dependency, honouring the active routing mode. */
+function navigateToRoute(path: string): void {
+  if (isHashRouting()) {
+    window.location.hash = `#${path}`;
+    return;
+  }
+  window.location.href = path;
+}
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -257,10 +285,14 @@ apiClient.interceptors.response.use(
       const body = error.response.data as { code?: unknown; moduleId?: unknown } | null | undefined;
       if (body && body.code === 'module.disabled' && typeof body.moduleId === 'string' && body.moduleId.length > 0) {
         try {
-          const pathname = window.location.pathname;
-          const pageBelongsToModule = moduleDisabledRedirectPredicate?.(body.moduleId, pathname) ?? false;
-          if (pageBelongsToModule && !pathname.startsWith('/module-disabled')) {
-            window.location.href = `/module-disabled/${encodeURIComponent(body.moduleId)}`;
+          // The desktop build runs under HashRouter, where the pathname is the packaged HTML file
+          // and the real route lives in the hash. Reading the pathname there would fail the
+          // ownership check on every page, and assigning href would navigate away from the renderer
+          // rather than change the route — so both the read and the write follow the routing mode.
+          const routePath = currentRoutePath();
+          const pageBelongsToModule = moduleDisabledRedirectPredicate?.(body.moduleId, routePath) ?? false;
+          if (pageBelongsToModule && !routePath.startsWith('/module-disabled')) {
+            navigateToRoute(`/module-disabled/${encodeURIComponent(body.moduleId)}`);
           }
         } catch {
           // Navigation is best-effort; the rejection below still carries the message.

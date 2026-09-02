@@ -48,6 +48,46 @@ export function getManifestVersion(): number {
   return manifestVersion;
 }
 
+/**
+ * The TTL only decides whether the NEXT caller re-fetches. Nothing re-reads on its own, so a module
+ * change made by another administrator would never reach an already-mounted layout: the sidebar,
+ * routes and agent list would stay as they were for the life of the session while the backend had
+ * already started refusing them. So an expiring entry invalidates itself, which wakes every mounted
+ * subscriber exactly as a local toggle does. One timer at a time, and none while the tab is hidden
+ * (the visibility handler refreshes on the way back instead of accumulating wake-ups).
+ */
+let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleExpiryRefresh(): void {
+  if (typeof window === 'undefined') return;
+  if (expiryTimer !== null) clearTimeout(expiryTimer);
+  expiryTimer = setTimeout(() => {
+    expiryTimer = null;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    invalidateModuleManifest();
+  }, MANIFEST_CACHE_TTL_MS);
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    // Back from a hidden tab, where the refresh was deliberately skipped: if the entry has aged out
+    // in the meantime, pick up whatever changed while nobody was looking.
+    if (manifestCache && Date.now() - manifestCache.timestamp >= MANIFEST_CACHE_TTL_MS) {
+      invalidateModuleManifest();
+    }
+  });
+}
+
+/**
+ * The manifest currently cached for the selected tenant, or null when there is none yet or it has
+ * aged out. For consumers outside React that cannot await a fetch — the workspace registry, which
+ * builds its panel and template lists synchronously. Null means fail-open, exactly as elsewhere.
+ */
+export function getCachedManifest(): RuntimeModuleManifest | null {
+  return freshCacheFor(getManifestTenantKey());
+}
+
 /** Subscribe to invalidations. Returns the unsubscribe function. */
 export function subscribeManifest(listener: () => void): () => void {
   listeners.add(listener);
@@ -130,6 +170,7 @@ export function fetchManifestOnce(): Promise<RuntimeModuleManifest | null> {
       const isCurrent = manifestVersion === generation && currentTenantId === tenantId;
       if (isCurrent) {
         manifestCache = { tenantId, data: normalised, timestamp: Date.now() };
+        scheduleExpiryRefresh();
         return normalised;
       }
 

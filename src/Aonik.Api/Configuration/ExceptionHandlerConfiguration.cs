@@ -193,6 +193,13 @@ public static class ExceptionHandlerConfiguration
             StatusCodes.Status409Conflict, dependency.Code, dependency.ModuleId,
             Detail: string.Join(",", dependency.RelatedModuleIds), LogLevel.Information),
 
+        // A concurrent change to the same tenant's module set (Spec 097 §9): nothing was written and
+        // the caller re-submits, so it is an expected answer rather than a fault — but Warning, since
+        // a steady stream of them means two operators are fighting over one tenant.
+        ModuleConcurrencyException concurrent => new PolicyResponse(
+            StatusCodes.Status409Conflict, concurrent.Code, ModuleId: null,
+            Detail: concurrent.TenantId.ToString(), LogLevel.Warning),
+
         // A permission the caller lacks: expected, but worth a Warning — repeated denials for one
         // principal are a signal an operator wants to see.
         PermissionDeniedException denied => new PolicyResponse(
@@ -263,6 +270,18 @@ public static class ExceptionHandlerConfiguration
                     error = ex.Message,
                     code = moduleDisabled.Code,
                     moduleId = moduleDisabled.ModuleId,
+                });
+                return;
+
+            case ModuleConcurrencyException moduleConcurrency:
+                // 409 Conflict — another request changed this tenant's module set between the
+                // dependency checks and the commit (Spec 097 §9). Nothing was written; the client
+                // re-reads and re-submits.
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = ex.Message,
+                    code = moduleConcurrency.Code,
+                    tenantId = moduleConcurrency.TenantId,
                 });
                 return;
 

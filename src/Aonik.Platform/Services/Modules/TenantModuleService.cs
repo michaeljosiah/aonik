@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 
 using Aonik.Platform.Contracts.Models.Modules;
@@ -437,9 +438,33 @@ internal sealed class TenantModuleService : IModuleEnablementReader, ITenantModu
                     stale.State = EntityState.Detached;
                 }
 
+                // Serializable, and the state is re-checked under it. The dependency rules span rows,
+                // but two concurrent toggles of RELATED modules write DIFFERENT rows, so row versions
+                // never collide: one request can validate "enable Commerce" against Finance being on
+                // while another validates "disable Finance", and both would commit, leaving an
+                // explicit commerce=true with finance=false. The resolved set still drops Commerce,
+                // but this request would already have provisioned it and announced it as enabled.
+                // Serializable makes the two reads conflict, and the re-check below rejects any
+                // change that slipped in before the range locks were taken.
                 await using var transaction = _dbContext.Database.IsRelational()
-                    ? await _dbContext.Database.BeginTransactionAsync(cancellationToken)
+                    ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
                     : null;
+
+                if (transaction is not null)
+                {
+                    var current = await _dbContext.TenantModules
+                        .AcrossTenants()
+                        .AsNoTracking()
+                        .Where(row => !row.IsDeleted && row.TenantId == tenantId)
+                        .Select(row => new { row.ModuleId, row.IsEnabled })
+                        .ToListAsync(cancellationToken);
+
+                    var currentBefore = ModuleCatalog.ResolveEnabled(
+                        ToExplicitRows(current.Select(row => (row.ModuleId, row.IsEnabled))));
+
+                    if (!currentBefore.SetEquals(before))
+                        throw new ModuleConcurrencyException(tenantId);
+                }
 
                 await _auditLogWriter.LogAsync(
                     AuditEventNames.TenantModulesUpdated,
