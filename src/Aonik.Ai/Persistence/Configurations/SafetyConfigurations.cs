@@ -16,6 +16,7 @@ public class SafetyDecisionConfiguration : IEntityTypeConfiguration<SafetyDecisi
         builder.Property(x => x.Categories).HasMaxLength(256);
         builder.Property(x => x.SafetyPolicyVersion).IsRequired().HasMaxLength(32);
         builder.Property(x => x.ClassifierRunIds).HasMaxLength(512);
+        builder.Property(x => x.ContentHash).HasMaxLength(64);
 
         builder.HasIndex(x => new { x.TenantId, x.SubjectPartyId });
 

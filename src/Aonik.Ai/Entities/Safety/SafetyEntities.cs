@@ -54,6 +54,13 @@ public class SafetyDecision : AuditableEntity, ITenantScoped
     /// <summary>Classifier <c>AiRun</c> ids, comma-separated. Always at least one.</summary>
     public string? ClassifierRunIds { get; set; }
 
+    /// <summary>
+    /// SHA-256 (lowercase hex) of the exact content the decision was about: the text itself for
+    /// text, the reference for anything else. What a product's delivery check compares against, so
+    /// that a decision can never be borrowed for different bytes (Spec 096 §7; ArkeKidz#10).
+    /// </summary>
+    public string? ContentHash { get; set; }
+
     public DateTime DecidedAt { get; set; }
 
     /// <summary>
