@@ -12,10 +12,17 @@ internal sealed class ScreenContentRequestValidator : Validator<ScreenContentReq
     public ScreenContentRequestValidator()
     {
         RuleFor(x => x.SubjectPartyId).NotEmpty();
-        RuleFor(x => x.Modality).NotEmpty().Must(m => string.Equals(m?.Trim(), SafetyModalities.Text, StringComparison.OrdinalIgnoreCase))
-            .WithMessage("Only the text modality is screened over this route.");
+        RuleFor(x => x.Modality).NotEmpty().Must(m => m?.Trim().ToLowerInvariant() is SafetyModalities.Text or SafetyModalities.Image)
+            .WithMessage("Text and image are screened over this route.");
         RuleFor(x => x.Layer).NotEmpty().Must(l => l?.Trim().ToLowerInvariant() is "input" or "output").WithMessage("layer is input or output.");
-        RuleFor(x => x.Content).NotEmpty().MaximumLength(2_000_000);
+        RuleFor(x => x.Content).NotEmpty().MaximumLength(40_000_000);
+        // An image travels inline, as the bytes themselves: the decision is bound to them, not to a URL somebody else serves.
+        RuleFor(x => x.Content).Must(c => c is not null && c.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) && c.Contains(";base64,", StringComparison.Ordinal))
+            .When(x => string.Equals(x.Modality?.Trim(), SafetyModalities.Image, StringComparison.OrdinalIgnoreCase))
+            .WithMessage("An image is screened as a base64 data URL (data:image/png;base64,...).");
+        RuleFor(x => x.Layer).Must(l => l?.Trim().ToLowerInvariant() == "output")
+            .When(x => string.Equals(x.Modality?.Trim(), SafetyModalities.Image, StringComparison.OrdinalIgnoreCase))
+            .WithMessage("An image is an output; what a child typed is text.");
     }
 }
 

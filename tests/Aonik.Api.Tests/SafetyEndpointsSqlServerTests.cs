@@ -94,6 +94,12 @@ public sealed class SafetyEndpointsSqlServerTests : IClassFixture<SqlLocalDbFixt
         (await (await maya.Client.PostAsJsonAsync($"/safety/decisions/{held.DecisionId}/review", new ReviewDecisionRequest("approve"))).Content.ReadFromJsonAsync<ReviewDecisionResponse>())!.Outcome
             .Should().Be("not-available", "a review is decided once");
 
+        // An image is judged as its bytes: the decision's hash is the file's own.
+        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4 };
+        var image = await ScreenAsync(maya, ivy, "output", "data:image/png;base64," + Convert.ToBase64String(png), modality: "image");
+        image.Should().BeEquivalentTo(new { Outcome = "held-for-review", ContentHash = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant() });
+        (await maya.Client.GetFromJsonAsync<SafetyDecisionResponse>($"/safety/decisions/{image.DecisionId}"))!.Modality.Should().Be("image");
+
         // With pre-review off for this child, an output is allowed outright — and blocked is still blocked.
         await SetPreReviewAsync(Factory, tenantId, maya.UserId, maya.PartyId, ivy, enabled: false);
         (await ScreenAsync(maya, ivy, "output", body)).Should().BeEquivalentTo(new { Allowed = true, Outcome = "allowed", ContentHash = Sha256(body) });
@@ -124,8 +130,9 @@ public sealed class SafetyEndpointsSqlServerTests : IClassFixture<SqlLocalDbFixt
         (await foreign.Content.ReadFromJsonAsync<SafetyProblem>())!.Code.Should().Be("ward-not-found");
         (await okoro.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(Guid.NewGuid(), "text", "input", "Pip."))).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-        // Only text is screened over this route, and a layer must be named.
+        // An image travels inline as its bytes, as an output; anything else about it is malformed.
         (await maya.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(ivy, "image", "output", "https://example/x.png"))).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await maya.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(ivy, "image", "input", "data:image/png;base64,AAAA"))).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
         (await maya.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(ivy, "text", "sideways", "Pip."))).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
@@ -144,9 +151,9 @@ public sealed class SafetyEndpointsSqlServerTests : IClassFixture<SqlLocalDbFixt
         (await maya.Client.GetFromJsonAsync<SafetyDecisionResponse>($"/safety/decisions/{verdict.DecisionId}"))!.Outcome.Should().Be("check-unavailable", "the refusal is on the record");
     }
 
-    private async Task<SafetyVerdictResponse> ScreenAsync(Person guardian, Guid child, string layer, string content)
+    private async Task<SafetyVerdictResponse> ScreenAsync(Person guardian, Guid child, string layer, string content, string modality = "text")
     {
-        var response = await guardian.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(child, "text", layer, content));
+        var response = await guardian.Client.PostAsJsonAsync("/safety/screen", new ScreenContentRequest(child, modality, layer, content));
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<SafetyVerdictResponse>())!;
     }

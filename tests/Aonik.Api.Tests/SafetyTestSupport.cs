@@ -38,13 +38,14 @@ internal sealed class KeywordClassificationProvider : ISafetyClassificationProvi
 
     public string Provider => Name;
 
-    public IReadOnlySet<string> SupportedModalities { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { SafetyModalities.Text };
+    public IReadOnlySet<string> SupportedModalities { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { SafetyModalities.Text, SafetyModalities.Image };
 
     public TemporalCoverage Coverage => TemporalCoverage.Complete;
 
     public Task<IReadOnlyDictionary<string, double>> ScoreAsync(string modality, string reference, string safetyBand, string modelName, CancellationToken cancellationToken = default)
     {
-        var violent = reference.Contains("blood", StringComparison.OrdinalIgnoreCase);
+        // An image is bytes; nothing here looks at them. Text is judged by one word.
+        var violent = !reference.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && reference.Contains("blood", StringComparison.OrdinalIgnoreCase);
         IReadOnlyDictionary<string, double> scores = new Dictionary<string, double>
         {
             [SafetyCategories.GraphicViolence] = violent ? 0.95 : 0.01,
@@ -71,6 +72,7 @@ internal static class SafetyTestSeeding
         db.Set<AiProvider>().Add(provider);
         db.Set<AiModel>().Add(model);
         db.Set<AiRoutePolicy>().Add(new AiRoutePolicy { Id = Guid.NewGuid(), TenantId = tenantId, UseCase = SafetyUseCases.ClassifyText, RiskTier = "low", DataSensitivity = "child", PrimaryModelId = model.Id, IsActive = true, RowVersion = new byte[8] });
+        db.Set<AiRoutePolicy>().Add(new AiRoutePolicy { Id = Guid.NewGuid(), TenantId = tenantId, UseCase = SafetyUseCases.ClassifyImage, RiskTier = "low", DataSensitivity = "child", PrimaryModelId = model.Id, IsActive = true, RowVersion = new byte[8] });
         await db.SaveChangesAsync();
     }
 

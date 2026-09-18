@@ -551,9 +551,40 @@ internal static class SafetyBandDefaults
     public const string Strictest = "under-6";
 }
 
-/// <summary>The hash a decision is bound to: SHA-256 of the exact content judged, lowercase hex.</summary>
+/// <summary>
+/// The hash a decision is bound to: SHA-256 of the exact content judged, lowercase hex. Text is
+/// hashed as UTF-8; an image carried inline as a <c>data:</c> URL is hashed as its decoded bytes, so
+/// the hash is the file's own and a product can compare it with the bytes it holds.
+/// </summary>
 internal static class ContentHashes
 {
     public static string Of(string reference)
-        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(reference))).ToLowerInvariant();
+    {
+        var bytes = TryDecodeDataUrl(reference) ?? System.Text.Encoding.UTF8.GetBytes(reference);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    public static byte[]? TryDecodeDataUrl(string reference)
+    {
+        if (!reference.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var comma = reference.IndexOf(',', StringComparison.Ordinal);
+
+        if (comma < 0 || !reference[..comma].EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Convert.FromBase64String(reference[(comma + 1)..]);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 }

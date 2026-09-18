@@ -17,7 +17,7 @@ caller holds guardian authority over, or the caller themselves; anyone else's ch
 | 403 | `consent-required` | The subject's `safety-classification` consent does not stand (Spec 095 §12.3: classification is egress). |
 | 404 | `ward-not-found` | The subject is not the caller's ward, or does not exist — the same answer. |
 | 404 | `decision-not-found` | No such decision, or one about somebody else's child. |
-| 422 | `invalid-request` | Not text, no layer, no content. |
+| 422 | `invalid-request` | Neither text nor an inline image, no layer, no content; an image as an input or by URL. |
 
 ## The one supported route
 
@@ -46,7 +46,9 @@ primary model belongs to the `openai` provider. Without one, the gate answers `c
 ```
 
 `layer` is `input` — what the child typed, screened before a model sees it (L2) — or `output` —
-what a model produced, screened before the child does (L4). `200`:
+what a model produced, screened before the child does (L4). An image is always an output and
+travels inline, `"modality": "image"` with `content` a base64 data URL (`data:image/png;base64,…`):
+the decision is bound to the decoded bytes, never to a URL somebody else serves. `200`:
 
 ```json
 { "decisionId": "…", "allowed": false, "outcome": "held-for-review", "categories": [],
@@ -56,8 +58,9 @@ what a model produced, screened before the child does (L4). `200`:
 `outcome` is one of `allowed`, `blocked` (with `categories`), `held-for-review` (an output the
 child's band holds for the guardian; `pendingReviewId` names the review), `check-unavailable` (the
 classifier could not run, or the route is not one the terms name — a refusal, on the record) and
-`modality-disabled`. `contentHash` is the SHA-256 of exactly the content judged, lowercase hex: the
-one thing a product should keep beside its copy of the content. An input judged reportable is
+`modality-disabled`. `contentHash` is the SHA-256 of exactly the content judged, lowercase hex — the
+text as UTF-8, or the image's own bytes: the one thing a product should keep beside its copy of
+the content. An input judged reportable is
 preserved in the platform's file store before the refusal is answered (Spec 096 §12).
 
 ### `GET /safety/decisions/{decisionId}`
@@ -89,7 +92,5 @@ decision `allowed` or `approved`, deliver; anything else, do not.
 
 ## Not in this slice
 
-Images and video are not screened over this route (`modality` must be `text`), though the
-moderation adapter can score an image URL and the gate has an image classifier; the delivery
-permit for generated images is the next call, alongside the `frightening` category, which needs
-either a route that scores it or a curated model of its own.
+Video and speech are not screened over this route. The `frightening` category is scored by no
+route and needs either one that scores it or a curated model of its own.

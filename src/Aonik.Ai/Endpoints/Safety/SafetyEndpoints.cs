@@ -110,11 +110,11 @@ internal sealed class ScreenContentEndpoint : SafetyEndpoint<ScreenContentReques
         Summary(s =>
         {
             s.Summary = "Screen content for a child";
-            s.Description = "Classifies text against the child's age band and the current policy, records the decision, and answers "
-                + "the verdict with the hash of exactly what was judged. Input (layer 'input') is what the child typed, before a "
-                + "model sees it; output (layer 'output') is what a model produced, before the child does. An output the child's "
-                + "band holds for guardian review answers 'held-for-review' with the review to approve. A check that cannot run "
-                + "answers 'check-unavailable' and is a refusal.";
+            s.Description = "Classifies text, or an image carried inline as a data URL, against the child's age band and the current "
+                + "policy, records the decision, and answers the verdict with the hash of exactly what was judged - the bytes, for an "
+                + "image. Input (layer 'input') is what the child typed, before a model sees it; output (layer 'output') is what a "
+                + "model produced, before the child does. An output the child's band holds for guardian review answers "
+                + "'held-for-review' with the review to approve. A check that cannot run answers 'check-unavailable' and is a refusal.";
             s.Response(200, "Decision recorded");
             s.Response(403, "The caller has no party, or the child's safety-classification consent does not stand");
             s.Response(404, "The subject is not a child the caller holds guardian authority over");
