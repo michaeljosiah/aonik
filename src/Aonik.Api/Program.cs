@@ -65,6 +65,7 @@ builder.Services.AddFastEndpoints(o =>
         typeof(DocumentsModule).Assembly,
         typeof(CommerceModule).Assembly,
         typeof(WorkspacesModule).Assembly,
+        typeof(GroupsModule).Assembly,
     ];
 });
 

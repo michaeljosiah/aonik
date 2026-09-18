@@ -117,11 +117,6 @@ internal sealed class NegotiateEndpoint : WorkspaceEndpoint<NegotiateRequest, Ne
     {
         var workspaceId = Route<Guid>("workspaceId");
 
-        if (req.ContentHashes is null || req.ContentHashes.Count > 10_000 || req.ContentHashes.Any(hash => !IsHash(hash)))
-        {
-            ThrowError("contentHashes must be at most 10,000 lowercase hex SHA-256 values.", StatusCodes.Status422UnprocessableEntity);
-        }
-
         if (await CallerPartyAsync(ct) is not { } callerPartyId)
         {
             return;
@@ -166,21 +161,6 @@ internal sealed class CommitEndpoint : WorkspaceEndpoint<CommitRequest, CommitRe
     public override async Task HandleAsync(CommitRequest req, CancellationToken ct)
     {
         var workspaceId = Route<Guid>("workspaceId");
-
-        if (req.CommitId == Guid.Empty)
-        {
-            ThrowError("commitId is required and must be chosen by the client before the first attempt.", StatusCodes.Status422UnprocessableEntity);
-        }
-
-        if (req.Manifest is null || req.Manifest.Count > 100_000)
-        {
-            ThrowError("manifest is required and may name at most 100,000 files.", StatusCodes.Status422UnprocessableEntity);
-        }
-
-        if (req.Manifest.Any(entry => !IsHash(entry.ContentHash) || entry.SizeBytes < 0 || string.IsNullOrWhiteSpace(entry.Path)))
-        {
-            ThrowError("Every manifest entry needs a relative path, a lowercase hex SHA-256 and a non-negative size.", StatusCodes.Status422UnprocessableEntity);
-        }
 
         if (await CallerPartyAsync(ct) is not { } callerPartyId)
         {
@@ -247,18 +227,12 @@ internal sealed class ResolveRevisionEndpoint : WorkspaceEndpoint<ResolveRevisio
         var workspaceId = Route<Guid>("workspaceId");
         var revisionId = Route<Guid>("revisionId");
 
-        var resolution = req.Resolution?.Trim().ToLowerInvariant() switch
+        var resolution = req.Resolution.Trim().ToLowerInvariant() switch
         {
             "accept" => DivergenceResolution.Accept,
             "reject" => DivergenceResolution.Reject,
-            "supersede" => DivergenceResolution.Supersede,
-            _ => (DivergenceResolution?)null,
+            _ => DivergenceResolution.Supersede,
         };
-
-        if (resolution is null)
-        {
-            ThrowError("resolution must be accept, reject or supersede.", StatusCodes.Status422UnprocessableEntity);
-        }
 
         if (await CallerPartyAsync(ct) is not { } callerPartyId)
         {
@@ -276,7 +250,7 @@ internal sealed class ResolveRevisionEndpoint : WorkspaceEndpoint<ResolveRevisio
                 throw new WorkspaceAccessDeniedException(workspaceId, callerPartyId, WorkspaceAccessLevel.Write, access);
             }
 
-            var resolved = await _sync.ResolveAsync(revisionId, callerPartyId, resolution.Value, ct);
+            var resolved = await _sync.ResolveAsync(revisionId, callerPartyId, resolution, ct);
             await Send.OkAsync(new ResolveRevisionResponse(resolved), ct);
         });
     }

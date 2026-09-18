@@ -31,16 +31,6 @@ internal sealed class CreateWorkspaceEndpoint : WorkspaceEndpoint<CreateWorkspac
 
     public override async Task HandleAsync(CreateWorkspaceRequest req, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(req.Name) || req.Name.Length > 200)
-        {
-            ThrowError("A workspace needs a name of at most 200 characters.", StatusCodes.Status422UnprocessableEntity);
-        }
-
-        if (req.Kind is not null && !WorkspaceKinds.All.Contains(req.Kind))
-        {
-            ThrowError($"Unknown workspace kind '{req.Kind}'.", StatusCodes.Status422UnprocessableEntity);
-        }
-
         if (await CallerPartyAsync(ct) is not { } callerPartyId)
         {
             return;

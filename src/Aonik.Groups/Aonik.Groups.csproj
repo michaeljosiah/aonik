@@ -38,7 +38,14 @@
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
   </ItemGroup>
 
+  <!-- The module owns its HTTP surface, as Aonik.Ai and Aonik.Workspaces do: FastEndpoints classes under
+       Endpoints/, discovered by Aonik.Api. -->
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
   </ItemGroup>
