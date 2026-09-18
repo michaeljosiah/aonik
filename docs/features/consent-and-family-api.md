@@ -115,6 +115,25 @@ signed-form route *available* to that guardian. Revoking it (`DELETE` with `{ "r
 `204`) stops it supporting new grants; grants already made stand, because lawfulness is judged at
 the time of processing. A guardian cannot attest themselves: the route is admin-only.
 
+### Operator: `POST /admin/consent/terms` · `GET /admin/consent/terms`
+
+The terms a guardian's grant names (Spec 095 §10.2), and the processors those terms disclose
+(Spec 096 §16). A grant carries a `termsVersion`; the classification route a child's content may
+take is one the version names. So a tenant publishes a version before any family can consent to
+anything, and this is where it is written:
+
+```json
+{ "version": "kidz-2026-09", "namedProviders": ["openai"], "affectedPurposes": [] }
+```
+
+`201` `{ "version": "kidz-2026-09", "namedProviders": ["openai"], "publishedAt": "…", "isCurrent": true,
+"revokedGrants": 0 }`. The version becomes the tenant's current terms; whatever was current before is
+not. `affectedPurposes` names the purposes the change is material to: every active grant under
+another version is **revoked at publication** for each of them, and processing stops for those
+families until they re-consent — that is the point, not a side effect. Publishing a version again
+updates what it names and revokes nothing that already names it. `GET` lists the versions, newest
+first, and is any signed-in user's: what a family consents to is not a secret from them.
+
 ## Family groups
 
 ### `POST /groups` · `GET /groups/mine` · `GET /groups/{groupId}`

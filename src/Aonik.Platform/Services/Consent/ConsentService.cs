@@ -315,6 +315,45 @@ internal sealed class ConsentService : IConsentService
         var now = _clock.UtcNow;
         var affected = request.AffectedPurposes.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        if (request.NamedProviders is not null)
+        {
+            // The version is the record a grant's TermsVersion points at, and the providers it names
+            // are what the classification route is checked against. It becomes current; whatever was
+            // current before is not. Recorded before the revocation, so no grant can point at nothing.
+            var named = string.Join(",", request.NamedProviders
+                .Select(p => p.Trim().ToLowerInvariant())
+                .Where(p => p.Length > 0)
+                .Distinct(StringComparer.Ordinal));
+
+            var versions = await _dbContext.ConsentTermsVersions
+                .Where(t => t.TenantId == tenantId)
+                .ToListAsync(cancellationToken);
+
+            var version = versions.FirstOrDefault(t => t.Version == request.TermsVersion);
+
+            if (version is null)
+            {
+                version = new ConsentTermsVersion
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Version = request.TermsVersion,
+                    PublishedAt = now,
+                };
+                _dbContext.ConsentTermsVersions.Add(version);
+            }
+
+            version.NamedProviders = named;
+            version.IsCurrent = true;
+
+            foreach (var other in versions.Where(t => !ReferenceEquals(t, version)))
+            {
+                other.IsCurrent = false;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         if (affected.Count == 0)
         {
             return 0;
@@ -341,6 +380,25 @@ internal sealed class ConsentService : IConsentService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return stale.Count;
+    }
+
+    public async Task<IReadOnlyList<ConsentTermsVersionInfo>> ListTermsVersionsAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var versions = await _dbContext.ConsentTermsVersions
+            .AsNoTracking()
+            .Where(t => t.TenantId == tenantId)
+            .OrderByDescending(t => t.PublishedAt)
+            .ToListAsync(cancellationToken);
+
+        return versions
+            .Select(t => new ConsentTermsVersionInfo(
+                t.Version,
+                t.NamedProviders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                t.PublishedAt,
+                t.IsCurrent))
+            .ToList();
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

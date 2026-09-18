@@ -87,6 +87,24 @@ it asks:
                 "consumed": 4, "held": 1, "remaining": 25, "resetPolicy": "period", "resetsAt": "…" } ] }
 ```
 
+### `POST /subscriptions` · `GET /subscriptions?subscriberKind=group&subscriberId=…`
+
+How a subscriber gets a plan to spend from where no storefront has sold them one (Spec 087 §6,
+§11): the caller subscribes a subscriber they may manage billing for — their own party, or a group
+they own or manage — to a plan an operator has published through `/subscriptions/admin/*`.
+
+```json
+{ "subscriber": { "kind": "group", "id": "…" }, "planCode": "kidz-family", "paymentMandateId": null }
+```
+
+`201` with the subscription: `planCode`, the pinned `planVersionId`, `status`, the current
+period. A zero-price plan needs no mandate; a priced one without a mandate is refused as
+`409 invalid-state`, as is a second active subscription for the same subscriber. An unknown plan
+is `404 plan-not-found`. Anyone the module's authorizer does not recognise as able to manage the
+subscriber's billing — another family, and an operator, who holds no user role — is
+`403 forbidden`. `GET` answers the subscription occupying the subscriber's active slot, or
+`404 no-subscription`.
+
 ## What a host does with these
 
 Before a paid operation, the host reserves against the family group with the operation's own key.
