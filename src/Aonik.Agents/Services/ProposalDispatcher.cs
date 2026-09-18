@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Modules;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Agents.Services;
@@ -12,6 +13,16 @@ namespace Aonik.Agents.Services;
 /// <c>proposal.type</c>, <c>proposal.id</c>, <c>proposal.applied</c>,
 /// <c>proposal.applied_resource_type</c>, and
 /// <c>proposal.applied_resource_id</c>.
+/// <para>
+/// Spec 097 §12.1: the approve endpoint lives in the (core) Agents module, so the HTTP gate never
+/// sees it — this is the one remaining execution seam for a disabled module's tools. Before the
+/// handler runs, its module (from the <see cref="AonikModuleAttribute"/> of the handler's assembly)
+/// is checked against the proposal's tenant; a handler from a known, non-core module that is off
+/// is never invoked and <see cref="ModuleDisabledException"/> is thrown instead (the approval
+/// service lands the proposal in <c>Failed</c> and the HTTP layer answers 403 <c>module.disabled</c>).
+/// Core and unattributed handlers, and hosts without an <see cref="IModuleEnablementReader"/>,
+/// dispatch as before.
+/// </para>
 /// </summary>
 internal sealed class ProposalDispatcher : IProposalDispatcher
 {
@@ -36,6 +47,8 @@ internal sealed class ProposalDispatcher : IProposalDispatcher
 
         try
         {
+            await EnsureHandlerModuleEnabledAsync(handler, proposal, activity, cancellationToken).ConfigureAwait(false);
+
             var result = await handler.HandleAsync(proposal, cancellationToken).ConfigureAwait(false);
 
             activity?.SetTag("proposal.applied", result.Applied);
@@ -55,6 +68,45 @@ internal sealed class ProposalDispatcher : IProposalDispatcher
             AiTelemetry.MarkError(activity, ex);
             throw;
         }
+    }
+
+    /// <summary>The catalogue id of the module whose assembly declares <paramref name="handlerType"/>, when that module can be switched off.</summary>
+    internal static string? GatedModuleId(Type handlerType)
+    {
+        var moduleId = ModuleCatalog.TryGetModuleId(handlerType);
+        return moduleId is not null && ModuleCatalog.IsKnown(moduleId) && !ModuleCatalog.CoreIds.Contains(moduleId)
+            ? moduleId
+            : null;
+    }
+
+    private async Task EnsureHandlerModuleEnabledAsync(
+        IProposalHandler handler,
+        AgentProposalDetail proposal,
+        Activity? activity,
+        CancellationToken cancellationToken)
+    {
+        var moduleId = GatedModuleId(handler.GetType());
+        if (moduleId is null)
+        {
+            return;
+        }
+
+        activity?.SetTag("proposal.module", moduleId);
+
+        var reader = _services.GetService<IModuleEnablementReader>();
+        if (reader is null)
+        {
+            return;
+        }
+
+        var enablement = await reader.GetAsync(proposal.TenantId, cancellationToken).ConfigureAwait(false);
+        if (enablement.IsEnabled(moduleId))
+        {
+            return;
+        }
+
+        activity?.SetTag("proposal.module_disabled", true);
+        throw new ModuleDisabledException(moduleId);
     }
 }
 

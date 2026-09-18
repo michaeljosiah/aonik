@@ -11,6 +11,8 @@ using Aonik.Platform.Contracts.Services.Packs;
 using Microsoft.Extensions.DependencyInjection;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Modules;
+using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Platform.Services.Identity;
 
@@ -67,6 +69,20 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         var userId = CurrentUserProvider.GetCurrentUserId();
         var now = _clock.UtcNow;
 
+        // Spec 097 §12.4 / §13 — resolve the tenant's module set BEFORE the contributor loop: the pack's
+        // module rows are written first, then each contributor is skipped when its module is off for
+        // this tenant. The pack's settings / reference data / agent overrides still apply afterwards.
+        // The pack is authoritative (it may write disabling rows) only on the tenant's FIRST provisioning:
+        // no module rows yet and no pack ever stamped. Re-running provisioning on an existing tenant is a
+        // routine, idempotent ops action and must never narrow a module set that currently resolves on.
+        var packApplier = _serviceProvider.GetRequiredService<IConfigPackApplier>();
+        var initialProvisioning = tenant.AppliedPackVersion is null
+            && !await _dbContext.TenantModules
+                .AcrossTenants()
+                .AnyAsync(row => !row.IsDeleted && row.TenantId == tenantId, cancellationToken);
+        actionsPerformed.AddRange(await packApplier.ApplyModulesAsync(tenantId, tenant.BusinessType, initialProvisioning, cancellationToken));
+        var modules = await ResolveModulesAsync(tenantId, cancellationToken);
+
         // Delegate to module contributors (Finance creates Ledger/Accounts/Pricing, AI creates policies)
         var context = new TenantProvisioningContext(tenantId, tenant.DefaultCurrency, userId, now, tenant.BusinessType);
         var ledgerCreated = false;
@@ -75,6 +91,12 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
 
         foreach (var contributor in _contributors)
         {
+            if (IsModuleDisabled(contributor.ModuleName, modules))
+            {
+                actionsPerformed.Add($"Skipped {contributor.ModuleName} provisioning: module disabled for tenant");
+                continue;
+            }
+
             var contribution = await contributor.ContributeProvisioningAsync(context, cancellationToken);
             actionsPerformed.AddRange(contribution.ActionsPerformed);
 
@@ -86,8 +108,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
 
         // Spec 065 — apply the business-type config pack (settings, agent overrides, reference data),
         // keyed by the tenant's business type. Additive-only; a "base"/unknown type is a no-op.
-        var packResult = await _serviceProvider.GetRequiredService<IConfigPackApplier>()
-            .ApplyAsync(tenantId, tenant.BusinessType, cancellationToken);
+        var packResult = await packApplier.ApplyAsync(tenantId, tenant.BusinessType, cancellationToken);
         actionsPerformed.AddRange(packResult.Actions);
 
         // Seed global permissions if they don't exist yet (required before role-permission assignment)
@@ -135,9 +156,14 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         await EnsurePermissionAsync("Tenants.Read", cancellationToken);
         var issues = new List<string>();
 
-        // Delegate module-specific health checks to contributors
+        // Delegate module-specific health checks to contributors. A contributor whose module is off for
+        // this tenant never provisioned anything, so its "missing X" findings would be false positives.
+        var modules = await ResolveModulesAsync(tenantId, cancellationToken);
         foreach (var contributor in _contributors)
         {
+            if (IsModuleDisabled(contributor.ModuleName, modules))
+                continue;
+
             await contributor.ContributeHealthCheckAsync(tenantId, issues, cancellationToken);
         }
 
@@ -161,6 +187,28 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             issues
         );
     }
+
+    /// <summary>
+    /// The tenant's resolved module set, or null when the host that built this provisioner has no
+    /// <see cref="IModuleEnablementReader"/> registered (a read-only tenant tool without the Platform
+    /// module graph). Null means "no module filtering": every contributor runs, as before Spec 097.
+    /// </summary>
+    private async Task<ModuleEnablementSet?> ResolveModulesAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var reader = _serviceProvider.GetService<IModuleEnablementReader>();
+        return reader is null ? null : await reader.GetAsync(tenantId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Spec 097 §12.4: a contributor is skipped only when its <c>ModuleName</c> is a known, non-core
+    /// catalogue module that resolved off for the tenant. Core modules can never be off, and a name the
+    /// catalogue does not know (a contributor that has not adopted <see cref="ModuleIds"/>) runs as today.
+    /// </summary>
+    internal static bool IsModuleDisabled(string moduleName, ModuleEnablementSet? modules)
+        => modules is not null
+           && ModuleCatalog.IsKnown(moduleName)
+           && !ModuleCatalog.CoreIds.Contains(moduleName)
+           && !modules.IsEnabled(moduleName);
 
     private async Task<int> ProvisionRolesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
     {

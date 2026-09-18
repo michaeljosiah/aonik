@@ -27,18 +27,36 @@ internal sealed class LowStockAlertService : ILowStockAlertService
         _clock = clock;
     }
 
-    public async Task<LowStockScanResult> ScanAndRaiseAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Guid>> FindTenantsWithLowStockAsync(CancellationToken cancellationToken = default)
+        => await BreachingLevels()
+            .Select(l => l.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+    /// <summary>Ingredient levels at/below their reorder point, across tenants.</summary>
+    private IQueryable<InventoryLevel> BreachingLevels()
+        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
+        => _dbContext.InventoryLevels.AcrossTenants()
+            .Where(l => !l.IsDeleted
+                && l.StockItemKind == StockItemKinds.Ingredient
+                && l.ReorderPoint != null
+                && l.OnHand - l.Reserved <= l.ReorderPoint);
+
+    public async Task<LowStockScanResult> ScanAndRaiseAsync(IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default)
     {
         // Global scan — the Worker runs this without a tenant ambient (same pattern as the
         // reservation sweep): read across tenants, then write per tenant so
         // AonikDbContextBase.EnforceTenantOnWrites() sees a resolved tenant, and the outbox rows
         // enqueued alongside each raise carry the originating tenant.
-        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
-        var breaching = await _dbContext.InventoryLevels.AcrossTenants()
-            .Where(l => !l.IsDeleted
-                && l.StockItemKind == StockItemKinds.Ingredient
-                && l.ReorderPoint != null
-                && l.OnHand - l.Reserved <= l.ReorderPoint)
+        var levels = BreachingLevels();
+        if (tenantIds is not null)
+        {
+            // Spec 097 §12.2 — the Worker passes the tenants whose Commerce module is enabled.
+            var scope = tenantIds.ToList();
+            levels = levels.Where(l => scope.Contains(l.TenantId));
+        }
+
+        var breaching = await levels
             .Join(
                 _dbContext.Ingredients.AcrossTenants().Where(i => !i.IsDeleted),
                 level => new { level.TenantId, Id = level.IngredientId!.Value },

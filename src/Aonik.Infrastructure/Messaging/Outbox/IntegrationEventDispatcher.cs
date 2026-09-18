@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Outbox;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -64,6 +65,14 @@ public sealed class IntegrationEventDispatcher : IIntegrationEventDispatcher
 
         var handleMethod = handlerType.GetMethod(nameof(IEventHandler<IIntegrationEvent>.HandleAsync))!;
 
+        // Spec 097 §12.3: handlers are NOT module-gated, deliberately. An outbox message is work the
+        // tenant already committed while the module was on; refusing to react to it corrupts state
+        // rather than protecting it. Skipping (and recording) a usage-drawdown handler because
+        // Subscriptions was switched off between the commit and the drain would permanently lose the
+        // revenue-recognition and provider-cost journal entries, leaving entitlement state
+        // inconsistent with the ledger for good — the ledger is the source of financial truth, so a
+        // reaction to committed work must complete. The module gate belongs at the ENTRY points
+        // (HTTP, agents, jobs, proposals), which is where new activity is refused.
         foreach (var handler in handlers)
         {
             var handlerName = handler!.GetType().FullName!;

@@ -3,6 +3,7 @@ using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ledgers;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
@@ -16,18 +17,37 @@ internal class FinanceTenantProvisioningContributor : ITenantProvisioningContrib
 {
     private readonly FinanceDbContext _dbContext;
     private readonly IReadOnlyList<ILedgerAccountContributor> _accountContributors;
+    private readonly IModuleEnablementReader? _moduleReader;
 
+    /// <param name="moduleReader">
+    /// Spec 097 §12.4: an <see cref="ILedgerAccountContributor"/> whose <c>ModuleName</c> is a known,
+    /// non-core module that is off for the tenant contributes no accounts. Optional so hosts and
+    /// fixtures without the module graph provision every contributor, as before.
+    /// </param>
     public FinanceTenantProvisioningContributor(
         FinanceDbContext dbContext,
-        IEnumerable<ILedgerAccountContributor>? accountContributors = null)
+        IEnumerable<ILedgerAccountContributor>? accountContributors = null,
+        IModuleEnablementReader? moduleReader = null)
     {
         _dbContext = dbContext;
         // Spec 088 §5 — modules declare the accounts they post to; Finance still owns the chart.
         // Optional so existing fixtures that construct this with just a DbContext keep compiling.
         _accountContributors = accountContributors?.ToList() ?? [];
+        _moduleReader = moduleReader;
     }
 
-    public string ModuleName => "Finance";
+    /// <summary>
+    /// Same rule as the provisioner's contributor loop: only a known, non-core catalogue module that
+    /// resolved off is skipped. Core modules can never be off and a name the catalogue does not know
+    /// (a contributor that has not adopted <see cref="ModuleIds"/>) runs as today.
+    /// </summary>
+    internal static bool IsModuleDisabled(string moduleName, ModuleEnablementSet? modules)
+        => modules is not null
+           && ModuleCatalog.IsKnown(moduleName)
+           && !ModuleCatalog.CoreIds.Contains(moduleName)
+           && !modules.IsEnabled(moduleName);
+
+    public string ModuleName => ModuleIds.Finance;
 
     public async Task<TenantProvisioningContribution> ContributeProvisioningAsync(
         TenantProvisioningContext context,
@@ -278,8 +298,18 @@ internal class FinanceTenantProvisioningContributor : ITenantProvisioningContrib
         var known = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
         var created = 0;
 
+        var modules = _moduleReader is null
+            ? null
+            : await _moduleReader.GetAsync(context.TenantId, cancellationToken);
+
         foreach (var contributor in _accountContributors)
         {
+            if (IsModuleDisabled(contributor.ModuleName, modules))
+            {
+                actions.Add($"Skipped ledger accounts contributed by {contributor.ModuleName}: module disabled for tenant");
+                continue;
+            }
+
             foreach (var account in contributor.GetAccounts())
             {
                 if (!known.Add(account.Code))

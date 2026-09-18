@@ -12,7 +12,7 @@ namespace Aonik.SharedKernel.Events.Integration;
 public record TenantProvisionedEvent(
     Guid TenantId,
     string TenantName,
-    string BaseCurrency) : IIntegrationEvent;
+    string BaseCurrency) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a new Party (Person or Business) is created.
@@ -23,7 +23,7 @@ public record PartyCreatedEvent(
     Guid PartyId,
     string PartyType,
     string DisplayName,
-    string? Email) : IIntegrationEvent;
+    string? Email) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when key Party details are updated (name, status, KYC level, etc.).
@@ -34,7 +34,7 @@ public record PartyUpdatedEvent(
     Guid PartyId,
     string DisplayName,
     string? Email,
-    string? KycStatus) : IIntegrationEvent;
+    string? KycStatus) : ITenantScopedEvent;
 
 /// <summary>
 /// Raised when a user's role or permission set changes.
@@ -42,4 +42,19 @@ public record PartyUpdatedEvent(
 /// </summary>
 public record UserPermissionsChangedEvent(
     Guid TenantId,
-    Guid UserId) : IIntegrationEvent;
+    Guid UserId) : ITenantScopedEvent;
+
+/// <summary>
+/// Raised after a host admin changes a tenant's module enablement (Spec 097 §9, §14). Published on
+/// every write so a Platform handler in each host removes that tenant's cached module set; it is
+/// also the hook for anything that must react to a module coming on or going off.
+/// </summary>
+/// <param name="TenantId">The tenant whose module state changed.</param>
+/// <param name="Enabled">Catalogue ids switched on by this write.</param>
+/// <param name="Disabled">Catalogue ids switched off by this write.</param>
+/// <param name="ChangedBy">The acting user, when known.</param>
+public record TenantModulesChangedEvent(
+    Guid TenantId,
+    IReadOnlyList<string> Enabled,
+    IReadOnlyList<string> Disabled,
+    Guid? ChangedBy) : ITenantScopedEvent;

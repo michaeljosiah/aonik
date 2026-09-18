@@ -28,6 +28,7 @@ namespace Aonik.Voice;
 public sealed class AonikVoiceModule : IModule
 {
     public static string Name => "Voice";
+    public static string Id => ModuleIds.Voice;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

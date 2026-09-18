@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Microsoft.Extensions.Options;
 using Quartz;
 
@@ -23,19 +24,22 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _jobOptions;
     private readonly ILogger<CustomerInsightAiSummaryJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public CustomerInsightAiSummaryJob(
         ICustomerInsightAiSummaryJobSnapshotEnumerator snapshotEnumerator,
         ICustomerInsightAiSummaryService summaryService,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> jobOptions,
-        ILogger<CustomerInsightAiSummaryJob> logger)
+        ILogger<CustomerInsightAiSummaryJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _snapshotEnumerator = snapshotEnumerator;
         _summaryService = summaryService;
         _tenantContext = tenantContext;
         _jobOptions = jobOptions.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -63,6 +67,17 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
             return new ScheduledJobExecutionResult(ScheduledJobRunOutcomes.Succeeded, "No snapshots to process.");
         }
 
+        // Spec 097 §12.2: snapshots of tenants with Personal Finance off are skipped. The
+        // checkpoint still advances past them, so a disabled tenant never stalls the batch.
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader,
+            snapshots.Select(s => s.TenantId).Distinct().ToList(),
+            ModuleIds.PersonalFinance,
+            "Customer insight AI summary",
+            _logger,
+            cancellationToken);
+        var enabledTenants = gate.Enabled.ToHashSet();
+
         var processed = 0;
         var failed = 0;
         var headlines = new List<string>();
@@ -71,6 +86,12 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         foreach (var snapshot in snapshots)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (!enabledTenants.Contains(snapshot.TenantId))
+            {
+                continue;
+            }
+
             _tenantContext.TenantId = snapshot.TenantId;
             _tenantContext.ResolutionSource = "system";
 
@@ -135,7 +156,7 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
 
         return new ScheduledJobExecutionResult(
             failed > 0 ? ScheduledJobRunOutcomes.Failed : ScheduledJobRunOutcomes.Succeeded,
-            executionSummary);
+            executionSummary + gate.Note);
     }
 
     private void LogSummaryResult(

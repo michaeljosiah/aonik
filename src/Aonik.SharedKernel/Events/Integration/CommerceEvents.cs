@@ -16,4 +16,4 @@ public record LowStockAlertRaisedEvent(
     string IngredientName,
     string BaseUnit,
     decimal Available,
-    decimal ReorderPoint) : IIntegrationEvent;
+    decimal ReorderPoint) : ITenantScopedEvent;

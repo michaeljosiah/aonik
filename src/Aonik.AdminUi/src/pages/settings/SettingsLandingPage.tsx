@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowUpRight,
   AudioLines,
+  Blocks,
   BookOpen,
   Search,
   ShieldCheck,
@@ -10,7 +11,10 @@ import {
 
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Badge } from '@/components/ui/badge';
+import { useModules } from '@/modules';
 type SettingsSection = 'Platform' | 'Finance' | 'AI & Agents';
+
+const settingsSections: SettingsSection[] = ['Platform', 'Finance', 'AI & Agents'];
 
 interface SettingsTile {
   section: SettingsSection;
@@ -19,6 +23,11 @@ interface SettingsTile {
   href: string;
   icon: ReactNode;
   badge: string;
+  /**
+   * Backend module id (Spec 097) that must be enabled for the tile to
+   * render. Absent = always shown. No manifest = fail-open.
+   */
+  moduleId?: string;
 }
 
 const settingsTiles: SettingsTile[] = [
@@ -55,12 +64,21 @@ const settingsTiles: SettingsTile[] = [
     badge: 'Ops',
   },
   {
+    section: 'Platform',
+    title: 'Modules',
+    description: 'See which platform modules are enabled for this organisation and what each one depends on.',
+    href: '/settings/modules',
+    icon: <Blocks className="h-[18px] w-[18px]" />,
+    badge: 'Configuration',
+  },
+  {
     section: 'Finance',
     title: 'Payment Gateways',
     description: 'Configure Stripe, Paystack, Wise, Flutterwave routing & credentials.',
     href: '/settings/payment-gateways',
     icon: <AonikTemplateIcon name="bank" size={18} />,
     badge: 'Integrations',
+    moduleId: 'finance',
   },
   {
     section: 'Finance',
@@ -69,6 +87,7 @@ const settingsTiles: SettingsTile[] = [
     href: '/settings/fx-rates',
     icon: <AonikTemplateIcon name="arrows" size={18} />,
     badge: 'Pricing',
+    moduleId: 'finance',
   },
   {
     section: 'Finance',
@@ -85,6 +104,7 @@ const settingsTiles: SettingsTile[] = [
     href: '/settings/speech',
     icon: <AudioLines className="h-[18px] w-[18px]" />,
     badge: 'AI',
+    moduleId: 'voice',
   },
   {
     section: 'AI & Agents',
@@ -128,9 +148,14 @@ function SettingsTileGrid({ title, tiles }: { title: string; tiles: SettingsTile
 }
 
 export function SettingsLandingPage() {
-  const platformTiles = settingsTiles.filter((tile) => tile.section === 'Platform');
-  const financeTiles = settingsTiles.filter((tile) => tile.section === 'Finance');
-  const aiTiles = settingsTiles.filter((tile) => tile.section === 'AI & Agents');
+  const { isModuleEnabled } = useModules();
+
+  // Module-gated tiles disappear when their backend module is off for the
+  // tenant; a section with nothing left to show is not rendered at all.
+  const visibleTiles = settingsTiles.filter((tile) => !tile.moduleId || isModuleEnabled(tile.moduleId));
+  const sections = settingsSections
+    .map((section) => ({ section, tiles: visibleTiles.filter((tile) => tile.section === section) }))
+    .filter((entry) => entry.tiles.length > 0);
 
   return (
     <div className="h-full overflow-auto px-8 py-6">
@@ -156,9 +181,9 @@ export function SettingsLandingPage() {
       </div>
 
       <div className="space-y-8">
-        <SettingsTileGrid title="Platform" tiles={platformTiles} />
-        <SettingsTileGrid title="Finance" tiles={financeTiles} />
-        <SettingsTileGrid title="AI & Agents" tiles={aiTiles} />
+        {sections.map((entry) => (
+          <SettingsTileGrid key={entry.section} title={entry.section} tiles={entry.tiles} />
+        ))}
       </div>
     </div>
   );

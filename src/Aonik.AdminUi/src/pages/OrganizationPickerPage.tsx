@@ -6,6 +6,7 @@ import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
 import { setSelectedTenant } from '@/lib/tenantContext';
 import { useTenantBootstrap } from '@/hooks/useTenantBootstrap';
+import { invalidateModuleManifest } from '@/modules/manifestCache';
 import type { MyTenantSummary } from '@/types';
 
 /**
@@ -40,6 +41,8 @@ export function OrganizationPickerPage() {
       subdomain: tenant.subdomain,
       environment: tenant.environment,
     });
+    // The module manifest is tenant-scoped; drop anything cached before.
+    invalidateModuleManifest();
     navigate(from, { replace: true });
   };
 

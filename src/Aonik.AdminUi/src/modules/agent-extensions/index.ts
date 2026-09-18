@@ -37,6 +37,7 @@ const panelComponents = {
 export const agentExtensionsModule: AdminModule = {
   id: 'agent-extensions',
   name: 'Agent Extensions',
+  requires: ['agents'],
   navigation,
   routes: [
     { path: '/ai/agent-extensions', element: AgentExtensionsPage },

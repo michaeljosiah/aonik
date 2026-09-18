@@ -21,6 +21,7 @@ namespace Aonik.Agents;
 public sealed class AgentsModule : IModule
 {
     public static string Name => "Agents";
+    public static string Id => ModuleIds.Agents;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,
@@ -50,6 +51,10 @@ public sealed class AgentsModule : IModule
         // Agent configuration service — manages persisted agent configs with
         // two-level override model (global defaults + tenant overrides).
         services.AddScoped<IAgentConfigurationService, AgentConfigurationService>();
+
+        // Module gate for domain agents (Spec 097 §12.1): hides descriptors whose module is
+        // disabled for the current tenant from listing, resolution and orchestration.
+        services.AddScoped<DescriptorModuleFilter>();
 
         // Agent run service — queries agent execution history.
         services.AddScoped<IAgentRunService, AgentRunService>();

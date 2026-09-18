@@ -5,6 +5,7 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.PersonalFinance.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -230,7 +231,8 @@ public class PersonalAccountLinkServiceTests
         Guid tenantId,
         Guid userId,
         TestTenantContext tenantContext,
-        IPersonalAccountLinkProviderGateway? gateway = null)
+        IPersonalAccountLinkProviderGateway? gateway = null,
+        IModuleGate? moduleGate = null)
     {
         gateway ??= new FakeAccountLinkProviderGateway();
 
@@ -260,6 +262,7 @@ public class PersonalAccountLinkServiceTests
             orchestrator,
             syncOptions,
             new NoOpGraphCacheInvalidator(),
+            moduleGate ?? TestModuleGate.AllowAll,
             NullLogger<PersonalAccountLinkService>.Instance);
     }
 
@@ -509,6 +512,49 @@ public class PersonalAccountLinkServiceTests
 
         context.PersonalLinkedAccounts.Should().OnlyContain(item => item.Status == "ActionRequired");
         context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "PENDING_DISCONNECT");
+    }
+
+    [Fact]
+    public async Task ProcessPlaidWebhookAsync_Should_RefuseAndRecordNothing_When_OwningTenantHasPersonalFinanceOff()
+    {
+        // Spec 097 §11: the webhook is anonymous, so the HTTP module gate may have had no tenant to
+        // check. The processor learns the owning tenant from the connection it locates and must re-check
+        // there — before the connection is touched and before a webhook event is recorded.
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var setup = CreateService(context, tenantId, userId, tenantContext);
+
+        var session = await setup.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await setup.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "pf-off-001"));
+
+        tenantContext.TenantId = null;
+        tenantContext.ResolutionSource = null;
+        var gate = TestModuleGate.Denying(ModuleIds.PersonalFinance);
+        var service = CreateService(context, tenantId, userId, tenantContext, moduleGate: gate);
+
+        // Act
+        var act = () => service.ProcessPlaidWebhookAsync(new PlaidAccountLinkWebhookRequest
+        {
+            WebhookType = "ITEM",
+            WebhookCode = "PENDING_DISCONNECT",
+            ItemId = exchange!.Connection.ProviderConnectionReference
+        });
+
+        // Assert
+        (await act.Should().ThrowAsync<ModuleDisabledException>()).Which.ModuleId.Should().Be(ModuleIds.PersonalFinance);
+        gate.Calls.Should().ContainSingle().Which.Should().Be((tenantId, ModuleIds.PersonalFinance),
+            "the gate must be asked about the tenant the connection resolved to");
+
+        var connection = context.FinancialConnections.AsNoTracking().Single();
+        connection.Status.Should().NotBe("ActionRequired", "the connection must not be touched");
+        connection.LastSyncStatus.Should().NotBe("PENDING_DISCONNECT");
+        connection.LastWebhookReceivedAt.Should().BeNull();
+        context.FinancialWebhookEvents.AsNoTracking().Should().BeEmpty("no webhook event is recorded for a module that is off");
+        tenantContext.TenantId.Should().BeNull("the tenant override must be unwound even on refusal");
     }
 
     [Fact]

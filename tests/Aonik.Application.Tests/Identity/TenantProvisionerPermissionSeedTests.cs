@@ -64,6 +64,10 @@ public class TenantProvisionerPermissionSeedTests
         configPackApplier
             .Setup(a => a.ApplyAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Aonik.Platform.Contracts.Services.Packs.ConfigPackResult.None);
+        // Spec 097 §13 — the module step runs before the contributor loop; a base tenant writes no rows.
+        configPackApplier
+            .Setup(a => a.ApplyModulesAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
         var serviceProvider = new Mock<IServiceProvider>();
         serviceProvider
             .Setup(sp => sp.GetService(typeof(Aonik.Platform.Contracts.Services.Packs.IConfigPackApplier)))

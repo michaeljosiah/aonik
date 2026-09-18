@@ -306,6 +306,52 @@ public class LowStockAlertServiceTests
     }
 
     [Fact]
+    public async Task Scan_Should_ScanOnlyGivenTenants_When_TenantScopeIsPassed()
+    {
+        // Spec 097 §12.2 — the Worker narrows the scan to the tenants whose Commerce module is on.
+        var dbName = $"co_lowstock_scope_{Guid.NewGuid()}";
+        var shared = new TenantContext();
+        var clock = new CommerceTestHarness.TestClock();
+        var provider = new HttpContextTenantProvider(shared);
+        CommerceDbContext Ctx() => new(
+            new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(dbName).Options,
+            provider, new TestCurrentUserProvider());
+        InventoryService Inv() => new(Ctx(), provider, shared, clock);
+        LowStockAlertService Alerts() => new(Ctx(), provider, shared, clock);
+
+        var enabledTenant = Guid.NewGuid();
+        var disabledTenant = Guid.NewGuid();
+
+        shared.TenantId = enabledTenant;
+        await using (var seedCtx = Ctx())
+        {
+            var rice = StockItemRef.Ingredient(await SeedIngredientAsync(seedCtx, enabledTenant, "Rice"));
+            await Inv().SetOnHandAsync(rice, 2m);
+            await Inv().SetReorderPointAsync(rice, 5m);
+        }
+
+        shared.TenantId = disabledTenant;
+        await using (var seedCtx = Ctx())
+        {
+            var oil = StockItemRef.Ingredient(await SeedIngredientAsync(seedCtx, disabledTenant, "Oil"));
+            await Inv().SetOnHandAsync(oil, 1m);
+            await Inv().SetReorderPointAsync(oil, 3m);
+        }
+
+        shared.TenantId = null;
+        (await Alerts().FindTenantsWithLowStockAsync()).Should().BeEquivalentTo(new[] { enabledTenant, disabledTenant });
+
+        var result = await Alerts().ScanAndRaiseAsync(new[] { enabledTenant });
+
+        result.Raised.Should().Be(1);
+        await using var verify = Ctx();
+        shared.TenantId = enabledTenant;
+        (await verify.LowStockAlerts.CountAsync(a => a.TenantId == enabledTenant)).Should().Be(1);
+        shared.TenantId = disabledTenant;
+        (await verify.LowStockAlerts.CountAsync(a => a.TenantId == disabledTenant)).Should().Be(0, "the skipped tenant gets no alert");
+    }
+
+    [Fact]
     public async Task Acknowledge_Should_TransitionOpenToAcknowledged_AndBeIdempotent()
     {
         var (alerts, inventory, _, tenantId, ctx) = Build(CommerceTestHarness.NewDb().Options, Guid.NewGuid());

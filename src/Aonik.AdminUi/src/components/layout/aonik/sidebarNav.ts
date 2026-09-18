@@ -27,9 +27,12 @@ export const SIDEBAR_NAV: NavigationSection[] = [
     label: 'Transact',
     items: [
       {
+        // moduleId values are BACKEND module ids (Spec 097). Absent manifest
+        // → render (fail-open); see modules/enablement.ts for the rule.
         id: 'orders',
         label: 'Orders',
         icon: 'receipt',
+        moduleId: 'finance',
         children: [
           { id: 'orders-activity', label: 'All orders', icon: 'list', href: '/orders/activity' },
           { id: 'orders-bill-payments-new', label: 'New order', icon: 'plus', href: '/orders/bill-payments/new' },
@@ -57,6 +60,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         id: 'bill-payments',
         label: 'Bill Payments',
         icon: 'invoice',
+        moduleId: 'finance',
         children: [
           { id: 'catalog-billers', label: 'Billers', icon: 'building', href: '/catalog/billers' },
           { id: 'catalog-categories', label: 'Categories', icon: 'tag', href: '/catalog/categories' },
@@ -66,6 +70,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         id: 'remittances',
         label: 'Remittances',
         icon: 'globe2',
+        moduleId: 'finance',
         children: [
           { id: 'catalog-countries', label: 'Corridors', icon: 'route', href: '/catalog/countries' },
           { id: 'catalog-partners', label: 'Partners', icon: 'network', href: '/catalog/partners' },
@@ -76,9 +81,10 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         id: 'billing',
         label: 'Billing',
         icon: 'book',
+        moduleId: 'finance',
         children: [
           { id: 'billing-invoices', label: 'Invoices', icon: 'invoice', href: '/billing/invoices' },
-          { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts' },
+          { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts', moduleId: 'personal-finance' },
           {
             id: 'ledger',
             label: 'Ledger',
@@ -145,10 +151,13 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         ],
       },
       {
+        // Its only destination is the document list, so it follows Documents. Tombstones stays
+        // reachable by URL as a Platform surface.
         id: 'compliance',
         label: 'Compliance',
         icon: 'clipcheck',
         href: '/compliance',
+        moduleId: 'documents',
       },
       {
         id: 'ai-agents-parent',
@@ -200,8 +209,8 @@ export const SIDEBAR_NAV: NavigationSection[] = [
           { id: 'settings-platform', label: 'Platform', icon: 'settings', href: '/settings/global' },
           { id: 'settings-communication', label: 'Communication', icon: 'bell', href: '/settings/communication' },
           { id: 'settings-notification-templates', label: 'Notification Templates', icon: 'list', href: '/settings/notification-templates' },
-          { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways' },
-          { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech' },
+          { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways', moduleId: 'finance' },
+          { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech', moduleId: 'voice' },
         ],
       },
     ],

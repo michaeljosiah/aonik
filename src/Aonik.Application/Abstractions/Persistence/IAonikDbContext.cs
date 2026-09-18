@@ -3,6 +3,7 @@ using Aonik.Platform.Entities.Cms;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;
+using Aonik.Platform.Entities.Modules;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
@@ -80,6 +81,7 @@ public interface IAonikDbContext
 
     // Features
     DbSet<TenantFeature> TenantFeatures { get; set; }
+    DbSet<TenantModule> TenantModules { get; set; }
 
     // Tasks (Spec 034 — Task/WorkItem scheduling)
     DbSet<WorkItem> WorkItems { get; set; }

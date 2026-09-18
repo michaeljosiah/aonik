@@ -26,6 +26,7 @@ namespace Aonik.Commerce;
 public sealed class CommerceModule : IModule
 {
     public static string Name => "Commerce";
+    public static string Id => ModuleIds.Commerce;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

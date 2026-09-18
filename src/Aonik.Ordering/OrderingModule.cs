@@ -19,6 +19,7 @@ namespace Aonik.Ordering;
 public sealed class OrderingModule : IModule
 {
     public static string Name => "Ordering";
+    public static string Id => ModuleIds.Ordering;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

@@ -15,6 +15,7 @@ using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
+using Aonik.Platform.Entities.Modules;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
@@ -197,6 +198,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
+    public virtual DbSet<TenantModule> TenantModules { get; set; } = null!;
 
     // Tasks (Spec 034 — Task/WorkItem scheduling)
     public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;
@@ -536,6 +538,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<ProductionOrderLine>(modelBuilder, "ProductionOrderLines");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
+        MapPlatformTable<TenantModule>(modelBuilder, "TenantModules");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
         MapPlatformTable<WorkItemRun>(modelBuilder, "WorkItemRuns");
         MapPlatformTable<Job>(modelBuilder, "Jobs");

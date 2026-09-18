@@ -28,11 +28,15 @@ import {
   DollarSign,
   Calendar,
   User,
+  Blocks,
 } from 'lucide-react';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
+import { TenantModulesPanel } from '@/components/modules/TenantModulesPanel';
+import { useIsHostAdmin } from '@/hooks/useIsHostAdmin';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
+import { useModuleEnabled } from '@/modules';
 import type { TenantHealthResult } from '@/services/tenantService';
 import type { Tenant, UpdateTenantRequest, TenantStatus, TenantEnvironment } from '@/types';
 
@@ -61,6 +65,8 @@ const currencies = [] as { code: string; name: string }[];
 
 export function TenantDetailPage() {
   const navigate = useNavigate();
+  // Only host admins may change module state (Spec 097); everyone else reads.
+  const { isHostAdmin } = useIsHostAdmin();
   const { id: tenantId } = useParams<{ id: string }>();
   
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -75,7 +81,14 @@ export function TenantDetailPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof UpdateTenantRequest, string>>>({});
   const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(currencies);
 
+  // Spec 097: the currency catalog is served by the Finance module. A
+  // Platform-owned page must not call a module the manifest says is off
+  // (the 403 `module.disabled` would only surface as an empty selector).
+  // Absent manifest fails open, matching useModules.
+  const financeEnabled = useModuleEnabled('finance');
+
   useEffect(() => {
+    if (!financeEnabled) return undefined;
     let active = true;
     const loadCurrencies = async () => {
       try {
@@ -90,7 +103,7 @@ export function TenantDetailPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [financeEnabled]);
 
   const loadTenant = useCallback(async () => {
     if (!tenantId) return;
@@ -677,6 +690,26 @@ export function TenantDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Modules (Spec 097) — host-managed per-tenant module enablement */}
+            {tenantId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Blocks className="w-5 h-5" />
+                    Modules
+                  </CardTitle>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {isHostAdmin
+                      ? 'Choose which platform modules this organisation can use. Core modules are always on.'
+                      : 'Module state is managed by the host administrator. Core modules are always on.'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <TenantModulesPanel tenantId={tenantId} readOnly={!isHostAdmin} />
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}

@@ -21,6 +21,7 @@ using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 using Aonik.SharedKernel.Primitives;
 
@@ -68,6 +69,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     private readonly IConfiguration _configuration;
     private readonly ISettingProvider _settingProvider;
     private readonly IClock _clock;
+    private readonly IModuleGate _moduleGate;
     private readonly ILogger<RemittanceOrderService> _logger;
 
     public RemittanceOrderService(
@@ -82,6 +84,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         IConfiguration configuration,
         ISettingProvider settingProvider,
         IClock clock,
+        IModuleGate moduleGate,
         ILogger<RemittanceOrderService> logger)
     {
         _db = db;
@@ -95,6 +98,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         _configuration = configuration;
         _settingProvider = settingProvider;
         _clock = clock;
+        _moduleGate = moduleGate;
         _logger = logger;
     }
 
@@ -542,6 +546,16 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         // key — the authoritative match; ProviderReference is a provider-scoped fallback. Nothing here is
         // trusted for a state change until the signature validates against that secret.
         var payout = await LocateRemittancePayoutAsync(providerCode, translated.Reference, cancellationToken);
+
+        // The owning tenant is known only now, from the payout the callback references — this request is
+        // anonymous, so the HTTP module gate had no tenant to check and let it through. Re-check here, before
+        // anything is written: a tenant with Finance off gets 403 module.disabled and no inbox row (Spec 097
+        // §11). Nothing has been trusted yet, so nothing has been mutated.
+        if (payout is not null)
+        {
+            await _moduleGate.EnsureEnabledAsync(payout.TenantId, ModuleIds.Finance, cancellationToken);
+        }
+
         var candidateConnectorId = payout?.ConnectorId ?? Guid.Empty;
         var candidateConnector = candidateConnectorId != Guid.Empty
             ? await _db.Connectors.AcrossTenants()

@@ -18,7 +18,13 @@ public sealed record ConfigPackManifest
     /// <summary>Human label for the pack (not a platform symbol).</summary>
     public string? DisplayName { get; init; }
 
-    /// <summary>Modules this business type enables — read by module contributors (Spec 065 §8), not a type-branch.</summary>
+    /// <summary>
+    /// The catalogue module ids (<c>Aonik.SharedKernel.Modules.ModuleIds</c>) this business type enables
+    /// (Spec 097 §13). Validated against the catalogue on load — an unknown id fails the pack. A pack that
+    /// declares modules is authoritative for a new tenant: the declared modules, their transitive hard
+    /// dependencies and the core modules are on, everything else is off. An empty list leaves the
+    /// catalogue defaults (every module on).
+    /// </summary>
     public List<string> Modules { get; init; } = new();
 
     /// <summary>Tenant-scoped settings / feature flags to apply (key → value). Applied additive-only.</summary>

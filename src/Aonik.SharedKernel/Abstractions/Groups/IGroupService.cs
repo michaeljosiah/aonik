@@ -101,7 +101,7 @@ public interface IGroupReader
 /// </summary>
 public interface IGroupLifecycleContributor
 {
-    /// <summary>Module name, for diagnostics.</summary>
+    /// <summary>The owning module's canonical catalogue id (a <see cref="Modules.ModuleIds"/> constant), for diagnostics.</summary>
     string ModuleName { get; }
 
     /// <summary>Null when the transition may proceed; otherwise a human-readable reason it may not.</summary>

@@ -80,7 +80,7 @@ public class GetPlanVersionEndpoint : EndpointWithoutRequest<PlanVersionResponse
     public override void Configure()
     {
         Get("/subscriptions/admin/plan-versions/{planVersionId:guid}");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "Read one plan version and its entitlements.");
     }
 
@@ -108,7 +108,7 @@ public class GetCurrentPlanVersionEndpoint : EndpointWithoutRequest<PlanVersionR
     public override void Configure()
     {
         Get("/subscriptions/admin/plans/{planId:guid}/current-version");
-        Policies("AdminReadPolicy");
+        Policies("AdminUserPolicy");
         Summary(s => s.Summary = "The published version a new subscription would pin.");
     }
 

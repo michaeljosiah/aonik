@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Modules;
 
 namespace Aonik.Subscriptions.Services.Ledger;
 
@@ -33,7 +34,7 @@ public static class SubscriptionAccounts
 /// <summary>Declares those accounts so Finance creates them at provisioning (Spec 088 §5).</summary>
 internal sealed class SubscriptionLedgerAccountContributor : ILedgerAccountContributor
 {
-    public string ModuleName => "Subscriptions";
+    public string ModuleName => ModuleIds.Subscriptions;
 
     public IReadOnlyCollection<LedgerAccountDefinition> GetAccounts() =>
     [

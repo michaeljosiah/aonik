@@ -485,4 +485,24 @@ public class BoxCartServiceTests
         await using var ctx = h.Commerce();
         (await ctx.Carts.FirstAsync(c => c.Id == box.Box.CartId)).Status.Should().Be(CartStatuses.Abandoned);
     }
+
+    [Fact]
+    public async Task IdleBoxSessions_Should_NotAbandon_When_TenantIsOutsideTheSweepScope()
+    {
+        // Spec 097 §12.2 — the Worker narrows the sweep to the tenants whose Commerce module is on.
+        var (h, _, box) = await ArrangeAsync();
+        var at = DateTime.UtcNow.AddDays(15);
+
+        (await h.Maintenance().FindTenantsWithIdleBoxCartsAsync(at)).Should().Equal(h.TenantId);
+
+        var skipped = await h.Maintenance().AbandonIdleBoxCartsAsync(at, tenantIds: Array.Empty<Guid>());
+        skipped.Should().Be(0);
+        await using (var ctx = h.Commerce())
+        {
+            (await ctx.Carts.FirstAsync(c => c.Id == box.Box.CartId)).Status.Should().Be(CartStatuses.Open);
+        }
+
+        var abandoned = await h.Maintenance().AbandonIdleBoxCartsAsync(at, tenantIds: new[] { h.TenantId });
+        abandoned.Should().Be(1);
+    }
 }

@@ -2,18 +2,19 @@
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Packs;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Commerce.Services.Provisioning;
 
 /// <summary>
-/// Seeds Commerce defaults when a tenant's business-type pack enables the Commerce module (Spec 065 §8).
-/// It gates on the manifest's declared <c>modules[]</c> — never a <c>businessType == "..."</c> branch
-/// (ADR-013 / the config-pack Codex review): a food-commerce tenant enables Commerce, but so could a
-/// future type. The one Commerce-entity-shaped default that cannot be pure manifest reference-data is a
-/// starter <see cref="ProductCategory"/> taxonomy; units and other lookups ride the pack's referenceData
-/// (applied generically by the ConfigPackApplier). This is Commerce's first provisioning contribution.
+/// Seeds Commerce defaults when the Commerce module is enabled for a tenant. The gate is the tenant's
+/// resolved module set (Spec 097 §12.4): the provisioner skips this contributor when
+/// <see cref="ModuleIds.Commerce"/> is off, so there is no <c>businessType == "..."</c> branch here
+/// (ADR-013) and no manifest lookup either — the pack's <c>modules[]</c> became TenantModule rows before
+/// the contributor loop ran. The one Commerce-entity-shaped default that cannot be pure manifest
+/// reference-data is a starter <see cref="ProductCategory"/> taxonomy; units and other lookups ride the
+/// pack's referenceData (applied generically by the ConfigPackApplier).
 /// </summary>
 internal sealed class CommerceTenantProvisioningContributor : ITenantProvisioningContributor
 {
@@ -26,28 +27,18 @@ internal sealed class CommerceTenantProvisioningContributor : ITenantProvisionin
     };
 
     private readonly CommerceDbContext _dbContext;
-    private readonly IConfigPackSource _packSource;
 
-    public CommerceTenantProvisioningContributor(CommerceDbContext dbContext, IConfigPackSource packSource)
+    public CommerceTenantProvisioningContributor(CommerceDbContext dbContext)
     {
         _dbContext = dbContext;
-        _packSource = packSource;
     }
 
-    public string ModuleName => "Commerce";
+    public string ModuleName => ModuleIds.Commerce;
 
     public async Task<TenantProvisioningContribution> ContributeProvisioningAsync(
         TenantProvisioningContext context, CancellationToken cancellationToken = default)
     {
         var actions = new List<string>();
-
-        // Gate on manifest module-enablement, not the business-type value (Spec 065 §8).
-        var manifest = _packSource.Get(context.BusinessType);
-        var commerceEnabled = manifest?.Modules.Contains("Commerce", StringComparer.OrdinalIgnoreCase) ?? false;
-        if (!commerceEnabled)
-        {
-            return new TenantProvisioningContribution(actions);
-        }
 
         // Each seed is idempotent INDEPENDENTLY — a tenant provisioned before a newer seed
         // existed (or a retry after one seed committed) must still receive the others.

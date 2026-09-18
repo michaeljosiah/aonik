@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { mySpaceService } from '@/services/mySpaceService';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import { useAuth } from '@/auth';
+import { useModuleEnabled } from '@/modules';
 import type {
   AgentProposalDto,
   CashTimelineDto,
@@ -111,6 +112,9 @@ const KPI_SPARK_COLOR: Record<string, string> = {
 export function MySpacePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Spec 097: the summary endpoint lives in the Finance module. Home must never
+  // call a disabled module, or the 403 would send the user round in circles.
+  const financeEnabled = useModuleEnabled('finance');
   const [data, setData] = useState<MySpaceSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,8 +138,9 @@ export function MySpacePage() {
   }, []);
 
   useEffect(() => {
+    if (!financeEnabled) return;
     loadData(selectedCurrency);
-  }, [loadData, selectedCurrency]);
+  }, [loadData, selectedCurrency, financeEnabled]);
 
   const metricByKey = useMemo(() => {
     const map = new Map<string, FinancialMetricDto>();
@@ -192,6 +197,30 @@ export function MySpacePage() {
 
   const [reviewProposalId, setReviewProposalId] = useState<string | null>(null);
   const handleReviewProposal = useCallback((id: string) => setReviewProposalId(id), []);
+
+  if (!financeEnabled) {
+    return (
+      <div className="flex flex-col gap-6 p-7 md:px-8">
+        <div>
+          <span className="eyebrow">{eyebrow}</span>
+          <h1
+            className="mt-1.5 text-[26px] font-bold tracking-tight text-[var(--color-text-primary)]"
+            style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}
+          >
+            {greeting}
+          </h1>
+        </div>
+        <Card
+          title="Financial overview"
+          subtitle="Cash position, revenue, invoices and agent proposals appear here once the Finance module is enabled for this organisation."
+        >
+          <Button variant="outline" onClick={() => navigate('/settings/modules')}>
+            View enabled modules
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return <PageLoadingScreen message="Loading dashboard" />;
@@ -759,34 +788,33 @@ function ProposalReviewDialog({
   onDismiss: (id: string) => Promise<void>;
 }) {
   const open = proposalId !== null;
-  const [detail, setDetail] = useState<ProposalDetailResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The fetched proposal, keyed by id: a stale record never shows for a newly
+  // opened proposal, and closing the dialog needs no reset. Derived rather than
+  // set in the effect body, so the effect only starts the request.
+  const [loaded, setLoaded] = useState<{ id: string; detail: ProposalDetailResponse | null; error: string | null } | null>(null);
+  const current = loaded && loaded.id === proposalId ? loaded : null;
+  const detail = current?.detail ?? null;
+  const error = current?.error ?? null;
+  const loading = open && current === null;
 
   useEffect(() => {
-    if (!proposalId) {
-      setDetail(null);
-      setError(null);
-      return;
-    }
+    if (!proposalId) return undefined;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     agentProposalsService
       .get(proposalId)
       .then((d) => {
         if (cancelled) return;
-        setDetail(d);
+        setLoaded({ id: proposalId, detail: d, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(
-          (err as { userMessage?: string })?.userMessage ??
+        setLoaded({
+          id: proposalId,
+          detail: null,
+          error:
+            (err as { userMessage?: string })?.userMessage ??
             (err instanceof Error ? err.message : 'Could not load proposal.'),
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        });
       });
     return () => {
       cancelled = true;

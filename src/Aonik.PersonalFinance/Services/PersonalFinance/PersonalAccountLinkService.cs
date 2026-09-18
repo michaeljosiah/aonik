@@ -8,6 +8,7 @@ using Aonik.PersonalFinance.Entities;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +24,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private readonly FinancialConnectionTransactionSyncOrchestrator _transactionSyncOrchestrator;
     private readonly FinancialConnectionSyncOptions _syncOptions;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly IModuleGate _moduleGate;
     private readonly ILogger<PersonalAccountLinkService> _logger;
 
     public PersonalAccountLinkService(
@@ -34,6 +36,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         FinancialConnectionTransactionSyncOrchestrator transactionSyncOrchestrator,
         Microsoft.Extensions.Options.IOptions<FinancialConnectionSyncOptions> syncOptions,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        IModuleGate moduleGate,
         ILogger<PersonalAccountLinkService> logger)
     {
         _financeDbContext = financeDbContext;
@@ -44,6 +47,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         _transactionSyncOrchestrator = transactionSyncOrchestrator;
         _syncOptions = syncOptions.Value;
         _cacheInvalidator = cacheInvalidator;
+        _moduleGate = moduleGate;
         _logger = logger;
     }
 
@@ -417,6 +421,12 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 return;
             }
 
+            // The owning tenant is known only now, from the connection the callback references — the
+            // webhook is anonymous, so the HTTP module gate may have had no tenant to check. Re-check
+            // before touching the connection or recording the event (Spec 097 §11): a tenant with
+            // Personal Finance off gets 403 module.disabled and nothing is written.
+            await _moduleGate.EnsureEnabledAsync(connection.TenantId, ModuleIds.PersonalFinance, cancellationToken);
+
             webhookEvent.TenantId = connection.TenantId;
             webhookEvent.UserId = connection.UserId;
             webhookEvent.FinancialConnectionId = connection.Id;
@@ -447,6 +457,12 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
             await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+        }
+        catch (ModuleDisabledException)
+        {
+            // A policy refusal, not a processing failure: the module is off for the owning tenant, so no
+            // webhook event is recorded for it either. The tracked row dies with the request scope.
+            throw;
         }
         catch (Exception ex)
         {

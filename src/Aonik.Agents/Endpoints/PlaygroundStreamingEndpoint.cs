@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Framework;
 using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -42,6 +43,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
     private readonly IAgentConfigurationService _agentConfig;
     private readonly IAiModelResolver _modelResolver;
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly DescriptorModuleFilter _moduleFilter;
     private readonly IAguiMessageConverter _messageConverter;
     private readonly IToolCallClassifier _toolClassifier;
     private readonly ISpeechRenderer _speechRenderer;
@@ -55,6 +57,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         IAgentConfigurationService agentConfig,
         IAiModelResolver modelResolver,
         IEnumerable<IDomainAgentDescriptor> descriptors,
+        DescriptorModuleFilter moduleFilter,
         IAguiMessageConverter messageConverter,
         IToolCallClassifier toolClassifier,
         ISpeechRenderer speechRenderer,
@@ -67,6 +70,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         _agentConfig = agentConfig;
         _modelResolver = modelResolver;
         _descriptors = descriptors;
+        _moduleFilter = moduleFilter;
         _messageConverter = messageConverter;
         _toolClassifier = toolClassifier;
         _speechRenderer = speechRenderer;
@@ -124,6 +128,17 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                 originalUserId,
                 request.ImpersonateUserId,
                 runId);
+        }
+
+        // ── Module gate (Spec 097 §12.1) ───────────────────────────────
+        // Refuse an agent from a module disabled for this tenant BEFORE the
+        // stream starts: once the first SSE event is written the response has
+        // begun and ModuleDisabledException can no longer become the real
+        // 403 module.disabled answer. An unknown name is still reported as an
+        // AGENT_BUILD_FAILED event below, exactly as before.
+        if (!string.IsNullOrWhiteSpace(request.AgentName))
+        {
+            await _moduleFilter.FindAsync(_descriptors, request.AgentName, cancellationToken);
         }
 
         // ── Set SSE headers ─────────────────────────────────────────────
@@ -510,14 +525,16 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         PlaygroundRunRequest request,
         CancellationToken cancellationToken)
     {
-        var descriptor = _descriptors.FirstOrDefault(
-            d => string.Equals(d.Name, request.AgentName, StringComparison.OrdinalIgnoreCase));
+        // Module gate (Spec 097 §12.1): an agent from a module disabled for this tenant is
+        // refused (ModuleDisabledException, mapped to 403 module.disabled), never built.
+        var descriptor = await _moduleFilter.FindAsync(_descriptors, request.AgentName!, cancellationToken);
 
         if (descriptor is null)
         {
+            var available = await _moduleFilter.FilterAsync(_descriptors, cancellationToken);
             throw new InvalidOperationException(
                 $"No domain agent descriptor registered with name '{request.AgentName}'. " +
-                $"Available: {string.Join(", ", _descriptors.Select(d => d.Name))}");
+                $"Available: {string.Join(", ", available.Select(d => d.Name))}");
         }
 
         // Use the playground system prompt if provided, otherwise fall back to

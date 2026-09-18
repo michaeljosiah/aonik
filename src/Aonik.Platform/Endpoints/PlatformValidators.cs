@@ -1164,3 +1164,33 @@ public sealed class UpdateNotificationTemplateBindingRequestValidator : Validato
         RuleFor(x => x.OverrideTemplateId).ValidIdWhenSupplied();
     }
 }
+
+// ── Tenant Modules (Spec 097 §9) ───────────────────────────────────────────
+
+public sealed class TenantModuleUpdateRequestValidator : Validator<Aonik.Platform.Contracts.Api.Modules.TenantModuleUpdateRequest>
+{
+    public TenantModuleUpdateRequestValidator()
+    {
+        RuleFor(x => x.Modules)
+            .NotNull().WithMessage("Modules is required.")
+            .NotEmpty().WithMessage("Modules must contain at least one toggle.")
+            .Must(modules => modules is null
+                || modules.Select(module => module.ModuleId).Distinct(StringComparer.Ordinal).Count() == modules.Count)
+            .WithMessage("Modules must not contain the same module id more than once.");
+        RuleForEach(x => x.Modules).SetValidator(new TenantModuleToggleRequestValidator());
+    }
+}
+
+public sealed class TenantModuleToggleRequestValidator : Validator<Aonik.Platform.Contracts.Api.Modules.TenantModuleToggleRequest>
+{
+    public TenantModuleToggleRequestValidator()
+    {
+        RuleFor(x => x.ModuleId)
+            .NotEmpty().WithMessage("ModuleId is required.")
+            .Must(Aonik.SharedKernel.Modules.ModuleCatalog.IsKnown)
+            .WithMessage(x => $"'{x.ModuleId}' is not a module in the catalogue.")
+            .Must(moduleId => !Aonik.SharedKernel.Modules.ModuleCatalog.CoreIds.Contains(moduleId))
+            .WithMessage(x => $"Module '{x.ModuleId}' is core and cannot be toggled.");
+        RuleFor(x => x.Reason).MaximumLength(2048);
+    }
+}

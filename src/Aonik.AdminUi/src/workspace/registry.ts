@@ -1,5 +1,7 @@
 import type { WorkspacePanelConfig, WorkspaceTemplate } from './types';
-import { getAggregatedPanels, getDefaultWorkspacePanels, getAggregatedWorkspaceTemplates, getWorkspaceTemplate as getWorkspaceTemplateFromRegistry } from '@/modules/registry';
+import { getAggregatedPanels, getDefaultWorkspacePanels, getAggregatedWorkspaceTemplates, getModules, getWorkspaceTemplate as getWorkspaceTemplateFromRegistry } from '@/modules/registry';
+import { getCachedManifest, subscribeManifest } from '@/modules/manifestCache';
+import { resolveEnabledUiModules } from '@/modules/enablement';
 
 /**
  * Workspace panel registry — now aggregated from module definitions.
@@ -14,16 +16,34 @@ import { getAggregatedPanels, getDefaultWorkspacePanels, getAggregatedWorkspaceT
 let _panelRegistryCache: WorkspacePanelConfig[] | null = null;
 let _defaultPanelsCache: string[] | null = null;
 
+/**
+ * The workspace is a second front door into module surfaces: its panels and templates come from the
+ * same module definitions the router uses, but they are read synchronously and cached, so without
+ * this a tenant with Finance off still found the Billing Ops template and its saved Finance panels
+ * waiting in the workspace. The enabled set is read from the manifest cache (absent = fail-open,
+ * matching everywhere else) and every cache is evicted on invalidation so a toggle takes effect
+ * without a reload.
+ */
+function enabledUiModuleIds(): string[] | undefined {
+  return resolveEnabledUiModules(getModules(), getCachedManifest()?.enabledModules);
+}
+
+subscribeManifest(() => {
+  _panelRegistryCache = null;
+  _defaultPanelsCache = null;
+  _templatesCache = null;
+});
+
 function getPanelRegistry(): WorkspacePanelConfig[] {
   if (!_panelRegistryCache) {
-    _panelRegistryCache = getAggregatedPanels();
+    _panelRegistryCache = getAggregatedPanels(enabledUiModuleIds());
   }
   return _panelRegistryCache;
 }
 
 function getDefaultPanels(): string[] {
   if (!_defaultPanelsCache) {
-    _defaultPanelsCache = getDefaultWorkspacePanels();
+    _defaultPanelsCache = getDefaultWorkspacePanels(enabledUiModuleIds());
   }
   return _defaultPanelsCache;
 }
@@ -78,7 +98,7 @@ let _templatesCache: WorkspaceTemplate[] | null = null;
 
 function getTemplateRegistry(): WorkspaceTemplate[] {
   if (!_templatesCache) {
-    _templatesCache = getAggregatedWorkspaceTemplates();
+    _templatesCache = getAggregatedWorkspaceTemplates(enabledUiModuleIds());
   }
   return _templatesCache;
 }

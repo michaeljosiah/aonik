@@ -23,4 +23,4 @@ namespace Aonik.SharedKernel.Events.Integration;
 /// </remarks>
 public record UsageCommittedEvent(
     Guid TenantId,
-    Guid UsageRecordId) : IIntegrationEvent;
+    Guid UsageRecordId) : ITenantScopedEvent;

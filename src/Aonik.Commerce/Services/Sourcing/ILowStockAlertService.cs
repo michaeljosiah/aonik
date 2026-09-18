@@ -15,9 +15,17 @@ public interface ILowStockAlertService
     /// Cross-tenant scan (Quartz-driven, system context): for every ingredient level with a reorder
     /// point whose available (OnHand - Reserved) is at/below it, raises a new Open alert — enqueueing
     /// the <c>LowStockAlertRaisedEvent</c> for the Spec 016 inbox on NEW alerts only — or silently
-    /// refreshes the existing active alert's snapshot. Idempotent per Spec 052 §9.
+    /// refreshes the existing active alert's snapshot. Idempotent per Spec 052 §9. When
+    /// <paramref name="tenantIds"/> is given only those tenants are scanned.
     /// </summary>
-    Task<LowStockScanResult> ScanAndRaiseAsync(CancellationToken cancellationToken = default);
+    Task<LowStockScanResult> ScanAndRaiseAsync(IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tenants with at least one ingredient level at/below its reorder point. The Worker scan narrows
+    /// this list to the tenants whose Commerce module is enabled (Spec 097 §12.2) and passes it to
+    /// <see cref="ScanAndRaiseAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> FindTenantsWithLowStockAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Lists the tenant's alerts, newest first, optionally filtered to one status.</summary>
     Task<IReadOnlyList<LowStockAlertDto>> ListAsync(string? status = null, CancellationToken cancellationToken = default);

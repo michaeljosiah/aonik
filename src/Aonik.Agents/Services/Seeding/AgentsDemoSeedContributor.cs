@@ -4,6 +4,7 @@ using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         _logger = logger;
     }
 
-    public string ModuleName => "Agents";
+    public string ModuleName => ModuleIds.Agents;
 
     public async Task<IReadOnlyList<string>> SeedAsync(
         DemoSeedPhase phase,

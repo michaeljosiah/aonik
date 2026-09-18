@@ -191,6 +191,48 @@ public class InventoryServiceTests
         (await Svc().GetAvailableAsync(v2)).Should().Be(10m);
     }
 
+    [Fact]
+    public async Task ReleaseExpired_Should_SweepOnlyGivenTenants_When_TenantScopeIsPassed()
+    {
+        // Spec 097 §12.2 — the Worker narrows the sweep to the tenants whose Commerce module is on.
+        var dbName = $"co_sweep_scope_{Guid.NewGuid()}";
+        var shared = new TenantContext();
+        var clock = new CommerceTestHarness.TestClock();
+        var provider = new HttpContextTenantProvider(shared);
+        CommerceDbContext Ctx() => new(
+            new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(dbName).Options,
+            provider, new TestCurrentUserProvider());
+        InventoryService Svc() => new(Ctx(), provider, shared, clock);
+
+        var enabledTenant = Guid.NewGuid();
+        var disabledTenant = Guid.NewGuid();
+        var v1 = Guid.NewGuid();
+        var v2 = Guid.NewGuid();
+
+        shared.TenantId = enabledTenant;
+        await Svc().SetOnHandAsync(v1, 10m);
+        await Svc().ReserveAsync(Guid.NewGuid(), new[] { new InventoryReservationLine(v1, 4m) });
+
+        shared.TenantId = disabledTenant;
+        await Svc().SetOnHandAsync(v2, 10m);
+        await Svc().ReserveAsync(Guid.NewGuid(), new[] { new InventoryReservationLine(v2, 5m) });
+
+        shared.TenantId = null;
+        var at = clock.UtcNow.AddMinutes(31);
+        var candidates = await Svc().FindTenantsWithExpiredReservationsAsync(at);
+        candidates.Should().BeEquivalentTo(new[] { enabledTenant, disabledTenant });
+
+        var released = await Svc().ReleaseExpiredAsync(at, tenantIds: new[] { enabledTenant });
+
+        released.Should().Be(1);
+        shared.TenantId = enabledTenant;
+        (await Svc().GetAvailableAsync(v1)).Should().Be(10m);
+        shared.TenantId = disabledTenant;
+        (await Svc().GetAvailableAsync(v2)).Should().Be(5m, "the skipped tenant's hold is left exactly as it was");
+        shared.TenantId = null;
+        (await Svc().FindTenantsWithExpiredReservationsAsync(at)).Should().BeEquivalentTo(new[] { disabledTenant });
+    }
+
     // ── Spec 052 §8 — the same engine keyed by stock item (ingredients) ─────────────────────────
 
     private static async Task<Guid> SeedIngredientAsync(CommerceDbContext ctx, Guid tenantId, string name = "Rice")

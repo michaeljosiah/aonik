@@ -2,6 +2,7 @@ using Aonik.Documents.Persistence;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Events.Integration;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -36,27 +37,33 @@ internal sealed class DocumentIngestionBackfillJob : IJob
     private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _jobOptions;
     private readonly ILogger<DocumentIngestionBackfillJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public DocumentIngestionBackfillJob(
         DocumentsDbContext dbContext,
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> jobOptions,
-        ILogger<DocumentIngestionBackfillJob> logger)
+        ILogger<DocumentIngestionBackfillJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _jobOptions = jobOptions.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var published = await RunAsync(context.CancellationToken);
-        context.Result = $"Re-published {published} document(s) for ingestion backfill.";
+        var (published, gate) = await RunCoreAsync(context.CancellationToken);
+        context.Result = $"Re-published {published} document(s) for ingestion backfill." + gate.Note;
     }
 
     /// <summary>Testable core: returns the number of documents re-published for ingestion.</summary>
     internal async Task<int> RunAsync(CancellationToken cancellationToken)
+        => (await RunCoreAsync(cancellationToken)).Published;
+
+    private async Task<(int Published, ModuleGatedTenants.Result Gate)> RunCoreAsync(CancellationToken cancellationToken)
     {
         var batchSize = Math.Max(_jobOptions.DocumentIngestionBackfill.BatchSize, 1);
 
@@ -65,6 +72,44 @@ internal sealed class DocumentIngestionBackfillJob : IJob
         // soft-delete, hence the explicit !IsDeleted guards below so erased evidence is never
         // re-indexed. Per-file: the parent document is still Pending and the file has no successful
         // ingestion yet. (Ingestion is keyed per DocumentFile, so eligibility is per file.)
+        //
+        // Spec 097 §12.2: the module gate runs BEFORE the batch is taken. Files of tenants with
+        // Documents off are left alone — no outbox row, no ingestion, no state change — so if they
+        // were selected first they would keep the oldest CreatedAt values, fill the head of every
+        // batch and starve enabled tenants once the disabled backlog reached the batch size. They
+        // are picked up by a later run if the module comes back on.
+        var pendingTenants = await (
+            from file in _dbContext.DocumentFiles.AcrossTenants().AsNoTracking()
+            join document in _dbContext.Documents.AcrossTenants().AsNoTracking()
+                on file.DocumentId equals document.Id
+            where !document.IsDeleted
+                && !file.IsDeleted
+                && document.IndexStatus == DocumentIndexStatus.Pending
+                && !_dbContext.DocumentIngestions.AcrossTenants()
+                    .Any(i => i.DocumentFileId == file.Id && i.Status == SucceededIngestionStatus)
+            select file.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (pendingTenants.Count == 0)
+        {
+            return (0, ModuleGatedTenants.Result.None);
+        }
+
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader,
+            pendingTenants,
+            ModuleIds.Documents,
+            "Document ingestion backfill",
+            _logger,
+            cancellationToken);
+        var enabledTenants = gate.Enabled.ToList();
+
+        if (enabledTenants.Count == 0)
+        {
+            return (0, gate);
+        }
+
         var candidates = await (
             from file in _dbContext.DocumentFiles.AcrossTenants().AsNoTracking()
             join document in _dbContext.Documents.AcrossTenants().AsNoTracking()
@@ -72,6 +117,7 @@ internal sealed class DocumentIngestionBackfillJob : IJob
             where !document.IsDeleted
                 && !file.IsDeleted
                 && document.IndexStatus == DocumentIndexStatus.Pending
+                && enabledTenants.Contains(file.TenantId)
                 && !_dbContext.DocumentIngestions.AcrossTenants()
                     .Any(i => i.DocumentFileId == file.Id && i.Status == SucceededIngestionStatus)
             orderby file.CreatedAt
@@ -89,7 +135,7 @@ internal sealed class DocumentIngestionBackfillJob : IJob
 
         if (candidates.Count == 0)
         {
-            return 0;
+            return (0, gate);
         }
 
         var published = 0;
@@ -121,6 +167,6 @@ internal sealed class DocumentIngestionBackfillJob : IJob
             "Document ingestion backfill re-published {Published} of {Candidates} candidate document file(s).",
             published, candidates.Count);
 
-        return published;
+        return (published, gate);
     }
 }

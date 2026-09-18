@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -36,9 +37,15 @@ public class InProcessEventBus : IEventBus
 
         _logger.LogDebug("Found {HandlerCount} handler(s) for {EventType}", handlerList.Count, eventType);
 
+        // Spec 097 §12.3: handlers are NOT module-gated, deliberately — see the note in
+        // IntegrationEventDispatcher. An integration event announces work the publisher already
+        // committed, so a handler that reacts to it keeps its module's data consistent with what
+        // happened; refusing to run it corrupts that state instead of protecting it, and for a
+        // money-touching handler the loss is permanent. New activity is refused at the entry points.
         foreach (var handler in handlerList)
         {
             var handlerType = handler.GetType().Name;
+
             try
             {
                 _logger.LogDebug("Invoking handler {HandlerType} for {EventType}", handlerType, eventType);

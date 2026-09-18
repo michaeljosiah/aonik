@@ -2,6 +2,7 @@ using Aonik.PersonalFinance.Services;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
     private readonly ScheduledJobOptions _jobOptions;
     private readonly FinancialConnectionSyncOptions _syncOptions;
     private readonly ILogger<FinancialConnectionRecurringSyncJob> _logger;
+    private readonly IModuleEnablementReader? _moduleReader;
 
     public FinancialConnectionRecurringSyncJob(
         PersonalFinanceDbContext personalFinanceDbContext,
@@ -33,7 +35,8 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> jobOptions,
         IOptions<FinancialConnectionSyncOptions> syncOptions,
-        ILogger<FinancialConnectionRecurringSyncJob> logger)
+        ILogger<FinancialConnectionRecurringSyncJob> logger,
+        IModuleEnablementReader? moduleReader = null)
     {
         _personalFinanceDbContext = personalFinanceDbContext;
         _orchestrator = orchestrator;
@@ -41,6 +44,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         _jobOptions = jobOptions.Value;
         _syncOptions = syncOptions.Value;
         _logger = logger;
+        _moduleReader = moduleReader;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -66,13 +70,52 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         var batchSize = Math.Max(_jobOptions.FinancialConnectionSync.BatchSize, 1);
         var utcNow = DateTime.UtcNow;
 
-        var dueConnections = await _personalFinanceDbContext.FinancialConnections
+        // Spec 097 §12.2: the module gate runs BEFORE the batch is taken. Connections of tenants
+        // with Personal Finance off are never synced and their NextScheduledSyncAt never advances,
+        // so if they were selected first they would keep the oldest due times, sort to the head of
+        // every batch and starve enabled tenants once the disabled backlog reached the batch size.
+        // Narrowing to enabled tenants first means a disabled tenant never occupies a batch slot,
+        // and nothing is written for a module that is off.
+        var dueTenants = await _personalFinanceDbContext.FinancialConnections
             .AcrossTenants()
             .AsNoTracking()
             .Where(c => c.AutoSyncEnabled
                 && c.DisconnectedAt == null
                 && c.NextScheduledSyncAt != null
                 && c.NextScheduledSyncAt <= utcNow)
+            .Select(c => c.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (dueTenants.Count == 0)
+        {
+            context.Result = "No connections due for sync.";
+            return;
+        }
+
+        var gate = await ModuleGatedTenants.FilterAsync(
+            _moduleReader,
+            dueTenants,
+            ModuleIds.PersonalFinance,
+            "Financial connection recurring sync",
+            _logger,
+            cancellationToken);
+        var enabledTenants = gate.Enabled.ToList();
+
+        if (enabledTenants.Count == 0)
+        {
+            context.Result = "No connections due for sync in tenants with Personal Finance enabled." + gate.Note;
+            return;
+        }
+
+        var dueConnections = await _personalFinanceDbContext.FinancialConnections
+            .AcrossTenants()
+            .AsNoTracking()
+            .Where(c => c.AutoSyncEnabled
+                && c.DisconnectedAt == null
+                && c.NextScheduledSyncAt != null
+                && c.NextScheduledSyncAt <= utcNow
+                && enabledTenants.Contains(c.TenantId))
             .OrderBy(c => c.NextScheduledSyncAt)
             .Take(batchSize)
             .Select(c => new
@@ -82,12 +125,6 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
                 c.UserId
             })
             .ToListAsync(cancellationToken);
-
-        if (dueConnections.Count == 0)
-        {
-            context.Result = "No connections due for sync.";
-            return;
-        }
 
         _logger.LogInformation(
             "Processing {Count} due linked-account sync jobs.",
@@ -122,6 +159,6 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
             }
         }
 
-        context.Result = $"Synced {synced}, failed {failed} of {dueConnections.Count} connections.";
+        context.Result = $"Synced {synced}, failed {failed} of {dueConnections.Count} connections." + gate.Note;
     }
 }

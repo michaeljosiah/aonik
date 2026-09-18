@@ -134,6 +134,7 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 export const agentCommandCenterModule: AdminModule = {
   id: 'agent-command-center',
   name: 'Agent Command Center',
+  requires: ['agents'],
   navigation,
   routes: [
     { path: '/approvals', element: ApprovalsPage },

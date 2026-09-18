@@ -205,16 +205,34 @@ internal sealed class InventoryService : IInventoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<int> ReleaseExpiredAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Guid>> FindTenantsWithExpiredReservationsAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default)
+    {
+        var at = asOfUtc ?? _clock.UtcNow;
+        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
+        return await _dbContext.InventoryReservations.AsNoTracking().AcrossTenants()
+            .Where(r => !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
+            .Select(r => r.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> ReleaseExpiredAsync(DateTime? asOfUtc = null, IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default)
     {
         var at = asOfUtc ?? _clock.UtcNow;
         // Global sweep — the Worker runs this without a tenant ambient. Read across tenants, then
         // write per tenant: AonikDbContextBase.EnforceTenantOnWrites() requires a resolved tenant for
         // any modified ITenantScoped row, so we set the tenant context for each group before saving.
         // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
-        var expired = await _dbContext.InventoryReservations.AcrossTenants()
-            .Where(r => !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
-            .ToListAsync(cancellationToken);
+        var query = _dbContext.InventoryReservations.AcrossTenants()
+            .Where(r => !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at);
+        if (tenantIds is not null)
+        {
+            // Spec 097 §12.2 — the Worker passes the tenants whose Commerce module is enabled.
+            var scope = tenantIds.ToList();
+            query = query.Where(r => scope.Contains(r.TenantId));
+        }
+
+        var expired = await query.ToListAsync(cancellationToken);
         if (expired.Count == 0)
         {
             return 0;

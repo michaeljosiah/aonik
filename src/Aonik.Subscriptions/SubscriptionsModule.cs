@@ -28,6 +28,7 @@ namespace Aonik.Subscriptions;
 public sealed class SubscriptionsModule : IModule
 {
     public static string Name => "Subscriptions";
+    public static string Id => ModuleIds.Subscriptions;
 
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,

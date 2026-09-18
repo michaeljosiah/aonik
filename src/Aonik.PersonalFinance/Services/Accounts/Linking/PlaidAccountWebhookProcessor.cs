@@ -2,6 +2,7 @@ using Aonik.PersonalFinance.Contracts.Models.Accounts;
 using Aonik.PersonalFinance.Entities.Accounts;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,17 +18,20 @@ internal sealed class PlaidAccountWebhookProcessor
 {
     private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IModuleGate _moduleGate;
     private readonly AccountConnectionSyncOptions _syncOptions;
     private readonly ILogger _logger;
 
     public PlaidAccountWebhookProcessor(
         PersonalFinanceDbContext financeDbContext,
         ITenantContext tenantContext,
+        IModuleGate moduleGate,
         IOptions<AccountConnectionSyncOptions> syncOptions,
         ILogger logger)
     {
         _financeDbContext = financeDbContext;
         _tenantContext = tenantContext;
+        _moduleGate = moduleGate;
         _syncOptions = syncOptions.Value;
         _logger = logger;
     }
@@ -59,6 +63,12 @@ internal sealed class PlaidAccountWebhookProcessor
                 _logger.LogWarning("No external account connection found for Plaid item {ItemId}.", request.ItemId.Trim());
                 return;
             }
+
+            // The owning tenant is known only now, from the connection the callback references — the
+            // webhook is anonymous, so the HTTP module gate may have had no tenant to check. Re-check
+            // before touching the connection (Spec 097 §11): a tenant with Personal Finance off gets
+            // 403 module.disabled and nothing is written.
+            await _moduleGate.EnsureEnabledAsync(connection.TenantId, ModuleIds.PersonalFinance, cancellationToken);
 
             _tenantContext.TenantId = connection.TenantId;
             _tenantContext.ResolutionSource = "PlaidAccountWebhook";
