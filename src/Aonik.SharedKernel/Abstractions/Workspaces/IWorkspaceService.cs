@@ -5,10 +5,17 @@ namespace Aonik.SharedKernel.Abstractions.Workspaces;
 /// </summary>
 public interface IWorkspaceService
 {
+    /// <param name="billingSubscriber">
+    /// Who the workspace's slot, possession and byte quota are held against (Spec 089 §9). Defaults to the owning
+    /// party. A consumer product passes the family's <c>Group</c> subscriber (Spec 087, "a family on a consumer
+    /// product") so that a member's workspace is paid for by the family plan; the meter refuses a subscriber the
+    /// current caller may not act for, so this cannot bill a stranger.
+    /// </param>
     Task<WorkspaceSummary> CreateAsync(
         string kind,
         string name,
         Guid ownerPartyId,
+        Subscriptions.SubscriberRef? billingSubscriber = null,
         CancellationToken cancellationToken = default);
 
     Task<WorkspaceSummary?> GetAsync(Guid workspaceId, CancellationToken cancellationToken = default);

@@ -224,7 +224,7 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
 
             return await WriteRevisionAsync(
                 tenantId, request, manifest, requestHash, callerPartyId,
-                revisionId, sequence, isFastForward, cancellationToken);
+                revisionId, sequence, isFastForward, workspace.HeadRevisionId, cancellationToken);
         }
 
         throw new InvalidOperationException(
@@ -241,24 +241,9 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     /// every commit refuse.
     /// </para>
     /// </summary>
-    private async Task<SubscriberRef> BillingSubscriberAsync(
+    private Task<SubscriberRef> BillingSubscriberAsync(
         Guid tenantId, Guid workspaceId, CancellationToken cancellationToken)
-    {
-        var billing = await _dbContext.Workspaces
-            .AsNoTracking()
-            .Where(w => w.TenantId == tenantId && w.Id == workspaceId)
-            .Select(w => new { w.BillingSubscriberKind, w.BillingSubscriberId, w.OwnerPartyId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (billing is null)
-        {
-            return new SubscriberRef(SubscriberKinds.Party, Guid.Empty);
-        }
-
-        return billing.BillingSubscriberId == Guid.Empty
-            ? new SubscriberRef(SubscriberKinds.Party, billing.OwnerPartyId)
-            : new SubscriberRef(billing.BillingSubscriberKind, billing.BillingSubscriberId);
-    }
+        => WorkspaceBilling.SubscriberForAsync(_dbContext, tenantId, workspaceId, cancellationToken);
 
     /// <summary>
     /// Charge the billing subscriber for content this workspace now names, refusing before any byte is accepted.
@@ -307,6 +292,7 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
         Guid revisionId,
         long sequence,
         bool isFastForward,
+        Guid? observedHeadRevisionId,
         CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
@@ -389,7 +375,9 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
             isFastForward ? CommitOutcome.FastForward : CommitOutcome.Diverged,
             revisionId,
             sequence,
-            isFastForward ? revisionId : null,
+            // A divergent commit reports the head it did not descend from, so the client can fetch the
+            // other manifest and put the decision in front of a person (§7).
+            isFastForward ? revisionId : observedHeadRevisionId,
             []);
     }
 

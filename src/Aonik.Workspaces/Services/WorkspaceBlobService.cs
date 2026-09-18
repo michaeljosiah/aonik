@@ -25,8 +25,16 @@ public interface IWorkspaceBlobService
     /// object.
     /// </para>
     /// </summary>
+    /// <param name="declared">
+    /// What the caller said the bytes are. When present, the staged object is compared against it <em>before</em>
+    /// promotion and discarded on any difference (Spec 089 §12): a declaration that does not match its bytes is a
+    /// quota lie in one direction or a corrupted transfer in the other, and neither should become a blob.
+    /// </param>
     Task<BlobStoreResult> StoreAsync(
-        SubscriberRef subscriber, Stream content, CancellationToken cancellationToken = default);
+        SubscriberRef subscriber,
+        Stream content,
+        BlobDeclaration? declared = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Which of these hashes the <strong>caller</strong> does not possess and cannot reach (Spec 091 &sect;6).
@@ -66,6 +74,10 @@ public interface IWorkspaceBlobService
 /// <param name="AlreadyPresent">True when the tenant already held these exact bytes.</param>
 public sealed record BlobStoreResult(string ContentHash, long SizeBytes, bool AlreadyPresent);
 
+/// <param name="ContentHash">Lowercase hex SHA-256 the caller claims the bytes hash to.</param>
+/// <param name="SizeBytes">The length the caller claims, and the most the store will read.</param>
+public sealed record BlobDeclaration(string ContentHash, long SizeBytes);
+
 internal sealed class WorkspaceBlobService : IWorkspaceBlobService
 {
     private readonly IWorkspaceDataContext _dbContext;
@@ -93,11 +105,34 @@ internal sealed class WorkspaceBlobService : IWorkspaceBlobService
         => $"workspaces/{tenantId:N}/blobs/{contentHash[..2]}/{contentHash}";
 
     public async Task<BlobStoreResult> StoreAsync(
-        SubscriberRef subscriber, Stream content, CancellationToken cancellationToken = default)
+        SubscriberRef subscriber,
+        Stream content,
+        BlobDeclaration? declared = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var staged = await _fileStore.StageAsync(tenantId, content, cancellationToken);
+        // A declared length bounds the read: the object is never assembled past what was claimed, so a
+        // caller declaring 1MB cannot land 4GB before anything notices.
+        var source = declared is null ? content : new BoundedReadStream(content, declared.SizeBytes);
+        var staged = await _fileStore.StageAsync(tenantId, source, cancellationToken);
+
+        if (declared is not null)
+        {
+            var hashMatches = string.Equals(staged.ContentHash, declared.ContentHash, StringComparison.OrdinalIgnoreCase);
+
+            if (!hashMatches || staged.SizeBytes != declared.SizeBytes)
+            {
+                // Discarded, not promoted: the bytes are not what the caller said they were, and a blob whose
+                // declaration disagrees with its content is either a quota lie or a corrupted transfer.
+                await _fileStore.DeleteAsync(staged.TempKey, cancellationToken);
+
+                throw hashMatches
+                    ? new DeclaredLengthExceededException(declared.SizeBytes, staged.SizeBytes)
+                    : new UploadHashMismatchException(declared.ContentHash, staged.ContentHash);
+            }
+        }
+
         var contentKey = ContentKeyFor(tenantId, staged.ContentHash);
 
         var promoted = await _fileStore.PromoteAsync(staged, contentKey, cancellationToken);
