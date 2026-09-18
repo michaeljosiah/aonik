@@ -22,9 +22,13 @@ caller holds guardian authority over, or the caller themselves; anyone else's ch
 ## The one supported route
 
 Classification goes through `ISafetyClassificationProvider`, and this slice ships one: OpenAI's
-moderation endpoint (`omni-moderation-latest`), registered when `ContentSafety:OpenAI:ApiKey` is
-configured and **not otherwise** — a gate with no classifier refuses, it does not pass through. The
-route a subject's classification takes must be one their consent terms name
+moderation endpoint (`omni-moderation-latest`). It is always registered, and its key is the
+tenant's own `Ai.OpenAI.ApiKey` from the Settings module — the same key the tenant's chat and image
+generation use, encrypted at rest, set or rotated from the Admin UI and read at the moment of each
+call, never at startup and never from a deployment variable. The tenant's value is read first, then
+the platform's global value and the configuration seed behind it. A tenant with no key resolves to a
+check the gate records as unavailable: a gate with no working classifier refuses, it does not pass
+through. The route a subject's classification takes must be one their consent terms name
 (`ConsentTermsVersions.NamedProviders`); a route the terms do not name is refused as
 `check-unavailable`, never substituted. Its taxonomy lands on Spec 096's categories — sexual;
 sexual/minors → csam; violence and violence/graphic → graphic-violence; self-harm/* → self-harm;
@@ -35,6 +39,9 @@ guardian's review (L5), which holds output for them by default under 10.
 
 The catalogue decides the model: an `AiRoutePolicy` for use case `safety-classify-text` whose
 primary model belongs to the `openai` provider. Without one, the gate answers `check-unavailable`.
+So the whole route is runtime configuration — the key in Settings, the model in the catalogue, the
+provider in the subject's consent terms — and turning it on in an environment is an operator's
+action in the Admin UI, not a redeploy.
 
 ## Calls
 
