@@ -104,6 +104,9 @@ public class WorkspaceQuotaSqlServerTests : IClassFixture<SqlLocalDbFixture>
         public Task ReleaseAsync(Guid reservationId, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task<UsageReservationState?> GetReservationAsync(Guid reservationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<UsageReservationState?>(null);
+
         public Task<bool> HasFlagAsync(
             SubscriberRef subscriber, string meterCode, CancellationToken cancellationToken = default)
             => Task.FromResult(false);

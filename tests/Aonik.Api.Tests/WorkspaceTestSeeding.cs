@@ -79,40 +79,49 @@ internal static class WorkspaceTestSeeding
     /// A plan granting a handful of workspaces and a modest byte ceiling, published once per tenant, and a
     /// subscription for the subscriber. The user must be able to manage billing for that subscriber.
     /// </summary>
-    public static async Task SubscribeAsync(
+    public static Task SubscribeAsync(
         CustomWebApplicationFactory factory,
         Guid tenantId,
         Guid userId,
         SubscriberRef subscriber,
         int workspaceAllowance = 5,
         long byteAllowance = 50_000_000)
+        => SubscribeAsync(factory, tenantId, userId, subscriber, $"ws-test-{workspaceAllowance}-{byteAllowance}",
+        [
+            (WorkspaceMeters.Count, "Workspaces", MeterKinds.Ceiling, "workspaces", workspaceAllowance, ResetPolicies.Never),
+            (WorkspaceMeters.Bytes, "Workspace bytes", MeterKinds.Ceiling, "bytes", byteAllowance, ResetPolicies.Never),
+        ]);
+
+    /// <summary>A plan granting the named ceilings, published once per tenant, and a subscription for the subscriber.</summary>
+    public static async Task SubscribeAsync(
+        CustomWebApplicationFactory factory,
+        Guid tenantId,
+        Guid userId,
+        SubscriberRef subscriber,
+        string planCode,
+        IReadOnlyList<(string Code, string Name, string Kind, string Unit, decimal Allowance, string Reset)> entitlements)
     {
         await using var scope = Impersonate(factory, tenantId, userId);
         var catalogue = scope.ServiceProvider.GetRequiredService<ICatalogueService>();
         var subscriptions = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
 
-        var planCode = $"ws-test-{workspaceAllowance}-{byteAllowance}";
         var plans = await catalogue.ListPlansAsync();
 
         if (plans.All(plan => plan.Code != planCode))
         {
             var meters = await catalogue.ListMetersAsync();
-            if (meters.All(meter => meter.Code != WorkspaceMeters.Count))
+            foreach (var (code, name, kind, unit, _, _) in entitlements)
             {
-                await catalogue.CreateMeterAsync(new CreateMeterRequest(WorkspaceMeters.Count, "Workspaces", MeterKinds.Ceiling, "workspaces"));
-            }
-            if (meters.All(meter => meter.Code != WorkspaceMeters.Bytes))
-            {
-                await catalogue.CreateMeterAsync(new CreateMeterRequest(WorkspaceMeters.Bytes, "Workspace bytes", MeterKinds.Ceiling, "bytes"));
+                if (meters.All(meter => meter.Code != code))
+                {
+                    await catalogue.CreateMeterAsync(new CreateMeterRequest(code, name, kind, unit));
+                }
             }
 
-            var plan = await catalogue.CreatePlanAsync(new CreatePlanRequest(planCode, "Workspace test plan", BillingIntervals.None));
+            var plan = await catalogue.CreatePlanAsync(new CreatePlanRequest(planCode, $"Test plan {planCode}", BillingIntervals.None));
             var draft = await catalogue.CreateDraftVersionAsync(plan.Id, new CreatePlanVersionRequest(0m, "USD"));
             await catalogue.SetEntitlementsAsync(draft.Id, new SetEntitlementsRequest(
-            [
-                new PlanEntitlementSpec(WorkspaceMeters.Count, workspaceAllowance, ResetPolicies.Never),
-                new PlanEntitlementSpec(WorkspaceMeters.Bytes, byteAllowance, ResetPolicies.Never),
-            ]));
+                [.. entitlements.Select(e => new PlanEntitlementSpec(e.Code, e.Allowance, e.Reset))]));
             await catalogue.PublishVersionAsync(draft.Id);
         }
 

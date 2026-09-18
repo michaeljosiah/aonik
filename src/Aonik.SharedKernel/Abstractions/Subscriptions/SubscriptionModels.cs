@@ -79,6 +79,16 @@ public sealed record UsageReservationRef(
 
 /// <summary>What caused a unit of usage — for an AI dispatch, the <c>AiRun</c> id.</summary>
 /// <param name="ProviderCost">What the work actually cost us, when known. The other half of the margin figure.</param>
+/// <summary>A reservation's standing: <c>held</c>, <c>committed</c>, <c>released</c> or <c>expired</c> (<see cref="UsageReservationStatuses"/>).</summary>
+public sealed record UsageReservationState(
+    Guid ReservationId,
+    SubscriberRef Subscriber,
+    string MeterCode,
+    decimal Quantity,
+    string Status,
+    DateTime ExpiresAt,
+    string IdempotencyKey);
+
 public sealed record UsageSource(
     string SourceType,
     Guid SourceId,

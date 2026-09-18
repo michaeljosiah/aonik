@@ -31,6 +31,9 @@ internal static class ThrowingPreReviewHarness
             return Task.CompletedTask;
         }
 
+        public Task<UsageReservationState?> GetReservationAsync(Guid reservationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<UsageReservationState?>(null);
+
         public Task<UsageReservationRef> ReserveAsync(
             SubscriberRef subscriber, string meterCode, decimal quantity, string idempotencyKey,
             TimeSpan? holdFor = null, CancellationToken cancellationToken = default)

@@ -54,6 +54,14 @@ public interface IUsageMeter
     Task ReleaseAsync(Guid reservationId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The reservation as it stands, or null when there is none in this tenant. What a caller who
+    /// lost the response to a commit or a release needs before acting again: a commit of a
+    /// reservation already committed is a replay, not a second charge, and only a read says which.
+    /// Answers only for a subscriber the caller may act for; anyone else's reservation is null.
+    /// </summary>
+    Task<UsageReservationState?> GetReservationAsync(Guid reservationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Claim one slot of a ceiling meter for <paramref name="holderRef"/> — the stable identity of
     /// the object occupying it (e.g. a child profile id). Compare-and-increment, so concurrent
     /// callers at the limit cannot both succeed.
