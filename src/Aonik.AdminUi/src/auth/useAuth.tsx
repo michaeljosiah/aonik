@@ -295,7 +295,8 @@ function useAuth0Auth(): AuthContextType {
     // getAccessTokenSilently handles its own state checks internally and will
     // throw if the user is not authenticated.
     try {
-      const token = await getAccessTokenSilently({ authorizationParams: auth0Config.authorizationParams });
+      // auth0-react 2.25+ types the silent token as possibly undefined; treat that as "no token".
+      const token = (await getAccessTokenSilently({ authorizationParams: auth0Config.authorizationParams })) ?? null;
       setAccessToken(token);
       return token;
     } catch (error) {
