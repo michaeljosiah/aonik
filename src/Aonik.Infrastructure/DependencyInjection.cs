@@ -372,7 +372,9 @@ public static class DependencyInjection
 
         // AI provider settings — resolves from Settings module with IConfiguration fallback.
         // Registered here (not in AiModule) because the implementation needs ISettingProvider
-        // from Aonik.Platform, which Aonik.Ai does not reference.
+        // from Aonik.Platform, which Aonik.Ai does not reference. Tenant first: the tenant is the
+        // product, and its operator configures the provider and key it runs on.
+        services.AddScoped<Aonik.Infrastructure.Settings.TenantFirstSettingReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IAiProviderSettings,
             Aonik.Infrastructure.Settings.AiProviderSettings>();
 

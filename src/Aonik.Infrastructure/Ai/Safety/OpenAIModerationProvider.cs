@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Aonik.Ai.Services.Safety;
-using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Infrastructure.Settings;
 using Aonik.SharedKernel.Abstractions.Safety;
 using Aonik.SharedKernel.Abstractions.Settings;
 
@@ -20,10 +20,10 @@ namespace Aonik.Infrastructure.Ai.Safety;
 ///
 /// <para>
 /// The key is the tenant's own OpenAI key, read from the Settings module at the moment of the call —
-/// <c>Ai.OpenAI.ApiKey</c> at the tenant's scope first, then the platform's global value and the
-/// configuration seed behind it, exactly as an operator sets and rotates it from the Admin UI. Nothing
-/// is read at startup and nothing is decided there: the route is always registered, and a tenant with
-/// no key resolves to a check the gate records as unavailable.
+/// <c>Ai.OpenAI.ApiKey</c>, tenant first, by the same rule the rest of the platform's AI resolves it
+/// (<see cref="TenantFirstSettingReader"/>), exactly as an operator sets and rotates it from the Admin
+/// UI. Nothing is read at startup and nothing is decided there: the route is always registered, and a
+/// tenant with no key resolves to a check the gate records as unavailable.
 /// </para>
 ///
 /// <para>
@@ -55,22 +55,13 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
     };
 
     private readonly HttpClient _http;
-    private readonly ITenantSettingStore _tenantSettings;
-    private readonly ISettingProvider _settings;
-    private readonly ITenantProvider _tenantProvider;
+    private readonly TenantFirstSettingReader _settings;
     private readonly ILogger<OpenAIModerationProvider> _logger;
 
-    public OpenAIModerationProvider(
-        HttpClient http,
-        ITenantSettingStore tenantSettings,
-        ISettingProvider settings,
-        ITenantProvider tenantProvider,
-        ILogger<OpenAIModerationProvider> logger)
+    public OpenAIModerationProvider(HttpClient http, TenantFirstSettingReader settings, ILogger<OpenAIModerationProvider> logger)
     {
         _http = http;
-        _tenantSettings = tenantSettings;
         _settings = settings;
-        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -85,7 +76,7 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
     public async Task<IReadOnlyDictionary<string, double>> ScoreAsync(
         string modality, string reference, string safetyBand, string modelName, CancellationToken cancellationToken = default)
     {
-        var apiKey = await ResolveApiKeyAsync(cancellationToken);
+        var apiKey = await _settings.ReadAsync(AiSettingNames.OpenAiApiKey, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -133,27 +124,6 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
         _logger.LogDebug("OpenAI moderation ({Model}) scored {Modality}: {Scores}", modelName, modality, string.Join(", ", scores.Select(s => $"{s.Key}={s.Value:0.00}")));
 
         return scores;
-    }
-
-    /// <summary>
-    /// The tenant's <c>Ai.OpenAI.ApiKey</c> when the call has a tenant and the tenant has set one;
-    /// otherwise the platform's resolution of the same key (global setting, then the configuration
-    /// seed, then the definition's default). The tenant read is the module-facing one, which relies on
-    /// the calling endpoint's policy rather than a Settings.Read grant the acting parent does not hold.
-    /// </summary>
-    private async Task<string?> ResolveApiKeyAsync(CancellationToken cancellationToken)
-    {
-        if (_tenantProvider.TryGetCurrentTenantId(out var tenantId) && tenantId != Guid.Empty)
-        {
-            var tenantKey = await _tenantSettings.GetTenantValueAsync(AiSettingNames.OpenAiApiKey, tenantId, cancellationToken);
-
-            if (!string.IsNullOrWhiteSpace(tenantKey))
-            {
-                return tenantKey;
-            }
-        }
-
-        return await _settings.GetAsync(AiSettingNames.OpenAiApiKey, cancellationToken);
     }
 
     private sealed record ModerationResponse(

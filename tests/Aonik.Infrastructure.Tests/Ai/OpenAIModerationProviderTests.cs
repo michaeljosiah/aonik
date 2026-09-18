@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using Aonik.Infrastructure.Ai.Safety;
+using Aonik.Infrastructure.Settings;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Safety;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -132,7 +133,7 @@ public class OpenAIModerationProviderTests
         var tenants = new Mock<ITenantProvider>();
         var id = tenantId ?? Guid.Empty;
         tenants.Setup(t => t.TryGetCurrentTenantId(out id)).Returns(tenantId.HasValue);
-        return new OpenAIModerationProvider(new HttpClient(handler), tenantSettings, settings.Object, tenants.Object, NullLogger<OpenAIModerationProvider>.Instance);
+        return new OpenAIModerationProvider(new HttpClient(handler), new TenantFirstSettingReader(tenantSettings, settings.Object, tenants.Object), NullLogger<OpenAIModerationProvider>.Instance);
     }
 
     private sealed class ScriptedHandler(HttpStatusCode status, string body) : HttpMessageHandler
