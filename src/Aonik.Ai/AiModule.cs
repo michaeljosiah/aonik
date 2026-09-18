@@ -355,10 +355,11 @@ public sealed class AiModule : IModule
         // refuses a provider the subject's terms do not name — so a routing edit cannot redirect a
         // child's content to a company the family has never heard of.
         //
-        // NOTE: no ISafetyClassificationProvider is registered by default, because no
-        // classification vendor is configured in this solution. That is not an oversight: the gate
-        // fails closed, so child-facing generation is refused until one is wired. Shipping a
-        // permissive stub would be strictly worse than shipping nothing.
+        // NOTE: this module registers no ISafetyClassificationProvider of its own. The one supported
+        // route (OpenAI moderation, aonik#323) is composed by Infrastructure and takes its key from the
+        // Settings module at call time; a tenant with no key is a check the gate records as
+        // unavailable. The gate fails closed either way: a permissive stub would be strictly worse
+        // than nothing.
         foreach (var modality in new[] { SharedKernel.Abstractions.Safety.SafetyModalities.Text, SharedKernel.Abstractions.Safety.SafetyModalities.Image })
         {
             var captured = modality;

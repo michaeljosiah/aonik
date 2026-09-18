@@ -3,10 +3,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Aonik.Ai.Services.Safety;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Safety;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Aonik.Infrastructure.Ai.Safety;
 
@@ -18,6 +19,14 @@ namespace Aonik.Infrastructure.Ai.Safety;
 /// review of L5) are what stand for it. That gap is recorded rather than papered over.
 ///
 /// <para>
+/// The key is the tenant's own OpenAI key, read from the Settings module at the moment of the call —
+/// <c>Ai.OpenAI.ApiKey</c> at the tenant's scope first, then the platform's global value and the
+/// configuration seed behind it, exactly as an operator sets and rotates it from the Admin UI. Nothing
+/// is read at startup and nothing is decided there: the route is always registered, and a tenant with
+/// no key resolves to a check the gate records as unavailable.
+/// </para>
+///
+/// <para>
 /// Fails closed by construction: any error here propagates to the gate, which records the check as
 /// unavailable and refuses delivery. Nothing is substituted, nothing is guessed.
 /// </para>
@@ -25,6 +34,9 @@ namespace Aonik.Infrastructure.Ai.Safety;
 internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
 {
     public const string ProviderName = "openai";
+
+    /// <summary>OpenAI's moderation endpoint. There is no second host to point this at.</summary>
+    private static readonly Uri ModerationsEndpoint = new("https://api.openai.com/v1/moderations");
 
     private static readonly IReadOnlyDictionary<string, string> CategoryMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -43,13 +55,22 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
     };
 
     private readonly HttpClient _http;
-    private readonly IOptions<OpenAIModerationOptions> _options;
+    private readonly ITenantSettingStore _tenantSettings;
+    private readonly ISettingProvider _settings;
+    private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<OpenAIModerationProvider> _logger;
 
-    public OpenAIModerationProvider(HttpClient http, IOptions<OpenAIModerationOptions> options, ILogger<OpenAIModerationProvider> logger)
+    public OpenAIModerationProvider(
+        HttpClient http,
+        ITenantSettingStore tenantSettings,
+        ISettingProvider settings,
+        ITenantProvider tenantProvider,
+        ILogger<OpenAIModerationProvider> logger)
     {
         _http = http;
-        _options = options;
+        _tenantSettings = tenantSettings;
+        _settings = settings;
+        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -64,22 +85,23 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
     public async Task<IReadOnlyDictionary<string, double>> ScoreAsync(
         string modality, string reference, string safetyBand, string modelName, CancellationToken cancellationToken = default)
     {
-        var options = _options.Value;
+        var apiKey = await ResolveApiKeyAsync(cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException("The OpenAI moderation route has no API key configured (ContentSafety:OpenAI:ApiKey).");
+            throw new InvalidOperationException(
+                $"The OpenAI moderation route has no API key: set '{AiSettingNames.OpenAiApiKey}' in Settings for this tenant.");
         }
 
         object input = string.Equals(modality, SafetyModalities.Image, StringComparison.OrdinalIgnoreCase)
             ? new[] { new { type = "image_url", image_url = new { url = reference } } }
             : reference;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(new Uri(options.BaseUrl.TrimEnd('/') + "/"), "v1/moderations"))
+        using var request = new HttpRequestMessage(HttpMethod.Post, ModerationsEndpoint)
         {
             Content = JsonContent.Create(new { model = modelName, input }),
         };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
         using var response = await _http.SendAsync(request, cancellationToken);
 
@@ -113,6 +135,27 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
         return scores;
     }
 
+    /// <summary>
+    /// The tenant's <c>Ai.OpenAI.ApiKey</c> when the call has a tenant and the tenant has set one;
+    /// otherwise the platform's resolution of the same key (global setting, then the configuration
+    /// seed, then the definition's default). The tenant read is the module-facing one, which relies on
+    /// the calling endpoint's policy rather than a Settings.Read grant the acting parent does not hold.
+    /// </summary>
+    private async Task<string?> ResolveApiKeyAsync(CancellationToken cancellationToken)
+    {
+        if (_tenantProvider.TryGetCurrentTenantId(out var tenantId) && tenantId != Guid.Empty)
+        {
+            var tenantKey = await _tenantSettings.GetTenantValueAsync(AiSettingNames.OpenAiApiKey, tenantId, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(tenantKey))
+            {
+                return tenantKey;
+            }
+        }
+
+        return await _settings.GetAsync(AiSettingNames.OpenAiApiKey, cancellationToken);
+    }
+
     private sealed record ModerationResponse(
         [property: JsonPropertyName("results")] IReadOnlyList<ModerationResult> Results);
 
@@ -121,12 +164,3 @@ internal sealed class OpenAIModerationProvider : ISafetyClassificationProvider
         [property: JsonPropertyName("category_scores")] Dictionary<string, double> CategoryScores);
 }
 
-/// <summary>Configuration section <c>ContentSafety:OpenAI</c>. No key, no route: the gate refuses.</summary>
-public sealed class OpenAIModerationOptions
-{
-    public const string SectionName = "ContentSafety:OpenAI";
-
-    public string BaseUrl { get; set; } = "https://api.openai.com";
-
-    public string? ApiKey { get; set; }
-}

@@ -205,15 +205,13 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:ModelCatalog:TimeoutSeconds") ?? 30);
         });
         // Spec 096 / aonik#323 — the one supported classification route, and the preserved-input store
-        // the gate refuses to run without. No key configured means no route registered, and a gate
-        // with no classifier refuses delivery rather than passing it through.
-        services.Configure<Ai.Safety.OpenAIModerationOptions>(configuration.GetSection(Ai.Safety.OpenAIModerationOptions.SectionName));
+        // the gate refuses to run without. The route is always registered; its key is the tenant's
+        // Ai.OpenAI.ApiKey from the Settings module, read at the moment of each call, so an operator
+        // sets or rotates it from the Admin UI and no deployment carries it. A tenant with no key is a
+        // check the gate records as unavailable — nothing passes through.
         services.AddScoped<Aonik.Ai.Services.Safety.IPreservedInputStore, Aonik.Ai.Services.Safety.FilePreservedInputStore>();
-        if (!string.IsNullOrWhiteSpace(configuration["ContentSafety:OpenAI:ApiKey"]))
-        {
-            services.AddHttpClient<Ai.Safety.OpenAIModerationProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
-            services.AddScoped<Aonik.Ai.Services.Safety.ISafetyClassificationProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAIModerationProvider>());
-        }
+        services.AddHttpClient<Ai.Safety.OpenAIModerationProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddScoped<Aonik.Ai.Services.Safety.ISafetyClassificationProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAIModerationProvider>());
 
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
