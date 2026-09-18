@@ -37,7 +37,17 @@
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
   </ItemGroup>
 
+  <!--
+    The module owns its HTTP surface the way Aonik.Ai does: FastEndpoints classes under Endpoints/,
+    discovered by Aonik.Api. Spec 089 §8.1 is explicit that the commit endpoint is a PLATFORM endpoint
+    guarded by the module's own access resolution, so it lives here rather than in a product host.
+  -->
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
   </ItemGroup>

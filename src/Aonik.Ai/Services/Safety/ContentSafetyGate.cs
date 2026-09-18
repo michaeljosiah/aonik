@@ -114,7 +114,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             // product decision nobody has taken, and paging an operator every time something asks for
             // it would train them to ignore the alert that matters.
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.ModalityDisabled,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.ModalityDisabled,
                 categories: [], classifierRunIds: [], now, cancellationToken);
         }
 
@@ -135,7 +135,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 + "Refusing delivery: sampling cannot establish that a generation is safe.", modality);
 
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.CheckUnavailable,
                 categories: [], classifierRunIds: [], now, cancellationToken);
         }
 
@@ -147,7 +147,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 "No content classifier registered for modality {Modality}; refusing delivery.", modality);
 
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.CheckUnavailable,
                 categories: [], classifierRunIds: [], now, cancellationToken);
         }
 
@@ -173,7 +173,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 : [];
 
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.CheckUnavailable,
                 categories: [], completedRunIds, now, cancellationToken);
         }
 
@@ -186,7 +186,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         if (fired.Count > 0)
         {
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.Blocked,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.Blocked,
                 fired, result.AllRunIds, now, cancellationToken,
                 // An OUTPUT reference is already a durable storage key, so it goes straight on.
                 contentReference: issuePermit ? reference : null,
@@ -224,7 +224,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             await ReleaseReservationAsync(request, SafetyDecisionOutcome.CheckUnavailable, cancellationToken);
 
             return await RefuseAsync(
-                request, band, modality, layer, policy, SafetyDecisionOutcome.CheckUnavailable,
+                request, band, modality, layer, reference, policy, SafetyDecisionOutcome.CheckUnavailable,
                 categories: [], result.AllRunIds, now, cancellationToken,
                 releaseReservation: false);
         }
@@ -237,7 +237,8 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
                 tenantId, request.SubjectPartyId, band, modality, layer,
                 held ? SafetyDecisionOutcome.HeldForReview : SafetyDecisionOutcome.Allowed,
                 Categories: [], policy.Version,
-                request.GenerationRunId, result.AllRunIds, now),
+                request.GenerationRunId, result.AllRunIds, now,
+                ContentHashes.Of(reference)),
             cancellationToken);
 
         if (held)
@@ -422,6 +423,7 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
         string band,
         string modality,
         string layer,
+        string reference,
         SafetyPolicySnapshot policy,
         SafetyDecisionOutcome outcome,
         IReadOnlyList<string> categories,
@@ -438,7 +440,8 @@ internal sealed class ContentSafetyGate : IContentSafetyGate
             new SafetyDecisionRecord(
                 tenantId, request.SubjectPartyId, band, modality, layer,
                 outcome, categories, policy.Version,
-                request.GenerationRunId, classifierRunIds, now),
+                request.GenerationRunId, classifierRunIds, now,
+                ContentHashes.Of(reference)),
             cancellationToken);
 
         if (outcome == SafetyDecisionOutcome.Blocked && categories.Count > 0)
@@ -546,4 +549,42 @@ internal static class SafetyBandDefaults
     /// establish is treated as the youngest, not as an adult.
     /// </summary>
     public const string Strictest = "under-6";
+}
+
+/// <summary>
+/// The hash a decision is bound to: SHA-256 of the exact content judged, lowercase hex. Text is
+/// hashed as UTF-8; an image carried inline as a <c>data:</c> URL is hashed as its decoded bytes, so
+/// the hash is the file's own and a product can compare it with the bytes it holds.
+/// </summary>
+internal static class ContentHashes
+{
+    public static string Of(string reference)
+    {
+        var bytes = TryDecodeDataUrl(reference) ?? System.Text.Encoding.UTF8.GetBytes(reference);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    public static byte[]? TryDecodeDataUrl(string reference)
+    {
+        if (!reference.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var comma = reference.IndexOf(',', StringComparison.Ordinal);
+
+        if (comma < 0 || !reference[..comma].EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Convert.FromBase64String(reference[(comma + 1)..]);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 }

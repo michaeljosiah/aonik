@@ -222,6 +222,37 @@ internal sealed class UsageMeter : IUsageMeter
         return new UsageCommitResult(record.Id, actualQuantity, committed);
     }
 
+    public async Task<UsageReservationState?> GetReservationAsync(Guid reservationId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var reservation = await _dbContext.UsageReservations.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reservationId && r.TenantId == tenantId, cancellationToken);
+
+        if (reservation is null)
+            return null;
+
+        // One answer for "none" and "not yours": a reservation id is not a way to learn about another subscriber.
+        try
+        {
+            await _authorization.EnsureCanActForAsync(
+                new SubscriberRef(reservation.SubscriberKind, reservation.SubscriberId), cancellationToken);
+        }
+        catch (PermissionDeniedException)
+        {
+            return null;
+        }
+
+        return new UsageReservationState(
+            reservation.Id,
+            new SubscriberRef(reservation.SubscriberKind, reservation.SubscriberId),
+            reservation.MeterCode,
+            reservation.Quantity,
+            reservation.Status,
+            reservation.ExpiresAt,
+            reservation.IdempotencyKey);
+    }
+
     public async Task ReleaseAsync(Guid reservationId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();

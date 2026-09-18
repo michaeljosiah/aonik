@@ -181,6 +181,10 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Refund>(modelBuilder, "Refunds");
         MapTable<Chargeback>(modelBuilder, "Chargebacks");
         MapTable<PaymentMethod>(modelBuilder, "PaymentMethods");
+        // Missing until aonik#326's SQL-lane tests: the canonical context created AnkPaymentMandates,
+        // this context queried dbo.PaymentMandates, and the payment-instrument guardian verifier
+        // therefore failed on every real database while passing on InMemory.
+        MapTable<PaymentMandate>(modelBuilder, "PaymentMandates");
         MapTable<ExternalPayoutAccount>(modelBuilder, "ExternalPayoutAccounts");
         MapTable<PayoutReversal>(modelBuilder, "PayoutReversals");
         MapTable<BillValidation>(modelBuilder, "BillValidations");

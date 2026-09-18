@@ -204,6 +204,17 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(configuration["AI:ModelCatalog:BaseAddress"] ?? "https://models.dev", UriKind.Absolute);
             client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:ModelCatalog:TimeoutSeconds") ?? 30);
         });
+        // Spec 096 / aonik#323 — the one supported classification route, and the preserved-input store
+        // the gate refuses to run without. No key configured means no route registered, and a gate
+        // with no classifier refuses delivery rather than passing it through.
+        services.Configure<Ai.Safety.OpenAIModerationOptions>(configuration.GetSection(Ai.Safety.OpenAIModerationOptions.SectionName));
+        services.AddScoped<Aonik.Ai.Services.Safety.IPreservedInputStore, Aonik.Ai.Services.Safety.FilePreservedInputStore>();
+        if (!string.IsNullOrWhiteSpace(configuration["ContentSafety:OpenAI:ApiKey"]))
+        {
+            services.AddHttpClient<Ai.Safety.OpenAIModerationProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.AddScoped<Aonik.Ai.Services.Safety.ISafetyClassificationProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAIModerationProvider>());
+        }
+
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         // Spec 026 Part 2 — IdP management clients used by the hard-

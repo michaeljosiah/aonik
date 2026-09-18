@@ -45,6 +45,7 @@ public class ConsentEnforcementBoundaryTests
         "Aonik.Commerce",
         "Aonik.Ai",
         "Aonik.Agents",
+        "Aonik.Workspaces",
     ];
 
     [Fact]
