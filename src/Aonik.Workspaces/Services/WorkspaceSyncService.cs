@@ -211,50 +211,75 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     {
         for (var attempt = 1; attempt <= MaxCasAttempts; attempt++)
         {
-            var workspace = await _dbContext.Workspaces
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    w => w.TenantId == tenantId && w.Id == request.WorkspaceId, cancellationToken)
-                ?? throw new InvalidOperationException($"Workspace {request.WorkspaceId} not found.");
+            // The head advance and the revision it points at land in one transaction (aonik#322): a
+            // failure anywhere after the compare-and-swap rolls the head back too, so it can never
+            // name a revision that was not written. Losing the swap commits nothing and re-classifies.
+            var result = await _dbContext.InTransactionAsync(
+                ct => AttemptCommitAsync(tenantId, request, manifest, requestHash, callerPartyId, attempt, ct),
+                cancellationToken);
 
-            // Re-classified on every attempt, from the head this attempt actually observed. A commit that
-            // lost the race is not diverged because it lost — it is diverged because, by the time it looked
-            // again, its declared parent was no longer the head. Same rule, not an exception handler.
-            var isFastForward = workspace.HeadRevisionId == request.ParentRevisionId;
-
-            var sequence = workspace.NextSequence;
-            var revisionId = Guid.NewGuid();
-
-            var won = await _dbContext.Workspaces
-                .Where(w => w.TenantId == tenantId
-                    && w.Id == request.WorkspaceId
-                    && w.NextSequence == sequence)
-                .ExecuteUpdateAsync(
-                    s => s
-                        .SetProperty(w => w.NextSequence, sequence + 1)
-                        .SetProperty(
-                            w => w.HeadRevisionId,
-                            w => isFastForward ? revisionId : w.HeadRevisionId),
-                    cancellationToken);
-
-            if (won == 0)
+            if (result is not null)
             {
-                // Nothing was inserted, so nothing is orphaned. Read again and classify again.
-                _logger.LogDebug(
-                    "Commit {CommitId} lost the head compare-and-swap on attempt {Attempt}; re-classifying.",
-                    request.CommitId, attempt);
-
-                continue;
+                return result;
             }
-
-            return await WriteRevisionAsync(
-                tenantId, request, manifest, requestHash, callerPartyId,
-                revisionId, sequence, isFastForward, workspace.HeadRevisionId, cancellationToken);
         }
 
         throw new InvalidOperationException(
             $"Workspace {request.WorkspaceId} is under sustained commit contention; "
             + $"gave up after {MaxCasAttempts} attempts. Re-read the head and try again.");
+    }
+
+    /// <summary>One attempt: read, swap, write. Null when the swap was lost and the caller should look again.</summary>
+    private async Task<CommitRevisionResult?> AttemptCommitAsync(
+        Guid tenantId,
+        CommitRevisionRequest request,
+        IReadOnlyList<ManifestEntry> manifest,
+        string requestHash,
+        Guid callerPartyId,
+        int attempt,
+        CancellationToken cancellationToken)
+    {
+        var workspace = await _dbContext.Workspaces
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                w => w.TenantId == tenantId && w.Id == request.WorkspaceId, cancellationToken)
+            ?? throw new InvalidOperationException($"Workspace {request.WorkspaceId} not found.");
+
+        // Re-classified on every attempt, from the head this attempt actually observed. A commit that
+        // lost the race is not diverged because it lost — it is diverged because, by the time it looked
+        // again, its declared parent was no longer the head. Same rule, not an exception handler.
+        var isFastForward = workspace.HeadRevisionId == request.ParentRevisionId;
+
+        var sequence = workspace.NextSequence;
+        var revisionId = Guid.NewGuid();
+
+        var won = await _dbContext.Workspaces
+            .Where(w => w.TenantId == tenantId
+                && w.Id == request.WorkspaceId
+                && w.NextSequence == sequence)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(w => w.NextSequence, sequence + 1)
+                    .SetProperty(
+                        w => w.HeadRevisionId,
+                        w => isFastForward ? revisionId : w.HeadRevisionId),
+                cancellationToken);
+
+        if (won == 0)
+        {
+            // Somebody else advanced the sequence between our read and our swap. Nothing of ours
+            // was written; the caller re-reads the head and classifies again.
+            // Nothing was inserted, so nothing is orphaned. Read again and classify again.
+            _logger.LogDebug(
+                "Commit {CommitId} lost the head compare-and-swap on attempt {Attempt}; re-classifying.",
+                request.CommitId, attempt);
+
+            return null;
+        }
+
+        return await WriteRevisionAsync(
+            tenantId, request, manifest, requestHash, callerPartyId,
+            revisionId, sequence, isFastForward, workspace.HeadRevisionId, cancellationToken);
     }
 
     /// <summary>
