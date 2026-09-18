@@ -87,6 +87,19 @@ refusing: `403 guardian-not-verified`. Unknown purpose: `422`.
 effect on the next operation regardless of other guardians (Spec 095 §7.1). Withdrawing
 `service-core` withdraws the child's participation.
 
+### `POST /consent/wards/{childPartyId}/guardians` — a second guardian
+
+```json
+{ "guardianPartyId": "b2d0…", "jurisdiction": "GB" }
+```
+
+`200` `{ "childPartyId": "…", "guardianPartyId": "…" }`. The caller — an existing active guardian —
+authorises the addition; the **new** guardian is the one verified, through the same route resolution
+and to the same standard as the first (Spec 095 §7), so a second parent added on a weaker basis
+cannot dilute the first. From then on each guardian acts independently: grants, withdrawals, and the
+child's workspaces (below). Not the caller's ward: `404`. The new guardian unverifiable: `403
+guardian-not-verified`. The caller naming themselves: `422`. Already a guardian: `200`, nothing changes.
+
 ### Operator: `POST /admin/consent/attestations` · `DELETE /admin/consent/attestations/{id}`
 
 The manual half of the signed-form route (Spec 095 §8): a named operator records that a returned
@@ -134,11 +147,16 @@ every world lives in, and the subscriber that will pay). `GET /consent/wards` gi
 and, per child, the purposes that stand — which is what the host's policy checks on every call,
 and what it re-checks so a withdrawal takes effect on the next request rather than the next sign-in.
 
+A child's world is then created **as the child's**: `POST /workspaces` with `ownerPartyId` naming
+the ward. The Workspaces resolver accepts any active guardian of the owner (Spec 095 §12), so a
+second parent added through `POST /consent/wards/{id}/guardians` opens and writes the same world
+without a share grant, and a withdrawn `service-core` leaves every guardian read-only at the
+platform, not only at the product. See `workspace-sync-api.md`.
+
 ## Not in this slice
 
 The payment-instrument route is wired and now works on a real database (this change fixed the
 Finance context's mapping of `AnkPaymentMandates`), but its *provenance* — proving how a trusted
 mandate entered the system — is #328's launch decision, not something these endpoints assert.
-Adding a second guardian (`IConsentService.AddGuardianAsync`) and the age-up transition have no
-routes yet. Child-**owned** workspaces, where the workspace resolver accepts a guardian of the
-owner (Spec 095 §12), are the next Workspaces change.
+The age-up transition (Spec 095 §7.3) has no route yet: a young person reaching `consentAgeOn`
+still cannot take over their own grants over HTTP.

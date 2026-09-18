@@ -11,9 +11,11 @@ the caller is; a user with no party gets `403 no-party` before any workspace is 
 
 ## Access, and what a caller can learn
 
-Every workspace-scoped call resolves the caller's effective access first (`Owner` for the owning
-party, else the level on an active Spec 086 grant, else `None`) and enforces it in the module, not in
-a product (Spec 089 §8.1):
+Every workspace-scoped call resolves the caller's effective access first and enforces it in the
+module, not in a product (Spec 089 §8.1): `Owner` for the owning party; `Owner` for any party holding
+active **guardian authority** over the owner while the owner's `service-core` consent stands, and
+`Read` for such a guardian once it has been withdrawn (Spec 095 §12); else the level on an active
+Spec 086 grant; else `None`.
 
 | Call | Requires |
 |---|---|
@@ -39,7 +41,9 @@ Every refusal these endpoints make on purpose has one shape:
 | 403 | `no-party` | The signed-in user is linked to no party. |
 | 403 | `forbidden` | The caller may not act for the named billing subscriber. |
 | 403 | `insufficient-access` | A `Write` route with `Read` access. |
+| 403 | `consent-required` | Creating a child's workspace while the child's `service-core` consent does not stand. |
 | 404 | `workspace-not-found` | No access, or no such workspace. |
+| 404 | `ward-not-found` | `ownerPartyId` names a party the caller holds no guardian authority over. |
 | 404 | `content-not-found` | No revision of this workspace names the hash. |
 | 402 | `allowance-exceeded` | The billing subscriber's `workspaces` or `workspace-bytes` ceiling is full. |
 | 409 | `commit-id-reused` | The `commitId` was used for a different tree. |
@@ -66,6 +70,13 @@ names the family `Group` (Spec 087) so a member's workspace draws on the family 
 a subscriber the caller may not act for, so this cannot bill a stranger. The `workspaces` slot is
 claimed **before** the row exists, so a refused claim leaves nothing behind.
 
+`ownerPartyId` makes the workspace a **child's**: the caller must hold active guardian authority over
+that party (`404 ward-not-found` otherwise — the same answer the consent routes give, so nobody else's
+children are enumerable), and the child's `service-core` consent must stand (`403 consent-required`).
+The child holds no plan, so the payer still defaults to the caller. The child owns the world, and every
+guardian of theirs acts for them without a share grant (Spec 095 §12) — which is what lets the second
+parent in, and what makes a withdrawal at the consent routes bite here on the next call.
+
 `201 Created`, `Location: /workspaces/{id}`:
 
 ```json
@@ -78,8 +89,10 @@ claimed **before** the row exists, so a refused claim leaves nothing behind.
 ### Open — `GET /workspaces/{id}` and `GET /workspaces`
 
 The summary above, including `headRevisionId` — what a client materialises from and names as the
-parent of its next commit. `GET /workspaces` lists the workspaces the caller's party **owns**; grants
-are a separate question answered by Spec 086's routes.
+parent of its next commit. `GET /workspaces` lists the workspaces the caller's party **owns**, followed
+by those owned by the children the caller holds guardian authority over; grants are a separate
+question answered by Spec 086's routes. A guardian may also share a child's workspace through those
+routes: the share resolver resolves a ward's workspaces for the guardian as if they were their own.
 
 ### Manifest — `GET /workspaces/{id}/manifest[?revisionId=…]`
 
@@ -204,8 +217,7 @@ A save-and-reopen cycle, as the Arke Kidz host performs it:
 
 ## Not in this slice
 
-Child-owned workspaces (the owner cannot authenticate; the guardian acts), guardian-consent reads,
-allowance reservation for generation, safety-decision reads and operation reconciliation are the
+Allowance reservation for generation, safety-decision reads and operation reconciliation are the
 next calls in aonik#326, alongside aonik#327/#328/#323. The resumable multipart upload (Spec 091 §7)
 exists as a service and is not yet exposed. The atomic hosted-writer fence remains aonik#322 /
 ArkeStudio#468: the parent check here stores a stale writer's commit as divergent, which is the

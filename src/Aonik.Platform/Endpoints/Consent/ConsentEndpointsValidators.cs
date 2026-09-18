@@ -32,6 +32,15 @@ internal sealed class GrantPurposeRequestValidator : Validator<GrantPurposeReque
     }
 }
 
+internal sealed class AddWardGuardianRequestValidator : Validator<AddWardGuardianRequest>
+{
+    public AddWardGuardianRequestValidator()
+    {
+        RuleFor(x => x.GuardianPartyId).NotEmpty();
+        RuleFor(x => x.Jurisdiction).Length(2).When(x => x.Jurisdiction is not null).WithMessage("jurisdiction is a two-letter country code.");
+    }
+}
+
 internal sealed class AttestGuardianRequestValidator : Validator<AttestGuardianRequest>
 {
     public AttestGuardianRequestValidator()

@@ -7,13 +7,20 @@ namespace Aonik.Workspaces.Endpoints;
 // hash, never a folder or a host.
 
 /// <param name="Kind">One of <see cref="WorkspaceKinds"/>; defaults to <c>world</c>.</param>
+/// <param name="OwnerPartyId">
+/// Who the workspace belongs to. Omitted, the caller's own party. A guardian names a child they hold
+/// authority over (Spec 095 §12): the child owns the world, the guardian acts for them, and the child's
+/// <c>service-core</c> consent must stand for it to be created at all.
+/// </param>
 /// <param name="BillingSubscriber">
-/// Who pays for the slot and the bytes. Omitted, the caller's own party; a consumer product names the
-/// family <c>Group</c>. The meter refuses a subscriber the caller may not act for.
+/// Who pays for the slot and the bytes. Omitted, the caller's own party — also for a child's workspace,
+/// since a child holds no plan; a consumer product names the family <c>Group</c>. The meter refuses a
+/// subscriber the caller may not act for.
 /// </param>
 public sealed record CreateWorkspaceRequest(
     string Name,
     string? Kind = null,
+    Guid? OwnerPartyId = null,
     SubscriberModel? BillingSubscriber = null);
 
 public sealed record SubscriberModel(string Kind, Guid Id);

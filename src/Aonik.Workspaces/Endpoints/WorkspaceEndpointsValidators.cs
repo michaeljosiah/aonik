@@ -14,6 +14,7 @@ internal sealed class CreateWorkspaceRequestValidator : Validator<CreateWorkspac
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Kind).Must(kind => kind is null || WorkspaceKinds.All.Contains(kind)).WithMessage("Unknown workspace kind.");
+        RuleFor(x => x.OwnerPartyId).NotEqual(Guid.Empty).When(x => x.OwnerPartyId is not null);
         RuleFor(x => x.BillingSubscriber!.Kind).NotEmpty().When(x => x.BillingSubscriber is not null);
         RuleFor(x => x.BillingSubscriber!.Id).NotEmpty().When(x => x.BillingSubscriber is not null);
     }

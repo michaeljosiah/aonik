@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Workspaces;
@@ -24,12 +25,14 @@ namespace Aonik.Workspaces.Services;
 internal sealed class WorkspaceShareResourceResolver : IShareResourceResolver
 {
     private readonly IWorkspaceDataContext _dbContext;
+    private readonly IGuardianshipReader _guardianships;
     private readonly ITenantProvider _tenantProvider;
 
     public WorkspaceShareResourceResolver(
-        IWorkspaceDataContext dbContext, ITenantProvider tenantProvider)
+        IWorkspaceDataContext dbContext, IGuardianshipReader guardianships, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _guardianships = guardianships;
         _tenantProvider = tenantProvider;
     }
 
@@ -51,12 +54,17 @@ internal sealed class WorkspaceShareResourceResolver : IShareResourceResolver
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var ids = resourceIds.ToList();
 
+        // Spec 095 §12: a parent shares a child's world on the child's behalf. The granting party may
+        // be the owner, or a guardian of the owner.
+        var owners = new List<Guid> { ownerPartyId };
+        owners.AddRange(await _guardianships.GetWardsAsync(tenantId, ownerPartyId, cancellationToken));
+
         // A local query, so an authorisation check costs one round trip and never leaves the platform.
         var workspaces = await _dbContext.Workspaces
             .AsNoTracking()
             .Where(w => w.TenantId == tenantId
                 && ids.Contains(w.Id)
-                && w.OwnerPartyId == ownerPartyId
+                && owners.Contains(w.OwnerPartyId)
                 && w.Status == WorkspaceStatuses.Active)
             .Select(w => new { w.Id, w.Name })
             .ToListAsync(cancellationToken);

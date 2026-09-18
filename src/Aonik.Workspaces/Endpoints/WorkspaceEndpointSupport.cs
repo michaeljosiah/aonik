@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.SharedKernel.Abstractions.Workspaces;
 using Aonik.Workspaces.Services;
@@ -78,6 +79,9 @@ internal static class WorkspaceProblems
         CommitIdReusedException reused => new(StatusCodes.Status409Conflict, "commit-id-reused", reused.Message),
         EntitlementExceededException exceeded => new(StatusCodes.Status402PaymentRequired, "allowance-exceeded", exceeded.Message),
         PermissionDeniedException denied => new(StatusCodes.Status403Forbidden, "forbidden", denied.Message),
+        // The same answer the consent endpoints give: a child who is not yours is a child you cannot see.
+        GuardianAuthorityRequiredException => new(StatusCodes.Status404NotFound, "ward-not-found", "No such ward is available to you."),
+        ConsentRequiredException required => new(StatusCodes.Status403Forbidden, "consent-required", required.Message),
         UploadHashMismatchException mismatch => new(StatusCodes.Status422UnprocessableEntity, "content-hash-mismatch", mismatch.Message),
         DeclaredLengthExceededException length => new(StatusCodes.Status422UnprocessableEntity, "declared-length-mismatch", length.Message),
         UploadTooLargeForSingleShotException tooLarge => new(StatusCodes.Status413PayloadTooLarge, "too-large", tooLarge.Message),

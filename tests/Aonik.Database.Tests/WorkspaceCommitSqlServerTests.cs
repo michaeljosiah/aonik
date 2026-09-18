@@ -1,5 +1,6 @@
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Storage;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
@@ -83,9 +84,35 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
             NullLogger<BlobPossessionService>.Instance);
 
         return new WorkspaceSyncService(
-            context, blobs, grants ?? new NoGrants(), possessions,
+            context, blobs, grants ?? new NoGrants(), new NoGuardians(), new ClosedGate(), possessions,
             new TestTenantProvider(tenantId), new TestClock(),
             NullLogger<WorkspaceSyncService>.Instance);
+    }
+
+    /// <summary>No guardian edges — nobody here acts for anyone else.</summary>
+    private sealed class NoGuardians : IGuardianshipReader
+    {
+        public Task<bool> HasAuthorityAsync(Guid tenantId, Guid guardianPartyId, Guid childPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<Guid>> GetGuardiansAsync(Guid tenantId, Guid childPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        public Task<IReadOnlyList<Guid>> GetWardsAsync(Guid tenantId, Guid guardianPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
+    }
+
+    /// <summary>A gate nothing passes; unreachable here because no guardian edge exists.</summary>
+    private sealed class ClosedGate : IConsentGate
+    {
+        public Task EnsureAsync(Guid subjectPartyId, string purpose, CancellationToken cancellationToken = default)
+            => throw new ConsentRequiredException(subjectPartyId, purpose);
+
+        public Task EnsureCanActForAsync(Guid callerPartyId, Guid subjectPartyId, CancellationToken cancellationToken = default)
+            => throw new GuardianAuthorityRequiredException(callerPartyId, subjectPartyId);
+
+        public Task EnsureGenerationAsync(Guid subjectPartyId, GenerationRoute route, CancellationToken cancellationToken = default)
+            => throw new ConsentRequiredException(subjectPartyId, "generation");
     }
 
     /// <summary>No grants at all — the commit tests are about the head, not about sharing.</summary>

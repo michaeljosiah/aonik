@@ -252,6 +252,54 @@ internal sealed class GrantPurposeEndpoint : ConsentEndpoint<GrantPurposeRequest
     }
 }
 
+/// <summary>
+/// A second parent (Spec 095 §7): an existing guardian authorises the addition, and the new guardian is
+/// verified to the same standard as the first. Each guardian then acts independently — enrolment,
+/// grants, withdrawals, and through the Workspaces resolver the child's worlds (Spec 095 §12).
+/// </summary>
+internal sealed class AddWardGuardianEndpoint : ConsentEndpoint<AddWardGuardianRequest, AddWardGuardianResponse>
+{
+    private readonly IConsentService _consent;
+
+    public AddWardGuardianEndpoint(IConsentService consent) => _consent = consent;
+
+    public override void Configure()
+    {
+        Post("/consent/wards/{childPartyId:guid}/guardians");
+        Policies(GuardianPolicy);
+        Summary(s =>
+        {
+            s.Summary = "Add a guardian for a ward";
+            s.Description = "Gives another adult active guardian authority over a child the caller already holds it for. The new "
+                + "guardian is verified through an accepted route for the jurisdiction, to the same standard as the first; "
+                + "the caller cannot add themselves. Idempotent for a party who is already a guardian.";
+            s.Response(200, "Guardian added, or already a guardian");
+            s.Response(403, "The new guardian could not be verified");
+            s.Response(404, "No such ward is available to the caller");
+            s.Response(422, "The caller named themselves");
+        });
+        Options(x => x.WithTags(Tag));
+    }
+
+    public override async Task HandleAsync(AddWardGuardianRequest req, CancellationToken ct)
+    {
+        var childPartyId = Route<Guid>("childPartyId");
+
+        if (await CallerPartyAsync(ct) is not { } guardian)
+        {
+            return;
+        }
+
+        await GuardedAsync(async () =>
+        {
+            await _consent.AddGuardianAsync(new AddGuardianRequest(
+                childPartyId, req.GuardianPartyId, guardian, req.Jurisdiction), ct);
+
+            await Send.OkAsync(new AddWardGuardianResponse(childPartyId, req.GuardianPartyId), ct);
+        });
+    }
+}
+
 internal sealed class WithdrawPurposeEndpoint : ConsentEndpoint<EmptyRequest, WithdrawPurposeResponse>
 {
     private readonly IConsentService _consent;

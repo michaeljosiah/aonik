@@ -53,6 +53,14 @@ public sealed record GrantPurposeResponse(string Purpose, string VerificationMet
 
 public sealed record WithdrawPurposeResponse(string Purpose, bool Withdrawn);
 
+/// <param name="GuardianPartyId">The adult being given authority. Never the caller.</param>
+/// <param name="Jurisdiction">Decides which routes may verify the new guardian; null takes the tenant default.</param>
+public sealed record AddWardGuardianRequest(
+    Guid GuardianPartyId,
+    string? Jurisdiction = null);
+
+public sealed record AddWardGuardianResponse(Guid ChildPartyId, Guid GuardianPartyId);
+
 /// <param name="EvidenceRef">Where the form is filed — a document id, a case number — never the form itself.</param>
 public sealed record AttestGuardianRequest(
     Guid GuardianPartyId,

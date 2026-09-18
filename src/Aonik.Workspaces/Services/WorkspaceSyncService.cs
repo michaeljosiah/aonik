@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
@@ -30,6 +31,8 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     private readonly IWorkspaceDataContext _dbContext;
     private readonly IWorkspaceBlobService _blobs;
     private readonly IShareGrantReader _grants;
+    private readonly IGuardianshipReader _guardianships;
+    private readonly IConsentGate _consent;
     private readonly IBlobPossessionService _possessions;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
@@ -39,6 +42,8 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
         IWorkspaceDataContext dbContext,
         IWorkspaceBlobService blobs,
         IShareGrantReader grants,
+        IGuardianshipReader guardianships,
+        IConsentGate consent,
         IBlobPossessionService possessions,
         ITenantProvider tenantProvider,
         IClock clock,
@@ -47,6 +52,8 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
         _dbContext = dbContext;
         _blobs = blobs;
         _grants = grants;
+        _guardianships = guardianships;
+        _consent = consent;
         _possessions = possessions;
         _tenantProvider = tenantProvider;
         _clock = clock;
@@ -54,7 +61,8 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
     }
 
     /// <summary>
-    /// Owner, then the level on an active grant, then nothing (Spec 089 §8.1).
+    /// Owner, then a guardian of the owner, then the level on an active grant, then nothing (Spec 089 §8.1;
+    /// Spec 095 §12).
     ///
     /// <para>
     /// The grant's <c>AccessLevel</c> is read and <strong>enforced</strong>, which is the whole point. An earlier
@@ -87,6 +95,23 @@ internal sealed class WorkspaceSyncService : IWorkspaceSyncService
         if (ownerPartyId == callerPartyId)
         {
             return WorkspaceAccessLevel.Owner;
+        }
+
+        // Spec 095 §12: the child owns their own world and a guardian acts for them, so ownership is not
+        // a fiction the product has to keep up. With the child's service-core consent standing the
+        // guardian holds the owner's authority; when it has been withdrawn they may still see what is
+        // there — a record of the child's activity the guardian is entitled to — and change nothing.
+        if (await _guardianships.HasAuthorityAsync(tenantId, callerPartyId, ownerPartyId.Value, cancellationToken))
+        {
+            try
+            {
+                await _consent.EnsureAsync(ownerPartyId.Value, ConsentPurposes.ServiceCore, cancellationToken);
+                return WorkspaceAccessLevel.Owner;
+            }
+            catch (ConsentRequiredException)
+            {
+                return WorkspaceAccessLevel.Read;
+            }
         }
 
         var granted = await _grants.GetAccessLevelAsync(

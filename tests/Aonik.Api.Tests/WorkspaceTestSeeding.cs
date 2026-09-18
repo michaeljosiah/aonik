@@ -119,6 +119,42 @@ internal static class WorkspaceTestSeeding
         await subscriptions.SubscribeAsync(subscriber, planCode);
     }
 
+    /// <summary>
+    /// A family group as a product would stand it up: the owner creates it, invites the other adult, who
+    /// accepts as themselves. Invitations have no route in this slice, so the two halves go through the
+    /// service in scopes impersonating each person.
+    /// </summary>
+    public static async Task<Guid> FamilyGroupAsync(
+        CustomWebApplicationFactory factory, Guid tenantId, Person owner, string name, params Person[] managers)
+    {
+        Guid groupId;
+
+        await using (var scope = Impersonate(factory, tenantId, owner.UserId))
+        {
+            var groups = scope.ServiceProvider.GetRequiredService<IGroupService>();
+            groupId = (await groups.CreateAsync(new CreateGroupCommand(GroupKinds.Family, name))).Id;
+        }
+
+        foreach (var manager in managers)
+        {
+            Guid membershipId;
+
+            await using (var scope = Impersonate(factory, tenantId, owner.UserId))
+            {
+                var groups = scope.ServiceProvider.GetRequiredService<IGroupService>();
+                membershipId = (await groups.InviteAsync(new InviteGroupMemberCommand(groupId, GroupRoles.Manager, PartyId: manager.PartyId))).Id;
+            }
+
+            await using (var scope = Impersonate(factory, tenantId, manager.UserId))
+            {
+                var groups = scope.ServiceProvider.GetRequiredService<IGroupService>();
+                await groups.AcceptInvitationAsync(membershipId);
+            }
+        }
+
+        return groupId;
+    }
+
     /// <summary>A Spec 086 grant on one workspace, created as its owner.</summary>
     public static async Task GrantAsync(
         CustomWebApplicationFactory factory,
