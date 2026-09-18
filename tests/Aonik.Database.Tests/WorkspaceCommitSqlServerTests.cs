@@ -1,5 +1,6 @@
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Groups;
 using Aonik.SharedKernel.Abstractions.Storage;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
@@ -72,20 +73,63 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
             new TestClock());
 
     private static WorkspaceSyncService CreateSync(
-        WorkspacesDbContext context, Guid tenantId, IShareGrantReader? grants = null)
+        WorkspacesDbContext context, Guid tenantId, IShareGrantReader? grants = null, Func<IWorkspaceBlobService, IWorkspaceBlobService>? wrapBlobs = null)
     {
-        var blobs = new WorkspaceBlobService(
+        IWorkspaceBlobService blobs = new WorkspaceBlobService(
             context, new NoopFileStore(), new TestTenantProvider(tenantId), new TestClock(),
             NullLogger<WorkspaceBlobService>.Instance);
+        blobs = wrapBlobs?.Invoke(blobs) ?? blobs;
 
         var possessions = new BlobPossessionService(
             context, new UnmeteredMeter(), new TestTenantProvider(tenantId),
             NullLogger<BlobPossessionService>.Instance);
 
         return new WorkspaceSyncService(
-            context, blobs, grants ?? new NoGrants(), possessions,
+            context, blobs, grants ?? new NoGrants(), new NoGuardians(), new ClosedGate(), possessions,
             new TestTenantProvider(tenantId), new TestClock(),
             NullLogger<WorkspaceSyncService>.Instance);
+    }
+
+    /// <summary>A blob service that fails once the head has been swapped: the injected fault aonik#322 names.</summary>
+    private sealed class FailingReferences(IWorkspaceBlobService inner) : IWorkspaceBlobService
+    {
+        public Task<BlobStoreResult> StoreAsync(SubscriberRef subscriber, Stream content, BlobDeclaration? declared = null, CancellationToken cancellationToken = default)
+            => inner.StoreAsync(subscriber, content, declared, cancellationToken);
+
+        public Task<IReadOnlyList<string>> FindMissingAsync(SubscriberRef subscriber, Guid callerPartyId, IReadOnlyList<string> contentHashes, CancellationToken cancellationToken = default)
+            => inner.FindMissingAsync(subscriber, callerPartyId, contentHashes, cancellationToken);
+
+        public Task<IReadOnlyList<string>> AddReferencesAsync(IReadOnlyList<string> contentHashes, CancellationToken cancellationToken = default)
+            => throw new IOException("Injected: the blob store went away after the head was swapped.");
+
+        public Task ReleaseReferencesAsync(IReadOnlyList<string> contentHashes, CancellationToken cancellationToken = default)
+            => inner.ReleaseReferencesAsync(contentHashes, cancellationToken);
+    }
+
+    /// <summary>No guardian edges — nobody here acts for anyone else.</summary>
+    private sealed class NoGuardians : IGuardianshipReader
+    {
+        public Task<bool> HasAuthorityAsync(Guid tenantId, Guid guardianPartyId, Guid childPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<Guid>> GetGuardiansAsync(Guid tenantId, Guid childPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        public Task<IReadOnlyList<Guid>> GetWardsAsync(Guid tenantId, Guid guardianPartyId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
+    }
+
+    /// <summary>A gate nothing passes; unreachable here because no guardian edge exists.</summary>
+    private sealed class ClosedGate : IConsentGate
+    {
+        public Task EnsureAsync(Guid subjectPartyId, string purpose, CancellationToken cancellationToken = default)
+            => throw new ConsentRequiredException(subjectPartyId, purpose);
+
+        public Task EnsureCanActForAsync(Guid callerPartyId, Guid subjectPartyId, CancellationToken cancellationToken = default)
+            => throw new GuardianAuthorityRequiredException(callerPartyId, subjectPartyId);
+
+        public Task EnsureGenerationAsync(Guid subjectPartyId, GenerationRoute route, CancellationToken cancellationToken = default)
+            => throw new ConsentRequiredException(subjectPartyId, "generation");
     }
 
     /// <summary>No grants at all — the commit tests are about the head, not about sharing.</summary>
@@ -134,6 +178,9 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
 
         public Task ReleaseAsync(Guid reservationId, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task<UsageReservationState?> GetReservationAsync(Guid reservationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<UsageReservationState?>(null);
 
         public Task<bool> HasFlagAsync(
             SubscriberRef subscriber, string meterCode, CancellationToken cancellationToken = default)
@@ -290,6 +337,34 @@ public class WorkspaceCommitSqlServerTests : IClassFixture<SqlLocalDbFixture>
 
         (await context.Revisions.AsNoTracking().CountAsync(r => r.WorkspaceId == workspace.Id))
             .Should().Be(3, "nothing is lost while the human decides");
+    }
+
+    [SkippableFact]
+    public async Task AFailureAfterTheSwap_Should_LeaveTheHeadAndSequenceWhereTheyWere()
+    {
+        Skip.If(!_db.IsAvailable, _db.SkipReason);
+        var tenantId = Guid.NewGuid();
+        var owner = Guid.NewGuid();
+        await using var context = CreateContext(tenantId);
+        var workspace = await SeedWorkspaceAsync(context, tenantId, owner);
+        var hash = await SeedBlobAsync(context, tenantId, "act one", owner);
+        var root = await CreateSync(context, tenantId).CommitAsync(ACommit(workspace.Id, null, ("a.md", hash)), owner);
+
+        // aonik#322's named fault: the swap wins, then the write behind it fails.
+        var failing = CreateSync(context, tenantId, wrapBlobs: inner => new FailingReferences(inner));
+        await FluentActions.Awaiting(() => failing.CommitAsync(ACommit(workspace.Id, root.RevisionId, ("a.md", hash), ("b.md", hash)), owner))
+            .Should().ThrowAsync<IOException>();
+
+        // The head still names a revision that exists, the sequence was not spent, and nothing half-written remains.
+        var after = await context.Workspaces.AsNoTracking().FirstAsync(w => w.Id == workspace.Id);
+        after.HeadRevisionId.Should().Be(root.RevisionId, "a head must never point at a revision that was not written");
+        after.NextSequence.Should().Be(2, "a rolled-back attempt spends nothing");
+        (await context.Revisions.AsNoTracking().CountAsync(r => r.WorkspaceId == workspace.Id)).Should().Be(1);
+
+        // And the next commit from that head is an ordinary fast-forward at the sequence the failure did not take.
+        var next = await CreateSync(context, tenantId).CommitAsync(ACommit(workspace.Id, root.RevisionId, ("a.md", hash), ("b.md", hash)), owner);
+        next.Outcome.Should().Be(CommitOutcome.FastForward);
+        next.Sequence.Should().Be(2);
     }
 
     [SkippableFact]

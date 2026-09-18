@@ -64,7 +64,7 @@ internal sealed class GuardianVerificationRecorder : IGuardianVerificationRecord
     {
         // A separate scope, so this commit is independent of whatever transaction the caller is
         // running on the ambient context. If the enrolment that follows rolls back, this row stays.
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = CreateTenantScope();
         var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         context.ConsentVerifications.Add(new ConsentVerification
@@ -88,7 +88,7 @@ internal sealed class GuardianVerificationRecorder : IGuardianVerificationRecord
         DateTime since,
         CancellationToken cancellationToken = default)
     {
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = CreateTenantScope();
         var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -107,6 +107,20 @@ internal sealed class GuardianVerificationRecorder : IGuardianVerificationRecord
     /// Truncating here is a backstop against a verifier returning a provider message that happens to
     /// echo the input back.
     /// </summary>
+    /// <summary>
+    /// A fresh scope has a fresh, unresolved tenant context, and the module context refuses tenant-scoped
+    /// writes without one — so the caller's tenant is carried across explicitly. Without this the
+    /// independent commit this class exists for never happened on a real host.
+    /// </summary>
+    private IServiceScope CreateTenantScope()
+    {
+        var scope = _scopeFactory.CreateScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenant.TenantId = _tenantProvider.GetCurrentTenantId();
+        tenant.ResolutionSource = "Inherited";
+        return scope;
+    }
+
     private static string? Truncate(string? value, int max)
         => string.IsNullOrEmpty(value) || value.Length <= max ? value : value[..max];
 }

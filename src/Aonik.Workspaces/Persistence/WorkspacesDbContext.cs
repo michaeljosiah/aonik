@@ -17,6 +17,26 @@ namespace Aonik.Workspaces.Persistence;
 /// </summary>
 internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataContext
 {
+    public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default)
+    {
+        if (!Database.IsRelational())
+        {
+            return await action(cancellationToken);
+        }
+
+        // The retrying strategy owns the transaction: a transient fault replays the whole unit,
+        // never half of it (the same shape as ConsentService's enrolment).
+        var strategy = Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async ct =>
+        {
+            await using var transaction = await Database.BeginTransactionAsync(ct);
+            var result = await action(ct);
+            await transaction.CommitAsync(ct);
+            return result;
+        }, cancellationToken);
+    }
+
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceRevision> Revisions => Set<WorkspaceRevision>();
     public DbSet<WorkspaceFile> Files => Set<WorkspaceFile>();
@@ -24,6 +44,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
     public DbSet<BlobPossession> Possessions => Set<BlobPossession>();
     public DbSet<BlobUploadSession> UploadSessions => Set<BlobUploadSession>();
     public DbSet<BlobUploadPart> UploadParts => Set<BlobUploadPart>();
+    public DbSet<WorkspaceOperation> Operations => Set<WorkspaceOperation>();
 
     public WorkspacesDbContext(
         DbContextOptions<WorkspacesDbContext> options,
@@ -55,6 +76,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
         MapTable<BlobPossession>(modelBuilder, "BlobPossessions");
         MapTable<BlobUploadSession>(modelBuilder, "BlobUploadSessions");
         MapTable<BlobUploadPart>(modelBuilder, "BlobUploadParts");
+        MapTable<WorkspaceOperation>(modelBuilder, "WorkspaceOperations");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

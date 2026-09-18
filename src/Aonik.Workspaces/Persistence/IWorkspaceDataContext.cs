@@ -23,6 +23,14 @@ public interface IWorkspaceDataContext
     DbSet<BlobPossession> Possessions { get; }
     DbSet<BlobUploadSession> UploadSessions { get; }
     DbSet<BlobUploadPart> UploadParts { get; }
+    DbSet<WorkspaceOperation> Operations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Run <paramref name="action"/> inside one database transaction, retried whole under the
+    /// provider's execution strategy, so that everything it writes lands together or not at all
+    /// (aonik#322). On a store with no transactions the action simply runs.
+    /// </summary>
+    Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default);
 }

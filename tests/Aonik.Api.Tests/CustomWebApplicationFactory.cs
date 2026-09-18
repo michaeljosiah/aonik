@@ -31,6 +31,26 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     // Use a consistent database name per factory instance
     private readonly string _databaseName = $"TestDb_{Guid.NewGuid()}";
 
+    /// <summary>
+    /// When set, every DbContext runs against this SQL Server database instead of the InMemory provider.
+    /// For endpoints whose guarantees the InMemory provider cannot express — <c>ExecuteUpdateAsync</c>,
+    /// RowVersion concurrency, unique indexes — per CLAUDE.md's LocalDB-lane rule. The database must
+    /// already exist with its schema (see <c>SqlLocalDbFixture</c>); startup applies no migrations in Testing.
+    /// </summary>
+    private readonly string? _sqlServerConnectionString;
+
+    public CustomWebApplicationFactory()
+    {
+    }
+
+    /// <summary>xUnit allows a class fixture one public constructor; the SQL variant is the subclass below.</summary>
+    protected CustomWebApplicationFactory(string sqlServerConnectionString)
+    {
+        _sqlServerConnectionString = sqlServerConnectionString;
+    }
+
+    public bool UsesSqlServer => _sqlServerConnectionString is not null;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -39,8 +59,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["UseInMemoryDatabase"] = "true",
+                ["UseInMemoryDatabase"] = UsesSqlServer ? "false" : "true",
                 ["InMemoryDatabaseName"] = _databaseName,
+                ["ConnectionStrings:DefaultConnection"] = _sqlServerConnectionString,
                 ["Auth:TenantRouting"] = "Claim",
                 ["Bootstrap:Enabled"] = "true",
                 ["Bootstrap:SetupSecret"] = "test-install-code",
@@ -68,28 +89,42 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<TestPushNotificationSender>();
             services.AddSingleton<IPushNotificationSender>(sp => sp.GetRequiredService<TestPushNotificationSender>());
 
-            // Remove existing DbContext registration and replace with InMemory
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AonikDbContext>));
-            if (descriptor != null)
+            if (!UsesSqlServer)
             {
-                services.Remove(descriptor);
+                // Remove existing DbContext registration and replace with InMemory
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AonikDbContext>));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+
+                // Also remove IAonikDbContext if it was registered
+                var interfaceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAonikDbContext));
+                if (interfaceDescriptor != null)
+                {
+                    services.Remove(interfaceDescriptor);
+                }
+
+                // Add InMemory DbContext for tests with CONSISTENT database name
+                services.AddDbContext<AonikDbContext>(options =>
+                {
+                    options.UseInMemoryDatabase(_databaseName);
+                });
+
+                // Register IAonikDbContext
+                services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
             }
-
-            // Also remove IAonikDbContext if it was registered
-            var interfaceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAonikDbContext));
-            if (interfaceDescriptor != null)
+            else
             {
-                services.Remove(interfaceDescriptor);
+                // Infrastructure registers no canonical context in the Testing environment; the module
+                // contexts already read the connection string, so the canonical one follows them here.
+                services.AddDbContext<AonikDbContext>(options =>
+                {
+                    options.UseSqlServer(_sqlServerConnectionString!, sql => sql.EnableRetryOnFailure());
+                });
+
+                services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
             }
-
-            // Add InMemory DbContext for tests with CONSISTENT database name
-            services.AddDbContext<AonikDbContext>(options =>
-            {
-                options.UseInMemoryDatabase(_databaseName);
-            });
-
-            // Register IAonikDbContext
-            services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
 
             services.AddAuthentication(options =>
                 {
@@ -274,7 +309,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             tenant = new Tenant
             {
                 Id = tenantId,
-                Name = "Test Tenant",
+                // Unique per tenant: AnkTenants has a unique index on Name that the SQL lane enforces.
+                Name = $"Test Tenant {tenantId:N}",
                 Environment = Environments.Development,
                 DefaultCurrency = "USD",
                 SupportedCountriesJson = "[]",
@@ -305,7 +341,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 Id = options.UserId,
                 TenantId = tenantId,
                 ExternalIssuer = "test",
-                ExternalSubject = "test",
+                // Unique per user: AnkUsers has a unique index on (TenantId, ExternalIssuer, ExternalSubject).
+                ExternalSubject = options.UserId.ToString(),
                 Email = "test-user@example.com",
                 Status = "Active"
             };
@@ -453,5 +490,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private static string SerializeClaims(IEnumerable<Claim> claims)
     {
         return string.Join(";", claims.Select(claim => $"{claim.Type}={claim.Value}"));
+    }
+}
+
+/// <summary>The API over a SQL Server database that already carries the schema, for the LocalDB lane.</summary>
+public sealed class SqlServerWebApplicationFactory : CustomWebApplicationFactory
+{
+    public SqlServerWebApplicationFactory(string sqlServerConnectionString) : base(sqlServerConnectionString)
+    {
     }
 }

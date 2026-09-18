@@ -66,45 +66,54 @@ internal sealed class ConsentService : IConsentService
         var boundaries = AgeBoundaryCalculator.Compute(request.ChildDateOfBirth, jurisdiction, now);
         var purposes = NormalisePurposes(request.Purposes);
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-
-        var child = new PartyEntity
+        // Through the execution strategy: the platform context retries transient failures, and SQL
+        // Server's retrying strategy refuses a bare user transaction (the same shape every other
+        // module's transactional write uses).
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        var child = await strategy.ExecuteAsync(async ct =>
         {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            PartyType = "Person",
-            Status = "Active",
-            DisplayName = request.ChildDisplayName,
-            BirthYear = boundaries.BirthYear,
-            ConsentBand = boundaries.ConsentBand,
-            SafetyBand = boundaries.SafetyBand,
-            ConsentAgeOn = boundaries.ConsentAgeOn,
-            MajorityOn = boundaries.MajorityOn,
-            SafetyBandChangesOn = boundaries.SafetyBandChangesOn
-        };
-        _dbContext.Parties.Add(child);
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
-        // The ONLY place a Guardian edge is created alongside a new child. PartyService refuses this
-        // code outright (§7.2), so there is no other route to it.
-        _dbContext.PartyRelationships.Add(new PartyRelationship
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            FromPartyId = request.GuardianPartyId,
-            ToPartyId = child.Id,
-            RelationshipTypeCode = PartyRelationshipTypes.Guardian,
-            IsActive = true
-        });
+            var child = new PartyEntity
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                PartyType = "Person",
+                Status = "Active",
+                DisplayName = request.ChildDisplayName,
+                BirthYear = boundaries.BirthYear,
+                ConsentBand = boundaries.ConsentBand,
+                SafetyBand = boundaries.SafetyBand,
+                ConsentAgeOn = boundaries.ConsentAgeOn,
+                MajorityOn = boundaries.MajorityOn,
+                SafetyBandChangesOn = boundaries.SafetyBandChangesOn
+            };
+            _dbContext.Parties.Add(child);
 
-        foreach (var purpose in purposes)
-        {
-            _dbContext.ConsentGrants.Add(NewGrant(
-                tenantId, child.Id, request.GuardianPartyId, purpose,
-                request.TermsVersion, jurisdiction.Code, verificationMethod, null, now));
-        }
+            // The ONLY place a Guardian edge is created alongside a new child. PartyService refuses this
+            // code outright (§7.2), so there is no other route to it.
+            _dbContext.PartyRelationships.Add(new PartyRelationship
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                FromPartyId = request.GuardianPartyId,
+                ToPartyId = child.Id,
+                RelationshipTypeCode = PartyRelationshipTypes.Guardian,
+                IsActive = true
+            });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+            foreach (var purpose in purposes)
+            {
+                _dbContext.ConsentGrants.Add(NewGrant(
+                    tenantId, child.Id, request.GuardianPartyId, purpose,
+                    request.TermsVersion, jurisdiction.Code, verificationMethod, null, now));
+            }
+
+            await _dbContext.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return child;
+        }, cancellationToken);
 
         // ── Deviation from Spec 095 §12.2, recorded rather than hidden ──────────────────────────
         //
@@ -184,39 +193,79 @@ internal sealed class ConsentService : IConsentService
         ValidatePurpose(request.Purpose);
         ValidateGrantorAndMethod(request);
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-
-        // Supersede is ATOMIC with the new grant. If it were not, a window would exist in which
-        // either two active grants coexist — and the version-agnostic reader would find the stale
-        // one — or none does, and processing stops for a subject who is mid-re-consent.
-        var existing = await _dbContext.ConsentGrants
-            .Where(g => g.TenantId == tenantId
-                && g.SubjectPartyId == request.SubjectPartyId
-                && g.Purpose == request.Purpose
-                && g.RevokedAt == null)
-            .ToListAsync(cancellationToken);
-
-        foreach (var grant in existing)
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async ct =>
         {
-            if (grant.TermsVersion == request.TermsVersion)
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
+
+            // Supersede is ATOMIC with the new grant. If it were not, a window would exist in which
+            // either two active grants coexist — and the version-agnostic reader would find the stale
+            // one — or none does, and processing stops for a subject who is mid-re-consent.
+            var existing = await _dbContext.ConsentGrants
+                .Where(g => g.TenantId == tenantId
+                    && g.SubjectPartyId == request.SubjectPartyId
+                    && g.Purpose == request.Purpose
+                    && g.RevokedAt == null)
+                .ToListAsync(ct);
+
+            foreach (var grant in existing)
             {
-                // Same version re-granted: idempotent, not a duplicate.
-                await transaction.RollbackAsync(cancellationToken);
-                return;
+                if (grant.TermsVersion == request.TermsVersion)
+                {
+                    // Same version re-granted: idempotent, not a duplicate.
+                    await transaction.RollbackAsync(ct);
+                    return;
+                }
+
+                grant.RevokedAt = now;
+                grant.RevokedByPartyId = request.GrantedByPartyId;
+                grant.RevocationReason = ConsentRevocationReasons.TermsSuperseded;
             }
 
-            grant.RevokedAt = now;
-            grant.RevokedByPartyId = request.GrantedByPartyId;
-            grant.RevocationReason = ConsentRevocationReasons.TermsSuperseded;
+            _dbContext.ConsentGrants.Add(NewGrant(
+                tenantId, request.SubjectPartyId, request.GrantedByPartyId, request.Purpose,
+                request.TermsVersion, _jurisdictionResolver.Resolve(request.Jurisdiction).Code,
+                request.VerificationMethod, request.VerificationRef, now));
+
+            await _dbContext.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }, cancellationToken);
+    }
+
+    public async Task<string> GrantByGuardianAsync(
+        GrantByGuardianRequest request, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        ValidatePurpose(request.Purpose);
+
+        // The guardian edge first: a caller with no authority learns nothing about the subject, not
+        // even that verification would have been attempted.
+        var isGuardian = await _guardianshipReader.HasAuthorityAsync(
+            tenantId, request.GuardianPartyId, request.SubjectPartyId, cancellationToken);
+
+        if (!isGuardian)
+        {
+            throw new GuardianAuthorityRequiredException(request.GuardianPartyId, request.SubjectPartyId);
         }
 
-        _dbContext.ConsentGrants.Add(NewGrant(
-            tenantId, request.SubjectPartyId, request.GrantedByPartyId, request.Purpose,
-            request.TermsVersion, _jurisdictionResolver.Resolve(request.Jurisdiction).Code,
-            request.VerificationMethod, request.VerificationRef, now));
+        // Verified again, on the same route resolution enrolment uses and recorded per attempt (§13):
+        // a mandate that has lapsed or an attestation that has expired stops supporting new grants,
+        // and the method on the grant is what the platform established, never what the caller said.
+        var jurisdiction = _jurisdictionResolver.Resolve(request.Jurisdiction);
+        var verificationMethod = await VerifyGuardianAsync(
+            tenantId, request.GuardianPartyId, jurisdiction, Guid.NewGuid(), cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        await GrantAsync(new GrantConsentRequest(
+            request.SubjectPartyId,
+            request.GuardianPartyId,
+            request.Purpose,
+            request.TermsVersion,
+            request.Jurisdiction,
+            verificationMethod,
+            VerificationRef: null), cancellationToken);
+
+        return verificationMethod;
     }
 
     public async Task WithdrawAsync(WithdrawConsentRequest request, CancellationToken cancellationToken = default)

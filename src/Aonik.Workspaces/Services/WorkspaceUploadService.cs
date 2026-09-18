@@ -266,7 +266,7 @@ internal sealed class WorkspaceUploadService : IWorkspaceUploadService
             ?? throw new InvalidOperationException($"Promoted object {contentKey} is not readable.");
 
         var result = await _blobs.StoreAsync(
-            new SubscriberRef(session.SubscriberKind, session.SubscriberId), promoted, cancellationToken);
+            new SubscriberRef(session.SubscriberKind, session.SubscriberId), promoted, cancellationToken: cancellationToken);
 
         session.Status = UploadSessionStatuses.Completed;
         await _dbContext.SaveChangesAsync(cancellationToken);

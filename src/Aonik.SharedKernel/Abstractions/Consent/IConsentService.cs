@@ -58,6 +58,20 @@ public interface IConsentService
     Task GrantAsync(GrantConsentRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// A guardian grants a purpose for a ward over a platform endpoint (Spec 095 §12.1, aonik#326).
+    ///
+    /// <para>
+    /// Unlike <see cref="GrantAsync"/>, which trusts its caller to have verified the grantor, this path
+    /// checks the guardian edge and performs the verification itself — the same route resolution enrolment
+    /// uses, recorded per attempt — so a verification method can never arrive as a caller-supplied flag.
+    /// Returns the method that verified the guardian.
+    /// </para>
+    /// </summary>
+    /// <exception cref="GuardianAuthorityRequiredException">The caller holds no active guardian edge to the subject.</exception>
+    /// <exception cref="GuardianVerificationFailedException">No accepted route is available or the route refused.</exception>
+    Task<string> GrantByGuardianAsync(GrantByGuardianRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Withdraws a purpose. <strong>Any single active guardian may withdraw, and withdrawal takes
     /// immediate effect regardless of the others</strong> (Spec 095 §7.1).
     ///
@@ -139,6 +153,14 @@ public sealed record WithdrawConsentRequest(
     Guid SubjectPartyId,
     Guid WithdrawnByPartyId,
     string Purpose);
+
+/// <param name="Jurisdiction">Resolved the same way enrolment resolves it; null takes the tenant default.</param>
+public sealed record GrantByGuardianRequest(
+    Guid SubjectPartyId,
+    Guid GuardianPartyId,
+    string Purpose,
+    string TermsVersion,
+    string? Jurisdiction);
 
 public sealed record PublishTermsRequest(
     string TermsVersion,

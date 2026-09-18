@@ -230,6 +230,7 @@ public sealed class PlatformModule : IModule
         // Spec 096: the safety band is read from the record, never taken from the caller.
         services.AddScoped<SharedKernel.Abstractions.Safety.ISafetyBandReader, Services.Consent.SafetyBandReader>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentReader, Services.Consent.ConsentReader>();
+        services.AddScoped<Services.Consent.IWardReader, Services.Consent.WardReader>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentService, Services.Consent.ConsentService>();
         services.AddScoped<SharedKernel.Abstractions.Consent.IConsentGate, Services.Consent.ConsentGate>();
         services.AddScoped<Services.Consent.AgeTransitionService>();

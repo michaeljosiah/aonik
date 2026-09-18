@@ -64,6 +64,8 @@ builder.Services.AddFastEndpoints(o =>
         typeof(AonikVoiceModule).Assembly,
         typeof(DocumentsModule).Assembly,
         typeof(CommerceModule).Assembly,
+        typeof(WorkspacesModule).Assembly,
+        typeof(GroupsModule).Assembly,
         typeof(SubscriptionsModule).Assembly,
     ];
 });

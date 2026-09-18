@@ -42,11 +42,16 @@ internal sealed class WorkspaceService : IWorkspaceService, IWorkspaceReader
         string kind,
         string name,
         Guid ownerPartyId,
+        SubscriberRef? billingSubscriber = null,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var workspaceId = Guid.NewGuid();
-        var subscriber = new SubscriberRef(SubscriberKinds.Party, ownerPartyId);
+
+        // The payer and the owner are different questions. A family's plan pays for a member's
+        // workspace; the meter's authorizer decides whether the caller may act for that subscriber,
+        // so naming a Group here is a request, not an assertion.
+        var subscriber = billingSubscriber ?? new SubscriberRef(SubscriberKinds.Party, ownerPartyId);
 
         // Claimed BEFORE the row exists. Creating first and claiming after leaves a workspace that
         // nothing is paying for if the claim is refused, and deleting it to compensate is a rollback

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Aonik.Ai.Services.Safety;
 
 /// <param name="ClassifierRunIds">Always at least one. Rule 4: every AI action is auditable.</param>
+/// <param name="ContentHash">SHA-256 of the exact content judged; see <see cref="Entities.Safety.SafetyDecision.ContentHash"/>.</param>
 public sealed record SafetyDecisionRecord(
     Guid TenantId,
     Guid SubjectPartyId,
@@ -22,7 +23,8 @@ public sealed record SafetyDecisionRecord(
     string SafetyPolicyVersion,
     Guid? GenerationRunId,
     IReadOnlyList<Guid> ClassifierRunIds,
-    DateTime DecidedAt);
+    DateTime DecidedAt,
+    string? ContentHash = null);
 
 /// <summary>
 /// Writes the decision and, for a block, its incident (Spec 096 §15).
@@ -110,6 +112,7 @@ internal sealed class SafetyIncidentRecorder : ISafetyIncidentRecorder
             ClassifierRunIds = record.ClassifierRunIds.Count == 0
                 ? null
                 : string.Join(',', record.ClassifierRunIds),
+            ContentHash = record.ContentHash,
             DecidedAt = record.DecidedAt,
             ExpiresAt = record.DecidedAt.AddDays(_options.DecisionRetentionDays)
         };
