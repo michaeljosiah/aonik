@@ -44,6 +44,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
     public DbSet<BlobPossession> Possessions => Set<BlobPossession>();
     public DbSet<BlobUploadSession> UploadSessions => Set<BlobUploadSession>();
     public DbSet<BlobUploadPart> UploadParts => Set<BlobUploadPart>();
+    public DbSet<WorkspaceOperation> Operations => Set<WorkspaceOperation>();
 
     public WorkspacesDbContext(
         DbContextOptions<WorkspacesDbContext> options,
@@ -75,6 +76,7 @@ internal sealed class WorkspacesDbContext : AonikDbContextBase, IWorkspaceDataCo
         MapTable<BlobPossession>(modelBuilder, "BlobPossessions");
         MapTable<BlobUploadSession>(modelBuilder, "BlobUploadSessions");
         MapTable<BlobUploadPart>(modelBuilder, "BlobUploadParts");
+        MapTable<WorkspaceOperation>(modelBuilder, "WorkspaceOperations");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

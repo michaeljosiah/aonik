@@ -23,6 +23,7 @@ public interface IWorkspaceDataContext
     DbSet<BlobPossession> Possessions { get; }
     DbSet<BlobUploadSession> UploadSessions { get; }
     DbSet<BlobUploadPart> UploadParts { get; }
+    DbSet<WorkspaceOperation> Operations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

@@ -77,6 +77,8 @@ internal static class WorkspaceProblems
             StatusCodes.Status403Forbidden, "insufficient-access",
             $"{denied.Required} access is required; the caller holds {denied.Effective}."),
         CommitIdReusedException reused => new(StatusCodes.Status409Conflict, "commit-id-reused", reused.Message),
+        OperationIdentityConflictException conflict => new(StatusCodes.Status409Conflict, "operation-conflict", conflict.Message),
+        NotFoundException => new(StatusCodes.Status404NotFound, "operation-not-found", "No such operation is available to you."),
         EntitlementExceededException exceeded => new(StatusCodes.Status402PaymentRequired, "allowance-exceeded", exceeded.Message),
         PermissionDeniedException denied => new(StatusCodes.Status403Forbidden, "forbidden", denied.Message),
         // The same answer the consent endpoints give: a child who is not yours is a child you cannot see.

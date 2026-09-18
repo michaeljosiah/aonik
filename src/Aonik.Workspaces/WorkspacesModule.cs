@@ -50,6 +50,7 @@ public static class WorkspacesModule
         services.AddScoped<Services.IBlobPossessionService, Services.BlobPossessionService>();
         services.AddScoped<Services.IWorkspaceUploadService, Services.WorkspaceUploadService>();
         services.AddScoped<Services.IWorkspaceTransferService, Services.WorkspaceTransferService>();
+        services.AddScoped<Services.IWorkspaceOperationService, Services.WorkspaceOperationService>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceService, Services.WorkspaceService>();
         services.AddScoped<SharedKernel.Abstractions.Workspaces.IWorkspaceReader>(
             sp => (Services.WorkspaceService)sp.GetRequiredService<SharedKernel.Abstractions.Workspaces.IWorkspaceService>());

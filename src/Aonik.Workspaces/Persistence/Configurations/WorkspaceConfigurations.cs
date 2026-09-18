@@ -54,6 +54,25 @@ public class WorkspaceRevisionConfiguration : IEntityTypeConfiguration<Workspace
     }
 }
 
+public class WorkspaceOperationConfiguration : IEntityTypeConfiguration<WorkspaceOperation>
+{
+    public void Configure(EntityTypeBuilder<WorkspaceOperation> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Key).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.Fingerprint).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.Action).IsRequired().HasMaxLength(32);
+        builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
+
+        // Insert-if-absent is this index: two hosts beginning the same operation at once, one row.
+        builder.HasIndex(x => new { x.TenantId, x.Key })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
+        builder.HasIndex(x => new { x.TenantId, x.WorkspaceId, x.Status });
+    }
+}
+
 public class WorkspaceFileConfiguration : IEntityTypeConfiguration<WorkspaceFile>
 {
     public void Configure(EntityTypeBuilder<WorkspaceFile> builder)
