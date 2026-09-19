@@ -55,3 +55,14 @@ internal sealed class RevokeAttestationRequestValidator : Validator<RevokeAttest
 {
     public RevokeAttestationRequestValidator() => RuleFor(x => x.Reason).NotEmpty().MaximumLength(512);
 }
+
+internal sealed class PublishConsentTermsRequestValidator : Validator<PublishConsentTermsRequest>
+{
+    public PublishConsentTermsRequestValidator()
+    {
+        RuleFor(x => x.Version).NotEmpty().MaximumLength(64);
+        RuleFor(x => x.NamedProviders).NotNull().Must(p => p.Count > 0 && p.All(name => !string.IsNullOrWhiteSpace(name) && name.Length <= 64))
+            .WithMessage("namedProviders lists at least one provider name.");
+        RuleForEach(x => x.AffectedPurposes).NotEmpty().MaximumLength(64).When(x => x.AffectedPurposes is not null);
+    }
+}

@@ -99,7 +99,18 @@ public interface IConsentService
     Task<int> PublishTermsVersionAsync(
         PublishTermsRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>The tenant's terms versions, newest first, with the providers each names (Spec 096 §16).</summary>
+    Task<IReadOnlyList<ConsentTermsVersionInfo>> ListTermsVersionsAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>A published terms version as the platform holds it.</summary>
+/// <param name="NamedProviders">The processors the terms disclose by name; a classification route not among them is refused.</param>
+public sealed record ConsentTermsVersionInfo(
+    string Version,
+    IReadOnlyList<string> NamedProviders,
+    DateTime PublishedAt,
+    bool IsCurrent);
 
 /// <param name="GuardianPartyId">The adult enrolling the child. Must be verifiable.</param>
 /// <param name="ChildDisplayName">What the child is called in the product.</param>
@@ -162,10 +173,16 @@ public sealed record GrantByGuardianRequest(
     string TermsVersion,
     string? Jurisdiction);
 
+/// <param name="NamedProviders">
+/// The processors the terms disclose by name (Spec 096 §16). Given, the version is recorded as the
+/// tenant's current terms with these providers before any grant is revoked; omitted, the version is
+/// assumed to exist already and only the revocation runs.
+/// </param>
 public sealed record PublishTermsRequest(
     string TermsVersion,
     // Which purposes the change is material to. Others keep their grants.
-    IReadOnlyList<string> AffectedPurposes);
+    IReadOnlyList<string> AffectedPurposes,
+    IReadOnlyList<string>? NamedProviders = null);
 
 /// <summary>Thrown when enrolment cannot verify the guardian. Nothing is written.</summary>
 public sealed class GuardianVerificationFailedException : Exception

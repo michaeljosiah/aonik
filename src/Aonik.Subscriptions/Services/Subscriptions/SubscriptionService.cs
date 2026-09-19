@@ -113,7 +113,7 @@ internal sealed class SubscriptionService : ISubscriptionService
 
         await SettleIfFreeAsync(subscription, period, version, cancellationToken);
 
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto> ChangePlanAsync(
@@ -138,7 +138,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         subscription.PendingEffectiveAt = subscription.CurrentPeriodEnd;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto> CancelAsync(
@@ -161,7 +161,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto> ResumeAsync(Guid subscriptionId, CancellationToken cancellationToken = default)
@@ -178,7 +178,7 @@ internal sealed class SubscriptionService : ISubscriptionService
 
         subscription.CancelAtPeriodEnd = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto> SetPaymentMandateAsync(
@@ -189,7 +189,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         var subscription = await LoadAuthorisedAsync(subscriptionId, cancellationToken);
         subscription.PaymentMandateId = paymentMandateId;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto?> GetAsync(Guid subscriptionId, CancellationToken cancellationToken = default)
@@ -204,7 +204,7 @@ internal sealed class SubscriptionService : ISubscriptionService
         await _authorization.EnsureCanManageBillingForAsync(
             new SubscriberRef(subscription.SubscriberKind, subscription.SubscriberId), cancellationToken);
 
-        return Map(subscription);
+        return await MapAsync(subscription, cancellationToken);
     }
 
     public async Task<SubscriptionDto?> GetForSubscriberAsync(
@@ -221,7 +221,7 @@ internal sealed class SubscriptionService : ISubscriptionService
                         && SubscriptionStatuses.OccupiesActiveSlotQueryable.Contains(s.Status))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return subscription is null ? null : Map(subscription);
+        return subscription is null ? null : await MapAsync(subscription, cancellationToken);
     }
 
     // ---- internals ---------------------------------------------------------------------------
@@ -271,8 +271,20 @@ internal sealed class SubscriptionService : ISubscriptionService
     private static DateTime AddInterval(DateTime from, string billingInterval)
         => BillingInterval.Add(from, billingInterval);
 
-    private static SubscriptionDto Map(Subscription s)
-        => new(s.Id, new SubscriberRef(s.SubscriberKind, s.SubscriberId), string.Empty, s.PlanVersionId,
-            null, s.PendingEffectiveAt, s.Status, s.CurrentPeriodStart, s.CurrentPeriodEnd,
+    /// <summary>The DTO names the plan by code, not only by version id: the version is pinned, the code is what a product and an operator talk about.</summary>
+    private async Task<SubscriptionDto> MapAsync(Subscription s, CancellationToken cancellationToken)
+    {
+        var versionIds = new[] { s.PlanVersionId, s.PendingPlanVersionId ?? Guid.Empty };
+        var codes = await _dbContext.PlanVersions.AsNoTracking()
+            .Where(v => versionIds.Contains(v.Id))
+            .Join(_dbContext.Plans.AsNoTracking(), v => v.PlanId, plan => plan.Id, (v, plan) => new { v.Id, plan.Code })
+            .ToDictionaryAsync(x => x.Id, x => x.Code, cancellationToken);
+
+        return new SubscriptionDto(
+            s.Id, new SubscriberRef(s.SubscriberKind, s.SubscriberId),
+            codes.GetValueOrDefault(s.PlanVersionId, string.Empty), s.PlanVersionId,
+            s.PendingPlanVersionId is { } pending ? codes.GetValueOrDefault(pending) : null, s.PendingEffectiveAt,
+            s.Status, s.CurrentPeriodStart, s.CurrentPeriodEnd,
             s.CancelAtPeriodEnd, s.PaymentMandateId, s.StartedAt, s.EndedAt);
+    }
 }

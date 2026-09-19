@@ -71,5 +71,32 @@ public sealed record AttestGuardianResponse(Guid AttestationId, Guid GuardianPar
 
 public sealed record RevokeAttestationRequest(string Reason);
 
+/// <param name="Version">The terms version a guardian's grant will name from now on.</param>
+/// <param name="NamedProviders">The processors the terms disclose by name, e.g. <c>openai</c>.</param>
+/// <param name="AffectedPurposes">
+/// Purposes the change is material to: every active grant under another version is revoked for them
+/// at publication (Spec 095 §10.2). Empty for a first publication, or one that changes nothing material.
+/// </param>
+public sealed record PublishConsentTermsRequest(
+    string Version,
+    IReadOnlyList<string> NamedProviders,
+    IReadOnlyList<string>? AffectedPurposes = null);
+
+/// <param name="RevokedGrants">How many grants the publication revoked, to size the re-consent campaign.</param>
+public sealed record PublishConsentTermsResponse(
+    string Version,
+    IReadOnlyList<string> NamedProviders,
+    DateTime PublishedAt,
+    bool IsCurrent,
+    int RevokedGrants);
+
+public sealed record ConsentTermsVersionResponse(
+    string Version,
+    IReadOnlyList<string> NamedProviders,
+    DateTime PublishedAt,
+    bool IsCurrent);
+
+public sealed record ConsentTermsVersionsResponse(IReadOnlyList<ConsentTermsVersionResponse> Versions);
+
 /// <summary>Every refusal these endpoints make on purpose: a stable code and a message for a log.</summary>
 public sealed record ConsentProblem(int Status, string Code, string Message);
