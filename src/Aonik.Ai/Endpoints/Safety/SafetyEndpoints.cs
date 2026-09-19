@@ -110,7 +110,7 @@ internal sealed class ScreenContentEndpoint : SafetyEndpoint<ScreenContentReques
         Summary(s =>
         {
             s.Summary = "Screen content for a child";
-            s.Description = "Classifies text, or an image carried inline as a data URL, against the child's age band and the current "
+            s.Description = "Classifies text, or an image or generated speech carried inline as a data URL, against the child's age band and the current "
                 + "policy, records the decision, and answers the verdict with the hash of exactly what was judged - the bytes, for an "
                 + "image. Input (layer 'input') is what the child typed, before a model sees it; output (layer 'output') is what a "
                 + "model produced, before the child does. An output the child's band holds for guardian review answers "

@@ -212,6 +212,13 @@ public static class DependencyInjection
         services.AddScoped<Aonik.Ai.Services.Safety.IPreservedInputStore, Aonik.Ai.Services.Safety.FilePreservedInputStore>();
         services.AddHttpClient<Ai.Safety.OpenAIModerationProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddScoped<Aonik.Ai.Services.Safety.ISafetyClassificationProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAIModerationProvider>());
+        if (configuration.GetValue<bool>("Safety:OpenAiSpeech:Enabled"))
+        {
+            services.AddHttpClient<Ai.Safety.OpenAISpeechProvider>(client => client.Timeout = TimeSpan.FromSeconds(90));
+            services.AddScoped<Aonik.Ai.Services.Safety.ISafetyClassificationProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAISpeechProvider>());
+            services.AddScoped<Aonik.Ai.Services.Safety.ISpeechTranscriptionProvider>(sp => sp.GetRequiredService<Ai.Safety.OpenAISpeechProvider>());
+        }
+
 
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();

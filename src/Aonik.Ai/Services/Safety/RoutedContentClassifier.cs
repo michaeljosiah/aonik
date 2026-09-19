@@ -20,6 +20,9 @@ public interface ISafetyClassificationProvider
     /// <summary>Matches <c>AiProvider.Name</c>, so routing and this registry agree on one identifier.</summary>
     string Provider { get; }
 
+    /// <summary>Immutable classifier prompt revision, where the provider uses a prompt.</summary>
+    string? PromptVersion => null;
+
     /// <summary>Modalities this adapter can judge.</summary>
     IReadOnlySet<string> SupportedModalities { get; }
 
@@ -139,7 +142,7 @@ internal sealed class RoutedContentClassifier : IContentClassifier, ITemporalCov
         var scores = await provider.ScoreAsync(
             Modality, request.Reference, request.SafetyBand, route.ModelName, cancellationToken);
 
-        var runId = await RecordRunAsync(request, route, startedAt, cancellationToken);
+        var runId = await RecordRunAsync(request, route, startedAt, provider.PromptVersion, cancellationToken);
 
         return new ClassificationResult(scores, runId);
     }
@@ -153,6 +156,7 @@ internal sealed class RoutedContentClassifier : IContentClassifier, ITemporalCov
         ClassificationRequest request,
         SafetyRoute route,
         DateTime startedAt,
+        string? promptVersion,
         CancellationToken cancellationToken)
     {
         var modelId = await ResolveModelIdAsync(route.ModelName, cancellationToken);
@@ -166,6 +170,7 @@ internal sealed class RoutedContentClassifier : IContentClassifier, ITemporalCov
             // A reference, never the content. The AiRun log must not become a second copy of every
             // prompt a child has ever typed.
             InputRefsJson = $$"""{"subject":"{{request.SubjectPartyId}}","band":"{{request.SafetyBand}}"}""",
+            OutputRef = promptVersion is null ? null : "classifier-prompt:" + promptVersion,
             Outcome = "Completed",
             LatencyMs = (int)(_clock.UtcNow - startedAt).TotalMilliseconds
         };

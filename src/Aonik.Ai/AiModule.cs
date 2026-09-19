@@ -374,14 +374,17 @@ public sealed class AiModule : IModule
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Services.Safety.RoutedContentClassifier>>()));
         }
 
+        if (configuration.GetValue<bool>("Safety:OpenAiSpeech:Enabled"))
+            services.AddScoped<Services.Safety.ISpeechTranscriber, Services.Safety.RecordedOpenAiSpeechTranscriber>();
+
         // ── Spec 096 S5 — voice ──────────────────────────────────────────────
         // Narration is judged in two legs that both have to run: the transcript as text, and the
         // audio for what a transcript cannot carry — tone, pacing, distress, a gentle sentence read
         // in a terrifying voice. The composite refuses if either leg is missing, so voice is never
         // enabled as a side effect of another modality being configured.
         //
-        // No ISpeechTranscriber is registered by default, for the same reason no classification
-        // adapter is. Narration is therefore refused today, which is the correct state.
+        // Speech transport is opt-in above. Routes, provider consent and policy must also permit it;
+        // without those prerequisites the composite refuses narration.
         services.AddScoped<SharedKernel.Abstractions.Safety.IContentClassifier>(sp =>
             new Services.Safety.SpeechContentClassifier(
                 sp.GetServices<Services.Safety.ISpeechTranscriber>(),

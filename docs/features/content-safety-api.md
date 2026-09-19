@@ -19,7 +19,7 @@ caller holds guardian authority over, or the caller themselves; anyone else's ch
 | 404 | `decision-not-found` | No such decision, or one about somebody else's child. |
 | 422 | `invalid-request` | Neither text nor an inline image, no layer, no content; an image as an input or by URL. |
 
-## The one supported route
+## Text and image classification
 
 Classification goes through `ISafetyClassificationProvider`, and this slice ships one: OpenAI's
 moderation endpoint (`omni-moderation-latest`). It is always registered, and its key is the
@@ -99,5 +99,7 @@ decision `allowed` or `approved`, deliver; anything else, do not.
 
 ## Not in this slice
 
-Video and speech are not screened over this route. The `frightening` category is scored by no
-route and needs either one that scores it or a curated model of its own.
+Video is not screened over this route. Generated speech has an opt-in
+[OpenAI transport](openai-speech-safety.md), disabled by default pending configuration and evaluation.
+It checks spoken content and delivery; transport tests alone do not establish classifier quality.
+The text and image moderation route does not score the `frightening` category.

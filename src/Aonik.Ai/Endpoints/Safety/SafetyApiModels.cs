@@ -5,9 +5,9 @@ namespace Aonik.Ai.Endpoints.Safety;
 // child does, and later proves that what it is about to deliver is exactly what was judged.
 
 /// <param name="SubjectPartyId">The child the content is for; the age band and consent are theirs.</param>
-/// <param name="Modality">One of the safety modalities; <c>text</c> is what this slice supports.</param>
+/// <param name="Modality">Text, image or generated speech.</param>
 /// <param name="Layer"><c>input</c> (what the child typed) or <c>output</c> (what a model produced).</param>
-/// <param name="Content">The text itself. It is classified, hashed, and — only if judged reportable — preserved.</param>
+/// <param name="Content">Text or inline image/audio bytes, classified and hashed before delivery.</param>
 public sealed record ScreenContentRequest(
     Guid SubjectPartyId,
     string Modality,

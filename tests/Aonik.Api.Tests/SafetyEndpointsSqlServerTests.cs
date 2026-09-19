@@ -52,6 +52,27 @@ public sealed class SafetyEndpointsSqlServerTests : IClassFixture<SqlLocalDbFixt
 
     private const string Terms = "2026-09";
 
+    [SkippableFact]
+    public async Task Speech_requires_authority_and_consent_and_refuses_without_audio_routes()
+    {
+        var tenantId = Guid.NewGuid();
+        var parent = await SignInAsync(Factory, tenantId, "Parent", withPlan: false);
+        var other = await SignInAsync(Factory, tenantId, "Other", withPlan: false);
+        await SeedClassificationRouteAsync(Factory, tenantId, parent.UserId);
+        await SeedTermsAsync(Factory, tenantId, parent.UserId, Terms, KeywordClassificationProvider.Name);
+        var child = await EnrolAsync(tenantId, parent, "Child");
+        var request = new ScreenContentRequest(child, "speech", "output", "data:audio/wav;base64,AQID");
+        (await parent.Client.PostAsJsonAsync("/safety/screen", request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.Client.PostAsJsonAsync("/safety/screen", request)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await parent.Client.PostAsJsonAsync($"/consent/wards/{child}/purposes",
+            new GrantPurposeRequest(ConsentPurposes.SafetyClassification, Terms, "GB"))).StatusCode.Should().Be(HttpStatusCode.OK);
+        var response = await parent.Client.PostAsJsonAsync("/safety/screen", request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        var verdict = (await response.Content.ReadFromJsonAsync<SafetyVerdictResponse>())!;
+        verdict.Allowed.Should().BeFalse();
+        verdict.Outcome.Should().BeOneOf("check-unavailable", "modality-disabled");
+    }
+
     private static string Sha256(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
 
     [SkippableFact]
