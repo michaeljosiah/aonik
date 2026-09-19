@@ -130,7 +130,8 @@ public sealed record EnrolChildRequest(
     DateOnly ChildDateOfBirth,
     string? Jurisdiction,
     string TermsVersion,
-    IReadOnlyList<string> Purposes);
+    IReadOnlyList<string> Purposes,
+    bool ParentalResponsibilityDeclared = false);
 
 /// <param name="EnrolmentAttemptId">
 /// Minted before verification and correlating the verification record — which commits outside this

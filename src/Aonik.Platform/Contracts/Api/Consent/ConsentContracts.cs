@@ -34,7 +34,8 @@ public sealed record EnrolWardRequest(
     DateOnly DateOfBirth,
     string TermsVersion,
     string? Jurisdiction = null,
-    IReadOnlyList<string>? Purposes = null);
+    IReadOnlyList<string>? Purposes = null,
+    bool ParentalResponsibilityDeclared = false);
 
 public sealed record EnrolWardResponse(
     Guid ChildPartyId,

@@ -198,7 +198,8 @@ internal sealed class EnrolWardEndpoint : ConsentEndpoint<EnrolWardRequest, Enro
                 req.DateOfBirth,
                 req.Jurisdiction,
                 req.TermsVersion.Trim(),
-                req.Purposes ?? []), ct);
+                req.Purposes ?? [],
+                req.ParentalResponsibilityDeclared), ct);
 
             await Send.CreatedAtAsync<GetWardEndpoint>(
                 new { childPartyId = enrolled.ChildPartyId },

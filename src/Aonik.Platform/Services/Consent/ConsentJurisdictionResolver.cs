@@ -132,6 +132,10 @@ public sealed class ConsentOptions
     /// quietly becomes no process.
     /// </summary>
     public int SignedFormAttestationDays { get; set; } = 365;
+
+    /// <summary>Explicit opt-in for GB core-profile enrolment by parental declaration.
+    /// Deployment owners must assess suitability for their processing before enabling for real data.</summary>
+    public List<Guid> ParentalDeclarationTenantIds { get; set; } = new();
 }
 
 public sealed class ConsentJurisdictionOptions

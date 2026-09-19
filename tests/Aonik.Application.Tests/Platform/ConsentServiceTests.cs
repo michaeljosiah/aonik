@@ -68,6 +68,10 @@ public class ConsentServiceTests
 
     private static (ConsentService Service, RecordingVerificationRecorder Recorder, GuardianshipReader Guardianship)
         CreateService(PlatformDbContext context, params Guid[] guardiansWithMandate)
+        => CreateServiceWithOptions(context, new ConsentOptions(), guardiansWithMandate);
+
+    private static (ConsentService Service, RecordingVerificationRecorder Recorder, GuardianshipReader Guardianship)
+        CreateServiceWithOptions(PlatformDbContext context, ConsentOptions options, params Guid[] guardiansWithMandate)
     {
         var clock = new TestClock();
         var resolver = new ConsentJurisdictionResolver(
@@ -80,7 +84,8 @@ public class ConsentServiceTests
         var guardianship = new GuardianshipReader(context, clock);
 
         return (
-            new ConsentService(context, new TestTenantProvider(TenantId), clock, resolver, factory, recorder, guardianship),
+            new ConsentService(context, new TestTenantProvider(TenantId), clock, resolver, factory, recorder, guardianship,
+                Microsoft.Extensions.Options.Options.Create(options)),
             recorder,
             guardianship);
     }
@@ -101,6 +106,51 @@ public class ConsentServiceTests
         => new(guardian, "A Child", new DateOnly(2018, 6, 15), "GB", "v1", purposes);
 
     // ── Enrolment ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Declaration_Should_EnrolWithoutMandateOrOperator_AndRecordItsActualMethod()
+    {
+        await using var context = CreateDbContext();
+        var guardian = SeedParty(context);
+        context.ConsentTermsVersions.Add(new ConsentTermsVersion { Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = true, PublishedAt = Now });
+        await context.SaveChangesAsync();
+        var (service, recorder, _) = CreateServiceWithOptions(context, new ConsentOptions { ParentalDeclarationTenantIds = [TenantId] });
+        var result = await service.EnrolChildAsync(AnEnrolment(guardian) with { ParentalResponsibilityDeclared = true });
+        result.VerificationMethod.Should().Be(ConsentVerificationMethods.ParentalDeclaration);
+        (await context.ConsentGrants.SingleAsync()).VerificationMethod.Should().Be(ConsentVerificationMethods.ParentalDeclaration);
+        (await context.GuardianAttestations.AnyAsync()).Should().BeFalse();
+        recorder.Records.Should().ContainSingle(r => r.Guardian == guardian && r.Succeeded);
+        await service.WithdrawAsync(new WithdrawConsentRequest(result.ChildPartyId, guardian, ConsentPurposes.ServiceCore));
+        (await context.ConsentGrants.SingleAsync()).RevokedAt.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("other-tenant")]
+    [InlineData("missing-declaration")]
+    [InlineData("unknown-country")]
+    [InlineData("stale-terms")]
+    [InlineData("extra-purpose")]
+    [InlineData("minor")]
+    public async Task Declaration_Should_RefuseOutsideItsExplicitScope(string scenario)
+    {
+        await using var context = CreateDbContext();
+        var guardian = SeedParty(context);
+        context.ConsentTermsVersions.Add(new ConsentTermsVersion { Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = scenario != "stale-terms", PublishedAt = Now });
+        if (scenario == "minor") (await context.Parties.SingleAsync()).SafetyBand = PartySafetyBands.Age6To9;
+        await context.SaveChangesAsync();
+        var options = new ConsentOptions { ParentalDeclarationTenantIds = scenario == "disabled" ? [] : [scenario == "other-tenant" ? Guid.NewGuid() : TenantId] };
+        var (service, _, _) = CreateServiceWithOptions(context, options);
+        var request = AnEnrolment(guardian) with {
+            ParentalResponsibilityDeclared = scenario != "missing-declaration",
+            Jurisdiction = scenario == "unknown-country" ? "ZZ" : "GB",
+            Purposes = scenario == "extra-purpose" ? [ConsentPurposes.GenerationDisclosure] : []
+        };
+        var act = async () => await service.EnrolChildAsync(request);
+        await act.Should().ThrowAsync<GuardianVerificationFailedException>();
+        (await context.Parties.CountAsync()).Should().Be(1);
+        (await context.ConsentGrants.AnyAsync()).Should().BeFalse();
+    }
 
     [Fact]
     public async Task EnrolChild_Should_CreateChild_GuardianEdge_AndConsents_Together()

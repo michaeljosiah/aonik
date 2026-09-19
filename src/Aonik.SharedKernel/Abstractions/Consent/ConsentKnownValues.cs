@@ -55,6 +55,9 @@ public static class ConsentPurposes
 /// </summary>
 public static class ConsentVerificationMethods
 {
+    /// <summary>A request-scoped parental declaration under an explicitly enabled product policy.
+    /// Does not represent identity verification or an operator's review.</summary>
+    public const string ParentalDeclaration = "parental-declaration";
     /// <summary>A verified card or mandate held by the consenting adult, exercised through a real
     /// authorisation. The strongest available method and a by-product of paying.</summary>
     public const string PaymentInstrument = "payment-instrument";

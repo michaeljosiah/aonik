@@ -8,6 +8,9 @@ using Aonik.SharedKernel.Abstractions.Consent;
 using Aonik.SharedKernel.Abstractions.Groups;
 
 using FluentAssertions;
+using Aonik.Platform.Services.Consent;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using static Aonik.Api.Tests.WorkspaceTestSeeding;
 
@@ -46,6 +49,29 @@ public sealed class ConsentAndGroupEndpointsSqlServerTests : IClassFixture<SqlLo
     }
 
     private const string Terms = "2026-09";
+
+    [SkippableFact]
+    public async Task ParentDeclaration_Should_EnrolWithoutOperator_AndKeepWardPrivate()
+    {
+        var tenantId = Guid.NewGuid();
+        var parent = await SignInAsync(Factory, tenantId, "Test parent", withPlan: false);
+        var stranger = await SignInAsync(Factory, tenantId, "Other parent", withPlan: false);
+        Factory.Services.GetRequiredService<IOptions<ConsentOptions>>().Value.ParentalDeclarationTenantIds.Add(tenantId);
+        var admin = await Factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles("TenantAdmin"));
+        var published = await admin.PostAsJsonAsync("/admin/consent/terms", new PublishConsentTermsRequest(Terms, ["aonik"]));
+        published.EnsureSuccessStatusCode();
+        var request = new EnrolWardRequest("Fictional child", new DateOnly(2021, 5, 4), Terms, "GB", ParentalResponsibilityDeclared: true);
+        var missing = await parent.Client.PostAsJsonAsync("/consent/wards", request with { ParentalResponsibilityDeclared = false });
+        missing.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var response = await parent.Client.PostAsJsonAsync("/consent/wards", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        var child = (await response.Content.ReadFromJsonAsync<EnrolWardResponse>())!;
+        child.VerificationMethod.Should().Be(ConsentVerificationMethods.ParentalDeclaration);
+        (await stranger.Client.GetAsync($"/consent/wards/{child.ChildPartyId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/service-core")).EnsureSuccessStatusCode();
+        var ward = await parent.Client.GetFromJsonAsync<WardResponse>($"/consent/wards/{child.ChildPartyId}");
+        ward!.Purposes.Should().BeEmpty();
+    }
 
     [SkippableFact]
     public async Task AGuardian_Should_EnrolAndGrant_OnlyOnceAnOperatorHasAttestedThem()

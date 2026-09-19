@@ -21,6 +21,7 @@ internal sealed class ConsentService : IConsentService
     private readonly IGuardianVerifierFactory _verifierFactory;
     private readonly IGuardianVerificationRecorder _verificationRecorder;
     private readonly IGuardianshipReader _guardianshipReader;
+    private readonly ConsentOptions _options;
 
     public ConsentService(
         PlatformDbContext dbContext,
@@ -29,7 +30,8 @@ internal sealed class ConsentService : IConsentService
         IConsentJurisdictionResolver jurisdictionResolver,
         IGuardianVerifierFactory verifierFactory,
         IGuardianVerificationRecorder verificationRecorder,
-        IGuardianshipReader guardianshipReader)
+        IGuardianshipReader guardianshipReader,
+        Microsoft.Extensions.Options.IOptions<ConsentOptions>? options = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -38,6 +40,7 @@ internal sealed class ConsentService : IConsentService
         _verifierFactory = verifierFactory;
         _verificationRecorder = verificationRecorder;
         _guardianshipReader = guardianshipReader;
+        _options = options?.Value ?? new ConsentOptions();
     }
 
     public async Task<EnrolChildResult> EnrolChildAsync(
@@ -51,8 +54,9 @@ internal sealed class ConsentService : IConsentService
         // own scope and survives a rollback — to the child this attempt may or may not create.
         var attemptId = Guid.NewGuid();
 
-        var verificationMethod = await VerifyGuardianAsync(
-            tenantId, request.GuardianPartyId, jurisdiction, attemptId, cancellationToken);
+        var verificationMethod = request.ParentalResponsibilityDeclared
+            ? await AcceptParentalDeclarationAsync(tenantId, request, jurisdiction, attemptId, cancellationToken)
+            : await VerifyGuardianAsync(tenantId, request.GuardianPartyId, jurisdiction, attemptId, cancellationToken);
 
         // An exact date is required. §6 removed the fallback because no single default date is safe
         // for all four boundaries: they want opposite conservatism, so any guess is wrong somewhere.
@@ -402,6 +406,33 @@ internal sealed class ConsentService : IConsentService
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    private async Task<string> AcceptParentalDeclarationAsync(
+        Guid tenantId, EnrolChildRequest request, ConsentJurisdiction jurisdiction,
+        Guid attemptId, CancellationToken cancellationToken)
+    {
+        // This applies to this new child's core profile only. It never creates a reusable
+        // guardian attestation, authorises another child, or grants AI processing purposes.
+        var party = await _dbContext.Parties.AsNoTracking().SingleOrDefaultAsync(
+            p => p.TenantId == tenantId && p.Id == request.GuardianPartyId, cancellationToken);
+        var currentTerms = await _dbContext.ConsentTermsVersions.AsNoTracking().AnyAsync(
+            t => t.TenantId == tenantId && t.IsCurrent && t.Version == request.TermsVersion, cancellationToken);
+        var accepted = _options.ParentalDeclarationTenantIds.Contains(tenantId)
+            && jurisdiction.Code == "GB"
+            && (request.Purposes ?? []).All(p => p == ConsentPurposes.ServiceCore)
+            && currentTerms
+            && party is { Status: "Active" }
+            && (party.PartyType == "Person" || party.PartyType == "Individual")
+            && (party.SafetyBand is null || party.SafetyBand == PartySafetyBands.Adult)
+            && (party.MajorityOn is null || party.MajorityOn <= _clock.UtcNow);
+        var result = accepted
+            ? GuardianVerificationResult.Success(ConsentVerificationMethods.ParentalDeclaration, request.TermsVersion)
+            : GuardianVerificationResult.Failure(ConsentVerificationMethods.ParentalDeclaration,
+                "Parental declaration is unavailable for this tenant, party, jurisdiction, terms or purpose.");
+        await _verificationRecorder.RecordAsync(request.GuardianPartyId, attemptId, result, cancellationToken);
+        if (!accepted) throw new GuardianVerificationFailedException(request.GuardianPartyId, result.FailureReason!);
+        return result.Method;
+    }
 
     private async Task<string> VerifyGuardianAsync(
         Guid tenantId,
