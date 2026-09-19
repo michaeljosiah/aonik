@@ -4,6 +4,9 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Workspace staging now hashes incoming bytes into a temporary disk spool before uploading through FluentStorage. Azure can inspect stream length and rewind retries without failing on a non-seekable hashing stream or double-counting the hash. The spool is deleted on close and does not buffer the whole upload in memory.
+
 ### Added
 - **Free subscription capacity refresh**: An administrator who can manage the subscriber may move an active non-renewing free subscription to a published version of the same plan with additive ceiling capacity. Counter allowances, grants and billing periods remain unchanged; replay does not replenish one-time credits.
 - **Self-service core-profile enrolment**: Explicit tenant opt-in permits a fresh parental declaration for GB enrolment with current terms, without payment or an operator attestation. The audit records `parental-declaration`; known minors, extra purposes, stale terms and other tenants are refused. Intended initially for Kidz fictional-data development; production assurance must be assessed against the actual processing risks.

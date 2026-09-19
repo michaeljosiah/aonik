@@ -124,9 +124,14 @@ public class FileStore : IFileStore
 
         await using var hashing = new HashingReadStream(content);
 
-        // Single pass. The hash is computed off the bytes as the store pulls them, so a non-seekable
-        // multi-gigabyte upload never has to be buffered to be hashed.
-        await _blobStorage.WriteAsync(tempKey, hashing, append: false, cancellationToken);
+        // Azure's FluentStorage adapter probes Length and can seek on retry. Spool to disk
+        // while hashing once: request streams need not seek and memory remains bounded.
+        var spoolPath = Path.Combine(Path.GetTempPath(), $"aonik-upload-{Guid.NewGuid():N}");
+        await using var spool = new FileStream(spoolPath, FileMode.CreateNew, FileAccess.ReadWrite,
+            FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        await hashing.CopyToAsync(spool, cancellationToken);
+        spool.Position = 0;
+        await _blobStorage.WriteAsync(tempKey, spool, append: false, cancellationToken);
 
         return new StagedBlob(tenantId, hashing.GetHashHex(), hashing.BytesRead, tempKey);
     }
