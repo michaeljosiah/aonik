@@ -107,6 +107,53 @@ public class ConsentServiceTests
 
     // ── Enrolment ────────────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData("generation-disclosure")]
+    [InlineData("safety-classification")]
+    public async Task DevelopmentGeneration_Should_GrantReplayAndWithdraw_WithoutReusableVerification(string purpose)
+    {
+        await using var db = CreateDbContext();
+        var parent = SeedParty(db);
+        db.ConsentTermsVersions.Add(new ConsentTermsVersion {Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = true, PublishedAt = Now});
+        await db.SaveChangesAsync();
+        var enrolled = await CreateService(db, parent).Service.EnrolChildAsync(AnEnrolment(parent));
+        var (service, _, _) = CreateServiceWithOptions(db, new ConsentOptions {DevelopmentGenerationDeclarationTenantIds = [TenantId]});
+        var request = new GrantByGuardianRequest(enrolled.ChildPartyId, parent, purpose, "v1", "GB", true);
+        (await service.GrantByGuardianAsync(request)).Should().Be(ConsentVerificationMethods.ParentalDeclaration);
+        await service.GrantByGuardianAsync(request);
+        db.ConsentGrants.Count(g => g.Purpose == purpose).Should().Be(1);
+        db.GuardianAttestations.Should().BeEmpty();
+        await service.WithdrawAsync(new WithdrawConsentRequest(enrolled.ChildPartyId, parent, purpose));
+        db.ConsentGrants.Single(g => g.Purpose == purpose).RevokedAt.Should().NotBeNull();
+        db.ConsentGrants.Single(g => g.Purpose == ConsentPurposes.ServiceCore).RevokedAt.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("stale")]
+    [InlineData("minor")]
+    [InlineData("other-purpose")]
+    [InlineData("country")]
+    [InlineData("no-core")]
+    [InlineData("no-declaration")]
+    public async Task DevelopmentGeneration_Should_RefuseOutsideScope(string scenario)
+    {
+        await using var db = CreateDbContext();
+        var parent = SeedParty(db);
+        db.ConsentTermsVersions.Add(new ConsentTermsVersion {Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = true, PublishedAt = Now});
+        await db.SaveChangesAsync();
+        var enrolled = await CreateService(db, parent).Service.EnrolChildAsync(AnEnrolment(parent));
+        if (scenario == "minor") db.Parties.Single(p => p.Id == parent).SafetyBand = PartySafetyBands.Age6To9;
+        if (scenario == "no-core") db.ConsentGrants.Single().RevokedAt = Now;
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateServiceWithOptions(db, new ConsentOptions {DevelopmentGenerationDeclarationTenantIds = scenario == "disabled" ? [] : [TenantId]});
+        var request = new GrantByGuardianRequest(enrolled.ChildPartyId, parent, scenario == "other-purpose" ? ConsentPurposes.ServiceCore : ConsentPurposes.GenerationDisclosure,
+            scenario == "stale" ? "old" : "v1", scenario == "country" ? "ZZ" : "GB", scenario != "no-declaration");
+        var action = () => service.GrantByGuardianAsync(request);
+        await action.Should().ThrowAsync<GuardianVerificationFailedException>();
+        db.ConsentGrants.Should().HaveCount(1);
+    }
+
     [Fact]
     public async Task Declaration_Should_EnrolWithoutMandateOrOperator_AndRecordItsActualMethod()
     {

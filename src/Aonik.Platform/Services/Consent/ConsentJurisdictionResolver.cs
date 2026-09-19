@@ -136,6 +136,8 @@ public sealed class ConsentOptions
     /// <summary>Explicit opt-in for GB core-profile enrolment by parental declaration.
     /// Deployment owners must assess suitability for their processing before enabling for real data.</summary>
     public List<Guid> ParentalDeclarationTenantIds { get; set; } = new();
+    /// <summary>Separate opt-in for fictional-data development generation and safety permission declarations.</summary>
+    public List<Guid> DevelopmentGenerationDeclarationTenantIds { get; set; } = new();
 }
 
 public sealed class ConsentJurisdictionOptions

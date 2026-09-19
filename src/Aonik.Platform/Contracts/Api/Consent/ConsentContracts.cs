@@ -48,7 +48,8 @@ public sealed record EnrolWardResponse(
 public sealed record GrantPurposeRequest(
     string Purpose,
     string TermsVersion,
-    string? Jurisdiction = null);
+    string? Jurisdiction = null,
+    bool ParentalResponsibilityDeclared = false);
 
 public sealed record GrantPurposeResponse(string Purpose, string VerificationMethod);
 

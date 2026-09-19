@@ -67,6 +67,14 @@ public sealed class ConsentAndGroupEndpointsSqlServerTests : IClassFixture<SqlLo
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         var child = (await response.Content.ReadFromJsonAsync<EnrolWardResponse>())!;
         child.VerificationMethod.Should().Be(ConsentVerificationMethods.ParentalDeclaration);
+        var purposeRequest = new GrantPurposeRequest(ConsentPurposes.GenerationDisclosure, Terms, "GB", true);
+        (await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Factory.Services.GetRequiredService<IOptions<ConsentOptions>>().Value.DevelopmentGenerationDeclarationTenantIds.Add(tenantId);
+        var granted = await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest);
+        granted.StatusCode.Should().Be(HttpStatusCode.OK, await granted.Content.ReadAsStringAsync());
+        (await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest)).EnsureSuccessStatusCode();
+        (await stranger.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/generation-disclosure")).EnsureSuccessStatusCode();
         (await stranger.Client.GetAsync($"/consent/wards/{child.ChildPartyId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/service-core")).EnsureSuccessStatusCode();
         var ward = await parent.Client.GetFromJsonAsync<WardResponse>($"/consent/wards/{child.ChildPartyId}");

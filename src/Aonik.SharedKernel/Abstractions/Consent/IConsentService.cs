@@ -172,7 +172,8 @@ public sealed record GrantByGuardianRequest(
     Guid GuardianPartyId,
     string Purpose,
     string TermsVersion,
-    string? Jurisdiction);
+    string? Jurisdiction,
+    bool ParentalResponsibilityDeclared = false);
 
 /// <param name="NamedProviders">
 /// The processors the terms disclose by name (Spec 096 §16). Given, the version is recorded as the

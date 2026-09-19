@@ -246,7 +246,7 @@ internal sealed class GrantPurposeEndpoint : ConsentEndpoint<GrantPurposeRequest
         await GuardedAsync(async () =>
         {
             var method = await _consent.GrantByGuardianAsync(new GrantByGuardianRequest(
-                childPartyId, guardian, req.Purpose.Trim().ToLowerInvariant(), req.TermsVersion.Trim(), req.Jurisdiction), ct);
+                childPartyId, guardian, req.Purpose.Trim().ToLowerInvariant(), req.TermsVersion.Trim(), req.Jurisdiction, req.ParentalResponsibilityDeclared), ct);
 
             await Send.OkAsync(new GrantPurposeResponse(req.Purpose.Trim().ToLowerInvariant(), method), ct);
         });

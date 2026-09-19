@@ -191,16 +191,25 @@ internal sealed class ConsentService : IConsentService
 
     public async Task GrantAsync(GrantConsentRequest request, CancellationToken cancellationToken = default)
     {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-        var now = _clock.UtcNow;
-
         ValidatePurpose(request.Purpose);
         ValidateGrantorAndMethod(request);
+        await PersistGrantAsync(request, cancellationToken);
+    }
+
+    private async Task PersistGrantAsync(GrantConsentRequest request, CancellationToken cancellationToken, bool requireCurrentTerms = false)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var now = _clock.UtcNow;
 
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async ct =>
         {
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
+            await using var transaction = requireCurrentTerms && _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct)
+                : await _dbContext.Database.BeginTransactionAsync(ct);
+            if (requireCurrentTerms && !await _dbContext.ConsentTermsVersions.AsNoTracking().AnyAsync(
+                t => t.TenantId == tenantId && t.IsCurrent && t.Version == request.TermsVersion, ct))
+                throw new GuardianVerificationFailedException(request.GrantedByPartyId, "The consent notice changed before the permission was saved.");
 
             // Supersede is ATOMIC with the new grant. If it were not, a window would exist in which
             // either two active grants coexist — and the version-agnostic reader would find the stale
@@ -257,17 +266,20 @@ internal sealed class ConsentService : IConsentService
         // a mandate that has lapsed or an attestation that has expired stops supporting new grants,
         // and the method on the grant is what the platform established, never what the caller said.
         var jurisdiction = _jurisdictionResolver.Resolve(request.Jurisdiction);
-        var verificationMethod = await VerifyGuardianAsync(
-            tenantId, request.GuardianPartyId, jurisdiction, Guid.NewGuid(), cancellationToken);
+        var verificationMethod = request.ParentalResponsibilityDeclared
+            ? await AcceptDevelopmentGenerationDeclarationAsync(tenantId, request, jurisdiction, cancellationToken)
+            : await VerifyGuardianAsync(tenantId, request.GuardianPartyId, jurisdiction, Guid.NewGuid(), cancellationToken);
 
-        await GrantAsync(new GrantConsentRequest(
+        var grant = new GrantConsentRequest(
             request.SubjectPartyId,
             request.GuardianPartyId,
             request.Purpose,
             request.TermsVersion,
             request.Jurisdiction,
             verificationMethod,
-            VerificationRef: null), cancellationToken);
+            VerificationRef: request.ParentalResponsibilityDeclared ? request.TermsVersion : null);
+        if (request.ParentalResponsibilityDeclared) await PersistGrantAsync(grant, cancellationToken, requireCurrentTerms: true);
+        else await GrantAsync(grant, cancellationToken);
 
         return verificationMethod;
     }
@@ -406,6 +418,31 @@ internal sealed class ConsentService : IConsentService
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    private async Task<string> AcceptDevelopmentGenerationDeclarationAsync(Guid tenantId,
+        GrantByGuardianRequest request, ConsentJurisdiction jurisdiction, CancellationToken cancellationToken)
+    {
+        var parent = await _dbContext.Parties.AsNoTracking().SingleOrDefaultAsync(
+            p => p.TenantId == tenantId && p.Id == request.GuardianPartyId, cancellationToken);
+        var currentTerms = await _dbContext.ConsentTermsVersions.AsNoTracking().AnyAsync(
+            t => t.TenantId == tenantId && t.IsCurrent && t.Version == request.TermsVersion, cancellationToken);
+        var hasCore = await _dbContext.ConsentGrants.AsNoTracking().AnyAsync(g => g.TenantId == tenantId
+            && g.SubjectPartyId == request.SubjectPartyId && g.Purpose == ConsentPurposes.ServiceCore
+            && g.RevokedAt == null && (g.ExpiresAt == null || g.ExpiresAt > _clock.UtcNow), cancellationToken);
+        var accepted = _options.DevelopmentGenerationDeclarationTenantIds.Contains(tenantId)
+            && jurisdiction.Code == "GB" && request.GuardianPartyId != request.SubjectPartyId
+            && request.Purpose is "generation-disclosure" or "safety-classification"
+            && currentTerms && hasCore && parent is { Status: "Active" }
+            && (parent.PartyType == "Person" || parent.PartyType == "Individual")
+            && (parent.SafetyBand is null || parent.SafetyBand == PartySafetyBands.Adult)
+            && (parent.MajorityOn is null || parent.MajorityOn <= _clock.UtcNow);
+        var result = accepted
+            ? GuardianVerificationResult.Success(ConsentVerificationMethods.ParentalDeclaration, request.TermsVersion)
+            : GuardianVerificationResult.Failure(ConsentVerificationMethods.ParentalDeclaration, "Development generation declaration is unavailable for this tenant, party, purpose or notice.");
+        await _verificationRecorder.RecordAsync(request.GuardianPartyId, Guid.NewGuid(), result, cancellationToken);
+        if (!accepted) throw new GuardianVerificationFailedException(request.GuardianPartyId, result.FailureReason!);
+        return result.Method;
+    }
 
     private async Task<string> AcceptParentalDeclarationAsync(
         Guid tenantId, EnrolChildRequest request, ConsentJurisdiction jurisdiction,
