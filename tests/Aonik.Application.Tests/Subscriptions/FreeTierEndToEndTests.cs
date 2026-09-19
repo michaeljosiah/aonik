@@ -21,6 +21,22 @@ namespace Aonik.Application.Tests.Subscriptions;
 /// </summary>
 public class FreeTierEndToEndTests
 {
+    [Fact]
+    public async Task OnceAllowance_Should_NotRepeatAfterCancellationAndResubscription()
+    {
+        var h = new Harness();
+        await h.SeedFreeTierAsync(stories: 1, reset: ResetPolicies.Once);
+        var first = await h.Subscriptions.SubscribeAsync(Subscriber(), "peek");
+        var reservation = await h.Meter.ReserveAsync(Subscriber(), "stories", 1, "first-story");
+        await h.Meter.CommitAsync(reservation.ReservationId, 1, new UsageSource("Story", Guid.NewGuid()));
+        await h.Subscriptions.CancelAsync(first.Id, atPeriodEnd: false);
+        h.Clock.UtcNow = h.Clock.UtcNow.AddMonths(2);
+        await h.Subscriptions.SubscribeAsync(Subscriber(), "peek");
+        (await h.Reader.GetMeterAsync(Subscriber(), "stories"))!.Remaining.Should().Be(0);
+        h.Db.EntitlementGrants.Should().HaveCount(1);
+        h.Db.EntitlementGrants.Single().ExpiresAt.Should().BeNull();
+    }
+
     private static readonly Guid TenantId = Guid.NewGuid();
 
     private sealed class TestTenantProvider : ITenantProvider

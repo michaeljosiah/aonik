@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Entities.Subscriptions;
 using Aonik.Subscriptions.Entities.Usage;
@@ -31,6 +32,36 @@ internal sealed class EntitlementMaterialiser
         Guid planVersionId,
         CancellationToken cancellationToken = default)
     {
+        // The range read for a lifetime grant and its insert must be one serializable
+        // transaction. Period uniqueness alone does not cover cancellation/resubscription.
+        await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken)
+                : null;
+            try
+            {
+                await MaterialiseCoreAsync(subscription, period, planVersionId, cancellationToken);
+                if (transaction is not null)
+                    await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                // A retry must reconstruct its inserts from committed history.
+                foreach (var entry in _dbContext.ChangeTracker.Entries<EntitlementGrant>()
+                    .Where(e => e.Entity.PeriodId == period.Id).ToList())
+                    entry.State = EntityState.Detached;
+                throw;
+            }
+        });
+    }
+
+    private async Task MaterialiseCoreAsync(
+        Subscription subscription,
+        SubscriptionPeriod period,
+        Guid planVersionId,
+        CancellationToken cancellationToken)
+    {
         // Payment completion is at-least-once, so a retried or concurrently-handled event must not
         // double the allowance. The unique index on (PeriodId, MeterCode, Source) is the authority;
         // this check turns the ordinary retry into a no-op rather than a constraint violation.
@@ -60,6 +91,15 @@ internal sealed class EntitlementMaterialiser
             if (!meters.TryGetValue(entitlement.MeterCode, out var kind) || kind != MeterKinds.Counter)
                 continue;
 
+            if (entitlement.ResetPolicy == ResetPolicies.Once &&
+                await _dbContext.EntitlementGrants.IncludeSoftDeleted().AsNoTracking().AnyAsync(g =>
+                    g.TenantId == subscription.TenantId &&
+                    g.SubscriberKind == subscription.SubscriberKind &&
+                    g.SubscriberId == subscription.SubscriberId &&
+                    g.MeterCode == entitlement.MeterCode && g.Source == GrantSources.Plan,
+                    cancellationToken))
+                continue;
+
             _dbContext.EntitlementGrants.Add(new EntitlementGrant
             {
                 Id = Guid.NewGuid(),
@@ -75,7 +115,7 @@ internal sealed class EntitlementMaterialiser
                 Held = 0,
                 // Derived from the RESET POLICY, not from the source: a `never` entitlement
                 // accumulates across renewals instead of being discarded each period end.
-                ExpiresAt = entitlement.ResetPolicy == ResetPolicies.Never ? null : period.EndsAt,
+                ExpiresAt = entitlement.ResetPolicy is ResetPolicies.Never or ResetPolicies.Once ? null : period.EndsAt,
                 Status = GrantStatuses.Open
             });
         }

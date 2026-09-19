@@ -1,4 +1,10 @@
 using Aonik.Groups.Services;
+using Aonik.SharedKernel.Abstractions.Groups;
+using Aonik.SharedKernel.Abstractions.Safety;
+using Aonik.SharedKernel.Abstractions.Subscriptions;
+using Aonik.SharedKernel.Abstractions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Aonik.Database.Tests.Support;
 using Aonik.IntegrationTests.Support;
 using Aonik.PersonalFinance.Contracts.Models;
@@ -41,6 +47,47 @@ namespace Aonik.Database.Tests.ExecutionStrategy;
 /// </summary>
 public class UserTransactionsUnderRetryStrategySqlServerTests : IClassFixture<SqlLocalDbFixture>
 {
+    [SkippableFact]
+    public async Task FamilyProfileLimit_Should_AllowOnlyOneConcurrentAdditionToLastSlot()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid(); var owner = Guid.NewGuid(); var user = Guid.NewGuid();
+        var group = new Household {TenantId = tenantId, Name = "Profile limit test", Kind = GroupKinds.Family};
+        await using (var seed = CreatePersonalFinanceContext(tenantId))
+        {
+            seed.Households.Add(group);
+            seed.HouseholdMembers.Add(new HouseholdMember {TenantId = tenantId, HouseholdId = group.Id,
+                PartyId = owner, UserId = user, Role = GroupRoles.Owner, InvitationStatus = GroupMemberStatuses.Accepted});
+            await seed.SaveChangesAsync();
+        }
+        var resolver = new Mock<IUserPartyResolver>();
+        resolver.Setup(r => r.GetPartyIdForUserAsync(tenantId, user, It.IsAny<CancellationToken>())).ReturnsAsync(owner);
+        var parties = new Mock<IPartyReader>();
+        parties.Setup(p => p.ExistsAsync(tenantId, It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var bands = new Mock<ISafetyBandReader>();
+        bands.Setup(b => b.GetSafetyBandAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync("under-6");
+        bands.Setup(b => b.GetSafetyBandAsync(owner, It.IsAny<CancellationToken>())).ReturnsAsync("adult");
+        var entitlements = new Mock<IEntitlementReader>();
+        entitlements.Setup(e => e.GetMeterAsync(It.IsAny<SubscriberRef>(), "child-profiles", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MeterEntitlement("child-profiles", MeterKinds.Ceiling, "profiles", 1, 0, 0, 1, ResetPolicies.Never, null));
+        using var services = new ServiceCollection().AddSingleton(bands.Object).AddSingleton(entitlements.Object).BuildServiceProvider();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Groups:ProfileLimits:TenantIds:0"] = tenantId.ToString() }).Build();
+        async Task<bool> AddAsync()
+        {
+            await using var context = CreatePersonalFinanceContext(tenantId);
+            var tenant = new TestTenantProvider(tenantId);
+            var service = new GroupService(context, tenant, new TestCurrentUserProvider(user), resolver.Object,
+                parties.Object, new FixedClock(), [new FamilyProfileLimitContributor(context, tenant, config, services)]);
+            try {await service.AddMemberAsync(group.Id, Guid.NewGuid(), GroupRoles.Viewer); return true;}
+            catch (InvalidStateException) {return false;}
+        }
+        var results = await Task.WhenAll(AddAsync(), AddAsync());
+        results.Count(success => success).Should().Be(1);
+        await using var verify = CreatePersonalFinanceContext(tenantId);
+        (await verify.HouseholdMembers.CountAsync(m => m.HouseholdId == group.Id)).Should().Be(2);
+    }
+
     private readonly SqlLocalDbFixture _db;
 
     public UserTransactionsUnderRetryStrategySqlServerTests(SqlLocalDbFixture db)

@@ -144,6 +144,28 @@ internal sealed class GroupService : IGroupService, IGroupReader
         string role,
         CancellationToken cancellationToken = default)
     {
+        GroupMemberDto? result = null;
+        await InTransactionAsync(async ct =>
+        {
+            try
+            {
+                result = await AddMemberCoreAsync(groupId, partyId, role, ct);
+            }
+            catch
+            {
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
+        }, cancellationToken);
+        return result!;
+    }
+
+    private async Task<GroupMemberDto> AddMemberCoreAsync(
+        Guid groupId,
+        Guid partyId,
+        string role,
+        CancellationToken cancellationToken)
+    {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var caller = await RequireCallerAsync(tenantId, cancellationToken);
         var normalizedRole = GroupMembershipRules.NormalizeRole(role);

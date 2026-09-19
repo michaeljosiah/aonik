@@ -27,6 +27,7 @@ public sealed class GroupsModule : IModule
         IConfiguration configuration)
     {
         services.AddScoped<GroupService>();
+        services.AddScoped<IGroupLifecycleContributor, FamilyProfileLimitContributor>();
         services.AddScoped<IGroupService>(sp => sp.GetRequiredService<GroupService>());
         services.AddScoped<IGroupReader>(sp => sp.GetRequiredService<GroupService>());
 

@@ -351,3 +351,9 @@ When contributing to this project:
 3. Follow the coding standards in `AGENTS.md`
 4. Update this CHANGELOG with your changes
 5. Update relevant documentation
+
+## Pricing entitlement groundwork (September 2026)
+
+- Counter reset policy `once` grants only once per tenant/subscriber/meter, including across subscription cancellation and replacement. Historical grants, including soft-deleted grants, prevent re-award. Materialisation uses a serializable transaction under the SQL retry strategy.
+- Optional `Groups:ProfileLimits:TenantIds` enables family child-profile ceiling enforcement for named tenants. Uses authoritative age bands, pinned `child-profiles` allowance and current accepted memberships, including other guardians' children. Direct additions now share the serializable transaction boundary used by invitation acceptance.
+- No tenant is opted in automatically. Existing deployments need updated binaries and an explicit tenant setting. No database migration is needed.

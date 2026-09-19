@@ -41,6 +41,9 @@ public static class MeterKinds
 /// </summary>
 public static class ResetPolicies
 {
+    /// <summary>Granted once per subscriber and meter, across renewals and subscriptions; never expires.</summary>
+    public const string Once = "once";
+
     /// <summary>Refreshes each billing period; the grant expires at period end.</summary>
     public const string Period = "period";
 

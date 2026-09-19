@@ -429,5 +429,5 @@ internal sealed class CatalogueService : ICatalogueService
         => kind is MeterKinds.Counter or MeterKinds.Ceiling or MeterKinds.Flag;
 
     private static bool IsKnownResetPolicy(string policy)
-        => policy is ResetPolicies.Period or ResetPolicies.Never;
+        => policy is ResetPolicies.Period or ResetPolicies.Never or ResetPolicies.Once;
 }

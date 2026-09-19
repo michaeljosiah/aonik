@@ -35,7 +35,9 @@ The runtime deploy workflow passes `BOOTSTRAP_SETUP_SECRET` directly into the AP
 
 All runtime app settings are defined as **individual** GitHub Environment variables or secrets. The deploy workflow collects any env var whose name starts with a recognised prefix and forwards it to the API or Worker container.
 
-Recognised API prefixes: `AI__`, `SETTINGS__`, `FINANCE__`
+Recognised API prefixes: `AI__`, `SETTINGS__`, `FINANCE__`, `GROUPS__`
+
+Set the development environment variable `GROUPS__PROFILELIMITS__TENANTIDS__0` to the Arke Kidz tenant ID to enable its child-profile ceiling. Omit it for environments that have not configured family plans. This is a non-secret tenant identifier.
 Recognised Worker prefixes: `WORKER__`
 
 Use `.NET` double-underscore convention for nested keys (e.g. `Finance:PersonalFinance:Plaid:ClientId` → `FINANCE__PERSONALFINANCE__PLAID__CLIENTID`).

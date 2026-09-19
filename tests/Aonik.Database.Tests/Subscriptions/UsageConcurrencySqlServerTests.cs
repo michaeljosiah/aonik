@@ -2,6 +2,11 @@ using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions.Subscriptions;
 using Aonik.Subscriptions.Entities.Usage;
 using Aonik.Subscriptions.Persistence;
+using Aonik.Subscriptions.Services.Usage;
+using Aonik.Subscriptions.Services.Catalogue;
+using Aonik.Subscriptions.Contracts.Models;
+using Aonik.Subscriptions.Entities.Subscriptions;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -23,6 +28,40 @@ namespace Aonik.Database.Tests.Subscriptions;
 /// </summary>
 public class UsageConcurrencySqlServerTests : IClassFixture<SqlLocalDbFixture>
 {
+    private sealed class FixedClock : IClock { public DateTime UtcNow => new(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc); }
+
+    [SkippableFact]
+    public async Task OnceGrant_Should_BeUniqueAcrossConcurrentPeriods()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var clock = new FixedClock();
+        Guid versionId;
+        await using (var seed = CreateContext(tenantId))
+        {
+            var catalogue = new CatalogueService(seed, new TestTenantProvider(tenantId), clock);
+            await catalogue.CreateMeterAsync(new CreateMeterRequest("peek-stories", "Peek", MeterKinds.Counter, "stories"));
+            var plan = await catalogue.CreatePlanAsync(new CreatePlanRequest("peek", "Peek", BillingIntervals.None));
+            var version = await catalogue.CreateDraftVersionAsync(plan.Id, new CreatePlanVersionRequest(0, "USD"));
+            await catalogue.SetEntitlementsAsync(version.Id, new SetEntitlementsRequest([new PlanEntitlementSpec("peek-stories", 1, ResetPolicies.Once)]));
+            await catalogue.PublishVersionAsync(version.Id);
+            versionId = version.Id;
+        }
+        async Task GrantAsync()
+        {
+            await using var context = CreateContext(tenantId);
+            var subscription = new Subscription {Id = Guid.NewGuid(), TenantId = tenantId,
+                SubscriberKind = SubscriberKinds.Group, SubscriberId = subscriberId};
+            var period = new SubscriptionPeriod {Id = Guid.NewGuid(), EndsAt = clock.UtcNow.AddMonths(1)};
+            await new EntitlementMaterialiser(context, clock).MaterialiseForPeriodAsync(subscription, period, versionId);
+        }
+        await Task.WhenAll(GrantAsync(), GrantAsync());
+        await using var verify = CreateContext(tenantId);
+        var grants = await verify.EntitlementGrants.Where(g => g.SubscriberId == subscriberId).ToListAsync();
+        grants.Should().ContainSingle().Which.Allowance.Should().Be(1);
+    }
+
     private readonly SqlLocalDbFixture _db;
 
     public UsageConcurrencySqlServerTests(SqlLocalDbFixture db) => _db = db;
