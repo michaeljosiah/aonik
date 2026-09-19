@@ -22,6 +22,46 @@ namespace Aonik.Application.Tests.Subscriptions;
 public class FreeTierEndToEndTests
 {
     [Fact]
+    public async Task CapacityRefresh_Should_PreserveSpentOnceAllowance_AndBeReplayable()
+    {
+        var h = new Harness();
+        await h.SeedFreeTierAsync(1, ResetPolicies.Once);
+        var subscription = await h.Subscriptions.SubscribeAsync(Subscriber(), "peek");
+        var hold = await h.Meter.ReserveAsync(Subscriber(), "stories", 1, "used-story");
+        await h.Meter.CommitAsync(hold.ReservationId, 1, new UsageSource("Story", Guid.NewGuid()));
+        await h.Catalogue.CreateMeterAsync(new CreateMeterRequest("workspaces", "Worlds", MeterKinds.Ceiling, "workspaces"));
+        var planId = h.Db.PlanVersions.Single(v => v.Id == subscription.PlanVersionId).PlanId;
+        var version = await h.Catalogue.CreateDraftVersionAsync(planId, new CreatePlanVersionRequest(0, "GBP"));
+        await h.Catalogue.SetEntitlementsAsync(version.Id, new SetEntitlementsRequest([
+            new PlanEntitlementSpec("stories", 1, ResetPolicies.Once),
+            new PlanEntitlementSpec("workspaces", 1, ResetPolicies.Never)]));
+        await h.Catalogue.PublishVersionAsync(version.Id);
+
+        await h.Subscriptions.RefreshFreeCapacityAsync(subscription.Id, subscription.PlanVersionId, version.Id);
+        await h.Subscriptions.RefreshFreeCapacityAsync(subscription.Id, subscription.PlanVersionId, version.Id);
+
+        (await h.Reader.GetMeterAsync(Subscriber(), "stories"))!.Remaining.Should().Be(0);
+        (await h.Reader.GetMeterAsync(Subscriber(), "workspaces"))!.Allowance.Should().Be(1);
+        h.Db.EntitlementGrants.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task CapacityRefresh_Should_RejectAdditionalFreeStories()
+    {
+        var h = new Harness();
+        await h.SeedFreeTierAsync(1, ResetPolicies.Once);
+        var subscription = await h.Subscriptions.SubscribeAsync(Subscriber(), "peek");
+        var planId = h.Db.PlanVersions.Single(v => v.Id == subscription.PlanVersionId).PlanId;
+        var version = await h.Catalogue.CreateDraftVersionAsync(planId, new CreatePlanVersionRequest(0, "GBP"));
+        await h.Catalogue.SetEntitlementsAsync(version.Id, new SetEntitlementsRequest([
+            new PlanEntitlementSpec("stories", 2, ResetPolicies.Once)]));
+        await h.Catalogue.PublishVersionAsync(version.Id);
+        var action = () => h.Subscriptions.RefreshFreeCapacityAsync(subscription.Id, subscription.PlanVersionId, version.Id);
+        await action.Should().ThrowAsync<InvalidStateException>();
+        h.Db.Subscriptions.Single().PlanVersionId.Should().Be(subscription.PlanVersionId);
+    }
+
+    [Fact]
     public async Task OnceAllowance_Should_NotRepeatAfterCancellationAndResubscription()
     {
         var h = new Harness();

@@ -141,6 +141,47 @@ internal sealed class SubscriptionService : ISubscriptionService
         return await MapAsync(subscription, cancellationToken);
     }
 
+    public async Task<SubscriptionDto> RefreshFreeCapacityAsync(Guid subscriptionId, Guid expectedVersionId, Guid targetVersionId, CancellationToken cancellationToken = default)
+    {
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken)
+                : null;
+            var subscription = await LoadAuthorisedAsync(subscriptionId, cancellationToken);
+            // A retry after an uncertain commit must inspect persisted state, not EF's prior values.
+            await _dbContext.Entry(subscription).ReloadAsync(cancellationToken);
+            if (subscription.Status != SubscriptionStatuses.Active || subscription.PendingPlanVersionId is not null || subscription.CancelAtPeriodEnd)
+                throw new InvalidStateException("Capacity can only be refreshed on an active subscription without a pending change.");
+            if (subscription.PlanVersionId == targetVersionId) return await MapAsync(subscription, cancellationToken);
+            if (subscription.PlanVersionId != expectedVersionId) throw new InvalidStateException("The subscription changed. Read it again before refreshing capacity.");
+            var source = await _dbContext.PlanVersions.AsNoTracking().SingleAsync(v => v.Id == expectedVersionId && v.TenantId == subscription.TenantId, cancellationToken);
+            var target = await _dbContext.PlanVersions.AsNoTracking().SingleOrDefaultAsync(v => v.Id == targetVersionId && v.TenantId == subscription.TenantId, cancellationToken)
+                ?? throw new NotFoundException("No such plan version.");
+            var plan = await _dbContext.Plans.AsNoTracking().SingleAsync(p => p.Id == source.PlanId, cancellationToken);
+            if (source.Price != 0 || target.Price != 0 || target.Currency != source.Currency || target.PlanId != source.PlanId
+                || plan.BillingInterval != BillingIntervals.None || target.Status != PlanVersionStatuses.Published || target.EffectiveFrom > _clock.UtcNow)
+                throw new InvalidStateException("Only the same free, non-renewing plan may receive a capacity refresh.");
+            var oldItems = await _dbContext.PlanEntitlements.AsNoTracking().Where(e => e.PlanVersionId == source.Id).ToListAsync(cancellationToken);
+            var newItems = await _dbContext.PlanEntitlements.AsNoTracking().Where(e => e.PlanVersionId == target.Id).ToListAsync(cancellationToken);
+            var kinds = await _dbContext.Meters.AsNoTracking().Where(m => m.TenantId == subscription.TenantId).ToDictionaryAsync(m => m.Code, m => m.Kind, cancellationToken);
+            foreach (var oldItem in oldItems)
+            {
+                var newItem = newItems.SingleOrDefault(e => e.MeterCode == oldItem.MeterCode);
+                if (newItem is null || newItem.ResetPolicy != oldItem.ResetPolicy ||
+                    (kinds[oldItem.MeterCode] == MeterKinds.Ceiling ? newItem.Allowance < oldItem.Allowance : newItem.Allowance != oldItem.Allowance))
+                    throw new InvalidStateException("A capacity refresh cannot remove entitlements or change counter grants.");
+            }
+            if (newItems.Any(e => oldItems.All(old => old.MeterCode != e.MeterCode) && kinds[e.MeterCode] != MeterKinds.Ceiling))
+                throw new InvalidStateException("A capacity refresh can only add ceiling entitlements.");
+            subscription.PlanVersionId = target.Id;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+            return await MapAsync(subscription, cancellationToken);
+        });
+    }
+
     public async Task<SubscriptionDto> CancelAsync(
         Guid subscriptionId,
         bool atPeriodEnd = true,

@@ -9,6 +9,9 @@ namespace Aonik.SharedKernel.Abstractions.Subscriptions;
 /// </summary>
 public interface ISubscriptionService
 {
+    /// <summary>Adopt additive ceiling capacity from a published version of the same free,
+    /// non-renewing plan. Counter grants and billing periods are never rematerialised.</summary>
+    Task<SubscriptionDto> RefreshFreeCapacityAsync(Guid subscriptionId, Guid expectedVersionId, Guid targetVersionId, CancellationToken cancellationToken = default);
     /// <summary>
     /// Start a subscription on the current version of <paramref name="planCode"/>. The version is
     /// pinned, so a later price rise never re-prices this subscriber.

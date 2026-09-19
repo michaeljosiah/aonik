@@ -64,6 +64,25 @@ internal sealed class CreateSubscriptionEndpoint : UsageEndpoint<CreateSubscript
 /// <param name="SubscriberKind">One of <see cref="SubscriberKinds"/>.</param>
 public sealed record GetSubscriptionQuery(string SubscriberKind, Guid SubscriberId);
 
+public sealed record RefreshFreeCapacityRequest(Guid ExpectedVersionId, Guid TargetVersionId);
+
+internal sealed class RefreshFreeCapacityEndpoint : UsageEndpoint<RefreshFreeCapacityRequest, SubscriptionDto>
+{
+    private readonly ISubscriptionService _subscriptions;
+    public RefreshFreeCapacityEndpoint(ISubscriptionService subscriptions) => _subscriptions = subscriptions;
+    public override void Configure()
+    {
+        Post("/subscriptions/admin/{subscriptionId:guid}/refresh-free-capacity");
+        Policies("AdminWritePolicy");
+        Summary(s => s.Summary = "Adopt additive capacity on the same free plan without issuing new credits");
+    }
+    public override Task HandleAsync(RefreshFreeCapacityRequest req, CancellationToken ct) => GuardedAsync(async () =>
+    {
+        var result = await _subscriptions.RefreshFreeCapacityAsync(Route<Guid>("subscriptionId"), req.ExpectedVersionId, req.TargetVersionId, ct);
+        await Send.OkAsync(result, ct);
+    });
+}
+
 internal sealed class GetSubscriptionEndpoint : UsageEndpoint<GetSubscriptionQuery, SubscriptionDto>
 {
     private readonly ISubscriptionService _subscriptions;
