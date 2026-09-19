@@ -110,6 +110,7 @@ public class ConsentServiceTests
     [Theory]
     [InlineData("generation-disclosure")]
     [InlineData("safety-classification")]
+    [InlineData("voice")]
     public async Task DevelopmentGeneration_Should_GrantReplayAndWithdraw_WithoutReusableVerification(string purpose)
     {
         await using var db = CreateDbContext();
@@ -117,7 +118,7 @@ public class ConsentServiceTests
         db.ConsentTermsVersions.Add(new ConsentTermsVersion {Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = true, PublishedAt = Now});
         await db.SaveChangesAsync();
         var enrolled = await CreateService(db, parent).Service.EnrolChildAsync(AnEnrolment(parent));
-        var (service, _, _) = CreateServiceWithOptions(db, new ConsentOptions {DevelopmentGenerationDeclarationTenantIds = [TenantId]});
+        var (service, _, _) = CreateServiceWithOptions(db, new ConsentOptions {DevelopmentGenerationDeclarationTenantIds = purpose == "voice" ? [] : [TenantId], DevelopmentVoiceDeclarationTenantIds = purpose == "voice" ? [TenantId] : []});
         var request = new GrantByGuardianRequest(enrolled.ChildPartyId, parent, purpose, "v1", "GB", true);
         (await service.GrantByGuardianAsync(request)).Should().Be(ConsentVerificationMethods.ParentalDeclaration);
         await service.GrantByGuardianAsync(request);
@@ -149,6 +150,34 @@ public class ConsentServiceTests
         var (service, _, _) = CreateServiceWithOptions(db, new ConsentOptions {DevelopmentGenerationDeclarationTenantIds = scenario == "disabled" ? [] : [TenantId]});
         var request = new GrantByGuardianRequest(enrolled.ChildPartyId, parent, scenario == "other-purpose" ? ConsentPurposes.ServiceCore : ConsentPurposes.GenerationDisclosure,
             scenario == "stale" ? "old" : "v1", scenario == "country" ? "ZZ" : "GB", scenario != "no-declaration");
+        var action = () => service.GrantByGuardianAsync(request);
+        await action.Should().ThrowAsync<GuardianVerificationFailedException>();
+        db.ConsentGrants.Should().HaveCount(1);
+    }
+
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("other-tenant")]
+    [InlineData("stale")]
+    [InlineData("minor")]
+    [InlineData("no-core")]
+    [InlineData("no-declaration")]
+    public async Task DevelopmentVoice_Should_RequireItsOwnTenantOptInAndCurrentConsent(string scenario)
+    {
+        await using var db = CreateDbContext();
+        var parent = SeedParty(db);
+        db.ConsentTermsVersions.Add(new ConsentTermsVersion {Id = Guid.NewGuid(), TenantId = TenantId, Version = "v1", IsCurrent = true, PublishedAt = Now});
+        await db.SaveChangesAsync();
+        var enrolled = await CreateService(db, parent).Service.EnrolChildAsync(AnEnrolment(parent));
+        if (scenario == "minor") db.Parties.Single(p => p.Id == parent).SafetyBand = PartySafetyBands.Age6To9;
+        if (scenario == "no-core") db.ConsentGrants.Single().RevokedAt = Now;
+        await db.SaveChangesAsync();
+        var options = new ConsentOptions {
+            DevelopmentGenerationDeclarationTenantIds = [TenantId],
+            DevelopmentVoiceDeclarationTenantIds = scenario == "disabled" ? [] : [scenario == "other-tenant" ? Guid.NewGuid() : TenantId]
+        };
+        var (service, _, _) = CreateServiceWithOptions(db, options);
+        var request = new GrantByGuardianRequest(enrolled.ChildPartyId, parent, "voice", scenario == "stale" ? "old" : "v1", "GB", scenario != "no-declaration");
         var action = () => service.GrantByGuardianAsync(request);
         await action.Should().ThrowAsync<GuardianVerificationFailedException>();
         db.ConsentGrants.Should().HaveCount(1);

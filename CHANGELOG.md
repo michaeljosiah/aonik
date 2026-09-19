@@ -366,3 +366,7 @@ When contributing to this project:
 - Counter reset policy `once` grants only once per tenant/subscriber/meter, including across subscription cancellation and replacement. Historical grants, including soft-deleted grants, prevent re-award. Materialisation uses a serializable transaction under the SQL retry strategy.
 - Optional `Groups:ProfileLimits:TenantIds` enables family child-profile ceiling enforcement for named tenants. Uses authoritative age bands, pinned `child-profiles` allowance and current accepted memberships, including other guardians' children. Direct additions now share the serializable transaction boundary used by invitation acceptance.
 - No tenant is opted in automatically. Existing deployments need updated binaries and an explicit tenant setting. No database migration is needed.
+
+### Development voice consent
+
+- Added a separate, default-off tenant allowlist for per-child voice consent by parental declaration. Existing generation opt-in does not enable it. Current terms, core consent and adult guardian checks remain required; product subscription rules stay outside Aonik general audio services.

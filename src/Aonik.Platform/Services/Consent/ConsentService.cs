@@ -267,7 +267,7 @@ internal sealed class ConsentService : IConsentService
         // and the method on the grant is what the platform established, never what the caller said.
         var jurisdiction = _jurisdictionResolver.Resolve(request.Jurisdiction);
         var verificationMethod = request.ParentalResponsibilityDeclared
-            ? await AcceptDevelopmentGenerationDeclarationAsync(tenantId, request, jurisdiction, cancellationToken)
+            ? await AcceptDevelopmentPurposeDeclarationAsync(tenantId, request, jurisdiction, cancellationToken)
             : await VerifyGuardianAsync(tenantId, request.GuardianPartyId, jurisdiction, Guid.NewGuid(), cancellationToken);
 
         var grant = new GrantConsentRequest(
@@ -419,7 +419,7 @@ internal sealed class ConsentService : IConsentService
 
     // ── helpers ──────────────────────────────────────────────────────────
 
-    private async Task<string> AcceptDevelopmentGenerationDeclarationAsync(Guid tenantId,
+    private async Task<string> AcceptDevelopmentPurposeDeclarationAsync(Guid tenantId,
         GrantByGuardianRequest request, ConsentJurisdiction jurisdiction, CancellationToken cancellationToken)
     {
         var parent = await _dbContext.Parties.AsNoTracking().SingleOrDefaultAsync(
@@ -429,16 +429,19 @@ internal sealed class ConsentService : IConsentService
         var hasCore = await _dbContext.ConsentGrants.AsNoTracking().AnyAsync(g => g.TenantId == tenantId
             && g.SubjectPartyId == request.SubjectPartyId && g.Purpose == ConsentPurposes.ServiceCore
             && g.RevokedAt == null && (g.ExpiresAt == null || g.ExpiresAt > _clock.UtcNow), cancellationToken);
-        var accepted = _options.DevelopmentGenerationDeclarationTenantIds.Contains(tenantId)
+        var permittedPurpose = request.Purpose == "voice"
+            ? _options.DevelopmentVoiceDeclarationTenantIds.Contains(tenantId)
+            : _options.DevelopmentGenerationDeclarationTenantIds.Contains(tenantId)
+                && request.Purpose is "generation-disclosure" or "safety-classification";
+        var accepted = permittedPurpose
             && jurisdiction.Code == "GB" && request.GuardianPartyId != request.SubjectPartyId
-            && request.Purpose is "generation-disclosure" or "safety-classification"
             && currentTerms && hasCore && parent is { Status: "Active" }
             && (parent.PartyType == "Person" || parent.PartyType == "Individual")
             && (parent.SafetyBand is null || parent.SafetyBand == PartySafetyBands.Adult)
             && (parent.MajorityOn is null || parent.MajorityOn <= _clock.UtcNow);
         var result = accepted
             ? GuardianVerificationResult.Success(ConsentVerificationMethods.ParentalDeclaration, request.TermsVersion)
-            : GuardianVerificationResult.Failure(ConsentVerificationMethods.ParentalDeclaration, "Development generation declaration is unavailable for this tenant, party, purpose or notice.");
+            : GuardianVerificationResult.Failure(ConsentVerificationMethods.ParentalDeclaration, "Development purpose declaration is unavailable for this tenant, party, purpose or notice.");
         await _verificationRecorder.RecordAsync(request.GuardianPartyId, Guid.NewGuid(), result, cancellationToken);
         if (!accepted) throw new GuardianVerificationFailedException(request.GuardianPartyId, result.FailureReason!);
         return result.Method;

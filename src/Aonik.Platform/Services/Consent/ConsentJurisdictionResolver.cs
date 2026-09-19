@@ -138,6 +138,10 @@ public sealed class ConsentOptions
     public List<Guid> ParentalDeclarationTenantIds { get; set; } = new();
     /// <summary>Separate opt-in for fictional-data development generation and safety permission declarations.</summary>
     public List<Guid> DevelopmentGenerationDeclarationTenantIds { get; set; } = new();
+
+    /// <summary>Explicit development opt-in for per-child voice consent by parental declaration.
+    /// Does not enable audio providers or grant product subscription entitlements.</summary>
+    public List<Guid> DevelopmentVoiceDeclarationTenantIds { get; set; } = new();
 }
 
 public sealed class ConsentJurisdictionOptions
