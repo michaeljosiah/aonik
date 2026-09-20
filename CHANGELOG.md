@@ -8,6 +8,7 @@ All notable changes to the AONIK project will be documented in this file.
 - Opt-in OpenAI generated-speech safety transport with complete bounded inline audio, centrally routed transcription and audio classification, versioned audit references, and fail-closed handling of incomplete results. The authenticated safety route accepts generated WAV/MP3 output. Disabled by default pending route setup and evaluation; this does not enable child narration automatically.
 
 ### Fixed
+- Speech safety rejects silent, malformed and truncated PCM WAV before provider egress. An explicit local-corpus evaluator exercises the real audio adapter without enabling runtime policy; synthetic smoke results do not establish classification quality.
 - Workspace staging now hashes incoming bytes into a temporary disk spool before uploading through FluentStorage. Azure can inspect stream length and rewind retries without failing on a non-seekable hashing stream or double-counting the hash. The spool is deleted on close and does not buffer the whole upload in memory.
 
 ### Added
