@@ -74,6 +74,12 @@ public sealed class ConsentAndGroupEndpointsSqlServerTests : IClassFixture<SqlLo
         granted.StatusCode.Should().Be(HttpStatusCode.OK, await granted.Content.ReadAsStringAsync());
         (await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest)).EnsureSuccessStatusCode();
         (await stranger.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", purposeRequest)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var voiceRequest = new GrantPurposeRequest("voice", Terms, "GB", true);
+        (await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", voiceRequest)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Factory.Services.GetRequiredService<IOptions<ConsentOptions>>().Value.DevelopmentVoiceDeclarationTenantIds.Add(tenantId);
+        (await parent.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", voiceRequest)).EnsureSuccessStatusCode();
+        (await stranger.Client.PostAsJsonAsync($"/consent/wards/{child.ChildPartyId}/purposes", voiceRequest)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/voice")).EnsureSuccessStatusCode();
         (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/generation-disclosure")).EnsureSuccessStatusCode();
         (await stranger.Client.GetAsync($"/consent/wards/{child.ChildPartyId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await parent.Client.DeleteAsync($"/consent/wards/{child.ChildPartyId}/purposes/service-core")).EnsureSuccessStatusCode();

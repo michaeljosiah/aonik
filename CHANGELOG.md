@@ -8,6 +8,7 @@ All notable changes to the AONIK project will be documented in this file.
 - Opt-in OpenAI generated-speech safety transport with complete bounded inline audio, centrally routed transcription and audio classification, versioned audit references, and fail-closed handling of incomplete results. The authenticated safety route accepts generated WAV/MP3 output. Disabled by default pending route setup and evaluation; this does not enable child narration automatically.
 
 ### Fixed
+- Speech safety rejects silent, malformed and truncated PCM WAV before provider egress. An explicit local-corpus evaluator exercises the real audio adapter without enabling runtime policy; synthetic smoke results do not establish classification quality.
 - Workspace staging now hashes incoming bytes into a temporary disk spool before uploading through FluentStorage. Azure can inspect stream length and rewind retries without failing on a non-seekable hashing stream or double-counting the hash. The spool is deleted on close and does not buffer the whole upload in memory.
 
 ### Added
@@ -366,3 +367,7 @@ When contributing to this project:
 - Counter reset policy `once` grants only once per tenant/subscriber/meter, including across subscription cancellation and replacement. Historical grants, including soft-deleted grants, prevent re-award. Materialisation uses a serializable transaction under the SQL retry strategy.
 - Optional `Groups:ProfileLimits:TenantIds` enables family child-profile ceiling enforcement for named tenants. Uses authoritative age bands, pinned `child-profiles` allowance and current accepted memberships, including other guardians' children. Direct additions now share the serializable transaction boundary used by invitation acceptance.
 - No tenant is opted in automatically. Existing deployments need updated binaries and an explicit tenant setting. No database migration is needed.
+
+### Development voice consent
+
+- Added a separate, default-off tenant allowlist for per-child voice consent by parental declaration. Existing generation opt-in does not enable it. Current terms, core consent and adult guardian checks remain required; product subscription rules stay outside Aonik general audio services.

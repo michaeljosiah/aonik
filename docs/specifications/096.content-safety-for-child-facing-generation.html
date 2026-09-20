@@ -1092,6 +1092,9 @@
   </tbody>
 </table>
 
+<h2>20 September development evaluation note</h2>
+<p>The opt-in OpenAI speech adapter has an explicit local-corpus evaluator. Reports preserve label provenance and model/prompt identity without storing raw audio or transcripts. A synthetic silence case returned a non-empty model transcript, so complete non-silent PCM WAV validation now precedes provider calls. These protocol checks do not substitute for the independent, per-band evaluation in §10.3. Runtime speech remains disabled pending that evaluation; generic audio services are unchanged.</p>
+
 <footer>
   Spec 096 · Content safety for child-facing generation · Rev 7 (S1–S6 implemented; Codex round 1 applied; S0 gate lifted) · 2026-08-13 ·
   S0 gate lifted 2026-08-13; obligations carried in <a href="#carried">§17.2</a> ·

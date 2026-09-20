@@ -12,7 +12,7 @@ namespace Aonik.Infrastructure.Tests.Ai;
 
 public class OpenAISpeechProviderTests
 {
-    private const string Audio = "data:audio/wav;base64,AQID";
+    private static readonly string Audio = "data:audio/wav;base64," + Convert.ToBase64String(Wav());
     private const string Scores = """{"sexual":0,"graphic-violence":0,"frightening":0.8,"self-harm":0,"hate":0,"real-person-likeness":0,"csam":0}""";
 
     [Fact]
@@ -24,7 +24,7 @@ public class OpenAISpeechProviderTests
         using var body = JsonDocument.Parse(handler.Body!);
         body.RootElement.GetProperty("model").GetString().Should().Be("routed-audio-model");
         body.RootElement.GetProperty("store").GetBoolean().Should().BeFalse();
-        body.RootElement.GetProperty("messages")[1].GetProperty("content")[0].GetProperty("input_audio").GetProperty("data").GetString().Should().Be("AQID");
+        body.RootElement.GetProperty("messages")[1].GetProperty("content")[0].GetProperty("input_audio").GetProperty("data").GetString().Should().Be(Convert.ToBase64String(Wav()));
     }
 
     [Theory]
@@ -67,6 +67,28 @@ public class OpenAISpeechProviderTests
         var settings = new Mock<ISettingProvider>();
         settings.Setup(s=>s.GetAsync(AiSettingNames.OpenAiApiKey,It.IsAny<CancellationToken>())).ReturnsAsync(key);
         return new(new HttpClient(handler), new TenantFirstSettingReader(tenantSettings.Object,settings.Object,new Mock<ITenantProvider>().Object));
+    }
+
+    [Fact]
+    public async Task Should_RefuseSilentAndTruncatedWavBeforeNetwork()
+    {
+        foreach (byte[] bytes in new[] {Wav(silent: true), Wav()[..^1]})
+        {
+            var handler = new Handler("invented words");
+            await FluentActions.Awaiting(() => Provider(handler).TranscribeAsync("data:audio/wav;base64," + Convert.ToBase64String(bytes), "routed-model"))
+                .Should().ThrowAsync<ArgumentException>();
+            handler.Body.Should().BeNull();
+        }
+    }
+
+    private static byte[] Wav(bool silent = false)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write("RIFF"u8); writer.Write(38); writer.Write("WAVEfmt "u8); writer.Write(16);
+        writer.Write((short)1); writer.Write((short)1); writer.Write(24000); writer.Write(48000);
+        writer.Write((short)2); writer.Write((short)16); writer.Write("data"u8); writer.Write(2); writer.Write((short)(silent ? 0 : 1));
+        return stream.ToArray();
     }
 
     private sealed class Handler(string answer, string finish = "stop") : HttpMessageHandler

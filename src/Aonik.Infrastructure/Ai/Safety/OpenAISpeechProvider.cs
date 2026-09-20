@@ -88,6 +88,7 @@ internal sealed class OpenAISpeechProvider(HttpClient http, TenantFirstSettingRe
         };
         var bytes = Convert.FromBase64String(reference[(comma + 1)..]);
         if (bytes.Length == 0 || bytes.Length > maxBytes) throw new ArgumentException("Audio is empty or too large.");
+        if (format == "wav") SpeechWavValidation.Validate(bytes);
         return (Convert.ToBase64String(bytes), format);
     }
 }
