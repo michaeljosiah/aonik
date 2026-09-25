@@ -16,7 +16,6 @@ function StatusBadge({ status, onLaunch }: { status: AppStatus; onLaunch?: () =>
     case 'active':
       return (
         <Button
-          variant="success"
           size="sm"
           className="h-6 gap-1 rounded-[2px] px-2 text-[10px] font-medium"
           onClick={onLaunch}

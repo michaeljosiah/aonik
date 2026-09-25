@@ -280,7 +280,7 @@ export function RecipesTab({
 
       {/* Slide-out recipe stack editor */}
       <Sheet open={sheetOpen} onOpenChange={(open) => !open && closeSheet()}>
-        <SheetContent size="lg" className="sm:max-w-none">
+        <SheetContent size="lg">
           {sheetOpen && (
             <RecipeStackEditor
               initial={editing}
@@ -300,7 +300,7 @@ export function RecipesTab({
         open={testSheetOpen}
         onOpenChange={(open) => !open && closeTestSheet()}
       >
-        <SheetContent size="md" className="sm:max-w-none">
+        <SheetContent size="md">
           {testing && (
             <RecipeTestPanel
               recipe={testing}

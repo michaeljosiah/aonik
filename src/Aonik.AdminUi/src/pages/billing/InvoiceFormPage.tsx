@@ -564,10 +564,10 @@ export function InvoiceFormPage() {
           <div className="flex items-center gap-3">
             {isCreate && (
               <>
-                <Button onClick={() => void handleSaveDraft()} disabled={saving}>
+                <Button variant="outline" onClick={() => void handleSaveDraft()} disabled={saving}>
                   {saving ? 'Saving...' : 'Save as Draft'}
                 </Button>
-                <Button variant="secondary" onClick={() => void handleSaveAndIssue()} disabled={saving}>
+                <Button onClick={() => void handleSaveAndIssue()} disabled={saving}>
                   <Send className="w-4 h-4 mr-2" />
                   Save & Issue
                 </Button>

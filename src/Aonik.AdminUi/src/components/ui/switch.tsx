@@ -1,54 +1,27 @@
 import * as React from "react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { cn } from "@/lib/utils";
 
-export interface SwitchProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  checked?: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-}
+export type SwitchProps = React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>;
 
-const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ className, checked, onCheckedChange, ...props }, ref) => {
-    const [isChecked, setIsChecked] = React.useState(checked || false);
-
-    React.useEffect(() => {
-      if (checked !== undefined) {
-        setIsChecked(checked);
-      }
-    }, [checked]);
-
-    const handleClick = () => {
-      const newValue = !isChecked;
-      setIsChecked(newValue);
-      onCheckedChange?.(newValue);
-    };
-
-    return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={isChecked}
-        ref={ref}
-        onClick={handleClick}
-        className={cn(
-          "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50",
-          isChecked
-            ? "bg-[var(--color-brand-primary)]"
-            : "bg-[var(--color-text-tertiary)]/30",
-          className
-        )}
-        {...props}
-      >
-        <span
-          className={cn(
-            "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
-            isChecked ? "translate-x-4" : "translate-x-0"
-          )}
-        />
-      </button>
-    );
-  }
+const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitive.Root>, SwitchProps>(
+  ({ className, ...props }, ref) => (
+    <SwitchPrimitive.Root
+      ref={ref}
+      data-slot="switch"
+      className={cn(
+        "peer inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs outline-none transition-all disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        className
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
+        className="pointer-events-none block size-4 rounded-full bg-background ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0 dark:data-[state=checked]:bg-primary-foreground dark:data-[state=unchecked]:bg-foreground"
+      />
+    </SwitchPrimitive.Root>
+  )
 );
-Switch.displayName = "Switch";
+Switch.displayName = SwitchPrimitive.Root.displayName;
 
 export { Switch };

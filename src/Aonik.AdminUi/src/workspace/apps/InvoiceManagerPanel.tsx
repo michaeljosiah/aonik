@@ -39,7 +39,7 @@ export function InvoiceManagerPanel({ panelId, title }: WorkspacePanelRenderProp
             Monitor invoice health and share context with other workspace panels.
           </p>
         </div>
-        <Button variant="secondary" size="sm">
+        <Button size="sm">
           New Invoice
         </Button>
       </div>

@@ -62,7 +62,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 098</span>
-  <span class="meta-tag status-draft">Status: Rev 2, decisions resolved; P0 implemented in the working tree</span>
+  <span class="meta-tag status-draft">Status: Rev 3, P0 in PR #336; P1 implemented (stacked PR)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: AdminUi</span>
   <h1>Admin UI design alignment: shadcn/ui on Radix</h1>
@@ -478,7 +478,7 @@
   <tr><td>P0 Foundations</td><td>
     <code>components.json</code>; install <code>tw-animate-css</code>, <code>@radix-ui/react-{label,tabs,switch,radio-group,toggle,toggle-group,separator,scroll-area,progress,accordion,alert-dialog}</code>, <code>cmdk</code>; rewrite <code>index.css</code> tokens (§6.2) with the alias block (§6.4); <code>@custom-variant dark</code> bound to <code>data-theme</code>; z-index layers; single <code>TooltipProvider</code>; contrast check script; update <code>.claude/skills/aonik-design</code> (focus rule, card radius, eyebrow, coral variant name) so future agents don't reintroduce the old rules.
   </td><td>App renders in both themes; overlays animate; contrast report green. <strong>Done (Rev 2)</strong>, see §10.1.</td></tr>
-  <tr><td>P1 Core primitives</td><td>Button, Input, Textarea, Label, Field, Select, NativeSelect, Checkbox, RadioGroup, Switch, InputGroup, Badge, Card, Separator, Skeleton, Spinner, Tabs, Tooltip, Popover, HoverCard, Dialog, AlertDialog, Sheet, DropdownMenu, Sonner. Kitchen-sink route <code>/dev/ui</code> (dev builds only) showing every variant and state.</td><td>Kitchen sink matches shadcn docs side by side; axe clean; vitest for Switch/Tabs controlled and uncontrolled behaviour.</td></tr>
+  <tr><td>P1 Core primitives</td><td>Button, Input, Textarea, Label, Field, Select, NativeSelect, Checkbox, RadioGroup, Switch, InputGroup, Badge, Card, Separator, Skeleton, Spinner, Tabs, Tooltip, Popover, HoverCard, Dialog, AlertDialog, Sheet, DropdownMenu, Sonner. Kitchen-sink route <code>/dev/ui</code> (dev builds only) showing every variant and state.</td><td>Kitchen sink matches shadcn docs side by side; axe clean; vitest for Switch/Tabs controlled and uncontrolled behaviour. <strong>Done (Rev 3)</strong>, see §10.2.</td></tr>
   <tr><td>P2 Composites and shell</td><td>Sidebar block, Header, Breadcrumb, Command palette, Notifications Sheet, Table + DataTable, Pagination, FilterBar, PageHeader, KPI tile, Alert, Empty, Progress, Accordion, ScrollArea, Combobox (+ CountrySelect), Chart wrapper, ProposalCard, chat composer, Dockview theme. aonik kit components become wrappers.</td><td>Shell and all list pages render on the new composites; <code>layout/aonik</code> exports are wrappers only.</td></tr>
   <tr><td>P3 Page sweep</td><td>Per module: Pill to Badge, raw tables to Table, native checkboxes/radios/selects, <code>window.confirm</code> to AlertDialog, bespoke overlays to Dialog/Sheet, coral <code>secondary</code> triage, hex and raw palette classes to tokens, page radii to the scale, mono tabular on figures, copy pass on buttons, empty states and toasts.</td><td>Guardrail counts reach zero per module folder.</td></tr>
   <tr><td>P4 Cleanup</td><td>Delete alias block, legacy CSS classes, <code>.card</code> utility, <code>layout/aonik</code> wrappers (or keep <code>PageHeader</code>/<code>ProposalCard</code> as genuine compositions), old keyframes; flip guardrails from warn to error.</td><td><code>index.css</code> under ~250 lines; guardrails enforced in CI.</td></tr>
@@ -497,6 +497,18 @@
   <li><code>.claude/skills/aonik-design</code> SKILL and README updated: shadcn tokens, ring focus, <code>agent</code> variant, radius scale, no eyebrow, dark-mode text rule.</li>
 </ul>
 <div class="callout"><strong>Known gap.</strong> White text on the brand coral is 3.4:1: fine for large or bold text and non-text, short of 4.5:1 for 14px labels. The Apply button should use 600 weight, or coral text on a coral tint; decide in P1 when the <code>agent</code> variant lands.</div>
+
+<h3>10.2 P1 as implemented</h3>
+<ul>
+  <li><strong>Rewritten on shadcn new-york v4 anatomy:</strong> Button (with <code>agent</code>, <code>icon-sm</code>/<code>icon-lg</code>; <code>success</code>/<code>warning</code> dropped), Input, Textarea, Label (Radix), Select (size, separator, scroll buttons), Badge (<code>success</code>/<code>warning</code>/<code>info</code> subtle variants; <code>error</code>, <code>pending</code>, <code>team</code>, <code>enterprise</code> kept as deprecated aliases), Card (with <code>CardAction</code>), Tabs (Radix, <code>line</code> variant), Switch (Radix), Tooltip (inverted, arrow, portalled), Popover, HoverCard, Dialog (built-in close, <code>showCloseButton</code>), Sheet (sides; props header kept).</li>
+  <li><strong>New:</strong> Field set, Checkbox, RadioGroup (+ choice-card pattern), NativeSelect, InputGroup (compositional), Separator, Skeleton, Spinner, AlertDialog, DropdownMenu, Sonner wrapper (theme-aware, icon-carried status, <code>richColors</code> off).</li>
+  <li><strong>Kitchen sink</strong> at <code>/dev/ui</code>, dev builds only, mounted ahead of auth so it renders in the mock-auth preview; excluded from production bundles.</li>
+  <li><strong>Deliberate deviations from stock:</strong> Card keeps part-owned <code>p-6</code> padding (v4's <code>flex gap-6 py-6</code> would reflow the many call sites that use Card as a padded container); Dialog uses a single mergeable <code>max-w-lg</code> instead of <code>sm:max-w-lg</code> so callers' <code>max-w-[…]</code> keeps working; unchecked Checkbox/Radio borders use <code>muted-foreground/70</code> (3.05:1 light, 3.86:1 dark) because stock <code>border-input</code> is 1.4:1 and fails WCAG 1.4.11.</li>
+  <li><strong>Call sites touched:</strong> coral <code>secondary</code> triage done (Start/Continue/New invoice/Run match/Save &amp; Issue promoted to <code>default</code>, MySpace proposal Apply to <code>agent</code>, the rest neutral); CreateCustomerDialog moved to compositional InputGroup and the legacy <code>icon</code> shorthand removed; AiTracesPage's drawer opts out of the default dialog close; two sheets dropped a <code>sm:max-w-none</code> that would now defeat their size cap.</li>
+  <li><strong>Found on the way:</strong> the <code>@theme</code> block defined named spacing tokens (<code>--spacing-sm/md/lg…</code>), which Tailwind v4 resolves before <code>--container-*</code> for <code>max-w-*</code>, so every named max-width in the app was collapsing (<code>max-w-lg</code> rendered at 24px; 9 call sites). Removed.</li>
+  <li><strong>Tests:</strong> <code>components/ui/primitives.test.tsx</code> pins the Switch/Tabs contract (controlled and uncontrolled state, ARIA roles, tab–panel linkage, line variant) and Button/Badge variant mapping via server rendering; the suite has no DOM environment, so interaction was verified in the browser.</li>
+</ul>
+<div class="callout"><strong>Still open.</strong> White on coral stays 3.4:1; <code>agent</code> uses 600 weight, which helps legibility but does not reach the 4.5:1 small-text threshold. Options for review: coral text on a coral tint for the Apply button, or a darker coral token for fills only.</div>
 
 <h2 id="guardrails">11. Guardrails</h2>
 <ul>
@@ -543,7 +555,7 @@
 <div class="callout ok"><strong>O5 AI parameter sliders: not now.</strong> Number inputs stay.</div>
 
 <footer>
-  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 2 (decisions resolved, P0 implemented) · 2026-09-25.
+  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 3 (P0 and P1 implemented) · 2026-09-25.
   Audit taken on master at <code>6c6c3f79</code>. Related: <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> (approval presentation),
   <a href="097.per-tenant-module-enablement.html">Spec 097</a> (module-gated nav feeding the Sidebar and Command palette).
 </footer>

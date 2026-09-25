@@ -223,13 +223,9 @@
   --text-3xl: 1.875rem;
   --text-4xl: 2.25rem;
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
+  /* No named spacing tokens (--spacing-sm/md/lg…): Tailwind v4 resolves
+     max-w-sm/md/lg… against --spacing-* before --container-*, so defining
+     them collapsed every named max-width (max-w-lg rendered at 24px). */
 
   /* Elevation: xs on controls and cards, md on popovers/menus, lg on
      dialogs/sheets. */

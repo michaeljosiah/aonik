@@ -1,24 +1,23 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Right-anchored slide-out panel. Visual port of the starter template's
- * <c>SlideOutPanel</c> at <c>Templates/aonik-admin-starterkit/screens/forms.jsx</c>:
+ * shadcn Sheet on Radix Dialog: focus trap, Escape-to-close, scroll lock and
+ * accessible labelling. Use it for "Add / Create / Edit X" forms with up to
+ * ~10 fields; for atomic 2–3 field actions use Dialog.
  *
- *   • Container: 460px (sm) / 540px (default) / 720px (lg) wide, full
- *     height, anchored to the right edge with a subtle left shadow.
- *   • Sticky header with a brand-tinted icon badge, title, optional
- *     subtitle, and a close button.
- *   • Scrolling body with the form fields.
- *   • Sticky footer with primary + secondary actions.
+ *   <Sheet>
+ *     <SheetContent size="md">
+ *       <SheetHeader title="New customer" subtitle="…" icon={<UserIcon />} />
+ *       <SheetBody>…fields…</SheetBody>
+ *       <SheetFooter>…actions…</SheetFooter>
+ *     </SheetContent>
+ *   </Sheet>
  *
- * Built on Radix Dialog so we get focus trapping, Escape-to-close,
- * scroll lock, and accessible labelling for free. Use this for "Add /
- * Create / Edit X" forms with up to ~10 fields. For longer multi-section
- * setups, fall back to a full-page form; for atomic 2-3 field actions,
- * use Dialog (centered modal).
+ * SheetHeader keeps its props API (title/subtitle/icon/closeAffordance);
+ * SheetTitle and SheetDescription are exported for fully custom headers.
  */
 
 const Sheet = DialogPrimitive.Root;
@@ -32,8 +31,9 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    data-slot="sheet-overlay"
     className={cn(
-      'fixed inset-0 z-(--z-overlay) bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-0 z-(--z-overlay) bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
     )}
     {...props}
@@ -42,34 +42,43 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = 'SheetOverlay';
 
 type SheetSize = 'sm' | 'md' | 'lg';
+type SheetSide = 'top' | 'right' | 'bottom' | 'left';
 
+// Widths apply to left/right sheets; below `sm` the sheet takes the full width.
 const SHEET_WIDTH: Record<SheetSize, string> = {
-  sm: 'w-[460px]',
-  md: 'w-[540px]',
-  lg: 'w-[720px]',
+  sm: 'sm:max-w-[460px]',
+  md: 'sm:max-w-[540px]',
+  lg: 'sm:max-w-[720px]',
+};
+
+const SHEET_SIDE: Record<SheetSide, string> = {
+  right:
+    'inset-y-0 right-0 h-full w-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+  left: 'inset-y-0 left-0 h-full w-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+  top: 'inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
+  bottom:
+    'inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
 };
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   size?: SheetSize;
-  /** When true, the default close button in the header is suppressed. */
-  hideCloseButton?: boolean;
+  side?: SheetSide;
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ className, children, size = 'md', ...props }, ref) => (
+>(({ className, children, size = 'md', side = 'right', ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      data-slot="sheet-content"
       className={cn(
-        // Right-anchored, full-height slide-out. The shadow on the left
-        // edge mirrors the starter template (-12px 0 32px -8px black/8).
-        'fixed inset-y-0 right-0 z-(--z-modal) flex max-w-full flex-col border-l border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[-12px_0_32px_-8px_rgb(0_0_0/_0.10)]',
-        SHEET_WIDTH[size],
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-200',
+        'fixed z-(--z-modal) flex flex-col bg-background text-foreground shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
+        SHEET_SIDE[side],
+        (side === 'left' || side === 'right') && SHEET_WIDTH[size],
         className,
       )}
       {...props}
@@ -80,8 +89,34 @@ const SheetContent = React.forwardRef<
 ));
 SheetContent.displayName = 'SheetContent';
 
+const SheetTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    data-slot="sheet-title"
+    className={cn('font-semibold text-foreground', className)}
+    {...props}
+  />
+));
+SheetTitle.displayName = DialogPrimitive.Title.displayName;
+
+const SheetDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    data-slot="sheet-description"
+    className={cn('text-sm text-muted-foreground', className)}
+    {...props}
+  />
+));
+SheetDescription.displayName = DialogPrimitive.Description.displayName;
+
 interface SheetHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
-  /** Optional brand-tinted icon shown in a 32x32 rounded badge to the left of the title. */
+  /** Optional icon shown in a small muted tile to the left of the title. */
   icon?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -98,72 +133,47 @@ const SheetHeader: React.FC<SheetHeaderProps> = ({
   ...rest
 }) => (
   <div
-    className={cn(
-      'flex flex-none items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-4',
-      className,
-    )}
+    data-slot="sheet-header"
+    className={cn('flex flex-none items-start gap-3 border-b p-4', className)}
     {...rest}
   >
     {icon ? (
-      <div className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]">
+      <div className="grid size-8 flex-none place-items-center rounded-md bg-muted text-muted-foreground [&_svg:not([class*='size-'])]:size-4">
         {icon}
       </div>
     ) : null}
-    <div className="min-w-0 flex-1">
-      <DialogPrimitive.Title className="truncate text-[14px] font-semibold text-[var(--color-text-primary)]">
-        {title}
-      </DialogPrimitive.Title>
-      {subtitle ? (
-        <DialogPrimitive.Description className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-secondary)]">
-          {subtitle}
-        </DialogPrimitive.Description>
-      ) : null}
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <SheetTitle className="truncate">{title}</SheetTitle>
+      {subtitle ? <SheetDescription className="truncate">{subtitle}</SheetDescription> : null}
     </div>
     {closeAffordance === null ? null : closeAffordance ?? (
       <DialogPrimitive.Close
-        aria-label="Close"
-        className="grid h-7 w-7 flex-none place-items-center rounded-full text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+        data-slot="sheet-close"
+        className="rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
       >
-        <X className="h-3.5 w-3.5" />
+        <XIcon className="size-4" />
+        <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     )}
   </div>
 );
 SheetHeader.displayName = 'SheetHeader';
 
-/**
- * Scrolling region between the header and footer. Pads the content
- * 20px on every side and stacks children with 14px gaps to match the
- * starter template's field rhythm.
- */
-const SheetBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  ...rest
-}) => (
+/** Scrolling region between the header and footer. */
+const SheetBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...rest }) => (
   <div
-    className={cn(
-      'flex flex-1 flex-col gap-4 overflow-auto px-5 py-5',
-      className,
-    )}
+    data-slot="sheet-body"
+    className={cn('flex flex-1 flex-col gap-4 overflow-auto p-4', className)}
     {...rest}
   />
 );
 SheetBody.displayName = 'SheetBody';
 
-/**
- * Sticky footer for primary + secondary actions. Uses the inset
- * surface tone so it visually separates from the body when the form
- * scrolls behind it.
- */
-const SheetFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  ...rest
-}) => (
+/** Footer for primary and secondary actions, pinned below the body. */
+const SheetFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...rest }) => (
   <div
-    className={cn(
-      'flex flex-none items-center justify-between gap-3 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-3',
-      className,
-    )}
+    data-slot="sheet-footer"
+    className={cn('flex flex-none items-center justify-between gap-2 border-t p-4', className)}
     {...rest}
   />
 );
@@ -177,6 +187,8 @@ export {
   SheetOverlay,
   SheetContent,
   SheetHeader,
+  SheetTitle,
+  SheetDescription,
   SheetBody,
   SheetFooter,
 };
