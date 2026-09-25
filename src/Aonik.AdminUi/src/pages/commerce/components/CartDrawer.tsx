@@ -192,17 +192,17 @@ function CartLineRow({ line, currency }: { line: AdminCartLineDto; currency: str
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-[13px] text-foreground">{line.name}</span>
             {line.kind === 'AddOn' && (
-              <Pill tone="info" size="sm">
+              <Pill tone="info">
                 ADD-ON
               </Pill>
             )}
             {line.isUnavailable && (
-              <Pill tone="warning" size="sm">
+              <Pill tone="warning">
                 Unavailable
               </Pill>
             )}
             {line.priceChanged && (
-              <Pill tone="warning" size="sm">
+              <Pill tone="warning">
                 Repriced
               </Pill>
             )}
@@ -256,7 +256,7 @@ function CartLineRow({ line, currency }: { line: AdminCartLineDto; currency: str
               </span>
               <span className="text-[12px] text-foreground">{component.name}</span>
               {component.isUnavailable && (
-                <Pill tone="warning" size="sm">
+                <Pill tone="warning">
                   Unavailable
                 </Pill>
               )}

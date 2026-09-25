@@ -16,13 +16,13 @@ export type AgentGlyph =
   | 'pulse';
 
 export const AGENT_PALETTE = [
-  '#055a60', // brand teal
-  '#eb5c37', // coral
-  '#3ab795', // mint
-  '#7b76b6', // violet
-  '#0097a9', // patrol
-  '#5facbd', // sky
-  '#d4a843', // amber
+  '#055a60', // guardrail-ignore: agent identity colour (brand teal); hex alpha is appended downstream
+  '#eb5c37', // guardrail-ignore: agent identity colour (coral); hex alpha is appended downstream
+  '#3ab795', // guardrail-ignore: agent identity colour (mint); hex alpha is appended downstream
+  '#7b76b6', // guardrail-ignore: agent identity colour (violet); hex alpha is appended downstream
+  '#0097a9', // guardrail-ignore: agent identity colour (patrol); hex alpha is appended downstream
+  '#5facbd', // guardrail-ignore: agent identity colour (sky); hex alpha is appended downstream
+  '#d4a843', // guardrail-ignore: agent identity colour (amber); hex alpha is appended downstream
 ] as const;
 
 export const AGENT_GLYPHS: AgentGlyph[] = [

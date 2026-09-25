@@ -228,7 +228,7 @@ export function PersonalisationPage() {
         return (
           <span className="flex flex-wrap gap-1">
             {groupLabels.slice(0, 3).map((label) => (
-              <Pill key={label} tone="muted" size="sm">
+              <Pill key={label} tone="muted">
                 {label}
               </Pill>
             ))}
@@ -265,14 +265,14 @@ export function PersonalisationPage() {
             </span>
           ) : (
             // An amount with no denomination is the thing the marker exists to avoid.
-            <Pill tone="info" size="sm" dot>
+            <Pill tone="info" dot>
               Set
             </Pill>
           );
         }
         // Unread: the summary is all there is, and it carries no currency.
         return row.unitSurcharge != null ? (
-          <Pill tone="info" size="sm" dot>
+          <Pill tone="info" dot>
             Set
           </Pill>
         ) : (
@@ -300,7 +300,6 @@ export function PersonalisationPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Personalisation"
         subtitle={`Stored prices are absolute; every “vs default” figure is derived against the group's default${
           recommendedLabel ? `, which the storefront labels “${recommendedLabel}”` : ''
@@ -399,7 +398,7 @@ export function PersonalisationPage() {
                               {group.label}
                             </span>
                             {!group.isActive && (
-                              <Pill tone="muted" size="sm">
+                              <Pill tone="muted">
                                 Retired
                               </Pill>
                             )}
@@ -618,7 +617,7 @@ function ChoicesCard({
                           {choice.label}
                         </span>
                         {isDefault && recommendedLabel && (
-                          <Pill tone="info" size="sm">
+                          <Pill tone="info">
                             {recommendedLabel}
                           </Pill>
                         )}
@@ -642,7 +641,7 @@ function ChoicesCard({
                     )}
                   </TableCell>
                   <TableCell className="px-2 py-2">
-                    <Pill tone={choice.isActive ? 'success' : 'muted'} size="sm">
+                    <Pill tone={choice.isActive ? 'success' : 'muted'}>
                       {choice.isActive ? 'Active' : 'Retired'}
                     </Pill>
                   </TableCell>

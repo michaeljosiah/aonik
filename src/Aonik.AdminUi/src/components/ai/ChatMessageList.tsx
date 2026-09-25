@@ -252,7 +252,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
   const statusIcon = {
     streaming: <Loader2 className="h-3 w-3 animate-spin text-info" />,
     pending: <Loader2 className="h-3 w-3 animate-spin text-warning" />,
-    executing: <Loader2 className="h-3 w-3 animate-spin text-[var(--color-violet)]" />,
+    executing: <Loader2 className="h-3 w-3 animate-spin text-[var(--chart-4)]" />,
     completed: <CheckCircle2 className="h-3 w-3 text-success" />,
     error: <XCircle className="h-3 w-3 text-destructive" />,
     'awaiting-approval': <ShieldAlert className="h-3 w-3 text-warning" />,

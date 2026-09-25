@@ -153,7 +153,7 @@ function AffectedProducts({ slugs }: { slugs: string[] }) {
       </p>
       <div className="flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto">
         {slugs.map((slug) => (
-          <Pill key={slug} tone="warning" size="sm">
+          <Pill key={slug} tone="warning">
             {slug}
           </Pill>
         ))}

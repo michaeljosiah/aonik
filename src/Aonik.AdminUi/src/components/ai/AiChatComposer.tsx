@@ -72,7 +72,7 @@ export function AiChatComposer({
   return (
     <div
       className={cn(
-        'chat-primary mx-auto w-full',
+        'mx-auto w-full',
         isCenter ? 'max-w-[800px]' : 'lg:max-w-[800px]',
         className
       )}

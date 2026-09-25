@@ -396,7 +396,7 @@ export function ContentVariantSheet({
               )}
               {baseline && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <Pill tone="muted" size="sm">
+                  <Pill tone="muted">
                     fixed
                   </Pill>
                   A variant is identified by its combination — retire it and author another to

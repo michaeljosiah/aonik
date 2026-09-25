@@ -103,9 +103,9 @@ function formatCurrency(value: number, currency: string): string {
 
 const KPI_SPARK_COLOR: Record<string, string> = {
   'cash-position': 'var(--primary)',
-  revenue: 'var(--color-accent-ent)',
+  revenue: 'var(--agent-enterprise)',
   'outstanding-invoices': 'var(--agent)',
-  'agent-ops-today': 'var(--color-violet)',
+  'agent-ops-today': 'var(--chart-4)',
 };
 
 // ─── Page ────────────────────────────────────────────────────────────────
@@ -620,7 +620,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
             cx={x}
             cy={y}
             r={4}
-            fill="var(--color-accent-ent)"
+            fill="var(--agent-enterprise)"
             stroke="var(--card)"
             strokeWidth="1.5"
           >

@@ -192,7 +192,6 @@ export function CommerceOrdersPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Orders"
         subtitle="Checked-out storefront orders — what was ordered, what was charged, and what the kitchen prepares"
       />
@@ -257,7 +256,6 @@ export function CommerceOrdersPage() {
         tabs={PAYMENT_TABS}
         active={paymentStatus}
         onTabChange={setPaymentStatus}
-        hideFilterButton
       />
 
       <AonikCard padding={0}>

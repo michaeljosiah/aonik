@@ -151,7 +151,7 @@ export function AonikLoadingMark({ size = 88 }: { size?: number }) {
           right: dotInset,
           width: dotSize,
           height: dotSize,
-          background: 'var(--color-brand-mark-dot)',
+          background: 'var(--mark-dot)',
           animation: 'aonikLoadingDotPulse 1.6s ease-in-out infinite',
         }}
       />
@@ -161,8 +161,8 @@ export function AonikLoadingMark({ size = 88 }: { size?: number }) {
           45%, 55% { height: 100%; }
         }
         @keyframes aonikLoadingDotPulse {
-          0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand-mark-dot) 60%, transparent); }
-          50%      { transform: scale(1.12); box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-brand-mark-dot) 0%, transparent); }
+          0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in oklab, var(--mark-dot) 60%, transparent); }
+          50%      { transform: scale(1.12); box-shadow: 0 0 0 8px color-mix(in oklab, var(--mark-dot) 0%, transparent); }
         }
         @media (prefers-reduced-motion: reduce) {
           .aonik-loading-anim { animation: none !important; }

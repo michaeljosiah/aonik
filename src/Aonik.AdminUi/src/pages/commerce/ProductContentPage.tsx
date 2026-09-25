@@ -373,7 +373,6 @@ export function ProductContentPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Product content"
         subtitle="Figures may fall back, captioned. Declarations are exact-authored or withheld — never substituted."
       />
@@ -525,7 +524,7 @@ export function ProductContentPage() {
                             {row.slug}
                           </span>
                         </span>
-                        <Pill tone={STATE_TONE[state]} size="sm">
+                        <Pill tone={STATE_TONE[state]}>
                           {STATE_LABEL[state]}
                         </Pill>
                       </button>
@@ -690,7 +689,7 @@ export function ProductContentPage() {
                           <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
                             {variant.selectionJson}
                           </span>
-                          <Pill tone={variant.isActive ? 'success' : 'muted'} size="sm">
+                          <Pill tone={variant.isActive ? 'success' : 'muted'}>
                             {variant.isActive ? 'Active' : 'Retired'}
                           </Pill>
                           {variant.isActive ? (

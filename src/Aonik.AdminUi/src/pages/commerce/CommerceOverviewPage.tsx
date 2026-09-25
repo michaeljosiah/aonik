@@ -219,7 +219,6 @@ export function CommerceOverviewPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Overview"
         subtitle="The storefront's pulse — what sold, and what needs a human"
       />
@@ -311,7 +310,7 @@ export function CommerceOverviewPage() {
                     <span className="shrink-0 font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-foreground">
                       {formatCurrency(order.total, order.currency)}
                     </span>
-                    <Pill tone={paymentTone(order.paymentStatus)} size="sm">
+                    <Pill tone={paymentTone(order.paymentStatus)}>
                       {order.paymentStatus}
                     </Pill>
                     <span className="w-[80px] shrink-0 text-right text-[11px] text-muted-foreground">

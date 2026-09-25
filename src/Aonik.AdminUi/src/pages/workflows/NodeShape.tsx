@@ -141,8 +141,8 @@ export function NodeShape({
             height: 18,
             borderRadius: 4,
             background: tint,
-            // guardrail-ignore: glyph on a fixed-hue step-kind tint (see stepKindCatalog)
-            color: '#fff',
+            // Glyph on the step-kind tint; flips with the theme (see stepKindCatalog).
+            color: 'var(--primary-foreground)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',

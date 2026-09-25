@@ -103,7 +103,6 @@ export function ActivityTab({ details, onOpenPartner }: ActivityTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search partner or connector…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 

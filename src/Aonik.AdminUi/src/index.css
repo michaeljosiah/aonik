@@ -83,7 +83,24 @@
   --chart-2: #3a9ea4;
   --chart-3: #eb5c37;
   --chart-4: #7b76b6;
-  --chart-5: #d49b00;
+  --chart-5: #b08400;
+  /* Extended categorical series (workflow step kinds, many-series charts).
+     Every chart hue clears 3:1 on the card in both themes. */
+  --chart-6: #0097a9;
+  --chart-7: #b4741e;
+  --chart-8: #1f7a5e;
+  --chart-9: #a35dac;
+  --chart-10: #c44536;
+
+  /* Brand accents. The mark dot is the single gold accent on the Aonik mark
+     (logo only, never a CTA or status fill); the agent tiers colour team and
+     enterprise agents. Same in both themes. */
+  --mark-dot: #e8a838;
+  --agent-team: #5facbd;
+  --agent-enterprise: #3ab795;
+
+  /* Native date/time picker glyph: inverted on dark surfaces. */
+  --date-indicator-filter: none;
 
   --sidebar: #f7f8f9;
   --sidebar-foreground: #1f2328;
@@ -148,6 +165,13 @@
   --chart-3: #f07a5a;
   --chart-4: #9d98d4;
   --chart-5: #e0b23a;
+  --chart-6: #2cc0d2;
+  --chart-7: #dc9a4a;
+  --chart-8: #4fc39e;
+  --chart-9: #c688cf;
+  --chart-10: #e8776a;
+
+  --date-indicator-filter: invert(1) brightness(1.1);
 
   --sidebar: #1e2125;
   --sidebar-foreground: #e8eaed;
@@ -196,6 +220,14 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
+  --color-mark-dot: var(--mark-dot);
+  --color-agent-team: var(--agent-team);
+  --color-agent-enterprise: var(--agent-enterprise);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -241,16 +273,8 @@
   /* The 3px translucent ring every focusable control uses (Spec 098 D3). */
   --shadow-focus: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 
-  /* Sidebar Width */
-  --sidebar-width: 260px;
-  --sidebar-collapsed-width: 81px;
-  --navbar-height: 56px;
-
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 150ms;
-  --dur-med: 250ms;
-  --dur-slow: 400ms;
 
   /* Type rhythm */
   --leading-tight: 1.1;
@@ -275,84 +299,9 @@
   --container-6xl: 72rem;
   --container-7xl: 80rem;
 
-  /* ─── LEGACY ALIASES (Spec 098 §6.4) ────────────────────────────────────
-     Keep the ~7,000 existing var(--color-*) call sites rendering on the new
-     tokens. New code must not use these; they are deleted in P4. */
-  --color-brand-primary: var(--primary);
-  --color-brand-primary-dark: var(--primary-hover);
-  --color-brand-primary-light: color-mix(in oklab, var(--primary) 12%, transparent);
-  --color-brand-primary-10: color-mix(in oklab, var(--primary) 12%, transparent);
-  --color-brand-primary-20: color-mix(in oklab, var(--primary) 20%, transparent);
-  --color-brand-primary-60: color-mix(in oklab, var(--primary) 60%, transparent);
-  --color-brand-secondary: var(--agent);
-  --color-brand-secondary-dark: color-mix(in oklab, var(--agent) 88%, black);
-  --color-brand-secondary-light: color-mix(in oklab, var(--agent) 12%, transparent);
-  --color-brand-secondary-10: color-mix(in oklab, var(--agent) 12%, transparent);
-  --color-brand-secondary-20: color-mix(in oklab, var(--agent) 20%, transparent);
-  --color-brand-secondary-60: color-mix(in oklab, var(--agent) 60%, transparent);
-
-  /* Brand mark dot: reserved for the single gold accent on the Aonik mark.
-     Not a utility colour: do not use as a generic CTA or status fill. */
-  --color-brand-mark-dot: #e8a838;
-
-  --color-surface: var(--card);
-  --color-surface-inset: var(--muted);
-  --color-surface-elevated: var(--popover);
-  --color-border-light: var(--border);
-
-  --color-text-primary: var(--foreground);
-  --color-text-secondary: var(--muted-foreground);
-  --color-text-tertiary: var(--muted-foreground);
-  --color-text-inverse: var(--primary-foreground);
-  --color-text-heading: var(--foreground);
-
-  --color-form-field-border: var(--input);
-  --color-form-field-border-focus: var(--ring);
-  --color-form-field-bg: var(--background);
-  --color-form-field-text: var(--foreground);
-  --color-form-field-placeholder: var(--muted-foreground);
-  --color-form-date-indicator-filter: none;
-
-  --color-success-light: var(--success-subtle);
-  --color-warning-light: var(--warning-subtle);
-  --color-error: var(--destructive);
-  --color-error-light: color-mix(in oklab, var(--destructive) 12%, transparent);
-  --color-danger: var(--destructive);
-  --color-danger-10: color-mix(in oklab, var(--destructive) 12%, transparent);
-  --color-danger-20: color-mix(in oklab, var(--destructive) 20%, transparent);
-  --color-danger-60: color-mix(in oklab, var(--destructive) 60%, transparent);
-  --color-info-light: var(--info-subtle);
-  /* "Pending" is a status, so it is amber, not the agent coral. */
-  --color-pending: var(--warning);
-  --color-pending-light: var(--warning-subtle);
-
-  /* Brand accents for agent tiers and legacy highlights; same in both themes. */
-  --color-violet: #7b76b6;
-  --color-patrol: #0097a9;
-  --color-jade: #17b0ad;
-  --color-team-agent: #5facbd;
-  --color-enterprise-agent: #3ab795;
-  --color-accent-team: #5facbd;
-  --color-accent-ent: #3ab795;
-
-  --color-sidebar-bg: var(--sidebar);
-  --color-sidebar-active: var(--sidebar-primary);
-  --color-sidebar-hover: var(--sidebar-accent);
-
-  --color-chat-bot-bubble: var(--muted);
-  --color-chat-user-bubble: color-mix(in oklab, var(--primary) 12%, transparent);
-
-  --color-navbar-bg: var(--background);
-  --color-navbar-border: var(--border);
-  --color-navbar-border-right: var(--border);
-  --navbar-border-radius: 0.5rem;
-  --navbar-border-width: 1px;
-
 }
 
 [data-theme="dark"] {
-  --color-form-date-indicator-filter: invert(1) brightness(1.1);
-
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
@@ -370,7 +319,7 @@
   *,
   ::after,
   ::before {
-    border-color: var(--color-border);
+    border-color: var(--border);
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 }
@@ -390,6 +339,21 @@ body {
   color: var(--foreground);
 }
 
+/* Reduced motion: collapse every animation and transition (Radix overlay
+   enter/exit from tw-animate-css, collapsibles, shimmer, pulses). Durations
+   go to ~0 rather than none so Radix still receives animationend and
+   unmounts closed overlays. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Neutral scrollbars on the border token; they flip with the theme. */
 * {
   scrollbar-width: thin;
@@ -407,7 +371,7 @@ textarea {
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.8;
-  filter: var(--color-form-date-indicator-filter);
+  filter: var(--date-indicator-filter);
 }
 
 #root {
@@ -514,61 +478,6 @@ html.is-electron .min-h-screen {
   background: var(--muted-foreground);
 }
 
-/* Custom Utility Classes */
-@utility card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-light);
-}
-
-/* Signature Aonik primitives — used by AppShell sidebar + topbar.
-   `hover-halo` is the 28px circular icon-button hover treatment.
-   `eyebrow` is the small uppercase brand label above headings. */
-.hover-halo {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: 9999px;
-  padding: 0;
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
-}
-.hover-halo:hover,
-.hover-halo:focus-visible {
-  color: var(--color-brand-primary);
-  background: var(--color-brand-primary-10);
-  box-shadow: 0 0 0 6px var(--color-brand-primary-10);
-  outline: none;
-}
-
-.eyebrow {
-  display: inline-block;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-wide);
-  color: var(--color-brand-primary);
-  text-transform: uppercase;
-}
-
-@utility card-shadow {
-  box-shadow: var(--shadow-sm);
-}
-
-@utility text-truncate-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 /* Status pulse — for "active" workflow / agent state dots.
    Mirrors the @keyframes pulse declaration in
    templates/aonik-admin-starterkit/index.html (the template uses the bare
@@ -588,8 +497,8 @@ html.is-electron .min-h-screen {
 }
 
 .text-shimmer {
-  --shimmer-base: var(--color-text-tertiary);
-  --shimmer-peak: var(--color-text-primary);
+  --shimmer-base: var(--muted-foreground);
+  --shimmer-peak: var(--foreground);
   background:
     linear-gradient(
       90deg,
@@ -610,222 +519,7 @@ html.is-electron .min-h-screen {
     animation: none;
     background: none;
     -webkit-text-fill-color: currentColor;
-    color: var(--color-text-tertiary);
-  }
-}
-
-/* ─── Chat Theme Scoping (Centrali pattern) ────────────────────────────────── */
-/* Each chat-{color} class sets --theme-color for descendant components */
-.chat-primary {
-  --theme-color: var(--color-brand-primary);
-  --theme-color-100: var(--color-brand-primary-10);
-  --theme-color-200: var(--color-brand-primary-20);
-  --theme-color-600: var(--color-brand-primary-60);
-}
-.chat-secondary {
-  --theme-color: var(--color-brand-secondary);
-  --theme-color-100: var(--color-brand-secondary-10);
-  --theme-color-200: var(--color-brand-secondary-20);
-  --theme-color-600: var(--color-brand-secondary-60);
-}
-.chat-success {
-  --theme-color: var(--color-success);
-  --theme-color-100: #4caf5020;
-  --theme-color-200: #4caf5033;
-  --theme-color-600: #4caf5099;
-}
-.chat-warning {
-  --theme-color: var(--color-warning);
-  --theme-color-100: #ebc33420;
-  --theme-color-200: #ebc33433;
-  --theme-color-600: #ebc33499;
-}
-.chat-info {
-  --theme-color: var(--color-info);
-  --theme-color-100: #3b82f620;
-  --theme-color-200: #3b82f633;
-  --theme-color-600: #3b82f699;
-}
-
-/* Theme utility classes */
-.theme-text-color {
-  color: var(--theme-color);
-}
-.theme-bg {
-  background-color: var(--theme-color);
-}
-.theme-bg-light {
-  background-color: var(--theme-color-100);
-}
-.theme-border {
-  border-color: var(--theme-color);
-}
-.theme-active {
-  background-color: var(--theme-color-100);
-  color: var(--theme-color);
-}
-
-/* Hover effect using theme variables */
-.hover-theme-effect {
-  cursor: pointer;
-  color: var(--muted-foreground);
-  transition: all 0.2s ease;
-  outline: none;
-}
-.hover-theme-effect:hover {
-  color: var(--theme-color);
-  background-color: var(--theme-color-100);
-  box-shadow: 0 0 0 10px var(--theme-color-100);
-  border-radius: 50%;
-}
-
-.theme-image-hover {
-  transition: all 0.2s ease;
-}
-
-.theme-image-hover:hover {
-  box-shadow: 0 0 0 4px var(--theme-color-100);
-  background-color: var(--theme-color-100);
-  border-radius: 50%;
-}
-
-.theme-text-hover {
-  transition: color 0.2s ease;
-}
-
-.theme-text-hover:hover {
-  color: var(--theme-color);
-}
-
-.chat-history-item {
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.chat-prompt-icon {
-  transition: border-color 0.2s, color 0.2s;
-}
-
-/* ─── Centrali Hover & Interaction Effects ─────────────────────────────────── */
-.hover-border:hover,
-.hoverBorder:hover {
-  border: 1px solid #9ca3af;
-  transition: 0.5s all ease-in-out;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-/* Shine effect for cards/banners */
-.shine-effect {
-  position: absolute;
-  bottom: -60%;
-  left: -60%;
-  width: 40px;
-  height: 620%;
-  background: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 1) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  filter: blur(0.5px);
-  border-radius: 20px;
-  animation: shine-anim-diagonal 1.2s linear forwards;
-  pointer-events: none;
-  z-index: 30;
-}
-
-@keyframes shine-anim-diagonal {
-  100% {
-    bottom: 50%;
-    left: 100%;
-  }
-}
-
-/* ─── Input Focus Effect (Centrali bottom-border pattern) ──────────────────── */
-.input-focused {
-  border-bottom-color: var(--theme-color, var(--color-brand-primary));
-  box-shadow: 0px 4px 0px -2px var(--theme-color-600, rgba(5, 90, 96, 0.6));
-}
-
-/* ─── Legacy form-field classes ───────────────────────────────────────────── */
-/* Restyled to the shadcn Input/NativeSelect shape (Spec 098 D3: one focus
-   language, the 3px ring). Retired in P4; new code uses ui/input and
-   ui/select. */
-.aonik-input,
-.aonik-select {
-  height: 36px;
-  width: 100%;
-  background-color: transparent;
-  border: 1px solid var(--input);
-  border-radius: calc(var(--radius) - 2px);
-  box-shadow: var(--shadow-xs);
-  padding: 0 12px;
-  font: inherit;
-  font-size: 0.875rem;
-  color: var(--foreground);
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.aonik-input::placeholder { color: var(--muted-foreground); }
-.aonik-input:focus-visible,
-.aonik-select:focus-visible {
-  outline: none;
-  border-color: var(--ring);
-  box-shadow: var(--shadow-focus);
-}
-.aonik-input:disabled,
-.aonik-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.aonik-select {
-  padding-right: 32px;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a9099' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.chat-file-drop-zone {
-  min-height: 100px;
-  border: 1px dashed var(--color-text-primary);
-  border-radius: 20px;
-  background: var(--theme-color-100, var(--color-brand-primary-10));
-}
-
-.pulse-speak-active {
-  animation: pulseScale 0.6s infinite ease-in-out, pulseStrokeColor 0.6s infinite ease-in-out;
-}
-
-@keyframes pulseStrokeColor {
-  0% {
-    stroke: var(--border);
-  }
-  50% {
-    stroke: var(--theme-color, var(--color-brand-primary));
-  }
-  100% {
-    stroke: var(--border);
-  }
-}
-
-@keyframes pulseScale {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* ─── Responsive Zoom (Centrali pattern for smaller monitors) ──────────────── */
-@media (max-width: 1650px) {
-  .zoom-responsive {
-    zoom: 0.75;
+    color: var(--muted-foreground);
   }
 }
 

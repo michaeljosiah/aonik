@@ -24,7 +24,7 @@ export function DomainChips({ domains }: DomainChipsProps) {
       {ordered.map((domain) => {
         const { label, tone } = presentDomain(domain);
         return (
-          <Pill key={domain} tone={tone} size="sm">
+          <Pill key={domain} tone={tone}>
             {label}
           </Pill>
         );

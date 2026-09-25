@@ -16,7 +16,7 @@ interface CommercePlaceholderProps {
 export function CommercePlaceholder({ title, subtitle, spec, summary }: CommercePlaceholderProps) {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
-      <PageHeader eyebrow="Commerce" title={title} subtitle={subtitle} />
+      <PageHeader title={title} subtitle={subtitle} />
       <AonikCard>
         <div className="flex flex-col items-start gap-2 py-6">
           <Badge variant="secondary" className="font-mono">

@@ -399,7 +399,6 @@ export function InvoicesListPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by invoice, customer, currency…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>

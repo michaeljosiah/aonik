@@ -70,7 +70,7 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                     </span>
                   </TableCell>
                   <TableCell className="px-2 py-2.5">
-                    <Pill tone={STATUS_TONE[order.status] ?? 'default'} dot size="sm">
+                    <Pill tone={STATUS_TONE[order.status] ?? 'default'} dot>
                       {order.status}
                     </Pill>
                   </TableCell>

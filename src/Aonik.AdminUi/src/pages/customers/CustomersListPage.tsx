@@ -510,7 +510,6 @@ export function CustomersListPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by name, email, ID…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>

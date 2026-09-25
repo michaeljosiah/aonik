@@ -214,7 +214,7 @@ export function CommerceProductsPage() {
         ) : (
           <span className="flex flex-wrap gap-1">
             {row.tags.slice(0, 3).map((tag) => (
-              <Pill key={tag} tone="muted" size="sm">
+              <Pill key={tag} tone="muted">
                 {tag}
               </Pill>
             ))}
@@ -235,7 +235,7 @@ export function CommerceProductsPage() {
       // read as a price in whatever currency the operator assumed.
       cell: (row) =>
         row.unitSurcharge != null ? (
-          <Pill tone="info" size="sm" dot>
+          <Pill tone="info" dot>
             Set
           </Pill>
         ) : (
@@ -272,7 +272,6 @@ export function CommerceProductsPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Products"
         subtitle="The retail catalogue behind the storefront — products, media and storefront placement"
       />
@@ -323,7 +322,6 @@ export function CommerceProductsPage() {
             </NativeSelect>
           </div>
         }
-        hideFilterButton
       />
 
       <AonikCard padding={0}>

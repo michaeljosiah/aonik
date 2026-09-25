@@ -116,7 +116,7 @@ export function LoginPage() {
           position: 'absolute',
           inset: 0,
           backgroundImage:
-            'radial-gradient(circle at 22% 28%, color-mix(in oklab, var(--color-brand-mark-dot) 14%, transparent) 0%, transparent 38%),' +
+            'radial-gradient(circle at 22% 28%, color-mix(in oklab, var(--mark-dot) 14%, transparent) 0%, transparent 38%),' +
             'radial-gradient(circle at 78% 72%, color-mix(in oklab, var(--primary-foreground) 6%, transparent) 0%, transparent 45%),' +
             'linear-gradient(color-mix(in oklab, var(--primary-foreground) 2.5%, transparent) 1px, transparent 1px),' +
             'linear-gradient(90deg, color-mix(in oklab, var(--primary-foreground) 2.5%, transparent) 1px, transparent 1px)',
@@ -175,7 +175,7 @@ export function LoginPage() {
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  background: 'var(--color-brand-mark-dot)',
+                  background: 'var(--mark-dot)',
                 }}
               />
             </span>
@@ -209,7 +209,7 @@ export function LoginPage() {
             <br />
             Systems apply.
             <br />
-            <span style={{ color: 'var(--color-brand-mark-dot)' }}>Everywhere you work.</span>
+            <span style={{ color: 'var(--mark-dot)' }}>Everywhere you work.</span>
           </h1>
 
           <p
@@ -647,7 +647,7 @@ function LoginAgentChat() {
           position: 'absolute',
           inset: -36,
           background:
-            'radial-gradient(circle at 28% 28%, color-mix(in oklab, var(--color-brand-mark-dot) 18%, transparent) 0%, transparent 55%),' +
+            'radial-gradient(circle at 28% 28%, color-mix(in oklab, var(--mark-dot) 18%, transparent) 0%, transparent 55%),' +
             'radial-gradient(circle at 78% 82%, color-mix(in oklab, var(--primary-foreground) 6%, transparent) 0%, transparent 55%)',
           filter: 'blur(10px)',
           pointerEvents: 'none',
@@ -708,7 +708,7 @@ function LoginAgentChat() {
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: 'var(--color-brand-mark-dot)',
+                background: 'var(--mark-dot)',
               }}
             />
           </div>
@@ -925,7 +925,7 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: 'var(--color-brand-mark-dot)',
+              background: 'var(--mark-dot)',
               border: '2px solid var(--primary)',
             }}
           />
@@ -1114,7 +1114,7 @@ function ChatTyping() {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: 'var(--color-brand-mark-dot)',
+            background: 'var(--mark-dot)',
             border: '2px solid var(--primary)',
           }}
         />

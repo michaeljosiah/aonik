@@ -26,7 +26,7 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
         <span className="font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">
           {slug}
         </span>
-        <Pill tone="muted" size="sm">
+        <Pill tone="muted">
           {kind}
         </Pill>
         <span className="text-[11px] text-muted-foreground">

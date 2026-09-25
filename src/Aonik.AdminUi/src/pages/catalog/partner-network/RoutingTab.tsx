@@ -119,7 +119,6 @@ export function RoutingTab({ details, onOpenPartner }: RoutingTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search partner or connector…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 

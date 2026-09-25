@@ -164,10 +164,8 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
         </Tooltip>
       </div>
 
-      {/* Conversation area — scoped in .chat-primary so descendant agent
-          components (chat bubbles, tool traces) read the brand-primary
-          theme variables (--theme-color, --theme-color-100, etc.). */}
-      <div className="chat-primary min-h-0 flex-1 bg-background">
+      {/* Conversation area. */}
+      <div className="min-h-0 flex-1 bg-background">
         <Conversation className="h-full">
           <ConversationContent className="h-full">
             {messages.length === 0 ? (

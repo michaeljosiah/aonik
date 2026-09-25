@@ -829,7 +829,6 @@ function PolicyCard({ agent }: { agent: AgentConfigurationResponse }) {
             </div>
             <Pill
               tone={p.enforced ? (p.soft ? 'info' : 'success') : 'muted'}
-              size="sm"
             >
               {p.enforced ? (p.soft ? 'on' : 'enforced') : 'off'}
             </Pill>
@@ -896,7 +895,7 @@ function SubAgentsTab() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[13.5px] font-semibold text-foreground">{s.name}</span>
-                      <Pill tone="info" size="sm">Domain</Pill>
+                      <Pill tone="info">Domain</Pill>
                     </div>
                     <div className="mt-0.5 text-[11.5px] text-muted-foreground">{s.role}</div>
                   </div>
@@ -1443,7 +1442,7 @@ function SettingsTab({
       <div className="flex flex-col gap-5">
         <CardShell title="General" action={<Button size="sm" onClick={onEdit}><Edit3 className="h-3 w-3" />Edit</Button>}>
           <div className="flex flex-col gap-3.5 p-4">
-            <SettingLine label="Status" description="Pause this agent globally. It won't run, but its config stays put."><Pill tone={agent.isActive ? 'success' : 'warning'} dot size="sm">{agent.isActive ? 'Running' : 'Paused'}</Pill></SettingLine>
+            <SettingLine label="Status" description="Pause this agent globally. It won't run, but its config stays put."><Pill tone={agent.isActive ? 'success' : 'warning'} dot>{agent.isActive ? 'Running' : 'Paused'}</Pill></SettingLine>
             <Divider />
             <SettingLine label="Auto-apply" description="Skip the proposal step when confidence and amount policies allow it."><SwitchPill on={autoApply} /></SettingLine>
             <Divider />
