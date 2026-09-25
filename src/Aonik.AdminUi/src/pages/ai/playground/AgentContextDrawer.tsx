@@ -98,14 +98,14 @@ export function AgentContextDrawer({
         {/* Agent metadata badges */}
         {agentConfig && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded bg-[var(--color-background)] px-2 py-0.5 text-[var(--color-text-secondary)]">
+            <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
               Domain: {agentConfig.domain}
             </span>
-            <span className="rounded bg-[var(--color-background)] px-2 py-0.5 text-[var(--color-text-secondary)]">
+            <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
               Risk: {agentConfig.riskTier}
             </span>
             {agentConfig.modelName && (
-              <span className="rounded bg-[var(--color-background)] px-2 py-0.5 text-[var(--color-text-secondary)]">
+              <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
                 Model: {agentConfig.modelName}
               </span>
             )}
@@ -113,7 +113,7 @@ export function AgentContextDrawer({
               className={`rounded px-2 py-0.5 ${
                 agentConfig.requiresUserBrief
                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                  : 'bg-[var(--color-background)] text-[var(--color-text-tertiary)]'
+                  : 'bg-muted text-[var(--color-text-tertiary)]'
               }`}
             >
               <User className="mr-1 inline h-3 w-3" />
@@ -156,7 +156,7 @@ export function AgentContextDrawer({
                         ~{Math.round(section.content.length / 4)} tokens
                       </span>
                     </div>
-                    <pre className="max-h-80 overflow-auto rounded border border-[var(--color-border-light)] bg-[var(--color-background)] p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    <pre className="max-h-80 overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                       {section.content}
                     </pre>
                   </div>
@@ -176,7 +176,7 @@ export function AgentContextDrawer({
           {/* System prompt tab */}
           <TabsContent value="system" className="flex-1 overflow-y-auto">
             {agentConfig?.instructionsText ? (
-              <pre className="overflow-auto rounded border border-[var(--color-border-light)] bg-[var(--color-background)] p-3 text-xs leading-relaxed whitespace-pre-wrap">
+              <pre className="overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                 {agentConfig.instructionsText}
               </pre>
             ) : (
@@ -233,7 +233,7 @@ export function AgentContextDrawer({
                         ~{Math.round(displayBrief.length / 4)} tokens
                       </span>
                     </div>
-                    <pre className="max-h-96 overflow-auto rounded border border-[var(--color-border-light)] bg-[var(--color-background)] p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    <pre className="max-h-96 overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                       {displayBrief}
                     </pre>
                   </div>

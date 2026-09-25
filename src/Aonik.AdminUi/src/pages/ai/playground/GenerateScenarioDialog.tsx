@@ -161,7 +161,7 @@ export function GenerateScenarioDialog({
           {/* Preview */}
           {generatedScenario && (
             <div className="space-y-3">
-              <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-background)] p-3">
+              <div className="rounded-md border border-[var(--color-border-light)] bg-muted p-3">
                 <h4 className="text-sm font-medium">{generatedScenario.name}</h4>
                 {generatedScenario.description && (
                   <p className="mt-1 text-xs text-[var(--color-text-secondary)]">

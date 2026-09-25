@@ -74,7 +74,7 @@ export function ModelSelector({
                 <span className="flex items-center gap-1.5">
                   {m.modelName}
                   {!m.isActive && (
-                    <span className="rounded bg-[var(--color-background)] px-1 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">
+                    <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">
                       inactive
                     </span>
                   )}

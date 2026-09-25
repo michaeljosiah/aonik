@@ -281,7 +281,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
         <CollapsibleTrigger asChild disabled={!hasContent}>
           <button
             type="button"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-background)] rounded-lg transition-colors"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent rounded-lg transition-colors"
           >
             <Wrench className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
 

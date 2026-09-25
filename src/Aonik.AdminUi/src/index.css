@@ -1,5 +1,10 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "dockview/dist/styles/dockview.css";
+
+/* `dark:` follows the app's theme toggle (ThemeContext sets data-theme on
+   <html>), not the OS preference. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @font-face {
   font-family: "Infra";
@@ -25,100 +30,190 @@
   font-display: swap;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Design tokens: shadcn/ui semantic contract (Spec 098 §6)
+ *
+ * These raw variables are the single source of colour. Components use the
+ * semantic utilities they generate (bg-background, text-muted-foreground,
+ * border-input, ring-ring, bg-primary …). Every foreground/background pair
+ * is checked by `npm run check:contrast`: text 4.5:1, non-text 3:1.
+ * ═════════════════════════════════════════════════════════════════════════ */
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: #1f2328;
+  --popover: #ffffff;
+  --popover-foreground: #1f2328;
+  --primary: #055a60;
+  --primary-foreground: #ffffff;
+  /* Hover/pressed fill for primary: darker in light mode, lighter in dark
+     mode, so the label keeps its contrast in both (6.5:1 / 9.6:1). */
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, black);
+  --secondary: #f1f2f4;
+  --secondary-foreground: #1f2328;
+  --muted: #f4f5f6;
+  --muted-foreground: #5f6670;
+  --accent: #eef0f2;
+  --accent-foreground: #1f2328;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --border: #e4e6e9;
+  --input: #d8dbdf;
+  --ring: #055a60;
+
+  /* Status trios (Aonik extension): solid fill, text-on-tint, tint. */
+  --success: #2e7d32;
+  --success-foreground: #1b5e20;
+  --success-subtle: #e8f5e9;
+  --warning: #a16207;
+  --warning-foreground: #7a4b00;
+  --warning-subtle: #fff6db;
+  --info: #2256d0;
+  --info-foreground: #1e40af;
+  --info-subtle: #e8effd;
+
+  /* Coral is reserved for applying agent proposals (Button variant="agent"). */
+  --agent: #eb5c37;
+  --agent-foreground: #ffffff;
+
+  --chart-1: #055a60;
+  --chart-2: #3a9ea4;
+  --chart-3: #eb5c37;
+  --chart-4: #7b76b6;
+  --chart-5: #d49b00;
+
+  --sidebar: #f7f8f9;
+  --sidebar-foreground: #1f2328;
+  --sidebar-primary: #055a60;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eceef0;
+  --sidebar-accent-foreground: #1f2328;
+  --sidebar-border: #e4e6e9;
+  --sidebar-ring: #055a60;
+
+  /* Stacking layers (Spec 098 D8). Values keep today's order so nothing
+     re-stacks in P0; they are renumbered once bespoke overlays are gone. */
+  --z-overlay: 100;
+  --z-modal: 110;
+  --z-popover: 130;
+  --z-hover-card: 140;
+  --z-tooltip: 9000;
+  --z-titlebar: 9999;
+}
+
+/* Charcoal dark mode, never navy. Primary and the status solids are lifted
+   so they read as TEXT on charcoal (4.5:1), which is how legacy call sites use
+   them most; filled controls therefore carry dark foreground text, as in
+   shadcn's own dark theme. */
+[data-theme="dark"] {
+  --background: #1a1d21;
+  --foreground: #e8eaed;
+  --card: #202328;
+  --card-foreground: #e8eaed;
+  --popover: #262a2f;
+  --popover-foreground: #e8eaed;
+  --primary: #3a9ea4;
+  --primary-foreground: #0d1f21;
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, white);
+  --secondary: #2a2e34;
+  --secondary-foreground: #e8eaed;
+  --muted: #22262b;
+  --muted-foreground: #9aa0a8;
+  --accent: #2a2e34;
+  --accent-foreground: #e8eaed;
+  --destructive: #f26b6b;
+  --destructive-foreground: #1a1d21;
+  --border: #33383f;
+  --input: #3a3f46;
+  --ring: #3a9ea4;
+
+  --success: #5cbf6a;
+  --success-foreground: #7ee2a8;
+  --success-subtle: #1f3326;
+  --warning: #e0a93a;
+  --warning-foreground: #fcd34d;
+  --warning-subtle: #3a3020;
+  --info: #6b9bff;
+  --info-foreground: #93b4ff;
+  --info-subtle: #1e2a44;
+
+  --agent: #eb5c37;
+  --agent-foreground: #ffffff;
+
+  --chart-1: #3a9ea4;
+  --chart-2: #7cc7cb;
+  --chart-3: #f07a5a;
+  --chart-4: #9d98d4;
+  --chart-5: #e0b23a;
+
+  --sidebar: #1e2125;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #3a9ea4;
+  --sidebar-primary-foreground: #0d1f21;
+  --sidebar-accent: #2a2e34;
+  --sidebar-accent-foreground: #e8eaed;
+  --sidebar-border: #33383f;
+  --sidebar-ring: #3a9ea4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
+  --color-agent: var(--agent);
+  --color-agent-foreground: var(--agent-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 @theme {
-  /* Colors - Centrali-aligned palette (Light Theme - Default) */
-  --color-brand-primary: #055a60;
-  --color-brand-primary-dark: #044c51;
-  --color-brand-primary-light: #055a601f;
-  --color-brand-primary-10: #055a601f;
-  --color-brand-primary-20: #055a6033;
-  --color-brand-primary-60: #055a6099;
-  --color-brand-secondary: #eb5c37;
-  --color-brand-secondary-dark: #d44a28;
-  --color-brand-secondary-light: #eb5c3720;
-  --color-brand-secondary-10: #eb5c3720;
-  --color-brand-secondary-20: #eb5c3733;
-  --color-brand-secondary-60: #eb5c3799;
-
-  /* Brand mark dot — reserved for the single-pixel gold accent on the Aonik mark.
-     Not a utility colour: do not use as a generic CTA or status fill. */
-  --color-brand-mark-dot: #e8a838;
-
-  /* Neutral Colors */
-  --color-background: #f9fafb;
-  --color-surface: #ffffff;
-  --color-surface-inset: #f6f6f9;
-  --color-surface-elevated: #ffffff;
-  --color-border: #e5e7eb;
-  --color-border-light: #f0f0f0;
-  
-  /* Gray Scale */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
-  
-  /* Text Colors */
-  --color-text-primary: #2f2f2f;
-  --color-text-secondary: #888888;
-  --color-text-tertiary: #9ca3af;
-  --color-text-inverse: #ffffff;
-  --color-text-heading: #4b5563;
-
-  /* Form Fields */
-  --color-form-field-border: #d1d5db;
-  --color-form-field-border-focus: #055a60;
-  --color-form-field-bg: #ffffff;
-  --color-form-field-text: #111827;
-  --color-form-field-placeholder: #9ca3af;
-  --color-form-date-indicator-filter: none;
-  
-  /* Status Colors */
-  --color-success: #4caf50;
-  --color-success-light: #4caf5020;
-  --color-warning: #ebc334;
-  --color-warning-light: #ebc33420;
-  --color-error: #cc2e2e;
-  --color-error-light: #cc2e2e20;
-  --color-danger: #cc2e2e;
-  --color-danger-10: #cc2e2e20;
-  --color-danger-20: #cc2e2e33;
-  --color-danger-60: #cc2e2e99;
-  --color-info: #3b82f6;
-  --color-info-light: #3b82f620;
-  --color-pending: #eb5c37;
-  --color-pending-light: #eb5c3720;
-  
-  /* Extended Status Colors (legacy accent variants) */
-  --color-violet: #7b76b6;
-  --color-patrol: #0097a9;
-  --color-jade: #17b0ad;
-  
-  /* Sidebar */
-  --color-sidebar-bg: #f6f6f9;
-  --color-sidebar-active: #055a60;
-  --color-sidebar-hover: rgba(5, 90, 96, 0.08);
-  
-  /* Chat/Agent Theme Scoping */
-  --color-team-agent: #5facbd;
-  --color-enterprise-agent: #3ab795;
-  --color-chat-bot-bubble: #f5f5f5;
-  --color-chat-user-bubble: var(--color-brand-primary-10);
-  
-  /* Navbar */
-  --color-navbar-bg: #f9f9f9;
-  --color-navbar-border: #ececef;
-  --color-navbar-border-right: #d1d5db;
-  --navbar-border-radius: 0.5rem;
-  --navbar-border-width: 1px;
-  
-  /* Fonts */
+  /* Fonts: DM Sans for UI, JetBrains Mono for figures and IDs, Infra for the
+     wordmark and auth/landing moments only. */
   --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-brand: 'Infra', 'DM Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -132,7 +227,7 @@
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
   --text-4xl: 2.25rem;
-  
+
   /* Spacing */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
@@ -140,19 +235,15 @@
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
-  
-  /* Border Radius */
-  --radius-sm: 2px;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-full: 9999px;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  /* Elevation: xs on controls and cards, md on popovers/menus, lg on
+     dialogs/sheets. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-focus: 0px 4px 0px -2px var(--color-brand-primary-60);
+  /* The 3px translucent ring every focusable control uses (Spec 098 D3). */
+  --shadow-focus: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 
   /* Sidebar Width */
   --sidebar-width: 260px;
@@ -165,17 +256,13 @@
   --dur-med: 250ms;
   --dur-slow: 400ms;
 
-  /* Type rhythm — leading + tracking tokens used by display + eyebrow primitives */
+  /* Type rhythm */
   --leading-tight: 1.1;
   --leading-snug: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
   --tracking-tight: -0.015em;
   --tracking-wide: 0.06em;
-
-  /* Accent variants — agent/theme scoping aliases (paired with --color-violet/patrol/jade above) */
-  --color-accent-team: #5facbd;
-  --color-accent-ent: #3ab795;
 
   /* Container / max-width tokens (Tailwind v4 needs these for named max-w-* utilities) */
   --container-3xs: 16rem;
@@ -191,33 +278,99 @@
   --container-5xl: 64rem;
   --container-6xl: 72rem;
   --container-7xl: 80rem;
+
+  /* ─── LEGACY ALIASES (Spec 098 §6.4) ────────────────────────────────────
+     Keep the ~7,000 existing var(--color-*) call sites rendering on the new
+     tokens. New code must not use these; they are deleted in P4. */
+  --color-brand-primary: var(--primary);
+  --color-brand-primary-dark: var(--primary-hover);
+  --color-brand-primary-light: color-mix(in oklab, var(--primary) 12%, transparent);
+  --color-brand-primary-10: color-mix(in oklab, var(--primary) 12%, transparent);
+  --color-brand-primary-20: color-mix(in oklab, var(--primary) 20%, transparent);
+  --color-brand-primary-60: color-mix(in oklab, var(--primary) 60%, transparent);
+  --color-brand-secondary: var(--agent);
+  --color-brand-secondary-dark: color-mix(in oklab, var(--agent) 88%, black);
+  --color-brand-secondary-light: color-mix(in oklab, var(--agent) 12%, transparent);
+  --color-brand-secondary-10: color-mix(in oklab, var(--agent) 12%, transparent);
+  --color-brand-secondary-20: color-mix(in oklab, var(--agent) 20%, transparent);
+  --color-brand-secondary-60: color-mix(in oklab, var(--agent) 60%, transparent);
+
+  /* Brand mark dot: reserved for the single gold accent on the Aonik mark.
+     Not a utility colour: do not use as a generic CTA or status fill. */
+  --color-brand-mark-dot: #e8a838;
+
+  --color-surface: var(--card);
+  --color-surface-inset: var(--muted);
+  --color-surface-elevated: var(--popover);
+  --color-border-light: var(--border);
+
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --color-text-tertiary: var(--muted-foreground);
+  --color-text-inverse: var(--primary-foreground);
+  --color-text-heading: var(--foreground);
+
+  --color-form-field-border: var(--input);
+  --color-form-field-border-focus: var(--ring);
+  --color-form-field-bg: var(--background);
+  --color-form-field-text: var(--foreground);
+  --color-form-field-placeholder: var(--muted-foreground);
+  --color-form-date-indicator-filter: none;
+
+  --color-success-light: var(--success-subtle);
+  --color-warning-light: var(--warning-subtle);
+  --color-error: var(--destructive);
+  --color-error-light: color-mix(in oklab, var(--destructive) 12%, transparent);
+  --color-danger: var(--destructive);
+  --color-danger-10: color-mix(in oklab, var(--destructive) 12%, transparent);
+  --color-danger-20: color-mix(in oklab, var(--destructive) 20%, transparent);
+  --color-danger-60: color-mix(in oklab, var(--destructive) 60%, transparent);
+  --color-info-light: var(--info-subtle);
+  /* "Pending" is a status, so it is amber, not the agent coral. */
+  --color-pending: var(--warning);
+  --color-pending-light: var(--warning-subtle);
+
+  /* Brand accents for agent tiers and legacy highlights; same in both themes. */
+  --color-violet: #7b76b6;
+  --color-patrol: #0097a9;
+  --color-jade: #17b0ad;
+  --color-team-agent: #5facbd;
+  --color-enterprise-agent: #3ab795;
+  --color-accent-team: #5facbd;
+  --color-accent-ent: #3ab795;
+
+  --color-sidebar-bg: var(--sidebar);
+  --color-sidebar-active: var(--sidebar-primary);
+  --color-sidebar-hover: var(--sidebar-accent);
+
+  --color-chat-bot-bubble: var(--muted);
+  --color-chat-user-bubble: color-mix(in oklab, var(--primary) 12%, transparent);
+
+  --color-navbar-bg: var(--background);
+  --color-navbar-border: var(--border);
+  --color-navbar-border-right: var(--border);
+  --navbar-border-radius: 0.5rem;
+  --navbar-border-width: 1px;
+
+  /* Legacy gray scale. Matches Tailwind's light grays; INVERTED in dark mode
+     below so pages written against it keep working. Spec 098 D9 removes the
+     inversion once P3 has moved those pages to semantic tokens. */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
 }
 
-/* Dark Theme Overrides -- Aonik original design palette */
 [data-theme="dark"] {
-  /* Brand colors — keep teal primary, slightly brighter for dark bg contrast */
-  --color-brand-primary: #055a60;
-  --color-brand-primary-dark: #044c51;
-  --color-brand-primary-light: #055a601f;
-  --color-brand-primary-10: #055a601f;
-  --color-brand-primary-20: #055a6033;
-  --color-brand-primary-60: #055a6099;
-  --color-brand-secondary: #eb5c37;
-  --color-brand-secondary-dark: #d44a28;
-  --color-brand-secondary-light: #eb5c3720;
-  --color-brand-secondary-10: #eb5c3720;
-  --color-brand-secondary-20: #eb5c3733;
-  --color-brand-secondary-60: #eb5c3799;
-  
-  /* Neutral Colors — dark charcoal, NOT navy/indigo */
-  --color-background: #1a1d21;
-  --color-surface: #22262b;
-  --color-surface-inset: #1e2125;
-  --color-surface-elevated: #282c32;
-  --color-border: #3a3f46;
-  --color-border-light: #2e3338;
-  
-  /* Gray Scale (inverted for dark mode contrast) */
+  --color-form-date-indicator-filter: invert(1) brightness(1.1);
+
+  /* LEGACY: inverted gray scale (see D9 note above). */
   --color-gray-50: #1a1d21;
   --color-gray-100: #1e2125;
   --color-gray-200: #22262b;
@@ -228,54 +381,9 @@
   --color-gray-700: #c8ccd2;
   --color-gray-800: #e0e3e7;
   --color-gray-900: #f3f4f6;
-  
-  /* Text Colors */
-  --color-text-primary: #e8eaed;
-  --color-text-secondary: #9aa0a8;
-  --color-text-tertiary: #6b7078;
-  --color-text-inverse: #1a1d21;
-  --color-text-heading: #e0e3e7;
 
-  /* Form Fields */
-  --color-form-field-border: #3a3f46;
-  --color-form-field-border-focus: #055a60;
-  --color-form-field-bg: #22262b;
-  --color-form-field-text: #c8ccd2;
-  --color-form-field-placeholder: #6b7078;
-  --color-form-date-indicator-filter: invert(1) brightness(1.1);
-  
-  /* Status Colors */
-  --color-success: #4caf50;
-  --color-success-light: #4caf5020;
-  --color-warning: #ebc334;
-  --color-warning-light: #ebc33420;
-  --color-error: #cc2e2e;
-  --color-error-light: #cc2e2e20;
-  --color-danger: #cc2e2e;
-  --color-danger-10: #cc2e2e20;
-  --color-danger-20: #cc2e2e33;
-  --color-danger-60: #cc2e2e99;
-  --color-info: #3b82f6;
-  --color-info-light: #3b82f620;
-  --color-pending: #eb5c37;
-  --color-pending-light: #eb5c3720;
-  
-  /* Sidebar */
-  --color-sidebar-bg: #1a1d21;
-  --color-sidebar-active: #055a60;
-  --color-sidebar-hover: rgba(5, 90, 96, 0.12);
-  
-  /* Chat bubbles */
-  --color-chat-bot-bubble: #22262b;
-  --color-chat-user-bubble: var(--color-brand-primary-10);
-  
-  /* Navbar */
-  --color-navbar-bg: #22262b;
-  --color-navbar-border: #2e3338;
-  --color-navbar-border-right: #3a3f46;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
@@ -283,6 +391,17 @@
 /* Base Styles */
 * {
   box-sizing: border-box;
+}
+
+/* shadcn base: unset borders take the border token (Tailwind v4 defaults to
+   currentColor), and outlines default to the ring colour. */
+@layer base {
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
 }
 
 html {
@@ -296,8 +415,8 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 * {
@@ -380,7 +499,7 @@ html.is-electron .min-h-screen {
   right: 0;
   height: var(--app-titlebar-height);
   -webkit-app-region: drag;
-  z-index: 9999;
+  z-index: var(--z-titlebar);
 }
 
 /* Scrollbar Styling -- Centrali default hides WebKit scrollbars globally */
@@ -518,22 +637,7 @@ html.is-electron .min-h-screen {
   animation: flyout-in 0.15s ease-out;
 }
 
-/* ─── Collapsible Animations ───────────────────────────────────────────────── */
-@keyframes collapsible-down {
-  from { height: 0; opacity: 0; }
-  to   { height: var(--radix-collapsible-content-height); opacity: 1; }
-}
-@keyframes collapsible-up {
-  from { height: var(--radix-collapsible-content-height); opacity: 1; }
-  to   { height: 0; opacity: 0; }
-}
-
-@utility animate-collapsible-down {
-  animation: collapsible-down 200ms ease-out;
-}
-@utility animate-collapsible-up {
-  animation: collapsible-up 150ms ease-out;
-}
+/* Collapsible / accordion / Radix overlay animations come from tw-animate-css. */
 
 /* ─── Text Shimmer (OpenCode-inspired loading animation) ───────────────────── */
 @keyframes text-shimmer-sweep {
@@ -700,65 +804,45 @@ html.is-electron .min-h-screen {
   box-shadow: 0px 4px 0px -2px var(--theme-color-600, rgba(5, 90, 96, 0.6));
 }
 
-/* ─── Aonik form fields (bottom-bar focus) ─────────────────────────────────── */
-/* Signature input pattern from templates/aonik-admin-starterkit/tokens.css —
-   1px border on three sides, 2px bottom border that turns brand-teal on
-   focus, plus a 4px teal bar below via --shadow-focus. Use these classes for
-   text inputs and selects in form-heavy pages (orders, billing, settings).
-   Do NOT replace the bottom-bar focus with a full-ring focus — that's a hard
-   rule in the Aonik design skill. */
-.aonik-input {
-  height: 38px;
+/* ─── Legacy form-field classes ───────────────────────────────────────────── */
+/* Restyled to the shadcn Input/NativeSelect shape (Spec 098 D3: one focus
+   language, the 3px ring). Retired in P4; new code uses ui/input and
+   ui/select. */
+.aonik-input,
+.aonik-select {
+  height: 36px;
   width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-bottom: 2px solid var(--color-border);
-  border-radius: 8px;
+  background-color: transparent;
+  border: 1px solid var(--input);
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: var(--shadow-xs);
   padding: 0 12px;
   font: inherit;
-  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  color: var(--foreground);
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
-.aonik-input::placeholder { color: var(--color-text-tertiary); }
-.aonik-input:focus {
+.aonik-input::placeholder { color: var(--muted-foreground); }
+.aonik-input:focus-visible,
+.aonik-select:focus-visible {
   outline: none;
-  border-bottom-color: var(--color-brand-primary);
+  border-color: var(--ring);
   box-shadow: var(--shadow-focus);
 }
-.aonik-input:disabled {
-  background: var(--color-surface-inset);
-  color: var(--color-text-tertiary);
+.aonik-input:disabled,
+.aonik-select:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .aonik-select {
-  height: 38px;
-  width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-bottom: 2px solid var(--color-border);
-  border-radius: 8px;
-  padding: 0 28px 0 12px;
-  font: inherit;
-  font-size: 0.875rem;
-  color: var(--color-text-primary);
+  padding-right: 32px;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ba3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a9099' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.aonik-select:focus {
-  outline: none;
-  border-bottom-color: var(--color-brand-primary);
-  box-shadow: var(--shadow-focus);
-}
-.aonik-select:disabled {
-  background-color: var(--color-surface-inset);
-  color: var(--color-text-tertiary);
-  cursor: not-allowed;
 }
 
 .chat-file-drop-zone {

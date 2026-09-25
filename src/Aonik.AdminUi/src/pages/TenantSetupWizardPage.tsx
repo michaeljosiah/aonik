@@ -521,14 +521,14 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
   }
 
   return (
-    <div className="fixed inset-0 flex bg-[var(--color-background)]">
+    <div className="fixed inset-0 flex bg-background">
       {/* Left Panel - Form */}
       <div className="flex-1 overflow-y-auto min-w-0">
         <div className="max-w-[48rem] mx-auto px-10 py-10 w-full">
           {/* Logo */}
           <div className="flex items-center gap-2 mb-12">
             <div className="w-8 h-8 rounded bg-[var(--color-brand-primary)] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
+              <span className="text-primary-foreground font-bold text-sm">A</span>
             </div>
             <span className="font-semibold text-[var(--color-text-primary)]">Aonik</span>
           </div>
@@ -727,7 +727,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                             className={cn(
                               'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
                               isAllEnabled
-                                ? 'bg-[var(--color-brand-primary)] text-white'
+                                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                                 : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
                             )}
                           >
@@ -747,7 +747,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                                 )}
                               >
                                 {(isAllEnabled || isPartialEnabled) && (
-                                  <Check className="h-3 w-3 text-white" />
+                                  <Check className="h-3 w-3 text-primary-foreground" />
                                 )}
                               </div>
                             </div>

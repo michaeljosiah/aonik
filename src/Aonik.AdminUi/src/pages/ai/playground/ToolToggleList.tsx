@@ -51,7 +51,7 @@ export function ToolToggleList({ allTools, enabledTools, onChange }: ToolToggleL
           return (
             <label
               key={name}
-              className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-[var(--color-background)]"
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-accent"
             >
               <input
                 type="checkbox"

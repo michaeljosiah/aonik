@@ -277,7 +277,7 @@ export function MySpacePage() {
           <button
             type="button"
             onClick={() => navigate('/billing/invoices')}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-brand-primary)] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-brand-primary)] px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-[var(--color-brand-primary-dark)]"
           >
             <Plus className="h-3.5 w-3.5" />
             New bill payment

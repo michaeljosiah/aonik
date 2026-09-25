@@ -114,7 +114,7 @@ export function AppCard({ app, onLaunch }: AppCardProps) {
                   </Avatar>
                 ))}
                 {app.owners.length > 3 && (
-                  <div className="w-6 h-6 rounded-full bg-[var(--color-background)] border-2 border-[var(--color-surface)] flex items-center justify-center text-[10px] text-[var(--color-text-secondary)] -ml-2">
+                  <div className="w-6 h-6 rounded-full bg-muted border-2 border-[var(--color-surface)] flex items-center justify-center text-[10px] text-[var(--color-text-secondary)] -ml-2">
                     +{app.owners.length - 3}
                   </div>
                 )}

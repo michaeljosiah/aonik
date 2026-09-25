@@ -207,7 +207,7 @@ export function OrderCart({
           <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">Order</div>
           <div className="flex items-center gap-1.5">
             <span
-              className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-bold text-white"
+              className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-bold text-primary-foreground"
               style={{
                 background: items.length > 0 ? 'var(--color-brand-primary)' : 'var(--color-text-tertiary)',
               }}

@@ -213,7 +213,7 @@ export function AonikTopBar({
                       className={cn(
                         'flex items-center gap-2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm transition-colors',
                         isActive
-                          ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
+                          ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
                           : 'border-[var(--color-border-light)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                       )}
                       onClick={() => {

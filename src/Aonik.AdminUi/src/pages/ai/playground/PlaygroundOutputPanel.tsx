@@ -487,7 +487,7 @@ function ToolCallCard({
         <CollapsibleTrigger asChild disabled={!hasContent}>
           <button
             type="button"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-background)] rounded-lg transition-colors"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent rounded-lg transition-colors"
           >
             <Wrench className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
             <span
@@ -697,7 +697,7 @@ function OptionSelectionInteraction({
               className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 isSelected
                   ? 'border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)]'
-                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-background)]'
+                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-accent'
               }`}
             >
               {/* Radio/checkbox indicator */}
@@ -706,7 +706,7 @@ function OptionSelectionInteraction({
                   ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
                   : 'border-[var(--color-text-tertiary)]'
               }`}>
-                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
               </span>
               <div className="min-w-0">
                 <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
@@ -1244,7 +1244,7 @@ function ReviewResultsPanel({
             AI Review
           </span>
           {result && (
-            <span className="flex items-center gap-1 rounded-full bg-[var(--color-brand-primary)] px-2 py-0.5 text-[10px] font-bold text-white">
+            <span className="flex items-center gap-1 rounded-full bg-[var(--color-brand-primary)] px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
               <Star className="h-2.5 w-2.5" />
               {result.overallScore.toFixed(1)} / 5
             </span>

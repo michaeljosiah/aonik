@@ -149,7 +149,7 @@ export function SetupWizardPage() {
   const canBootstrap = !tenantExists && state.canBootstrap;
 
   return (
-    <div className="flex-1 h-full overflow-auto bg-[var(--color-background)]">
+    <div className="flex-1 h-full overflow-auto bg-background">
       <div className="w-full max-w-[1400px] mx-auto px-8 py-12 lg:px-12">
         <div className="flex flex-col gap-2 mb-10">
           <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Initial Setup</p>

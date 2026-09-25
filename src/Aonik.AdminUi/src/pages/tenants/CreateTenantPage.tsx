@@ -353,8 +353,8 @@ export function CreateTenantPage() {
                         onClick={() => toggleCountry(country.code)}
                         className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
                           active
-                            ? 'bg-[var(--color-brand-primary)] text-white'
-                            : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                            : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                         }`}
                       >
                         {country.code} — {country.name}

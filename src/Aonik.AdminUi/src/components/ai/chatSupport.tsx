@@ -813,7 +813,7 @@ export function AiOptionSelectionCard({
               className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 isSelected
                   ? 'border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)]'
-                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-background)]'
+                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-accent'
               }`}
             >
               <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
@@ -821,7 +821,7 @@ export function AiOptionSelectionCard({
                   ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
                   : 'border-[var(--color-text-tertiary)]'
               }`}>
-                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
               </span>
               <div className="min-w-0">
                 <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>

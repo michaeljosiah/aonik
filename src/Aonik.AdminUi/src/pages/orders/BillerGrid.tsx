@@ -100,7 +100,7 @@ export function BillerGrid({
               className={cn(
                 'rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors',
                 active
-                  ? 'bg-[var(--color-brand-primary)] text-white'
+                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                   : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
               )}
             >

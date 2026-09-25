@@ -332,7 +332,7 @@ export function UserDetailPage() {
   const statusStyle = statusStyles[user.status] ?? { text: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]' };
 
   return (
-    <div className="h-full overflow-auto bg-[var(--color-background)]">
+    <div className="h-full overflow-auto bg-background">
       {/* Header */}
       <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div>

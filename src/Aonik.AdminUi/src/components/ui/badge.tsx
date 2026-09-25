@@ -8,9 +8,9 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-[var(--color-brand-primary)] text-white",
+          "border-transparent bg-[var(--color-brand-primary)] text-primary-foreground",
         secondary:
-          "border-transparent bg-[var(--color-background)] text-[var(--color-text-secondary)]",
+          "border-transparent bg-muted text-[var(--color-text-secondary)]",
         outline: "border-[var(--color-border)] text-[var(--color-text-primary)]",
         success:
           "border-transparent bg-[var(--color-success-light)] text-[var(--color-success)]",
@@ -21,7 +21,7 @@ const badgeVariants = cva(
         error:
           "border-transparent bg-[var(--color-error-light)] text-[var(--color-error)]",
         team:
-          "border-transparent bg-[var(--color-brand-primary)] text-white",
+          "border-transparent bg-[var(--color-brand-primary)] text-primary-foreground",
         enterprise:
           "border-transparent bg-[var(--color-brand-secondary)] text-white",
       },

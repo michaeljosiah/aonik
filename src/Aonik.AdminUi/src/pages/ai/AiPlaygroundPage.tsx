@@ -735,8 +735,8 @@ export function AiPlaygroundPage() {
           <button
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
               playgroundMode === 'agent'
-                ? 'bg-[var(--color-brand-primary)] text-white'
-                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
+                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                : 'text-[var(--color-text-secondary)] hover:bg-accent'
             } rounded-l-md`}
             onClick={() => handlePlaygroundModeChange('agent')}
           >
@@ -746,8 +746,8 @@ export function AiPlaygroundPage() {
           <button
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
               playgroundMode === 'task'
-                ? 'bg-[var(--color-brand-primary)] text-white'
-                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
+                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                : 'text-[var(--color-text-secondary)] hover:bg-accent'
             } rounded-r-md`}
             onClick={() => handlePlaygroundModeChange('task')}
           >
@@ -805,7 +805,7 @@ export function AiPlaygroundPage() {
                 <Wrench className="mr-1.5 h-3.5 w-3.5" />
                 Tools
                 {config.enabledToolNames.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-white">
+                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-primary-foreground">
                     {config.enabledToolNames.length}
                   </span>
                 )}
@@ -829,7 +829,7 @@ export function AiPlaygroundPage() {
                 <Variable className="mr-1.5 h-3.5 w-3.5" />
                 Variables
                 {Object.keys(config.promptVariables).length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-white">
+                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-primary-foreground">
                     {Object.keys(config.promptVariables).length}
                   </span>
                 )}
@@ -1139,7 +1139,7 @@ function AddMessageButton({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-sm border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-md">
             <button
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
+              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-accent"
               onClick={() => {
                 onAdd('user');
                 setOpen(false);
@@ -1148,7 +1148,7 @@ function AddMessageButton({
               User
             </button>
             <button
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
+              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-accent"
               onClick={() => {
                 onAdd('assistant');
                 setOpen(false);

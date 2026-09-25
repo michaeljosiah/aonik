@@ -27,7 +27,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
 
     if (!hasRequiredRole) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
+        <div className="flex items-center justify-center min-h-screen bg-background">
           <div className="text-center p-8 bg-[var(--color-surface)] rounded-md shadow-lg max-w-[28rem]">
             <svg 
               className="w-16 h-16 mx-auto mb-4 text-[var(--color-warning)]" 
@@ -48,7 +48,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
             <p className="text-[var(--color-text-secondary)] mb-4">
               You don't have permission to access this page. You may need additional permissions or a different user role.
             </p>
-            <div className="bg-[var(--color-background)] p-3 rounded-md text-sm text-[var(--color-text-tertiary)] mb-4">
+            <div className="bg-muted p-3 rounded-md text-sm text-[var(--color-text-tertiary)] mb-4">
               <p><strong>Required role:</strong> {requiredRoles.join(' or ')}</p>
             </div>
             <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -56,7 +56,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
             </p>
             <button
               onClick={() => window.history.back()}
-              className="mt-6 px-4 py-2 bg-[var(--color-brand-primary)] text-white rounded-md hover:opacity-90 transition-opacity"
+              className="mt-6 px-4 py-2 bg-[var(--color-brand-primary)] text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
             >
               Go Back
             </button>

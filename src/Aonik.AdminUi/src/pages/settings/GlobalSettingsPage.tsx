@@ -857,7 +857,7 @@ export function GlobalSettingsPage() {
                     <button key={country.code} type="button" onClick={() => toggleSupportedCountry(country.code)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.supportedCountries.includes(country.code)
-                          ? 'bg-[var(--color-brand-primary)] text-white'
+                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                           : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                       }`}
                     >
@@ -873,7 +873,7 @@ export function GlobalSettingsPage() {
                     <button key={`origin-${countryCode}`} type="button" onClick={() => toggleScopedCountry('allowedOriginCountries', countryCode)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.allowedOriginCountries.includes(countryCode)
-                          ? 'bg-[var(--color-brand-primary)] text-white'
+                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                           : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                       }`}
                     >
@@ -889,7 +889,7 @@ export function GlobalSettingsPage() {
                     <button key={`dest-${countryCode}`} type="button" onClick={() => toggleScopedCountry('allowedDestinationCountries', countryCode)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.allowedDestinationCountries.includes(countryCode)
-                          ? 'bg-[var(--color-brand-primary)] text-white'
+                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                           : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                       }`}
                     >
@@ -1032,7 +1032,7 @@ export function GlobalSettingsPage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   {tabDirtyCount > 0 && (
-                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] px-1 text-[10px] font-semibold text-white">
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] px-1 text-[10px] font-semibold text-primary-foreground">
                       {tabDirtyCount}
                     </span>
                   )}

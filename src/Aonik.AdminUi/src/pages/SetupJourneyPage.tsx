@@ -985,7 +985,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                         className={cn(
                           'rounded-full px-3 py-1 text-xs font-semibold',
                           wizardStepIndex === index
-                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                             : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
                         )}
                       >
@@ -1117,7 +1117,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               className={cn(
                                 'rounded-full border px-4 py-1.5 text-xs font-semibold',
                                 activeFeatureGroupId === group.id
-                                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
+                                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
                                   : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
                               )}
                             >

@@ -83,7 +83,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
   return (
     <Button
       className={cn(
-        'absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--color-surface)] hover:bg-[var(--color-background)]',
+        'absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--color-surface)] hover:bg-accent',
         className
       )}
       onClick={handleScrollToBottom}

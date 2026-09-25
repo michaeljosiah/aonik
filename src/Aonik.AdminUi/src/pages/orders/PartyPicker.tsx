@@ -337,7 +337,7 @@ export function PartyPicker({
                     type="button"
                     onClick={handleCreate}
                     disabled={creating}
-                    className="h-[30px] flex-1 rounded-md bg-[var(--color-brand-primary)] text-[12px] font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)] disabled:opacity-60"
+                    className="h-[30px] flex-1 rounded-md bg-[var(--color-brand-primary)] text-[12px] font-medium text-primary-foreground transition-colors hover:bg-[var(--color-brand-primary-dark)] disabled:opacity-60"
                   >
                     {creating ? 'Creating…' : 'Create'}
                   </button>

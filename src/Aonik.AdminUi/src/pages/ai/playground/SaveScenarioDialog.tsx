@@ -122,7 +122,7 @@ export function SaveScenarioDialog({
             />
           </div>
 
-          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-background)] p-3">
+          <div className="rounded-md border border-[var(--color-border-light)] bg-muted p-3">
             <p className="text-xs text-[var(--color-text-secondary)]">
               This will save the current conversation ({scenarioData.turns.length} turn
               {scenarioData.turns.length !== 1 ? 's' : ''}), system prompt, and configuration

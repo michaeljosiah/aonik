@@ -64,7 +64,7 @@ function TabsList({ children, className }: TabsListProps) {
   return (
     <div
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded-lg bg-[var(--color-background)] p-1 text-[var(--color-text-secondary)]",
+        "inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-[var(--color-text-secondary)]",
         className
       )}
     >

@@ -560,7 +560,7 @@ function WorkspaceSwitcher() {
         aria-expanded={isOpen}
       >
         <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-primary-foreground"
           style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
         >
           {tenantInitials(tenant.name)}
@@ -618,7 +618,7 @@ function WorkspaceSwitcher() {
                 )}
               >
                 <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-primary-foreground"
                   style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
                 >
                   {tenantInitials(t.name)}
@@ -822,7 +822,7 @@ function UserProfileCard({
               <button
                 key={mi.label}
                 type="button"
-                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-background)]"
+                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-accent"
                 onClick={() => {
                   if (mi.href) window.location.href = mi.href;
                 }}
@@ -835,7 +835,7 @@ function UserProfileCard({
 
           <div className="border-t border-[var(--color-border-light)] py-2">
             <p className="mb-1.5 text-xs font-medium text-[var(--color-text-primary)]">Theme</p>
-            <div className="flex rounded-md bg-[var(--color-background)] p-1">
+            <div className="flex rounded-md bg-muted p-1">
               {[
                 { value: 'light' as const, icon: Sun, label: 'Light' },
                 { value: 'dark' as const, icon: Moon, label: 'Dark' },
@@ -863,7 +863,7 @@ function UserProfileCard({
             <button
               type="button"
               onClick={onLogout}
-              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-background)]"
+              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-accent"
             >
               <LogOut className="h-4 w-4 text-[var(--color-text-secondary)]" />
               Log out
