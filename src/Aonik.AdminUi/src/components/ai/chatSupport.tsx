@@ -821,7 +821,7 @@ export function AiOptionSelectionCard({
                   ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
                   : 'border-[var(--color-text-tertiary)]'
               }`}>
-                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
               </span>
               <div className="min-w-0">
                 <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
