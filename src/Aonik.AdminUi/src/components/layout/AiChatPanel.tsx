@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, X, Maximize2, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { AiChatComposer } from '@/components/ai/AiChatComposer';
 import { ChatMessageList } from '@/components/ai/ChatMessageList';
@@ -121,69 +123,58 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
     <aside
       aria-label="Ask Aonik"
       style={{ width: `${widthVw}vw`, minWidth: `${MIN_WIDTH_VW}vw`, maxWidth: `${MAX_WIDTH_VW}vw` }}
-      className="shrink-0 border-l border-[var(--color-border-light)] bg-[var(--color-surface)] flex flex-col h-full relative"
+      className="relative flex h-full shrink-0 flex-col border-l bg-background"
     >
       {/* Resize handle */}
       <div
         onMouseDown={handleMouseDown}
         className="absolute left-0 top-0 bottom-0 w-[6px] -translate-x-1/2 cursor-ew-resize z-10 group"
       >
-        <div className="h-full w-full bg-transparent transition-colors duration-150 group-hover:bg-[var(--color-brand-primary)] group-active:bg-[var(--color-brand-primary)]" />
+        <div className="mx-auto h-full w-px bg-transparent transition-colors duration-150 group-hover:bg-ring group-active:bg-ring" />
       </div>
 
-      {/* Header — template AgentRail vocabulary: gradient teal square +
-          "Ask Aonik" + status line + hover-halo controls. */}
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
-        <div
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] text-white"
-          style={{ background: 'linear-gradient(135deg, var(--color-brand-primary) 0%, #077278 100%)' }}
-        >
-          <Sparkles className="h-4 w-4" />
+      {/* Header: title, connection status, open-full-chat and close. */}
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-3">
+        <div className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+          <Sparkles className="size-4" />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
-            Ask Aonik
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: statusDotColor }}
-              aria-hidden
-            />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="text-sm font-medium">Ask Aonik</div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {/* Connection state indicator, not decoration. */}
+            <span className="size-1.5 shrink-0 rounded-full" style={{ background: statusDotColor }} aria-hidden />
             <span className="truncate">{statusLabel}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onExpand}
-          className="hover-halo"
-          aria-label="Open full chat"
-          title="Open full chat"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="hover-halo"
-          aria-label="Close AI chat panel"
-          title="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onExpand} aria-label="Open full chat">
+              <Maximize2 />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Open full chat</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close Ask Aonik">
+              <X />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Close</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Conversation area — scoped in .chat-primary so descendant agent
           components (chat bubbles, tool traces) read the brand-primary
           theme variables (--theme-color, --theme-color-100, etc.). */}
-      <div className="chat-primary flex-1 min-h-0 bg-[var(--color-surface-inset)]">
+      <div className="chat-primary min-h-0 flex-1 bg-background">
         <Conversation className="h-full">
           <ConversationContent className="h-full">
             {messages.length === 0 ? (
               <ConversationEmptyState>
                 <div className="mx-auto flex w-full max-w-[520px] flex-col items-center justify-center gap-4 px-4 text-center">
-                  <div className="h-12 w-12 rounded-[2px] bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm grid place-items-center">
-                    <span className="text-base font-bold text-[var(--color-text-primary)]">A</span>
+                  <div className="grid size-10 place-items-center rounded-lg bg-muted text-primary">
+                    <Sparkles className="size-5" />
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-[var(--color-text-primary)]">

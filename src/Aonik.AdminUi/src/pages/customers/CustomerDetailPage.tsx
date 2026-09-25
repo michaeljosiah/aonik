@@ -31,7 +31,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
-import { useModules } from '@/modules';
+import { useModules } from '@/modules/useModules';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { OrdersSpineTab } from './OrdersSpineTab';
 import { CommerceTab } from './commerce/CommerceTab';

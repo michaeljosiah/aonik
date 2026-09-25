@@ -36,7 +36,7 @@ import { useIsHostAdmin } from '@/hooks/useIsHostAdmin';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
-import { useModuleEnabled } from '@/modules';
+import { useModuleEnabled } from '@/modules/useModuleEnabled';
 import type { TenantHealthResult } from '@/services/tenantService';
 import type { Tenant, UpdateTenantRequest, TenantStatus, TenantEnvironment } from '@/types';
 

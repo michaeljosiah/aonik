@@ -11,7 +11,7 @@ import {
 
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Badge } from '@/components/ui/badge';
-import { useModules } from '@/modules';
+import { useModules } from '@/modules/useModules';
 type SettingsSection = 'Platform' | 'Finance' | 'AI & Agents';
 
 const settingsSections: SettingsSection[] = ['Platform', 'Finance', 'AI & Agents'];

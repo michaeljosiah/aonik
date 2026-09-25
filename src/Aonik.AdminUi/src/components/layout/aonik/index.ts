@@ -13,7 +13,6 @@
 //
 //   import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';
 //   import { AonikTopBar } from '@/components/layout/aonik/AonikTopBar';
-//   import { NavPopover } from '@/components/layout/aonik/NavPopover';
 
 export { AonikMark, AonikWordmark } from './AonikMark';
 export { ProposalCard } from './ProposalCard';

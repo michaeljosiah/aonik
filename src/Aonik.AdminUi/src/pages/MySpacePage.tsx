@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { mySpaceService } from '@/services/mySpaceService';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import { useAuth } from '@/auth';
-import { useModuleEnabled } from '@/modules';
+import { useModuleEnabled } from '@/modules/useModuleEnabled';
 import type {
   AgentProposalDto,
   CashTimelineDto,

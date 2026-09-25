@@ -8,10 +8,13 @@ import {
   Info,
   Loader2,
   Sparkles,
-  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { AdminNotification } from '@/services/notificationService';
 
@@ -26,27 +29,11 @@ interface NotificationsPanelProps {
   onMarkAllRead: () => Promise<unknown>;
 }
 
-const severityConfig: Record<string, { icon: React.ElementType; tone: string; bg: string }> = {
-  Info: {
-    icon: Info,
-    tone: 'text-[var(--color-info)]',
-    bg: 'bg-[var(--color-info-light)]',
-  },
-  Success: {
-    icon: CheckCircle2,
-    tone: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
-  },
-  Warning: {
-    icon: AlertTriangle,
-    tone: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
-  },
-  Error: {
-    icon: AlertTriangle,
-    tone: 'text-[var(--color-error)]',
-    bg: 'bg-[var(--color-error-light)]',
-  },
+const severityConfig: Record<string, { icon: React.ElementType; tone: string }> = {
+  Info: { icon: Info, tone: 'text-info' },
+  Success: { icon: CheckCircle2, tone: 'text-success' },
+  Warning: { icon: AlertTriangle, tone: 'text-warning' },
+  Error: { icon: AlertTriangle, tone: 'text-destructive' },
 };
 
 const sourceIcons: Record<string, React.ElementType> = {
@@ -67,11 +54,17 @@ export function NotificationsPanel({
   const navigate = useNavigate();
   const [pendingIds, setPendingIds] = useState<string[]>([]);
   const [markAllPending, setMarkAllPending] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  const visible = useMemo(
+    () => (filter === 'unread' ? notifications.filter((n) => n.status === 'Unread') : notifications),
+    [notifications, filter],
+  );
 
   const grouped = useMemo(() => {
     const byGroup = new Map<string, AdminNotification[]>();
 
-    for (const item of notifications) {
+    for (const item of visible) {
       const group = resolveGroupLabel(item.createdAt);
       const list = byGroup.get(group) ?? [];
       list.push(item);
@@ -79,9 +72,7 @@ export function NotificationsPanel({
     }
 
     return byGroup;
-  }, [notifications]);
-
-  if (!open) return null;
+  }, [visible]);
 
   const handleMarkRead = async (notificationId: string) => {
     setPendingIds((current) => [...current, notificationId]);
@@ -122,166 +113,121 @@ export function NotificationsPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[80]">
-      <button
-        type="button"
-        aria-label="Close notifications"
-        className="absolute inset-0 bg-black/10"
-        onClick={onClose}
-      />
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent size="sm">
+        <SheetHeader
+          icon={<Bell />}
+          title="Notifications"
+          subtitle={`${unreadCount} unread from agents, jobs and system workflows`}
+        />
 
-      <aside
-        role="dialog"
-        aria-label="Notifications"
-        className="fixed right-0 top-0 h-full w-[420px] max-w-[94vw] bg-[var(--color-surface)] border-l border-[var(--color-border-light)] shadow-xl flex flex-col"
-      >
-        <div className="h-14 px-4 bg-[var(--color-brand-primary)] text-primary-foreground flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </div>
+        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="unread">
+                Unread
+                {unreadCount > 0 && (
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">{unreadCount}</span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button
             variant="ghost"
-            size="icon-sm"
-            className="text-white hover:bg-white/15"
-            onClick={onClose}
-            aria-label="Close notifications panel"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-
-        <div className="p-4 border-b border-[var(--color-border-light)] flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
-            </p>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Realtime updates from agents, jobs, and system workflows.
-            </p>
-          </div>
-
-          <Button
-            variant="outline"
             size="sm"
-            className="rounded-sm"
             disabled={markAllPending || unreadCount === 0}
             onClick={() => void handleMarkAllRead()}
           >
-            {markAllPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-2" />}
+            {markAllPending ? <Loader2 className="animate-spin" /> : <CheckCheck />}
             Mark all read
           </Button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4">
+        <SheetBody className="gap-6 p-2">
           {loading && notifications.length === 0 ? (
-            <div className="h-full flex items-center justify-center gap-3 text-[var(--color-text-secondary)]">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Loading notifications...
+            <div className="flex flex-col gap-2 p-2" aria-label="Loading notifications">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
             </div>
-          ) : notifications.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center px-8">
-              <Bell className="w-10 h-10 text-[var(--color-text-tertiary)] mb-3" />
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">No notifications yet</h3>
-              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                New agent messages and system events will appear here in real time.
-              </p>
-            </div>
+          ) : visible.length === 0 ? (
+            <Empty className="flex-1">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Bell />
+                </EmptyMedia>
+                <EmptyTitle className="text-base">
+                  {filter === 'unread' ? 'You are all caught up' : 'No notifications yet'}
+                </EmptyTitle>
+                <EmptyDescription>
+                  Agent messages and system events appear here as they happen.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             ['Today', 'Yesterday', 'Earlier'].map((group) => {
               const items = grouped.get(group) ?? [];
               if (items.length === 0) return null;
 
               return (
-                <div key={group} className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{group}</h3>
-                    <span className="text-xs text-[var(--color-text-tertiary)]">{items.length}</span>
-                  </div>
+                <section key={group} className="flex flex-col gap-1">
+                  <h3 className="px-2 pt-1 text-xs font-medium text-muted-foreground">{group}</h3>
+                  {items.map((item) => {
+                    const pending = pendingIds.includes(item.id);
+                    const severity = severityConfig[item.severity] ?? severityConfig.Info;
+                    const SourceIcon = sourceIcons[item.source] ?? severity.icon;
+                    const unread = item.status === 'Unread';
 
-                  <div className="space-y-3">
-                    {items.map((item) => {
-                      const pending = pendingIds.includes(item.id);
-                      const severity = severityConfig[item.severity] ?? severityConfig.Info;
-                      const SourceIcon = sourceIcons[item.source] ?? severity.icon;
-
-                      return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            'rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 shadow-sm transition-colors',
-                            item.status === 'Unread' && 'bg-[var(--color-surface-inset)]'
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={cn('w-8 h-8 rounded-md flex items-center justify-center', severity.bg)}>
-                                <SourceIcon className={cn('w-4 h-4', severity.tone)} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-[var(--color-text-secondary)] truncate">
-                                    {formatSourceLabel(item.source)}
-                                  </span>
-                                  {item.status === 'Unread' && <span className="w-2 h-2 rounded-full bg-[var(--color-brand-primary)]" />}
-                                </div>
-                                <span className="text-xs text-[var(--color-text-tertiary)]">{formatRelativeTime(item.createdAt)}</span>
-                              </div>
-                            </div>
-                            {pending && <Loader2 className="w-4 h-4 animate-spin text-[var(--color-text-tertiary)] flex-shrink-0" />}
+                    return (
+                      <article
+                        key={item.id}
+                        className={cn(
+                          'relative flex gap-3 rounded-lg p-3 transition-colors hover:bg-accent/60',
+                          unread && 'bg-muted/60',
+                        )}
+                      >
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
+                          <SourceIcon className={cn('size-4', severity.tone)} />
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="truncate font-medium">{formatSourceLabel(item.source)}</span>
+                            <span className="shrink-0">{formatRelativeTime(item.createdAt)}</span>
+                            {pending ? (
+                              <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin" />
+                            ) : unread ? (
+                              <span className="ml-auto size-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
+                            ) : null}
                           </div>
-
-                          <div className="mt-3">
-                            <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">{item.title}</h4>
-                            <p className="mt-1 text-xs text-[var(--color-text-secondary)] leading-5 whitespace-pre-wrap">
-                              {item.body}
-                            </p>
-                          </div>
-
-                          <div className="mt-4 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              {item.status === 'Unread' && (
-                                <button
-                                  type="button"
-                                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] disabled:opacity-50"
-                                  disabled={pending}
-                                  onClick={() => void handleMarkRead(item.id)}
-                                >
-                                  Mark read
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] disabled:opacity-50"
-                                disabled={pending}
-                                onClick={() => void handleDismiss(item.id)}
-                              >
-                                Dismiss
-                              </button>
-                            </div>
-
+                          <h4 className="text-sm font-medium">{item.title}</h4>
+                          <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{item.body}</p>
+                          <div className="mt-1 flex items-center gap-1">
                             {item.actionUrl && (
-                              <Button
-                                size="sm"
-                                className="rounded-sm h-7 px-3 text-xs"
-                                disabled={pending}
-                                onClick={() => void handleAction(item)}
-                              >
+                              <Button size="sm" variant="outline" disabled={pending} onClick={() => void handleAction(item)}>
                                 Open
                               </Button>
                             )}
+                            {unread && (
+                              <Button size="sm" variant="ghost" disabled={pending} onClick={() => void handleMarkRead(item.id)}>
+                                Mark read
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" disabled={pending} onClick={() => void handleDismiss(item.id)}>
+                              Dismiss
+                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </article>
+                    );
+                  })}
+                </section>
               );
             })
           )}
-        </div>
-      </aside>
-    </div>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }
 

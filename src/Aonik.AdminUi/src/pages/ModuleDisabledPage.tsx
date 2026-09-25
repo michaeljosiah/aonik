@@ -4,7 +4,7 @@ import { Blocks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsHostAdmin } from '@/hooks/useIsHostAdmin';
 import { getSelectedTenant } from '@/lib/tenantContext';
-import { useModules } from '@/modules';
+import { useModules } from '@/modules/useModules';
 
 export interface ModuleDisabledPageProps {
   /** Backend module id. Falls back to the `:moduleId` route param. */

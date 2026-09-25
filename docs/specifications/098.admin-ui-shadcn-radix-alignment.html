@@ -62,7 +62,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 098</span>
-  <span class="meta-tag status-draft">Status: Rev 3, P0 in PR #336; P1 implemented (stacked PR)</span>
+  <span class="meta-tag status-draft">Status: Rev 4, P0 #336, P1 #337, P2 implemented (stacked PR)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: AdminUi</span>
   <h1>Admin UI design alignment: shadcn/ui on Radix</h1>
@@ -479,7 +479,7 @@
     <code>components.json</code>; install <code>tw-animate-css</code>, <code>@radix-ui/react-{label,tabs,switch,radio-group,toggle,toggle-group,separator,scroll-area,progress,accordion,alert-dialog}</code>, <code>cmdk</code>; rewrite <code>index.css</code> tokens (§6.2) with the alias block (§6.4); <code>@custom-variant dark</code> bound to <code>data-theme</code>; z-index layers; single <code>TooltipProvider</code>; contrast check script; update <code>.claude/skills/aonik-design</code> (focus rule, card radius, eyebrow, coral variant name) so future agents don't reintroduce the old rules.
   </td><td>App renders in both themes; overlays animate; contrast report green. <strong>Done (Rev 2)</strong>, see §10.1.</td></tr>
   <tr><td>P1 Core primitives</td><td>Button, Input, Textarea, Label, Field, Select, NativeSelect, Checkbox, RadioGroup, Switch, InputGroup, Badge, Card, Separator, Skeleton, Spinner, Tabs, Tooltip, Popover, HoverCard, Dialog, AlertDialog, Sheet, DropdownMenu, Sonner. Kitchen-sink route <code>/dev/ui</code> (dev builds only) showing every variant and state.</td><td>Kitchen sink matches shadcn docs side by side; axe clean; vitest for Switch/Tabs controlled and uncontrolled behaviour. <strong>Done (Rev 3)</strong>, see §10.2.</td></tr>
-  <tr><td>P2 Composites and shell</td><td>Sidebar block, Header, Breadcrumb, Command palette, Notifications Sheet, Table + DataTable, Pagination, FilterBar, PageHeader, KPI tile, Alert, Empty, Progress, Accordion, ScrollArea, Combobox (+ CountrySelect), Chart wrapper, ProposalCard, chat composer, Dockview theme. aonik kit components become wrappers.</td><td>Shell and all list pages render on the new composites; <code>layout/aonik</code> exports are wrappers only.</td></tr>
+  <tr><td>P2 Composites and shell</td><td>Sidebar block, Header, Breadcrumb, Command palette, Notifications Sheet, Table + DataTable, Pagination, FilterBar, PageHeader, KPI tile, Alert, Empty, Progress, Accordion, ScrollArea, Combobox (+ CountrySelect), Chart wrapper, ProposalCard, chat composer, Dockview theme. aonik kit components become wrappers.</td><td>Shell and all list pages render on the new composites; <code>layout/aonik</code> exports are wrappers only. <strong>Done (Rev 4)</strong>, see §10.3.</td></tr>
   <tr><td>P3 Page sweep</td><td>Per module: Pill to Badge, raw tables to Table, native checkboxes/radios/selects, <code>window.confirm</code> to AlertDialog, bespoke overlays to Dialog/Sheet, coral <code>secondary</code> triage, hex and raw palette classes to tokens, page radii to the scale, mono tabular on figures, copy pass on buttons, empty states and toasts.</td><td>Guardrail counts reach zero per module folder.</td></tr>
   <tr><td>P4 Cleanup</td><td>Delete alias block, legacy CSS classes, <code>.card</code> utility, <code>layout/aonik</code> wrappers (or keep <code>PageHeader</code>/<code>ProposalCard</code> as genuine compositions), old keyframes; flip guardrails from warn to error.</td><td><code>index.css</code> under ~250 lines; guardrails enforced in CI.</td></tr>
 </table></div>
@@ -509,6 +509,18 @@
   <li><strong>Tests:</strong> <code>components/ui/primitives.test.tsx</code> pins the Switch/Tabs contract (controlled and uncontrolled state, ARIA roles, tab–panel linkage, line variant) and Button/Badge variant mapping via server rendering; the suite has no DOM environment, so interaction was verified in the browser.</li>
 </ul>
 <div class="callout"><strong>Still open.</strong> White on coral stays 3.4:1; <code>agent</code> uses 600 weight, which helps legibility but does not reach the 4.5:1 small-text threshold. Options for review: coral text on a coral tint for the Apply button, or a darker coral token for fills only.</div>
+
+<h3>10.3 P2 as implemented</h3>
+<ul>
+  <li><strong>New primitives:</strong> Table (with a <code>numeric</code> cell option), Alert, Empty, Progress, Accordion, ScrollArea, Command/CommandDialog, Kbd, Toggle, ToggleGroup, Calendar (react-day-picker v10), DatePicker (takes and emits <code>yyyy-MM-dd</code>, a drop-in for native date inputs), Combobox, compositional Breadcrumb, sidebar parts (<code>ui/sidebar</code>), and chart helpers (<code>ui/chart</code> tooltip/legend, <code>ui/chart-config</code> axis/grid defaults).</li>
+  <li><strong>DataTable family</strong> on the new Table and Checkbox: ghost sort buttons with <code>aria-sort</code>, sentence-case headers, skeleton rows while loading, Empty for no rows, a <code>numeric</code> column option; toolbar on InputGroup and ToggleGroup; shadcn pagination; row actions on DropdownMenu. Props unchanged.</li>
+  <li><strong>aonik kit as compositions:</strong> Card over ui/card (keeps <code>padding</code>), Pill over Badge (keeps <code>tone</code> and <code>dot</code>), KpiTile as a Card with a 1.5px sparkline, FilterBar as a toolbar (Tabs + InputGroup), PageHeader without the eyebrow (the prop is accepted and ignored), ProposalCard with agent/outline/ghost Buttons. CountrySelect is rebuilt on Combobox; both chart components moved onto the chart helpers.</li>
+  <li><strong>Shell:</strong> AonikSidebar rebuilt on the sidebar parts. Expanded mode (16rem) uses inline collapsible sub-menus instead of click flyouts. Collapsed mode (a 3rem icon rail) uses tooltips, and parents open a DropdownMenu to the right. The tenant switcher and user menu are DropdownMenus, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>B</kbd> toggles the rail. Hover-to-expand is removed. AonikTopBar has a sidebar toggle, the compositional breadcrumb, a search button and a <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> command palette, and icon actions with tooltips. The palette uses the same role- and module-filtered nav as the sidebar through a new <code>useVisibleNav</code> hook. The workspace-close confirm is now an AlertDialog. NotificationsPanel is a Sheet with All/Unread tabs. The AiChatPanel header is on Button, the Dockview workspace has a token-based theme, scrollbars are neutral, and the main content area has a white canvas (O3).</li>
+  <li><strong>Removed:</strong> the dead legacy <code>Sidebar.tsx</code> (1,219 lines) and <code>Header.tsx</code> (388 lines), which nothing imported; <code>NavPopover</code> and <code>flyoutPosition</code>; the <code>.flyout-menu</code> CSS; FilterBar's "Filters" button, which had no action; and the user menu's API docs, Manage profile, About and Release notes items, which had no action.</li>
+  <li><strong>Found on the way:</strong> removing the dead <code>Sidebar.tsx</code> from the layout barrel exposed an initialisation cycle. Pages imported <code>useModules</code>/<code>useModuleEnabled</code> from the <code>@/modules</code> barrel, which eagerly imports every module. The platform module then wrapped <code>SettingsLandingPage</code> while that page was still initialising. The dead sidebar had only masked this by loading the registry early. The fix: pages import the hooks from <code>@/modules/useModules</code> and <code>@/modules/useModuleEnabled</code> directly.</li>
+  <li><strong>Review aid:</strong> a dev-only <code>/dev/shell</code> page renders the real sidebar and top bar around a sample Orders list (PageHeader, KPI tiles, ProposalCard, FilterBar, DataTable with pagination). It is excluded from production bundles like <code>/dev/ui</code>.</li>
+</ul>
+<div class="callout"><strong>Deferred to P3.</strong> The command palette's "jump to an order or customer by ID" (needs a lookup endpoint); moving the 8 native date inputs onto DatePicker; the mobile off-canvas sidebar; the chat composer and message list. Legacy <code>hover-halo</code> and <code>eyebrow</code> classes remain on four pages.</div>
 
 <h2 id="guardrails">11. Guardrails</h2>
 <ul>
@@ -555,7 +567,7 @@
 <div class="callout ok"><strong>O5 AI parameter sliders: not now.</strong> Number inputs stay.</div>
 
 <footer>
-  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 3 (P0 and P1 implemented) · 2026-09-25.
+  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 4 (P0 to P2 implemented) · 2026-09-25.
   Audit taken on master at <code>6c6c3f79</code>. Related: <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> (approval presentation),
   <a href="097.per-tenant-module-enablement.html">Spec 097</a> (module-gated nav feeding the Sidebar and Command palette).
 </footer>

@@ -263,6 +263,7 @@ function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AonikTopBar
           breadcrumb={getBreadcrumb(window.location.pathname)}
+          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           isWorkspace={isWorkspace}
           onAskAonik={handleAiChatToggle}
           leftSlot={
@@ -283,7 +284,7 @@ function AppLayout() {
         />
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <main
-            className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0 transition-[width] duration-400 ease-in-out'}
+            className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-background min-w-0 transition-[width] duration-400 ease-in-out'}
           >
             <Routes>
               {/* My Space — default authenticated home */}
@@ -569,9 +570,11 @@ function AuthenticatedApp() {
 // Dev-only kitchen sink for the Spec 098 primitives. `import.meta.env.DEV` is
 // false in production builds, so the page and its import are dropped there.
 const DevUiPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevUiPage')) : null;
+const DevShellPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevShellPage')) : null;
 
 function App() {
-  const showDevUi = DevUiPage !== null && window.location.pathname.startsWith('/dev/ui');
+  const devPath = import.meta.env.DEV ? window.location.pathname : '';
+  const DevPage = devPath.startsWith('/dev/ui') ? DevUiPage : devPath.startsWith('/dev/shell') ? DevShellPage : null;
   return (
     <Router>
       <ThemeProvider>
@@ -586,9 +589,9 @@ function App() {
             {isElectron && <div className="app-titlebar" aria-hidden="true" />}
             <TitleBarColorSync />
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-              {showDevUi && DevUiPage ? (
+              {DevPage ? (
                 <Suspense fallback={null}>
-                  <DevUiPage />
+                  <DevPage />
                 </Suspense>
               ) : (
                 <AuthenticatedApp />
