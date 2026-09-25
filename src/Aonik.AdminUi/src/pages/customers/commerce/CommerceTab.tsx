@@ -17,6 +17,8 @@ import type { AdminPartyStorefrontDto } from '@/types/commerce';
 
 import { formatCurrency } from '@/lib/format';
 import { BoxHistoryCard } from './BoxHistoryCard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 interface CommerceTabProps {
   partyId: string;
@@ -66,16 +68,18 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
   if (error) {
     return (
       <AonikCard title="Storefront">
-        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-        <button
+        <Alert variant="destructive" className="px-3 py-2">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
+        </Alert>
+        <Button
           type="button"
+          variant="link"
+          size="sm"
           onClick={() => void load()}
-          className="mt-3 text-xs text-primary hover:underline"
+          className="mt-3 h-auto p-0 text-xs"
         >
           Retry
-        </button>
+        </Button>
       </AonikCard>
     );
   }
@@ -97,16 +101,16 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
       <AonikCard title="Storefront profile" subtitle="Derived from this party's own box orders">
         <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               Boxes ordered
             </div>
-            <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground">
+            <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
               {orders.length.toLocaleString()}
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               Storefront value
             </div>
             <div className="mt-1 flex flex-col gap-0.5">
@@ -116,7 +120,7 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
                 totals.map(([currency, amount]) => (
                   <span
                     key={currency}
-                    className="font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground"
+                    className="font-mono text-lg font-semibold tabular-nums text-foreground"
                   >
                     {formatCurrency(amount, currency)}
                   </span>
@@ -127,10 +131,10 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
 
           {activeCart && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="text-xs font-medium text-muted-foreground">
                 Active cart
               </div>
-              <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground">
+              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
                 {activeCart.filled}/{activeCart.size}
               </div>
             </div>
@@ -138,7 +142,7 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
 
           {data?.adopted && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="text-xs font-medium text-muted-foreground">
                 Identity
               </div>
               <div className="mt-1.5">

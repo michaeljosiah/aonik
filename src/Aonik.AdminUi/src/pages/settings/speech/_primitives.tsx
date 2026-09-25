@@ -33,7 +33,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
     <div className="flex flex-wrap items-end justify-between gap-6">
       <div className="min-w-0">
         {eyebrow && (
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             {eyebrow}
           </p>
         )}
@@ -74,22 +74,22 @@ export function Pill({ tone = 'default', dot, children }: PillProps) {
   );
 }
 
-const TONE_TO_VARIANT: Record<PillTone, 'default' | 'success' | 'warning' | 'outline' | 'secondary' | 'error'> = {
+const TONE_TO_VARIANT: Record<PillTone, 'default' | 'success' | 'warning' | 'outline' | 'secondary' | 'destructive'> = {
   default: 'outline',
   success: 'success',
   warning: 'warning',
   tint: 'secondary',
   pending: 'secondary',
-  danger: 'error',
+  danger: 'destructive',
 };
 
 const DOT_COLORS: Record<PillTone, string> = {
   default: 'var(--muted-foreground)',
-  success: '#16a34a',
-  warning: '#d97706',
+  success: 'var(--success)',
+  warning: 'var(--warning)',
   tint: 'var(--primary)',
   pending: 'var(--agent)',
-  danger: 'var(--color-error, #dc2626)',
+  danger: 'var(--destructive)',
 };
 
 // ─── StatTile (KPI strip) ────────────────────────────────────────────────
@@ -136,7 +136,7 @@ interface RecipeFlowProps {
 
 export function RecipeFlow({ steps, kind }: RecipeFlowProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto rounded-[10px] bg-muted p-4">
+    <div className="flex items-center gap-2 overflow-x-auto rounded-lg bg-muted p-4">
       {steps.map((step, i) => (
         <div key={`${step.label}-${i}`} className="flex items-center gap-2">
           <div

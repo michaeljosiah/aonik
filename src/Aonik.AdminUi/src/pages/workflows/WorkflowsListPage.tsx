@@ -13,6 +13,13 @@ import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
 // `Plus` is still used by the page header's "New workflow" action; the
 // empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { cn } from '@/lib/utils';
@@ -33,9 +40,10 @@ const FILTER_TO_STATE: Record<Filter, WorkflowState | null> = {
   Draft: 'Draft',
 };
 
-const SPARK_TEAL = '#055a60';
-const SPARK_JADE = '#1f7a5e';
-const SPARK_MINT = '#3ab795';
+// Categorical sparkline series.
+const SPARK_TEAL = 'var(--chart-1)';
+const SPARK_JADE = 'var(--chart-2)';
+const SPARK_MINT = 'var(--chart-4)';
 
 export function WorkflowsListPage() {
   const navigate = useNavigate();
@@ -115,7 +123,6 @@ export function WorkflowsListPage() {
         style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
       >
         <PageHeader
-          eyebrow="AI · Workflows"
           title="Agent Workflows"
           subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         />
@@ -140,7 +147,6 @@ export function WorkflowsListPage() {
         style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
       >
         <PageHeader
-          eyebrow="AI · Workflows"
           title="Agent Workflows"
           subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         />
@@ -155,7 +161,6 @@ export function WorkflowsListPage() {
       style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
     >
       <PageHeader
-        eyebrow="AI · Workflows"
         title="Agent Workflows"
         subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         actions={
@@ -240,15 +245,16 @@ export function WorkflowsListPage() {
         })}
         <div className="flex-1" />
         <span className="text-[11.5px] text-muted-foreground">Sort by</span>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-          className="rounded-md border border-border bg-card px-2 py-1 text-xs"
-        >
-          <option>Most run</option>
-          <option>Recent</option>
-          <option>Success</option>
-        </select>
+        <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
+          <SelectTrigger size="sm" className="h-7 w-auto bg-card px-2 text-xs" aria-label="Sort by">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Most run">Most run</SelectItem>
+            <SelectItem value="Recent">Recent</SelectItem>
+            <SelectItem value="Success">Success</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="ghost" size="sm" className="ml-1">
           <Search className="h-3 w-3" />
           Filter…
@@ -275,7 +281,7 @@ export function WorkflowsListPage() {
               ))}
               {list.length === 0 && (
                 <div
-                  className="rounded-[10px] border border-dashed border-border bg-muted text-center text-[12.5px] text-muted-foreground"
+                  className="rounded-lg border border-dashed border-border bg-muted text-center text-[12.5px] text-muted-foreground"
                   style={{ padding: 40 }}
                 >
                   No workflows in this state yet.
@@ -305,7 +311,7 @@ function LoadingPlaceholder() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-[10px] border border-border bg-card"
+          className="animate-pulse rounded-lg border border-border bg-card"
           style={{ height: 132, padding: 18 }}
         />
       ))}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Building, Loader2, Save, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Sheet,
   SheetBody,
@@ -208,18 +209,20 @@ export function CreateTenantPage() {
                 of the body so the user sees them next to the fields,
                 not buried under the footer. */}
             {error ? (
-              <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
-                <span className="flex-1">{error}</span>
-                <button
+              <Alert variant="destructive" className="pr-10">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => setError(null)}
                   aria-label="Dismiss"
-                  className="text-red-400 hover:text-red-600"
+                  className="absolute top-1.5 right-1.5 text-destructive hover:text-destructive"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                  <X />
+                </Button>
+              </Alert>
             ) : null}
 
             {/* ── Basic information ──────────────────────────────── */}
@@ -340,7 +343,7 @@ export function CreateTenantPage() {
             >
               <div
                 className={`rounded-md border bg-muted p-2 ${
-                  errors.supportedCountries ? 'border-red-300' : 'border-border'
+                  errors.supportedCountries ? 'border-destructive' : 'border-border'
                 }`}
               >
                 <div className="flex flex-wrap gap-1.5">
@@ -416,7 +419,7 @@ function fieldInputClass(hasError: boolean): string {
   return [
     'h-9 w-full rounded-md border bg-muted px-3 text-[13px] text-foreground',
     'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
-    hasError ? 'border-red-300' : 'border-border',
+    hasError ? 'border-destructive' : 'border-border',
   ].join(' ');
 }
 
@@ -454,7 +457,7 @@ function Field({ label, required, hint, helper, error, children }: FieldProps) {
 function SectionDivider({ label }: { label: string }) {
   return (
     <div className="mt-2 flex items-center gap-2">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <span className="h-px flex-1 bg-border" />

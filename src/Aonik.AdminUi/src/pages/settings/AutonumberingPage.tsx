@@ -1,8 +1,10 @@
-import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Hash, RefreshCw, AlertCircle, Plus, X, Beaker, Pencil, Info } from 'lucide-react';
+import { Hash, RefreshCw, AlertCircle, Plus, Beaker, Pencil, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -137,24 +139,18 @@ function TestReferenceDialog({
 
   if (!isOpen) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,40rem)] rounded-md bg-card border border-border shadow-lg">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">Test a Reference</h3>
-          <button
-            type="button"
-            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent aria-describedby={undefined} className="max-w-[40rem] gap-0 p-0">
+        <DialogHeader className="border-b border-border px-4 py-3 pr-12">
+          <DialogTitle className="text-sm">Test a reference</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
           <div className="grid gap-4 md:grid-cols-3">
             <FieldRow
@@ -324,9 +320,8 @@ function TestReferenceDialog({
             </span>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -376,26 +371,20 @@ function EditProfileDialog({
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,32rem)] rounded-md bg-card border border-border shadow-lg">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">
-            Edit Configuration: {profile.entityType}
-          </h3>
-          <button
-            type="button"
-            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent aria-describedby={undefined} className="max-w-[32rem] gap-0 p-0">
+        <DialogHeader className="border-b border-border px-4 py-3 pr-12">
+          <DialogTitle className="text-sm">
+            Edit configuration: {profile.entityType}
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
           <div className="grid gap-4">
             <FieldRow
@@ -587,9 +576,8 @@ function EditProfileDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -658,24 +646,18 @@ function CreateProfileDialog({
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,34rem)] rounded-md bg-card border border-border shadow-lg">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">New Configuration</h3>
-          <button
-            type="button"
-            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent aria-describedby={undefined} className="max-w-[34rem] gap-0 p-0">
+        <DialogHeader className="border-b border-border px-4 py-3 pr-12">
+          <DialogTitle className="text-sm">New configuration</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
           <div className="grid gap-4">
             <FieldRow
@@ -891,9 +873,8 @@ function CreateProfileDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1010,11 +991,11 @@ export function AutonumberingPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setTestDialogOpen(true)} className="rounded-sm">
+          <Button variant="outline" onClick={() => setTestDialogOpen(true)}>
             <Beaker className="w-4 h-4 mr-2" />
             Test Reference
           </Button>
-          <Button className="rounded-sm" onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Configuration
           </Button>
@@ -1042,44 +1023,43 @@ export function AutonumberingPage() {
         </CardHeader>
         <CardContent>
           <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Entity Type
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="px-4 text-xs text-muted-foreground">
+                      Entity type
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">
                       Strategy
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">
                       Reset
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">
                       Range
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Last Issued
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">
+                      Last issued
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">
                       Status
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    </TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground text-right">
                       Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={7} className="px-4 py-12 text-center">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">Loading configurations...</p>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : profiles.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={7} className="px-4 py-12 text-center">
                         <div className="mb-3 flex justify-center text-muted-foreground">
                           <Hash className="w-12 h-12" />
                         </div>
@@ -1087,19 +1067,16 @@ export function AutonumberingPage() {
                         <p className="text-sm text-muted-foreground mb-4">
                           Get started by creating your first autonumbering configuration
                         </p>
-                        <Button className="rounded-sm" onClick={() => setCreateDialogOpen(true)}>
+                        <Button onClick={() => setCreateDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
                           New Configuration
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     profiles.map((profile) => (
-                      <tr
-                        key={profile.id}
-                        className="border-b border-border hover:bg-muted transition-colors"
-                      >
-                        <td className="px-4 py-3">
+                      <TableRow key={profile.id}>
+                        <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
                               <Hash className="w-5 h-5 text-primary" />
@@ -1111,43 +1088,41 @@ export function AutonumberingPage() {
                               </p>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className="text-sm text-foreground">{profile.strategy}</span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className="text-sm text-foreground">{profile.resetPolicy}</span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className="text-sm text-foreground">{formatRange(profile)}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-muted-foreground font-mono">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <span className="text-sm text-muted-foreground font-mono tabular-nums">
                             {formatLastIssued(profile)}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <Badge variant={profile.isActive ? 'secondary' : 'outline'}>
                             {profile.isActive ? 'Active' : 'Paused'}
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="rounded-sm"
                             onClick={() => handleEdit(profile)}
                           >
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
           </div>
         </CardContent>
       </Card>

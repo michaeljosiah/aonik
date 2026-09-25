@@ -5,7 +5,9 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 import { FIGURE_FIELDS, type FigureKey, type HeatingStep } from '../lib/contentState';
 import type { ContentDraft } from '../lib/contentDraft';
@@ -43,7 +45,7 @@ export function ContentFields({
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           Serving label
         </span>
         <input
@@ -55,7 +57,7 @@ export function ContentFields({
       </label>
 
       <div>
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <p className="mb-1.5 text-xs font-medium text-muted-foreground">
           Figures
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -82,7 +84,7 @@ export function ContentFields({
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           Ingredients
         </span>
         <textarea
@@ -94,7 +96,7 @@ export function ContentFields({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           Allergens
         </span>
         <textarea
@@ -109,7 +111,7 @@ export function ContentFields({
       </label>
 
       <div>
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <p className="mb-1.5 text-xs font-medium text-muted-foreground">
           Heating &amp; usage
         </p>
         <div className="flex flex-col gap-2">
@@ -127,16 +129,18 @@ export function ContentFields({
                 placeholder="Instruction"
                 className={inputClass}
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 aria-label="Remove step"
                 onClick={() =>
                   onChange({ ...draft, heating: draft.heating.filter((_, i) => i !== index) })
                 }
-                className="rounded p-1 text-muted-foreground hover:text-destructive"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             </div>
           ))}
           <Button
@@ -147,27 +151,28 @@ export function ContentFields({
             <Plus className="mr-1 h-3.5 w-3.5" /> Add a step
           </Button>
           {unreadableHeating && (
-            <div className="rounded border border-warning bg-warning-subtle p-2.5">
-              <p className="text-[11px] text-muted-foreground">
-                The stored heating steps for this product cannot be read, so customers are shown
-                nothing for them. They cannot be kept that way — whatever is saved here becomes a
-                claim.
-              </p>
-              <label className="mt-2 flex items-start gap-2 text-[11px] text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={draft.heatingReplacementAccepted}
-                  onChange={(e) =>
-                    onChange({ ...draft, heatingReplacementAccepted: e.target.checked })
-                  }
-                  className="mt-0.5"
-                />
-                <span>
-                  Publish an explicit “no heating required” panel. Leave this unticked and add the
-                  steps instead if the product needs any.
-                </span>
-              </label>
-            </div>
+            <Alert variant="warning" className="px-3 py-2.5">
+              <AlertDescription className="text-[11px]">
+                <p>
+                  The stored heating steps for this product cannot be read, so customers are shown
+                  nothing for them. They cannot be kept that way — whatever is saved here becomes a
+                  claim.
+                </p>
+                <label className="mt-1 flex items-start gap-2">
+                  <Checkbox
+                    checked={draft.heatingReplacementAccepted}
+                    onCheckedChange={(v) =>
+                      onChange({ ...draft, heatingReplacementAccepted: v === true })
+                    }
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Publish an explicit “no heating required” panel. Leave this unticked and add
+                    the steps instead if the product needs any.
+                  </span>
+                </label>
+              </AlertDescription>
+            </Alert>
           )}
         </div>
       </div>

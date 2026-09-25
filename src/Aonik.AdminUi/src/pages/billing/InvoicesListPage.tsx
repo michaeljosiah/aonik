@@ -34,6 +34,7 @@ import {
   type DataTableAction,
 } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { billingService } from '@/services/billingService';
 import type { InvoiceResponse } from '@/types';
 
@@ -263,8 +264,9 @@ export function InvoicesListPage() {
       header: 'Invoice',
       accessorKey: 'invoiceNumber',
       sortable: true,
+      numeric: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-foreground">
+        <span className="text-[12px] font-medium text-foreground">
           {shortInvoiceNumber(row.invoiceNumber)}
         </span>
       ),
@@ -286,7 +288,7 @@ export function InvoicesListPage() {
                 {label}
               </span>
               {sub && (
-                <span className="font-[family-name:var(--font-mono)] truncate text-[11px] text-muted-foreground">
+                <span className="truncate font-mono text-[11px] text-muted-foreground">
                   {sub}
                 </span>
               )}
@@ -319,7 +321,7 @@ export function InvoicesListPage() {
       accessorFn: (row) => (row.issuedUtc ? new Date(row.issuedUtc) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
           {formatDate(row.issuedUtc)}
         </span>
       ),
@@ -348,20 +350,19 @@ export function InvoicesListPage() {
       header: 'Amount',
       accessorFn: (row) => row.totalAmount,
       sortable: true,
+      numeric: true,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
+        <span className="text-[12.5px] font-semibold text-foreground">
           {formatMoney(row.totalAmount, row.currency)}
         </span>
       ),
-      className: 'w-[140px] text-right',
-      headerClassName: 'text-right',
+      className: 'w-[140px]',
     },
   ];
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Finance · Ledger"
         title="Invoices"
         subtitle={subtitle}
         actions={
@@ -379,14 +380,16 @@ export function InvoicesListPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadInvoices()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadInvoices()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar

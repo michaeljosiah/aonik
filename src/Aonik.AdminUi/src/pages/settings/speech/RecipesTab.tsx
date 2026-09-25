@@ -398,7 +398,7 @@ function RecipeKindChoice({
       onClick={onClick}
       className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-muted p-5 text-center transition-colors hover:border-primary hover:bg-primary/10"
     >
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-card text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-card text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
         {icon}
       </span>
       <span className="text-sm font-semibold text-foreground">

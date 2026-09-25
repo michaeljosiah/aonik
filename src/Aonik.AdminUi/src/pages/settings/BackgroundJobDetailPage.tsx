@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -49,16 +49,18 @@ function formatDuration(ms: number): string {
 
 function statusBadge(status: string) {
   const lower = status.toLowerCase();
-  const colors: Record<string, string> = {
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    paused: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    disabled: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
-    succeeded: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    pending: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  const variants: Record<string, BadgeProps['variant']> = {
+    active: 'success',
+    paused: 'warning',
+    disabled: 'secondary',
+    succeeded: 'success',
+    pending: 'info',
+    processing: 'info',
   };
-  return <Badge className={colors[lower] ?? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}>{status}</Badge>;
+  if (lower === 'failed') {
+    return <Badge className="border-transparent bg-destructive/10 text-destructive">{status}</Badge>;
+  }
+  return <Badge variant={variants[lower] ?? 'secondary'}>{status}</Badge>;
 }
 
 function wait(ms: number): Promise<void> {
@@ -312,7 +314,7 @@ export function BackgroundJobDetailPage() {
             <div><span className="text-muted-foreground">Last:</span> {formatRelativeTime(detail.previousFireTimeUtc)}</div>
             <div><span className="text-muted-foreground">Duration:</span> {detail.lastDurationMs != null ? formatDuration(detail.lastDurationMs) : '--'}</div>
             {detail.lastOutcomeSummary && (
-              <div className="rounded-sm bg-muted p-3 text-xs whitespace-pre-wrap break-words text-muted-foreground">
+              <div className="rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words text-muted-foreground">
                 {detail.lastOutcomeSummary}
               </div>
             )}
@@ -371,7 +373,7 @@ export function BackgroundJobDetailPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">No agents configured — summarisation is disabled.</p>
+                    <p className="text-xs text-warning">No agents configured — summarisation is disabled.</p>
                   )}
                 </div>
                 {configIsDirty && (
@@ -434,7 +436,7 @@ export function BackgroundJobDetailPage() {
                   </div>
                 ) : null}
                 {detail.lastOutcome?.toLowerCase() === 'failed' && (
-                  <div className="col-span-2 flex items-center gap-2 rounded-sm border border-red-200 bg-red-50/60 p-3 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-300">
+                  <div className="col-span-2 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <span>Failure details are persisted in the audit trail.</span>
                     {latestRun && (

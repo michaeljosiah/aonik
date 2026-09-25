@@ -11,6 +11,7 @@
 // canonicalise a selection, and the direction a client re-implementation would drift is the
 // dangerous one: labelling a withholding block "Authored".
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -415,13 +416,15 @@ export function ProductContentPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void loadRows()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void loadRows()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {(reviewQueue.length > 0 || queueFailed || queueScanning) && (
@@ -561,25 +564,27 @@ export function ProductContentPage() {
 
           <div className="flex flex-col gap-4">
             {detailError && (
-              <p className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {/*
-                  Retry lives HERE because the shared catch clears every other piece of detail
-                  state, so the resolution, offer and coverage retries are all unmounted when
-                  this fires. Re-clicking the rail row usually hands `setSelection` the same row
-                  object, which React treats as no change — so without this the operator has to
-                  navigate to another product, or reload the page, before the block they were
-                  asked to review can be read at all.
-                */}
-                <span className="flex-1">{detailError}</span>
-                <button
-                  type="button"
-                  onClick={() => void reloadSelected()}
-                  disabled={detailLoading}
-                  className="shrink-0 underline"
-                >
-                  {detailLoading ? 'Retrying…' : 'Retry'}
-                </button>
-              </p>
+              <Alert variant="destructive" className="py-2">
+                <AlertDescription className="flex items-center gap-2 text-xs">
+                  {/*
+                    Retry lives HERE because the shared catch clears every other piece of detail
+                    state, so the resolution, offer and coverage retries are all unmounted when
+                    this fires. Re-clicking the rail row usually hands `setSelection` the same row
+                    object, which React treats as no change — so without this the operator has to
+                    navigate to another product, or reload the page, before the block they were
+                    asked to review can be read at all.
+                  */}
+                  <span className="flex-1">{detailError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void reloadSelected()}
+                    disabled={detailLoading}
+                    className="shrink-0 underline"
+                  >
+                    {detailLoading ? 'Retrying…' : 'Retry'}
+                  </button>
+                </AlertDescription>
+              </Alert>
             )}
 
             {detailLoading ? (
@@ -599,19 +604,21 @@ export function ProductContentPage() {
                 )}
 
                 {resolvedError && (
-                  <p className="flex items-center gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2 text-[12px] text-warning">
-                    <span className="flex-1">
-                      What customers currently receive could not be read, so the panel below
-                      shows the stored block — which is not always what is served.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void reloadSelected()}
-                      className="shrink-0 underline"
-                    >
-                      Retry
-                    </button>
-                  </p>
+                  <Alert variant="warning" className="py-2">
+                    <AlertDescription className="flex items-center gap-2 text-xs">
+                      <span className="flex-1">
+                        What customers currently receive could not be read, so the panel below
+                        shows the stored block — which is not always what is served.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void reloadSelected()}
+                        className="shrink-0 underline"
+                      >
+                        Retry
+                      </button>
+                    </AlertDescription>
+                  </Alert>
                 )}
 
                 <ContentWorkbench
@@ -656,19 +663,21 @@ export function ProductContentPage() {
                     </p>
                   )}
                   {groupsError && (
-                    <p className="mx-3 mt-3 flex items-center gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2 text-[12px] text-warning">
-                      <span className="flex-1">
-                        This product’s option offer could not be read, so combinations cannot be
-                        authored right now. Existing ones are still listed.
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void reloadSelected()}
-                        className="shrink-0 underline"
-                      >
-                        Retry
-                      </button>
-                    </p>
+                    <Alert variant="warning" className="mx-3 mt-3 py-2">
+                      <AlertDescription className="flex items-center gap-2 text-xs">
+                        <span className="flex-1">
+                          This product’s option offer could not be read, so combinations cannot be
+                          authored right now. Existing ones are still listed.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void reloadSelected()}
+                          className="shrink-0 underline"
+                        >
+                          Retry
+                        </button>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   {!content || content.variants.length === 0 ? (
                     <p className="px-4 py-6 text-center text-[12.5px] text-muted-foreground">

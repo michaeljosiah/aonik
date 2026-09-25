@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ImportDemoDataDialog } from '@/components/dialogs/ImportDemoDataDialog';
 import { demoSeedService } from '@/services/demoSeedService';
 import { permissionSeedService } from '@/services/permissionSeedService';
@@ -252,7 +253,6 @@ export function SystemToolsPage() {
             <Button
               onClick={() => void handleRunDataSeed()}
               disabled={dataSeedStatus === 'running' || selectedSeedKeys.size === 0}
-              className="rounded-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${dataSeedStatus === 'running' ? 'animate-spin' : ''}`} />
               {dataSeedStatus === 'running' ? 'Running...' : 'Run Selected'}
@@ -285,11 +285,9 @@ export function SystemToolsPage() {
                       key={seed.key}
                       className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedSeedKeys.has(seed.key)}
-                        onChange={() => toggleSeedKey(seed.key)}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        onCheckedChange={() => toggleSeedKey(seed.key)}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">{seed.displayName}</p>
@@ -312,7 +310,7 @@ export function SystemToolsPage() {
                   <span>{new Date(dataSeedResult.seededAt).toLocaleString()}</span>
                 </div>
                 <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
                     Results
                   </p>
                   <div className="space-y-2">
@@ -351,7 +349,6 @@ export function SystemToolsPage() {
               onClick={() => void loadCacheOverview()}
               disabled={cacheStatus === 'running'}
               variant="secondary"
-              className="rounded-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${cacheStatus === 'running' ? 'animate-spin' : ''}`} />
               Refresh
@@ -424,7 +421,6 @@ export function SystemToolsPage() {
                 onClick={handleReverseDemoData}
                 disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
                 variant="secondary"
-                className="rounded-sm"
               >
                 {demoSeedStatus === 'running' ? 'Working...' : 'Reverse Data'}
               </Button>
@@ -434,7 +430,6 @@ export function SystemToolsPage() {
                   setDemoSeedDialogOpen(true);
                 }}
                 disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
-                className="rounded-sm"
               >
                 {demoSeedStatus === 'running' ? 'Working...' : 'Import Data'}
               </Button>
@@ -458,7 +453,7 @@ export function SystemToolsPage() {
                   <span>{demoSeedResult.seedType === 'CrossBorderPayments' ? 'Cross-border Payments' : 'Bill Collection'}</span>
                 </div>
                 <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
                     Operations
                   </p>
                   <ul className="space-y-1 text-sm text-muted-foreground">
@@ -493,7 +488,6 @@ export function SystemToolsPage() {
             <Button
               onClick={handlePermissionSeed}
               disabled={permissionSeedStatus === 'running' || !selectedTenant?.tenantId}
-              className="rounded-sm"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${permissionSeedStatus === 'running' ? 'animate-spin' : ''}`}
@@ -515,7 +509,7 @@ export function SystemToolsPage() {
                   <span>{new Date(permissionSeedResult.seededAt).toLocaleString()}</span>
                 </div>
                 <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
                     Operations
                   </p>
                   <ul className="space-y-1 text-sm text-muted-foreground">

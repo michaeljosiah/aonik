@@ -49,14 +49,14 @@ function formatDuration(ms: number | null): string {
 function statusBadge(status: string) {
   switch (status.toLowerCase()) {
     case 'active':
-      return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] px-1.5 py-0">Active</Badge>;
+      return <Badge variant="success" className="text-[10px] px-1.5 py-0">Active</Badge>;
     case 'paused':
-      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] px-1.5 py-0">Paused</Badge>;
+      return <Badge variant="warning" className="text-[10px] px-1.5 py-0">Paused</Badge>;
     case 'error':
     case 'blocked':
-      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] px-1.5 py-0">{status}</Badge>;
+      return <Badge variant="outline" className="border-transparent bg-destructive/10 text-destructive text-[10px] px-1.5 py-0">{status}</Badge>;
     default:
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] px-1.5 py-0">{status}</Badge>;
+      return <Badge variant="secondary" className="text-muted-foreground text-[10px] px-1.5 py-0">{status}</Badge>;
   }
 }
 
@@ -64,9 +64,9 @@ function outcomeBadge(outcome: string | null) {
   if (!outcome) return <Badge variant="outline" className="text-[10px] px-1.5 py-0">No runs</Badge>;
   switch (outcome.toLowerCase()) {
     case 'succeeded':
-      return <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-0.5 text-[10px] px-1.5 py-0"><CheckCircle2 className="w-2.5 h-2.5" />OK</Badge>;
+      return <Badge variant="success" className="gap-0.5 text-[10px] px-1.5 py-0"><CheckCircle2 className="w-2.5 h-2.5" />OK</Badge>;
     case 'failed':
-      return <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-0.5 text-[10px] px-1.5 py-0"><XCircle className="w-2.5 h-2.5" />Failed</Badge>;
+      return <Badge variant="outline" className="border-transparent bg-destructive/10 text-destructive gap-0.5 text-[10px] px-1.5 py-0"><XCircle className="w-2.5 h-2.5" />Failed</Badge>;
     default:
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{outcome}</Badge>;
   }
@@ -74,9 +74,9 @@ function outcomeBadge(outcome: string | null) {
 
 function getJobTone(job: ScheduledJobSummary) {
   if (job.lastOutcome?.toLowerCase() === 'failed')
-    return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
+    return 'border-destructive/30 bg-destructive/5';
   if (job.status.toLowerCase() === 'paused')
-    return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
+    return 'border-warning/30 bg-warning-subtle/40';
   return 'border-border bg-card';
 }
 
@@ -283,7 +283,7 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
           </Card>
           <Card className="p-3">
             <p className="text-xs text-muted-foreground">Failed</p>
-            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
               {failedCount}
             </p>
           </Card>
@@ -338,7 +338,7 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
 
                   {/* Summary */}
                   <p className="text-[11px] text-muted-foreground line-clamp-1">
-                    {hasFailed && <FileWarning className="inline h-3 w-3 text-red-500 mr-0.5 -mt-0.5" />}
+                    {hasFailed && <FileWarning className="inline h-3 w-3 text-destructive mr-0.5 -mt-0.5" />}
                     {summarizeOutcome(job)}
                   </p>
 

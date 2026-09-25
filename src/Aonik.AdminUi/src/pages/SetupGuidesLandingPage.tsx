@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest } from '@/services/setupGuideService';
@@ -10,6 +12,21 @@ interface LandingState {
   manifest: SetupGuideManifest | null;
   loading: boolean;
   error: string | null;
+}
+
+// Categorical tint for a guide without a cover image, keyed by its order so a
+// guide keeps the same colour on every setup page.
+const guideAccents = [
+  'from-(--chart-1)/20 to-(--chart-1)/5',
+  'from-(--chart-2)/20 to-(--chart-2)/5',
+  'from-(--chart-3)/20 to-(--chart-3)/5',
+  'from-(--chart-4)/20 to-(--chart-4)/5',
+  'from-(--chart-5)/20 to-(--chart-5)/5',
+];
+
+function guideAccentClass(guide: SetupGuideDefinition) {
+  const n = guideAccents.length;
+  return guideAccents[((Math.trunc(guide.order) % n) + n) % n];
 }
 
 const initialState: LandingState = {
@@ -70,8 +87,8 @@ export function SetupGuidesLandingPage() {
       <div className="mx-auto w-full max-w-[1680px] px-12 py-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Guides Home</p>
-            <h1 className="text-2xl font-semibold text-foreground">Setup Guides</h1>
+            <p className="text-sm font-medium text-muted-foreground">Guides home</p>
+            <h1 className="text-2xl font-semibold text-foreground">Setup guides</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">Filter</Button>
@@ -80,11 +97,11 @@ export function SetupGuidesLandingPage() {
         </div>
 
         <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">Latest Guides & Updates</h2>
+          <h2 className="text-sm font-semibold text-foreground">Latest guides & updates</h2>
 
           {state.loading ? (
             <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
-              <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <Spinner className="size-5 text-primary" />
               Loading guides...
             </div>
           ) : state.error ? (
@@ -103,12 +120,12 @@ export function SetupGuidesLandingPage() {
                         className={
                           resolveCover(featuredGuide)
                             ? 'h-56 bg-cover bg-center'
-                            : `h-56 bg-gradient-to-br ${featuredGuide.accent ?? 'from-emerald-500/20 to-cyan-500/20'}`
+                            : `h-56 bg-muted bg-gradient-to-br ${guideAccentClass(featuredGuide)}`
                         }
                         style={resolveCover(featuredGuide) ? { backgroundImage: `url(${resolveCover(featuredGuide)})` } : undefined}
                       />
                       <div className="px-5 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        <p className="text-xs font-medium text-muted-foreground">
                           {featuredGuide.category}
                         </p>
                         <h3 className="mt-2 text-base font-semibold text-foreground">
@@ -139,9 +156,7 @@ export function SetupGuidesLandingPage() {
                         {guide.description}
                       </p>
                       <div className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-full bg-muted px-2 py-1 font-semibold uppercase tracking-[0.2em]">
-                          {guide.category}
-                        </span>
+                        <Badge variant="secondary">{guide.category}</Badge>
                         <span>Guide</span>
                       </div>
                     </div>

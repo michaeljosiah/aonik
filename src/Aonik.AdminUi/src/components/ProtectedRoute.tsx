@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
+import { Button } from '@/components/ui/button';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -28,7 +29,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
     if (!hasRequiredRole) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="text-center p-8 bg-card rounded-md shadow-lg max-w-[28rem]">
+          <div className="text-center p-8 bg-card rounded-xl border shadow-lg max-w-[28rem]">
             <svg 
               className="w-16 h-16 mx-auto mb-4 text-warning" 
               fill="none" 
@@ -43,7 +44,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
               />
             </svg>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              Access Denied
+              Access denied
             </h2>
             <p className="text-muted-foreground mb-4">
               You don't have permission to access this page. You may need additional permissions or a different user role.
@@ -54,12 +55,9 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
             <p className="text-sm text-muted-foreground">
               If you believe you should have access, please contact your system administrator to request the appropriate permissions.
             </p>
-            <button
-              onClick={() => window.history.back()}
-              className="mt-6 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
-            >
-              Go Back
-            </button>
+            <Button onClick={() => window.history.back()} className="mt-6">
+              Go back
+            </Button>
           </div>
         </div>
       );

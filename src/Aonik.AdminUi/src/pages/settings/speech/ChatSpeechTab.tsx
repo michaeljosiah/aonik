@@ -399,7 +399,7 @@ export function ChatSpeechTab({
                     if (!v) return null;
                     return (
                       <div className="rounded-lg border border-border bg-card p-3.5">
-                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        <div className="mb-2 text-xs font-medium text-muted-foreground">
                           Voice for {v.providerName}
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
@@ -487,7 +487,7 @@ function HeroStatus({
       <div className="flex items-center gap-3.5">
         <div
           className={cn(
-            "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-border",
+            "grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border",
             enabled
               ? "bg-primary/10"
               : "bg-muted",
@@ -535,7 +535,7 @@ function VoiceCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 rounded-[10px] p-3 text-left transition-colors",
+        "flex items-center gap-3 rounded-lg p-3 text-left transition-colors",
         selected
           ? "border-2 border-primary bg-primary/10"
           : "border border-border bg-card hover:border-primary/40",
@@ -637,7 +637,7 @@ function PreviewCard({
       )}
 
       {/* Static waveform placeholder */}
-      <div className="mt-3 rounded-[10px] bg-muted p-3.5">
+      <div className="mt-3 rounded-lg bg-muted p-3.5">
         <div className="mb-2 flex items-center justify-between">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled>
             <Volume2 className="h-3.5 w-3.5" />

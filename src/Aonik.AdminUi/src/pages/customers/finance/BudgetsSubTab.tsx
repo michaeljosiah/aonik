@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BarChart2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { personalFinanceService } from '@/services/personalFinanceService';
 import type { AdminBudgetResponse } from '@/types';
 
@@ -46,15 +49,7 @@ function BudgetCard({ budget }: { budget: AdminBudgetResponse }) {
             </p>
             <p className="text-xs text-muted-foreground">{budget.periodType} budget</p>
           </div>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              isActive
-                ? 'bg-success-subtle text-success'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {budget.status}
-          </span>
+          <Badge variant={isActive ? 'success' : 'secondary'}>{budget.status}</Badge>
         </div>
 
         {budget.lines.length === 0 ? (
@@ -67,7 +62,7 @@ function BudgetCard({ budget }: { budget: AdminBudgetResponse }) {
                 className="flex items-center justify-between py-1 border-b border-border last:border-0"
               >
                 <span className="text-xs text-muted-foreground">{line.category}</span>
-                <span className="text-xs font-medium text-foreground">
+                <span className="font-mono text-xs font-medium tabular-nums text-foreground">
                   {formatCurrency(line.limitAmount, line.currency)}
                 </span>
               </div>
@@ -114,18 +109,29 @@ export function BudgetsSubTab({ userId }: { userId: string }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">
-          {budgets.length} budget period{budgets.length !== 1 ? 's' : ''}
+          <span className="font-mono tabular-nums">{budgets.length}</span> budget period{budgets.length !== 1 ? 's' : ''}
         </p>
-        <Button variant="ghost" size="icon-sm" onClick={load} disabled={loading} title="Refresh">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={load}
+              disabled={loading}
+              aria-label="Refresh budgets"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* Loading */}

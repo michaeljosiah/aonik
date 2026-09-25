@@ -31,6 +31,8 @@ import {
 } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import type {
   ProposalDetailResponse,
@@ -297,7 +299,7 @@ interface DomainRailProps {
 function DomainRail({ domainCounts, activeDomain, onSelect, totalCount }: DomainRailProps) {
   return (
     <div className="flex flex-col gap-0.5 overflow-auto border-r border-border bg-muted p-3">
-      <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
         By domain
       </div>
       <RailButton
@@ -317,7 +319,7 @@ function DomainRail({ domainCounts, activeDomain, onSelect, totalCount }: Domain
       ))}
 
       <div className="my-3 h-px bg-border" />
-      <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
         Filters
       </div>
       <button
@@ -451,9 +453,7 @@ function ListColumn({ items, selectedId, loading, error, onSelect, onRefresh }: 
                   {item.proposalType || 'Proposal'}
                 </Pill>
                 {item.riskTier === 'High' && (
-                  <span className="text-[10px] font-bold uppercase tracking-[0.05em] text-destructive">
-                    ● HIGH
-                  </span>
+                  <Badge variant="destructive">High</Badge>
                 )}
                 <span className="flex-1" />
                 <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
@@ -549,7 +549,7 @@ function DetailColumn({
             size="sm"
             onClick={onDismiss}
             disabled={actioning !== null || loading}
-            className="border-[rgba(204,46,46,0.3)] text-destructive"
+            className="border-destructive/30 text-destructive"
           >
             <X className="h-3 w-3" />
             Reject
@@ -566,10 +566,10 @@ function DetailColumn({
       </div>
 
       {error && (
-        <div className="m-6 flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          {error}
-        </div>
+        <Alert variant="destructive" className="m-6 w-auto">
+          <AlertCircle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="flex flex-col gap-4 p-6">
@@ -650,8 +650,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[10px] border border-border bg-card p-3.5">
-      <div className="mb-2 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card p-3.5">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         {icon}
         {title}
       </div>

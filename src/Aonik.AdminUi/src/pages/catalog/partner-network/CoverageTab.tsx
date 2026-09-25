@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import { Globe } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar } from '@/components/layout/aonik';
 import type { PartnerListItem } from '@/types/partners';
 import { Chip, EmptyState, InfoNote, Panel, ViewToggle, type HubView } from './components';
@@ -95,39 +96,39 @@ function CoverageMatrix({
 }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="sticky left-0 z-10 bg-card px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <Table className="border-collapse text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border hover:bg-transparent">
+            <TableHead className="h-auto text-xs sticky left-0 z-10 bg-card px-5 py-3 text-left font-medium text-muted-foreground">
               Partner
-            </th>
+            </TableHead>
             {countries.map((c) => (
-              <th
+              <TableHead
                 key={c}
                 className="px-3 py-3 text-center font-[family-name:var(--font-mono)] text-[11px] font-medium text-muted-foreground"
               >
                 {c}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {partners.map((p) => {
             const covers = new Set(p.coverageCountries);
             return (
-              <tr
+              <TableRow
                 key={p.partnerId}
                 onClick={() => onOpenPartner(p.partnerId)}
                 className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted"
               >
-                <td className="sticky left-0 z-10 bg-card px-5 py-3">
+                <TableCell className="sticky left-0 z-10 bg-card px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <AgentAvatar name={p.name} size={26} />
                     <span className="whitespace-nowrap font-medium text-foreground">{p.name}</span>
                   </div>
-                </td>
+                </TableCell>
                 {countries.map((c) => (
-                  <td key={c} className="px-3 py-3 text-center">
+                  <TableCell key={c} className="px-3 py-3 text-center">
                     {covers.has(c) ? (
                       <span
                         className="inline-block h-2 w-2 rounded-full bg-primary"
@@ -138,13 +139,13 @@ function CoverageMatrix({
                         ·
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

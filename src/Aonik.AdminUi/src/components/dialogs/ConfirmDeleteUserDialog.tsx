@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import type { DeleteUserResponse } from '@/types';
 
 interface ConfirmDeleteUserDialogProps {
@@ -102,31 +106,30 @@ export function ConfirmDeleteUserDialog({
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="confirm-email" className="text-sm font-medium text-foreground">
+            <Label htmlFor="confirm-email">
               Type the user's email to confirm
-            </label>
-            <input
+            </Label>
+            <Input
               id="confirm-email"
               type="text"
               autoComplete="off"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
               placeholder={userEmail}
               disabled={submitting}
             />
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="delete-reason" className="text-sm font-medium text-foreground">
+            <Label htmlFor="delete-reason">
               Reason (≥ 10 characters)
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="delete-reason"
               rows={3}
+              className="field-sizing-fixed"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="flex w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
               placeholder="e.g., GDPR erasure request received 2026-05-19"
               disabled={submitting}
             />
@@ -136,9 +139,10 @@ export function ConfirmDeleteUserDialog({
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 
@@ -146,11 +150,7 @@ export function ConfirmDeleteUserDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="bg-destructive hover:bg-destructive text-white"
-          >
+          <Button variant="destructive" onClick={handleSubmit} disabled={!canSubmit}>
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

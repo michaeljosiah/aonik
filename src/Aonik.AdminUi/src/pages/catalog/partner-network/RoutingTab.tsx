@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowRight, Route } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar, type FilterBarTab, Pill } from '@/components/layout/aonik';
 import type { PartnerConnectorItem, PartnerDetail, PartnerRoutingRuleItem } from '@/types/partners';
 import { Chip, EmptyState, InfoNote, Panel, ViewToggle, type HubView } from './components';
@@ -217,12 +218,12 @@ function RouteCard({ row, onOpen }: { row: RuleRow; onOpen: () => void }) {
       </div>
 
       <div>
-        <p className="mb-1.5 text-[10.5px] uppercase tracking-wide text-muted-foreground">When</p>
+        <p className="mb-1.5 text-xs font-medium text-muted-foreground">When</p>
         <ConditionsView conditions={conditions} />
       </div>
 
       <div className="flex items-center gap-2 border-t border-border pt-3 text-[13px]">
-        <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Route to</span>
+        <span className="text-xs font-medium text-muted-foreground">Route to</span>
         <ArrowRight size={13} className="text-muted-foreground" />
         <TargetView target={row.target} targetId={row.rule.targetConnectorId} />
       </div>
@@ -233,23 +234,23 @@ function RouteCard({ row, onOpen }: { row: RuleRow; onOpen: () => void }) {
 function RouteTable({ rows, onOpenPartner }: { rows: RuleRow[]; onOpenPartner: (partnerId: string) => void }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[13px]">
-        <thead>
-          <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-            <th className="px-5 py-3 font-medium">Partner</th>
-            <th className="px-3 py-3 text-right font-medium">Priority</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="px-3 py-3 font-medium">When</th>
-            <th className="px-5 py-3 font-medium">Route to</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="border-collapse text-left text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border text-muted-foreground hover:bg-transparent">
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Partner</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Priority</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Status</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">When</TableHead>
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Route to</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
-            <tr
+            <TableRow
               key={r.rule.routingRuleId}
               className="border-b border-border last:border-0 hover:bg-muted"
             >
-              <td className="px-5 py-3">
+              <TableCell className="px-5 py-3">
                 <button
                   type="button"
                   onClick={() => onOpenPartner(r.partner.partnerId)}
@@ -258,25 +259,25 @@ function RouteTable({ rows, onOpenPartner }: { rows: RuleRow[]; onOpenPartner: (
                   <AgentAvatar name={r.partner.name} size={26} />
                   <span className="font-medium text-foreground">{r.partner.name}</span>
                 </button>
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {r.rule.priority}
-              </td>
-              <td className="px-3 py-3">
+              </TableCell>
+              <TableCell className="px-3 py-3">
                 <Pill tone={r.rule.isActive ? 'success' : 'muted'} dot>
                   {r.rule.isActive ? 'Active' : 'Inactive'}
                 </Pill>
-              </td>
-              <td className="max-w-[280px] px-3 py-3">
+              </TableCell>
+              <TableCell className="max-w-[280px] whitespace-normal px-3 py-3">
                 <ConditionsView conditions={parseConditions(r.rule.conditionsJson)} />
-              </td>
-              <td className="px-5 py-3">
+              </TableCell>
+              <TableCell className="px-5 py-3">
                 <TargetView target={r.target} targetId={r.rule.targetConnectorId} />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

@@ -239,15 +239,15 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
           data={errorMetrics.timeSeries}
           label="Errors Over Time"
           height={140}
-          color="#ef4444"
+          color="var(--destructive)"
         />
       )}
 
       {/* Error groups */}
       {errorGroups.length === 0 ? (
-        <Card className="border-emerald-200 dark:border-emerald-800">
+        <Card className="border-success/30">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+            <p className="text-sm text-success font-medium">
               No errors in this period
             </p>
           </CardContent>
@@ -256,7 +256,7 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
         <Card>
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+              <AlertTriangle className="w-3.5 h-3.5 text-warning" />
               Top Errors ({errorGroups.length})
             </CardTitle>
           </CardHeader>
@@ -269,13 +269,13 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <XCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <XCircle className="w-3 h-3 text-destructive shrink-0" />
                       <span className="text-xs font-medium text-foreground truncate">
                         {error.type}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-[10px] px-1.5 py-0">
+                      <Badge variant="outline" className="border-transparent bg-destructive/10 text-destructive font-mono tabular-nums text-[10px] px-1.5 py-0">
                         {error.count}x
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">

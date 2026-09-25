@@ -3,7 +3,7 @@
 //
 // Shape (template, 1:1):
 //   • Outer: 2-column grid `1fr 380px`, full height, no separate header bar.
-//   • Left pane owns the eyebrow / title / subtitle / Draft pill / mode tabs
+//   • Left pane owns the title / subtitle / Draft pill / mode tabs
 //     in a top section (padding 18 24 0), then a scrolling form body
 //     (padding 0 24 24).
 //   • Right pane is the cart, flush with `surface-inset` background.
@@ -19,6 +19,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { orderService } from '@/services/orderService';
 import { pricingService } from '@/services/pricingService';
@@ -287,12 +288,8 @@ export function BillPaymentOrderFormPage() {
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px]">
       {/* ── Left: builder ── */}
       <div className="flex min-h-0 flex-col overflow-auto border-b border-border lg:border-b-0 lg:border-r">
-        {/* Top section: eyebrow / title / subtitle / Draft pill / mode tabs */}
+        {/* Top section: title / subtitle / Draft pill / mode tabs */}
         <div className="flex-none px-6 pt-[18px]">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Orders · New order
-          </div>
-
           <div className="mt-1 mb-4 flex items-end justify-between gap-4">
             <div className="min-w-0">
               <div className="text-[22px] font-bold leading-tight tracking-[-0.01em] text-foreground">
@@ -307,8 +304,8 @@ export function BillPaymentOrderFormPage() {
             </Pill>
           </div>
 
-          {/* Mode tabs — fit-content, surface-inset bg, padding 4, radius 10 */}
-          <div className="mb-5 flex w-fit items-center gap-0 rounded-[10px] bg-muted p-1">
+          {/* Mode tabs — fit-content, muted bg, padding 4 */}
+          <div className="mb-5 flex w-fit items-center gap-0 rounded-lg bg-muted p-1">
             {([
               { value: 'bill' as Mode, label: 'Bill payment', icon: Receipt },
               { value: 'transfer' as Mode, label: 'Money transfer', icon: Send },
@@ -320,16 +317,13 @@ export function BillPaymentOrderFormPage() {
                   type="button"
                   onClick={() => setMode(tab.value)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-[7px] px-4 py-[7px] text-[13px] font-medium transition-all',
+                    'flex items-center gap-1.5 rounded-md px-4 py-[7px] text-[13px] font-medium transition-all',
                     active
                       ? 'bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/_0.08)]'
                       : 'bg-transparent text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <tab.icon
-                    className="h-3.5 w-3.5"
-                    style={{ color: active ? 'var(--primary)' : 'currentColor' }}
-                  />
+                  <tab.icon className={cn('h-3.5 w-3.5', active && 'text-primary')} />
                   {tab.label}
                 </button>
               );
@@ -339,13 +333,15 @@ export function BillPaymentOrderFormPage() {
 
         {/* Page-level error (no inline banner inside form) */}
         {orderError && (
-          <div className="mx-6 mb-3 flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">
-            <AlertCircle className="h-3.5 w-3.5 flex-none" />
-            <span className="flex-1">{orderError}</span>
-            <Button variant="outline" size="sm" onClick={() => void loadOrder()}>
-              Retry
-            </Button>
-          </div>
+          <Alert variant="destructive" className="mx-6 mb-3 w-auto px-3 py-2">
+            <AlertCircle />
+            <AlertDescription className="flex w-full items-center gap-2 text-[12.5px]">
+              <span className="flex-1">{orderError}</span>
+              <Button variant="outline" size="sm" onClick={() => void loadOrder()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Form body — overflow-auto, pad 0 24 24 */}

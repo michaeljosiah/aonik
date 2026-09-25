@@ -40,7 +40,7 @@ function Step({ step }: { step: LifecycleStep }) {
         className={[
           'flex h-[22px] w-[22px] items-center justify-center rounded-full border text-[10px] font-semibold',
           done
-            ? 'border-success bg-success text-white'
+            ? 'border-success bg-success text-background'
             : current
               ? 'border-primary text-primary'
               : // Untracked and pending look alike deliberately — neither has happened. The

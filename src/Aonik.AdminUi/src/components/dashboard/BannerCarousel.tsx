@@ -66,7 +66,7 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-[4px] bg-gradient-to-br from-primary to-[var(--color-brand-primary-dark,#044448)]',
+        'relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_85%,black)]',
         className ?? 'h-[225px]'
       )}
     >
@@ -94,7 +94,7 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
                   {/* Placeholder landscape illustration */}
                   <div className="relative w-full h-full overflow-hidden">
                     {/* Sky gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#0a9ba4] to-[#0a7c84]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-[color-mix(in_oklab,var(--primary)_70%,white)] to-[color-mix(in_oklab,var(--primary)_85%,white)]" />
 
                     {/* Mountains */}
                     <svg
@@ -105,17 +105,17 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
                       {/* Back mountains */}
                       <path
                         d="M0,300 L0,180 Q100,120 200,160 Q300,100 400,140 Q500,80 600,130 Q700,100 800,150 L800,300 Z"
-                        fill="#066e75"
+                        fill="color-mix(in oklab, var(--primary) 90%, white)"
                       />
                       {/* Front hills */}
                       <path
                         d="M0,300 L0,220 Q150,180 300,210 Q450,170 600,200 Q700,180 800,220 L800,300 Z"
-                        fill="#055a60"
+                        fill="var(--primary)"
                       />
                       {/* Foreground */}
                       <path
                         d="M0,300 L0,260 Q200,240 400,255 Q600,235 800,250 L800,300 Z"
-                        fill="#044448"
+                        fill="color-mix(in oklab, var(--primary) 85%, black)"
                       />
                     </svg>
 
@@ -136,7 +136,7 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
 
                   {/* Text overlay */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-white/60 text-xl font-medium tracking-wide">
+                    <span className="text-primary-foreground/70 text-xl font-medium">
                       Banner placeholder
                     </span>
                   </div>
@@ -178,25 +178,21 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
         </button>
       )}
 
-      {/* Rectangular dot indicators (Centrali style: 22x4px rectangles) */}
+      {/* Slide indicators (22x4px bars) */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
         {images.map((_, index) => (
           <button
             key={index}
             onClick={() => scrollTo(index)}
             className={cn(
-              'h-1 rounded-[1px] transition-all duration-300',
+              'h-1 rounded-full transition-all duration-300',
               selectedIndex === index
                 ? 'w-[22px] bg-white'
-                : 'w-[22px] bg-[#727272]/30 hover:bg-[#727272]/50',
+                : 'w-[22px] bg-muted-foreground/30 hover:bg-muted-foreground/50',
             )}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 hidden overflow-hidden group-hover:block">
-        <div className="shine-effect" />
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -541,15 +543,15 @@ export function AiModelsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={openImportDialog} className="rounded-sm">
+          <Button variant="outline" onClick={openImportDialog}>
             <Download className="w-4 h-4 mr-2" />
             Import model provider
           </Button>
-          <Button variant="outline" onClick={openNewProvider} className="rounded-sm">
+          <Button variant="outline" onClick={openNewProvider}>
             <Plus className="w-4 h-4 mr-2" />
             New provider
           </Button>
-          <Button onClick={openNewModel} className="rounded-sm" disabled={providers.length === 0}>
+          <Button onClick={openNewModel} disabled={providers.length === 0}>
             <Plus className="w-4 h-4 mr-2" />
             New model
           </Button>
@@ -557,49 +559,49 @@ export function AiModelsPage() {
       </div>
 
       <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-none border-border bg-card">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <BrainCircuit className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Model providers</p>
+              <p className="text-xs text-muted-foreground">Model providers</p>
               <p className="text-2xl font-semibold text-foreground">{totalProviders}</p>
               <p className="text-xs text-muted-foreground">Configured in this tenant</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-border bg-card">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <Power className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Active providers</p>
+              <p className="text-xs text-muted-foreground">Active providers</p>
               <p className="text-2xl font-semibold text-foreground">{activeProviders}</p>
               <p className="text-xs text-muted-foreground">Available for routing policies</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-border bg-card">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Catalog models</p>
+              <p className="text-xs text-muted-foreground">Catalog models</p>
               <p className="text-2xl font-semibold text-foreground">{totalModels}</p>
               <p className="text-xs text-muted-foreground">Local model records</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-border bg-card">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <Check className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Active models</p>
+              <p className="text-xs text-muted-foreground">Active models</p>
               <p className="text-2xl font-semibold text-foreground">{activeModels}</p>
               <p className="text-xs text-muted-foreground">Enabled for runtime use</p>
             </div>
@@ -650,7 +652,7 @@ export function AiModelsPage() {
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className="rounded-none border border-border bg-card p-4"
+                  className="rounded-lg border border-border bg-card p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -818,7 +820,7 @@ export function AiModelsPage() {
 
                     {selectedCatalogModelProvider.environmentVariables.length > 0 && (
                       <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
                           Environment variables
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -854,36 +856,33 @@ export function AiModelsPage() {
                       </div>
                     ) : (
                       <div className="max-h-[240px] overflow-y-auto rounded-md border border-border">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-border bg-muted">
-                              <th className="p-3 text-left font-medium text-muted-foreground">Model</th>
-                              <th className="p-3 text-left font-medium text-muted-foreground">Family</th>
-                              <th className="p-3 text-right font-medium text-muted-foreground">Context</th>
-                              <th className="p-3 text-right font-medium text-muted-foreground">Output</th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted hover:bg-muted">
+                              <TableHead className="px-3 text-muted-foreground">Model</TableHead>
+                              <TableHead className="px-3 text-muted-foreground">Family</TableHead>
+                              <TableHead numeric className="px-3 text-muted-foreground">Context</TableHead>
+                              <TableHead numeric className="px-3 text-muted-foreground">Output</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
                             {catalogModels.map((catalogModel) => (
-                              <tr
-                                key={catalogModel.modelKey}
-                                className="border-b border-border last:border-b-0"
-                              >
-                                <td className="p-3 align-top">
+                              <TableRow key={catalogModel.modelKey}>
+                                <TableCell className="p-3 align-top">
                                   <p className="font-medium text-foreground">{catalogModel.name}</p>
                                   <p className="text-xs text-muted-foreground">{catalogModel.modelKey}</p>
-                                </td>
-                                <td className="p-3 text-muted-foreground">{catalogModel.family ?? '—'}</td>
-                                <td className="p-3 text-right text-muted-foreground">
+                                </TableCell>
+                                <TableCell className="p-3 text-muted-foreground">{catalogModel.family ?? '—'}</TableCell>
+                                <TableCell numeric className="p-3 text-muted-foreground">
                                   {catalogModel.contextWindow > 0 ? `${(catalogModel.contextWindow / 1000).toFixed(0)}k` : '—'}
-                                </td>
-                                <td className="p-3 text-right text-muted-foreground">
+                                </TableCell>
+                                <TableCell numeric className="p-3 text-muted-foreground">
                                   {catalogModel.outputTokenLimit > 0 ? `${(catalogModel.outputTokenLimit / 1000).toFixed(0)}k` : '—'}
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                             ))}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                     )}
                   </div>
@@ -937,12 +936,10 @@ export function AiModelsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="provider-active"
                 checked={providerActive}
-                onChange={(e) => setProviderActive(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setProviderActive(checked === true)}
               />
               <Label htmlFor="provider-active">Active</Label>
             </div>
@@ -1009,12 +1006,10 @@ export function AiModelsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="model-active"
                 checked={modelActive}
-                onChange={(e) => setModelActive(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setModelActive(checked === true)}
               />
               <Label htmlFor="model-active">Active</Label>
             </div>

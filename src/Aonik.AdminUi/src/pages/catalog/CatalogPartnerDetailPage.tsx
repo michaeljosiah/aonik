@@ -459,7 +459,7 @@ export function CatalogPartnerDetailPage() {
               <CardContent className="p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <div className="border-b border-border px-4">
-                    <TabsList className="h-auto flex-wrap gap-0 bg-transparent p-0">
+                    <TabsList variant="line" className="flex-wrap border-b-0">
                       {[ 
                         { value: 'overview', label: 'Overview' },
                         { value: 'coverage', label: 'Coverage' },
@@ -470,7 +470,6 @@ export function CatalogPartnerDetailPage() {
                         <TabsTrigger
                           key={tab.value}
                           value={tab.value}
-                          className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
                         >
                           {tab.label}
                         </TabsTrigger>

@@ -23,7 +23,9 @@ import {
   type PillTone,
 } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { aiPolicyService, tenantAgentSettingsService } from '@/services/aiService';
 import type {
   AiPolicySummary,
@@ -194,7 +196,6 @@ export function AiPoliciesPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="AI · Governance"
         title="Policies"
         subtitle="Guardrails applied to every agent run · enforced before any tool executes"
         actions={
@@ -244,14 +245,16 @@ export function AiPoliciesPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadPolicies()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadPolicies()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="flex flex-col gap-2.5">
@@ -356,21 +359,11 @@ function PolicyRow({
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={on}
+    <Switch
+      checked={on}
+      onCheckedChange={() => onClick()}
       aria-label={on ? 'Disable policy' : 'Enable policy'}
-      className="relative inline-flex h-4 w-[30px] flex-none cursor-pointer rounded-full transition-colors"
-      style={{
-        background: on ? 'var(--primary)' : 'var(--muted)',
-      }}
-    >
-      <span
-        className="absolute top-[1px] h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-[left]"
-        style={{ left: on ? 15 : 1 }}
-      />
-    </button>
+    />
   );
 }
 
@@ -387,20 +380,16 @@ function KillSwitchBanner({
 }) {
   return (
     <div
-      className="flex items-center gap-4 rounded-xl border p-3.5"
-      style={{
-        background: engaged ? 'rgba(204, 46, 46, 0.07)' : 'var(--card)',
-        borderColor: engaged ? 'var(--destructive)' : 'var(--border)',
-      }}
+      className={
+        'flex items-center gap-4 rounded-xl border p-3.5 ' +
+        (engaged ? 'border-destructive bg-destructive/5' : 'border-border bg-card')
+      }
     >
       <div
-        className="flex h-10 w-10 flex-none items-center justify-center rounded-lg"
-        style={{
-          background: engaged
-            ? 'rgba(204, 46, 46, 0.13)'
-            : 'var(--color-brand-primary-10)',
-          color: engaged ? 'var(--destructive)' : 'var(--primary)',
-        }}
+        className={
+          'flex h-10 w-10 flex-none items-center justify-center rounded-lg ' +
+          (engaged ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary')
+        }
       >
         <ShieldCheck className="h-5 w-5" />
       </div>
@@ -422,14 +411,7 @@ function KillSwitchBanner({
         size="sm"
         onClick={onToggle}
         disabled={saving}
-        style={
-          engaged
-            ? undefined
-            : {
-                borderColor: 'var(--destructive)',
-                color: 'var(--destructive)',
-              }
-        }
+        className={engaged ? undefined : 'border-destructive text-destructive'}
       >
         {saving ? 'Saving…' : engaged ? 'Resume agents' : 'Engage kill switch'}
       </Button>
@@ -451,7 +433,7 @@ function StatTile({
   tone: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-border bg-card p-3.5">
+    <div className="rounded-lg border border-border bg-card p-3.5">
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
         {label}

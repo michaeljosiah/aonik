@@ -106,7 +106,7 @@ function TypeIcon({ type, active }: { type: SpeechProviderType; active: boolean 
   return (
     <div
       className={cn(
-        'grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-border',
+        'grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border',
         active ? 'bg-primary/10' : 'bg-muted',
       )}
     >
@@ -123,7 +123,7 @@ function TypeIcon({ type, active }: { type: SpeechProviderType; active: boolean 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 font-mono text-[12.5px] text-foreground">{value}</div>

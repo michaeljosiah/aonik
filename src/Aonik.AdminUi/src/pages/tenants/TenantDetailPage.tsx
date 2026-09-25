@@ -331,9 +331,9 @@ export function TenantDetailPage() {
   }
 
   const StatusIcon = statusConfig[tenant.status]?.icon || AlertCircle;
-  const statusColor = statusConfig[tenant.status]?.color || 'text-gray-500';
-  const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-gray-100';
-  const envColor = environmentColors[tenant.environment] || 'bg-gray-100 text-gray-700';
+  const statusColor = statusConfig[tenant.status]?.color || 'text-muted-foreground';
+  const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-muted';
+  const envColor = environmentColors[tenant.environment] || 'bg-muted text-foreground';
 
   return (
     <div className="flex-1 overflow-auto">
@@ -477,7 +477,7 @@ export function TenantDetailPage() {
                         value={formData.name || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         className={`w-full px-4 py-2 border rounded-md text-sm bg-muted text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
-                          errors.name ? 'border-red-300' : 'border-border'
+                          errors.name ? 'border-destructive' : 'border-border'
                         }`}
                       />
                       {errors.name && (
@@ -567,7 +567,7 @@ export function TenantDetailPage() {
                   {isEditing ? (
                     <>
                       <div className={`border rounded-md p-3 bg-muted ${
-                        errors.supportedCountries ? 'border-red-300' : 'border-border'
+                        errors.supportedCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {tenantCountryOptions.map(country => (
@@ -608,7 +608,7 @@ export function TenantDetailPage() {
                   {isEditing ? (
                     <>
                       <div className={`border rounded-md p-3 bg-muted ${
-                        errors.allowedOriginCountries ? 'border-red-300' : 'border-border'
+                        errors.allowedOriginCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {(formData.supportedCountries ?? []).map((code) => (
@@ -652,7 +652,7 @@ export function TenantDetailPage() {
                   {isEditing ? (
                     <>
                       <div className={`border rounded-md p-3 bg-muted ${
-                        errors.allowedDestinationCountries ? 'border-red-300' : 'border-border'
+                        errors.allowedDestinationCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {(formData.supportedCountries ?? []).map((code) => (
@@ -778,12 +778,12 @@ export function TenantDetailPage() {
               <CardContent>
                 <dl className="space-y-3">
                   <div>
-                    <dt className="text-xs text-muted-foreground uppercase tracking-wide">Created</dt>
+                    <dt className="text-xs text-muted-foreground">Created</dt>
                     <dd className="text-sm text-foreground">{formatDate(tenant.createdAt)}</dd>
                   </div>
                   {tenant.createdBy && (
                     <div>
-                      <dt className="text-xs text-muted-foreground uppercase tracking-wide">Created By</dt>
+                      <dt className="text-xs text-muted-foreground">Created by</dt>
                       <dd className="text-sm text-foreground flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
                         {tenant.createdBy}
@@ -791,12 +791,12 @@ export function TenantDetailPage() {
                     </div>
                   )}
                   <div>
-                    <dt className="text-xs text-muted-foreground uppercase tracking-wide">Last Updated</dt>
+                    <dt className="text-xs text-muted-foreground">Last updated</dt>
                     <dd className="text-sm text-foreground">{formatDate(tenant.updatedAt)}</dd>
                   </div>
                   {tenant.updatedBy && (
                     <div>
-                      <dt className="text-xs text-muted-foreground uppercase tracking-wide">Updated By</dt>
+                      <dt className="text-xs text-muted-foreground">Updated by</dt>
                       <dd className="text-sm text-foreground flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
                         {tenant.updatedBy}

@@ -6,6 +6,12 @@
 
 import type { StepKind, EditorNodeKind } from './workflowTypes';
 
+// guardrail-ignore: the `tint` hexes below are a ten-way step-kind
+// categorical palette. There are only five --chart-N tokens, so mapping
+// them would collapse distinct kinds onto the same hue. Consumers derive
+// tints with color-mix()/fill-opacity, so swapping these for tokens later
+// (once --chart-6..10 exist) is a one-file change.
+
 export interface StepKindMeta {
   /** lucide-react icon name. */
   icon: string;

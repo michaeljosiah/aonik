@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeftRight, Receipt, TriangleAlert } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, Receipt, TriangleAlert } from 'lucide-react';
 
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { DemoSeedType } from '@/types';
@@ -27,22 +28,25 @@ const demoOptions: Array<{
   description: string;
   icon: typeof ArrowLeftRight;
   gradientClass: string;
+  iconClass: string;
 }> = [
   {
     seedType: 'CrossBorderPayments',
-    title: 'Cross-border Payments',
+    title: 'Cross-border payments',
     description:
       'Seeds multi-country corridors, partner routing, FX quotes, households, and richer customer relationships.',
     icon: ArrowLeftRight,
-    gradientClass: 'from-[#055a60] to-[#044448]',
+    gradientClass: 'from-primary to-[color-mix(in_oklab,var(--primary)_78%,black)]',
+    iconClass: 'text-primary-foreground',
   },
   {
     seedType: 'BillCollection',
-    title: 'Bill Collection',
+    title: 'Bill collection',
     description:
       'Seeds a focused bill payment corridor with utilities catalog, payer/receiver parties, and pricing defaults.',
     icon: Receipt,
-    gradientClass: 'from-[#1e3a8a] to-[#1d4ed8]',
+    gradientClass: 'from-info-foreground to-info',
+    iconClass: 'text-background',
   },
 ];
 
@@ -87,7 +91,7 @@ export function ImportDemoDataDialog({
           {step === 'selection' ? (
             <>
               <DialogHeader>
-                <DialogTitle>Import Demo Data</DialogTitle>
+                <DialogTitle>Import demo data</DialogTitle>
                 <DialogDescription>
                   Choose the demo dataset to import for the selected tenant.
                 </DialogDescription>
@@ -109,7 +113,7 @@ export function ImportDemoDataDialog({
                       onClick={() => setSelectedType(option.seedType)}
                     >
                       <div className={`h-28 bg-gradient-to-br ${option.gradientClass} flex items-center justify-center`}>
-                        <Icon className="w-14 h-14 text-white" />
+                        <Icon className={`w-14 h-14 ${option.iconClass}`} />
                       </div>
                       <div className="p-5 space-y-2">
                         <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
@@ -125,19 +129,21 @@ export function ImportDemoDataDialog({
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>Confirm Demo Import</DialogTitle>
+                <DialogTitle>Confirm demo import</DialogTitle>
                 <DialogDescription>
                   This action will upsert demo records for the selected tenant and may overwrite demo defaults.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="rounded-md border border-warning bg-warning-subtle px-4 py-3 text-sm text-warning flex items-start gap-3">
-                <TriangleAlert className="w-4 h-4 mt-0.5" />
-                <span>Proceed only if this tenant is intended for demo or sandbox workflows.</span>
-              </div>
+              <Alert variant="warning">
+                <TriangleAlert />
+                <AlertDescription>
+                  Proceed only if this tenant is intended for demo or sandbox workflows.
+                </AlertDescription>
+              </Alert>
 
               <Card className="p-4 space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected Dataset</p>
+                <p className="text-xs font-medium text-muted-foreground">Selected dataset</p>
                 <p className="text-base font-semibold text-foreground">{selectedOption.title}</p>
                 <p className="text-sm text-muted-foreground">{selectedOption.description}</p>
               </Card>
@@ -145,9 +151,10 @@ export function ImportDemoDataDialog({
           )}
 
           {error && (
-            <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           <DialogFooter>
@@ -164,7 +171,7 @@ export function ImportDemoDataDialog({
                   Back
                 </Button>
                 <Button onClick={handleImport} disabled={saving}>
-                  {saving ? 'Importing...' : 'Confirm Import'}
+                  {saving ? 'Importing...' : 'Confirm import'}
                 </Button>
               </>
             )}

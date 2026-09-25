@@ -8,6 +8,7 @@
 // The price field is the ABSOLUTE per-unit amount (Spec 066 §8), captioned as such — an
 // operator who reads it as "the extra" would author a catalogue whose every delta is wrong.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -123,21 +124,23 @@ export function ChoiceEditorSheet({
 
         <SheetBody>
           {error && (
-            <p className="mb-3 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-              {error}
-            </p>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertDescription className="text-xs">
+                {error}
+              </AlertDescription>
+            </Alert>
           )}
 
           <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 Label
               </span>
               <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 Note
               </span>
               <input
@@ -149,7 +152,7 @@ export function ChoiceEditorSheet({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 Price ({group.currency})
               </span>
               <input

@@ -12,7 +12,7 @@ interface AonikMarkProps {
 export function AonikMark({
   size = 22,
   color = 'var(--primary)',
-  letterColor = '#fff',
+  letterColor = 'var(--primary-foreground)',
 }: AonikMarkProps) {
   const radius = Math.round(size * 0.25);
   const dotSize = Math.max(5, Math.round(size * 0.22));

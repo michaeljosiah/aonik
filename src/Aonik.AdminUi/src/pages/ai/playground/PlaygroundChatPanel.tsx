@@ -84,7 +84,7 @@ export function PlaygroundChatPanel({
         ))}
 
         {streamError && (
-          <div className="rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {streamError}
           </div>
         )}

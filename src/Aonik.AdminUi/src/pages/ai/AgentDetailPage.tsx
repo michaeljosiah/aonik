@@ -75,17 +75,23 @@ const TABS: Tab[] = ['Overview', 'Sub-agents', 'Tools', 'Skills', 'MCP Servers',
 
 const DEFAULT_PAGE_SIZE = 20;
 
+/** Tints a colour (token or agent data colour) for chip and row backgrounds. */
+const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`;
+
+// guardrail-ignore: label ink drawn on the agent's generated data colour; stays white in both themes.
+const ON_DATA_INK = '#fff';
+
 const CAT_TONE: Record<DemoTool['cat'], { bg: string; fg: string }> = {
-  read: { bg: 'var(--color-brand-primary-10)', fg: 'var(--primary)' },
-  write: { bg: '#eb5c371a', fg: '#eb5c37' },
-  compute: { bg: '#3ab7951a', fg: '#3ab795' },
-  display: { bg: '#7b76b61a', fg: '#7b76b6' },
+  read: { bg: tint('var(--chart-1)', 10), fg: 'var(--chart-1)' },
+  write: { bg: tint('var(--chart-3)', 10), fg: 'var(--chart-3)' },
+  compute: { bg: tint('var(--chart-2)', 10), fg: 'var(--chart-2)' },
+  display: { bg: tint('var(--chart-4)', 10), fg: 'var(--chart-4)' },
 };
 
 const AUTONOMY_TONE: Record<DemoSubAgent['autonomy'], { bg: string; fg: string; t: string }> = {
-  auto: { bg: '#1f7a5e1a', fg: '#1f7a5e', t: 'Auto-apply' },
-  propose: { bg: '#b4741e1a', fg: '#b4741e', t: 'Propose' },
-  block: { bg: '#7b76b61a', fg: '#7b76b6', t: 'Required' },
+  auto: { bg: tint('var(--success)', 10), fg: 'var(--success)', t: 'Auto-apply' },
+  propose: { bg: tint('var(--warning)', 10), fg: 'var(--warning)', t: 'Propose' },
+  block: { bg: tint('var(--chart-4)', 10), fg: 'var(--chart-4)', t: 'Required' },
 };
 
 export function AgentDetailPage() {
@@ -283,7 +289,7 @@ function KpiStrip({ color }: { color: string }) {
           key={k.label}
           className="rounded-xl border border-border bg-card p-3.5"
         >
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="text-xs font-medium text-muted-foreground">
             {k.label}
           </div>
           <div className="mt-1.5 flex items-end gap-2">
@@ -302,7 +308,7 @@ function KpiStrip({ color }: { color: string }) {
           </div>
           <div
             className="mt-1 font-[family-name:var(--font-mono)] text-[11px]"
-            style={{ color: k.positive ? 'var(--success)' : '#c44536' }}
+            style={{ color: k.positive ? 'var(--success)' : 'var(--destructive)' }}
           >
             {k.delta}
           </div>
@@ -331,7 +337,7 @@ function SubAgentsSection() {
           return (
             <div
               key={s.id}
-              className="flex cursor-pointer gap-3 rounded-[10px] border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
+              className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
             >
               <AgentPortrait name={s.name} color={s.color} glyph={s.glyph} size={42} ring={false} />
               <div className="min-w-0 flex-1">
@@ -340,7 +346,7 @@ function SubAgentsSection() {
                     {s.name}
                   </span>
                   <span
-                    className="rounded px-1.5 py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.04em]"
+                    className="rounded-md px-1.5 py-[1px] text-[10px] font-medium"
                     style={{ background: tone.bg, color: tone.fg }}
                   >
                     {tone.t}
@@ -381,7 +387,7 @@ function ToolsSection({ tools }: { tools: DemoTool[] }) {
         </>
       }
     >
-      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <ToolsHeaderRow />
         {tools.map((t, i) => (
           <ToolRow key={t.name} tool={t} last={i === tools.length - 1} />
@@ -397,16 +403,16 @@ function ToolsHeaderRow() {
       className="grid items-center gap-3.5 border-b border-border bg-muted px-3.5 py-2"
       style={{ gridTemplateColumns: '90px 1fr 90px 80px 24px' }}
     >
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         Kind
       </div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         Tool
       </div>
-      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-right text-xs font-medium text-muted-foreground">
         Uses · 24h
       </div>
-      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-right text-xs font-medium text-muted-foreground">
         p99
       </div>
       <div />
@@ -422,7 +428,7 @@ function ToolRow({ tool, last }: { tool: DemoTool; last: boolean }) {
       style={{ gridTemplateColumns: '90px 1fr 90px 80px 24px' }}
     >
       <span
-        className="justify-self-start rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase tracking-[0.06em]"
+        className="justify-self-start rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium"
         style={{ background: tone.bg, color: tone.fg }}
       >
         {tool.cat}
@@ -440,7 +446,7 @@ function ToolRow({ tool, last }: { tool: DemoTool; last: boolean }) {
       </div>
       <div
         className="text-right font-[family-name:var(--font-mono)] text-[12px]"
-        style={{ color: tool.errors > 0 ? '#c44536' : 'var(--muted-foreground)' }}
+        style={{ color: tool.errors > 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}
       >
         {tool.errors > 0 ? `${tool.errors} err` : tool.p99}
       </div>
@@ -450,7 +456,7 @@ function ToolRow({ tool, last }: { tool: DemoTool; last: boolean }) {
 }
 
 function SkillsSection({ color }: { color: string }) {
-  const sourceTone = { org: '#055a60', community: '#7b76b6', private: '#b4741e' } as const;
+  const sourceTone = { org: 'var(--chart-1)', community: 'var(--chart-4)', private: 'var(--warning)' } as const;
   return (
     <Section
       title="Skills"
@@ -474,12 +480,12 @@ function SkillsSection({ color }: { color: string }) {
           return (
             <div
               key={s.name}
-              className="grid cursor-pointer items-start gap-3 rounded-[10px] border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
+              className="grid cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
               style={{ gridTemplateColumns: '30px 1fr auto' }}
             >
               <div
-                className="grid h-7 w-7 place-items-center rounded-[7px]"
-                style={{ background: `${color}14`, color }}
+                className="grid h-7 w-7 place-items-center rounded-md"
+                style={{ background: tint(color, 8), color }}
               >
                 <Folder className="h-3.5 w-3.5" />
               </div>
@@ -493,15 +499,15 @@ function SkillsSection({ color }: { color: string }) {
                   </span>
                   {s.status === 'beta' && (
                     <span
-                      className="rounded px-1.5 py-[1px] text-[9.5px] font-semibold tracking-[0.04em]"
-                      style={{ background: '#b4741e1a', color: '#b4741e' }}
+                      className="rounded-md px-1.5 py-[1px] text-[10px] font-medium"
+                      style={{ background: tint('var(--warning)', 10), color: 'var(--warning)' }}
                     >
-                      BETA
+                      Beta
                     </span>
                   )}
                   <span
-                    className="rounded px-1.5 py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.04em]"
-                    style={{ background: `${tone}14`, color: tone }}
+                    className="rounded-md px-1.5 py-[1px] text-[10px] font-medium"
+                    style={{ background: tint(tone, 8), color: tone }}
                   >
                     {s.source}
                   </span>
@@ -529,8 +535,8 @@ function SkillsSection({ color }: { color: string }) {
 function McpSection() {
   const stTone = {
     connected: { c: 'var(--success)', t: 'Connected' },
-    connecting: { c: '#b4741e', t: 'Connecting' },
-    error: { c: '#c44536', t: 'Error' },
+    connecting: { c: 'var(--warning)', t: 'Connecting' },
+    error: { c: 'var(--destructive)', t: 'Error' },
   } as const;
   return (
     <Section
@@ -555,10 +561,10 @@ function McpSection() {
           return (
             <div
               key={s.name}
-              className="grid items-center gap-3.5 rounded-[10px] border border-border bg-card px-3.5 py-3"
+              className="grid items-center gap-3.5 rounded-lg border border-border bg-card px-3.5 py-3"
               style={{ gridTemplateColumns: '36px 1fr 110px 90px 90px 24px' }}
             >
-              <div className="relative grid h-8 w-8 place-items-center rounded-[7px] bg-muted">
+              <div className="relative grid h-8 w-8 place-items-center rounded-md bg-muted">
                 <Server className="h-3.5 w-3.5 text-muted-foreground" />
                 <span
                   className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
@@ -575,19 +581,19 @@ function McpSection() {
                   </span>
                   {s.native && (
                     <span
-                      className="rounded px-1.5 py-[1px] text-[9.5px] font-semibold tracking-[0.04em]"
+                      className="rounded-md px-1.5 py-[1px] text-[10px] font-medium"
                       style={{
-                        background: 'var(--color-brand-primary-10)',
+                        background: tint('var(--primary)', 10),
                         color: 'var(--primary)',
                       }}
                     >
-                      NATIVE
+                      Native
                     </span>
                   )}
                 </div>
                 <div className="mt-px truncate font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
                   {s.url}
-                  {s.err && <span className="ml-2 text-[#c44536]">· {s.err}</span>}
+                  {s.err && <span className="ml-2 text-destructive">· {s.err}</span>}
                 </div>
               </div>
               <span
@@ -625,7 +631,7 @@ function ConnectionMapCard({ color, agentName }: { color: string; agentName: str
   }));
 
   return (
-    <CardShell title="Network" eyebrow="Live · last 60s">
+    <CardShell title="Network" meta="Live · last 60s">
       <div className="relative" style={{ height: 240 }}>
         <svg width="100%" height="240" viewBox="0 0 320 240" className="block">
           <defs>
@@ -689,9 +695,8 @@ function ConnectionMapCard({ color, agentName }: { color: string; agentName: str
             y={cy + 4}
             textAnchor="middle"
             fontSize={11}
-            fontFamily="var(--font-brand)"
             fontWeight={600}
-            fill="#fff"
+            fill={ON_DATA_INK}
           >
             {agentName.split(/[\s_-]+/)[0]}
           </text>
@@ -728,18 +733,18 @@ function RecentRunsCard({
         txn: '—',
       }))
     : DEMO_RUNS;
-  const eyebrow = useReal ? `${runs.length} of ${totalRuns}` : `${DEMO_RUNS.length} of 318`;
+  const meta = useReal ? `${runs.length} of ${totalRuns}` : `${DEMO_RUNS.length} of 318`;
 
   const tone: Record<'ok' | 'held' | 'err', string> = {
     ok: 'var(--success)',
-    held: '#b4741e',
-    err: '#c44536',
+    held: 'var(--warning)',
+    err: 'var(--destructive)',
   };
 
   return (
     <CardShell
       title="Recent runs"
-      eyebrow={eyebrow}
+      meta={meta}
       action={
         <Button variant="ghost" size="sm">
           View all →
@@ -763,8 +768,8 @@ function RecentRunsCard({
             style={{ gridTemplateColumns: '40px 1fr 50px' }}
           >
             <span
-              className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase tracking-[0.04em]"
-              style={{ background: `${tone[r.status]}1a`, color: tone[r.status] }}
+              className="rounded-md px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium"
+              style={{ background: tint(tone[r.status], 10), color: tone[r.status] }}
             >
               {r.status}
             </span>
@@ -808,7 +813,7 @@ function PolicyCard({ agent }: { agent: AgentConfigurationResponse }) {
   };
 
   return (
-    <CardShell title="Policies & safety" eyebrow={`${policies.filter((p) => p.enforced).length} active`}>
+    <CardShell title="Policies & safety" meta={`${policies.filter((p) => p.enforced).length} active`}>
       <div className="flex flex-col gap-2.5 px-3.5 py-3">
         {policies.map((p, i) => (
           <div key={i} className="flex items-start gap-2.5">
@@ -845,7 +850,7 @@ function SubAgentsTab() {
     { to: DEMO_SUB_AGENTS[0], op: 'apply_journal_entry', at: '11m', ms: 188, status: 'held' },
     { to: DEMO_SUB_AGENTS[3], op: 'queue_reminder', at: '1h', ms: 142, status: 'ok' },
   ] as const;
-  const tone = { ok: '#1f7a5e', held: '#b4741e', err: '#c44536' } as const;
+  const tone = { ok: 'var(--success)', held: 'var(--warning)', err: 'var(--destructive)' } as const;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
@@ -872,11 +877,11 @@ function SubAgentsTab() {
               style={{ gridTemplateColumns: '52px 1.5fr 1fr 110px 80px 90px 24px' }}
             >
               <div />
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Agent · role</div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Autonomy</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Calls · 24h</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Success</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Avg · last</div>
+              <div className="text-xs font-medium text-muted-foreground">Agent · role</div>
+              <div className="text-xs font-medium text-muted-foreground">Autonomy</div>
+              <div className="text-right text-xs font-medium text-muted-foreground">Calls · 24h</div>
+              <div className="text-right text-xs font-medium text-muted-foreground">Success</div>
+              <div className="text-right text-xs font-medium text-muted-foreground">Avg · last</div>
               <div />
             </div>
             {DEMO_SUB_AGENTS.map((s, i, arr) => {
@@ -895,9 +900,9 @@ function SubAgentsTab() {
                     </div>
                     <div className="mt-0.5 text-[11.5px] text-muted-foreground">{s.role}</div>
                   </div>
-                  <span className="justify-self-start rounded px-2 py-[3px] text-[9.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: autonomyTone.bg, color: autonomyTone.fg }}>{autonomyTone.t}</span>
+                  <span className="justify-self-start rounded px-2 py-[3px] text-[10px] font-medium" style={{ background: autonomyTone.bg, color: autonomyTone.fg }}>{autonomyTone.t}</span>
                   <span className="text-right font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">{s.calls}</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px]" style={{ color: s.successRate >= s.sla ? 'var(--success)' : '#b4741e' }}>{s.successRate.toFixed(1)}%</span>
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px]" style={{ color: s.successRate >= s.sla ? 'var(--success)' : 'var(--warning)' }}>{s.successRate.toFixed(1)}%</span>
                   <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{s.avgMs}ms · {s.last}</span>
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
@@ -907,10 +912,10 @@ function SubAgentsTab() {
         </Section>
 
         <Section title="Recent delegations" subtitle="Invocation log across all sub-agents (24h)." count={log.length} action={<Button variant="ghost" size="sm">Open in Traces →</Button>}>
-          <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {log.map((entry, i) => (
               <div key={`${entry.op}-${i}`} className={cn('grid items-center gap-3.5 px-3.5 py-2.5', i < log.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '40px 1fr 1fr 80px 60px 50px' }}>
-                <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase tracking-[0.04em]" style={{ background: `${tone[entry.status]}1a`, color: tone[entry.status] }}>{entry.status}</span>
+                <span className="rounded-md px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium" style={{ background: tint(tone[entry.status], 10), color: tone[entry.status] }}>{entry.status}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground">self</span>
                   <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
@@ -928,7 +933,7 @@ function SubAgentsTab() {
       </div>
 
       <div className="flex flex-col gap-5">
-        <ConnectionMapCard color="#eb5c37" agentName="Billing" />
+        <ConnectionMapCard color="var(--chart-3)" agentName="Billing" />
         <CardShell title="How sub-agents work">
           <div className="p-3.5 text-[12px] leading-relaxed text-muted-foreground">
             Calls inherit tenant scope and trace context. The callee still runs under its own policies, so Compliance can block even if Billing requested the check.
@@ -970,7 +975,7 @@ function ToolsTab({
           </>
         }
       >
-        <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           {tools.map((tt, i) => {
             const tone = CAT_TONE[tt.cat];
             const active = i === sel;
@@ -986,12 +991,12 @@ function ToolsTab({
                 )}
                 style={{
                   gridTemplateColumns: '90px 1fr 80px 80px 16px',
-                  background: active ? `${color}0a` : 'transparent',
+                  background: active ? tint(color, 4) : 'transparent',
                   borderLeft: `3px solid ${active ? color : 'transparent'}`,
                 }}
               >
                 <span
-                  className="justify-self-start rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase tracking-[0.06em]"
+                  className="justify-self-start rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium"
                   style={{ background: tone.bg, color: tone.fg }}
                 >
                   {tt.cat}
@@ -1009,7 +1014,7 @@ function ToolsTab({
                 </div>
                 <div
                   className="text-right font-[family-name:var(--font-mono)] text-[12px]"
-                  style={{ color: tt.errors > 0 ? '#c44536' : 'var(--muted-foreground)' }}
+                  style={{ color: tt.errors > 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}
                 >
                   {tt.errors > 0 ? `${tt.errors} err` : tt.p99}
                 </div>
@@ -1023,7 +1028,7 @@ function ToolsTab({
       <div className="flex flex-col gap-4">
         <CardShell
           title={t.name}
-          eyebrow={`${t.cat} tool · v2.1.0`}
+          meta={`${t.cat} tool · v2.1.0`}
           action={
             <Button variant="ghost" size="sm">
               Open in Playground →
@@ -1040,11 +1045,11 @@ function ToolsTab({
               <MiniStat
                 label="Errors"
                 value={t.errors.toString()}
-                tone={t.errors > 0 ? '#c44536' : null}
+                tone={t.errors > 0 ? 'var(--destructive)' : null}
               />
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
                 Input schema
               </div>
               <pre className="m-0 whitespace-pre-wrap rounded-md border border-border bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-foreground">
@@ -1056,7 +1061,7 @@ function ToolsTab({
               </pre>
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
                 Returns
               </div>
               <pre className="m-0 whitespace-pre-wrap rounded-md border border-border bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-foreground">
@@ -1070,7 +1075,7 @@ function ToolsTab({
           </div>
         </CardShell>
 
-        <CardShell title="Recent invocations" eyebrow={`last 5 of ${t.uses.toLocaleString()}`}>
+        <CardShell title="Recent invocations" meta={`last 5 of ${t.uses.toLocaleString()}`}>
           <div>
             {[
               { ms: 142, at: 'now', status: 'ok', ref: 'INV-2041' },
@@ -1079,10 +1084,10 @@ function ToolsTab({
               { ms: 318, at: '1h', status: 'err', ref: 'INV-2031' },
               { ms: 142, at: '2h', status: 'ok', ref: 'INV-2024' },
             ].map((r, i, arr) => {
-              const rowColor = r.status === 'ok' ? '#1f7a5e' : '#c44536';
+              const rowColor = r.status === 'ok' ? 'var(--success)' : 'var(--destructive)';
               return (
                 <div key={`${r.ref}-${i}`} className={cn('grid items-center gap-2.5 px-3.5 py-2', i < arr.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '40px 1fr 60px 50px' }}>
-                  <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase" style={{ background: `${rowColor}1a`, color: rowColor }}>{r.status}</span>
+                  <span className="rounded-md px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium" style={{ background: tint(rowColor, 10), color: rowColor }}>{r.status}</span>
                   <span className="font-[family-name:var(--font-mono)] text-[11px] text-foreground">{r.ref}</span>
                   <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.ms}ms</span>
                   <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.at}</span>
@@ -1099,7 +1104,7 @@ function ToolsTab({
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: string | null }) {
   return (
     <div className="rounded-md border border-border bg-card px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       <div
@@ -1127,18 +1132,18 @@ function SkillsTab({ color }: { color: string }) {
   }));
   const filtered = details.filter((s) => filter === 'all' || s.status === filter || s.source === filter);
   const active = filtered[selected] ?? filtered[0];
-  const sourceTone = { org: '#055a60', community: '#7b76b6', private: '#b4741e' } as const;
+  const sourceTone = { org: 'var(--chart-1)', community: 'var(--chart-4)', private: 'var(--warning)' } as const;
 
   return (
     <div className="flex flex-col gap-5">
       <div className="grid overflow-hidden rounded-xl border border-border bg-card md:grid-cols-3">
         {[
-          { eyebrow: '1 · Discovery', title: 'Read name + description', body: 'On every turn the agent skims registered skills; only frontmatter is loaded.' },
-          { eyebrow: '2 · Activation', title: 'Load full SKILL.md', body: 'When a skill matches, its full instructions enter the context window.' },
-          { eyebrow: '3 · Execution', title: 'Run scripts + refs', body: 'Bundled scripts, references, and assets are pulled only when needed.' },
+          { meta: '1 · Discovery', title: 'Read name + description', body: 'On every turn the agent skims registered skills; only frontmatter is loaded.' },
+          { meta: '2 · Activation', title: 'Load full SKILL.md', body: 'When a skill matches, its full instructions enter the context window.' },
+          { meta: '3 · Execution', title: 'Run scripts + refs', body: 'Bundled scripts, references, and assets are pulled only when needed.' },
         ].map((step, i) => (
-          <div key={step.eyebrow} className={cn('p-4', i < 2 && 'border-b border-border md:border-b-0 md:border-r')}>
-            <div className="font-[family-name:var(--font-mono)] text-[10px] font-semibold tracking-[0.06em]" style={{ color }}>{step.eyebrow}</div>
+          <div key={step.meta} className={cn('p-4', i < 2 && 'border-b border-border md:border-b-0 md:border-r')}>
+            <div className="font-[family-name:var(--font-mono)] text-[10px] font-semibold" style={{ color }}>{step.meta}</div>
             <div className="mt-1 text-[13px] font-semibold text-foreground">{step.title}</div>
             <div className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{step.body}</div>
           </div>
@@ -1172,9 +1177,9 @@ function SkillsTab({ color }: { color: string }) {
                 onClick={() => { setFilter(f.id as typeof filter); setSelected(0); }}
                 className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
                 style={{
-                  background: filter === f.id ? `${color}14` : 'var(--card)',
+                  background: filter === f.id ? tint(color, 8) : 'var(--card)',
                   color: filter === f.id ? color : 'var(--muted-foreground)',
-                  borderColor: filter === f.id ? `${color}55` : 'var(--border)',
+                  borderColor: filter === f.id ? tint(color, 33) : 'var(--border)',
                 }}
               >
                 {f.label}
@@ -1190,16 +1195,16 @@ function SkillsTab({ color }: { color: string }) {
                   key={skill.slug}
                   type="button"
                   onClick={() => setSelected(i)}
-                  className="grid items-start gap-3 rounded-[10px] border p-3.5 text-left"
-                  style={{ gridTemplateColumns: '32px 1fr auto', background: selectedSkill ? `${color}0a` : 'var(--card)', borderColor: selectedSkill ? color : 'var(--border)' }}
+                  className="grid items-start gap-3 rounded-lg border p-3.5 text-left"
+                  style={{ gridTemplateColumns: '32px 1fr auto', background: selectedSkill ? tint(color, 4) : 'var(--card)', borderColor: selectedSkill ? color : 'var(--border)' }}
                 >
-                  <div className="grid h-8 w-8 place-items-center rounded-[7px]" style={{ background: `${color}14`, color }}><Folder className="h-4 w-4" /></div>
+                  <div className="grid h-8 w-8 place-items-center rounded-md" style={{ background: tint(color, 8), color }}><Folder className="h-4 w-4" /></div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[13.5px] font-semibold text-foreground">{skill.displayName}</span>
                       <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">v{skill.version}</span>
-                      {skill.status === 'beta' && <span className="rounded px-1.5 py-px text-[9.5px] font-semibold tracking-[0.04em]" style={{ background: '#b4741e1a', color: '#b4741e' }}>BETA</span>}
-                      <span className="rounded px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-[0.04em]" style={{ background: `${tone}14`, color: tone }}>{skill.source}</span>
+                      {skill.status === 'beta' && <span className="rounded-md px-1.5 py-px text-[10px] font-medium" style={{ background: tint('var(--warning)', 10), color: 'var(--warning)' }}>Beta</span>}
+                      <span className="rounded-md px-1.5 py-px text-[10px] font-medium" style={{ background: tint(tone, 8), color: tone }}>{skill.source}</span>
                     </div>
                     <div className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{skill.desc}</div>
                   </div>
@@ -1217,20 +1222,20 @@ function SkillsTab({ color }: { color: string }) {
           <div className="flex flex-col gap-4 xl:sticky xl:top-0">
             <CardShell
               title={active.displayName}
-              eyebrow={<span className="font-[family-name:var(--font-mono)]">aonik-org/skills/{active.slug} · v{active.version}</span>}
+              meta={<span className="font-[family-name:var(--font-mono)]">aonik-org/skills/{active.slug} · v{active.version}</span>}
               action={<><Button variant="ghost" size="sm"><Play className="h-3 w-3" />Test</Button><Button variant="outline" size="sm"><Edit3 className="h-3 w-3" />Edit</Button></>}
             >
               <div className="flex flex-col gap-3.5 p-3.5">
                 <p className="m-0 text-[12.5px] leading-relaxed text-muted-foreground">{active.desc}</p>
                 <div className="grid grid-cols-3 gap-2">
                   <MiniStat label="Activations · 24h" value={active.last24h.toString()} />
-                  <MiniStat label="Hit rate" value={`${Math.round(active.hitRate * 100)}%`} tone={active.hitRate >= 0.95 ? '#1f7a5e' : '#b4741e'} />
+                  <MiniStat label="Hit rate" value={`${Math.round(active.hitRate * 100)}%`} tone={active.hitRate >= 0.95 ? 'var(--success)' : 'var(--warning)'} />
                   <MiniStat label="SKILL.md size" value="1.8 KB" />
                 </div>
                 {active.skillMd && (
                   <div>
                     <SmallLabel>SKILL.md · loaded on activation</SmallLabel>
-                    <pre className="max-h-[260px] overflow-auto rounded-lg bg-[#1a1d21] p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-[#d8dde2]">
+                    <pre className="max-h-[260px] overflow-auto rounded-lg border border-border bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-foreground">
                       {active.skillMd}
                     </pre>
                   </div>
@@ -1268,7 +1273,7 @@ function McpTab() {
     lastSync: server.status === 'connecting' ? 'in progress' : server.status === 'error' ? 'failed 18m ago' : index === 0 ? '12s ago' : '2m ago',
     err: server.err ? 'TLS handshake failed · cert chain incomplete' : undefined,
   }));
-  const stTone = { connected: '#1f7a5e', connecting: '#b4741e', error: '#c44536' } as const;
+  const stTone = { connected: 'var(--success)', connecting: 'var(--warning)', error: 'var(--destructive)' } as const;
 
   return (
     <Section
@@ -1286,7 +1291,7 @@ function McpTab() {
         {servers.map((server) => {
           const color = stTone[server.status];
           return (
-            <div key={server.name} className="overflow-hidden rounded-xl border bg-card" style={{ borderColor: server.status === 'error' ? '#c4453633' : 'var(--border)' }}>
+            <div key={server.name} className="overflow-hidden rounded-xl border bg-card" style={{ borderColor: server.status === 'error' ? tint('var(--destructive)', 20) : 'var(--border)' }}>
               <div className="grid items-center gap-3.5 px-4 py-3.5" style={{ gridTemplateColumns: '40px 1fr 100px 100px 100px 100px' }}>
                 <div className="relative grid h-9 w-9 place-items-center rounded-lg bg-muted">
                   <Server className="h-4 w-4 text-muted-foreground" />
@@ -1295,8 +1300,8 @@ function McpTab() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[13.5px] font-semibold text-foreground">{server.name}</span>
-                    {server.native && <span className="rounded px-1.5 py-px text-[9.5px] font-semibold tracking-[0.04em] text-primary bg-primary/10">NATIVE</span>}
-                    <span className="rounded bg-muted px-1.5 py-px font-[family-name:var(--font-mono)] text-[9.5px] font-semibold tracking-[0.04em] text-muted-foreground">{server.auth}</span>
+                    {server.native && <span className="rounded-md px-1.5 py-px text-[10px] font-medium text-primary bg-primary/10">Native</span>}
+                    <span className="rounded bg-muted px-1.5 py-px font-[family-name:var(--font-mono)] text-[10px] font-medium text-muted-foreground">{server.auth}</span>
                   </div>
                   <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">{server.url}</div>
                 </div>
@@ -1309,11 +1314,11 @@ function McpTab() {
                 </div>
               </div>
               {server.err && (
-                <div className="flex items-center gap-2 border-t border-[#c4453633] bg-[#c4453608] px-4 py-2.5 text-[11.5px] text-[#c44536]">
+                <div className="flex items-center gap-2 border-t border-destructive/20 bg-destructive/5 px-4 py-2.5 text-[11.5px] text-destructive">
                   <AlertTriangle className="h-3 w-3" />
                   {server.err}
                   <div className="flex-1" />
-                  <Button variant="ghost" size="sm" className="h-[22px] px-2 text-[11px] text-[#c44536]">Retry</Button>
+                  <Button variant="ghost" size="sm" className="h-[22px] px-2 text-[11px] text-destructive">Retry</Button>
                   <Button variant="ghost" size="sm" className="h-[22px] px-2 text-[11px]">View logs</Button>
                 </div>
               )}
@@ -1362,7 +1367,7 @@ function ActivityTab({
         sub: 0,
       }))
     : DEMO_RUNS.map((r, i) => ({ ...r, id: `run_5a${i}`, tool: 4 + i, sub: i % 3 === 0 ? 1 : 0 }));
-  const tone = { ok: '#1f7a5e', held: '#b4741e', err: '#c44536' } as const;
+  const tone = { ok: 'var(--success)', held: 'var(--warning)', err: 'var(--destructive)' } as const;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
@@ -1378,16 +1383,16 @@ function ActivityTab({
           </>
         }
       >
-        <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="grid gap-3.5 border-b border-border bg-muted px-4 py-2.5" style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
             {['', 'Run', 'Operation', 'Subject', 'Tools', 'Dur', 'Age'].map((h, i) => (
-              <div key={`${h}-${i}`} className={cn('text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground', i >= 4 && 'text-right')}>{h}</div>
+              <div key={`${h}-${i}`} className={cn('text-xs font-medium text-muted-foreground', i >= 4 && 'text-right')}>{h}</div>
             ))}
           </div>
           {runsLoading && (!runs || runs.items.length === 0) && <div className="px-4 py-6 text-center text-[12px] text-muted-foreground">Loading…</div>}
           {displayRuns.map((r, i) => (
             <div key={`${r.id}-${i}`} className={cn('grid cursor-pointer items-center gap-3.5 px-4 py-3', i < displayRuns.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
-              <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase" style={{ background: `${tone[r.status]}1a`, color: tone[r.status] }}>{r.status}</span>
+              <span className="rounded-md px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[10px] font-medium" style={{ background: tint(tone[r.status], 10), color: tone[r.status] }}>{r.status}</span>
               <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.id}</span>
               <span className="truncate font-[family-name:var(--font-mono)] text-[12.5px] text-foreground">{r.op}</span>
               <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">{r.txn}</span>
@@ -1399,8 +1404,8 @@ function ActivityTab({
         </div>
       </Section>
 
-      <CardShell title="Live log stream" eyebrow="streaming · last 30s">
-        <div className="max-h-[360px] overflow-auto bg-[#0e1620] p-3 font-[family-name:var(--font-mono)] text-[10.5px] leading-[1.7] text-[#d4dbe5]">
+      <CardShell title="Live log stream" meta="streaming · last 30s">
+        <div className="max-h-[360px] overflow-auto bg-muted p-3 font-[family-name:var(--font-mono)] text-[10.5px] leading-[1.7] text-foreground">
           {[
             { t: '12:04:18.214', l: 'I', m: 'agent.start  trace=tr_8c12' },
             { t: '12:04:18.301', l: 'I', m: 'tool.call    list_bank_transactions(window=72h)' },
@@ -1411,8 +1416,8 @@ function ActivityTab({
             { t: '12:04:19.063', l: 'I', m: 'agent.end    status=ok dur=3.14s' },
           ].map((row, i) => (
             <div key={`${row.t}-${i}`} className="grid gap-2" style={{ gridTemplateColumns: '90px 14px 1fr' }}>
-              <span className="text-[#6b7a8c]">{row.t}</span>
-              <span className="text-[#5b9dd6]">{row.l}</span>
+              <span className="text-muted-foreground">{row.t}</span>
+              <span className="text-info">{row.l}</span>
               <span>{row.m}</span>
             </div>
           ))}
@@ -1468,7 +1473,7 @@ function SettingsTab({
       </div>
 
       <div className="flex flex-col gap-5">
-        <CardShell title="Versioning" eyebrow="v0.42.1 · deployed 12d">
+        <CardShell title="Versioning" meta="v0.42.1 · deployed 12d">
           <div className="flex flex-col gap-2 p-3.5">
             {[
               { v: 'v0.42.1', t: '12 days ago', by: 'maria', note: 'Tightened approval guardrails', active: true },
@@ -1476,7 +1481,7 @@ function SettingsTab({
               { v: 'v0.41.4', t: '1 month ago', by: 'aaron', note: 'Bumped match threshold' },
               { v: 'v0.41.0', t: '2 months ago', by: 'maria', note: 'Initial release' },
             ].map((version) => (
-              <div key={version.v} className="grid items-center gap-2.5 rounded-lg border p-2.5" style={{ gridTemplateColumns: '70px 1fr auto', background: version.active ? 'var(--color-brand-primary-10)' : 'var(--muted)', borderColor: version.active ? 'var(--color-brand-primary-20)' : 'var(--border)' }}>
+              <div key={version.v} className="grid items-center gap-2.5 rounded-lg border p-2.5" style={{ gridTemplateColumns: '70px 1fr auto', background: version.active ? tint('var(--primary)', 10) : 'var(--muted)', borderColor: version.active ? tint('var(--primary)', 20) : 'var(--border)' }}>
                 <span className="font-[family-name:var(--font-mono)] text-[11px] font-semibold text-foreground">{version.v}</span>
                 <div className="min-w-0">
                   <div className="text-[11.5px] text-foreground">{version.note}</div>
@@ -1488,7 +1493,7 @@ function SettingsTab({
           </div>
         </CardShell>
 
-        <CardShell title="Current config" eyebrow={agent.id.slice(0, 12)}>
+        <CardShell title="Current config" meta={agent.id.slice(0, 12)}>
           <div className="grid gap-2 p-3.5">
             <SettingsRow label="Domain" value={agent.domain || '—'} />
             <SettingsRow label="Model" value={agent.modelName ?? '—'} mono />
@@ -1516,7 +1521,7 @@ function SettingLine({ label, description, children }: { label: string; descript
 function SwitchPill({ on }: { on: boolean }) {
   return (
     <span className="inline-flex h-[17px] w-[30px] items-center rounded-full p-0.5" style={{ background: on ? 'var(--primary)' : 'var(--border)' }}>
-      <span className="h-[13px] w-[13px] rounded-full bg-white transition-transform" style={{ transform: on ? 'translateX(13px)' : 'translateX(0)' }} />
+      <span className="h-[13px] w-[13px] rounded-full bg-background transition-transform" style={{ transform: on ? 'translateX(13px)' : 'translateX(0)' }} />
     </span>
   );
 }
@@ -1527,20 +1532,20 @@ function Divider() {
 
 function DangerRow({ title, description, cta, destructive }: { title: string; description: string; cta: string; destructive?: boolean }) {
   return (
-    <div className="grid items-center gap-3.5 rounded-lg border p-3" style={{ gridTemplateColumns: '1fr auto', borderColor: destructive ? '#c4453633' : 'var(--border)' }}>
+    <div className="grid items-center gap-3.5 rounded-lg border p-3" style={{ gridTemplateColumns: '1fr auto', borderColor: destructive ? tint('var(--destructive)', 20) : 'var(--border)' }}>
       <div>
-        <div className="text-[12.5px] font-medium" style={{ color: destructive ? '#c44536' : 'var(--foreground)' }}>{title}</div>
+        <div className="text-[12.5px] font-medium" style={{ color: destructive ? 'var(--destructive)' : 'var(--foreground)' }}>{title}</div>
         <div className="mt-0.5 text-[11.5px] text-muted-foreground">{description}</div>
       </div>
-      <Button variant="outline" size="sm" className={destructive ? 'border-[#c4453666] text-[#c44536]' : undefined}>{cta}</Button>
+      <Button variant="outline" size="sm" className={destructive ? 'border-destructive/40 text-destructive' : undefined}>{cta}</Button>
     </div>
   );
 }
 
 function SettingsRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-[10px] border border-border bg-card px-3.5 py-3">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3.5 py-3">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <span
@@ -1575,7 +1580,7 @@ function Section({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="m-0 font-[family-name:var(--font-brand)] text-[18px] tracking-[-0.01em] text-foreground">
+            <h2 className="m-0 text-[18px] font-semibold tracking-tight text-foreground">
               {title}
             </h2>
             {count != null && (
@@ -1599,24 +1604,24 @@ function Section({
 
 function CardShell({
   title,
-  eyebrow,
+  meta,
   action,
   children,
 }: {
   title?: string;
-  eyebrow?: React.ReactNode;
+  meta?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
-      {(title || eyebrow) && (
+      {(title || meta) && (
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-3">
           <div className="min-w-0 flex-1">
             {title && <div className="text-[13px] font-semibold text-foreground">{title}</div>}
-            {eyebrow && (
+            {meta && (
               <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
-                {eyebrow}
+                {meta}
               </div>
             )}
           </div>
@@ -1630,7 +1635,7 @@ function CardShell({
 
 function SmallLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="mb-2 text-xs font-medium text-muted-foreground">
       {children}
     </div>
   );

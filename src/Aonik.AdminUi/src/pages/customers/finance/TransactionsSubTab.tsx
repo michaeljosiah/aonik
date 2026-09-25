@@ -14,6 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { personalFinanceService } from '@/services/personalFinanceService';
 import type {
   CreateManualPersonalTransactionRequest,
@@ -109,26 +113,20 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
     }
   };
 
+  // Mounted only while open (the parent toggles it), so each open starts
+  // from a fresh form; closing via overlay, Escape or X calls onClose.
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-[22rem] bg-card shadow-2xl flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h3 className="text-sm font-semibold text-foreground">
-            Add Transaction
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent size="sm" aria-describedby={undefined}>
+        <SheetHeader title="Add Transaction" />
 
         {/* Form */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <SheetBody>
           {/* Amount + currency row */}
           <div className="space-y-1.5">
             <Label>Amount</Label>
@@ -139,7 +137,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
                 value={form.amount || ''}
                 onChange={(e) => set('amount', Number(e.target.value))}
                 placeholder="0.00"
-                className="flex-1"
+                className="flex-1 font-mono tabular-nums"
               />
               <Select value={form.currency} onValueChange={(v) => set('currency', v)}>
                 <SelectTrigger className="w-24">
@@ -161,11 +159,10 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-date">Date</Label>
-            <Input
+            <DatePicker
               id="txn-date"
-              type="date"
               value={form.occurredAt.slice(0, 10)}
-              onChange={(e) => set('occurredAt', e.target.value)}
+              onChange={(value) => set('occurredAt', value)}
             />
           </div>
 
@@ -254,19 +251,19 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
               rows={3}
             />
           </div>
-        </div>
+        </SheetBody>
 
         {/* Footer */}
-        <div className="border-t border-border px-5 py-4 flex items-center gap-3">
+        <SheetFooter className="gap-3">
           <Button onClick={handleSave} disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Add Transaction'}
           </Button>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-        </div>
-      </div>
-    </>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -307,11 +304,11 @@ function TransactionRow({
           {txn.merchant || txn.description || 'Manual transaction'}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {formatDate(txn.occurredAt)}
           </span>
           {txn.category && (
-            <Badge variant="secondary" className="rounded-full text-[10px] px-1.5 py-0">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {txn.category}
             </Badge>
           )}
@@ -326,7 +323,7 @@ function TransactionRow({
 
       {/* Amount */}
       <p
-        className={`shrink-0 text-sm font-semibold tabular-nums ${
+        className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${
           isDebit ? 'text-destructive' : 'text-success'
         }`}
       >
@@ -409,12 +406,30 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">
-          {loading ? 'Loading...' : `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+          {loading ? (
+            'Loading...'
+          ) : (
+            <>
+              <span className="font-mono tabular-nums">{transactions.length}</span> transaction
+              {transactions.length !== 1 ? 's' : ''}
+            </>
+          )}
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={load} disabled={loading} title="Refresh">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={load}
+                disabled={loading}
+                aria-label="Refresh transactions"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
           <Button size="sm" onClick={() => setShowAdd(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add Transaction
@@ -430,6 +445,7 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search merchant, description..."
+            aria-label="Search transactions"
             className="pl-8 h-8 text-xs"
           />
         </div>
@@ -472,38 +488,38 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
           </Select>
         )}
 
-        <Input
-          type="date"
+        <DatePicker
           value={fromFilter}
-          onChange={(e) => setFromFilter(e.target.value)}
+          onChange={setFromFilter}
+          placeholder="From date"
           className="h-8 w-36 text-xs"
-          title="From date"
         />
-        <Input
-          type="date"
+        <DatePicker
           value={toFilter}
-          onChange={(e) => setToFilter(e.target.value)}
+          onChange={setToFilter}
+          placeholder="To date"
           className="h-8 w-36 text-xs"
-          title="To date"
         />
 
         {hasFilters && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={clearFilters}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            className="h-8 gap-1 px-2 text-xs text-muted-foreground"
           >
             <X className="h-3 w-3" />
             Clear
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* List */}

@@ -25,7 +25,23 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/layout/aonik';
 import { cn } from '@/lib/utils';
 import { agentConfigService, aiModelService } from '@/services/aiService';
@@ -79,6 +95,7 @@ export function AgentEditPanel({
 
   const [models, setModels] = useState<AiModelResponse[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     void aiModelService.list().then(setModels).catch(() => setModels([]));
@@ -114,14 +131,15 @@ export function AgentEditPanel({
     }
   };
 
-  const handleDelete = async () => {
+  const requestDelete = () => {
     if (!agent.isOverride) {
       toast.info('Only tenant overrides can be deleted.');
       return;
     }
-    if (!window.confirm(`Delete the override for "${agent.name}"? This restores the system default.`)) {
-      return;
-    }
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
     try {
       await agentConfigService.delete(agent.name);
       toast.success('Override removed');
@@ -137,23 +155,14 @@ export function AgentEditPanel({
   };
 
   return (
-    <>
-      {/* Scrim */}
-      <div
-        onClick={onClose}
-        className="absolute inset-0 z-40 bg-[rgba(20,25,30,0.28)]"
-      />
-
-      {/* Panel */}
-      <div
-        className="absolute inset-y-0 right-0 z-50 flex w-[540px] max-w-full flex-col border-l border-border bg-card shadow-[-12px_0_32px_-8px_rgb(0_0_0/_0.18)]"
-      >
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent size="md" className="bg-card" aria-describedby={undefined}>
         {/* Header */}
         <div className="flex flex-none items-center gap-3.5 border-b border-border px-5 py-4">
           <AgentPortrait name={name} color={color} glyph={glyph} size={52} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-foreground">{name}</span>
+              <SheetTitle className="text-[15px]">{name}</SheetTitle>
               <Pill tone="info" size="sm">
                 {deriveKindLabel(agent.agentType)}
               </Pill>
@@ -165,14 +174,16 @@ export function AgentEditPanel({
               </span>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="text-muted-foreground"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
 
         {/* Tabs */}
@@ -232,7 +243,7 @@ export function AgentEditPanel({
         {/* Footer */}
         <div className="flex flex-none items-center justify-between border-t border-border bg-muted px-5 py-3">
           {agent.isOverride ? (
-            <Button variant="ghost" size="sm" onClick={handleDelete}>
+            <Button variant="ghost" size="sm" onClick={requestDelete}>
               <Trash2 className="h-3 w-3" />
               <span className="text-destructive">Remove override</span>
             </Button>
@@ -251,8 +262,25 @@ export function AgentEditPanel({
             </Button>
           </div>
         </div>
-      </div>
-    </>
+
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove override?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Delete the override for "{agent.name}"? This restores the system default.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -280,7 +308,7 @@ function IdentityTab({
       {/* Profile editor */}
       <div>
         <FieldLabel hint="Generated · keyed on agent name">Profile image</FieldLabel>
-        <div className="flex items-center gap-3.5 rounded-[10px] border border-border bg-muted p-3.5">
+        <div className="flex items-center gap-3.5 rounded-lg border border-border bg-muted p-3.5">
           <AgentPortrait name={name} color={color} glyph={glyph} size={72} />
           <div className="flex flex-1 flex-col gap-1">
             <span className="text-[12px] font-medium text-foreground">
@@ -491,7 +519,7 @@ function ToolsTab({
 
       <div className="flex flex-col gap-1.5">
         {toolNames.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-border bg-muted px-4 py-6 text-center text-[12px] text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-6 text-center text-[12px] text-muted-foreground">
             No tools enabled yet. Add a tool id below.
           </div>
         )}
@@ -525,12 +553,12 @@ function ToolsTab({
       <div className="flex items-end gap-2 border-t border-border pt-3">
         <label className="flex-1 text-[12px] text-muted-foreground">
           Add tool id
-          <input
+          <Input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="e.g. search_invoices"
-            className="aonik-input mt-1.5 font-[family-name:var(--font-mono)] text-[13px]"
+            className="mt-1.5 font-[family-name:var(--font-mono)] text-[13px]"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -546,7 +574,7 @@ function ToolsTab({
 
 function toolCategoryColor(name: string): string {
   const lower = name.toLowerCase();
-  if (lower.includes('create') || lower.includes('issue') || lower.includes('cancel') || lower.includes('capture') || lower.includes('apply') || lower.includes('send')) return 'var(--agent)';
+  if (lower.includes('create') || lower.includes('issue') || lower.includes('cancel') || lower.includes('capture') || lower.includes('apply') || lower.includes('send')) return 'var(--warning)';
   if (lower.includes('display') || lower.includes('confirm') || lower.includes('render')) return 'var(--color-violet)';
   return 'var(--primary)';
 }
@@ -563,7 +591,7 @@ function toolDescription(name: string): string {
 function PoliciesTab() {
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3.5 rounded-[10px] border border-border bg-muted p-3.5">
+      <div className="flex flex-col gap-3.5 rounded-lg border border-border bg-muted p-3.5">
         <ToggleField
           label="Auto-apply when confidence ≥ threshold"
           description="Skip the proposal step only for low-risk operations below the amount ceiling."
@@ -622,7 +650,7 @@ function SwitchToggle({ on }: { on: boolean }) {
       style={{ background: on ? 'var(--primary)' : 'var(--border)' }}
     >
       <span
-        className="h-3 w-3 rounded-full bg-white transition-transform"
+        className="h-3 w-3 rounded-full bg-background transition-transform"
         style={{ transform: on ? 'translateX(12px)' : 'translateX(0)' }}
       />
     </span>
@@ -698,9 +726,9 @@ function TriggerListRow({ trigger }: { trigger: TriggerRow }) {
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-[12.5px] font-medium text-foreground">{trigger.label}</span>
-          <span className="rounded bg-card px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <Badge variant="outline" className="bg-card px-1.5 py-px text-[10px] text-muted-foreground">
             {trigger.kind}
-          </span>
+          </Badge>
         </div>
         <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {trigger.source}
@@ -734,20 +762,22 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-[60] bg-[rgba(20,25,30,0.4)]" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-[61] flex w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[14px] bg-card shadow-[0_24px_60px_-8px_rgba(0,0,0,0.32)]">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-w-[720px] flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-[720px]"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-primary/10 text-primary">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
             <Zap className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <div className="text-[15px] font-semibold text-foreground">Add trigger</div>
-            <div className="mt-0.5 text-[11.5px] text-muted-foreground">Define when this agent should run.</div>
+            <DialogTitle className="text-[15px] leading-normal">Add trigger</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[11.5px]">Define when this agent should run.</DialogDescription>
           </div>
-          <button type="button" className="hover-halo" onClick={onClose} aria-label="Close">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-2.5 p-5">
           {options.map((option) => {
@@ -758,15 +788,17 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
                 key={option.kind}
                 type="button"
                 onClick={() => setKind(option.kind)}
-                className="flex items-start gap-3 rounded-[10px] border p-3.5 text-left"
-                style={{
-                  background: active ? 'var(--color-brand-primary-10)' : 'var(--muted)',
-                  borderColor: active ? 'var(--primary)' : 'var(--border)',
-                }}
+                aria-pressed={active}
+                className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3.5 text-left',
+                  active ? 'border-primary bg-primary/10' : 'border-border bg-muted',
+                )}
               >
                 <div
-                  className="grid h-9 w-9 place-items-center rounded-lg"
-                  style={{ background: active ? 'var(--primary)' : 'var(--card)', color: active ? '#fff' : 'var(--primary)' }}
+                  className={cn(
+                    'grid h-9 w-9 place-items-center rounded-lg',
+                    active ? 'bg-primary text-primary-foreground' : 'bg-card text-primary',
+                  )}
                 >
                   <OptionIcon className="h-4 w-4" />
                 </div>
@@ -791,8 +823,8 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
             </Button>
           </div>
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -809,7 +841,7 @@ function FieldLabel({
 }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {children}
         {required && <span className="ml-0.5 text-destructive">*</span>}
       </span>
@@ -842,13 +874,12 @@ function TextField({
   return (
     <label className="block text-[12px] text-muted-foreground">
       <FieldLabel required={required}>{label}</FieldLabel>
-      <input
+      <Input
         type="text"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange?.(e.target.value)}
         className={cn(
-          'aonik-input',
           mono && 'font-[family-name:var(--font-mono)]',
           'text-[13px]',
         )}
@@ -874,11 +905,11 @@ function TextArea({
   return (
     <label className="block text-[12px] text-muted-foreground">
       <FieldLabel>{label}</FieldLabel>
-      <textarea
+      <Textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="aonik-input min-h-[80px] py-2.5 text-[13px]"
+        className="min-h-[80px] py-2.5 text-[13px]"
       />
       {helper && <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>}
     </label>
@@ -905,17 +936,17 @@ function SelectField({
       <FieldLabel required={required} hint={hint}>
         {label}
       </FieldLabel>
-      <select
+      <NativeSelect
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="aonik-select text-[13px]"
+        className="text-[13px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </NativeSelect>
     </label>
   );
 }

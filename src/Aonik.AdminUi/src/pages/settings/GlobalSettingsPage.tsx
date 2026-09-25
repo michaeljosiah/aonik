@@ -15,6 +15,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -398,6 +408,8 @@ export function GlobalSettingsPage() {
 
   // ── Help toggle state ──
   const [expandedHelp, setExpandedHelp] = useState<Set<string>>(new Set());
+  // Tab the user tried to open while platform settings had unsaved edits.
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
 
   // ── General settings state ──
   const selectedTenant = getSelectedTenant();
@@ -477,11 +489,17 @@ export function GlobalSettingsPage() {
 
   const handleTabChange = (tabId: string) => {
     if (isGlobalDirty && activeTab !== 'general') {
-      const confirmed = window.confirm('You have unsaved changes. Switch tab and discard them?');
-      if (!confirmed) return;
-      handleResetGlobal();
+      setPendingTab(tabId);
+      return;
     }
     setActiveTab(tabId);
+  };
+
+  const confirmDiscardAndSwitch = () => {
+    if (pendingTab === null) return;
+    handleResetGlobal();
+    setActiveTab(pendingTab);
+    setPendingTab(null);
   };
 
   // ── Help toggle handler ──
@@ -699,7 +717,7 @@ export function GlobalSettingsPage() {
     // If user has typed a new value, show pending indicator
     if (currentValue && currentValue !== originalValue) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2 py-0.5 text-[10px] font-medium text-warning-foreground">
           <CircleAlert className="h-3 w-3" />
           Pending save
         </span>
@@ -708,7 +726,7 @@ export function GlobalSettingsPage() {
     // If a value exists server-side (original is not null/empty), show configured
     if (originalValue) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-subtle px-2 py-0.5 text-[10px] font-medium text-success-foreground">
           <CheckCircle2 className="h-3 w-3" />
           Configured
         </span>
@@ -716,7 +734,7 @@ export function GlobalSettingsPage() {
     }
     // No value stored
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-600">
+      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
         <CircleAlert className="h-3 w-3" />
         Not set
       </span>
@@ -997,7 +1015,7 @@ export function GlobalSettingsPage() {
     <div className="flex h-full min-h-0">
       <div className="flex w-[260px] flex-none flex-col border-r border-border bg-muted p-5">
 
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Platform</p>
+        <p className="mb-2 text-xs text-muted-foreground">Platform</p>
         <h1 className="mb-1 text-[17px] font-semibold text-foreground">Global settings</h1>
         <p className="mb-5 text-[12.5px] leading-5 text-muted-foreground">
           Workspace identity, AI provider, storage, communication, and feature configuration.
@@ -1071,7 +1089,7 @@ export function GlobalSettingsPage() {
       <div className="min-w-0 flex-1 overflow-auto p-6">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Settings · Platform</p>
+            <p className="mb-1 text-xs text-muted-foreground">Settings · Platform</p>
             <h2 className="text-2xl font-bold text-foreground">{activeStarterkitTab?.label ?? 'Settings'}</h2>
             <p className="text-muted-foreground">
               {activeTab === 'general'
@@ -1179,6 +1197,23 @@ export function GlobalSettingsPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={pendingTab !== null} onOpenChange={(open) => { if (!open) setPendingTab(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Switch tab and discard them?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmDiscardAndSwitch}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

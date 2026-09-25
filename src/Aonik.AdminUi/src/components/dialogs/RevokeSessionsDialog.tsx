@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { RevokeUserSessionsResponse } from '@/types';
 
 interface RevokeSessionsDialogProps {
@@ -82,16 +85,15 @@ export function RevokeSessionsDialog({
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <label htmlFor="revoke-reason" className="text-sm font-medium text-foreground">
+            <Label htmlFor="revoke-reason">
               Reason
-            </label>
-            <input
+            </Label>
+            <Input
               id="revoke-reason"
               type="text"
               autoComplete="off"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
               placeholder="e.g., laptop reported stolen"
               disabled={submitting}
             />
@@ -101,9 +103,10 @@ export function RevokeSessionsDialog({
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

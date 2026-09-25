@@ -1,7 +1,20 @@
 import { useEffect, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowRightLeft, Plus, Settings, TrendingUp, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { FxQuoteDialog } from '@/components/FxQuoteDialog';
 import { fxRateService } from '@/services/fxRateService';
@@ -16,6 +29,7 @@ export function FxRatesPage() {
   const [includeExpired, setIncludeExpired] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<FxQuoteDetailResponse | undefined>(undefined);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadQuotes();
@@ -81,8 +95,6 @@ export function FxRatesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this FX quote?')) return;
-
     try {
       await fxRateService.delete(id);
       await loadQuotes();
@@ -143,11 +155,9 @@ export function FxRatesPage() {
             </div>
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={includeExpired}
-                  onChange={(e) => setIncludeExpired(e.target.checked)}
-                  className="rounded border-border"
+                  onCheckedChange={(checked) => setIncludeExpired(checked === true)}
                 />
                 Show expired
               </label>
@@ -160,13 +170,11 @@ export function FxRatesPage() {
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] border border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] text-destructive">
-              <AlertCircle className="w-5 h-5" />
-              <div>
-                <div className="font-semibold">Error loading quotes</div>
-                <div className="text-sm">{error}</div>
-              </div>
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertTitle>Error loading quotes</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {!loading && !error && quotes.length === 0 && (
@@ -192,7 +200,7 @@ export function FxRatesPage() {
                   key={quote.id}
                   className={`flex items-center justify-between p-4 rounded-lg border ${
                     isExpired(quote.expiresAt)
-                      ? 'border-border bg-gray-50/50 opacity-60'
+                      ? 'border-border bg-muted/50 opacity-60'
                       : 'border-border hover:border-primary transition-colors'
                   }`}
                 >
@@ -215,7 +223,7 @@ export function FxRatesPage() {
 
                     <div className="col-span-2">
                       <div className="text-sm text-muted-foreground">Rate</div>
-                      <div className="font-mono font-semibold text-foreground">
+                      <div className="font-mono tabular-nums font-semibold text-foreground">
                         {quote.rate.toFixed(6)}
                       </div>
                     </div>
@@ -249,14 +257,20 @@ export function FxRatesPage() {
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(quote.id)}>
                         Edit
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(quote.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setPendingDeleteId(quote.id)}
+                            className="text-destructive hover:text-destructive"
+                            aria-label="Delete FX quote"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete FX quote</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
@@ -311,6 +325,33 @@ export function FxRatesPage() {
       </div>
 
       <FxQuoteDialog open={dialogOpen} onOpenChange={setDialogOpen} quote={selectedQuote} onSuccess={handleDialogSuccess} />
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete FX quote?</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to delete this FX quote?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const id = pendingDeleteId;
+                setPendingDeleteId(null);
+                if (id) void handleDelete(id);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

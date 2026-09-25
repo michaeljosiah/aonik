@@ -2,6 +2,14 @@
 // party-scoped admin read. Exactly what the customer sees in their own account.
 
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { StorefrontOrderSummaryDto } from '@/types/commerce';
 
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -30,60 +38,51 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
           No storefront orders yet.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                <th className="px-2 py-2.5">Order</th>
-                <th className="px-2 py-2.5">Date</th>
-                <th className="px-2 py-2.5">Size</th>
-                <th className="px-2 py-2.5">Status</th>
-                <th className="px-2 py-2.5 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order, idx) => (
-                <tr
-                  key={order.orderId}
-                  className={
-                    idx === orders.length - 1
-                      ? ''
-                      : 'border-b border-border'
-                  }
-                >
-                  <td className="px-2 py-2.5">
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-foreground">
+        <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Order</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Date</TableHead>
+                <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Size</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Status</TableHead>
+                <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.orderId} className="hover:bg-transparent">
+                  <TableCell numeric className="px-2 py-2.5">
+                    <span className="text-[11px] font-medium text-foreground">
                       ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
                     </span>
-                  </td>
-                  <td className="px-2 py-2.5">
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="px-2 py-2.5">
+                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                       {formatDate(order.placedAtUtc)}
                     </span>
-                  </td>
-                  <td className="px-2 py-2.5">
+                  </TableCell>
+                  <TableCell numeric className="px-2 py-2.5">
                     {/* Extras summary needs per-order line detail the party-scoped summary
                         does not carry, so the column shows size alone rather than an
                         approximation. */}
                     <span className="text-[12.5px] text-muted-foreground">
                       {order.boxSize != null ? `${order.boxSize}` : '—'}
                     </span>
-                  </td>
-                  <td className="px-2 py-2.5">
+                  </TableCell>
+                  <TableCell className="px-2 py-2.5">
                     <Pill tone={STATUS_TONE[order.status] ?? 'default'} dot size="sm">
                       {order.status}
                     </Pill>
-                  </td>
-                  <td className="px-2 py-2.5 text-right">
-                    <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-foreground">
+                  </TableCell>
+                  <TableCell numeric className="px-2 py-2.5">
+                    <span className="text-[12.5px] font-medium text-foreground">
                       {formatCurrency(order.total, order.currency)}
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
       )}
     </AonikCard>
   );

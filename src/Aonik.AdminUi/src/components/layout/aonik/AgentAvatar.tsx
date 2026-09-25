@@ -13,13 +13,15 @@ export interface AgentAvatarProps {
   className?: string;
 }
 
+// Categorical hues from the chart tokens (they flip with the theme). Six
+// entries so an agent's hash keeps landing on the same slot.
 const AGENT_PALETTE = [
-  '#055a60', // brand teal
-  '#eb5c37', // coral
-  '#3ab795', // mint
-  '#7b76b6', // violet
-  '#0097a9', // cyan
-  '#5facbd', // sky
+  'var(--chart-1)',
+  'var(--chart-3)',
+  'var(--chart-2)',
+  'var(--chart-4)',
+  'var(--info)',
+  'var(--chart-5)',
 ];
 
 function hashName(name: string): number {
@@ -44,7 +46,7 @@ function deriveInitials(name: string): string {
  * Square avatar (rounded corners) with auto-tinted background derived from
  * the name. Mirrors the template's `Avatar` helper used across customer,
  * order, and party rows. The foreground colour is the full hue, the
- * background is a 13% (`22` hex alpha) tint of the same.
+ * background is a 13% tint of the same.
  */
 export function AgentAvatar({
   name,
@@ -58,7 +60,7 @@ export function AgentAvatar({
       return { bg: color, fg: textColor ?? color };
     }
     const hue = AGENT_PALETTE[hashName(name) % AGENT_PALETTE.length];
-    return { bg: `${hue}22`, fg: hue };
+    return { bg: `color-mix(in oklab, ${hue} 13%, transparent)`, fg: hue };
   }, [name, color, textColor]);
 
   const radius = Math.round(size * 0.28);
@@ -68,7 +70,7 @@ export function AgentAvatar({
   return (
     <span
       className={cn(
-        'inline-flex flex-none items-center justify-center font-[family-name:var(--font-brand)] font-bold leading-none',
+        'inline-flex flex-none items-center justify-center font-semibold leading-none',
         className,
       )}
       style={{

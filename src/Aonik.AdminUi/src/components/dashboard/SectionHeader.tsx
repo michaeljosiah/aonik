@@ -31,7 +31,7 @@ export function MyAppsHeader() {
   return (
     <SectionHeader
       icon={
-        <Grid2x2Plus className="w-6 h-6 text-white" />
+        <Grid2x2Plus className="w-6 h-6 text-primary-foreground" />
       }
       title="My apps"
       description="Your apps, tailored to your activity and preferences."
@@ -55,7 +55,7 @@ export function MyAgentsHeader() {
   return (
     <SectionHeader
       icon={
-        <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="8" r="5" />
           <path d="M20 21a8 8 0 00-16 0" />
         </svg>

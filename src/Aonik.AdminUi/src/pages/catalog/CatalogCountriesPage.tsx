@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataTableHeader, DataTablePagination, type ViewMode } from '@/components/ui/data-table';
 import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
@@ -156,47 +157,45 @@ export function CatalogCountriesPage() {
               </div>
             ) : (
               viewMode === 'list' ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground w-16">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="px-4 text-xs text-muted-foreground w-16">
                           Flag
-                        </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        </TableHead>
+                        <TableHead className="px-4 text-xs text-muted-foreground">
                           Country
-                        </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        </TableHead>
+                        <TableHead className="px-4 text-xs text-muted-foreground">
                           Code
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {pagedCountries.map((country) => (
-                        <tr key={country.countryCode} className="border-b border-border">
-                          <td className="px-4 py-3">
+                        <TableRow key={country.countryCode}>
+                          <TableCell className="px-4 py-3">
                             <img 
                               src={getFlagUrl(country.countryCode)} 
                               alt={`${country.name} flag`}
                               className="w-8 h-8 rounded-full object-cover"
                             />
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <div>
                               <p className="font-medium text-foreground">{country.name}</p>
                               <p className="text-xs text-muted-foreground">Catalog availability reference</p>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <Badge variant="secondary" className="font-mono">
                               {country.countryCode}
                             </Badge>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </TableBody>
+                  </Table>
               ) : (
                 <div className="grid gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
                   {pagedCountries.map((country) => (

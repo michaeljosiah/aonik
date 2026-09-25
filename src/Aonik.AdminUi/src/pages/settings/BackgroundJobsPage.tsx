@@ -47,16 +47,16 @@ function formatDuration(ms: number | null): string {
 function statusBadge(status: string) {
   switch (status.toLowerCase()) {
     case 'active':
-      return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Active</Badge>;
+      return <Badge variant="success">Active</Badge>;
     case 'paused':
-      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Paused</Badge>;
+      return <Badge variant="warning">Paused</Badge>;
     case 'disabled':
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Disabled</Badge>;
+      return <Badge variant="secondary">Disabled</Badge>;
     case 'error':
     case 'blocked':
-      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{status}</Badge>;
+      return <Badge className="border-transparent bg-destructive/10 text-destructive">{status}</Badge>;
     default:
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{status}</Badge>;
+      return <Badge variant="secondary">{status}</Badge>;
   }
 }
 
@@ -66,14 +66,14 @@ function outcomeBadge(outcome: string | null) {
   switch (outcome.toLowerCase()) {
     case 'succeeded':
       return (
-        <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-1">
+        <Badge variant="success">
           <CheckCircle2 className="w-3 h-3" />
           Healthy
         </Badge>
       );
     case 'failed':
       return (
-        <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-1">
+        <Badge className="border-transparent bg-destructive/10 text-destructive">
           <XCircle className="w-3 h-3" />
           Needs attention
         </Badge>
@@ -99,11 +99,11 @@ function getAuditLink(job: ScheduledJobSummary): string | null {
 
 function getJobTone(job: ScheduledJobSummary) {
   if (job.lastOutcome?.toLowerCase() === 'failed') {
-    return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
+    return 'border-destructive/30 bg-destructive/5';
   }
 
   if (job.status.toLowerCase() === 'paused') {
-    return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
+    return 'border-warning/30 bg-warning-subtle/40';
   }
 
   return 'border-border bg-card';
@@ -267,7 +267,6 @@ export function BackgroundJobsPage() {
           onClick={() => void handleRefresh()}
           disabled={refreshing}
           variant="secondary"
-          className="rounded-sm"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -284,21 +283,21 @@ export function BackgroundJobsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 text-sm md:grid-cols-4">
-              <div className="rounded-sm border border-border p-3">
+              <div className="rounded-lg border border-border p-3">
                 <div className="text-xs text-muted-foreground">Status</div>
                 <div className="mt-1 font-medium text-foreground">
                   {health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}
                 </div>
               </div>
-              <div className="rounded-sm border border-border p-3">
+              <div className="rounded-lg border border-border p-3">
                 <div className="text-xs text-muted-foreground">Registered Jobs</div>
                 <div className="mt-1 font-medium text-foreground">{health.totalJobCount}</div>
               </div>
-              <div className="rounded-sm border border-border p-3">
+              <div className="rounded-lg border border-border p-3">
                 <div className="text-xs text-muted-foreground">Active Executions</div>
                 <div className="mt-1 font-medium text-foreground">{health.activeJobCount}</div>
               </div>
-              <div className="rounded-sm border border-border p-3">
+              <div className="rounded-lg border border-border p-3">
                 <div className="text-xs text-muted-foreground">Last Snapshot</div>
                 <div className="mt-1 font-medium text-foreground">{formatRelativeTime(health.recordedAtUtc)}</div>
               </div>
@@ -365,7 +364,7 @@ export function BackgroundJobsPage() {
                       {/* Output summary */}
                       <p className="text-xs text-muted-foreground line-clamp-2">
                         {job.lastOutcome?.toLowerCase() === 'failed' && (
-                          <FileWarning className="inline h-3 w-3 text-red-500 mr-1 -mt-0.5" />
+                          <FileWarning className="inline h-3 w-3 text-destructive mr-1 -mt-0.5" />
                         )}
                         {summarizeOutcome(job)}
                       </p>

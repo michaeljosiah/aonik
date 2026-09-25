@@ -510,27 +510,29 @@ export function UserDetailPage() {
                     
                     {/* Photo Upload Overlay */}
                     <div 
-                      className="absolute inset-0 bg-black bg-opacity-60 rounded-full flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         onClick={handleAvatarClick}
                         disabled={uploadingPhoto}
-                        className="p-2 bg-white rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        className="p-2 bg-background rounded-full hover:bg-accent transition-colors disabled:opacity-50"
                         title="Change photo"
+                        aria-label="Change photo"
                       >
                         {uploadingPhoto ? (
-                          <RefreshCw className="w-4 h-4 text-gray-700 animate-spin" />
+                          <RefreshCw className="w-4 h-4 text-foreground animate-spin" />
                         ) : (
-                          <Camera className="w-4 h-4 text-gray-700" />
+                          <Camera className="w-4 h-4 text-foreground" />
                         )}
                       </button>
                       {user.personProfile?.photoUrl && (
                         <button
                           onClick={handleDeletePhoto}
                           disabled={uploadingPhoto}
-                          className="p-2 bg-white rounded-full hover:bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] transition-colors disabled:opacity-50"
+                          className="p-2 bg-background rounded-full hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           title="Delete photo"
+                          aria-label="Delete photo"
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </button>
@@ -547,7 +549,7 @@ export function UserDetailPage() {
                     />
                     
                     {user.status === 'Active' && (
-                      <span className="absolute bottom-0 right-0 w-4 h-4 bg-success border-2 border-white rounded-full" />
+                      <span className="absolute bottom-0 right-0 w-4 h-4 bg-success border-2 border-background rounded-full" />
                     )}
                   </div>
                   
@@ -726,23 +728,17 @@ export function UserDetailPage() {
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   {/* Tabs Header */}
                   <div className="flex items-center justify-between border-b border-border px-4">
-                    <TabsList className="bg-transparent p-0 h-auto gap-0">
+                    <TabsList variant="line" className="border-b-0">
                       <TabsTrigger
-                        value="overview"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
-                      >
+                        value="overview">
                         Overview
                       </TabsTrigger>
                       <TabsTrigger
-                        value="events"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
-                      >
+                        value="events">
                         Events & Logs
                       </TabsTrigger>
                       <TabsTrigger
-                        value="statements"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
-                      >
+                        value="statements">
                         Statements
                       </TabsTrigger>
                     </TabsList>

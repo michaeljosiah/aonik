@@ -22,15 +22,15 @@ interface StateTone {
 }
 
 const STATE_TONES: Record<WorkflowSummary['state'], StateTone> = {
-  Active: { c: 'var(--color-success, #1f7a5e)', label: 'active', pulse: true },
-  Paused: { c: '#b4741e', label: 'paused', pulse: false },
+  Active: { c: 'var(--success)', label: 'active', pulse: true },
+  Paused: { c: 'var(--warning)', label: 'paused', pulse: false },
   Draft: { c: 'var(--muted-foreground)', label: 'draft', pulse: false },
 };
 
 function successColor(value: number): string {
-  if (value >= 0.95) return 'var(--color-success, #1f7a5e)';
+  if (value >= 0.95) return 'var(--success)';
   if (value >= 0.85) return 'var(--foreground)';
-  return '#b4741e';
+  return 'var(--warning)';
 }
 
 export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
@@ -40,14 +40,11 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
     <div
       onClick={onClick}
       className={cn(
-        'flex flex-col gap-3 cursor-pointer rounded-[10px] transition-[border-color,box-shadow] duration-150',
+        'flex flex-col gap-3 cursor-pointer rounded-lg border transition-[border-color,box-shadow] duration-150',
         'bg-card',
+        active ? 'border-primary ring-[3px] ring-primary/15' : 'border-border',
       )}
-      style={{
-        padding: '16px 18px',
-        border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)'),
-        boxShadow: active ? '0 0 0 3px var(--color-brand-primary-10)' : 'none',
-      }}
+      style={{ padding: '16px 18px' }}
     >
       {/* Header row */}
       <div className="flex items-start gap-3">
@@ -63,7 +60,7 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
               {wf.id}
             </span>
             <span
-              className="rounded-[3px] bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
+              className="rounded-sm bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {wf.version}
@@ -79,7 +76,7 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
         <div className="flex flex-none items-center gap-2">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-[9px] py-[3px] text-[10.5px] font-medium"
-            style={{ color: tone.c, background: tone.c + '18' }}
+            style={{ color: tone.c, background: `color-mix(in oklab, ${tone.c} 10%, transparent)` }}
           >
             <span
               className="rounded-full"

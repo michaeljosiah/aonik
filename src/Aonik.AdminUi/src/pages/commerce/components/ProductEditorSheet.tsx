@@ -6,6 +6,7 @@
 // own endpoint (which requires the amount/currency pair together). They are issued only when
 // their own section changed.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -293,9 +294,11 @@ export function ProductEditorSheet({
 
         <SheetBody>
           {error && (
-            <div className="mb-3 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertDescription className="text-xs">
+                {error}
+              </AlertDescription>
+            </Alert>
           )}
 
           {loading ? (

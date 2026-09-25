@@ -126,7 +126,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
           <div className="space-y-1">
             <button
               onClick={() => { onChange(null); setSelectionSource(null); setSelectedPartyId(null); onImpersonationChange?.(null); }}
-              className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
+              className={`w-full rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 value === null
                   ? 'border-primary bg-primary/10'
                   : 'border-border hover:border-border'
@@ -138,7 +138,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
               <button
                 key={brief.id}
                 onClick={() => { onChange(brief.json); setSelectionSource('samples'); setSelectedPartyId(null); onImpersonationChange?.(null); }}
-                className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
+                className={`w-full rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                   value === brief.json
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-border'
@@ -188,7 +188,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
                       key={customer.partyId}
                       onClick={() => handleSelectCustomer(customer)}
                       disabled={loading}
-                      className={`flex w-full items-center gap-2.5 rounded-[2px] border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
+                      className={`flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
                         isSelected
                           ? 'border-primary bg-primary/10'
                           : 'border-border hover:border-border'

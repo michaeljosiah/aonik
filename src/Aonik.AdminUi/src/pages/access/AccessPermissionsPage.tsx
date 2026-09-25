@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertCircle, Key, RefreshCw, Search } from 'lucide-react';
 import { permissionService } from '@/services/permissionService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
@@ -104,7 +106,7 @@ export function AccessPermissionsPage() {
             Review the global permission catalog available to tenant roles.
           </p>
         </div>
-        <Button variant="outline" onClick={loadPermissions} className="rounded-sm">
+        <Button variant="outline" onClick={loadPermissions}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -128,12 +130,12 @@ export function AccessPermissionsPage() {
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-96 max-w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
+                <Input
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search for permissions"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  className="pl-10"
                 />
               </div>
 
@@ -141,7 +143,7 @@ export function AccessPermissionsPage() {
                 value={categoryFilter || undefined}
                 onValueChange={(value) => setCategoryFilter(value === '__all__' ? '' : value)}
               >
-                <SelectTrigger aria-label="Filter by category" className="h-9 rounded-sm w-56">
+                <SelectTrigger aria-label="Filter by category" className="w-56">
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,67 +159,61 @@ export function AccessPermissionsPage() {
           </div>
 
           <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Permission</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Category</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={3} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Loading permissions...</p>
-                      </td>
-                    </tr>
-                  ) : filteredPermissions.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-muted-foreground">
-                          <Key className="w-12 h-12" />
-                        </div>
-                        <p className="text-foreground font-medium mb-1">No permissions found</p>
-                        <p className="text-sm text-muted-foreground">
-                          {searchQuery || categoryFilter ? 'Try adjusting your filters.' : 'No permissions available yet.'}
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredPermissions.map((permission) => {
-                      const badgeStyle = categoryBadgeStyles[permission.displayCategory] ?? 'bg-muted text-muted-foreground';
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="px-4 text-xs text-muted-foreground">Permission</TableHead>
+                  <TableHead className="px-4 text-xs text-muted-foreground">Description</TableHead>
+                  <TableHead className="px-4 text-xs text-muted-foreground">Category</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={3} className="px-4 py-12 text-center">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Loading permissions...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredPermissions.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={3} className="px-4 py-12 text-center">
+                      <div className="mb-3 flex justify-center text-muted-foreground">
+                        <Key className="w-12 h-12" />
+                      </div>
+                      <p className="text-foreground font-medium mb-1">No permissions found</p>
+                      <p className="text-sm text-muted-foreground">
+                        {searchQuery || categoryFilter ? 'Try adjusting your filters.' : 'No permissions available yet.'}
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPermissions.map((permission) => {
+                    const badgeStyle = categoryBadgeStyles[permission.displayCategory] ?? 'bg-muted text-muted-foreground';
 
-                      return (
-                        <tr
-                          key={permission.key}
-                          className="border-b border-border hover:bg-muted transition-colors"
-                        >
-                          <td className="px-4 py-3">
-                            <span className="font-mono text-sm text-foreground">
-                              {permission.key}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm text-muted-foreground">
-                              {permission.description || 'No description provided.'}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge className={`${badgeStyle} font-medium`}>
-                              {permission.displayCategory}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
+                    return (
+                      <TableRow key={permission.key}>
+                        <TableCell className="px-4 py-3">
+                          <span className="font-mono text-sm text-foreground">
+                            {permission.key}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 whitespace-normal">
+                          <p className="text-sm text-muted-foreground">
+                            {permission.description || 'No description provided.'}
+                          </p>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Badge className={`${badgeStyle} font-medium`}>
+                            {permission.displayCategory}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

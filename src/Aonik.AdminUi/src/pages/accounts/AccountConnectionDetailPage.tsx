@@ -5,6 +5,18 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog,
@@ -43,34 +55,18 @@ import {
 } from '@/components/ui/data-table';
 import { CreateTransactionDialog } from './CreateTransactionDialog';
 
-const statusStyles: Record<string, { text: string; bg: string }> = {
-  Connected: {
-    text: 'text-success',
-    bg: 'bg-success-subtle',
-  },
-  ActionRequired: {
-    text: 'text-warning',
-    bg: 'bg-warning-subtle',
-  },
-  Disconnected: {
-    text: 'text-muted-foreground',
-    bg: 'bg-muted',
-  },
+type StatusBadgeVariant = 'success' | 'warning' | 'secondary';
+
+const statusVariants: Record<string, StatusBadgeVariant> = {
+  Connected: 'success',
+  ActionRequired: 'warning',
+  Disconnected: 'secondary',
 };
 
-const reconciliationStyles: Record<string, { text: string; bg: string }> = {
-  Matched: {
-    text: 'text-success',
-    bg: 'bg-success-subtle',
-  },
-  Unmatched: {
-    text: 'text-warning',
-    bg: 'bg-warning-subtle',
-  },
-  Excluded: {
-    text: 'text-muted-foreground',
-    bg: 'bg-muted',
-  },
+const reconciliationVariants: Record<string, StatusBadgeVariant> = {
+  Matched: 'success',
+  Unmatched: 'warning',
+  Excluded: 'secondary',
 };
 
 function formatDate(dateString?: string | null): string {
@@ -120,6 +116,8 @@ export function AccountConnectionDetailPage() {
   const [attachmentsDialogTxId, setAttachmentsDialogTxId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AccountTransactionAttachmentResponse[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
+  const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
 
   const loadConnection = useCallback(async () => {
     if (!connectionId) return;
@@ -208,7 +206,6 @@ export function AccountConnectionDetailPage() {
 
   const handleDisconnect = useCallback(async () => {
     if (!connectionId || !connection) return;
-    if (!window.confirm(`Are you sure you want to disconnect ${connection.institutionName}?`)) return;
     setActionLoading(true);
     try {
       await accountService.disconnectConnection(connectionId);
@@ -273,7 +270,6 @@ export function AccountConnectionDetailPage() {
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm('Are you sure you want to delete this attachment?')) return;
     try {
       await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
@@ -312,6 +308,7 @@ export function AccountConnectionDetailPage() {
       header: 'Amount',
       accessorKey: 'amount',
       sortable: true,
+      numeric: true,
       cell: (tx) => (
         <span
           className={`text-sm font-medium ${tx.amount < 0 ? 'text-destructive' : 'text-success'}`}
@@ -356,19 +353,11 @@ export function AccountConnectionDetailPage() {
       header: 'Reconciliation',
       accessorKey: 'reconciliationStatus',
       sortable: true,
-      cell: (tx) => {
-        const style = reconciliationStyles[tx.reconciliationStatus] ?? {
-          text: 'text-muted-foreground',
-          bg: 'bg-muted',
-        };
-        return (
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
-          >
-            {tx.reconciliationStatus}
-          </span>
-        );
-      },
+      cell: (tx) => (
+        <Badge variant={reconciliationVariants[tx.reconciliationStatus] ?? 'secondary'}>
+          {tx.reconciliationStatus}
+        </Badge>
+      ),
     },
   ];
   if (loading) {
@@ -378,23 +367,18 @@ export function AccountConnectionDetailPage() {
   if (error || !connection) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Card className="border-destructive bg-destructive/10">
-          <CardContent className="p-4 flex items-center gap-3 text-destructive">
-            <AlertCircle className="w-5 h-5" />
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
             <span>{error || 'Connection not found.'}</span>
             <Button variant="outline" size="sm" onClick={() => navigate('/accounts')} className="ml-auto">
               Back to Accounts
             </Button>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
-
-  const statusStyle = statusStyles[connection.status] ?? {
-    text: 'text-muted-foreground',
-    bg: 'bg-muted',
-  };
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -411,11 +395,9 @@ export function AccountConnectionDetailPage() {
               <h1 className="text-2xl font-bold text-foreground">
                 {connection.institutionName}
               </h1>
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}
-              >
+              <Badge variant={statusVariants[connection.status] ?? 'secondary'}>
                 {connection.status}
-              </span>
+              </Badge>
             </div>
             <p className="text-muted-foreground">
               {connection.providerDisplayName} &middot; Connected {formatDate(connection.createdAt)}
@@ -443,7 +425,7 @@ export function AccountConnectionDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleDisconnect}
+            onClick={() => setConfirmDisconnectOpen(true)}
             disabled={actionLoading || connection.status === 'Disconnected'}
             className="text-destructive border-destructive hover:bg-destructive/10"
           >
@@ -455,12 +437,10 @@ export function AccountConnectionDetailPage() {
 
       {/* Connection info */}
       {connection.lastError && (
-        <Card className="mb-6 border-warning bg-warning-subtle">
-          <CardContent className="p-4 flex items-center gap-3 text-warning">
-            <AlertCircle className="w-5 h-5" />
-            <span className="text-sm">{connection.lastError}</span>
-          </CardContent>
-        </Card>
+        <Alert variant="warning" className="mb-6">
+          <AlertCircle />
+          <AlertDescription>{connection.lastError}</AlertDescription>
+        </Alert>
       )}
 
       {/* Linked Accounts */}
@@ -469,7 +449,7 @@ export function AccountConnectionDetailPage() {
           Linked Accounts ({connection.linkedAccounts.length})
         </h2>
         {connection.linkedAccounts.length === 0 ? (
-          <Card className="rounded-none border-border bg-card">
+          <Card className="border-border bg-card">
             <CardContent className="p-6 text-center text-muted-foreground">
               No linked accounts found for this connection.
             </CardContent>
@@ -479,7 +459,7 @@ export function AccountConnectionDetailPage() {
             {connection.linkedAccounts.map((account) => (
               <Card
                 key={account.linkedAccountId}
-                className="rounded-none border-border bg-card"
+                className="border-border bg-card"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
@@ -600,7 +580,7 @@ export function AccountConnectionDetailPage() {
               {attachments.map((att) => (
                 <div
                   key={att.attachmentId}
-                  className="flex items-center justify-between p-3 border border-border rounded-sm"
+                  className="flex items-center justify-between p-3 border border-border rounded-md"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">
@@ -611,14 +591,20 @@ export function AccountConnectionDetailPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAttachment(att.attachmentId)}
-                      className="text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${att.fileName}`}
+                          onClick={() => setPendingDeleteAttachmentId(att.attachmentId)}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete attachment</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
@@ -626,6 +612,52 @@ export function AccountConnectionDetailPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Disconnect confirmation */}
+      <AlertDialog open={confirmDisconnectOpen} onOpenChange={setConfirmDisconnectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect {connection.institutionName}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDisconnect()}>
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete attachment confirmation */}
+      <AlertDialog
+        open={!!pendingDeleteAttachmentId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteAttachmentId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this attachment?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (pendingDeleteAttachmentId) void handleDeleteAttachment(pendingDeleteAttachmentId);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

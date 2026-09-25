@@ -61,7 +61,7 @@ export function ModelSelector({
 
         {Object.entries(grouped).map(([provider, providerModels]) => (
           <SelectGroup key={provider}>
-            <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground">
+            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
               {provider}
             </div>
             {providerModels.map((m) => (

@@ -2,32 +2,35 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertCircle, Copy } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { aiTraceService, type AiTraceRunDetailResponse } from '@/services/aiService';
 
-const outcomeClass = (outcome: string) => {
+type BadgeVariant = BadgeProps['variant'];
+
+const outcomeVariant = (outcome: string): BadgeVariant => {
   switch (outcome.toLowerCase()) {
     case 'completed':
     case 'success':
-      return 'bg-green-500/10 text-green-700 border-green-200';
+      return 'success';
     case 'failed':
     case 'error':
-      return 'bg-red-500/10 text-red-700 border-red-200';
+      return 'destructive';
     default:
-      return 'bg-gray-500/10 text-gray-700 border-gray-200';
+      return 'secondary';
   }
 };
 
-const traceStatusClass = (status: string) => {
+const traceStatusVariant = (status: string): BadgeVariant => {
   switch (status) {
     case 'DbAndTelemetry':
-      return 'bg-blue-500/10 text-blue-700 border-blue-200';
+      return 'info';
     default:
-      return 'bg-amber-500/10 text-amber-700 border-amber-200';
+      return 'warning';
   }
 };
 
@@ -92,15 +95,11 @@ export function AiTraceDetailPage() {
   if (error || !trace) {
     return (
       <div className="p-6 space-y-4">
-        <Card className="p-5 border-l-4 border-l-red-500">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="h-5 w-5" />
-            <div>
-              <div className="font-medium">Failed to load AI trace</div>
-              <div className="text-sm">{error ?? 'Trace not found.'}</div>
-            </div>
-          </div>
-        </Card>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Failed to load AI trace</AlertTitle>
+          <AlertDescription>{error ?? 'Trace not found.'}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -116,8 +115,8 @@ export function AiTraceDetailPage() {
             <p className="text-sm text-muted-foreground font-mono break-all">{run.runId}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={`text-xs ${outcomeClass(run.outcome)}`}>{run.outcome}</Badge>
-            <Badge className={`text-xs ${traceStatusClass(trace.traceStatus)}`}>
+            <Badge variant={outcomeVariant(run.outcome)} className="text-xs">{run.outcome}</Badge>
+            <Badge variant={traceStatusVariant(trace.traceStatus)} className="text-xs">
               {trace.traceStatus === 'DbAndTelemetry' ? 'DB + Telemetry' : 'DB only'}
             </Badge>
             <Button variant="outline" size="sm" onClick={() => void handleCopyRunId()}>

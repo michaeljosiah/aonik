@@ -35,13 +35,10 @@ function ViewToggle({ open, set, label, icon }: ToggleProps) {
       className={cn(
         'inline-flex items-center gap-1.5 rounded border-0 text-[11.5px] font-medium transition-colors',
         open
-          ? 'bg-card text-foreground'
+          ? 'bg-card text-foreground shadow-xs'
           : 'bg-transparent text-muted-foreground hover:text-foreground',
       )}
-      style={{
-        padding: '5px 10px',
-        boxShadow: open ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-      }}
+      style={{ padding: '5px 10px' }}
     >
       {icon}
       {label}
@@ -87,14 +84,14 @@ export function EditorHeader({
       className="flex flex-none items-center gap-3 border-b border-border bg-card"
       style={{ height: 52, padding: '0 16px' }}
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={onClose}
-        className="inline-flex items-center gap-1.5 rounded-md text-[12px] text-muted-foreground hover:bg-muted"
-        style={{ padding: '6px 10px' }}
+        className="h-7 gap-1.5 px-2.5 text-[12px] font-normal text-muted-foreground"
       >
         <ArrowLeft size={12} /> Back to Workflows
-      </button>
+      </Button>
       <span className="h-5 w-px bg-border" />
 
       {/* Title block */}
@@ -105,7 +102,7 @@ export function EditorHeader({
             width: 26,
             height: 26,
             borderRadius: 6,
-            background: workflow.ownerColor + '20',
+            background: `color-mix(in oklab, ${workflow.ownerColor} 12.5%, transparent)`,
             color: workflow.ownerColor,
           }}
         >
@@ -123,17 +120,14 @@ export function EditorHeader({
               {workflow.id}
             </span>
             <span
-              className="rounded-[3px] bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
+              className="rounded-sm bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {workflow.version}
             </span>
             {hasChanges && (
-              <span
-                className="rounded-[3px] px-1.5 py-px text-[10px] font-medium"
-                style={{ color: '#b4741e', background: '#b4741e18' }}
-              >
-                UNSAVED
+              <span className="rounded-sm bg-warning-subtle px-1.5 py-px text-[10px] font-medium text-warning-foreground">
+                Unsaved
               </span>
             )}
           </div>
@@ -142,14 +136,7 @@ export function EditorHeader({
 
       {/* Validation errors summary */}
       {validationErrors.length > 0 && (
-        <div
-          className="ml-2 inline-flex items-center gap-1.5 rounded-full text-[11px] font-medium"
-          style={{
-            padding: '3px 9px',
-            background: '#c4453618',
-            color: '#c44536',
-          }}
-        >
+        <div className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-[9px] py-[3px] text-[11px] font-medium text-destructive">
           <AlertTriangle size={11} /> {validationErrors.length} issue
           {validationErrors.length === 1 ? '' : 's'}
         </div>
@@ -157,8 +144,7 @@ export function EditorHeader({
 
       {saveError && (
         <div
-          className="ml-2 inline-flex items-center gap-1.5 rounded-full text-[11px] font-medium"
-          style={{ padding: '3px 9px', background: '#c4453618', color: '#c44536' }}
+          className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-[9px] py-[3px] text-[11px] font-medium text-destructive"
           title={saveError}
         >
           <AlertTriangle size={11} /> Save failed
@@ -201,7 +187,7 @@ export function EditorHeader({
             Discard
           </Button>
         )}
-        <Button variant="outline" size="sm" className="h-7 px-2.5">
+        <Button variant="outline" size="sm" className="h-7 px-2.5" aria-label="More options">
           <MoreHorizontal size={11} />
         </Button>
         <Button

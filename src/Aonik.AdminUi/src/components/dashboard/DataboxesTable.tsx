@@ -9,11 +9,11 @@ interface DataboxesTableProps {
 
 export function DataboxesTable({ databoxes }: DataboxesTableProps) {
   return (
-    <Card className="h-full rounded-[4px] flex flex-col px-4 py-3">
+    <Card className="h-full rounded-lg flex flex-col px-4 py-3">
       <div className="mb-4 flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="7" height="7" rx="1" />
               <rect x="14" y="3" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -31,13 +31,13 @@ export function DataboxesTable({ databoxes }: DataboxesTableProps) {
         </Button>
       </div>
       <CardContent className="flex-1 overflow-hidden px-0 pb-0">
-        <div className="flex items-center justify-between rounded-[2px] bg-muted px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="flex items-center justify-between rounded-md bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
           <div className="flex items-center gap-1 cursor-pointer hover:text-foreground">
             Databox
             <ArrowUpDown className="w-3 h-3" />
           </div>
           <div className="flex items-center gap-1 cursor-pointer hover:text-foreground">
-            Last Modified
+            Last modified
             <ArrowUpDown className="w-3 h-3" />
           </div>
         </div>
@@ -49,7 +49,7 @@ export function DataboxesTable({ databoxes }: DataboxesTableProps) {
               className="flex items-center justify-between px-3 py-3 hover:bg-accent cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--background)_65%,transparent)]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/65">
                   <UserRound className="h-4 w-4" style={{ color: databox.color }} />
                 </div>
                 <div className="min-w-0 flex-1">

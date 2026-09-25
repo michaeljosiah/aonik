@@ -19,6 +19,8 @@ import {
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NODE_KIND } from './stepKindCatalog';
 import type { EditorNodeKind } from './workflowTypes';
 
@@ -102,19 +104,25 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
         style={{ padding: collapsed ? '12px 0' : '12px 14px' }}
       >
         {!collapsed && (
-          <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <span className="flex-1 text-xs font-medium text-muted-foreground">
             Nodes
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-          style={{ margin: collapsed ? '0 auto' : 0 }}
-          aria-label={collapsed ? 'Expand palette' : 'Collapse palette'}
-        >
-          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setCollapsed(!collapsed)}
+              className="size-7 text-muted-foreground"
+              style={{ margin: collapsed ? '0 auto' : 0 }}
+              aria-label={collapsed ? 'Expand palette' : 'Collapse palette'}
+            >
+              {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{collapsed ? 'Expand palette' : 'Collapse palette'}</TooltipContent>
+        </Tooltip>
       </div>
 
       {!collapsed && (
@@ -122,7 +130,7 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
           {GROUPS.map((g) => (
             <div key={g.name} className="mb-3.5">
               <div
-                className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                className="text-[11px] font-medium text-muted-foreground"
                 style={{ padding: '6px 8px' }}
               >
                 {g.name}

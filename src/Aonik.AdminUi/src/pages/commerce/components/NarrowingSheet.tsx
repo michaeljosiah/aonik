@@ -12,12 +12,15 @@
 // less — sending only touched groups, say — would leave untouched groups intact and quietly
 // widen the product relative to what the operator was looking at.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService, type ProductOptionGroupLine } from '@/services/commerceCatalogService';
 
@@ -311,39 +314,43 @@ export function NarrowingSheet({
 
         <SheetBody>
           {stickyNotice && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2 text-[12px] text-warning">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{stickyNotice}</span>
-              <button
-                type="button"
-                onClick={() => setStickyNotice(null)}
-                className="shrink-0 underline"
-              >
-                Dismiss
-              </button>
-            </div>
+            <Alert variant="warning" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{stickyNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setStickyNotice(null)}
+                  className="shrink-0 underline"
+                >
+                  Dismiss
+                </button>
+              </AlertDescription>
+            </Alert>
           )}
 
           {error && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{error}</span>
-              {conflict && (
-                // Re-reads THIS sheet, not only the list behind it. Save stayed enabled while
-                // the refresh was in flight, so a second click resent the stale replace and
-                // overwrote the concurrent winner that caused the conflict.
-                <button
-                  type="button"
-                  onClick={() => {
-                    void load();
-                    onSaved();
-                  }}
-                  className="shrink-0 underline"
-                >
-                  Reload
-                </button>
-              )}
-            </div>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{error}</span>
+                {conflict && (
+                  // Re-reads THIS sheet, not only the list behind it. Save stayed enabled while
+                  // the refresh was in flight, so a second click resent the stale replace and
+                  // overwrote the concurrent winner that caused the conflict.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void load();
+                      onSaved();
+                    }}
+                    className="shrink-0 underline"
+                  >
+                    Reload
+                  </button>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
 
           {loading ? (
@@ -489,11 +496,10 @@ function GroupSection({
   return (
     <AonikCard padding={12}>
       <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={draft.included}
           disabled={!eligible && !draft.included}
-          onChange={(e) => onChange({ included: e.target.checked })}
+          onCheckedChange={(v) => onChange({ included: v === true })}
         />
         <span className="text-[13px] font-medium text-foreground">
           {group.label}
@@ -520,15 +526,15 @@ function GroupSection({
       {draft.included && (
         <div className="mt-2.5 flex flex-col gap-2">
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={draft.inherit}
-              onChange={(e) =>
+              onCheckedChange={(v) => {
+                const checked = v === true;
                 onChange({
-                  inherit: e.target.checked,
+                  inherit: checked,
                   // Switching inheritance OFF pins what is on screen right now, so the product
                   // keeps offering exactly what it offered a moment ago — just frozen.
-                  pinned: e.target.checked
+                  pinned: checked
                     ? draft.pinned
                     : new Set(activeChoices.map((c) => c.key)),
                   // KEEP a product default that is still valid. Clearing it unconditionally
@@ -537,12 +543,12 @@ function GroupSection({
                   // only asked to stop inheriting FUTURE choices. Only a default that is no
                   // longer active is dropped, because it could not survive the pin anyway.
                   defaultChoiceKey:
-                    e.target.checked ||
+                    checked ||
                     activeChoices.some((c) => c.key === draft.defaultChoiceKey)
                       ? draft.defaultChoiceKey
                       : null,
-                })
-              }
+                });
+              }}
             />
             <span className="text-[12px] text-muted-foreground">
               All active choices (inherited)
@@ -601,26 +607,28 @@ function GroupSection({
 
           <label className="mt-1 flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground">Default for this product</span>
-            <select
-              value={draft.defaultChoiceKey ?? ''}
-              onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
-              className="rounded-md border border-border bg-card px-2 py-1 text-[12px] outline-none"
-            >
-              {/* The ACTIVE default, via the same rule as the pricing baseline. A retired
-                  choice keeps its isRecommendedDefault flag (uniqueness is enforced only among
-                  active ones), so an unrestricted find could name the old choice here while
-                  the star, the baseline and the backend all use the new one. */}
-              <option value="">
-                Follow the group ({effectiveDefaultChoice(activeChoices)?.label ?? 'none'})
-              </option>
-              {/* OFFERED, not every active choice: a default the product does not offer is a
-                  payload the backend rejects. */}
-              {offered.map((choice) => (
-                <option key={choice.key} value={choice.key}>
-                  {choice.label}
+            <div className="w-60">
+              <NativeSelect
+                value={draft.defaultChoiceKey ?? ''}
+                onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
+                className="h-8 text-[12px]"
+              >
+                {/* The ACTIVE default, via the same rule as the pricing baseline. A retired
+                    choice keeps its isRecommendedDefault flag (uniqueness is enforced only among
+                    active ones), so an unrestricted find could name the old choice here while
+                    the star, the baseline and the backend all use the new one. */}
+                <option value="">
+                  Follow the group ({effectiveDefaultChoice(activeChoices)?.label ?? 'none'})
                 </option>
-              ))}
-            </select>
+                {/* OFFERED, not every active choice: a default the product does not offer is a
+                    payload the backend rejects. */}
+                {offered.map((choice) => (
+                  <option key={choice.key} value={choice.key}>
+                    {choice.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
           </label>
         </div>
       )}

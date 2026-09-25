@@ -32,6 +32,7 @@ import {
   type DataTableAction,
 } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { orderService, type ListOrdersParams } from '@/services/orderService';
 import type { OrderListItem, PagedResult } from '@/types';
 
@@ -220,8 +221,9 @@ export function OrdersListPage() {
       id: 'order',
       header: 'Order',
       accessorKey: 'orderId',
+      numeric: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-primary">
+        <span className="text-[11px] font-medium text-primary">
           {shortOrderId(row.orderId)}
         </span>
       ),
@@ -234,7 +236,7 @@ export function OrdersListPage() {
       accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+        <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
           {formatDate(row.createdAt)}
         </span>
       ),
@@ -272,7 +274,7 @@ export function OrdersListPage() {
           ? `${row.originCurrency}→${row.destinationCurrency}`
           : row.originCurrency,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+        <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
           {row.originCountry ? `${row.originCountry} · ` : ''}
           {row.destinationCurrency
             ? `${row.originCurrency}→${row.destinationCurrency}`
@@ -298,13 +300,13 @@ export function OrdersListPage() {
       header: 'Amount',
       accessorFn: (row) => row.totalAmountIn,
       sortable: true,
+      numeric: true,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
+        <span className="text-[12.5px] font-semibold text-foreground">
           {formatMoney(row.totalAmountIn, row.originCurrency)}
         </span>
       ),
-      className: 'w-[140px] text-right',
-      headerClassName: 'text-right',
+      className: 'w-[140px]',
     },
   ];
 
@@ -329,7 +331,6 @@ export function OrdersListPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Finance · Orders"
         title="Orders"
         subtitle={subtitle}
         actions={
@@ -359,7 +360,7 @@ export function OrdersListPage() {
                 setActiveTab(`type:${bucket.orderType}`);
               }
             }}
-            className="flex flex-col items-start gap-1 rounded-[10px] border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted"
+            className="flex flex-col items-start gap-1 rounded-lg border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted"
           >
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span
@@ -368,12 +369,12 @@ export function OrdersListPage() {
               />
               {bucket.label}
             </div>
-            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-foreground">
+            <div className="font-mono tabular-nums text-[22px] font-semibold leading-none text-foreground">
               {statsLoading
                 ? '—'
                 : (stats[bucket.key] ?? 0).toLocaleString()}
             </div>
-            <div className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
+            <div className="font-mono tabular-nums text-[10px] text-muted-foreground">
               today · click to filter status
             </div>
           </button>
@@ -381,14 +382,16 @@ export function OrdersListPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadOrders()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadOrders()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar

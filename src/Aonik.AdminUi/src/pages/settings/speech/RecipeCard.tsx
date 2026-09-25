@@ -97,7 +97,7 @@ export function RecipeCard({
       {steps.length > 0 ? (
         <RecipeFlow steps={steps} kind={flowKind} />
       ) : (
-        <div className="rounded-[10px] bg-muted p-4 text-xs text-muted-foreground">
+        <div className="rounded-lg bg-muted p-4 text-xs text-muted-foreground">
           Recipe body is empty — open the editor to configure providers.
         </div>
       )}

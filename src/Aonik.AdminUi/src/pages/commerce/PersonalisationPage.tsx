@@ -14,6 +14,7 @@
 // The default's badge text is the tenant's configured label, fetched live — product identity
 // is configuration, never a literal in platform code (ADR-013).
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Plus, RefreshCw, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,6 +22,14 @@ import { toast } from 'sonner';
 import { Card as AonikCard, KpiTile, PageHeader, Pill } from '@/components/layout/aonik';
 import { DataTable, DataTablePagination, type ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
@@ -333,13 +342,15 @@ export function PersonalisationPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void loadData()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void loadData()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {loading ? (
@@ -556,26 +567,26 @@ function ChoicesCard({
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-muted/50 text-left">
-              <th className="w-10 px-3 py-2" />
-              <th className="px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="h-auto w-10 px-3 py-2" />
+              <TableHead className="h-auto px-2 py-2 text-xs text-muted-foreground">
                 Choice
-              </th>
-              <th className="w-[120px] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                vs default
-              </th>
-              <th className="w-[100px] px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              </TableHead>
+              <TableHead numeric className="h-auto w-[120px] px-2 py-2 text-xs text-muted-foreground">
+                Vs default
+              </TableHead>
+              <TableHead className="h-auto w-[100px] px-2 py-2 text-xs text-muted-foreground">
                 Status
-              </th>
-              <th className="w-[170px] px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead className="h-auto w-[170px] px-3 py-2" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {group.choices.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="px-4 py-6 text-center whitespace-normal">
                   <span className="flex flex-col items-center gap-2">
                     <span className="text-[12.5px] text-muted-foreground">
                       This group has no choices yet, so the storefront shows it to nobody.
@@ -584,26 +595,23 @@ function ChoicesCard({
                       <Plus className="mr-1 h-3.5 w-3.5" /> Add the first choice
                     </Button>
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {group.choices.map((choice) => {
               const delta = choiceDelta(choice, baseline);
               const isDefault = baseline?.key === choice.key;
               return (
-                <tr
-                  key={choice.key}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="px-3 py-2">
+                <TableRow key={choice.key}>
+                  <TableCell className="px-3 py-2">
                     {isDefault && (
                       <Star
                         className="h-3.5 w-3.5 fill-warning text-warning"
                         aria-label="Recommended default"
                       />
                     )}
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2 whitespace-normal">
                     <span className="flex flex-col gap-0.5">
                       <span className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[13px] text-foreground">
@@ -621,24 +629,24 @@ function ChoicesCard({
                         </span>
                       )}
                     </span>
-                  </td>
-                  <td className="px-2 py-2 text-right">
+                  </TableCell>
+                  <TableCell numeric className="px-2 py-2">
                     {delta === null ? (
                       // No default means no baseline. Showing the absolute price under a column
                       // headed "vs default" would read as a delta and overstate every choice.
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="font-sans text-[11px] text-muted-foreground">
                         no default
                       </span>
                     ) : (
                       <SignedAmount amount={delta} currency={group.currency} />
                     )}
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Pill tone={choice.isActive ? 'success' : 'muted'} size="sm">
                       {choice.isActive ? 'Active' : 'Retired'}
                     </Pill>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <span className="flex justify-end gap-2.5">
                       {/* Not offered while the GROUP is inactive: the move succeeds but stages
                           no content review, because the group is absent from every effective
@@ -669,12 +677,12 @@ function ChoicesCard({
                         {choice.isActive ? 'Retire' : 'Reactivate'}
                       </button>
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {!group.isActive && (

@@ -2,6 +2,14 @@ import type { KeyboardEventHandler } from 'react';
 import { ChevronDown, Mic, SquarePlus, Send, Square, Trash2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from '@/components/ui/input-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type AiChatComposerMode = 'center' | 'footer';
 
@@ -25,12 +33,9 @@ export type AiChatComposerProps = {
 };
 
 /**
- * Chat input composer styled to match Centrali's ChatInput:
- *  - rounded-[1rem] container with border
- *  - themed bottom-border on focus (uses .input-focused CSS class from index.css)
- *  - SquarePlus attach button (Centrali: IconSquarePlus)
- *  - Send button: rounded-[0.7rem], solid theme bg, white icon
- *  - Stop button replaces send when streaming
+ * Chat input composer (Spec 098): an InputGroup-style bordered group holding
+ * the textarea, with a block-end toolbar (attach, model, voice) and the send
+ * icon Button. The Stop button replaces Send while a reply is streaming.
  */
 export function AiChatComposer({
   value,
@@ -62,6 +67,8 @@ export function AiChatComposer({
     }
   };
 
+  const voiceLabel = voiceModeAvailable ? `Voice mode ${voicePlaybackState}` : 'Voice unavailable';
+
   return (
     <div
       className={cn(
@@ -70,109 +77,88 @@ export function AiChatComposer({
         className
       )}
     >
-      {/* Input container — Centrali: rounded-[1rem], border, focus: themed bottom border */}
-      <div
-        className={cn(
-          'rounded-[1rem] border border-border bg-card',
-          'transition-all duration-150',
-          'focus-within:border-b-2 focus-within:border-b-primary',
-          'focus-within:shadow-[0px_4px_0px_-2px_var(--color-brand-primary-60)]'
-        )}
-      >
-        {/* Textarea */}
-        <div className={cn('px-4 pt-3', isCenter && 'pt-4')}>
-          <textarea
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            rows={isCenter ? 3 : 1}
-            className={cn(
-              'w-full resize-none bg-transparent text-sm text-foreground',
-              'placeholder:text-muted-foreground outline-none leading-6',
-              'max-h-[40vh]',
-              isCenter ? 'min-h-[96px]' : 'min-h-9'
-            )}
-          />
-        </div>
+      <InputGroup className="rounded-xl bg-card">
+        <InputGroupTextarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={isCenter ? 3 : 1}
+          aria-label="Message"
+          className={cn(
+            'max-h-[40vh] px-4 leading-6',
+            isCenter ? 'min-h-[96px] pt-4' : 'min-h-9 pt-3'
+          )}
+        />
 
-        {/* Toolbar */}
-        <div className="px-3 pb-3 flex items-center justify-between">
-          {/* Left: Attach button — Centrali: IconSquarePlus, 40x40, gray-400, hover bg-gray-200, rounded-full */}
-          <button
-            className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground hover:bg-accent transition-colors"
-            title="Attach"
-            type="button"
-          >
-            <SquarePlus className="h-5 w-5" />
-          </button>
+        <InputGroupAddon align="block-end" className="justify-between">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <InputGroupButton size="icon-sm" className="rounded-full" aria-label="Attach">
+                <SquarePlus />
+              </InputGroupButton>
+            </TooltipTrigger>
+            <TooltipContent>Attach</TooltipContent>
+          </Tooltip>
 
-          {/* Right: Model selector, Mic, Send/Stop */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
-              title="Model"
-            >
+            <InputGroupButton size="sm" className="text-muted-foreground" title="Model">
               {modelLabel}
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </button>
+              <ChevronDown />
+            </InputGroupButton>
 
-            <button
-              type="button"
-              className={cn(
-                'h-9 w-9 rounded-full grid place-items-center transition-colors',
-                voiceModeAvailable
-                  ? voiceModeEnabled
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'text-muted-foreground hover:bg-accent'
-                  : 'text-muted-foreground cursor-not-allowed'
-              )}
-              title={voiceModeAvailable ? `Voice mode ${voicePlaybackState}` : 'Voice unavailable'}
-              disabled={!voiceModeAvailable}
-              aria-pressed={voiceModeEnabled}
-              onClick={() => onToggleVoiceMode?.(!voiceModeEnabled)}
-            >
-              <Mic className="h-4 w-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* Span keeps the tooltip reachable while the button is disabled. */}
+                <span className="inline-flex">
+                  <InputGroupButton
+                    size="icon-sm"
+                    variant={voiceModeAvailable && voiceModeEnabled ? 'default' : 'ghost'}
+                    className="rounded-full"
+                    aria-label={voiceLabel}
+                    disabled={!voiceModeAvailable}
+                    aria-pressed={voiceModeEnabled}
+                    onClick={() => onToggleVoiceMode?.(!voiceModeEnabled)}
+                  >
+                    <Mic />
+                  </InputGroupButton>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{voiceLabel}</TooltipContent>
+            </Tooltip>
 
-            {/* Send / Stop — Centrali: rounded-[0.7rem], p-[0.5rem], theme-bg, white icon */}
             {isStreaming ? (
-              <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                title="Stop"
-                type="button"
-                onClick={onStop}
-              >
-                <Square className="h-4 w-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" aria-label="Stop" onClick={onStop}>
+                    <Square />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Stop</TooltipContent>
+              </Tooltip>
             ) : hasText ? (
-              <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                title="Send"
-                type="button"
-                onClick={onSend}
-              >
-                <Send className="h-4 w-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" aria-label="Send" onClick={onSend}>
+                    <Send />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Send</TooltipContent>
+              </Tooltip>
             ) : null}
           </div>
-        </div>
-      </div>
+        </InputGroupAddon>
+      </InputGroup>
 
       {/* Helper text */}
       {shouldShowHelper && (
-        <div className="px-4 pt-2 flex items-center justify-between text-[12px] text-muted-foreground">
+        <div className="px-4 pt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>Shift+Enter for newline</span>
           {shouldShowClear && onClear && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
+            <Button type="button" variant="ghost" size="sm" onClick={onClear} className="h-7 text-muted-foreground">
+              <Trash2 />
               Clear
-            </button>
+            </Button>
           )}
         </div>
       )}

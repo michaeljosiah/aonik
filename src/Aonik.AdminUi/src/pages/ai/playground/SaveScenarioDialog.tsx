@@ -83,7 +83,7 @@ export function SaveScenarioDialog({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="scenario-name" className="text-xs">
-              Name <span className="text-red-500">*</span>
+              Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="scenario-name"

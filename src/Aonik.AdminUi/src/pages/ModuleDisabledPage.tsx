@@ -40,7 +40,7 @@ export function ModuleDisabledPage({ moduleId: moduleIdProp }: ModuleDisabledPag
         <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Blocks className="h-5 w-5" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Module not enabled</p>
+        <p className="text-xs font-medium text-muted-foreground">Module not enabled</p>
         <h1 className="mt-1 text-2xl font-bold text-foreground">
           {name} is not enabled for this organisation
         </h1>

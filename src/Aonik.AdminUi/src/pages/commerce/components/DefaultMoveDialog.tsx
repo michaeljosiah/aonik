@@ -9,6 +9,7 @@
 // defaultChoiceKey are unaffected BY DEFINITION and are absent from the report — claiming
 // otherwise would send the operator hunting for products that were never touched.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { ArrowRight, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -94,9 +95,11 @@ export function DefaultMoveDialog({
         )}
 
         {error && (
-          <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-            {error}
-          </p>
+          <Alert variant="destructive" className="py-2">
+            <AlertDescription className="text-xs">
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
 
         {result && <AffectedProducts slugs={result.affectedProductSlugs} />}

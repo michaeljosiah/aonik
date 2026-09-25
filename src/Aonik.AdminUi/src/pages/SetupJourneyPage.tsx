@@ -3,8 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { Handle, Position, ReactFlow, Background, type Node, type Edge, type ReactFlowInstance } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { CheckCircle2, Circle, PauseCircle, PlayCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -120,7 +135,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Learn how to connect and manage your payment correspondents for seamless cross-border transactions.',
     category: 'Partners',
     order: 2,
-    accent: 'from-blue-500/20 to-cyan-500/20',
   },
   {
     id: 'email-provider',
@@ -129,7 +143,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Set up transactional email delivery for notifications, receipts, and customer communications.',
     category: 'Notifications',
     order: 3,
-    accent: 'from-purple-500/20 to-pink-500/20',
   },
   {
     id: 'compliance-rules',
@@ -138,7 +151,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Configure KYC/KYB workflows, transaction limits, and automated screening policies.',
     category: 'Compliance',
     order: 5,
-    accent: 'from-amber-500/20 to-orange-500/20',
   },
   {
     id: 'webhook-integration',
@@ -147,7 +159,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Receive real-time event notifications for payments, settlements, and status changes.',
     category: 'Integration',
     order: 6,
-    accent: 'from-emerald-500/20 to-teal-500/20',
   },
   {
     id: 'fx-rates',
@@ -156,7 +167,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Configure currency exchange rates, margins, and automatic rate refresh schedules.',
     category: 'Pricing',
     order: 7,
-    accent: 'from-rose-500/20 to-red-500/20',
   },
   {
     id: 'api-keys',
@@ -165,7 +175,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Create and manage API credentials for secure programmatic access to the platform.',
     category: 'Security',
     order: 4,
-    accent: 'from-indigo-500/20 to-violet-500/20',
   },
   {
     id: 'getting-started',
@@ -174,9 +183,23 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'A tour of the setup journey, policies, and core capabilities to launch with confidence.',
     category: 'Foundations',
     order: 1,
-    accent: 'from-slate-500/20 to-slate-300/30',
   },
 ];
+
+// Categorical tint for a guide without a cover image, keyed by its order so a
+// guide keeps the same colour on every setup page.
+const guideAccents = [
+  'from-(--chart-1)/20 to-(--chart-1)/5',
+  'from-(--chart-2)/20 to-(--chart-2)/5',
+  'from-(--chart-3)/20 to-(--chart-3)/5',
+  'from-(--chart-4)/20 to-(--chart-4)/5',
+  'from-(--chart-5)/20 to-(--chart-5)/5',
+];
+
+function guideAccentClass(guide: SetupGuideDefinition) {
+  const n = guideAccents.length;
+  return guideAccents[((Math.trunc(guide.order) % n) + n) % n];
+}
 
 const setupNodes = baseSteps.map((step, index) => ({
   id: step.id,
@@ -316,7 +339,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
       <div className="px-4 py-4 space-y-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{data.category}</span>
+          <span className="text-xs font-medium text-muted-foreground">{data.category}</span>
         </div>
         <div className="space-y-2">
           <p className="text-base font-semibold text-foreground">{data.title}</p>
@@ -749,7 +772,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       <div className="px-6 py-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2 flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Tenant Setup Journey</p>
+            <p className="text-sm font-medium text-primary">Tenant setup journey</p>
             <h1 className="text-3xl font-bold text-foreground">Launch your finance stack</h1>
             <p className="w-full max-w-none text-sm text-muted-foreground">
               Each node represents a platform capability. Complete the required path to go live, or skip optional upgrades and return later.
@@ -766,7 +789,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
 
         <div className={cn('mt-6 grid grid-cols-1 gap-6', isMobile ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_320px]')}>
           <Card className="overflow-hidden">
-            <CardContent className="h-[360px] p-0 bg-[radial-gradient(circle_at_top,_rgba(0,0,0,0.04),_transparent_55%)]">
+            <CardContent className="h-[360px] p-0 bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--foreground)_4%,transparent),transparent_55%)]">
               {isMobile ? (
                 <div className="space-y-4">
                   {stepsWithStatus.map((step) => (
@@ -897,7 +920,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
           </div>
           {guideLoading && !resolvedManifest ? (
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <Spinner className="text-primary" />
               Loading guides...
             </div>
           ) : (
@@ -918,14 +941,12 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       return (
                         <Card key={guide.id} className="overflow-hidden transition-shadow hover:shadow-md">
                           <div
-                            className={cn('h-24 bg-cover bg-center', !coverUrl && 'bg-gradient-to-br', guide.accent ?? 'from-slate-200/60 to-slate-100')}
+                            className={cn('h-24 bg-cover bg-center', !coverUrl && ['bg-muted bg-gradient-to-br', guideAccentClass(guide)])}
                             style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
                           />
                           <CardContent className="p-4">
                             <div className="space-y-3">
-                              <span className="inline-block rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {guide.category}
-                              </span>
+                              <Badge variant="secondary">{guide.category}</Badge>
                               <h3 className="text-sm font-semibold text-foreground line-clamp-2">
                                 {guide.title}
                               </h3>
@@ -933,9 +954,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                                 {guide.description}
                               </p>
                               <Button
-                                variant="ghost"
+                                variant="link"
                                 size="sm"
-                                className="h-8 px-0 text-xs font-semibold text-primary hover:text-primary hover:bg-transparent"
+                                className="h-8 px-0 text-xs font-semibold"
                                 onClick={() => navigate(`/setup-guides/${guide.slug}`)}
                               >
                                 Read article
@@ -953,90 +974,96 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
           )}
         </div>
       </div>
-      {wizardOpen && selectedStep && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full min-w-[320px] max-w-[720px] rounded-2xl border border-border bg-card shadow-xl">
+      <Dialog open={wizardOpen && Boolean(selectedStep)} onOpenChange={setWizardOpen}>
+        {selectedStep && (
+          <DialogContent
+            showCloseButton={false}
+            aria-describedby={undefined}
+            className="max-h-[calc(100svh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-[720px]"
+          >
             <div
-              className="h-32 rounded-t-2xl bg-cover bg-center"
+              className="h-32 bg-muted bg-cover bg-center"
               style={{
                 backgroundImage: selectedStep.bannerUrl ? `url(${selectedStep.bannerUrl})` : undefined,
               }}
             />
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Setup wizard</p>
-                <h3 className="text-lg font-semibold text-foreground">{selectedStep.title}</h3>
+                <p className="text-xs font-medium text-muted-foreground">Setup wizard</p>
+                <DialogTitle className="mt-1 text-lg font-semibold text-foreground">{selectedStep.title}</DialogTitle>
               </div>
-              <button
-                type="button"
-                onClick={() => setWizardOpen(false)}
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
                 Close
-              </button>
+              </Button>
             </div>
             <div className="px-6 py-6">
               {isTenantProfileWizard ? (
                 <div className="space-y-6">
-                  <div className="flex flex-wrap gap-2">
+                  <ol className="flex flex-wrap gap-2">
                     {tenantWizardSteps.map((label, index) => (
-                      <span
+                      <li
                         key={label}
+                        aria-current={wizardStepIndex === index ? 'step' : undefined}
                         className={cn(
-                          'rounded-full px-3 py-1 text-xs font-semibold',
+                          'rounded-md px-3 py-1 text-xs font-medium',
                           wizardStepIndex === index
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-muted-foreground'
                         )}
                       >
                         {index + 1}. {label}
-                      </span>
+                      </li>
                     ))}
-                  </div>
+                  </ol>
 
                   {tenantProfileLoading ? (
-                    <div className="text-sm text-muted-foreground">Loading tenant data...</div>
-                  ) : tenantProfileError ? (
-                    <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-                      {tenantProfileError}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner />
+                      Loading tenant data...
                     </div>
+                  ) : tenantProfileError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{tenantProfileError}</AlertDescription>
+                    </Alert>
                   ) : wizardStepIndex === 0 ? (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
                         Confirm your tenant profile so the platform can tailor policies, pricing, and compliance defaults.
                       </p>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Tenant display name</label>
-                          <input
+                        <Field data-invalid={Boolean(tenantProfileErrors.name)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-display-name">Tenant display name</FieldLabel>
+                          <Input
+                            id="tenant-display-name"
                             type="text"
                             value={tenantProfile.name}
+                            aria-invalid={Boolean(tenantProfileErrors.name)}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, name: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                           />
-                          {tenantProfileErrors.name && (
-                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.name}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Legal name</label>
-                          <input
+                          {tenantProfileErrors.name && <FieldError>{tenantProfileErrors.name}</FieldError>}
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.legalName)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-legal-name">Legal name</FieldLabel>
+                          <Input
+                            id="tenant-legal-name"
                             type="text"
                             value={tenantProfile.legalName}
+                            aria-invalid={Boolean(tenantProfileErrors.legalName)}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, legalName: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                           />
-                          {tenantProfileErrors.legalName && (
-                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.legalName}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Base currency</label>
+                          {tenantProfileErrors.legalName && <FieldError>{tenantProfileErrors.legalName}</FieldError>}
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.defaultCurrency)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-base-currency">Base currency</FieldLabel>
                           <Select
                             value={tenantProfile.defaultCurrency}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger
+                              id="tenant-base-currency"
+                              className="w-full"
+                              aria-invalid={Boolean(tenantProfileErrors.defaultCurrency)}
+                            >
                               <SelectValue placeholder="Select currency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1048,30 +1075,34 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             </SelectContent>
                           </Select>
                           {tenantProfileErrors.defaultCurrency && (
-                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.defaultCurrency}</p>
+                            <FieldError>{tenantProfileErrors.defaultCurrency}</FieldError>
                           )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Primary country</label>
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.primaryCountry)} className="gap-2">
+                          <FieldLabel>Primary country</FieldLabel>
                           <CountrySelect
                             value={tenantProfile.primaryCountry}
                             onChange={handlePrimaryCountryChange}
                             placeholder="Select a country"
                             includeEmpty={true}
                             emptyLabel="Clear selection"
-                            className="mt-2 w-full"
+                            className="w-full"
                           />
                           {tenantProfileErrors.primaryCountry && (
-                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.primaryCountry}</p>
+                            <FieldError>{tenantProfileErrors.primaryCountry}</FieldError>
                           )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Time zone</label>
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.timeZone)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-time-zone">Time zone</FieldLabel>
                           <Select
                             value={tenantProfile.timeZone}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, timeZone: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger
+                              id="tenant-time-zone"
+                              className="w-full"
+                              aria-invalid={Boolean(tenantProfileErrors.timeZone)}
+                            >
                               <SelectValue placeholder="Select a time zone" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1082,19 +1113,18 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               ))}
                             </SelectContent>
                           </Select>
-                          {tenantProfileErrors.timeZone && (
-                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.timeZone}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-muted-foreground">Admin contact</label>
-                          <input
+                          {tenantProfileErrors.timeZone && <FieldError>{tenantProfileErrors.timeZone}</FieldError>}
+                        </Field>
+                        <Field className="gap-2">
+                          <FieldLabel htmlFor="tenant-admin-contact">Admin contact</FieldLabel>
+                          <Input
+                            id="tenant-admin-contact"
                             type="email"
                             value={tenantProfile.adminEmail}
                             readOnly
-                            className="mt-2 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
+                            className="bg-muted text-muted-foreground"
                           />
-                        </div>
+                        </Field>
                       </div>
                       {currentTenant && (
                         <p className="text-xs text-muted-foreground">
@@ -1110,19 +1140,16 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       <div className="space-y-4">
                         <div className="flex flex-wrap gap-2">
                           {featureGroups.map((group) => (
-                            <button
+                            <Button
                               key={group.id}
                               type="button"
+                              size="sm"
+                              variant={activeFeatureGroupId === group.id ? 'default' : 'outline'}
+                              aria-pressed={activeFeatureGroupId === group.id}
                               onClick={() => setActiveFeatureGroupId(group.id)}
-                              className={cn(
-                                'rounded-full border px-4 py-1.5 text-xs font-semibold',
-                                activeFeatureGroupId === group.id
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border text-muted-foreground'
-                              )}
                             >
                               {group.label}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                         {(() => {
@@ -1141,24 +1168,25 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               </div>
                               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {activeGroup.flags.map((flag) => (
-                                  <label key={flag.key} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <input
-                                      type="checkbox"
+                                  <Field key={flag.key} orientation="horizontal" className="gap-2">
+                                    <Checkbox
+                                      id={`feature-${flag.key}`}
                                       checked={Boolean(featureSelections[flag.key])}
-                                      onChange={() => handleFeatureToggle(flag.key)}
-                                      className="h-4 w-4 rounded border-border"
+                                      onCheckedChange={() => handleFeatureToggle(flag.key)}
                                     />
-                                    <span>{flag.label}</span>
-                                  </label>
+                                    <FieldLabel htmlFor={`feature-${flag.key}`} className="font-normal text-muted-foreground">
+                                      {flag.label}
+                                    </FieldLabel>
+                                  </Field>
                                 ))}
                               </div>
                             </div>
                           );
                         })()}
                         {featureError && (
-                          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-                            {featureError}
-                          </div>
+                          <Alert variant="destructive">
+                            <AlertDescription>{featureError}</AlertDescription>
+                          </Alert>
                         )}
                       </div>
                     </div>
@@ -1167,24 +1195,25 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       <p className="text-sm text-muted-foreground">
                         Seed a guided demo dataset to explore workflows like orders, payments, and ledger activity.
                       </p>
-                      <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-4">
-                        <input
-                          type="checkbox"
-                          checked={demoSeedEnabled}
-                          onChange={(event) => setDemoSeedEnabled(event.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-border"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">Seed demo data</p>
-                          <p className="text-xs text-muted-foreground">
-                            Demo data is isolated to this tenant and can be cleared later.
-                          </p>
-                        </div>
-                      </div>
+                      <FieldLabel htmlFor="seed-demo-data">
+                        <Field orientation="horizontal">
+                          <Checkbox
+                            id="seed-demo-data"
+                            checked={demoSeedEnabled}
+                            onCheckedChange={(value) => setDemoSeedEnabled(value === true)}
+                          />
+                          <FieldContent>
+                            <FieldTitle>Seed demo data</FieldTitle>
+                            <FieldDescription className="text-xs">
+                              Demo data is isolated to this tenant and can be cleared later.
+                            </FieldDescription>
+                          </FieldContent>
+                        </Field>
+                      </FieldLabel>
                       {demoSeedError && (
-                        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-                          {demoSeedError}
-                        </div>
+                        <Alert variant="destructive">
+                          <AlertDescription>{demoSeedError}</AlertDescription>
+                        </Alert>
                       )}
                     </div>
                   )}
@@ -1194,22 +1223,14 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                   <p className="text-sm text-muted-foreground">
                     {selectedStep.description}
                   </p>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground">Owner</label>
-                    <input
-                      type="text"
-                      placeholder="Assign a team lead"
-                      className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground">Notes</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Add any context for this step"
-                      className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
-                    />
-                  </div>
+                  <Field className="gap-2">
+                    <FieldLabel htmlFor="setup-step-owner">Owner</FieldLabel>
+                    <Input id="setup-step-owner" type="text" placeholder="Assign a team lead" />
+                  </Field>
+                  <Field className="gap-2">
+                    <FieldLabel htmlFor="setup-step-notes">Notes</FieldLabel>
+                    <Textarea id="setup-step-notes" rows={4} placeholder="Add any context for this step" />
+                  </Field>
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -1226,14 +1247,15 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
               )}
             </div>
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setWizardStepIndex((prev) => Math.max(prev - 1, 0))}
-                className="text-sm text-muted-foreground hover:text-foreground"
                 disabled={wizardStepIndex === 0 || tenantProfileLoading}
               >
                 Back
-              </button>
+              </Button>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
                   Cancel
@@ -1241,15 +1263,18 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 {isTenantProfileWizard ? (
                   wizardStepIndex === 0 ? (
                     <Button size="sm" onClick={handleTenantProfileContinue} disabled={tenantProfileSaving}>
-                      {tenantProfileSaving ? 'Saving...' : 'Continue'}
+                      {tenantProfileSaving && <Spinner />}
+                      Continue
                     </Button>
                   ) : wizardStepIndex === 1 ? (
                     <Button size="sm" onClick={handleFeatureContinue} disabled={featureSaving}>
-                      {featureSaving ? 'Saving...' : 'Continue'}
+                      {featureSaving && <Spinner />}
+                      Continue
                     </Button>
                   ) : (
                     <Button size="sm" onClick={handleFinishTenantWizard} disabled={demoSeedSaving}>
-                      {demoSeedSaving ? 'Finishing...' : 'Finish setup'}
+                      {demoSeedSaving && <Spinner />}
+                      Finish setup
                     </Button>
                   )
                 ) : wizardStepIndex === 0 ? (
@@ -1269,22 +1294,22 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: StepStatus }) {
-  const mapping: Record<StepStatus, { label: string; className: string }> = {
-    todo: { label: 'Not started', className: 'bg-muted text-muted-foreground' },
-    'in-progress': { label: 'In progress', className: 'bg-info-subtle text-info' },
-    blocked: { label: 'Blocked', className: 'bg-warning-subtle text-warning' },
-    complete: { label: 'Complete', className: 'bg-success-subtle text-success' },
-    skipped: { label: 'Skipped', className: 'bg-muted text-muted-foreground' },
-  };
+const statusBadges: Record<StepStatus, { label: string; variant: 'secondary' | 'info' | 'warning' | 'success' | 'outline' }> = {
+  todo: { label: 'Not started', variant: 'secondary' },
+  'in-progress': { label: 'In progress', variant: 'info' },
+  blocked: { label: 'Blocked', variant: 'warning' },
+  complete: { label: 'Complete', variant: 'success' },
+  skipped: { label: 'Skipped', variant: 'outline' },
+};
 
-  const { label, className } = mapping[status];
-  return <span className={cn('rounded-full px-2 py-1 text-[11px] font-semibold uppercase', className)}>{label}</span>;
+function StatusPill({ status }: { status: StepStatus }) {
+  const { label, variant } = statusBadges[status];
+  return <Badge variant={variant}>{label}</Badge>;
 }

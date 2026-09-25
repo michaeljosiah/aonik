@@ -16,7 +16,11 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { PlaygroundFrontendToolRegistration } from '@/lib/playground-client';
 import {
@@ -567,26 +571,51 @@ export interface ServerApprovalState {
   message?: string;
 }
 
-const serverApprovalSeverityConfig = {
+/**
+ * Risk-tier presentation shared by the approval cards (client `confirmAction`
+ * and the Spec 032 server-owned card): badge variant, card border, icon, label.
+ */
+export const approvalSeverityConfig = {
   low: {
-    badge: 'bg-info-subtle text-info border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
+    badge: 'info',
+    border: 'border-info/25',
     icon: <ShieldAlert className="h-4 w-4 text-info" />,
-    label: 'Low Risk',
+    label: 'Low risk',
   },
   medium: {
-    badge: 'bg-warning-subtle text-warning border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
+    badge: 'warning',
+    border: 'border-warning/25',
     icon: <ShieldAlert className="h-4 w-4 text-warning" />,
-    label: 'Medium Risk',
+    label: 'Medium risk',
   },
   high: {
-    badge: 'bg-destructive/10 text-destructive border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
+    badge: 'destructive',
+    border: 'border-destructive/25',
     icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
-    label: 'High Risk',
+    label: 'High risk',
   },
 } as const;
+
+/** Resolved approval summary: an Alert in the success or destructive tone. */
+export function ApprovalResolvedAlert({
+  approved,
+  title,
+  detail,
+}: {
+  approved: boolean;
+  title: string;
+  detail?: string;
+}) {
+  return (
+    <Alert variant={approved ? 'success' : 'destructive'}>
+      {approved ? <ShieldCheck /> : <ShieldX />}
+      <AlertTitle className="line-clamp-none">
+        {title} — {approved ? 'Approved' : 'Rejected'}
+      </AlertTitle>
+      {detail && <AlertDescription className="text-xs">{detail}</AlertDescription>}
+    </Alert>
+  );
+}
 
 export function ServerApprovalCard({
   approval,
@@ -601,33 +630,16 @@ export function ServerApprovalCard({
       : approval.tier.toLowerCase() === 'low'
         ? 'low'
         : 'medium';
-  const config = serverApprovalSeverityConfig[severity];
+  const config = approvalSeverityConfig[severity];
 
   // Resolved states — a compact summary line.
   if (approval.status === 'approved' || approval.status === 'rejected') {
-    const approved = approval.status === 'approved';
     return (
-      <div
-        className={`flex items-start gap-3 rounded-lg border ${
-          approved
-            ? 'border-[color-mix(in_srgb,var(--success)_25%,transparent)] bg-[color-mix(in_srgb,var(--success)_8%,transparent)]'
-            : 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]'
-        } px-4 py-3 text-sm`}
-      >
-        {approved ? (
-          <ShieldCheck className="h-5 w-5 text-success mt-0.5 shrink-0" />
-        ) : (
-          <ShieldX className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-foreground">
-            {approval.actionKind} — {approved ? 'Approved' : 'Rejected'}
-          </div>
-          {approval.message && (
-            <div className="mt-0.5 text-xs text-muted-foreground">{approval.message}</div>
-          )}
-        </div>
-      </div>
+      <ApprovalResolvedAlert
+        approved={approval.status === 'approved'}
+        title={approval.actionKind}
+        detail={approval.message}
+      />
     );
   }
 
@@ -640,13 +652,11 @@ export function ServerApprovalCard({
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
         <span className="font-semibold text-sm text-foreground">
-          {approval.kind === 'high' ? 'Approval Required — Money Movement' : 'Approval Required'}
+          {approval.kind === 'high' ? 'Approval required — money movement' : 'Approval required'}
         </span>
-        <span
-          className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}
-        >
+        <Badge variant={config.badge} className="ml-auto">
           {config.label}
-        </span>
+        </Badge>
       </div>
 
       {/* Body */}
@@ -671,24 +681,27 @@ export function ServerApprovalCard({
           </span>
         ) : (
           <>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="agent"
               disabled={!canDecide}
               onClick={() => onDecide?.(approval, 'Approve')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <CheckCircle2 />
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="sm"
+              variant="outline"
               disabled={!canDecide}
               onClick={() => onDecide?.(approval, 'Reject')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-card border border-[color-mix(in_srgb,var(--destructive)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-destructive shadow-sm hover:bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-destructive hover:text-destructive"
             >
-              <XCircle className="h-3.5 w-3.5" />
+              <XCircle />
               Reject
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -751,14 +764,16 @@ export function AiFollowUpSuggestionsCard({
       )}
       <div className="flex flex-wrap gap-2">
         {suggestions.suggestions.map((item) => (
-          <button
+          <Button
             key={`${item.label}-${item.prompt}`}
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onSelect?.(item.prompt)}
-            className="inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--primary)_12%,transparent)]"
+            className="h-auto rounded-full border-primary/20 bg-primary/10 py-1.5 text-xs text-primary shadow-none hover:bg-primary/15 hover:text-primary dark:border-primary/20 dark:bg-primary/10 dark:hover:bg-primary/15"
           >
             {item.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -797,56 +812,80 @@ export function AiOptionSelectionCard({
   };
 
   return (
-    <div className="rounded-md border border-[color-mix(in_srgb,var(--info)_20%,transparent)] bg-card p-3 space-y-2.5">
+    <div className="rounded-lg border border-info/20 bg-card p-3 space-y-2.5">
       <p className="text-xs font-semibold text-foreground">
         {selection.question}
       </p>
 
-      <div className="space-y-1">
-        {selection.options.map((option) => {
-          const isSelected = selected.has(option.label);
-          return (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => toggleOption(option.label)}
-              className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-                isSelected
-                  ? 'border-primary bg-[color-mix(in_srgb,var(--primary)_8%,transparent)]'
-                  : 'border-border bg-card hover:bg-accent'
-              }`}
-            >
-              <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
-                isSelected
-                  ? 'border-primary bg-primary'
-                  : 'border-muted-foreground'
-              }`}>
-                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-              </span>
-              <div className="min-w-0">
-                <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {option.label}
-                </span>
-                {option.description && (
-                  <p className="mt-0.5 text-muted-foreground">{option.description}</p>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {selection.multiSelect ? (
+        <div className="space-y-1">
+          {selection.options.map((option) => {
+            const isSelected = selected.has(option.label);
+            return (
+              <label key={option.label} className={optionRowClass(isSelected)}>
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleOption(option.label)}
+                  className="mt-0.5"
+                />
+                <OptionText option={option} isSelected={isSelected} />
+              </label>
+            );
+          })}
+        </div>
+      ) : (
+        <RadioGroup
+          value={Array.from(selected)[0] ?? ''}
+          onValueChange={(value) => toggleOption(value)}
+          className="gap-1"
+        >
+          {selection.options.map((option) => {
+            const isSelected = selected.has(option.label);
+            return (
+              <label key={option.label} className={optionRowClass(isSelected)}>
+                <RadioGroupItem value={option.label} className="mt-0.5" />
+                <OptionText option={option} isSelected={isSelected} />
+              </label>
+            );
+          })}
+        </RadioGroup>
+      )}
 
       <div className="flex items-center gap-2 pt-1">
         <Button
           size="sm"
-          className="h-7 gap-1.5 px-3 text-xs font-medium"
           onClick={handleConfirm}
           disabled={selected.size === 0}
         >
-          <Check className="h-3 w-3" />
+          <Check />
           Confirm{selected.size > 0 ? ` (${selected.size})` : ''}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function optionRowClass(isSelected: boolean): string {
+  return `flex w-full cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+    isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'
+  }`;
+}
+
+function OptionText({
+  option,
+  isSelected,
+}: {
+  option: OptionSelectionState['options'][number];
+  isSelected: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+        {option.label}
+      </span>
+      {option.description && (
+        <p className="mt-0.5 text-muted-foreground">{option.description}</p>
+      )}
     </div>
   );
 }
@@ -855,20 +894,20 @@ const severityConfig = {
   low: {
     label: 'Low risk',
     icon: ShieldCheck,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--info)_15%,transparent)] text-info',
-    borderClass: 'border-[color-mix(in_srgb,var(--info)_20%,transparent)]',
+    badge: 'info',
+    borderClass: 'border-info/20',
   },
   medium: {
     label: 'Medium risk',
     icon: ShieldAlert,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--warning)_15%,transparent)] text-warning',
-    borderClass: 'border-[color-mix(in_srgb,var(--warning)_20%,transparent)]',
+    badge: 'warning',
+    borderClass: 'border-warning/20',
   },
   high: {
     label: 'High risk',
     icon: ShieldX,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] text-destructive',
-    borderClass: 'border-[color-mix(in_srgb,var(--destructive)_20%,transparent)]',
+    badge: 'destructive',
+    borderClass: 'border-destructive/20',
   },
 } as const;
 
@@ -891,15 +930,15 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-foreground">Budget Breakdown</span>
+          <span className="font-semibold text-foreground">Budget breakdown</span>
           {period && (
-            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <Badge variant="outline" className="bg-card font-normal text-muted-foreground">
               {period}
-            </span>
+            </Badge>
           )}
         </div>
         <div className="text-right">
-          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-destructive' : 'text-foreground'}`}>
+          <div className={`font-mono text-sm font-bold tabular-nums ${isOver ? 'text-destructive' : 'text-foreground'}`}>
             {fmt(totalSpent)} <span className="font-normal text-muted-foreground">/ {fmt(totalBudget)}</span>
           </div>
         </div>
@@ -946,7 +985,7 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-foreground">{name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-muted-foreground">
+                    <span className="font-mono tabular-nums text-muted-foreground">
                       {fmt(spent)} / {fmt(budgeted)}
                     </span>
                     <span className={`text-[10px] font-medium ${statusColor}`}>{statusLabel}</span>
@@ -967,10 +1006,23 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
   );
 }
 
-const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'];
+// Categorical series: the five chart tokens, then lighter tints of the same
+// five so up to ten slices stay distinguishable and flip with the theme.
+const PIE_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'color-mix(in oklab, var(--chart-1) 55%, var(--card))',
+  'color-mix(in oklab, var(--chart-2) 55%, var(--card))',
+  'color-mix(in oklab, var(--chart-3) 55%, var(--card))',
+  'color-mix(in oklab, var(--chart-4) 55%, var(--card))',
+  'color-mix(in oklab, var(--chart-5) 55%, var(--card))',
+];
 
 function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
-  const title = String(args.title ?? 'Spending by Category');
+  const title = String(args.title ?? 'Spending by category');
   const currency = String(args.currency ?? 'USD');
   const totalSpent = Number(args.totalSpent) || 0;
   const categories = Array.isArray(args.categories) ? args.categories : [];
@@ -1050,7 +1102,7 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
           <BarChart3 className="h-4 w-4 text-primary" />
           <span className="font-semibold text-foreground">{title}</span>
         </div>
-        <span className="text-sm font-bold tabular-nums text-foreground">{fmt(totalSpent)}</span>
+        <span className="font-mono text-sm font-bold tabular-nums text-foreground">{fmt(totalSpent)}</span>
       </div>
 
       <div className="flex items-start gap-6 px-4 py-4">
@@ -1073,8 +1125,8 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
             <div key={i} className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: slice.color }} />
               <span className="truncate text-muted-foreground flex-1">{slice.name}</span>
-              <span className="tabular-nums font-medium text-foreground shrink-0">{fmt(slice.amount)}</span>
-              <span className="tabular-nums text-muted-foreground shrink-0 w-10 text-right">{slice.percentage.toFixed(0)}%</span>
+              <span className="font-mono tabular-nums font-medium text-foreground shrink-0">{fmt(slice.amount)}</span>
+              <span className="font-mono tabular-nums text-muted-foreground shrink-0 w-10 text-right">{slice.percentage.toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -1099,26 +1151,26 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
   const latestRate = rateValues.length > 0 ? rateValues[rateValues.length - 1] : 0;
 
   const signalConfig = {
-    buy: { label: 'Buy now', color: 'text-success', bg: 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)]', Icon: TrendingDown },
-    hold: { label: 'Hold', color: 'text-warning', bg: 'bg-[color-mix(in_srgb,var(--warning)_12%,transparent)]', Icon: ArrowUpDown },
-    wait: { label: 'Wait', color: 'text-info', bg: 'bg-[color-mix(in_srgb,var(--info)_12%,transparent)]', Icon: TrendingUp },
-  }[signal] ?? { label: signal, color: 'text-muted-foreground', bg: 'bg-muted', Icon: ArrowUpDown };
+    buy: { label: 'Buy now', badge: 'success' as const, Icon: TrendingDown },
+    hold: { label: 'Hold', badge: 'warning' as const, Icon: ArrowUpDown },
+    wait: { label: 'Wait', badge: 'info' as const, Icon: TrendingUp },
+  }[signal] ?? { label: signal, badge: 'secondary' as const, Icon: ArrowUpDown };
 
   return (
     <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-foreground">{baseCurrency}/{targetCurrency} Rate</span>
+          <span className="font-semibold text-foreground">{baseCurrency}/{targetCurrency} rate</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold tabular-nums text-foreground">
+          <span className="font-mono text-sm font-bold tabular-nums text-foreground">
             {latestRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
           </span>
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${signalConfig.color} ${signalConfig.bg}`}>
-            <signalConfig.Icon className="h-3 w-3" />
+          <Badge variant={signalConfig.badge}>
+            <signalConfig.Icon />
             {signalConfig.label}
-          </span>
+          </Badge>
         </div>
       </div>
 
@@ -1189,14 +1241,14 @@ function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
         </div>
         <div className="flex items-center gap-2">
           {agent && (
-            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <Badge variant="outline" className="bg-card font-normal text-muted-foreground">
               {agent}
-            </span>
+            </Badge>
           )}
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.badgeClass}`}>
-            <SeverityIcon className="h-3 w-3" />
+          <Badge variant={config.badge}>
+            <SeverityIcon />
             {config.label}
-          </span>
+          </Badge>
         </div>
       </div>
 

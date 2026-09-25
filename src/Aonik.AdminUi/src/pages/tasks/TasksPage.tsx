@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ListChecks, Plus, RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { taskService, type TaskItem } from '@/services/taskService';
@@ -21,15 +21,15 @@ function formatDateTime(value: string | null): string {
 }
 
 function statusBadge(status: string) {
-  const styles: Record<string, string> = {
-    Scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    InProgress: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    Completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    Paused: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
-    Cancelled: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
-    Failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  const variants: Record<string, BadgeProps['variant']> = {
+    Scheduled: 'info',
+    InProgress: 'warning',
+    Completed: 'success',
+    Paused: 'secondary',
+    Cancelled: 'secondary',
+    Failed: 'destructive',
   };
-  return <Badge className={styles[status] ?? 'bg-blue-100 text-blue-700'}>{status}</Badge>;
+  return <Badge variant={variants[status] ?? 'info'}>{status}</Badge>;
 }
 
 export function TasksPage() {
@@ -91,11 +91,11 @@ export function TasksPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button className="rounded-sm" onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Task
           </Button>
-          <Button variant="secondary" className="rounded-sm" onClick={() => void loadTasks()} disabled={loading}>
+          <Button variant="secondary" onClick={() => void loadTasks()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -147,7 +147,7 @@ export function TasksPage() {
                         {task.status === 'Scheduled' && (
                           <Button
                             variant="secondary"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.pause)}
                           >
@@ -157,7 +157,7 @@ export function TasksPage() {
                         {task.status === 'Paused' && (
                           <Button
                             variant="secondary"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.resume)}
                           >
@@ -167,7 +167,7 @@ export function TasksPage() {
                         {!isTerminal && (
                           <Button
                             variant="destructive"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.cancel)}
                           >
@@ -182,7 +182,7 @@ export function TasksPage() {
                     )}
 
                     {task.lastError && (
-                      <p className="mt-2 text-xs text-red-600 dark:text-red-400">Last error: {task.lastError}</p>
+                      <p className="mt-2 text-xs text-destructive">Last error: {task.lastError}</p>
                     )}
 
                     <div className="mt-2 flex flex-wrap gap-2">

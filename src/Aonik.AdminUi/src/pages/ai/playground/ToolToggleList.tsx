@@ -1,3 +1,4 @@
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
 interface ToolToggleListProps {
@@ -45,19 +46,17 @@ export function ToolToggleList({ allTools, enabledTools, onChange }: ToolToggleL
           {allEnabled ? 'None' : 'All'}
         </button>
       </div>
-      <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-[2px] border border-border bg-card p-2">
+      <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-md border border-border bg-card p-2">
         {allTools.map((name) => {
           const enabled = enabledTools.includes(name);
           return (
             <label
               key={name}
-              className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-accent"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-accent"
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={enabled}
-                onChange={() => toggleTool(name)}
-                className="rounded"
+                onCheckedChange={() => toggleTool(name)}
               />
               <span className={enabled ? 'text-foreground' : 'text-muted-foreground'}>
                 {name}

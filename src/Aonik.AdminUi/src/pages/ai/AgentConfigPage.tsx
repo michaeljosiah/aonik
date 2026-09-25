@@ -189,7 +189,6 @@ export function AgentConfigPage() {
     <div className="relative h-full overflow-hidden">
       <div className="flex h-full flex-col gap-5 overflow-auto p-6 md:px-8">
         <PageHeader
-          eyebrow="AI · Agents"
           title="Agents"
           subtitle={subtitle}
           actions={
@@ -286,7 +285,7 @@ export function AgentConfigPage() {
             Loading agents…
           </div>
         ) : visible.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[12px] border border-dashed border-border bg-muted py-16 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted py-16 text-center">
             <div className="text-[14px] font-semibold text-foreground">
               No agents match this filter
             </div>
@@ -436,7 +435,7 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
 function CardMetaItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+      <span className="text-xs text-muted-foreground">
         {label}
       </span>
       <span
@@ -467,7 +466,7 @@ function AgentListView({
   return (
     <div className="flex flex-col gap-1.5">
       <div
-        className="grid gap-3.5 px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+        className="grid gap-3.5 px-3.5 text-xs font-medium text-muted-foreground"
         style={{ gridTemplateColumns: '44px 1fr 130px 80px 80px 90px 28px' }}
       >
         <span />
@@ -487,7 +486,7 @@ function AgentListView({
             key={agent.id}
             type="button"
             onClick={() => onEdit(agent)}
-            className="grid cursor-pointer items-center gap-3.5 rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-left transition-colors hover:border-muted-foreground"
+            className="grid cursor-pointer items-center gap-3.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left transition-colors hover:border-muted-foreground"
             style={{ gridTemplateColumns: '44px 1fr 130px 80px 80px 90px 28px' }}
           >
             <AgentPortrait name={agent.name} color={color} glyph={glyph} size={36} />

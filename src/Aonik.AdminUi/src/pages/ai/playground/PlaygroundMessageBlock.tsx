@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Check,
   Loader2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -72,27 +73,8 @@ export function PlaygroundMessageBlock({
   const [fullscreen, setFullscreen] = useState(false);
   const fullscreenTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Lock body scroll when fullscreen
-  useEffect(() => {
-    if (fullscreen) {
-      document.body.style.overflow = 'hidden';
-      // Focus the fullscreen textarea
-      setTimeout(() => fullscreenTextareaRef.current?.focus(), 50);
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [fullscreen]);
+  // Scroll lock, Escape-to-close and focus trap come from the Sheet below.
 
-  // Close fullscreen on Escape
-  useEffect(() => {
-    if (!fullscreen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [fullscreen]);
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -310,12 +292,21 @@ export function PlaygroundMessageBlock({
       </div>
 
       {/* ── Fullscreen overlay ── */}
-      {fullscreen && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-background">
+      <Sheet open={fullscreen} onOpenChange={setFullscreen}>
+        <SheetContent
+          side="bottom"
+          className="h-full gap-0 border-t-0"
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => {
+            // Focus the fullscreen textarea instead of the first toolbar button.
+            e.preventDefault();
+            fullscreenTextareaRef.current?.focus();
+          }}
+        >
           {/* Toolbar */}
           <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-foreground">System Prompt</span>
+              <SheetTitle className="text-sm">System Prompt</SheetTitle>
               <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                 ~{tokenEstimate} tokens
               </span>
@@ -404,8 +395,8 @@ export function PlaygroundMessageBlock({
               )}
             </div>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

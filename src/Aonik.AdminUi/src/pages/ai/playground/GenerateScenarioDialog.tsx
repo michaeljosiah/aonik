@@ -186,10 +186,10 @@ export function GenerateScenarioDialog({
                 {generatedScenario.turns.map((turn, i) => (
                   <div key={i} className="flex gap-2 text-xs">
                     <span
-                      className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${
+                      className={`mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] ${
                         turn.role === 'user'
-                          ? 'bg-blue-500/10 text-blue-600'
-                          : 'bg-green-500/10 text-green-600'
+                          ? 'bg-info-subtle text-info-foreground'
+                          : 'bg-success-subtle text-success-foreground'
                       }`}
                     >
                       {turn.role}

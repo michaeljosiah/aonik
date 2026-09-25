@@ -452,7 +452,7 @@ export function LiveVoiceTestCard({
       {/* Mic / speaker indicators. Mirror the disabled placeholder's look but populated from
           live state — the brand-color border lights up when the recorder is capturing, and the
           speaking indicator flips between "you" and "bot". */}
-      <div className="mt-3 flex items-center gap-3 rounded-[10px] border border-dashed border-border bg-muted p-3.5">
+      <div className="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted p-3.5">
         <div
           className={cn(
             "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
@@ -490,7 +490,7 @@ export function LiveVoiceTestCard({
 
       {transcript.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="text-xs font-medium text-muted-foreground">
             Transcript
           </div>
           <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted p-2.5">

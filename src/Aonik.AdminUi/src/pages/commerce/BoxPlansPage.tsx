@@ -24,7 +24,17 @@ import { AlertCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card as AonikCard, KpiTile, PageHeader, Pill } from '@/components/layout/aonik';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
@@ -150,20 +160,22 @@ export function BoxPlansPage() {
         subtitle="Presets win at their size; every other size prices as base + (size − base) × per-space. Growing a box charges the difference between the two box prices, never per-space × spaces."
         actions={
           <div className="flex items-center gap-2">
-            <select
-              value={selectedId ?? ''}
-              onChange={(e) => setSelectedId(e.target.value || null)}
-              className={`${inputClass} w-[240px]`}
-              aria-label="Bundle"
-            >
-              {bundles.length === 0 && <option value="">No bundles</option>}
-              {bundles.map((bundle) => (
-                <option key={bundle.id} value={bundle.id}>
-                  {bundle.name}
-                  {bundle.status === 'Active' ? '' : ` (${bundle.status})`}
-                </option>
-              ))}
-            </select>
+            <div className="w-[240px]">
+              <NativeSelect
+                className="h-8"
+                value={selectedId ?? ''}
+                onChange={(e) => setSelectedId(e.target.value || null)}
+                aria-label="Bundle"
+              >
+                {bundles.length === 0 && <option value="">No bundles</option>}
+                {bundles.map((bundle) => (
+                  <option key={bundle.id} value={bundle.id}>
+                    {bundle.name}
+                    {bundle.status === 'Active' ? '' : ` (${bundle.status})`}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -212,10 +224,10 @@ export function BoxPlansPage() {
       {error && <Banner>{error}</Banner>}
 
       {invalid && draft && (
-        <div className="flex items-start gap-2 rounded border border-warning bg-warning-subtle px-3 py-2 text-xs text-muted-foreground">
-          <AlertCircle className="mt-px h-4 w-4 shrink-0 text-warning" aria-hidden />
-          <span>{invalid}</span>
-        </div>
+        <Alert variant="warning" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="text-xs">{invalid}</AlertDescription>
+        </Alert>
       )}
 
       {unauthored && selectedBundle && (
@@ -289,7 +301,7 @@ export function BoxPlansPage() {
                       key={`${jump.from}-${jump.to}`}
                       className="rounded-md border border-border px-3 py-2"
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                      <p className="text-xs font-medium text-muted-foreground">
                         Grow {jump.from} → {jump.to}
                       </p>
                       <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[15px] text-foreground">
@@ -349,7 +361,7 @@ export function BoxPlansPage() {
                 onChange={(v) => setDraft({ ...draft, perSpacePrice: v })}
               />
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <span className="text-xs font-medium text-muted-foreground">
                   Currency
                 </span>
                 <input
@@ -378,31 +390,31 @@ export function BoxPlansPage() {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-[12.5px]">
-                <thead>
-                  <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+              <Table className="min-w-[820px] text-[12.5px]">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
                     <Th>Size</Th>
                     <Th>Price</Th>
-                    <Th>Formula at size</Th>
+                    <Th numeric>Formula at size</Th>
                     <Th>Saving (authored)</Th>
                     <Th>Badge</Th>
                     <Th>Blurb</Th>
                     <Th> </Th>
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {draft.presets.length === 0 && (
-                    <tr>
-                      <td
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell
                         colSpan={7}
                         className="px-4 py-6 text-center text-muted-foreground"
                       >
                         No presets — every size prices from the formula.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                   {draft.presets.map((preset, index) => (
-                    <tr key={index} className="border-b border-border">
+                    <TableRow key={index} className="hover:bg-transparent">
                       <Td>
                         <input
                           type="number"
@@ -423,7 +435,7 @@ export function BoxPlansPage() {
                         />
                       </Td>
                       {/* COMPARISON ONLY. Never written into the payload — see the footer. */}
-                      <Td className="font-[family-name:var(--font-mono)] text-muted-foreground">
+                      <Td numeric className="text-muted-foreground">
                         {money(formulaPrice(draft, preset.size))}
                       </Td>
                       <Td>
@@ -462,8 +474,10 @@ export function BoxPlansPage() {
                         />
                       </Td>
                       <Td>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           aria-label={`Remove the ${preset.size}-space preset`}
                           onClick={() =>
                             setDraft({
@@ -471,15 +485,15 @@ export function BoxPlansPage() {
                               presets: draft.presets.filter((_, i) => i !== index),
                             })
                           }
-                          className="rounded p-1 text-muted-foreground hover:text-destructive"
+                          className="text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       </Td>
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             <p className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
               Savings are display values authored here — the storefront never computes one. The
@@ -577,7 +591,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <input
@@ -593,19 +607,35 @@ function NumberField({
 
 function Banner({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-      <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
-      {children}
-    </div>
+    <Alert variant="destructive" className="py-2">
+      <AlertCircle aria-hidden />
+      <AlertDescription className="flex items-center gap-2 text-xs">{children}</AlertDescription>
+    </Alert>
   );
 }
 
-function Th({ children }: { children: ReactNode }) {
-  return <th className="px-4 py-2 font-semibold">{children}</th>;
+function Th({ children, numeric = false }: { children: ReactNode; numeric?: boolean }) {
+  return (
+    <TableHead numeric={numeric} className="h-auto px-4 py-2 text-xs text-muted-foreground">
+      {children}
+    </TableHead>
+  );
 }
 
-function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-4 py-1.5 ${className}`}>{children}</td>;
+function Td({
+  children,
+  className = '',
+  numeric = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  numeric?: boolean;
+}) {
+  return (
+    <TableCell numeric={numeric} className={`px-4 py-1.5 ${className}`}>
+      {children}
+    </TableCell>
+  );
 }
 
 /** An empty box is 0, not NaN — NaN would propagate through the curve and blank the chart. */

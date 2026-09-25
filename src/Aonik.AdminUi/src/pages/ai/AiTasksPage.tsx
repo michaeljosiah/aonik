@@ -3,7 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -67,28 +78,40 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 const categoryOptions = ['Finance', 'Conversation', 'Platform'];
 const executionModeOptions = ['Realtime', 'Batch'];
 
-const categoryColor = (cat: string) => {
+type BadgeVariant = BadgeProps['variant'];
+
+/** Categorical series token for a task category (shown as a dot on an outline badge). */
+const categoryToken = (cat: string) => {
   switch (cat.toLowerCase()) {
-    case 'finance': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'platform': return 'bg-purple-500/10 text-purple-700 border-purple-200';
-    case 'conversation': return 'bg-green-500/10 text-green-700 border-green-200';
-    default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+    case 'finance': return 'var(--chart-1)';
+    case 'platform': return 'var(--chart-2)';
+    case 'conversation': return 'var(--chart-3)';
+    default: return 'var(--muted-foreground)';
   }
 };
 
-const executionModeColor = (mode: string) => {
+function CategoryBadge({ category }: { category: string }) {
+  return (
+    <Badge variant="outline" className="text-xs">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: categoryToken(category) }} />
+      {category}
+    </Badge>
+  );
+}
+
+const executionModeVariant = (mode: string): BadgeVariant => {
   switch (mode.toLowerCase()) {
-    case 'batch': return 'bg-amber-500/10 text-amber-700 border-amber-200';
-    case 'realtime': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
-    default: return '';
+    case 'batch': return 'warning';
+    case 'realtime': return 'success';
+    default: return 'outline';
   }
 };
 
-const outcomeColor = (outcome: string) => {
+const outcomeVariant = (outcome: string): BadgeVariant => {
   switch (outcome.toLowerCase()) {
-    case 'completed': return 'bg-green-500/10 text-green-700 border-green-200';
-    case 'failed': return 'bg-red-500/10 text-red-700 border-red-200';
-    default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+    case 'completed': return 'success';
+    case 'failed': return 'destructive';
+    default: return 'secondary';
   }
 };
 
@@ -154,6 +177,7 @@ export function AiTasksPage() {
   const [editingTask, setEditingTask] = useState<AiTaskResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const [resettingPrompt, setResettingPrompt] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<AiTaskResponse | null>(null);
@@ -315,10 +339,7 @@ export function AiTasksPage() {
 
   const handleResetPrompt = async () => {
     if (!editingTask) return;
-    const confirmed = window.confirm(
-      'Reset this task\u2019s System and User templates back to the hard-coded defaults? Your current prompt edits will be overwritten.',
-    );
-    if (!confirmed) return;
+    setConfirmResetOpen(false);
 
     setResettingPrompt(true);
     setError(null);
@@ -496,14 +517,12 @@ export function AiTasksPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2 flex-wrap mb-3">
-                  <Badge className={`text-xs ${categoryColor(task.category)}`}>
-                    {task.category}
-                  </Badge>
-                  <Badge className={`text-xs ${executionModeColor(task.executionMode)}`}>
+                  <CategoryBadge category={task.category} />
+                  <Badge variant={executionModeVariant(task.executionMode)} className="text-xs">
                     {task.executionMode}
                   </Badge>
                   {task.isActive ? (
-                    <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
+                    <Badge variant="success" className="text-xs">Active</Badge>
                   ) : (
                     <Badge variant="secondary" className="text-xs">Inactive</Badge>
                   )}
@@ -559,11 +578,11 @@ export function AiTasksPage() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Category</p>
-                        <Badge className={`text-xs ${categoryColor(selectedTask.category)}`}>{selectedTask.category}</Badge>
+                        <CategoryBadge category={selectedTask.category} />
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Execution Mode</p>
-                        <Badge className={`text-xs ${executionModeColor(selectedTask.executionMode)}`}>{selectedTask.executionMode}</Badge>
+                        <Badge variant={executionModeVariant(selectedTask.executionMode)} className="text-xs">{selectedTask.executionMode}</Badge>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Model</p>
@@ -598,7 +617,7 @@ export function AiTasksPage() {
 
                     {/* Stats */}
                     <div>
-                      <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Statistics</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Statistics</p>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-lg border p-3">
                           <p className="text-xs text-muted-foreground">Total Runs</p>
@@ -682,32 +701,32 @@ export function AiTasksPage() {
                     ) : (
                       <>
                         <div className="rounded-md border">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-muted/50">
-                                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Time</th>
-                                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Model</th>
-                                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Tokens</th>
-                                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Cost</th>
-                                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Latency</th>
-                                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Outcome</th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="px-3 text-muted-foreground">Time</TableHead>
+                                <TableHead className="px-3 text-muted-foreground">Model</TableHead>
+                                <TableHead numeric className="px-3 text-muted-foreground">Tokens</TableHead>
+                                <TableHead numeric className="px-3 text-muted-foreground">Cost</TableHead>
+                                <TableHead numeric className="px-3 text-muted-foreground">Latency</TableHead>
+                                <TableHead className="px-3 text-muted-foreground">Outcome</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
                               {runs.map((run) => (
-                                <tr key={run.id} className="border-b last:border-0">
-                                  <td className="px-3 py-2 text-muted-foreground">{relativeTime(run.createdAt)}</td>
-                                  <td className="px-3 py-2 font-mono text-xs">{run.modelName ?? '-'}</td>
-                                  <td className="px-3 py-2 text-right">{run.tokensUsed.toLocaleString()}</td>
-                                  <td className="px-3 py-2 text-right">${run.costEstimate.toFixed(4)}</td>
-                                  <td className="px-3 py-2 text-right">{run.latencyMs}ms</td>
-                                  <td className="px-3 py-2">
-                                    <Badge className={`text-xs ${outcomeColor(run.outcome)}`}>{run.outcome}</Badge>
-                                  </td>
-                                </tr>
+                                <TableRow key={run.id}>
+                                  <TableCell className="px-3 text-muted-foreground">{relativeTime(run.createdAt)}</TableCell>
+                                  <TableCell className="px-3 font-mono text-xs">{run.modelName ?? '-'}</TableCell>
+                                  <TableCell numeric className="px-3">{run.tokensUsed.toLocaleString()}</TableCell>
+                                  <TableCell numeric className="px-3">${run.costEstimate.toFixed(4)}</TableCell>
+                                  <TableCell numeric className="px-3">{run.latencyMs}ms</TableCell>
+                                  <TableCell className="px-3">
+                                    <Badge variant={outcomeVariant(run.outcome)} className="text-xs">{run.outcome}</Badge>
+                                  </TableCell>
+                                </TableRow>
                               ))}
-                            </tbody>
-                          </table>
+                            </TableBody>
+                          </Table>
                         </div>
 
                         {/* Pagination */}
@@ -868,7 +887,7 @@ export function AiTasksPage() {
                     }, {});
                     return Object.entries(grouped).map(([provider, providerModels]) => (
                       <SelectGroup key={provider}>
-                        <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground">
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                           {provider}
                         </div>
                         {providerModels.map((m) => (
@@ -932,7 +951,7 @@ export function AiTasksPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleResetPrompt}
+                    onClick={() => setConfirmResetOpen(true)}
                     disabled={resettingPrompt || saving}
                     className="gap-1.5 text-xs h-7 text-muted-foreground"
                     title="Reset System and User templates back to the hard-coded defaults for this task"
@@ -1052,24 +1071,50 @@ export function AiTasksPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Reset Prompt Confirmation ──────────────────────────────────── */}
+      <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset prompt to default?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reset this task{'\u2019'}s System and User templates back to the hard-coded defaults? Your current prompt edits will be overwritten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void handleResetPrompt()}>
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>Delete LLM Task</DialogTitle>
-            <DialogDescription>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="max-w-[450px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete LLM task?</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to delete <strong>{deleteTarget?.displayName}</strong>? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                // Keep the dialog open while the delete is in flight; handleDelete closes it.
+                e.preventDefault();
+                void handleDelete();
+              }}
+              disabled={deleting}
+            >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

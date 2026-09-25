@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Circle, ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { useAuth, getAuthProvider } from '@/auth';
 import { bootstrapService } from '@/services/bootstrapService';
 import { clearSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
@@ -152,7 +154,7 @@ export function SetupWizardPage() {
     <div className="flex-1 h-full overflow-auto bg-background">
       <div className="w-full max-w-[1400px] mx-auto px-8 py-12 lg:px-12">
         <div className="flex flex-col gap-2 mb-10">
-          <p className="text-sm font-semibold text-primary">Initial Setup</p>
+          <p className="text-sm font-semibold text-primary">Initial setup</p>
           <h1 className="text-3xl font-bold text-foreground">Welcome to the Future of Finance</h1>
           <p className="text-muted-foreground max-w-[52rem] leading-relaxed">
             Step into AI-powered financial operations. This wizard will get your Aonik platform running with intelligent automation, 
@@ -163,7 +165,7 @@ export function SetupWizardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Setup Checklist</CardTitle>
+              <CardTitle>Setup checklist</CardTitle>
               <CardDescription>Use the one-time install code to create the first tenant and owner profile.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -194,8 +196,8 @@ export function SetupWizardPage() {
                 }
               >
                 {!tenantExists && (
-                  <div className="w-full max-w-[36rem] space-y-2">
-                    <Label htmlFor="setup-secret">Install code</Label>
+                  <Field className="w-full max-w-[36rem] gap-2">
+                    <FieldLabel htmlFor="setup-secret">Install code</FieldLabel>
                     <Input
                       id="setup-secret"
                       className="h-11 rounded-md"
@@ -210,10 +212,10 @@ export function SetupWizardPage() {
                       }}
                       placeholder="Paste the one-time install code"
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <FieldDescription className="text-xs">
                       This must match the current `BOOTSTRAP_SETUP_SECRET` configured for the API.
-                    </p>
-                  </div>
+                    </FieldDescription>
+                  </Field>
                 )}
               </SetupStep>
 
@@ -228,8 +230,8 @@ export function SetupWizardPage() {
               >
                 {!tenantExists && (
                   <div className="grid w-full max-w-[44rem] gap-4 md:grid-cols-2">
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="owner-email">Owner email</Label>
+                    <Field className="gap-2 md:col-span-2">
+                      <FieldLabel htmlFor="owner-email">Owner email</FieldLabel>
                       <Input
                         id="owner-email"
                         className="h-11 rounded-md"
@@ -244,9 +246,9 @@ export function SetupWizardPage() {
                         }}
                         placeholder="owner@example.com"
                       />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="owner-display-name">Owner display name</Label>
+                    </Field>
+                    <Field className="gap-2 md:col-span-2">
+                      <FieldLabel htmlFor="owner-display-name">Owner display name</FieldLabel>
                       <Input
                         id="owner-display-name"
                         className="h-11 rounded-md"
@@ -259,7 +261,7 @@ export function SetupWizardPage() {
                         }}
                         placeholder="Optional display name for the owner"
                       />
-                    </div>
+                    </Field>
                   </div>
                 )}
               </SetupStep>
@@ -283,7 +285,8 @@ export function SetupWizardPage() {
                       disabled={!canBootstrap || !ownerEmailLooksValid || !setupSecret.trim() || isBootstrapping}
                       className="w-full sm:w-auto"
                     >
-                      {isBootstrapping ? 'Bootstrapping...' : 'Run bootstrap'}
+                      {isBootstrapping && <Spinner />}
+                      Run bootstrap
                     </Button>
                   </div>
                 )}
@@ -303,7 +306,7 @@ export function SetupWizardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Setup Status</CardTitle>
+              <CardTitle>Setup status</CardTitle>
               <CardDescription>Live configuration and bootstrap results.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -317,17 +320,17 @@ export function SetupWizardPage() {
                 <div className="rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
                   <p className="font-semibold text-foreground mb-2">Bootstrap complete</p>
                   <p>Tenant: {bootstrapResult.tenantName}</p>
-                  <p>Tenant ID: {bootstrapResult.tenantId}</p>
-                  <p>User ID: {bootstrapResult.userId}</p>
+                  <p>Tenant ID: <span className="font-mono tabular-nums">{bootstrapResult.tenantId}</span></p>
+                  <p>User ID: <span className="font-mono tabular-nums">{bootstrapResult.userId}</span></p>
                   <p>Owner email: {bootstrapResult.ownerEmail}</p>
                 </div>
               )}
 
               {state.error && (
-                <div className="flex gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
-                  <AlertCircle className="w-4 h-4 mt-0.5" />
-                  <span>{state.error}</span>
-                </div>
+                <Alert variant="destructive">
+                  <AlertCircle />
+                  <AlertDescription>{state.error}</AlertDescription>
+                </Alert>
               )}
             </CardContent>
             <CardFooter className="flex flex-col gap-2">

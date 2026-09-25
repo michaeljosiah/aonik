@@ -175,7 +175,7 @@ export function ScenarioPicker({
                     </div>
                   </div>
                   <button
-                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     onClick={(e) => handleDeleteScenario(e, scenario.id, scenario.name)}
                     title="Delete scenario"
                   >

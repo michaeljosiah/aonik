@@ -21,8 +21,8 @@ import type { AccessUserSummary, PagedResult, Tenant } from '@/types';
 
 const RISK_COLORS = {
   low: 'var(--success)',
-  med: '#b4741e',
-  high: '#c44536',
+  med: 'var(--warning)',
+  high: 'var(--destructive)',
 } as const;
 
 function parseDetails(detailsJson: string): Record<string, unknown> | null {
@@ -92,9 +92,9 @@ function riskLevel(entry: AuditLogListItem): 'low' | 'med' | 'high' {
 }
 
 function kindTone(kind: 'human' | 'agent' | 'system') {
-  if (kind === 'agent') return { bg: '#055a6018', fg: '#055a60', label: 'agent' };
-  if (kind === 'system') return { bg: 'var(--muted)', fg: 'var(--muted-foreground)', label: 'system' };
-  return { bg: '#3f41a018', fg: '#3f41a0', label: 'human' };
+  if (kind === 'agent') return { className: 'bg-primary/10 text-primary', label: 'Agent' };
+  if (kind === 'system') return { className: 'bg-muted text-muted-foreground', label: 'System' };
+  return { className: 'bg-info-subtle text-info-foreground', label: 'Human' };
 }
 
 function actorLabel(
@@ -201,7 +201,6 @@ export function ObservabilityAuditLogPage() {
       <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
-            eyebrow="Observability · Compliance & audit"
             title="Audit Log"
             subtitle="Immutable record of sensitive actions from the live admin audit stream."
             actions={(
@@ -230,8 +229,8 @@ export function ObservabilityAuditLogPage() {
 
       <div className="flex-1 p-6">
         <div className="space-y-5">
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-5 rounded-[10px] border border-border border-l-[3px] border-l-primary bg-[linear-gradient(90deg,rgba(5,90,96,.06),rgba(5,90,96,.02))] px-4 py-3">
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] bg-primary/10 text-primary">
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-5 rounded-lg border border-border border-l-[3px] border-l-primary bg-primary/5 px-4 py-3">
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-primary/10 text-primary">
               <AonikTemplateIcon name="verified" size={18} color="var(--primary)" />
             </div>
             <div>
@@ -254,9 +253,9 @@ export function ObservabilityAuditLogPage() {
 
           <div className="grid gap-3 md:grid-cols-4">
             <AuditKpi label="Events · total" value={String(kpis.events)} tone="var(--primary)" />
-            <AuditKpi label="Human actions" value={String(kpis.human)} tone="#3f41a0" />
-            <AuditKpi label="Policy overrides" value={String(kpis.overrides)} tone="#c44536" />
-            <AuditKpi label="High-risk events" value={String(kpis.highRisk)} tone="#b4741e" />
+            <AuditKpi label="Human actions" value={String(kpis.human)} tone="var(--info)" />
+            <AuditKpi label="Policy overrides" value={String(kpis.overrides)} tone="var(--destructive)" />
+            <AuditKpi label="High-risk events" value={String(kpis.highRisk)} tone="var(--warning)" />
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_200px_auto] lg:items-end">
@@ -312,8 +311,8 @@ export function ObservabilityAuditLogPage() {
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-[10px] border border-border bg-card">
-            <div className="grid grid-cols-[88px_80px_220px_180px_minmax(0,1fr)_120px_60px] gap-3 border-b border-border bg-muted px-4 py-2.5 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[88px_80px_220px_180px_minmax(0,1fr)_120px_60px] gap-3 border-b border-border bg-muted px-4 py-2.5 text-xs font-medium text-muted-foreground">
               <div>Time</div>
               <div>Kind</div>
               <div>Actor</div>
@@ -329,7 +328,7 @@ export function ObservabilityAuditLogPage() {
                 Loading audit log...
               </div>
             ) : error ? (
-              <div className="px-4 py-8 text-sm text-[#c44536]">{error}</div>
+              <div className="px-4 py-8 text-sm text-destructive">{error}</div>
             ) : items.length === 0 ? (
               <div className="px-4 py-8 text-sm text-muted-foreground">No audit events matched your filters.</div>
             ) : (
@@ -346,24 +345,25 @@ export function ObservabilityAuditLogPage() {
                   >
                     <div className="font-mono text-[11px] text-muted-foreground">{formatAuditTime(entry.timestamp)}</div>
                     <div>
-                      <span
-                        className="rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]"
-                        style={{ background: tone.bg, color: tone.fg }}
-                      >
+                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${tone.className}`}>
                         {tone.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {kind === 'system' ? (
-                        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-muted text-muted-foreground">
+                        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-muted text-muted-foreground">
                           <Settings className="h-3 w-3" />
                         </div>
                       ) : (
                         <AgentAvatar
                           name={actor}
                           size={22}
-                          color={kind === 'agent' ? '#055a6018' : 'var(--color-brand-primary-10)'}
-                          textColor={kind === 'agent' ? '#055a60' : 'var(--primary)'}
+                          color={
+                            kind === 'agent'
+                              ? 'color-mix(in oklab, var(--primary) 10%, transparent)'
+                              : 'color-mix(in oklab, var(--primary) 12%, transparent)'
+                          }
+                          textColor="var(--primary)"
                         />
                       )}
                       <span className="truncate text-[12px] font-medium text-foreground" title={actor}>
@@ -390,7 +390,7 @@ export function ObservabilityAuditLogPage() {
                         className="inline-block h-2 w-2 rounded-full"
                         style={{
                           background: RISK_COLORS[risk],
-                          boxShadow: `0 0 0 3px ${RISK_COLORS[risk]}22`,
+                          boxShadow: `0 0 0 3px color-mix(in oklab, ${RISK_COLORS[risk]} 13%, transparent)`,
                         }}
                       />
                     </div>
@@ -423,10 +423,10 @@ export function ObservabilityAuditLogPage() {
 
 function AuditKpi({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-[10px] border border-border bg-card px-4 py-3">
+    <div className="rounded-lg border border-border bg-card px-4 py-3">
       <div className="font-mono text-[18px] font-semibold text-foreground">{value}</div>
       <div className="mt-1 text-[11px] text-muted-foreground">{label}</div>
-      <div className="mt-2 h-1.5 w-16 rounded-full" style={{ background: `${tone}22` }}>
+      <div className="mt-2 h-1.5 w-16 rounded-full" style={{ background: `color-mix(in oklab, ${tone} 13%, transparent)` }}>
         <div className="h-1.5 rounded-full" style={{ width: '70%', background: tone }} />
       </div>
     </div>

@@ -119,7 +119,7 @@ const settingsTiles: SettingsTile[] = [
 function SettingsTileGrid({ title, tiles }: { title: string; tiles: SettingsTile[] }) {
   return (
     <div>
-      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{title}</h2>
+      <h2 className="mb-3 text-xs font-medium text-muted-foreground">{title}</h2>
       <div className="grid gap-4 xl:grid-cols-3">
         {tiles.map((tile) => (
           <Link
@@ -162,7 +162,7 @@ export function SettingsLandingPage() {
 
       <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Admin</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Admin</p>
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
           <p className="max-w-3xl text-muted-foreground">
             Centralized controls for workspace behavior, integration security, and operational governance.

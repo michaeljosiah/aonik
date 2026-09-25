@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Label } from '@/components/ui/label';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { credentialBundleService } from '@/services/credentialBundleService';
@@ -180,7 +181,7 @@ export function SettingsCredentialBundlesPage() {
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               Settings · Credential bundles
             </p>
             <h2 className="text-2xl font-bold text-foreground">Credential bundles</h2>
@@ -222,16 +223,17 @@ export function SettingsCredentialBundlesPage() {
               <div className="grid gap-3 lg:grid-cols-2">
                 <div>
                   <Label htmlFor="bundle-kind">Connector kind</Label>
-                  <select
-                    id="bundle-kind"
-                    className="mt-1 flex h-10 w-full rounded-[2px] border border-input bg-background px-3 text-sm text-foreground"
-                    value={create.kind}
-                    onChange={(event) => setCreate({ ...create, kind: event.target.value, secrets: {} })}
-                  >
-                    {kinds.map((kind) => (
-                      <option key={kind.kind} value={kind.kind}>{kind.displayName}</option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <NativeSelect
+                      id="bundle-kind"
+                      value={create.kind}
+                      onChange={(event) => setCreate({ ...create, kind: event.target.value, secrets: {} })}
+                    >
+                      {kinds.map((kind) => (
+                        <option key={kind.kind} value={kind.kind}>{kind.displayName}</option>
+                      ))}
+                    </NativeSelect>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="bundle-ref">Reference (immutable)</Label>
@@ -255,7 +257,7 @@ export function SettingsCredentialBundlesPage() {
 
               {selectedKind ? (
                 <div className="space-y-3 rounded-lg border border-border bg-muted p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Credential fields</p>
+                  <p className="text-xs font-medium text-muted-foreground">Credential fields</p>
                   {selectedKind.credentialFields.map((field) => (
                     <div key={field.name} className="grid gap-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
                       <Label htmlFor={`secret-${field.name}`} className="text-[13px]">

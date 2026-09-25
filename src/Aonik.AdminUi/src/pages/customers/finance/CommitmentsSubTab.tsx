@@ -3,6 +3,8 @@ import { CalendarClock, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { personalFinanceService } from '@/services/personalFinanceService';
 import type { CommitmentItem, CommitmentListResponse } from '@/types';
 
@@ -38,10 +40,10 @@ const TYPE_LABELS: Record<string, string> = {
   DebtRepayment: 'Debt Repayment',
 };
 
-const STATUS_CONFIG: Record<string, { bg: string; text: string }> = {
-  Active: { bg: 'bg-success-subtle', text: 'text-success' },
-  Paused: { bg: 'bg-warning-subtle', text: 'text-warning' },
-  Cancelled: { bg: 'bg-muted', text: 'text-muted-foreground' },
+const STATUS_VARIANTS: Record<string, 'success' | 'warning' | 'secondary'> = {
+  Active: 'success',
+  Paused: 'warning',
+  Cancelled: 'secondary',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -49,10 +51,6 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string }> = {
 /* -------------------------------------------------------------------------- */
 
 function CommitmentRow({ item }: { item: CommitmentItem }) {
-  const status = STATUS_CONFIG[item.status] ?? {
-    bg: 'bg-muted',
-    text: 'text-muted-foreground',
-  };
   const isDueSoon =
     item.status === 'Active' && new Date(item.dueDate) <= new Date(Date.now() + 7 * 86400_000);
 
@@ -72,12 +70,10 @@ function CommitmentRow({ item }: { item: CommitmentItem }) {
           </div>
 
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <p className="text-sm font-bold text-foreground">
+            <p className="font-mono text-sm font-bold tabular-nums text-foreground">
               {formatCurrency(item.amount, item.currency)}
             </p>
-            <Badge className={`rounded-full text-xs ${status.bg} ${status.text}`}>
-              {item.status}
-            </Badge>
+            <Badge variant={STATUS_VARIANTS[item.status] ?? 'secondary'}>{item.status}</Badge>
           </div>
         </div>
 
@@ -139,7 +135,7 @@ export function CommitmentsSubTab({ userId }: { userId: string }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">
-            {items.length} commitment{items.length !== 1 ? 's' : ''}
+            <span className="font-mono tabular-nums">{items.length}</span> commitment{items.length !== 1 ? 's' : ''}
           </p>
           {totals && totals.totalUpcomingAmount > 0 && (
             <p className="text-xs text-muted-foreground">
@@ -147,16 +143,27 @@ export function CommitmentsSubTab({ userId }: { userId: string }) {
             </p>
           )}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={load} disabled={loading} title="Refresh">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={load}
+              disabled={loading}
+              aria-label="Refresh commitments"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* Loading */}

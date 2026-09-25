@@ -15,6 +15,16 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,9 +64,9 @@ import type {
 const CHANNELS = ['Email', 'SMS', 'Push'] as const;
 
 const channelMeta: Record<string, { icon: typeof Mail; label: string; color: string }> = {
-  Email: { icon: Mail, label: 'Email', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
-  SMS: { icon: Smartphone, label: 'SMS', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
-  Push: { icon: MessageSquare, label: 'Push', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+  Email: { icon: Mail, label: 'Email', color: 'bg-info-subtle text-info-foreground' },
+  SMS: { icon: Smartphone, label: 'SMS', color: 'bg-warning-subtle text-warning-foreground' },
+  Push: { icon: MessageSquare, label: 'Push', color: 'bg-chart-4/15 text-chart-4' },
 };
 
 function ChannelBadge({ channel }: { channel: string }) {
@@ -113,27 +123,36 @@ const emptyBindingForm: BindingForm = {
   isEnabled: true,
 };
 
+// Email clients cannot resolve CSS variables, so the starter MJML template
+// carries literal colours.
+const MJML_TEXT = '#263238'; // guardrail-ignore: email HTML needs literal colours
+const MJML_BUTTON = '#4f46e5'; // guardrail-ignore: email HTML needs literal colours
+const MJML_BACKGROUND = '#f5f7fb'; // guardrail-ignore: email HTML needs literal colours
+const MJML_MUTED = '#64748b'; // guardrail-ignore: email HTML needs literal colours
+const MJML_HEADING = '#111827'; // guardrail-ignore: email HTML needs literal colours
+const MJML_CARD = '#ffffff'; // guardrail-ignore: email HTML needs literal colours
+
 const defaultMjmlTemplate = `<mjml>
   <mj-head>
     <mj-preview>{{ tenant_name }} notification for {{ first_name }}</mj-preview>
     <mj-attributes>
       <mj-all font-family="Inter, Arial, sans-serif" />
-      <mj-text font-size="15px" line-height="24px" color="#263238" />
-      <mj-button background-color="#4f46e5" border-radius="10px" font-weight="600" />
+      <mj-text font-size="15px" line-height="24px" color="${MJML_TEXT}" />
+      <mj-button background-color="${MJML_BUTTON}" border-radius="10px" font-weight="600" />
     </mj-attributes>
   </mj-head>
-  <mj-body background-color="#f5f7fb">
+  <mj-body background-color="${MJML_BACKGROUND}">
     <mj-section padding="32px 20px 12px">
       <mj-column>
-        <mj-text font-size="13px" color="#64748b" padding-bottom="8px">{{ tenant_name }}</mj-text>
-        <mj-text font-size="28px" line-height="34px" font-weight="700" color="#111827">Hi {{ first_name }},</mj-text>
+        <mj-text font-size="13px" color="${MJML_MUTED}" padding-bottom="8px">{{ tenant_name }}</mj-text>
+        <mj-text font-size="28px" line-height="34px" font-weight="700" color="${MJML_HEADING}">Hi {{ first_name }},</mj-text>
       </mj-column>
     </mj-section>
-    <mj-section background-color="#ffffff" border-radius="18px" padding="28px">
+    <mj-section background-color="${MJML_CARD}" border-radius="18px" padding="28px">
       <mj-column>
         <mj-text>Your account at {{ tenant_name }} is ready.</mj-text>
         <mj-button href="{{ confirmation_url }}" padding-top="16px">Continue</mj-button>
-        <mj-text font-size="12px" color="#64748b" padding-top="18px">This link expires in {{ expiry_hours }} hours.</mj-text>
+        <mj-text font-size="12px" color="${MJML_MUTED}" padding-top="18px">This link expires in {{ expiry_hours }} hours.</mj-text>
       </mj-column>
     </mj-section>
   </mj-body>
@@ -177,6 +196,9 @@ export function NotificationTemplatesPage() {
   const [form, setForm] = useState<TemplateForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // Deferred action held while the "discard unsaved changes" confirm is open.
+  const [discardAction, setDiscardAction] = useState<(() => void) | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedChannels, setCollapsedChannels] = useState<Record<string, boolean>>({});
 
@@ -230,11 +252,7 @@ export function NotificationTemplatesPage() {
   }, [loadTemplates, loadBindings]);
 
   // ── Select template ────────────────────────────────────────────────────
-  const selectTemplate = useCallback(async (id: string) => {
-    if (dirty) {
-      const ok = window.confirm('You have unsaved changes. Discard them?');
-      if (!ok) return;
-    }
+  const loadTemplateDetail = useCallback(async (id: string) => {
     try {
       setLoadingDetail(true);
       setIsCreating(false);
@@ -258,14 +276,26 @@ export function NotificationTemplatesPage() {
     } finally {
       setLoadingDetail(false);
     }
-  }, [dirty]);
+  }, []);
+
+  const selectTemplate = useCallback((id: string) => {
+    if (dirty) {
+      setDiscardAction(() => () => void loadTemplateDetail(id));
+      return;
+    }
+    void loadTemplateDetail(id);
+  }, [dirty, loadTemplateDetail]);
 
   // ── Create new ─────────────────────────────────────────────────────────
   function startCreate() {
     if (dirty) {
-      const ok = window.confirm('You have unsaved changes. Discard them?');
-      if (!ok) return;
+      setDiscardAction(() => beginCreate);
+      return;
     }
+    beginCreate();
+  }
+
+  function beginCreate() {
     setSelectedId(null);
     setSelectedDetail(null);
     setIsCreating(true);
@@ -339,10 +369,13 @@ export function NotificationTemplatesPage() {
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────
-  async function deleteSelected() {
+  function deleteSelected() {
     if (!selectedId) return;
-    const ok = window.confirm(`Delete "${form.name}"? This cannot be undone.`);
-    if (!ok) return;
+    setDeleteConfirmOpen(true);
+  }
+
+  async function confirmDeleteSelected() {
+    if (!selectedId) return;
     try {
       await notificationTemplateService.delete(selectedId);
       toast.success('Template deleted');
@@ -594,7 +627,7 @@ export function NotificationTemplatesPage() {
           {/* ─── Left sidebar: template list ───────────────────────────── */}
           <div className="w-64 flex-shrink-0 border-r border-border flex flex-col bg-muted">
             <div className="p-3 space-y-2">
-              <Button size="sm" className="w-full rounded-sm" onClick={startCreate}>
+              <Button size="sm" className="w-full" onClick={startCreate}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 New Template
               </Button>
@@ -647,7 +680,7 @@ export function NotificationTemplatesPage() {
                               <button
                                 key={t.id}
                                 onClick={() => selectTemplate(t.id)}
-                                className={`w-full text-left px-2.5 py-1.5 rounded-sm text-xs transition-colors ${
+                                className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                                   selectedId === t.id
                                     ? 'bg-primary/10 text-primary font-medium'
                                     : 'text-foreground hover:bg-muted'
@@ -931,7 +964,7 @@ export function NotificationTemplatesPage() {
                     <div className="w-[440px] flex-shrink-0 border-l border-border flex flex-col bg-muted">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                         <div>
-                          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                          <h3 className="text-xs font-semibold text-foreground">
                             Preview Window
                           </h3>
                           <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -946,7 +979,7 @@ export function NotificationTemplatesPage() {
                       <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {/* Sample data input */}
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <Label className="text-xs text-muted-foreground">
                             Sample Data (JSON)
                           </Label>
                           <Textarea
@@ -961,16 +994,16 @@ export function NotificationTemplatesPage() {
                           <div className="space-y-3">
                             {previewResult.subject && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 font-medium">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">
                                   Subject
                                 </p>
-                                <div className="bg-card rounded-sm border border-border px-3 py-2 text-sm text-foreground">
+                                <div className="bg-card rounded-md border border-border px-3 py-2 text-sm text-foreground">
                                   {previewResult.subject}
                                 </div>
                               </div>
                             )}
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 font-medium">
+                              <p className="text-xs text-muted-foreground mb-1.5 font-medium">
                                 Body
                               </p>
                               {form.channel === 'SMS' ? (
@@ -983,7 +1016,7 @@ export function NotificationTemplatesPage() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="overflow-hidden rounded-sm border border-border bg-white">
+                                <div className="overflow-hidden rounded-md border border-border bg-white">
                                   <iframe
                                     title="Rendered notification preview"
                                     sandbox=""
@@ -1151,6 +1184,45 @@ export function NotificationTemplatesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={discardAction !== null} onOpenChange={(open) => { if (!open) setDiscardAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes. Discard them?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const action = discardAction;
+                setDiscardAction(null);
+                action?.();
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete &ldquo;{form.name}&rdquo;? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void confirmDeleteSelected()}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

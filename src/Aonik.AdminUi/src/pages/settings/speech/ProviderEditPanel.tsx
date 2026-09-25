@@ -3,6 +3,7 @@ import { Loader2, Plug, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -290,7 +291,7 @@ export function ProviderEditPanel({
 
         {schema && (
           <div className="space-y-3 rounded-md border border-border p-4">
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               {schema.configKind} configuration
             </div>
             {schema.fields.map((field) => (
@@ -376,12 +377,10 @@ function FieldRenderer({
         // the form state so the existing string-keyed values map keeps working;
         // buildConfig() converts back to a real bool before posting.
         <label className="flex items-center gap-2 text-sm">
-          <input
+          <Checkbox
             id={id}
-            type="checkbox"
             checked={value === 'true'}
-            onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-            className="h-4 w-4"
+            onCheckedChange={(checked) => onChange(checked === true ? 'true' : 'false')}
           />
           <span className="text-muted-foreground">
             {field.placeholder ?? 'Enabled'}

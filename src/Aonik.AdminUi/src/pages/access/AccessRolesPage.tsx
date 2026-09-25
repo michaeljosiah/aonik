@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertCircle, RefreshCw, Search, Shield } from 'lucide-react';
 import { roleService } from '@/services/roleService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
@@ -102,12 +104,12 @@ export function AccessRolesPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="relative w-80 max-w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
+              <Input
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search for roles"
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                className="pl-10"
               />
             </div>
 
@@ -117,6 +119,7 @@ export function AccessRolesPage() {
               size="icon-sm"
               onClick={loadRoles}
               title="Refresh"
+              aria-label="Refresh"
               disabled={loading}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -124,67 +127,61 @@ export function AccessRolesPage() {
           </div>
 
           <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Role</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Permissions</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Assigned Users</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Loading roles...</p>
-                      </td>
-                    </tr>
-                  ) : roles.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-muted-foreground">
-                          <Shield className="w-12 h-12" />
-                        </div>
-                        <p className="text-foreground font-medium mb-1">No roles found</p>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="px-4 text-xs text-muted-foreground">Role</TableHead>
+                  <TableHead className="px-4 text-xs text-muted-foreground">Description</TableHead>
+                  <TableHead className="px-4 text-xs text-muted-foreground">Permissions</TableHead>
+                  <TableHead className="px-4 text-xs text-muted-foreground">Assigned users</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={4} className="px-4 py-12 text-center">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Loading roles...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : roles.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={4} className="px-4 py-12 text-center">
+                      <div className="mb-3 flex justify-center text-muted-foreground">
+                        <Shield className="w-12 h-12" />
+                      </div>
+                      <p className="text-foreground font-medium mb-1">No roles found</p>
+                      <p className="text-sm text-muted-foreground">
+                        {searchQuery ? 'Try adjusting your search.' : 'Create a role to start assigning permissions.'}
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  roles.map((role) => (
+                    <TableRow key={role.roleId}>
+                      <TableCell className="px-4 py-3">
+                        <p className="font-medium text-foreground">{role.name}</p>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 whitespace-normal">
                         <p className="text-sm text-muted-foreground">
-                          {searchQuery ? 'Try adjusting your search.' : 'Create a role to start assigning permissions.'}
+                          {role.description || 'No description provided.'}
                         </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    roles.map((role) => (
-                      <tr
-                        key={role.roleId}
-                        className="border-b border-border hover:bg-muted transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-foreground">{role.name}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-muted-foreground">
-                            {role.description || 'No description provided.'}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="team" className="text-xs">
-                            {role.permissionCount} permission{role.permissionCount === 1 ? '' : 's'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">
-                            {role.userCount} user{role.userCount === 1 ? '' : 's'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant="default" className="text-xs tabular-nums">
+                          {role.permissionCount} permission{role.permissionCount === 1 ? '' : 's'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant="outline" className="text-xs tabular-nums">
+                          {role.userCount} user{role.userCount === 1 ? '' : 's'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
 
           <div className="pt-4">

@@ -3,6 +3,7 @@
 // "Checkout blocked" carrying the reason whenever the box is drifted or under-filled — the
 // same verdict, from the same pure function, that drives the list column and the banner.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
@@ -79,14 +80,16 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
               )}
 
               {verdict.blocked && (
-                <div className="flex items-start gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2">
-                  <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-warning" />
-                  <p className="text-[12px] text-warning">
-                    <span className="font-semibold">Checkout blocked.</span> {verdict.reason} The
-                    customer resolves this on their next visit — a full box with every line
-                    available is what checkout requires.
-                  </p>
-                </div>
+                <Alert variant="warning" className="py-2">
+                  <AlertTriangle aria-hidden />
+                  <AlertDescription className="text-xs">
+                    <p>
+                      <span className="font-semibold">Checkout blocked.</span> {verdict.reason} The
+                      customer resolves this on their next visit — a full box with every line
+                      available is what checkout requires.
+                    </p>
+                  </AlertDescription>
+                </Alert>
               )}
 
               <AonikCard padding={12}>

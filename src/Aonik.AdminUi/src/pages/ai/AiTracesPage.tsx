@@ -2,18 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, AlertCircle, Braces, ChevronDown, ChevronRight, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PanelInfoPopover } from '@/components/ui/panel-info-popover';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -26,27 +27,27 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table/data-table
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 import { aiTraceService } from '@/services/aiService';
-const typeClass = (type: string) => {
+type BadgeVariant = BadgeProps['variant'];
+
+const typeVariant = (type: string): BadgeVariant => {
   switch (type.toLowerCase()) {
     case 'generation':
-      return 'bg-violet-500/10 text-violet-700 border-violet-200';
+      return 'info';
     case 'span':
-      return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'event':
-      return 'bg-sky-500/10 text-sky-700 border-sky-200';
+      return 'secondary';
     default:
-      return 'bg-gray-500/10 text-gray-700 border-gray-200';
+      return 'outline';
   }
 };
 
-const levelClass = (level: string) => {
+const levelVariant = (level: string): BadgeVariant => {
   switch (level.toLowerCase()) {
     case 'error':
-      return 'bg-red-500/10 text-red-700 border-red-200';
+      return 'destructive';
     case 'warning':
-      return 'bg-amber-500/10 text-amber-700 border-amber-200';
+      return 'warning';
     default:
-      return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+      return 'success';
   }
 };
 
@@ -154,7 +155,7 @@ function PayloadCell({ label, value, onOpen }: { label: string; value: string | 
 function DetailMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-muted px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 font-mono text-xs text-foreground">{value}</div>
     </div>
   );
@@ -213,22 +214,22 @@ function MetadataTable({ value }: { value: string | null }) {
         </Button>
       </div>
       <div className="max-h-72 overflow-auto rounded-md border border-border">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-muted text-left text-muted-foreground">
-            <tr>
-              <th className="w-2/5 px-3 py-2 font-medium">Path</th>
-              <th className="px-3 py-2 font-medium">Value</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="text-xs">
+          <TableHeader className="sticky top-0 bg-muted">
+            <TableRow className="hover:bg-muted">
+              <TableHead className="h-auto w-2/5 px-3 py-2 text-muted-foreground">Path</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-muted-foreground">Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((row) => (
-              <tr key={row.path} className="border-t border-border">
-                <td className="px-3 py-2 font-mono text-muted-foreground">{row.path}</td>
-                <td className="px-3 py-2 font-mono text-foreground break-all">{row.value}</td>
-              </tr>
+              <TableRow key={row.path}>
+                <TableCell className="whitespace-normal px-3 py-2 font-mono text-muted-foreground">{row.path}</TableCell>
+                <TableCell className="whitespace-normal px-3 py-2 font-mono text-foreground break-all">{row.value}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );
@@ -831,7 +832,7 @@ export function AiTracesPage() {
       header: 'Type',
       accessorKey: 'type',
       sortable: true,
-      cell: (row) => <Badge className={`text-xs ${typeClass(row.type)}`}>{row.type}</Badge>,
+      cell: (row) => <Badge variant={typeVariant(row.type)} className="text-xs">{row.type}</Badge>,
     },
     {
       id: 'name',
@@ -870,7 +871,7 @@ export function AiTracesPage() {
       header: 'Level',
       accessorKey: 'level',
       sortable: true,
-      cell: (row) => <Badge className={`text-xs ${levelClass(row.level)}`}>{row.level}</Badge>,
+      cell: (row) => <Badge variant={levelVariant(row.level)} className="text-xs">{row.level}</Badge>,
     },
     {
       id: 'agentName',
@@ -942,7 +943,7 @@ export function AiTracesPage() {
               Inspect normalized AI observations from Langfuse or Application Insights.
             </p>
           </div>
-          <Badge className="w-fit bg-blue-500/10 text-blue-700 border-blue-200">Provider: {provider}</Badge>
+          <Badge variant="info">Provider: {provider}</Badge>
         </div>
       </div>
 
@@ -1008,15 +1009,11 @@ export function AiTracesPage() {
       </Card>
 
       {error ? (
-        <Card className="p-5 border-l-4 border-l-red-500">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="h-5 w-5" />
-            <div>
-              <div className="font-medium">Failed to load AI observations</div>
-              <div className="text-sm">{error}</div>
-            </div>
-          </div>
-        </Card>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Failed to load AI observations</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       <Card className="p-4">
@@ -1046,23 +1043,23 @@ export function AiTracesPage() {
         </div>
       </Card>
 
-      <Dialog open={selectedObservation !== null} onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}>
-        <DialogContent showCloseButton={false} className="left-auto right-0 top-0 flex h-screen max-h-screen w-[min(760px,100vw)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
+      <Sheet open={selectedObservation !== null} onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}>
+        <SheetContent size="lg" className="gap-0 overflow-hidden sm:max-w-[760px]">
           {selectedObservation ? (
             <div className="flex min-h-0 h-full flex-1 flex-col">
               <div className="border-b border-border px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
-                  <DialogHeader className="space-y-2 text-left">
+                  <div className="flex flex-col gap-2 text-left">
                     <div className="flex items-center gap-2">
-                      <Badge className={`text-xs ${typeClass(selectedObservation.type)}`}>{selectedObservation.type}</Badge>
-                      <Badge className={`text-xs ${levelClass(selectedObservation.level)}`}>{selectedObservation.level}</Badge>
-                      <Badge className="bg-blue-500/10 text-blue-700 border-blue-200 text-xs">{selectedObservation.source}</Badge>
+                      <Badge variant={typeVariant(selectedObservation.type)} className="text-xs">{selectedObservation.type}</Badge>
+                      <Badge variant={levelVariant(selectedObservation.level)} className="text-xs">{selectedObservation.level}</Badge>
+                      <Badge variant="info" className="text-xs">{selectedObservation.source}</Badge>
                     </div>
-                    <DialogTitle className="break-words text-xl">{selectedObservation.name || 'Observation'}</DialogTitle>
-                    <DialogDescription className="font-mono text-xs break-all">
+                    <SheetTitle className="break-words text-xl">{selectedObservation.name || 'Observation'}</SheetTitle>
+                    <SheetDescription className="font-mono text-xs break-all">
                       Observation ID: {selectedObservation.observationId}
-                    </DialogDescription>
-                  </DialogHeader>
+                    </SheetDescription>
+                  </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {traceInsightMetrics ? (
                       <PanelInfoPopover
@@ -1106,11 +1103,11 @@ export function AiTracesPage() {
                         View errors
                       </Button>
                     ) : null}
-                    <DialogClose asChild>
-                      <Button type="button" variant="ghost" size="sm" aria-label="Close details">
+                    <SheetClose asChild>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Close details">
                         <X className="h-4 w-4" />
                       </Button>
-                    </DialogClose>
+                    </SheetClose>
                   </div>
                 </div>
               </div>
@@ -1130,27 +1127,27 @@ export function AiTracesPage() {
 
                 <div className="mb-5 grid gap-3 rounded-md border border-border p-3 text-sm md:grid-cols-2">
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Trace</div>
+                    <div className="text-xs text-muted-foreground">Trace</div>
                     <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.traceName ?? selectedObservation.traceId}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Parent Observation</div>
+                    <div className="text-xs text-muted-foreground">Parent Observation</div>
                     <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.parentObservationId ?? '--'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">AI Run</div>
+                    <div className="text-xs text-muted-foreground">AI Run</div>
                     <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.aiRunId ?? '--'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Root Observation</div>
+                    <div className="text-xs text-muted-foreground">Root Observation</div>
                     <div className="mt-1 text-xs text-foreground">{selectedObservation.isRootObservation ? 'Yes' : 'No'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Span</div>
+                    <div className="text-xs text-muted-foreground">Span</div>
                     <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.spanId ?? selectedObservation.observationId}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Operation</div>
+                    <div className="text-xs text-muted-foreground">Operation</div>
                     <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.operationId ?? selectedObservation.traceId}</div>
                   </div>
                 </div>
@@ -1164,8 +1161,8 @@ export function AiTracesPage() {
               </div>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -250,7 +250,7 @@ export function ContentBlockEditPage() {
       header: 'Preview',
       accessorFn: (row) => row.url,
       cell: (row) => (
-        <div className="w-16 h-10 bg-gray-100 rounded overflow-hidden">
+        <div className="w-16 h-10 bg-muted rounded-md overflow-hidden">
           {row.url ? (
             <img
               src={row.url}
@@ -261,8 +261,8 @@ export function ContentBlockEditPage() {
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-              <Image className="w-6 h-6 text-gray-400" />
+            <div className="w-full h-full flex items-center justify-center bg-accent">
+              <Image className="w-6 h-6 text-muted-foreground" />
             </div>
           )}
         </div>
@@ -333,10 +333,10 @@ export function ContentBlockEditPage() {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
-            <TabsTrigger value="general" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">General</TabsTrigger>
-            <TabsTrigger value="content" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">Content</TabsTrigger>
-            <TabsTrigger value="media" disabled={isNew} className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">
+          <TabsList variant="line">
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="media" disabled={isNew}>
               Media ({contentBlock?.media.length || 0})
             </TabsTrigger>
           </TabsList>

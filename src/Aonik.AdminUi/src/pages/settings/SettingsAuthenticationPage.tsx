@@ -253,7 +253,7 @@ export function SettingsAuthenticationPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Settings · Platform</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Settings · Platform</p>
           <h1 className="text-2xl font-bold text-foreground">Authentication</h1>
           <p className="text-muted-foreground">
             Identity providers, SSO, callback configuration, and management client secrets.

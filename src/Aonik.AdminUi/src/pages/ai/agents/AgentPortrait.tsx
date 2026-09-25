@@ -22,8 +22,11 @@ export interface AgentPortraitProps {
   ring?: boolean;
 }
 
+// guardrail-ignore: glyph ink drawn on the agent's generated data colour; stays white in both themes.
+const INK = '#fff';
+
 function PortraitGlyph({ glyph, color }: { glyph: AgentGlyph; color: string }) {
-  const w = '#fff';
+  const w = INK;
   switch (glyph) {
     case 'orbital':
       return (
@@ -128,8 +131,8 @@ export function AgentPortrait({
           <stop offset="100%" stopColor={color} stopOpacity={0.55} />
         </linearGradient>
         <radialGradient id={`${idBase}-glow`} cx="0.7" cy="0.25" r="0.7">
-          <stop offset="0%" stopColor="#fff" stopOpacity={0.35} />
-          <stop offset="100%" stopColor="#fff" stopOpacity={0} />
+          <stop offset="0%" stopColor={INK} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={INK} stopOpacity={0} />
         </radialGradient>
         <clipPath id={`${idBase}-clip`}>
           <rect x={0} y={0} width={80} height={80} rx={radius * (80 / size)} />
@@ -142,7 +145,7 @@ export function AgentPortrait({
         {Array.from({ length: 18 }).map((_, i) => {
           const x = (i * 37) % 80;
           const y = (i * 59) % 80;
-          return <circle key={i} cx={x} cy={y} r={0.4} fill="#fff" opacity={0.15} />;
+          return <circle key={i} cx={x} cy={y} r={0.4} fill={INK} opacity={0.15} />;
         })}
         <PortraitGlyph glyph={glyph} color={color} />
       </g>
@@ -154,7 +157,7 @@ export function AgentPortrait({
           height={79}
           rx={radius * (80 / size)}
           fill="none"
-          stroke="#fff"
+          stroke={INK}
           strokeOpacity={0.15}
         />
       )}

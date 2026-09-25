@@ -7,6 +7,7 @@
 // were live tells the operator their allergen line is serving customers when it is not — which
 // is the one mistake a content tool must not make.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, FilePlus, Info } from 'lucide-react';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
@@ -126,14 +127,16 @@ export function ContentWorkbench({
       )}
 
       {state === 'review' && !servedByVariant && (
-        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2 text-[12px] text-warning">
-          <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-          <span>
-            The standard preparation changed underneath this block. Until it is confirmed,
-            customers see the figures <strong>captioned as the standard preparation</strong> and
-            the declarations <strong>withheld</strong> — ingredients, allergens and heating alike.
-          </span>
-        </p>
+        <Alert variant="warning" className="mx-3 mt-3 py-2">
+          <AlertTriangle aria-hidden />
+          <AlertDescription className="text-xs">
+            <span>
+              The standard preparation changed underneath this block. Until it is confirmed,
+              customers see the figures <strong>captioned as the standard preparation</strong> and
+              the declarations <strong>withheld</strong> — ingredients, allergens and heating alike.
+            </span>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="p-3">
@@ -157,7 +160,7 @@ function FigureGrid({ nutrition }: { nutrition: ProductContentDto['nutrition'] }
         const value = nutrition[field.key as FigureKey];
         return (
           <div key={field.key} className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               {field.label}
             </span>
             <span className="font-[family-name:var(--font-mono)] text-[13px] tabular-nums text-foreground">
@@ -190,7 +193,7 @@ function DeclarationCell({
   const render = renderDeclaration(text, underReview ? 'review' : 'authored');
   return (
     <div className="rounded-md border border-border p-2.5">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
         {label}
       </p>
       {render.kind === 'authored' && (
@@ -223,7 +226,7 @@ function Heating({
 
   return (
     <div className="mt-3 rounded-md border border-border p-2.5">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
         Heating &amp; usage
       </p>
       {withheld ? (

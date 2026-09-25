@@ -23,6 +23,7 @@ import {
   PageHeader,
 } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { aiRunService } from '@/services/aiService';
 import type { AiRunSummaryResponse } from '@/services/aiService';
@@ -48,13 +49,13 @@ function startOfDay(value: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Categorical series: use cases hash onto the chart palette.
 const AGENT_PALETTE = [
-  '#055a60', // teal
-  '#eb5c37', // coral
-  '#3ab795', // mint
-  '#7b76b6', // violet
-  '#0097a9', // cyan
-  '#5facbd', // sky
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 function paletteFor(name: string): string {
@@ -188,7 +189,6 @@ export function AiUsagePage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="AI · Analytics"
         title="Usage"
         subtitle="Token consumption, cost, and run volume across the visible window"
         actions={
@@ -237,14 +237,16 @@ export function AiUsagePage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadRuns()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadRuns()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -365,7 +367,7 @@ function UsageTile({
   tone: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-border bg-card p-3.5">
+    <div className="rounded-lg border border-border bg-card p-3.5">
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
         {label}

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { MetricCard, TimeSeriesChart } from '@/components/charts';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
@@ -120,9 +121,9 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <Card className="border-l-4 border-l-red-500">
+    <Card className="border-l-4 border-l-destructive">
       <CardContent className="flex items-center gap-3 p-5">
-        <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+        <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
         <div>
           <p className="text-sm font-medium text-foreground">Failed to load overview</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{message}</p>
@@ -134,9 +135,9 @@ function ErrorState({ message }: { message: string }) {
 
 function NotConfiguredBanner() {
   return (
-    <Card className="mb-6 border-l-4 border-l-amber-500">
+    <Card className="mb-6 border-l-4 border-l-warning">
       <CardContent className="flex items-center gap-3 p-5">
-        <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+        <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
         <p className="text-sm text-muted-foreground">
           Application Insights is not configured. Go to{' '}
           <a
@@ -325,7 +326,7 @@ export function ObservabilityPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="icon" onClick={handleRefresh}>
+              <Button variant="outline" size="icon" onClick={handleRefresh} aria-label="Refresh">
                 <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
@@ -373,10 +374,7 @@ export function ObservabilityPage() {
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-                      Observability · System health
-                    </p>
-                    <h2 className="mt-3 text-4xl font-bold tracking-tight text-foreground">Overview</h2>
+                    <h2 className="text-4xl font-bold tracking-tight text-foreground">Overview</h2>
                     <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                       Live pulse across requests, dependencies, and application failures for the selected time range.
                     </p>
@@ -409,10 +407,10 @@ export function ObservabilityPage() {
                         className={cn(
                           'inline-flex h-3 w-3 rounded-full',
                           criticalServices > 0
-                            ? 'bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.16)]'
+                            ? 'bg-destructive ring-[6px] ring-destructive/15'
                             : degradedServices > 0 || errorRate >= 1 || p95Latency >= 2000
-                            ? 'bg-amber-500 shadow-[0_0_0_6px_rgba(245,158,11,0.16)]'
-                            : 'bg-emerald-500 shadow-[0_0_0_6px_rgba(34,197,94,0.16)]',
+                            ? 'bg-warning ring-[6px] ring-warning/15'
+                            : 'bg-success ring-[6px] ring-success/15',
                         )}
                       />
                     </div>
@@ -471,7 +469,7 @@ export function ObservabilityPage() {
                             Request volume, error rate, and latency trend across the selected window.
                           </p>
                         </div>
-                        <div className="text-right text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+                        <div className="text-right text-xs font-medium text-muted-foreground">
                           {dateLabel}
                         </div>
                       </div>
@@ -485,7 +483,7 @@ export function ObservabilityPage() {
                         <TimeSeriesChart
                           data={overview.errors.timeSeries}
                           label="Error rate"
-                          color="#ef4444"
+                          color="var(--destructive)"
                           formatValue={(value) => formatPercent(value)}
                         />
                       </div>
@@ -494,7 +492,7 @@ export function ObservabilityPage() {
                         <TimeSeriesChart
                           data={overview.latency.timeSeries}
                           label="Average latency"
-                          color="#f59e0b"
+                          color="var(--warning)"
                           formatValue={(value) => formatMs(value)}
                         />
                       </div>
@@ -517,10 +515,10 @@ export function ObservabilityPage() {
                         {topErrors.slice(0, 3).map((error) => {
                           const severity = metricTone(error.count, 5, 20);
                           const severityClass = severity === 'critical'
-                            ? 'border-l-red-500 text-red-500 bg-red-500/10'
+                            ? 'border-l-destructive text-destructive bg-destructive/10'
                             : severity === 'warning'
-                            ? 'border-l-amber-500 text-amber-500 bg-amber-500/10'
-                            : 'border-l-slate-400 text-muted-foreground bg-card';
+                            ? 'border-l-warning text-warning bg-warning-subtle'
+                            : 'border-l-border text-muted-foreground bg-card';
                           return (
                             <div
                               key={`${error.type}-${error.lastSeen}`}
@@ -538,9 +536,12 @@ export function ObservabilityPage() {
                                     {error.type}
                                   </div>
                                 </div>
-                                <span className="rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide">
+                                <Badge
+                                  variant={severity === 'critical' ? 'destructive' : severity === 'warning' ? 'warning' : 'secondary'}
+                                  className="font-mono"
+                                >
                                   {severity === 'critical' ? 'critical' : severity === 'warning' ? 'warning' : 'info'}
-                                </span>
+                                </Badge>
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {error.innermostMessage || 'No inner exception message captured.'}
@@ -682,16 +683,12 @@ export function ObservabilityPage() {
                                   <div className="truncate font-mono text-xs text-foreground">{service.name}</div>
                                   <div className="mt-1 text-[11px] text-muted-foreground">{service.type}</div>
                                 </div>
-                                <span className={cn(
-                                  'rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide',
-                                  status === 'critical'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : status === 'warning'
-                                    ? 'bg-amber-500/10 text-amber-500'
-                                    : 'bg-emerald-500/10 text-emerald-500',
-                                )}>
+                                <Badge
+                                  variant={status === 'critical' ? 'destructive' : status === 'warning' ? 'warning' : 'success'}
+                                  className="font-mono"
+                                >
                                   {status}
-                                </span>
+                                </Badge>
                               </div>
                               <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
                                 <div>
@@ -736,10 +733,10 @@ export function ObservabilityPage() {
                           ? 'warning'
                           : 'good';
                         const statusColor = status === 'critical'
-                          ? 'bg-red-500'
+                          ? 'bg-destructive'
                           : status === 'warning'
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500';
+                          ? 'bg-warning'
+                          : 'bg-success';
                         return (
                           <div
                             key={`${service.type}-${service.name}`}

@@ -13,6 +13,10 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { NODE_KIND } from './stepKindCatalog';
 import type {
   WorkflowEdge,
@@ -31,10 +35,10 @@ interface FieldLabelProps {
 
 function FieldLabel({ children, hint }: FieldLabelProps) {
   return (
-    <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
       {children}
       {hint && (
-        <span className="font-medium normal-case tracking-normal text-muted-foreground">
+        <span className="font-normal text-muted-foreground">
           · {hint}
         </span>
       )}
@@ -55,18 +59,11 @@ function TextField({ label, value, onChange, mono, hint, placeholder }: TextFiel
   return (
     <div>
       <FieldLabel hint={hint}>{label}</FieldLabel>
-      <input
+      <Input
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 box-border w-full rounded-md border border-border bg-card text-foreground"
-        style={{
-          padding: '8px 10px',
-          fontSize: 12.5,
-          fontFamily: mono ? 'var(--font-mono)' : 'inherit',
-          borderBottomWidth: 2,
-          borderBottomColor: 'var(--border)',
-        }}
+        className={cn('mt-1.5 bg-card text-[12.5px] md:text-[12.5px]', mono && 'font-mono')}
       />
     </div>
   );
@@ -80,17 +77,14 @@ function TextArea({ label, value, onChange, hint, rows = 3, mono }: TextAreaProp
   return (
     <div>
       <FieldLabel hint={hint}>{label}</FieldLabel>
-      <textarea
+      <Textarea
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="mt-1.5 box-border w-full resize-y rounded-md border border-border bg-card text-foreground"
-        style={{
-          padding: '8px 10px',
-          fontSize: 12,
-          lineHeight: 1.5,
-          fontFamily: mono ? 'var(--font-mono)' : 'inherit',
-        }}
+        className={cn(
+          'mt-1.5 min-h-0 resize-y bg-card text-xs leading-normal field-sizing-fixed md:text-xs',
+          mono && 'font-mono',
+        )}
       />
     </div>
   );
@@ -108,18 +102,19 @@ function SelectField({ label, value, onChange, options, hint }: SelectProps) {
   return (
     <div>
       <FieldLabel hint={hint}>{label}</FieldLabel>
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 box-border w-full rounded-md border border-border bg-card text-foreground"
-        style={{ padding: '8px 10px', fontSize: 12.5 }}
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <div className="mt-1.5">
+        <NativeSelect
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-card text-[12.5px] md:text-[12.5px]"
+        >
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
     </div>
   );
 }
@@ -142,7 +137,7 @@ function InspectorShell({ title, eyebrow, kindTint, children }: InspectorShellPr
       <div className="border-b border-border" style={{ padding: 16 }}>
         {eyebrow && (
           <div
-            className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.08em]"
+            className="mb-1 text-xs font-medium"
             style={{ color: kindTint ?? 'var(--muted-foreground)' }}
           >
             {eyebrow}
@@ -180,19 +175,11 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
   return (
     <InspectorShell title={node.label} eyebrow={meta.label} kindTint={meta.tint}>
       {errors.length > 0 && (
-        <div
-          className="flex flex-col gap-1.5 rounded-md"
-          style={{
-            padding: '10px 12px',
-            background: '#c4453610',
-            border: '1px solid #c4453640',
-          }}
-        >
+        <div className="flex flex-col gap-1.5 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2.5">
           {errors.map((e, i) => (
             <div
               key={i}
-              className="flex items-start gap-1.5 text-[11.5px]"
-              style={{ color: '#a3392b', lineHeight: 1.5 }}
+              className="flex items-start gap-1.5 text-[11.5px] leading-normal text-destructive"
             >
               <AlertTriangle size={11} />
               <span>{e.message}</span>
@@ -377,7 +364,7 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
         className="mt-auto flex flex-col gap-2.5 border-t border-border"
         style={{ paddingTop: 12 }}
       >
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <div className="text-xs font-medium text-muted-foreground">
           Node ID
         </div>
         <div
@@ -390,8 +377,7 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
           variant="outline"
           size="sm"
           onClick={onDelete}
-          className="h-7"
-          style={{ color: '#c44536', borderColor: '#c4453640' }}
+          className="h-7 border-destructive/25 text-destructive"
         >
           <Trash2 size={11} />
           Delete node
@@ -418,13 +404,13 @@ function EdgeInspector({ edge, nodes, onDelete }: EdgeInspectorProps) {
         className="rounded-md border border-border bg-muted"
         style={{ padding: 12 }}
       >
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <div className="text-xs font-medium text-muted-foreground">
           From
         </div>
         <div className="mt-0.5 text-[12.5px] font-medium text-foreground">
           {a?.label}
         </div>
-        <div className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <div className="mt-2.5 text-xs font-medium text-muted-foreground">
           To
         </div>
         <div className="mt-0.5 text-[12.5px] font-medium text-foreground">
@@ -446,8 +432,7 @@ function EdgeInspector({ edge, nodes, onDelete }: EdgeInspectorProps) {
         variant="outline"
         size="sm"
         onClick={onDelete}
-        className="h-7"
-        style={{ color: '#c44536', borderColor: '#c4453640' }}
+        className="h-7 border-destructive/25 text-destructive"
       >
         <Trash2 size={11} />
         Remove connection
@@ -481,8 +466,7 @@ function MultiInspector({ count, onDeleteAll }: MultiInspectorProps) {
         variant="outline"
         size="sm"
         onClick={onDeleteAll}
-        className="h-7"
-        style={{ color: '#c44536', borderColor: '#c4453640' }}
+        className="h-7 border-destructive/25 text-destructive"
       >
         <Trash2 size={11} />
         Delete {count} nodes
@@ -530,7 +514,7 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
                   className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
                 >
                   <span
-                    className="rounded-[2px]"
+                    className="rounded-xs"
                     style={{
                       width: 10,
                       height: 10,
@@ -547,25 +531,14 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
       </div>
 
       {validationErrors.length > 0 && (
-        <div
-          className="rounded-md"
-          style={{
-            background: '#c4453610',
-            border: '1px solid #c4453640',
-            padding: 12,
-          }}
-        >
-          <div
-            className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em]"
-            style={{ color: '#c44536' }}
-          >
+        <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3">
+          <div className="mb-1.5 text-xs font-medium text-destructive">
             {validationErrors.length} issue{validationErrors.length === 1 ? '' : 's'}
           </div>
           {validationErrors.slice(0, 5).map((e, i) => (
             <div
               key={i}
-              className="mt-1 text-[11.5px]"
-              style={{ color: '#a3392b', lineHeight: 1.5 }}
+              className="mt-1 text-[11.5px] leading-normal text-destructive"
             >
               · {e.message}
             </div>

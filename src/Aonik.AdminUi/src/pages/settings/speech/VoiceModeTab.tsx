@@ -234,7 +234,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
 
             {others.length > 0 && (
               <div className="mt-4">
-                <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">
                   Switch to
                 </div>
                 <div className="flex flex-col gap-2">
@@ -262,13 +262,13 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
                   .map((s, i) => (
                     <div
                       key={`${s.label}-${i}`}
-                      className="flex items-center gap-2.5 rounded-[10px] bg-muted p-3"
+                      className="flex items-center gap-2.5 rounded-lg bg-muted p-3"
                     >
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-card">
                         <s.icon className="h-3.5 w-3.5 text-primary" />
                       </span>
                       <div className="min-w-0">
-                        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                        <div className="text-xs font-medium text-muted-foreground">
                           {s.label}
                         </div>
                         <div className="mt-0.5 truncate text-[12.5px] font-medium text-foreground">
@@ -313,7 +313,7 @@ function HeroStatus({
       className={cn(
         "flex flex-wrap items-center justify-between gap-6 rounded-2xl p-6",
         enabled
-          ? "bg-[linear-gradient(135deg,var(--primary),#044045)] text-white"
+          ? "bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklab,var(--primary)_70%,black))] text-white"
           : "border border-border bg-muted text-foreground",
       )}
     >
@@ -335,7 +335,7 @@ function HeroStatus({
         <div>
           <div
             className={cn(
-              "text-[10.5px] font-semibold uppercase tracking-[0.08em]",
+              "text-xs font-medium",
               enabled ? "opacity-85" : "text-muted-foreground",
             )}
           >
@@ -392,7 +392,7 @@ function SwitchRow({
   const Icon = recipe.kind === "Composite" ? Radio : Layers;
   const stepCount = recipe.kind === "Composite" ? 1 : 4;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-3">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
           <Icon className="h-3.5 w-3.5 text-muted-foreground" />

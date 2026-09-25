@@ -41,7 +41,7 @@ export function FxQuote({ quote, originCurrency, destinationCurrency }: FxQuoteP
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-primary bg-primary/10 px-3.5 py-2.5">
       <div className="text-[12px] font-medium text-primary">Live FX quote</div>
-      <div className="font-[family-name:var(--font-mono)] text-[13px] font-bold text-primary">
+      <div className="font-mono tabular-nums text-[13px] font-bold text-primary">
         {formatAmount(quote.destinationAmount, destinationCurrency)} →{' '}
         {formatAmount(quote.originAmount, originCurrency)}
       </div>

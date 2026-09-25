@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { STEP_KIND } from './stepKindCatalog';
 import { formatDuration, type WorkflowRunSummary, type WorkflowSummary } from './workflowTypes';
 
@@ -42,9 +43,9 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
 };
 
 const STATUS_TONES: Record<WorkflowRunSummary['status'], { c: string; label: string }> = {
-  success: { c: 'var(--color-success, #1f7a5e)', label: 'ok' },
-  held: { c: '#b4741e', label: 'held' },
-  failed: { c: '#c44536', label: 'fail' },
+  success: { c: 'var(--success)', label: 'ok' },
+  held: { c: 'var(--warning)', label: 'held' },
+  failed: { c: 'var(--destructive)', label: 'fail' },
   running: { c: 'var(--primary)', label: 'live' },
 };
 
@@ -63,7 +64,7 @@ interface SectionEyebrowProps {
 function SectionEyebrow({ children }: SectionEyebrowProps) {
   return (
     <div
-      className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+      className="text-xs font-medium text-muted-foreground"
       style={{ marginBottom: 10 }}
     >
       {children}
@@ -85,7 +86,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
 
   return (
     <aside
-      className="flex flex-col flex-none overflow-hidden rounded-[10px] border border-border bg-card"
+      className="flex flex-col flex-none overflow-hidden rounded-lg border border-border bg-card"
       style={{ width: 420, maxHeight: 'calc(100vh - 200px)' }}
     >
       {/* Header */}
@@ -95,10 +96,10 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
       >
         <div className="mb-1.5 flex items-center gap-2">
           <span
-            className="rounded-[4px] bg-muted px-1.5 py-0.5 text-[10.5px] text-muted-foreground"
+            className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] text-muted-foreground"
             style={{ fontFamily: 'var(--font-mono)' }}
           >
-            WORKFLOW
+            Workflow
           </span>
           <span
             className="text-[10.5px] text-muted-foreground"
@@ -131,13 +132,14 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
             <Edit className="h-3 w-3" />
             Open editor
           </Button>
-          <button
-            type="button"
-            className="ml-auto rounded p-1.5 text-muted-foreground hover:bg-muted"
-            aria-label="More options"
-          >
-            <MoreHorizontal className="h-3 w-3" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="ml-auto size-7 text-muted-foreground" aria-label="More options">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>More options</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -179,9 +181,9 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
                       width: 28,
                       height: 28,
                       borderRadius: 7,
-                      background: meta.tint + '18',
+                      background: `color-mix(in oklab, ${meta.tint} 9%, transparent)`,
                       color: meta.tint,
-                      border: '1px solid ' + meta.tint + '40',
+                      border: `1px solid color-mix(in oklab, ${meta.tint} 25%, transparent)`,
                     }}
                   >
                     <Icon size={12} />
@@ -191,7 +193,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
                     style={{ height: 18 }}
                   >
                     <span
-                      className="text-[9.5px] font-semibold uppercase tracking-[0.06em]"
+                      className="text-[11px] font-medium"
                       style={{ color: meta.tint }}
                     >
                       {meta.label}
@@ -227,11 +229,10 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                background: wf.ownerColor + '20',
+                background: `color-mix(in oklab, ${wf.ownerColor} 12.5%, transparent)`,
                 color: wf.ownerColor,
                 fontWeight: 700,
                 fontSize: 11,
-                letterSpacing: '0.04em',
               }}
             >
               {ownerInitials(wf.owner)}
@@ -264,7 +265,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
                 className="rounded-lg border border-border bg-muted"
                 style={{ padding: '10px 12px' }}
               >
-                <div className="text-[10.5px] uppercase tracking-[0.04em] text-muted-foreground">
+                <div className="text-[11px] text-muted-foreground">
                   {s.l}
                 </div>
                 <div
@@ -281,7 +282,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
         {/* Recent runs */}
         <div>
           <div className="mb-2 flex items-center">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               Recent runs
             </div>
             <div className="flex-1" />

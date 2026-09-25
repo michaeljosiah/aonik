@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { Globe, Network } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar, type FilterBarTab, Pill } from '@/components/layout/aonik';
 import type { PartnerListItem } from '@/types/partners';
 import { Chip, EmptyState, Panel, ViewToggle, type HubView } from './components';
@@ -136,7 +137,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="font-[family-name:var(--font-mono)] text-[15px] font-semibold text-foreground">
         {value}
       </p>
-      <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -150,57 +151,57 @@ function PartnerTable({
 }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[13px]">
-        <thead>
-          <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-            <th className="px-5 py-3 font-medium">Partner</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="px-3 py-3 text-right font-medium">Markets</th>
-            <th className="px-3 py-3 text-right font-medium">Branches</th>
-            <th className="px-3 py-3 text-right font-medium">Connectors</th>
-            <th className="px-3 py-3 text-right font-medium">Routing</th>
-            <th className="px-3 py-3 text-right font-medium">Billers</th>
-            <th className="px-5 py-3 font-medium">Updated</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="border-collapse text-left text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border text-muted-foreground hover:bg-transparent">
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Partner</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Status</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Markets</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Branches</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Connectors</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Routing</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Billers</TableHead>
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Updated</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {partners.map((p) => (
-            <tr
+            <TableRow
               key={p.partnerId}
               onClick={() => onOpenPartner(p.partnerId)}
               className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted"
             >
-              <td className="px-5 py-3">
+              <TableCell className="px-5 py-3">
                 <div className="flex items-center gap-2.5">
                   <AgentAvatar name={p.name} size={28} />
                   <span className="font-medium text-foreground">{p.name}</span>
                 </div>
-              </td>
-              <td className="px-3 py-3">
+              </TableCell>
+              <TableCell className="px-3 py-3">
                 <Pill tone={partnerStatusTone(p.status)} dot>
                   {p.status}
                 </Pill>
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {p.coverageCountries.length}
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {p.branchCount}
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {p.connectorCount}
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {p.activeRoutingRuleCount}
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {p.linkedBillerCount}
-              </td>
-              <td className="px-5 py-3 text-muted-foreground">{formatRelative(p.updatedAt)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="px-5 py-3 text-muted-foreground">{formatRelative(p.updatedAt)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

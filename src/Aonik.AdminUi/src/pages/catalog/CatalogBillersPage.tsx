@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Sheet,
@@ -12,13 +16,15 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -315,7 +321,7 @@ export function CatalogBillersPage() {
     <div className="h-full grid grid-cols-[220px_1fr] overflow-hidden">
       {/* Category rail */}
       <div className="border-r border-border bg-muted p-3.5 overflow-auto flex flex-col gap-0.5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 pt-1 pb-2">
+        <div className="text-xs font-medium text-muted-foreground px-2 pt-1 pb-2">
           Categories
         </div>
         <RailButton
@@ -372,19 +378,21 @@ export function CatalogBillersPage() {
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-3 flex items-center gap-3 text-destructive">
-            <AlertCircle className="w-5 h-5" />
-            <span className="flex-1">{error}</span>
-            <Button variant="outline" size="sm" onClick={loadData}>
-              Retry
-            </Button>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertDescription className="flex items-center gap-3">
+              <span className="flex-1">{error}</span>
+              <Button variant="outline" size="sm" onClick={loadData}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Post-import flash */}
         {flash && (
           <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-r-lg bg-success-subtle border-l-[3px] border-success">
-            <span className="w-[22px] h-[22px] rounded-full bg-success text-white grid place-items-center flex-none">
+            <span className="w-[22px] h-[22px] rounded-full border border-success text-success grid place-items-center flex-none">
               <Check className="w-3 h-3" />
             </span>
             <div className="text-[12.5px] text-foreground">
@@ -394,13 +402,9 @@ export function CatalogBillersPage() {
               <b className="font-mono">{flash.deactivated}</b> deactivated.
             </div>
             <div className="flex-1" />
-            <button
-              onClick={() => setFlash(null)}
-              aria-label="Dismiss"
-              className="text-muted-foreground hover:text-muted-foreground"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={() => setFlash(null)} aria-label="Dismiss">
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         )}
 
@@ -431,12 +435,11 @@ export function CatalogBillersPage() {
                 <button
                   key={v}
                   onClick={() => setView(v)}
-                  className="flex items-center gap-1 px-2 py-[5px] rounded-md text-[11.5px] font-medium border"
-                  style={{
-                    background: on ? 'var(--muted)' : 'transparent',
-                    color: on ? 'var(--foreground)' : 'var(--muted-foreground)',
-                    borderColor: on ? 'var(--input)' : 'var(--border)',
-                  }}
+                  aria-pressed={on}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-[5px] rounded-md text-[11.5px] font-medium border',
+                    on ? 'bg-muted text-foreground border-input' : 'bg-transparent text-muted-foreground border-border',
+                  )}
                 >
                   <Icon className="w-3 h-3" />
                   {v[0].toUpperCase() + v.slice(1)}
@@ -624,19 +627,17 @@ export function CatalogBillersPage() {
 
             <div className="flex flex-col gap-2 pt-2">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.isActive}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  onCheckedChange={(v) => setForm({ ...form, isActive: v === true })}
                   disabled={submitting}
                 />
                 <span>Active (visible to consumers)</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.isFeatured}
-                  onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
+                  onCheckedChange={(v) => setForm({ ...form, isFeatured: v === true })}
                   disabled={submitting}
                 />
                 <span>Featured</span>
@@ -665,29 +666,35 @@ export function CatalogBillersPage() {
       </Sheet>
 
       {/* Delete confirmation */}
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open && !deleting) setDeleteTarget(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete biller</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete biller?</AlertDialogTitle>
+            <AlertDialogDescription>
               {deleteTarget ? `This will delete "${deleteTarget.name}" and hide it from consumers.` : ''}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button onClick={confirmDelete} disabled={deleting}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                // Keep the dialog open until the delete settles (errors surface on the page).
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              disabled={deleting}
+            >
               {deleting ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -708,12 +715,10 @@ function RailButton({
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-between px-2.5 py-2 rounded-md text-left text-[12.5px]"
-      style={{
-        background: active ? 'var(--color-brand-primary-10)' : 'transparent',
-        color: active ? 'var(--primary)' : 'var(--muted-foreground)',
-        fontWeight: active ? 600 : 500,
-      }}
+      className={cn(
+        'flex items-center justify-between px-2.5 py-2 rounded-md text-left text-[12.5px]',
+        active ? 'bg-primary/10 text-primary font-semibold' : 'bg-transparent text-muted-foreground font-medium',
+      )}
     >
       <span className="truncate">{label}</span>
       <span className="font-mono text-[11px] opacity-70 ml-2 flex-none">{count}</span>
@@ -724,7 +729,7 @@ function RailButton({
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="bg-card border border-border rounded-lg px-4 py-3.5">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-semibold">{label}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="text-[22px] font-bold text-foreground mt-1">{value}</div>
       <div className="text-[11.5px] text-muted-foreground mt-0.5">{sub}</div>
     </div>
@@ -806,7 +811,7 @@ function BillerCard({
       <div className="grid grid-cols-3 gap-1.5 py-2.5 border-y border-dashed border-border">
         {[['Tx / mo', DASH], ['Success', DASH], ['p50 ETA', DASH]].map(([l, v]) => (
           <div key={l}>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">{l}</div>
+            <div className="text-xs font-medium text-muted-foreground">{l}</div>
             <div className="font-mono text-[13px] font-semibold text-foreground mt-0.5">{v}</div>
           </div>
         ))}
@@ -816,12 +821,9 @@ function BillerCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1 flex-wrap">
           {(biller.sourceConnectors ?? []).map((p) => (
-            <span
-              key={p}
-              className="text-[10.5px] px-1.5 py-0.5 bg-muted border border-border rounded text-muted-foreground"
-            >
+            <Badge key={p} variant="outline" className="bg-muted text-muted-foreground">
               {p}
-            </span>
+            </Badge>
           ))}
           {(biller.sourceConnectors?.length ?? 0) === 0 && (
             <span className="text-[10.5px] text-muted-foreground">No partners</span>
@@ -846,7 +848,7 @@ function BillerList({
 }) {
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 bg-muted border-b border-border text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 bg-muted border-b border-border text-xs font-medium text-muted-foreground">
         <div>Biller</div>
         <div>Category</div>
         <div>Source</div>

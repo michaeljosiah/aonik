@@ -17,6 +17,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { taskService } from '@/services/taskService';
 import { userService } from '@/services/userService';
 import type { AccessUserSummary } from '@/types';
@@ -27,9 +32,6 @@ interface NewTaskDialogProps {
   /** Fired on a successful create so the parent can refresh its list. */
   onSuccess: () => void;
 }
-
-const fieldClassName =
-  'flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring';
 
 type ScheduleMode = 'oneoff' | 'recurring';
 
@@ -144,13 +146,12 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
             <label htmlFor="task-title" className="text-xs font-medium text-foreground">
               Title <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               id="task-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Insurance renewal coming up"
-              className={fieldClassName}
               disabled={submitting}
               autoFocus
             />
@@ -161,11 +162,10 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
             <label htmlFor="task-user" className="text-xs font-medium text-foreground">
               Notify user <span className="text-destructive">*</span>
             </label>
-            <select
+            <NativeSelect
               id="task-user"
               value={targetUserId}
               onChange={(e) => setTargetUserId(e.target.value)}
-              className={fieldClassName}
               disabled={submitting || usersLoading}
             >
               {usersLoading && <option value="">Loading users…</option>}
@@ -175,7 +175,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
                   {u.displayName || u.email}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Message body */}
@@ -183,13 +183,12 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
             <label htmlFor="task-body" className="text-xs font-medium text-foreground">
               Message <span className="text-destructive">*</span>
             </label>
-            <textarea
+            <Textarea
               id="task-body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Your policy is due soon."
               rows={2}
-              className={`${fieldClassName} h-auto`}
               disabled={submitting}
             />
           </div>
@@ -199,18 +198,17 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
             <label htmlFor="task-severity" className="text-xs font-medium text-foreground">
               Severity
             </label>
-            <select
-              id="task-severity"
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value)}
-              className={fieldClassName}
-              disabled={submitting}
-            >
-              <option value="Info">Info</option>
-              <option value="Success">Success</option>
-              <option value="Warning">Warning</option>
-              <option value="Error">Error</option>
-            </select>
+            <Select value={severity} onValueChange={setSeverity} disabled={submitting}>
+              <SelectTrigger id="task-severity">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Info">Info</SelectItem>
+                <SelectItem value="Success">Success</SelectItem>
+                <SelectItem value="Warning">Warning</SelectItem>
+                <SelectItem value="Error">Error</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Schedule */}
@@ -218,41 +216,43 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
             <label htmlFor="task-schedule" className="text-xs font-medium text-foreground">
               Schedule
             </label>
-            <select
-              id="task-schedule"
+            <Select
               value={scheduleMode}
-              onChange={(e) => setScheduleMode(e.target.value as ScheduleMode)}
-              className={fieldClassName}
+              onValueChange={(value) => setScheduleMode(value as ScheduleMode)}
               disabled={submitting}
             >
-              <option value="oneoff">One-off</option>
-              <option value="recurring">Recurring (cron)</option>
-            </select>
+              <SelectTrigger id="task-schedule">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="oneoff">One-off</SelectItem>
+                <SelectItem value="recurring">Recurring (cron)</SelectItem>
+              </SelectContent>
+            </Select>
 
             {scheduleMode === 'oneoff' ? (
               <>
-                <input
+                <Input
                   type="datetime-local"
                   value={runAtLocal}
                   onChange={(e) => setRunAtLocal(e.target.value)}
-                  className={fieldClassName}
                   disabled={submitting}
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Leave blank to fire on the next dispatch sweep (within a minute).
                 </p>
               </>
             ) : (
               <>
-                <input
+                <Input
                   type="text"
                   value={cron}
                   onChange={(e) => setCron(e.target.value)}
                   placeholder="0 * * * * ?"
-                  className={fieldClassName}
+                  className="font-mono"
                   disabled={submitting}
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Quartz cron (6-field, with seconds). Default fires every minute.
                 </p>
               </>
@@ -260,10 +260,10 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{error}</span>
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

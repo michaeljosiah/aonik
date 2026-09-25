@@ -1,9 +1,10 @@
-// First-load splash screen — 1:1 port of
-// Templates/aonik-admin-starterkit/screens/loading.jsx, adapted to be driven
-// by a real `phase` prop instead of a cosmetic timer.
+// First-load splash screen — adapted from
+// Templates/aonik-admin-starterkit/screens/loading.jsx and driven by a real
+// `phase` prop instead of a cosmetic timer.
 //
 // Centres the Aonik mark with a "tint rise" animation, a wordmark, a status
-// line, and a boot-progress strip. Reads brand tokens only.
+// line, and a boot-progress strip. Reads theme tokens only; every animation
+// stops under prefers-reduced-motion.
 
 export type LoadingPhase =
   | 'authenticating'
@@ -32,6 +33,10 @@ const PHASE_LABEL: Record<LoadingPhase, string> = {
   'ready': 'Ready',
 };
 
+/** Radial primary wash behind the mark (PageLoadingScreen uses the same). */
+const LOADING_WASH =
+  'radial-gradient(60% 50% at 50% 45%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 70%)';
+
 export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProps) {
   const phaseIndex = PHASE_ORDER.indexOf(phase);
   const percent = Math.round(((phaseIndex + 1) / PHASE_ORDER.length) * 100);
@@ -39,168 +44,50 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
 
   return (
     <div
-      style={{
-        width: '100%',
-        height: '100%',
-        // In Electron the renderer area is `100vh - titlebar`; use the CSS
-        // var (0 on web, 32px in the desktop build) so the loader fills the
-        // available viewport without being clipped at the bottom.
-        minHeight: 'calc(100vh - var(--app-titlebar-height, 0px))',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--background)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
+      // In Electron the renderer area is `100vh - titlebar`; use the CSS var
+      // (0 on web, 32px in the desktop build) so the loader fills the
+      // available viewport without being clipped at the bottom.
+      className="relative flex size-full min-h-[calc(100vh-var(--app-titlebar-height,0px))] items-center justify-center overflow-hidden bg-background"
     >
       {/* Subtle radial wash behind the mark */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(60% 50% at 50% 45%, var(--color-brand-primary-10) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0" style={{ background: LOADING_WASH }} />
 
       {/* Top attribution strip */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 11,
-          color: 'var(--muted-foreground)',
-          fontFamily: 'var(--font-mono)',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-        }}
-      >
+      <div className="absolute top-6 left-1/2 flex -translate-x-1/2 items-center gap-2 font-mono text-[11px] text-muted-foreground">
         <span
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: 999,
-            background: 'var(--agent)',
-            animation: 'aonikLoadingLiveDot 1.4s ease-in-out infinite',
-          }}
+          className="aonik-loading-anim size-[5px] rounded-full bg-agent"
+          style={{ animation: 'aonikLoadingLiveDot 1.4s ease-in-out infinite' }}
         />
         Aonik · Admin
       </div>
 
       {/* Centred stack: mark, wordmark, status, progress */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 28,
-          zIndex: 1,
-        }}
-      >
+      <div className="relative flex flex-col items-center gap-7">
         <AonikLoadingMark size={88} />
 
-        <div
-          style={{
-            fontFamily: 'var(--font-brand)',
-            fontWeight: 700,
-            fontSize: 32,
-            letterSpacing: '-0.015em',
-            color: 'var(--foreground)',
-            lineHeight: 1,
-          }}
-        >
+        <div className="font-brand text-[32px] leading-none font-bold tracking-tight text-foreground">
           aonik
         </div>
 
-        <div
-          style={{
-            minHeight: 18,
-            fontSize: 13,
-            color: 'var(--muted-foreground)',
-            letterSpacing: '0.01em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span className="text-shimmer" style={{ fontSize: 13 }}>
-            {PHASE_LABEL[phase]}
-          </span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontVariantNumeric: 'tabular-nums',
-              fontSize: 11,
-              color: 'var(--muted-foreground)',
-            }}
-          >
-            {percentLabel}%
-          </span>
+        <div className="flex min-h-[18px] items-center gap-2 text-[13px] text-muted-foreground">
+          <span className="text-shimmer">{PHASE_LABEL[phase]}</span>
+          <span className="font-mono text-[11px] tabular-nums">{percentLabel}%</span>
         </div>
 
-        <div
-          style={{
-            width: 220,
-            height: 3,
-            background: 'var(--border)',
-            borderRadius: 999,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
+        <div className="relative h-[3px] w-[220px] overflow-hidden rounded-full bg-border">
           <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              background: 'var(--primary)',
-              borderRadius: 999,
-              animation: 'aonikLoadingSlide 1.6s cubic-bezier(.65,0,.35,1) infinite',
-              width: '40%',
-            }}
+            className="aonik-loading-anim absolute inset-y-0 w-2/5 rounded-full bg-primary"
+            style={{ animation: 'aonikLoadingSlide 1.6s cubic-bezier(.65,0,.35,1) infinite' }}
           />
         </div>
       </div>
 
       {/* Footer */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 28,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 4,
-        }}
-      >
-        <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
-          Agents propose · Systems apply
-        </div>
-        <div
-          style={{
-            fontSize: 10,
-            color: 'var(--muted-foreground)',
-            fontFamily: 'var(--font-mono)',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          v {__APP_VERSION__}
-        </div>
+      <div className="absolute bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
+        <div className="text-[11px] text-muted-foreground">Agents propose · Systems apply</div>
+        <div className="font-mono text-[10px] tabular-nums text-muted-foreground">v {__APP_VERSION__}</div>
       </div>
 
-      {/* Reduced-motion handling: .text-shimmer (used on the status line)
-          self-disables in index.css. The remaining keyframes are subtle and
-          do not translate; we leave them on for a clearer "still booting"
-          signal even when motion is reduced. */}
       <style>{`
         @keyframes aonikLoadingSlide {
           0%   { left: -40%; }
@@ -210,82 +97,77 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
           0%, 100% { opacity: .35; }
           50%      { opacity: 1; }
         }
-        @keyframes aonikLoadingTintRise {
-          0%, 100% { height: 0%; }
-          45%, 55% { height: 100%; }
-        }
-        @keyframes aonikLoadingDotPulse {
-          0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(232,168,56,.6); }
-          50%      { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(232,168,56,0); }
-        }
       `}</style>
     </div>
   );
 }
 
-function AonikLoadingMark({ size = 88 }: { size?: number }) {
+/**
+ * The Aonik "A" mark with a primary tint that rises and falls behind it. The
+ * letter is drawn twice: muted on the card, and in primary-foreground inside
+ * the tint (clipped by the tint's height), so it reads in both themes.
+ */
+export function AonikLoadingMark({ size = 88 }: { size?: number }) {
   const radius = Math.round(size * 0.25);
   const dotSize = Math.max(7, Math.round(size * 0.16));
   const dotInset = Math.max(4, Math.round(size * 0.09));
+  const innerSize = size - 2; // inside the 1px border
+  const letterStyle = {
+    fontSize: Math.round(size * 0.58),
+    letterSpacing: '-0.04em',
+    marginTop: -2,
+  };
 
   return (
     <span
+      className="relative inline-flex items-center justify-center overflow-hidden border bg-card font-brand leading-none font-bold text-muted-foreground"
       style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         width: size,
         height: size,
         borderRadius: radius,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
         boxShadow:
-          '0 8px 24px -10px rgba(5,90,96,.25), 0 0 0 6px rgba(5,90,96,.04)',
-        color: 'var(--muted-foreground)',
-        fontFamily: 'var(--font-brand)',
-        fontWeight: 700,
-        fontSize: Math.round(size * 0.58),
-        letterSpacing: '-0.04em',
-        lineHeight: 1,
-        overflow: 'hidden',
+          '0 8px 24px -10px color-mix(in oklab, var(--primary) 25%, transparent), 0 0 0 6px color-mix(in oklab, var(--primary) 4%, transparent)',
       }}
     >
-      <span
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'var(--primary)',
-          animation: 'aonikLoadingTintRise 2.2s ease-in-out infinite',
-          zIndex: 0,
-        }}
-      />
-      <span
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          marginTop: -2,
-          mixBlendMode: 'difference',
-          color: '#fff',
-        }}
-      >
+      <span className="relative" style={letterStyle}>
         A
       </span>
       <span
+        aria-hidden
+        className="aonik-loading-anim absolute inset-x-0 bottom-0 overflow-hidden bg-primary"
+        style={{ animation: 'aonikLoadingTintRise 2.2s ease-in-out infinite' }}
+      >
+        <span
+          className="absolute inset-x-0 bottom-0 flex items-center justify-center text-primary-foreground"
+          style={{ height: innerSize }}
+        >
+          <span style={letterStyle}>A</span>
+        </span>
+      </span>
+      <span
+        className="aonik-loading-anim absolute rounded-full"
         style={{
-          position: 'absolute',
           top: dotInset,
           right: dotInset,
           width: dotSize,
           height: dotSize,
-          borderRadius: '50%',
           background: 'var(--color-brand-mark-dot)',
-          zIndex: 2,
           animation: 'aonikLoadingDotPulse 1.6s ease-in-out infinite',
         }}
       />
+      <style>{`
+        @keyframes aonikLoadingTintRise {
+          0%, 100% { height: 0%; }
+          45%, 55% { height: 100%; }
+        }
+        @keyframes aonikLoadingDotPulse {
+          0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand-mark-dot) 60%, transparent); }
+          50%      { transform: scale(1.12); box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-brand-mark-dot) 0%, transparent); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .aonik-loading-anim { animation: none !important; }
+        }
+      `}</style>
     </span>
   );
 }

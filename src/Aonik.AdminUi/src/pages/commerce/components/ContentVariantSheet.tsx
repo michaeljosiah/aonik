@@ -13,12 +13,14 @@
 // block, not derived — the reason variants exist is that a salmon combination must never
 // surface the standard preparation's shellfish line.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceContentService } from '@/services/commerceContentService';
@@ -43,9 +45,6 @@ import {
   toggleMulti,
   type SelectionValue,
 } from '../lib/variantSelection';
-
-const inputClass =
-  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 interface ContentVariantSheetProps {
   productId: string;
@@ -325,25 +324,27 @@ export function ContentVariantSheet({
 
         <SheetBody>
           {error && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{error}</span>
-              {conflict && (
-                <button
-                  type="button"
-                  onClick={() => void reload()}
-                  disabled={reloading}
-                  className="shrink-0 underline"
-                >
-                  {reloading ? 'Reloading…' : 'Reload'}
-                </button>
-              )}
-            </div>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{error}</span>
+                {conflict && (
+                  <button
+                    type="button"
+                    onClick={() => void reload()}
+                    disabled={reloading}
+                    className="shrink-0 underline"
+                  >
+                    {reloading ? 'Reloading…' : 'Reload'}
+                  </button>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
 
           <fieldset disabled={saving || reloading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
                 Combination
               </p>
               {groups.length === 0 ? (
@@ -371,12 +372,12 @@ export function ContentVariantSheet({
                         <span className="w-[130px] shrink-0 text-[12px] text-muted-foreground">
                           {group.label ?? group.key}
                         </span>
-                        <select
+                        <NativeSelect
+                          className="h-8"
                           value={asSingle(selection[group.key])}
                           onChange={(e) =>
                             pick({ ...selection, [group.key]: e.target.value })
                           }
-                          className={inputClass}
                           // The selection IS the key, so editing must not retarget authored
                           // content at a different combination.
                           disabled={!!variant}
@@ -387,7 +388,7 @@ export function ContentVariantSheet({
                               {choice.label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </label>
                     ),
                   )}

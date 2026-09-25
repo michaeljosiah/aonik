@@ -15,18 +15,18 @@ interface AgentCardProps {
   actions?: React.ReactNode;
 }
 
-const riskTierStyles: Record<string, { text: string; bg: string }> = {
-  low: { text: 'text-success', bg: 'bg-success-subtle' },
-  medium: { text: 'text-warning', bg: 'bg-warning-subtle' },
-  high: { text: 'text-destructive', bg: 'bg-destructive/10' },
+const riskTierBadge: Record<string, { variant: 'success' | 'warning' | 'outline'; className?: string }> = {
+  low: { variant: 'success' },
+  medium: { variant: 'warning' },
+  high: { variant: 'outline', className: 'border-transparent bg-destructive/10 text-destructive' },
 };
 
 function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
   switch (visibility) {
     case 'team':
-      return <Badge variant="team">Team</Badge>;
+      return <Badge variant="default">Team</Badge>;
     case 'enterprise':
-      return <Badge variant="enterprise">Enterprise</Badge>;
+      return <Badge variant="outline">Enterprise</Badge>;
     case 'private':
       return <Badge variant="secondary">Private</Badge>;
     default:
@@ -36,18 +36,18 @@ function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
 
 function AgentAvatar({ iconUrl }: { iconUrl?: string }) {
   return (
-    <div className="w-[60px] h-[60px] rounded-full bg-agent/10 flex items-center justify-center border border-[#CFCDD9] overflow-hidden">
+    <div className="w-[60px] h-[60px] rounded-full bg-agent/10 flex items-center justify-center border overflow-hidden">
       {iconUrl ? (
         <img src={iconUrl} alt="" className="w-full h-full object-cover" />
       ) : (
         <svg viewBox="0 0 48 48" className="w-9 h-9">
           {/* Default owl/agent avatar */}
-          <circle cx="24" cy="24" r="20" fill="#eb5c37" />
+          <circle cx="24" cy="24" r="20" fill="var(--agent)" />
           <circle cx="18" cy="20" r="6" fill="white" />
           <circle cx="30" cy="20" r="6" fill="white" />
-          <circle cx="18" cy="20" r="3" fill="#2f2f2f" />
-          <circle cx="30" cy="20" r="3" fill="#2f2f2f" />
-          <ellipse cx="24" cy="30" rx="4" ry="3" fill="#d44a28" />
+          <circle cx="18" cy="20" r="3" fill="color-mix(in oklab, var(--agent) 15%, black)" />
+          <circle cx="30" cy="20" r="3" fill="color-mix(in oklab, var(--agent) 15%, black)" />
+          <ellipse cx="24" cy="30" rx="4" ry="3" fill="color-mix(in oklab, var(--agent) 85%, black)" />
         </svg>
       )}
     </div>
@@ -68,32 +68,32 @@ function PluginIcon({ color }: { color: string }) {
 }
 
 export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: AgentCardProps) {
-  const pluginColors = ['#eb5c37', '#055a60', '#3B82F6'];
-  const riskStyle = agent.riskTier ? (riskTierStyles[agent.riskTier] ?? riskTierStyles.low) : null;
+  const pluginColors = ['var(--chart-3)', 'var(--chart-1)', 'var(--chart-2)'];
+  const riskStyle = agent.riskTier ? (riskTierBadge[agent.riskTier] ?? riskTierBadge.low) : null;
 
   return (
     <div
       className={cn('relative w-full pt-10', onClick && 'cursor-pointer')}
       onClick={onClick}
     >
-      <div className="absolute left-4 top-4 z-[2]">
+      <div className="absolute left-4 top-4 z-10">
         <AgentAvatar iconUrl={agent.avatar} />
       </div>
 
       <Card className={cn(
         'flex flex-col h-full overflow-visible',
-        'border border-[#d9d9e3] rounded-[4px]',
+        'border rounded-lg',
         'transition-all duration-300',
-        'hoverBorder hover:border-primary hover:shadow-lg hover:scale-[1.01]',
+        'hover:border-primary hover:shadow-lg hover:scale-[1.01]',
         'bg-popover',
       )}>
         <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
           {actions ?? (
             <>
-              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground">
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground" aria-label="Select">
                 <CheckSquare className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground">
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground" aria-label="More actions">
                 <MoreVertical className="w-3.5 h-3.5" />
               </Button>
             </>
@@ -106,7 +106,7 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
               {agent.name}
             </h3>
             {agent.isOverride && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 text-primary">
                 OVERRIDE
               </span>
             )}
@@ -119,23 +119,23 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
           {showConfigMeta && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {riskStyle && agent.riskTier && (
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${riskStyle.bg} ${riskStyle.text}`}>
-                  <Shield className="w-3 h-3" /> {agent.riskTier}
-                </span>
+                <Badge variant={riskStyle.variant} className={riskStyle.className}>
+                  <Shield /> {agent.riskTier}
+                </Badge>
               )}
               {agent.isActive !== undefined && (
                 agent.isActive ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success">
-                    <Check className="w-3 h-3" /> Active
-                  </span>
+                  <Badge variant="success">
+                    <Check /> Active
+                  </Badge>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                    <X className="w-3 h-3" /> Inactive
-                  </span>
+                  <Badge variant="secondary" className="text-muted-foreground">
+                    <X /> Inactive
+                  </Badge>
                 )
               )}
               {agent.modelName && (
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
                   {agent.modelName}
                 </span>
               )}
@@ -144,30 +144,30 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
 
           <div className="flex items-center justify-between text-xs mb-4">
             <div>
-              <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Visibility</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Visibility</p>
               <VisibilityBadge visibility={agent.visibility} />
             </div>
             <div className="text-right">
-              <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Source</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Source</p>
               <p className="font-medium text-foreground">{agent.source}</p>
             </div>
           </div>
 
           <div className="mb-4">
-            <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Skills</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Skills</p>
             <div className="flex flex-wrap gap-1.5">
               {agent.skills.length > 0 ? (
                 <>
                   {agent.skills.slice(0, 3).map((skill) => (
                     <span
                       key={skill}
-                      className="bg-[#e2e1e8] text-[#3f3b47] px-3 py-1.5 rounded-full text-xs font-medium"
+                      className="bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium"
                     >
                       {skill}
                     </span>
                   ))}
                   {agent.skills.length > 3 && (
-                    <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium">
+                    <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-md text-xs font-medium">
                       +{agent.skills.length - 3}
                     </span>
                   )}
@@ -179,7 +179,7 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
           </div>
 
           <div className="mb-4">
-            <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Plugins</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Plugins</p>
             <div className="flex gap-2">
               {agent.plugins.length > 0 ? (
                 agent.plugins.slice(0, 3).map((_, index) => (
@@ -198,7 +198,7 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
 
           <Button
             variant="default"
-            className="w-full mt-auto gap-2 rounded-[2px]"
+            className="w-full mt-auto gap-2"
             onClick={(e) => {
               e.stopPropagation();
               onChat?.(agent.id);

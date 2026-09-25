@@ -112,7 +112,7 @@ export function AgentContextDrawer({
             <span
               className={`rounded px-2 py-0.5 ${
                 agentConfig.requiresUserBrief
-                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  ? 'bg-info-subtle text-info-foreground'
                   : 'bg-muted text-muted-foreground'
               }`}
             >

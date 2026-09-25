@@ -413,7 +413,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                   .map((series, index) => ({
                     key: series.phaseName,
                     label: formatPhaseLabel(series.phaseName),
-                    color: ['#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'][index % 4],
+                    color: ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-4)', 'var(--chart-5)'][index % 4],
                     data: series.points,
                   }))}
                 label="PF Streaming Phases"
@@ -424,8 +424,8 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Thread Modes
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Thread modes
                 </p>
                 {pfStreaming.threadModes.map((mode) => (
                   <div
@@ -433,16 +433,16 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                     className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-border last:border-0"
                   >
                     <span className="font-medium text-foreground">{mode.mode}</span>
-                    <span>{mode.runs} runs</span>
-                    <span>{fmtMs(mode.avgRequestToFirstTokenMs)}</span>
-                    <span>{fmtMs(mode.p95RequestToFirstTokenMs)} P95</span>
+                    <span className="font-mono tabular-nums">{mode.runs} runs</span>
+                    <span className="font-mono tabular-nums">{fmtMs(mode.avgRequestToFirstTokenMs)}</span>
+                    <span className="font-mono tabular-nums">{fmtMs(mode.p95RequestToFirstTokenMs)} P95</span>
                   </div>
                 ))}
               </div>
 
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  History Sources
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  History sources
                 </p>
                 {pfStreaming.historySources.map((source) => (
                   <div
@@ -450,9 +450,9 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                     className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-border last:border-0"
                   >
                     <span className="font-medium text-foreground">{source.mode}</span>
-                    <span>{source.runs} runs</span>
-                    <span>{fmtMs(source.avgRequestToFirstTokenMs)}</span>
-                    <span>{fmtMs(source.p95RequestToFirstTokenMs)} P95</span>
+                    <span className="font-mono tabular-nums">{source.runs} runs</span>
+                    <span className="font-mono tabular-nums">{fmtMs(source.avgRequestToFirstTokenMs)}</span>
+                    <span className="font-mono tabular-nums">{fmtMs(source.p95RequestToFirstTokenMs)} P95</span>
                   </div>
                 ))}
               </div>
@@ -474,7 +474,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
             {
               key: 'ttft',
               label: 'TTFT',
-              color: '#10b981',
+              color: 'var(--chart-4)',
               data: data.ttftTimeSeries,
             },
           ]}

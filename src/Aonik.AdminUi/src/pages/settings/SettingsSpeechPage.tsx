@@ -151,7 +151,7 @@ export function SettingsSpeechPage() {
     <div className="flex h-full min-h-0">
       {/* Inner left rail */}
       <aside className="flex w-[240px] shrink-0 flex-col border-r border-border bg-muted p-5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">
           Settings · AI
         </p>
         <h2 className="text-base font-semibold text-foreground">Speech &amp; Voice</h2>
@@ -202,7 +202,7 @@ export function SettingsSpeechPage() {
 
         {/* "Now active" footer — pulled live from VoiceModeSettings + ChatSpeechSettings. */}
         <div className="mt-auto border-t border-border pt-4">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
             Now active
           </p>
           <ActiveFooterRow

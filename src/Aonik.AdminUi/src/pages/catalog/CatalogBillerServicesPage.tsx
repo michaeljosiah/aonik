@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
   RefreshCw,
   AlertCircle,
@@ -103,29 +104,28 @@ export function CatalogBillerServicesPage() {
           </div>
 
           <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Service</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Type</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Currency</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Flags</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Limits</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="px-4 text-xs text-muted-foreground">Service</TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">Type</TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">Currency</TableHead>
+                    <TableHead className="px-4 text-xs text-muted-foreground">Flags</TableHead>
+                    <TableHead numeric className="px-4 text-xs text-muted-foreground">Limits</TableHead>
+                    <TableHead className="px-4 text-right text-xs text-muted-foreground">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={6} className="px-4 py-12 text-center">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">Loading services...</p>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : filteredServices.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={6} className="px-4 py-12 text-center">
                         <div className="mb-3 flex justify-center text-muted-foreground">
                           <Wrench className="w-12 h-12" />
                         </div>
@@ -133,26 +133,26 @@ export function CatalogBillerServicesPage() {
                         <p className="text-sm text-muted-foreground">
                           {search ? 'Try adjusting your search.' : 'No services are configured for this biller.'}
                         </p>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredServices.map((service) => (
-                      <tr
+                      <TableRow
                         key={service.serviceId}
-                        className="border-b border-border hover:bg-muted transition-colors cursor-pointer"
+                        className="hover:bg-muted cursor-pointer"
                         onClick={() => navigate(`/catalog/billers/${billerId}/services/${service.serviceId}`)}
                       >
-                        <td className="px-4 py-3">
+                        <TableCell className="px-4 py-3">
                           <p className="font-medium text-foreground">{service.name}</p>
                           <p className="text-xs text-muted-foreground font-mono">{service.serviceId.slice(0, 8)}...</p>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className="text-sm text-muted-foreground">{service.type}</span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className="text-sm text-muted-foreground">{service.currency}</span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {!service.isActive && (
                               <Badge variant="outline" className="text-muted-foreground">
@@ -160,23 +160,23 @@ export function CatalogBillerServicesPage() {
                               </Badge>
                             )}
                             {service.requiresValidation && (
-                              <Badge className="bg-warning-subtle text-warning">
+                              <Badge variant="warning">
                                 Validation
                               </Badge>
                             )}
                             {service.supportsPartialPayment && (
-                              <Badge className="bg-info-subtle text-info">
+                              <Badge variant="info">
                                 Partial
                               </Badge>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell numeric className="px-4 py-3">
                           <span className="text-sm text-muted-foreground">
                             {service.minAmount ?? '—'} to {service.maxAmount ?? '—'}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
                           <Button
                             variant="outline"
                             className="rounded-sm"
@@ -188,13 +188,12 @@ export function CatalogBillerServicesPage() {
                             View
                             <ArrowUpRight className="w-4 h-4 ml-2" />
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
           </div>
         </CardContent>
       </Card>

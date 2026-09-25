@@ -30,6 +30,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Table, TableCell, TableHead } from '@/components/ui/table';
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -327,12 +328,12 @@ export function PlaygroundOutputPanel({
               </pre>
             )}
             {streamError && (
-              <div className="mt-3 rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="mt-3 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {streamError}
               </div>
             )}
             {voiceModeEnabled && voiceDetails && (
-              <div className="mt-3 rounded-[2px] border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
+              <div className="mt-3 rounded-md border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
                 <div className="mb-2 flex items-center gap-2 text-foreground">
                   <Volume2 className="h-3.5 w-3.5" />
                   <span className="font-medium">Speech render</span>
@@ -348,7 +349,7 @@ export function PlaygroundOutputPanel({
               </div>
             )}
             {voiceModeEnabled && voiceError && (
-              <div className="mt-3 rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="mt-3 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <div className="font-medium">Voice playback unavailable</div>
                 {voiceError}
               </div>
@@ -378,7 +379,7 @@ export function PlaygroundOutputPanel({
 function ReasoningBlock({ content }: { content: string }) {
   return (
     <div
-      className="rounded-[2px] border border-border bg-[color-mix(in_srgb,var(--card)_92%,var(--background))] px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+      className="rounded-md border border-border bg-[color-mix(in_srgb,var(--card)_92%,var(--background))] px-3 py-2 text-xs leading-relaxed text-muted-foreground"
       data-component="reasoning-part"
     >
       <div className="flex items-start gap-2">
@@ -620,7 +621,7 @@ function ApprovalInteraction({
       <div className="flex items-center gap-2 pt-1">
         <Button
           size="sm"
-          className="h-7 gap-1.5 bg-success px-3 text-xs font-medium text-white hover:bg-[color-mix(in_srgb,var(--success)_85%,black)]"
+          className="h-7 gap-1.5 px-3 text-xs font-medium"
           onClick={() => onApprove?.(toolCallId)}
         >
           <Check className="h-3 w-3" />
@@ -696,17 +697,17 @@ function OptionSelectionInteraction({
               onClick={() => toggleOption(option.label)}
               className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 isSelected
-                  ? 'border-primary bg-[color-mix(in_srgb,var(--primary)_8%,transparent)]'
+                  ? 'border-primary bg-primary/10'
                   : 'border-border bg-card hover:bg-accent'
               }`}
             >
               {/* Radio/checkbox indicator */}
-              <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
+              <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center ${selection.multiSelect ? 'rounded-sm' : 'rounded-full'} border ${
                 isSelected
                   ? 'border-primary bg-primary'
                   : 'border-muted-foreground'
               }`}>
-                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
               </span>
               <div className="min-w-0">
                 <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -866,19 +867,15 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
   );
 }
 
-// ─── Pie chart colors (accessible, distinct) ─────────────────────────────────
+// ─── Pie chart colors (categorical series tokens) ────────────────────────────
+// Five chart tokens, then the same five tinted towards the card so up to ten
+// slices stay distinct; both sets flip with the theme.
+
+const CHART_SERIES = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'];
 
 const PIE_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#14b8a6', // teal
-  '#6366f1', // indigo
+  ...CHART_SERIES.map((token) => `var(${token})`),
+  ...CHART_SERIES.map((token) => `color-mix(in oklab, var(${token}) 55%, var(--card))`),
 ];
 
 function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
@@ -989,7 +986,7 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
           {slices.map((slice, i) => (
             <div key={i} className="flex items-center gap-2">
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: slice.color }}
               />
               <span className="truncate text-muted-foreground flex-1">{slice.name}</span>
@@ -1195,17 +1192,17 @@ function Markdown({ text }: { text: string }) {
             </blockquote>
           ),
           table: ({ children }) => (
-            <div className="my-2 overflow-x-auto">
-              <table className="text-xs border-collapse w-full">{children}</table>
+            <div className="my-2">
+              <Table className="border-collapse text-xs">{children}</Table>
             </div>
           ),
           th: ({ children }) => (
-            <th className="border border-border bg-muted px-2 py-1 text-left font-medium">
+            <TableHead className="h-auto whitespace-normal border border-border bg-muted px-2 py-1">
               {children}
-            </th>
+            </TableHead>
           ),
           td: ({ children }) => (
-            <td className="border border-border px-2 py-1">{children}</td>
+            <TableCell className="whitespace-normal border border-border px-2 py-1">{children}</TableCell>
           ),
         }}
       >
@@ -1266,7 +1263,7 @@ function ReviewResultsPanel({
       {expanded && (
         <div className="border-t border-border px-4 py-3 space-y-4">
           {error && (
-            <div className="rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}

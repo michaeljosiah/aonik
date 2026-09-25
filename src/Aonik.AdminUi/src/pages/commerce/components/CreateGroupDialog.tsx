@@ -8,6 +8,7 @@
 // is authored deliberately rather than derived from the label — a slugged label would change
 // under a rename and quietly orphan the lines that point at it.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 
 import { SELECTION_MODES } from './selectionModes';
@@ -103,14 +105,16 @@ export function CreateGroupDialog({
         </DialogHeader>
 
         {error && (
-          <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-            {error}
-          </p>
+          <Alert variant="destructive" className="py-2">
+            <AlertDescription className="text-xs">
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
 
         <fieldset disabled={saving} className="flex min-w-0 flex-col gap-3 border-0 p-0">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Key
             </span>
             <input
@@ -125,7 +129,7 @@ export function CreateGroupDialog({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Label
             </span>
             <input
@@ -137,20 +141,20 @@ export function CreateGroupDialog({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Selection
             </span>
-            <select
+            <NativeSelect
+              className="h-8"
               value={selectionMode}
               onChange={(e) => setSelectionMode(e.target.value)}
-              className={inputClass}
             >
               {SELECTION_MODES.map((mode) => (
                 <option key={mode.value} value={mode.value}>
                   {mode.label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
 
           <p

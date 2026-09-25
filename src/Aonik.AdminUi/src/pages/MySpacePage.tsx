@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { mySpaceService } from '@/services/mySpaceService';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import { useAuth } from '@/auth';
@@ -40,7 +41,7 @@ import type {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function formatEyebrowDate(now: Date): string {
+function formatDateLabel(now: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     day: 'numeric',
@@ -154,7 +155,7 @@ export function MySpacePage() {
 
   const now = new Date();
   const greeting = `${greetingForHour(now.getHours())}, ${firstName(user?.name)}.`;
-  const eyebrow = formatEyebrowDate(now);
+  const dateLabel = formatDateLabel(now);
 
   // Local proposals copy so Apply / Dismiss can optimistically remove the
   // card before the server round-trip completes; on failure we restore.
@@ -202,11 +203,8 @@ export function MySpacePage() {
     return (
       <div className="flex flex-col gap-6 p-7 md:px-8">
         <div>
-          <span className="eyebrow">{eyebrow}</span>
-          <h1
-            className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground"
-            style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}
-          >
+          <p className="text-sm text-muted-foreground">{dateLabel}</p>
+          <h1 className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground">
             {greeting}
           </h1>
         </div>
@@ -232,14 +230,10 @@ export function MySpacePage() {
         <div className="flex flex-col items-center gap-3 text-center">
           <AlertCircle className="h-8 w-8 text-destructive" />
           <p className="text-sm text-muted-foreground">{error}</p>
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => void loadData()}>
             <RefreshCw className="h-3.5 w-3.5" />
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -253,11 +247,8 @@ export function MySpacePage() {
       {/* Header row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <span className="eyebrow">{eyebrow}</span>
-          <h1
-            className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground"
-            style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}
-          >
+          <p className="text-sm text-muted-foreground">{dateLabel}</p>
+          <h1 className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground">
             {greeting}
           </h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
@@ -266,22 +257,14 @@ export function MySpacePage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
-            title="Filter by date range"
-          >
+          <Button type="button" variant="outline" size="sm" title="Filter by date range">
             <Calendar className="h-3.5 w-3.5" />
             This month
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/billing/invoices')}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
+          </Button>
+          <Button type="button" size="sm" onClick={() => navigate('/billing/invoices')}>
             <Plus className="h-3.5 w-3.5" />
             New bill payment
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -355,13 +338,10 @@ export function MySpacePage() {
         title="Recent activity"
         subtitle="All agents · last 24 hours"
         action={
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
-          >
+          <Button type="button" variant="outline" size="sm">
             <Filter className="h-3 w-3" />
             Filter
-          </button>
+          </Button>
         }
         padding={20}
       >
@@ -620,7 +600,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
           width="64"
           height="18"
           rx="3"
-          fill="var(--color-brand-secondary-10)"
+          fill="color-mix(in oklab, var(--agent) 12%, transparent)"
         />
         <text
           x={todayX}
@@ -631,7 +611,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
           textAnchor="middle"
           fontWeight="600"
         >
-          TODAY
+          Today
         </text>
         {/* Revenue / payroll / payout event markers — coral revenue dots for now */}
         {eventDots.map(({ x, y, event }, i) => (
@@ -726,19 +706,16 @@ function AgentProposalsCard({
       title="Agent proposals"
       subtitle="Pending your review"
       action={
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-[11px] font-medium text-warning">
+        <Badge variant="warning">
           <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden />
-          {proposals.length} pending
-        </span>
+          <span className="font-mono tabular-nums">{proposals.length}</span> pending
+        </Badge>
       }
       padding={20}
     >
       {proposals.length === 0 ? (
         <div className="flex h-[220px] flex-col items-center justify-center gap-3 text-center">
-          <div
-            className="grid h-10 w-10 place-items-center rounded-full"
-            style={{ background: 'var(--color-brand-primary-10)' }}
-          >
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -853,10 +830,10 @@ function ProposalReviewDialog({
         )}
 
         {error && !loading && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4" />
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {detail && !loading && !error && (
@@ -886,7 +863,7 @@ function ProposalReviewDialog({
             </div>
 
             <div>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
                 Summary
               </div>
               <div className="rounded-md bg-muted px-3 py-2 text-[13px] text-foreground">
@@ -895,7 +872,7 @@ function ProposalReviewDialog({
             </div>
 
             <div>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
                 Payload
               </div>
               <pre className="max-h-[260px] overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
@@ -927,7 +904,7 @@ function ProposalReviewDialog({
 function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 text-[13px] text-foreground">{value}</div>

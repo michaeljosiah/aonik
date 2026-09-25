@@ -58,7 +58,7 @@ export function MonthGrid({ monthLabel, firstWeekday, days, legend }: MonthGridP
         {MONTH_GRID_WEEKDAYS.map((weekday) => (
           <div
             key={weekday}
-            className="pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            className="pb-1 text-center text-xs font-medium text-muted-foreground"
           >
             {weekday}
           </div>

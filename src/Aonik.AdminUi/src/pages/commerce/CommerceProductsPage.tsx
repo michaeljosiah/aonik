@@ -6,6 +6,7 @@
 // the row). The surcharge shows as a MARKER only: the summary has the amount but not its
 // currency, and an amount without its denomination is not a fact worth printing.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { NativeSelect } from '@/components/ui/native-select';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import type { PagedResult } from '@/types';
 import type { ProductCategoryDto, ProductSummaryDto } from '@/types/commerce';
@@ -283,13 +285,15 @@ export function CommerceProductsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void load()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void load()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar
@@ -303,19 +307,21 @@ export function CommerceProductsPage() {
         // loaded page. The bar's default trailing "Filters" button is hidden because there is
         // nothing behind it — an inert control reads as a feature that is broken.
         extra={
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Status"
-            className="rounded-md border border-border bg-card px-2 py-1.5 text-[12.5px] text-foreground outline-none"
-          >
-            <option value="">Any status</option>
-            {STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+          <div className="w-40">
+            <NativeSelect
+              className="h-8"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              aria-label="Status"
+            >
+              <option value="">Any status</option>
+              {STATUSES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         }
         hideFilterButton
       />

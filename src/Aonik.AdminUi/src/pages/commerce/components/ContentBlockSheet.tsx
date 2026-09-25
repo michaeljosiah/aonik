@@ -16,6 +16,7 @@
 //      people's allergen edits produces a panel neither of them authored, and allergens are
 //      the one field on this page where being wrong is a safety incident rather than a typo.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -196,20 +197,22 @@ export function ContentBlockSheet({
 
         <SheetBody>
           {error && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{error}</span>
-              {conflict && (
-                <button
-                  type="button"
-                  onClick={() => void reload()}
-                  disabled={reloading}
-                  className="shrink-0 underline"
-                >
-                  {reloading ? 'Reloading…' : 'Reload'}
-                </button>
-              )}
-            </div>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{error}</span>
+                {conflict && (
+                  <button
+                    type="button"
+                    onClick={() => void reload()}
+                    disabled={reloading}
+                    className="shrink-0 underline"
+                  >
+                    {reloading ? 'Reloading…' : 'Reload'}
+                  </button>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
 
           {/*
@@ -219,7 +222,7 @@ export function ContentBlockSheet({
             allergen line after a protein default changed needs to see which protein.
           */}
           <div className="mb-4 rounded-md border border-border bg-muted px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <p className="text-xs font-medium text-muted-foreground">
               These describe the standard preparation
             </p>
             {preparation.length === 0 ? (

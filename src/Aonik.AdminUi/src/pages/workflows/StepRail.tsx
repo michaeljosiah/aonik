@@ -55,9 +55,9 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
               className="inline-flex items-center gap-1.5 flex-none whitespace-nowrap rounded-md"
               style={{
                 padding: dense ? '4px 8px' : '6px 10px',
-                background: meta.tint + '14',
+                background: `color-mix(in oklab, ${meta.tint} 8%, transparent)`,
                 color: meta.tint,
-                border: '1px solid ' + meta.tint + '30',
+                border: `1px solid color-mix(in oklab, ${meta.tint} 19%, transparent)`,
               }}
             >
               <Icon size={dense ? 10 : 11} />

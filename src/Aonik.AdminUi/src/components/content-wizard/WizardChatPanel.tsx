@@ -34,7 +34,7 @@ export function WizardChatPanel({ chat }: WizardChatPanelProps) {
       {/* Header */}
       <div className="h-[50px] px-4 bg-primary text-primary-foreground flex items-center shrink-0">
         <div className="flex items-center gap-2 font-semibold">
-          <div className="h-7 w-7 rounded-[2px] bg-white/15 grid place-items-center">
+          <div className="h-7 w-7 rounded-md bg-primary-foreground/15 grid place-items-center">
             <span className="text-xs font-bold">A</span>
           </div>
           Content AI Assistant
@@ -48,7 +48,7 @@ export function WizardChatPanel({ chat }: WizardChatPanelProps) {
             {messages.length === 0 ? (
               <ConversationEmptyState>
                 <div className="mx-auto flex w-full max-w-[400px] flex-col items-center justify-center gap-3 px-4 text-center">
-                  <div className="h-10 w-10 rounded-[2px] bg-card border border-border shadow-sm grid place-items-center">
+                  <div className="h-10 w-10 rounded-md bg-card border border-border shadow-sm grid place-items-center">
                     <span className="text-sm font-bold text-foreground">A</span>
                   </div>
                   <div>

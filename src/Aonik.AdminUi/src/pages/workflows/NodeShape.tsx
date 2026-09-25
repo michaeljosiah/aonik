@@ -69,9 +69,9 @@ export function NodeShape({
   const total = meta.outputs ?? 1;
 
   let ringColor = 'transparent';
-  if (traceCurrent) ringColor = '#3ab795';
+  if (traceCurrent) ringColor = 'var(--success)';
   else if (selected) ringColor = 'var(--primary)';
-  else if (hasError) ringColor = '#c44536';
+  else if (hasError) ringColor = 'var(--destructive)';
   const ringWidth = traceCurrent || selected || hasError ? 2 : 0;
 
   return (
@@ -114,7 +114,8 @@ export function NodeShape({
         width={NODE_W}
         height={HEADER_H}
         rx={7}
-        fill={tint + '14'}
+        fill={tint}
+        fillOpacity={0.08}
         stroke="none"
         onMouseDown={onMouseDown}
       />
@@ -123,7 +124,8 @@ export function NodeShape({
         y={HEADER_H - 7}
         width={NODE_W}
         height={7}
-        fill={tint + '14'}
+        fill={tint}
+        fillOpacity={0.08}
         stroke="none"
         onMouseDown={onMouseDown}
       />
@@ -139,6 +141,7 @@ export function NodeShape({
             height: 18,
             borderRadius: 4,
             background: tint,
+            // guardrail-ignore: glyph on a fixed-hue step-kind tint (see stepKindCatalog)
             color: '#fff',
             display: 'inline-flex',
             alignItems: 'center',
@@ -156,8 +159,7 @@ export function NodeShape({
         fontSize="10"
         fontWeight={600}
         fill={tint}
-        letterSpacing="0.06em"
-        style={{ textTransform: 'uppercase', pointerEvents: 'none' }}
+        style={{ pointerEvents: 'none' }}
       >
         {meta.label}
       </text>
@@ -165,14 +167,14 @@ export function NodeShape({
       {/* error pip */}
       {hasError && (
         <g transform={`translate(${NODE_W - 22}, 6)`} pointerEvents="none">
-          <circle cx={8} cy={8} r={7} fill="#c44536" />
+          <circle cx={8} cy={8} r={7} fill="var(--destructive)" />
           <text
             x={8}
             y={11.5}
             textAnchor="middle"
             fontSize="10"
             fontWeight={700}
-            fill="#fff"
+            fill="var(--destructive-foreground)"
           >
             !
           </text>
@@ -228,8 +230,8 @@ export function NodeShape({
       {/* trace done check */}
       {traceDone && !traceCurrent && (
         <g transform={`translate(${NODE_W - 20}, ${NODE_H - 20})`} pointerEvents="none">
-          <circle cx={8} cy={8} r={8} fill="#3ab795" />
-          <path d="M 4 8 L 7 11 L 12 5" stroke="#fff" strokeWidth={2} fill="none" />
+          <circle cx={8} cy={8} r={8} fill="var(--success)" />
+          <path d="M 4 8 L 7 11 L 12 5" stroke="var(--background)" strokeWidth={2} fill="none" />
         </g>
       )}
 

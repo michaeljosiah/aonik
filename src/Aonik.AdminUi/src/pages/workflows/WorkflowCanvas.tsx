@@ -363,7 +363,7 @@ export function WorkflowCanvas({
             height={GRID * 2}
             patternUnits="userSpaceOnUse"
           >
-            <circle cx={1} cy={1} r={1} fill="rgba(0,0,0,0.07)" />
+            <circle cx={1} cy={1} r={1} fill="var(--border)" />
           </pattern>
           <marker
             id="arrow"
@@ -374,7 +374,7 @@ export function WorkflowCanvas({
             markerHeight={7}
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa3ad" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted-foreground)" />
           </marker>
           <marker
             id="arrow-active"
@@ -385,7 +385,7 @@ export function WorkflowCanvas({
             markerHeight={7}
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#055a60" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--primary)" />
           </marker>
           <marker
             id="arrow-trace"
@@ -396,7 +396,7 @@ export function WorkflowCanvas({
             markerHeight={7}
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3ab795" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--success)" />
           </marker>
         </defs>
 
@@ -428,10 +428,10 @@ export function WorkflowCanvas({
               trace.completed.includes(e.from) &&
               (trace.completed.includes(e.to) || trace.current === e.to);
 
-            let stroke = '#9aa3ad';
-            if (isTraced) stroke = '#3ab795';
+            let stroke = 'var(--muted-foreground)';
+            if (isTraced) stroke = 'var(--success)';
             else if (isSel) stroke = 'var(--primary)';
-            else if (isHover) stroke = '#055a60';
+            else if (isHover) stroke = 'var(--primary)';
             const sw = isSel || isTraced ? 2.5 : isHover ? 2 : 1.5;
             const markerEnd = isTraced
               ? 'url(#arrow-trace)'
@@ -527,18 +527,18 @@ export function WorkflowCanvas({
                 width={200}
                 height={56}
                 rx={6}
-                fill="#fff8df"
-                stroke="#d4a843"
+                fill="var(--warning-subtle)"
+                stroke="var(--warning)"
                 strokeWidth={1}
               />
-              <text x={10} y={20} fontSize={11} fontWeight={600} fill="#7d5a0e">
+              <text x={10} y={20} fontSize={11} fontWeight={600} fill="var(--warning-foreground)">
                 {c.author}
               </text>
               <foreignObject x={10} y={24} width={180} height={28}>
                 <div
                   style={{
                     fontSize: 10.5,
-                    color: '#5a4308',
+                    color: 'var(--warning-foreground)',
                     lineHeight: 1.4,
                     fontFamily: 'var(--font-sans)',
                   }}
@@ -556,7 +556,8 @@ export function WorkflowCanvas({
               y={Math.min(drag.start.y, drag.end.y)}
               width={Math.abs(drag.end.x - drag.start.x)}
               height={Math.abs(drag.end.y - drag.start.y)}
-              fill="var(--color-brand-primary-10)"
+              fill="var(--primary)"
+              fillOpacity={0.12}
               stroke="var(--primary)"
               strokeWidth={1}
               strokeDasharray="4 3"

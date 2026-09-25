@@ -35,6 +35,7 @@ import {
 
 import { PageHeader } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreatePartnerDialog } from '@/components/dialogs/CreatePartnerDialog';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { cn } from '@/lib/utils';
@@ -156,7 +157,7 @@ export function CatalogPartnersPage() {
           <nav className="sticky top-0 flex flex-col gap-5 p-4">
             {NAV_GROUPS.map((group) => (
               <div key={group.label} className="flex flex-col gap-1">
-                <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="px-3 pb-1 text-xs font-medium text-muted-foreground">
                   {group.label}
                 </p>
                 {group.items.map((item) => (
@@ -175,7 +176,6 @@ export function CatalogPartnersPage() {
         <main className="min-w-0 flex-1">
           <div className="flex flex-col gap-5 p-6 md:px-8">
             <PageHeader
-              eyebrow="Finance · Network"
               title={meta.title}
               subtitle={subtitle}
               actions={
@@ -193,14 +193,16 @@ export function CatalogPartnersPage() {
             />
 
             {data.error && (
-              <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4 flex-none" />
-                <span className="flex-1">{data.error}</span>
-                <Button variant="outline" size="sm" onClick={data.reload}>
-                  <RefreshCw className="h-3 w-3" />
-                  Retry
-                </Button>
-              </div>
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription className="flex items-center gap-3">
+                  <span className="flex-1">{data.error}</span>
+                  <Button variant="outline" size="sm" onClick={data.reload}>
+                    <RefreshCw className="h-3 w-3" />
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
 
             {activeTab === 'overview' && (

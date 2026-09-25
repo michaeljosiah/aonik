@@ -38,11 +38,8 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 /**
- * Message bubble — the styled content container.
- *
- * Centrali: ChatItemSubContainer
- *  - bot:  bg #f5f5f5, border-radius 8px, padding 10px
- *  - user: bg getRGBAColor(theme, '0.11'), border-radius 8px, padding 10px
+ * Message content (Spec 098): the user's message sits in a primary-tinted
+ * bubble; agent messages are unboxed on the background.
  */
 export function MessageContent({ className, from, ...props }: MessageContentProps) {
   const isUser = from === 'user';
@@ -50,10 +47,8 @@ export function MessageContent({ className, from, ...props }: MessageContentProp
   return (
     <div
       className={cn(
-        'w-fit max-w-full text-sm leading-relaxed rounded-lg px-3 py-2.5',
-        isUser
-          ? 'bg-primary/10 text-foreground'
-          : 'bg-muted text-foreground',
+        'w-fit max-w-full text-sm leading-relaxed text-foreground',
+        isUser ? 'rounded-lg bg-primary/10 px-3 py-2.5' : 'py-2.5',
         className
       )}
       {...props}
@@ -78,7 +73,7 @@ export function MessageAvatar({ className, initials = 'A', ...props }: MessageAv
       )}
       {...props}
     >
-      <span className="text-xs font-bold text-white">{initials}</span>
+      <span className="text-xs font-bold text-primary-foreground">{initials}</span>
     </div>
   );
 }

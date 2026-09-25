@@ -70,8 +70,8 @@ function MiniSparkline({ values, color }: { values: number[]; color?: string }) 
     return { path: pathData, area: areaData };
   }, [values]);
 
-  const strokeColor = color || 'rgba(99, 102, 241, 0.9)';
-  const fillColor = color ? `${color}30` : 'rgba(99, 102, 241, 0.18)';
+  const strokeColor = color || 'var(--chart-4)';
+  const fillColor = `color-mix(in oklab, ${strokeColor} 19%, transparent)`;
 
   return (
     <svg viewBox="0 0 100 30" className="h-10 w-28">
@@ -90,7 +90,7 @@ export function FinancialSnapshotCard({ card }: { card: FinancialSnapshotData })
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="text-sm font-medium text-muted-foreground">
               {card.title}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
@@ -100,7 +100,7 @@ export function FinancialSnapshotCard({ card }: { card: FinancialSnapshotData })
 
         <div className="mt-4 flex items-end justify-between gap-4">
           <div>
-            <div className="text-2xl font-semibold text-foreground">
+            <div className="font-mono text-2xl font-semibold tabular-nums text-foreground">
               {card.value}
             </div>
             {card.valueLabel && (

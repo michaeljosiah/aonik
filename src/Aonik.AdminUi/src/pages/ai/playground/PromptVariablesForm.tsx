@@ -169,7 +169,7 @@ function DynamicKeyValueForm({
           />
           <button
             type="button"
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-red-500"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
             onClick={() => handleRemove(key)}
           >
             <Trash2 className="h-3 w-3" />

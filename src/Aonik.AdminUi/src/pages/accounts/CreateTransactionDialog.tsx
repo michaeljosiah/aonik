@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -56,9 +59,6 @@ const createEmptyForm = (preselectedAccountId?: string): TransactionFormData => 
   category: '',
   notes: '',
 });
-
-const fieldClassName =
-  'flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring';
 
 export function CreateTransactionDialog({
   open,
@@ -197,11 +197,9 @@ export function CreateTransactionDialog({
               <label className="text-sm font-medium text-foreground">
                 Date <span className="text-destructive">*</span>
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={formData.occurredAt}
-                onChange={(e) => updateField('occurredAt', e.target.value)}
-                className={fieldClassName}
+                onChange={(value) => updateField('occurredAt', value)}
               />
             </div>
 
@@ -209,11 +207,11 @@ export function CreateTransactionDialog({
               <label className="text-sm font-medium text-foreground">
                 Currency <span className="text-destructive">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.currency}
                 onChange={(e) => updateField('currency', e.target.value.toUpperCase().slice(0, 3))}
-                className={fieldClassName}
+                className="font-mono"
                 placeholder="e.g., USD"
                 maxLength={3}
               />
@@ -224,12 +222,12 @@ export function CreateTransactionDialog({
             <label className="text-sm font-medium text-foreground">
               Amount <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               type="number"
               step="0.01"
               value={formData.amount}
               onChange={(e) => updateField('amount', e.target.value)}
-              className={fieldClassName}
+              className="font-mono tabular-nums"
               placeholder="Negative = debit, Positive = credit"
             />
             <p className="text-xs text-muted-foreground">
@@ -241,11 +239,10 @@ export function CreateTransactionDialog({
             <label className="text-sm font-medium text-foreground">
               Counterparty
             </label>
-            <input
+            <Input
               type="text"
               value={formData.counterparty}
               onChange={(e) => updateField('counterparty', e.target.value)}
-              className={fieldClassName}
               placeholder="Merchant or payer name"
             />
           </div>
@@ -254,11 +251,10 @@ export function CreateTransactionDialog({
             <label className="text-sm font-medium text-foreground">
               Description
             </label>
-            <input
+            <Input
               type="text"
               value={formData.description}
               onChange={(e) => updateField('description', e.target.value)}
-              className={fieldClassName}
               placeholder="Transaction description"
             />
           </div>
@@ -268,11 +264,10 @@ export function CreateTransactionDialog({
               <label className="text-sm font-medium text-foreground">
                 Reference
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.reference}
                 onChange={(e) => updateField('reference', e.target.value)}
-                className={fieldClassName}
                 placeholder="Payment reference"
               />
             </div>
@@ -281,11 +276,10 @@ export function CreateTransactionDialog({
               <label className="text-sm font-medium text-foreground">
                 Category
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.category}
                 onChange={(e) => updateField('category', e.target.value)}
-                className={fieldClassName}
                 placeholder="e.g., Groceries"
               />
             </div>
@@ -305,9 +299,9 @@ export function CreateTransactionDialog({
         </div>
 
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter>

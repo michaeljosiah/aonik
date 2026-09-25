@@ -19,17 +19,19 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Copy, Terminal, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 
+// Categorical: span kinds map onto the chart series palette.
 const KIND_COLOR: Record<string, string> = {
-  llm: '#3f41a0',
-  tool: '#0097a9',
-  http: '#7b76b6',
-  db: '#5facbd',
-  rpc: '#055a60',
-  request: '#055a60',
-  generation: '#3f41a0',
+  llm: 'var(--chart-1)',
+  tool: 'var(--chart-3)',
+  http: 'var(--chart-4)',
+  db: 'var(--chart-5)',
+  rpc: 'var(--chart-2)',
+  request: 'var(--chart-2)',
+  generation: 'var(--chart-1)',
   span: 'var(--muted-foreground)',
   default: 'var(--muted-foreground)',
 };
@@ -127,8 +129,8 @@ export function SpanDetailSlideOut({
       {/* Header */}
       <div className="flex flex-none items-center gap-3 border-b border-border px-5 py-3.5">
         <div
-          className="grid h-[34px] w-[34px] flex-none place-items-center rounded-md font-[family-name:var(--font-mono)] text-[9px] font-bold uppercase tracking-[0.04em]"
-          style={{ background: `${color}20`, color }}
+          className="grid h-[34px] w-[34px] flex-none place-items-center rounded-md font-[family-name:var(--font-mono)] text-[9px] font-bold"
+          style={{ background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}
         >
           {kind}
         </div>
@@ -140,14 +142,14 @@ export function SpanDetailSlideOut({
             span_{spanIdShort} · {span.traceId.slice(0, 12)}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Tabs */}
@@ -276,7 +278,7 @@ function TimingSection({
           <Stat label="End offset" value={`+${fmtMs(endOffset)}`} />
           <Stat label="% of trace" value={`${traceShare.toFixed(1)}%`} />
         </div>
-        <div className="relative h-3.5 rounded-[3px] border border-border bg-card">
+        <div className="relative h-3.5 rounded-sm border border-border bg-card">
           {[0.25, 0.5, 0.75].map((p) => (
             <span
               key={p}
@@ -286,7 +288,7 @@ function TimingSection({
             />
           ))}
           <div
-            className="absolute rounded-[2px]"
+            className="absolute rounded-xs"
             style={{
               left: `${startPct}%`,
               width: `${widthPct}%`,
@@ -371,7 +373,7 @@ function ChatSection({ span }: { span: AiTraceObservationResponse }) {
 function EmptyHint({ label, hint }: { label: string; hint: string }) {
   return (
     <div className="mt-2.5">
-      <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+      <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         {label}
       </div>
       <div className="rounded-md border border-dashed border-border bg-muted px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
@@ -526,7 +528,7 @@ function EmptyTab({ title, description }: { title: string; description: string }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+    <div className="mb-2 text-xs font-medium text-muted-foreground">
       {children}
     </div>
   );
@@ -535,7 +537,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div>
-      <div className="mb-px text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+      <div className="mb-px text-[11px] font-medium text-muted-foreground">
         {label}
       </div>
       <div
@@ -574,7 +576,7 @@ function CodeBlock({ label, content }: { label?: string; content: string }) {
   return (
     <div className="mt-2.5">
       {label && (
-        <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">
           {label}
         </div>
       )}

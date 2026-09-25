@@ -21,7 +21,7 @@ interface QuickLinksProps {
 
 export function QuickLinks({ links }: QuickLinksProps) {
   return (
-    <Card className="h-full rounded-[4px] px-4 py-3 flex flex-col overflow-hidden">
+    <Card className="h-full rounded-lg px-4 py-3 flex flex-col overflow-hidden">
       <div className="mb-3 flex items-center justify-between shrink-0">
         <span className="text-[18px] font-bold text-foreground">Quick links</span>
         <Button variant="ghost" size="icon-sm" className="text-muted-foreground">

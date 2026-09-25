@@ -25,19 +25,19 @@ function formatRelativeTime(value: string | null): string {
 
 function severityBadge(severity: string, monitorCondition: string) {
   if (monitorCondition.toLowerCase() === 'resolved') {
-    return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Resolved</Badge>;
+    return <Badge variant="success">Resolved</Badge>;
   }
 
   const lower = severity.toLowerCase();
   if (lower === 'sev0' || lower === 'sev1' || lower === 'sev2') {
-    return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{severity}</Badge>;
+    return <Badge variant="destructive">{severity}</Badge>;
   }
 
   if (lower === 'sev3') {
-    return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{severity}</Badge>;
+    return <Badge variant="warning">{severity}</Badge>;
   }
 
-  return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{severity}</Badge>;
+  return <Badge variant="info">{severity}</Badge>;
 }
 
 export function AlertsPage() {
@@ -82,7 +82,7 @@ export function AlertsPage() {
           </p>
         </div>
 
-        <Button variant="secondary" className="rounded-sm" onClick={() => void loadAlerts()} disabled={loading}>
+        <Button variant="secondary" onClick={() => void loadAlerts()} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>

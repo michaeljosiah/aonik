@@ -345,7 +345,7 @@ export function DocumentDetailPage() {
                 {pendingFiles.map((file, idx) => (
                   <div
                     key={`${file.name}-${file.size}`}
-                    className="flex items-center gap-3 rounded-lg border border-primary/30 bg-[var(--color-brand-primary-light)]/40 px-4 py-3"
+                    className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3"
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
                       <FileText className="h-4 w-4 text-primary" />

@@ -51,13 +51,13 @@ function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
 function severityTone(severity: string) {
   switch (severity.toLowerCase()) {
     case 'debug':
-      return { bg: 'var(--muted)', fg: 'var(--muted-foreground)' };
+      return { className: 'bg-muted text-muted-foreground' };
     case 'warn':
-      return { bg: '#b4741e22', fg: '#b4741e' };
+      return { className: 'bg-warning-subtle text-warning-foreground' };
     case 'error':
-      return { bg: '#c4453622', fg: '#c44536' };
+      return { className: 'bg-destructive/10 text-destructive' };
     default:
-      return { bg: '#055a6020', fg: '#055a60' };
+      return { className: 'bg-primary/10 text-primary' };
   }
 }
 
@@ -176,7 +176,6 @@ export function ObservabilityLogsPage() {
       <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
-            eyebrow="Observability · Structured logs"
             title="Logs"
             subtitle="Live tail across every service using indexed Application Insights trace events."
             actions={(
@@ -189,7 +188,7 @@ export function ObservabilityLogsPage() {
                   <span
                     className={cn(
                       'inline-block h-1.5 w-1.5 rounded-full',
-                      live ? 'bg-white' : 'bg-success',
+                      live ? 'bg-primary-foreground' : 'bg-success',
                     )}
                   />
                   {live ? 'Live tail' : 'Paused'}
@@ -210,7 +209,7 @@ export function ObservabilityLogsPage() {
 
       <div className="flex-1 p-6">
         <div className="space-y-4">
-          <div className="rounded-[10px] border border-border bg-card px-3 py-2.5">
+          <div className="rounded-lg border border-border bg-card px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-3">
               <AonikTemplateIcon name="terminal" size={14} color="var(--muted-foreground)" />
               <span className="flex-1 font-mono text-[12px] text-foreground">
@@ -246,7 +245,7 @@ export function ObservabilityLogsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 rounded-[10px] border border-border bg-card px-4 py-3 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-center">
+          <div className="grid gap-4 rounded-lg border border-border bg-card px-4 py-3 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-center">
             <div>
               <div className="text-[11px] text-muted-foreground">Volume · selected window</div>
               <div className="font-mono text-[18px] font-semibold text-foreground">
@@ -268,7 +267,7 @@ export function ObservabilityLogsPage() {
                     />
                     {errorHeight > 0 ? (
                       <div
-                        className="absolute bottom-[calc(100%+2px)] w-[4px] rounded-t-sm bg-[#c44536]"
+                        className="absolute bottom-[calc(100%+2px)] w-[4px] rounded-t-sm bg-destructive"
                         style={{ height: Math.max(2, errorHeight / 4) }}
                         title={`${formatNumber(point.errors)} errors`}
                       />
@@ -284,14 +283,14 @@ export function ObservabilityLogsPage() {
                 events
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 bg-[#c44536]" />
+                <span className="h-2 w-2 bg-destructive" />
                 errors
               </span>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[10px] border border-border bg-card">
-            <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-4 py-2 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
               <div>Timestamp</div>
               <div>Sev</div>
               <div>Service</div>
@@ -307,7 +306,7 @@ export function ObservabilityLogsPage() {
                   Loading logs...
                 </div>
               ) : error ? (
-                <div className="px-4 py-8 text-sm text-[#c44536]">{error}</div>
+                <div className="px-4 py-8 text-sm text-destructive">{error}</div>
               ) : !data?.configured ? (
                 <div className="px-4 py-8 text-sm text-muted-foreground">
                   Application Insights is not configured for structured logs.
@@ -366,16 +365,13 @@ function LogRow({
   fields,
 }: {
   entry: StructuredLogEntry;
-  tone: { bg: string; fg: string };
+  tone: { className: string };
   fields: Array<[string, string]>;
 }) {
   return (
     <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
       <span className="text-muted-foreground">{formatTimestamp(entry.timestamp)}</span>
-      <span
-        className="justify-self-start rounded px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.04em]"
-        style={{ background: tone.bg, color: tone.fg }}
-      >
+      <span className={cn('justify-self-start rounded-md px-1.5 py-0.5 text-[10px] font-semibold', tone.className)}>
         {entry.severity}
       </span>
       <span className="truncate text-muted-foreground" title={entry.service}>{entry.service}</span>

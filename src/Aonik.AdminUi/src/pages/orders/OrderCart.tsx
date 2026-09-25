@@ -11,10 +11,16 @@ import { ArrowRight, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import { Pill } from '@/components/layout/aonik';
 import { PartyAvatar } from './PartyAvatar';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { BillPaymentOrderResponse, OrderItemResponse } from '@/types';
 
 const BRAND_PALETTE = [
-  '#055a60', '#eb5c37', '#1e4d8c', '#1f7a5e', '#7b76b6', '#0097a9', '#e8a838', '#d97706',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 function hash(value: string): number {
@@ -85,10 +91,10 @@ function CartItem({
   disabled: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
       <div className="flex items-start gap-2.5">
         <div
-          className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-md font-[family-name:var(--font-brand)] font-extrabold text-white"
+          className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-md font-extrabold text-white"
           style={{
             background: brandColor(item.billerName),
             fontSize: 11,
@@ -115,15 +121,22 @@ function CartItem({
             {item.serviceName}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={disabled}
-          aria-label="Remove item"
-          className="grid h-6 w-6 flex-none place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onRemove}
+              disabled={disabled}
+              aria-label="Remove item"
+              className="size-6 flex-none text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Remove item</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
@@ -137,21 +150,21 @@ function CartItem({
       <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
         <div>
           <div className="text-[11px] text-muted-foreground">Amount</div>
-          <div className="font-[family-name:var(--font-mono)] text-[14px] font-bold text-foreground">
+          <div className="font-mono tabular-nums text-[14px] font-bold text-foreground">
             {formatMoney(item.amountIn, item.currencyIn)}
           </div>
         </div>
         {item.currencyOut !== item.currencyIn && (
           <div className="text-right">
             <div className="text-[11px] text-muted-foreground">Receive</div>
-            <div className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-primary">
+            <div className="font-mono tabular-nums text-[13px] font-semibold text-primary">
               {formatMoney(item.amountOut, item.currencyOut)}
             </div>
           </div>
         )}
         <div className="text-right">
           <div className="text-[11px] text-muted-foreground">Fee</div>
-          <div className="font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">
+          <div className="font-mono tabular-nums text-[12px] text-muted-foreground">
             {formatMoney(item.feesTotal, item.currencyIn)}
           </div>
         </div>
@@ -207,17 +220,19 @@ export function OrderCart({
           <div className="text-[14px] font-semibold text-foreground">Order</div>
           <div className="flex items-center gap-1.5">
             <span
-              className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-bold text-white"
-              style={{
-                background: items.length > 0 ? 'var(--primary)' : 'var(--muted-foreground)',
-              }}
+              className={
+                'grid h-[22px] w-[22px] place-items-center rounded-full font-mono text-[11px] font-bold tabular-nums ' +
+                (items.length > 0
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted-foreground text-background')
+              }
             >
               {items.length}
             </span>
             <span className="text-[12.5px] text-muted-foreground">items</span>
           </div>
         </div>
-        <div className="mt-1 font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
+        <div className="mt-1 font-mono tabular-nums text-[10.5px] text-muted-foreground">
           {formatRef(order?.orderId)}
         </div>
       </div>
@@ -255,7 +270,7 @@ export function OrderCart({
             {currencies.map(([cur, totals]) => (
               <div key={cur} className="flex items-center justify-between text-[12.5px]">
                 <span className="text-muted-foreground">{cur} total</span>
-                <span className="font-[family-name:var(--font-mono)] font-semibold text-foreground">
+                <span className="font-mono tabular-nums font-semibold text-foreground">
                   {formatMoney(totals.amount, cur)}
                 </span>
               </div>
@@ -263,38 +278,26 @@ export function OrderCart({
             {currencies.map(([cur, totals]) => (
               <div key={`${cur}-fee`} className="flex items-center justify-between text-[12px]">
                 <span className="text-muted-foreground">Est. fees ({cur})</span>
-                <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
+                <span className="font-mono tabular-nums text-muted-foreground">
                   {formatMoney(totals.fee, cur)}
                 </span>
               </div>
             ))}
           </div>
 
-          <div
-            className={
-              'flex items-center gap-2 rounded-md border px-3 py-2 ' +
-              (withinPolicy
-                ? 'border-primary bg-primary/10'
-                : 'border-warning bg-warning-subtle')
-            }
+          <Alert
+            variant={withinPolicy ? 'default' : 'warning'}
+            className={'px-3 py-2 ' + (withinPolicy ? 'border-primary bg-primary/10 text-primary' : '')}
           >
-            <ShieldCheck
-              className="h-3.5 w-3.5 flex-none"
-              style={{
-                color: withinPolicy ? 'var(--primary)' : 'var(--warning)',
-              }}
-            />
-            <div
-              className="text-[11.5px] leading-tight"
-              style={{
-                color: withinPolicy ? 'var(--primary)' : 'var(--warning)',
-              }}
+            <ShieldCheck />
+            <AlertDescription
+              className={'text-[11.5px] leading-tight ' + (withinPolicy ? 'text-primary' : '')}
             >
               {withinPolicy
                 ? 'Within auto-apply policy ceiling.'
                 : 'Exceeds policy threshold — manual approval may be required.'}
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
 
           <div className="flex gap-2">
             {onSaveDraft && (
@@ -313,7 +316,7 @@ export function OrderCart({
           </div>
 
           <div className="text-center text-[11px] text-muted-foreground">
-            {items.length} item{items.length === 1 ? '' : 's'} · compliance checks run on submit
+            <span className="font-mono tabular-nums">{items.length}</span> item{items.length === 1 ? '' : 's'} · compliance checks run on submit
           </div>
         </div>
       )}

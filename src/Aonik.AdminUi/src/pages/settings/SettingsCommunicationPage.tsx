@@ -67,7 +67,7 @@ const providers: ProviderDefinition[] = [
     name: 'Azure Communication Services',
     description: 'Transactional email through Azure Email Communication Services.',
     logo: 'A',
-    color: '#0078d4',
+    color: '#0078d4', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'Connection string + verified sender address',
     implemented: true,
@@ -84,7 +84,7 @@ const providers: ProviderDefinition[] = [
     name: 'SendGrid',
     description: 'Email API provider for templates, sender authentication, and analytics.',
     logo: 'S',
-    color: '#1a82e2',
+    color: '#1a82e2', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'API key + verified sender address',
     implemented: false,
@@ -97,7 +97,7 @@ const providers: ProviderDefinition[] = [
     name: 'Mailgun',
     description: 'Email delivery with domain-level routing and webhooks.',
     logo: 'M',
-    color: '#f06b66',
+    color: '#f06b66', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'API key + domain + sender address',
     implemented: false,
@@ -110,7 +110,7 @@ const providers: ProviderDefinition[] = [
     name: 'Amazon SES',
     description: 'AWS-native transactional email with region-specific sending identities.',
     logo: 'S',
-    color: '#ff9900',
+    color: '#ff9900', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'Access key + secret + sender address',
     implemented: false,
@@ -123,7 +123,7 @@ const providers: ProviderDefinition[] = [
     name: 'Azure Communication Services',
     description: 'SMS delivery through Azure phone numbers and short codes.',
     logo: 'A',
-    color: '#0078d4',
+    color: '#0078d4', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'Connection string + provisioned phone number',
     implemented: true,
@@ -140,7 +140,7 @@ const providers: ProviderDefinition[] = [
     name: 'Twilio',
     description: 'Programmable SMS with phone number pools and messaging services.',
     logo: 'T',
-    color: '#f22f46',
+    color: '#f22f46', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'Account SID + auth token + from number',
     implemented: false,
@@ -153,7 +153,7 @@ const providers: ProviderDefinition[] = [
     name: 'MessageBird',
     description: 'SMS routing with international reach and sender profiles.',
     logo: 'B',
-    color: '#2481d7',
+    color: '#2481d7', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'Access key + originator',
     implemented: false,
@@ -166,7 +166,7 @@ const providers: ProviderDefinition[] = [
     name: 'Vonage',
     description: 'SMS provider for international delivery and programmable messaging.',
     logo: 'V',
-    color: '#871fff',
+    color: '#871fff', // guardrail-ignore: partner brand colour
     region: 'Global',
     credentialSummary: 'API key + API secret + from number',
     implemented: false,
@@ -480,7 +480,7 @@ export function SettingsCommunicationPage() {
             setTestResult(null);
           }}
           className={cn(
-            'flex items-center gap-2.5 rounded-[10px] border p-3 text-left transition-colors',
+            'flex items-center gap-2.5 rounded-lg border p-3 text-left transition-colors',
             active
               ? 'border-primary bg-card'
               : 'border-transparent hover:bg-card',
@@ -527,13 +527,13 @@ export function SettingsCommunicationPage() {
 
         <div className="space-y-4">
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Mail className="h-3 w-3" /> Email providers
             </div>
             <div className="flex flex-col gap-1.5">{renderProviderRows('Email')}</div>
           </div>
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <MessageSquare className="h-3 w-3" /> SMS providers
             </div>
             <div className="flex flex-col gap-1.5">{renderProviderRows('SMS')}</div>
@@ -544,7 +544,7 @@ export function SettingsCommunicationPage() {
       <main className="min-w-0 flex-1 overflow-auto px-5 py-5 lg:px-8 lg:py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               Settings · Communication · {selectedProvider.channel} · {selectedProvider.region}
             </p>
             <h2 className="text-2xl font-bold text-foreground">{selectedProvider.name}</h2>

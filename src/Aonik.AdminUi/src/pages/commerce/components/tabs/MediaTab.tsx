@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 import { heroImageIndex, MEDIA_URL_MAX, moveItem } from '../../lib/productForm';
 import { Field, inputClass } from './DetailsTab';
+import { Badge } from '@/components/ui/badge';
 
 export interface MediaDraft {
   url: string;
@@ -71,9 +72,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                 {item.url}
               </span>
               {index === heroIndex && (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  Hero
-                </span>
+                <Badge variant="secondary">Hero</Badge>
               )}
               <button
                 type="button"

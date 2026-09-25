@@ -285,7 +285,7 @@ export function SettingsAuditLogsPage() {
                         )}
 
                         {(errorMessage || resultSummary) && (
-                          <div className="rounded-sm bg-muted p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                          <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
                             {errorMessage ?? resultSummary}
                           </div>
                         )}
@@ -293,7 +293,7 @@ export function SettingsAuditLogsPage() {
                         {entry.detailsJson.trim() && (
                           <details className="text-xs text-muted-foreground">
                             <summary className="cursor-pointer select-none">Raw details</summary>
-                            <pre className="mt-2 overflow-auto rounded-sm bg-muted p-3 whitespace-pre-wrap break-words">
+                            <pre className="mt-2 overflow-auto rounded-md bg-muted p-3 whitespace-pre-wrap break-words">
                               {entry.detailsJson}
                             </pre>
                           </details>

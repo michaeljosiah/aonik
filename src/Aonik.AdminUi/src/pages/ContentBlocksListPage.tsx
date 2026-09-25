@@ -7,6 +7,16 @@ import { DataTableRowActions } from '@/components/ui/data-table';
 import { Plus, Layers, Image, CheckCircle, XCircle, Sparkles } from 'lucide-react';
 import { getContentBlocks, deleteContentBlock, type ContentBlock } from '@/services/contentBlockService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export function ContentBlocksListPage() {
   const navigate = useNavigate();
@@ -14,6 +24,7 @@ export function ContentBlocksListPage() {
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadContentBlocks();
@@ -33,8 +44,6 @@ export function ContentBlocksListPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this content block?')) return;
-    
     try {
       await deleteContentBlock(id);
       await loadContentBlocks();
@@ -125,7 +134,7 @@ export function ContentBlocksListPage() {
         },
         {
           label: 'Delete',
-          onClick: () => handleDelete(row.id),
+          onClick: () => setPendingDeleteId(row.id),
           variant: 'danger',
         },
       ]}
@@ -152,7 +161,7 @@ export function ContentBlocksListPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-md bg-primary">
-                <Layers className="w-5 h-5 text-white" />
+                <Layers className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Content Blocks</CardTitle>
@@ -199,6 +208,35 @@ export function ContentBlocksListPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete content block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this content block?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const id = pendingDeleteId;
+                setPendingDeleteId(null);
+                if (id) void handleDelete(id);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

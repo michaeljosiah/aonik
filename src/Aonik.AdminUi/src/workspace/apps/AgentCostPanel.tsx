@@ -262,7 +262,7 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
                           {fmtTokens(agentTotal)} ({pct.toFixed(1)}%)
                         </span>
                       </div>
-                      <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary rounded-full transition-all"
                           style={{ width: `${Math.min(pct, 100)}%` }}

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { X, Download, Pencil, RefreshCw, AlertCircle } from 'lucide-react';
 import { Pill } from '@/components/layout/aonik/Pill';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogBillerSummaryItem, CatalogBillerServiceItem } from '@/types';
 import { billerColor, billerInitials, connectorColor, formatSyncTime } from './billerVisuals';
@@ -59,9 +62,8 @@ export function BillerDetailDrawer({
   }, [biller.billerId]);
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute top-0 right-0 bottom-0 w-[520px] max-w-full bg-card border-l border-border shadow-2xl flex flex-col">
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent size="md" className="bg-card">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-start gap-3">
           <div
@@ -72,22 +74,20 @@ export function BillerDetailDrawer({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-foreground truncate">{biller.name}</span>
+              <SheetTitle className="text-base font-bold text-foreground truncate">{biller.name}</SheetTitle>
               <Pill tone={biller.isActive ? 'success' : 'muted'} dot>
                 {biller.isActive ? 'Active' : 'Inactive'}
               </Pill>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
+            <SheetDescription className="text-xs text-muted-foreground mt-1">
               {categoryName ?? 'Uncategorized'} · {countryName ?? biller.countryCode}
-            </div>
+            </SheetDescription>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="w-7 h-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-muted"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="Close">
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </SheetClose>
         </div>
 
         <div className="flex-1 overflow-auto p-6 flex flex-col gap-5">
@@ -132,7 +132,7 @@ export function BillerDetailDrawer({
               ['Fee', DASH],
             ].map(([label, value]) => (
               <div key={label} className="bg-muted rounded-lg px-3 py-2">
-                <div className="text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="text-xs font-medium text-muted-foreground">
                   {label}
                 </div>
                 <div className="font-mono text-[13.5px] font-semibold text-foreground mt-1">
@@ -154,10 +154,10 @@ export function BillerDetailDrawer({
             </div>
 
             {error ? (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 flex items-center gap-2 text-destructive text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{error}</span>
-              </div>
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             ) : loading ? (
               <div className="rounded-lg border border-border p-8 text-center">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-muted-foreground" />
@@ -169,7 +169,7 @@ export function BillerDetailDrawer({
               </div>
             ) : (
               <div className="rounded-lg border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_80px_84px_30px] gap-2.5 px-3 py-2 bg-muted border-b border-border text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="grid grid-cols-[1fr_80px_84px_30px] gap-2.5 px-3 py-2 bg-muted border-b border-border text-xs font-medium text-muted-foreground">
                   <div>Service · field</div>
                   <div>Type</div>
                   <div className="text-right">Amount</div>
@@ -199,15 +199,9 @@ export function BillerDetailDrawer({
                           )}
                         </div>
                       </div>
-                      <span
-                        className="justify-self-start text-[9.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded font-mono"
-                        style={{
-                          color: isFixed ? '#0e7490' : '#b4741e',
-                          background: (isFixed ? '#0e7490' : '#b4741e') + '18',
-                        }}
-                      >
+                      <Badge variant={isFixed ? 'info' : 'warning'} className="justify-self-start">
                         {s.amountType ?? (isFixed ? 'Fixed' : 'Variable')}
-                      </span>
+                      </Badge>
                       <span
                         className="text-right font-mono text-[12px] font-semibold"
                         style={{ color: amount === DASH ? 'var(--muted-foreground)' : 'var(--foreground)' }}
@@ -241,7 +235,7 @@ export function BillerDetailDrawer({
             Edit biller
           </Button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }

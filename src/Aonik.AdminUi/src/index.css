@@ -343,35 +343,10 @@
   --navbar-border-radius: 0.5rem;
   --navbar-border-width: 1px;
 
-  /* Legacy gray scale. Matches Tailwind's light grays; INVERTED in dark mode
-     below so pages written against it keep working. Spec 098 D9 removes the
-     inversion once P3 has moved those pages to semantic tokens. */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
 }
 
 [data-theme="dark"] {
   --color-form-date-indicator-filter: invert(1) brightness(1.1);
-
-  /* LEGACY: inverted gray scale (see D9 note above). */
-  --color-gray-50: #1a1d21;
-  --color-gray-100: #1e2125;
-  --color-gray-200: #22262b;
-  --color-gray-300: #2e3338;
-  --color-gray-400: #4a4f56;
-  --color-gray-500: #8b9098;
-  --color-gray-600: #a8adb5;
-  --color-gray-700: #c8ccd2;
-  --color-gray-800: #e0e3e7;
-  --color-gray-900: #f3f4f6;
 
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.3);
@@ -688,7 +663,7 @@ html.is-electron .min-h-screen {
 /* Hover effect using theme variables */
 .hover-theme-effect {
   cursor: pointer;
-  color: var(--color-gray-500);
+  color: var(--muted-foreground);
   transition: all 0.2s ease;
   outline: none;
 }
@@ -820,13 +795,13 @@ html.is-electron .min-h-screen {
 
 @keyframes pulseStrokeColor {
   0% {
-    stroke: var(--color-gray-300);
+    stroke: var(--border);
   }
   50% {
     stroke: var(--theme-color, var(--color-brand-primary));
   }
   100% {
-    stroke: var(--color-gray-300);
+    stroke: var(--border);
   }
 }
 

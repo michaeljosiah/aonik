@@ -307,7 +307,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
                     <span className="text-sm font-semibold text-foreground truncate">
                       {agent.agentName}
                     </span>
-                    <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] px-1.5 py-0 ml-auto">
+                    <Badge variant="secondary" className="text-muted-foreground font-mono tabular-nums text-[10px] px-1.5 py-0 ml-auto">
                       {agent.calls} calls
                     </Badge>
                   </div>
@@ -322,7 +322,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
                     </span>
                     <span className="flex items-center gap-0.5">
                       {agent.avgDurationMs > 10_000 && (
-                        <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
+                        <AlertTriangle className="w-2.5 h-2.5 text-warning" />
                       )}
                       {agent.avgDurationMs > 10_000 ? 'Slow' : 'Healthy'}
                     </span>

@@ -18,23 +18,23 @@ interface AuthErrorProps {
 const iconStyles: Record<string, { icon: string; bg: string; border: string }> = {
   configuration: {
     icon: 'text-warning',
-    bg: 'bg-[color-mix(in_srgb,var(--warning)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--warning)_30%,transparent)]',
+    bg: 'bg-warning/10',
+    border: 'border-warning/30',
   },
   network: {
     icon: 'text-info',
-    bg: 'bg-[color-mix(in_srgb,var(--info)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--info)_30%,transparent)]',
+    bg: 'bg-info/10',
+    border: 'border-info/30',
   },
   provider: {
     icon: 'text-destructive',
-    bg: 'bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--destructive)_30%,transparent)]',
+    bg: 'bg-destructive/10',
+    border: 'border-destructive/30',
   },
   unknown: {
     icon: 'text-destructive',
-    bg: 'bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--destructive)_30%,transparent)]',
+    bg: 'bg-destructive/10',
+    border: 'border-destructive/30',
   },
 };
 
@@ -82,12 +82,12 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
 
           {/* Configuration help for config errors */}
           {error.type === 'configuration' && (
-            <div className="bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] border border-[color-mix(in_srgb,var(--primary)_25%,transparent)] rounded-lg p-4 mb-6">
+            <div className="bg-primary/10 border border-primary/25 rounded-lg p-4 mb-6">
               <p className="text-sm font-semibold text-primary mb-2">
                 How to fix this:
               </p>
               <ol className="text-[13px] text-primary m-0 pl-5 leading-[1.8]">
-                <li>Copy <code className="bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.example</code> to <code className="bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.local</code></li>
+                <li>Copy <code className="bg-primary/15 px-1.5 py-0.5 rounded-sm font-mono">.env.example</code> to <code className="bg-primary/15 px-1.5 py-0.5 rounded-sm font-mono">.env.local</code></li>
                 <li>Fill in your {error.provider || 'identity provider'} credentials</li>
                 <li>Restart the development server</li>
               </ol>
@@ -97,25 +97,23 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
           {/* Actions */}
           <div className="flex flex-col gap-3">
             {onRetry && (
-              <Button 
-                onClick={onRetry}
-                className="w-full py-3 px-4"
-              >
-                <RefreshCw className="w-[18px] h-[18px] mr-2" />
-                Try Again
+              <Button onClick={onRetry} size="lg" className="w-full">
+                <RefreshCw />
+                Try again
               </Button>
             )}
             
             {error.type === 'configuration' && (
-              <a
-                href="https://github.com/michaeljosiah/aonik#authentication-setup"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-card text-foreground no-underline text-sm font-medium hover:bg-muted transition-colors"
-              >
-                <ExternalLink className="w-[18px] h-[18px]" />
-                View Documentation
-              </a>
+              <Button asChild variant="outline" size="lg" className="w-full">
+                <a
+                  href="https://github.com/michaeljosiah/aonik#authentication-setup"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink />
+                  View documentation
+                </a>
+              </Button>
             )}
           </div>
 

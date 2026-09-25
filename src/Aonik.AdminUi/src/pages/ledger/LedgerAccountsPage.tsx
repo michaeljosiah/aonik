@@ -31,6 +31,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -261,14 +270,13 @@ export function LedgerAccountsPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Finance · Ledger"
         title="Accounts"
         subtitle={subtitle}
         actions={
           <>
             <div className="w-[180px]">
               <Select value={ledgerFilter} onValueChange={setLedgerFilter}>
-                <SelectTrigger className="h-8 rounded-sm text-xs">
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Select ledger" />
                 </SelectTrigger>
                 <SelectContent>
@@ -368,9 +376,9 @@ export function LedgerAccountsPage() {
                     </Select>
                   </div>
                   {formError && (
-                    <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                      {formError}
-                    </div>
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-xs">{formError}</AlertDescription>
+                    </Alert>
                   )}
                   <DialogFooter>
                     <Button
@@ -393,18 +401,20 @@ export function LedgerAccountsPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => ledgerFilter && void loadAccounts(ledgerFilter)}
-          >
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => ledgerFilter && void loadAccounts(ledgerFilter)}
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar
@@ -418,49 +428,49 @@ export function LedgerAccountsPage() {
       />
 
       <AonikCard padding={0}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                <th className="px-4 py-3 w-[120px]">Code</th>
-                <th className="px-4 py-3">Account</th>
-                <th className="px-4 py-3 w-[140px]">Type</th>
-                <th className="px-4 py-3 w-[100px]">Currency</th>
-                <th className="px-4 py-3 w-[160px] text-right">Balance</th>
-                <th className="px-4 py-3 w-[120px]">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && accounts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">
-                      Loading accounts…
-                    </p>
-                  </td>
-                </tr>
-              ) : filteredAccounts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      No accounts found
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {searchQuery || typeFilter
-                        ? 'Try adjusting the active tab or search.'
-                        : 'Create the first account in this ledger.'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                grouped.map(([type, list]) => (
-                  <RenderTypeGroup key={type} type={type} list={list} />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted text-xs hover:bg-muted">
+              <TableHead className="w-[120px] px-4 text-xs font-medium text-muted-foreground">Code</TableHead>
+              <TableHead className="px-4 text-xs font-medium text-muted-foreground">Account</TableHead>
+              <TableHead className="w-[140px] px-4 text-xs font-medium text-muted-foreground">Type</TableHead>
+              <TableHead className="w-[100px] px-4 text-xs font-medium text-muted-foreground">Currency</TableHead>
+              <TableHead numeric className="w-[160px] px-4 text-xs font-medium text-muted-foreground">
+                Balance
+              </TableHead>
+              <TableHead className="w-[120px] px-4 text-xs font-medium text-muted-foreground">Created</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && accounts.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="px-4 py-12 text-center whitespace-normal">
+                  <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">
+                    Loading accounts…
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : filteredAccounts.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="px-4 py-12 text-center whitespace-normal">
+                  <p className="text-sm font-medium text-foreground">
+                    No accounts found
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {searchQuery || typeFilter
+                      ? 'Try adjusting the active tab or search.'
+                      : 'Create the first account in this ledger.'}
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              grouped.map(([type, list]) => (
+                <RenderTypeGroup key={type} type={type} list={list} />
+              ))
+            )}
+          </TableBody>
+        </Table>
       </AonikCard>
     </div>
   );
@@ -491,8 +501,8 @@ function RenderTypeGroup({
 
   return (
     <>
-      <tr className="border-b border-border bg-muted/40">
-        <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-bold text-primary">
+      <TableRow className="bg-muted/40 hover:bg-muted/40">
+        <TableCell className="px-4 py-3 font-mono text-[11px] font-bold tabular-nums text-primary">
           {type === 'Asset'
             ? '1000'
             : type === 'Liability'
@@ -502,55 +512,53 @@ function RenderTypeGroup({
                 : type === 'Income'
                   ? '4000'
                   : '5000'}
-        </td>
-        <td colSpan={3} className="px-4 py-3 text-[13px] font-bold text-foreground">
+        </TableCell>
+        <TableCell colSpan={3} className="px-4 py-3 text-[13px] font-bold text-foreground">
           {type === 'Income' ? 'Revenue' : type === 'Expense' ? 'Expenses' : `${type}s`}
           <span className="ml-2 text-[11px] font-normal text-muted-foreground">
-            {list.length} {list.length === 1 ? 'account' : 'accounts'}
+            <span className="font-mono tabular-nums">{list.length}</span>{' '}
+            {list.length === 1 ? 'account' : 'accounts'}
           </span>
-        </td>
-        <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[12px] font-bold text-foreground">
+        </TableCell>
+        <TableCell numeric className="px-4 py-3 text-[12px] font-bold text-foreground">
           {groupTotalDisplay}
-        </td>
-        <td className="px-4 py-3" />
-      </tr>
+        </TableCell>
+        <TableCell className="px-4 py-3" />
+      </TableRow>
       {list.map((account) => {
         const balanceSummary = summariseBalance(account);
         return (
-          <tr
-            key={account.id}
-            className="border-b border-border transition-colors hover:bg-muted"
-          >
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-muted-foreground">
+          <TableRow key={account.id} className="hover:bg-muted">
+            <TableCell className="px-4 py-3 font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
               {account.code}
-            </td>
-            <td className="px-4 py-3 pl-8">
+            </TableCell>
+            <TableCell className="px-4 py-3 pl-8 whitespace-normal">
               <span className="text-[13px] text-foreground">
                 {account.name}
               </span>
-            </td>
-            <td className="px-4 py-3">
+            </TableCell>
+            <TableCell className="px-4 py-3">
               <Pill tone={TYPE_TONE[account.accountType] ?? 'default'} size="sm">
                 {account.accountType}
               </Pill>
-            </td>
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
               {account.currency || '—'}
-            </td>
-            <td className="px-4 py-3 text-right">
-              <div className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-foreground">
+            </TableCell>
+            <TableCell numeric className="px-4 py-3">
+              <div className="text-[12px] font-medium text-foreground">
                 {balanceSummary.primary}
               </div>
               {balanceSummary.secondary && (
-                <div className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
+                <div className="text-[10px] text-muted-foreground">
                   {balanceSummary.secondary}
                 </div>
               )}
-            </td>
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-4 py-3 font-mono text-[11px] tabular-nums text-muted-foreground">
               {formatDate(account.createdUtc)}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         );
       })}
     </>

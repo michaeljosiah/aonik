@@ -5,6 +5,7 @@ import { Pill } from '@/components/layout/aonik';
 import type { ProductCategoryDto } from '@/types/commerce';
 
 import { validateAttributesJson, type ProductEditorForm } from '../../lib/productForm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const STATUSES = ['Active', 'Draft', 'Archived'];
 
@@ -52,10 +53,10 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
 
       <div className="flex gap-3">
         <Field label="Status" className="flex-1">
-          <select
+          <NativeSelect
+            className="h-8"
             value={form.status}
             onChange={(e) => onChange({ status: e.target.value })}
-            className={inputClass}
           >
             {/* A status the server holds but this list does not know still renders, so an
                 editor never silently rewrites it by saving. */}
@@ -67,14 +68,14 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
                 {status}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </Field>
 
         <Field label="Category" className="flex-1">
-          <select
+          <NativeSelect
+            className="h-8"
             value={form.categoryId ?? ''}
             onChange={(e) => onChange({ categoryId: e.target.value || null })}
-            className={inputClass}
           >
             <option value="">Uncategorised</option>
             {/* When the category list failed to load, the product's own category is still a
@@ -89,7 +90,7 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
                 {category.isActive ? '' : ' (retired)'}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </Field>
       </div>
 
@@ -136,7 +137,7 @@ export function Field({
 }) {
   return (
     <label className={`flex flex-col gap-1 ${className ?? ''}`}>
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       {children}

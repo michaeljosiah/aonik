@@ -5,6 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { documentService } from '@/services/documentService';
 import { identityService } from '@/services/identityService';
 import { ledgerService } from '@/services/ledgerService';
@@ -189,15 +199,15 @@ export function LedgerOverviewPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-destructive bg-destructive/10">
-          <CardContent className="p-4 flex items-center gap-3 text-destructive">
-            <AlertCircle className="w-5 h-5" />
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadLedgers}>
               Retry
             </Button>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -208,7 +218,9 @@ export function LedgerOverviewPage() {
                 <h2 className="text-lg font-semibold text-foreground">Ledger list</h2>
                 <p className="text-sm text-muted-foreground">All ledgers available to this tenant.</p>
               </div>
-              <span className="text-xs text-muted-foreground">{ledgerRows.length} total</span>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-mono tabular-nums">{ledgerRows.length}</span> total
+              </span>
             </div>
 
             <div className="border border-border rounded-md overflow-hidden">
@@ -217,24 +229,24 @@ export function LedgerOverviewPage() {
               ) : ledgerRows.length === 0 ? (
                 <div className="p-6 text-sm text-muted-foreground">No ledgers created yet.</div>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-muted/60 border-b border-border">
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ledger ID</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Base currency</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/60 hover:bg-muted/60">
+                      <TableHead numeric className="px-4 text-xs font-semibold text-muted-foreground">Ledger ID</TableHead>
+                      <TableHead className="px-4 text-xs font-semibold text-muted-foreground">Base currency</TableHead>
+                      <TableHead className="px-4 text-xs font-semibold text-muted-foreground">Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {ledgerRows.map((ledger) => (
-                      <tr key={ledger.id} className="border-b border-border">
-                        <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{ledger.id}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-foreground">{ledger.baseCurrency}</td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{ledger.createdLabel}</td>
-                      </tr>
+                      <TableRow key={ledger.id}>
+                        <TableCell numeric className="px-4 py-3 text-sm text-muted-foreground">{ledger.id}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{ledger.baseCurrency}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{ledger.createdLabel}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </div>
           </CardContent>
@@ -263,7 +275,7 @@ export function LedgerOverviewPage() {
                   maxLength={3}
                 />
               </div>
-              <Button type="submit" className="w-full rounded-sm" disabled={isSaving}>
+              <Button type="submit" className="w-full" disabled={isSaving}>
                 <Plus className="w-4 h-4 mr-2" />
                 {isSaving ? 'Creating...' : 'Create ledger'}
               </Button>
@@ -280,17 +292,18 @@ export function LedgerOverviewPage() {
                 <h2 className="text-lg font-semibold text-foreground">Ledger documents</h2>
                 <p className="text-sm text-muted-foreground">Files linked to the selected ledger.</p>
               </div>
-              <select
-                value={selectedLedgerId}
-                onChange={(event) => setSelectedLedgerId(event.target.value)}
-                className="h-9 rounded-sm border border-border bg-card px-3 text-sm"
-              >
-                {ledgerRows.map((ledger) => (
-                  <option key={ledger.id} value={ledger.id}>
-                    {ledger.baseCurrency} · {ledger.id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedLedgerId} onValueChange={setSelectedLedgerId}>
+                <SelectTrigger className="w-auto" aria-label="Ledger">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ledgerRows.map((ledger) => (
+                    <SelectItem key={ledger.id} value={ledger.id}>
+                      {ledger.baseCurrency} · {ledger.id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {documents.length === 0 ? (
@@ -333,7 +346,7 @@ export function LedgerOverviewPage() {
                   onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
                 />
               </div>
-              <Button onClick={handleUploadDocument} disabled={isUploading} className="w-full rounded-sm">
+              <Button onClick={handleUploadDocument} disabled={isUploading} className="w-full">
                 {isUploading ? 'Uploading...' : 'Upload document'}
               </Button>
             </div>

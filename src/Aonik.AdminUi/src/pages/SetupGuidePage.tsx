@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ExternalLink, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest, getSetupGuideMarkdown } from '@/services/setupGuideService';
@@ -14,6 +16,21 @@ interface GuideState {
   markdown: string;
   loading: boolean;
   error: string | null;
+}
+
+// Categorical tint for a guide without a cover image, keyed by its order so a
+// guide keeps the same colour on every setup page.
+const guideAccents = [
+  'from-(--chart-1)/20 to-(--chart-1)/5',
+  'from-(--chart-2)/20 to-(--chart-2)/5',
+  'from-(--chart-3)/20 to-(--chart-3)/5',
+  'from-(--chart-4)/20 to-(--chart-4)/5',
+  'from-(--chart-5)/20 to-(--chart-5)/5',
+];
+
+function guideAccentClass(guide: SetupGuideDefinition) {
+  const n = guideAccents.length;
+  return guideAccents[((Math.trunc(guide.order) % n) + n) % n];
 }
 
 const initialState: GuideState = {
@@ -159,7 +176,7 @@ export function SetupGuidePage() {
   }, [state.manifest]);
 
   const guideCover = state.guide?.cover;
-  const guideAccent = state.guide?.accent ?? 'from-slate-200/70 to-slate-100';
+  const guideAccent = state.guide ? `bg-gradient-to-br ${guideAccentClass(state.guide)}` : '';
   const guideCoverUrl = guideCover
     ? guideCover.startsWith('http') || guideCover.startsWith('/')
       ? guideCover
@@ -175,7 +192,7 @@ export function SetupGuidePage() {
       <div className="mx-auto w-full max-w-[1240px] px-8 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Guide</p>
+            <p className="text-sm font-medium text-muted-foreground">Guide</p>
             <h1 className="text-2xl font-semibold text-foreground">{guideTitle}</h1>
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate('/setup-guides')}>
@@ -188,16 +205,14 @@ export function SetupGuidePage() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
               <div
-                className={guideCoverUrl ? 'h-64 bg-cover bg-center' : `h-64 bg-gradient-to-br ${guideAccent}`}
+                className={guideCoverUrl ? 'h-64 bg-cover bg-center' : `h-64 bg-muted ${guideAccent}`}
                 style={guideCoverUrl ? { backgroundImage: `url(${guideCoverUrl})` } : undefined}
               />
               <div className="px-6 py-5 border-b border-border">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span className="rounded-full bg-muted px-2 py-1 font-semibold uppercase tracking-[0.2em]">
-                        {state.guide?.category ?? 'Guide'}
-                      </span>
+                      <Badge variant="secondary">{state.guide?.category ?? 'Guide'}</Badge>
                       <span>{state.guide?.title ? '5 mins read' : 'Guide'}</span>
                     </div>
                     {guideDescription && (
@@ -220,7 +235,7 @@ export function SetupGuidePage() {
               <div className="px-6 py-6">
                 {state.loading ? (
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <Spinner className="size-5 text-primary" />
                     Loading guide...
                   </div>
                 ) : state.error ? (
@@ -269,7 +284,7 @@ export function SetupGuidePage() {
                       className={
                         guide.cover
                           ? 'h-12 w-12 rounded-lg bg-cover bg-center'
-                          : `h-12 w-12 rounded-lg bg-gradient-to-br ${guide.accent ?? 'from-slate-200/70 to-slate-100'}`
+                          : `h-12 w-12 rounded-lg bg-muted bg-gradient-to-br ${guideAccentClass(guide)}`
                       }
                       style={
                         guide.cover

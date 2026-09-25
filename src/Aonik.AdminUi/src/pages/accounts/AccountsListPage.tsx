@@ -6,6 +6,8 @@ import { CreateAccountDialog } from './CreateAccountDialog';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertCircle,
   CheckCircle2,
@@ -131,7 +133,7 @@ export function AccountsListPage() {
           onClick={() => navigate(`/accounts/${account.accountId}/transactions`)}
         >
           <p className="font-medium text-foreground">{account.maskedIdentifier}</p>
-          <p className="text-xs text-muted-foreground">{account.accountId.slice(0, 8)}...</p>
+          <p className="font-mono text-xs tabular-nums text-muted-foreground">{account.accountId.slice(0, 8)}...</p>
         </button>
       ),
     },
@@ -151,14 +153,8 @@ export function AccountsListPage() {
       sortable: true,
       cell: (account) => {
         const isLinked = account.verificationStatus === 'Verified';
-        const style = isLinked
-          ? 'bg-success-subtle text-success'
-          : 'bg-muted text-muted-foreground';
-        const label = isLinked ? 'Linked' : 'Manual';
         return (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style}`}>
-            {label}
-          </span>
+          <Badge variant={isLinked ? 'success' : 'secondary'}>{isLinked ? 'Linked' : 'Manual'}</Badge>
         );
       },
     },
@@ -211,7 +207,7 @@ export function AccountsListPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowCreateAccount(true)} className="rounded-sm">
+          <Button variant="outline" onClick={() => setShowCreateAccount(true)}>
             Add Account
           </Button>
           <PlaidLinkButton
@@ -220,44 +216,43 @@ export function AccountsListPage() {
               loadAccounts();
             }}
             onError={(msg) => toast.error(msg)}
-            className="rounded-sm"
           />
         </div>
       </div>
 
       <div className="grid gap-4 mb-6 md:grid-cols-3">
-        <Card className="rounded-none border-border bg-card">
+        <Card className="border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Accounts</p>
-              <p className="text-2xl font-semibold text-foreground">{totalAccounts}</p>
+              <p className="text-xs text-muted-foreground">Total accounts</p>
+              <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">{totalAccounts}</p>
               <p className="text-xs text-muted-foreground">All accounts</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-border bg-card">
+        <Card className="border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Linked</p>
-              <p className="text-2xl font-semibold text-foreground">{linkedAccounts}</p>
+              <p className="text-xs text-muted-foreground">Linked</p>
+              <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">{linkedAccounts}</p>
               <p className="text-xs text-muted-foreground">Via Plaid or provider</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-border bg-card">
+        <Card className="border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Manual</p>
-              <p className="text-2xl font-semibold text-foreground">{manualAccounts}</p>
+              <p className="text-xs text-muted-foreground">Manual</p>
+              <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">{manualAccounts}</p>
               <p className="text-xs text-muted-foreground">Manually added</p>
             </div>
           </CardContent>
@@ -265,15 +260,15 @@ export function AccountsListPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-destructive bg-destructive/10">
-          <CardContent className="p-4 flex items-center gap-3 text-destructive">
-            <AlertCircle className="w-5 h-5" />
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadAccounts} className="ml-auto">
               Retry
             </Button>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       )}
 
       <Card>

@@ -5,6 +5,7 @@
 // three re-derivations — the review-hardened rule is that the UI must not offer an operation
 // the Spec 068 rules block, and three copies of a rule eventually disagree.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -265,13 +266,15 @@ export function CommerceCartsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void load()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void load()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar tabs={STATUS_TABS} active={status} onTabChange={setStatus} hideFilterButton />

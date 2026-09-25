@@ -16,6 +16,7 @@ import type { AdminProductDetailDto } from '@/types/commerce';
 
 import type { ProductEditorForm } from '../../lib/productForm';
 import { ChipEditor, Field, inputClass } from './DetailsTab';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /** A deep-surface row is loading, unavailable, or has an answer — never silently blank. */
 type SurfaceState =
@@ -225,16 +226,16 @@ export function StorefrontTab({
                 saves fine and then breaks this product's checkout pricing. With no canonical
                 currency there is nothing to choose from, so the control is empty and closed
                 rather than open and unchecked. */}
-            <select
+            <NativeSelect
               value={surchargeCurrency}
               onChange={(e) => onSurchargeChange({ currency: e.target.value })}
               disabled={currencyKnown !== 'ready'}
-              className={`${inputClass} font-[family-name:var(--font-mono)] disabled:opacity-50`}
+              className="h-8 font-mono"
             >
               {!storefrontCurrency && <option value="">—</option>}
               {storefrontCurrency && <option value={storefrontCurrency}>{storefrontCurrency}</option>}
               {currencyMismatch && <option value={surchargeCurrency}>{surchargeCurrency}</option>}
-            </select>
+            </NativeSelect>
           </Field>
         </div>
         {currencyMismatch && (

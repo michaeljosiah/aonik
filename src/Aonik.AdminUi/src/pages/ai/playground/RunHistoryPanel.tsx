@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { PlaygroundRunRecord } from '@/types/ai';
 
 interface RunHistoryPanelProps {
@@ -47,54 +48,54 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
 
       {expanded && (
         <div className="max-h-48 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border bg-muted">
-                <th className="px-5 py-1.5 text-left font-medium text-muted-foreground">Time</th>
-                <th className="px-5 py-1.5 text-left font-medium text-muted-foreground">Agent</th>
-                <th className="px-5 py-1.5 text-left font-medium text-muted-foreground">Model</th>
-                <th className="px-5 py-1.5 text-left font-medium text-muted-foreground">Message</th>
-                <th className="px-5 py-1.5 text-right font-medium text-muted-foreground">In</th>
-                <th className="px-5 py-1.5 text-right font-medium text-muted-foreground">Out</th>
-                <th className="px-5 py-1.5 text-right font-medium text-muted-foreground">Latency</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-muted">
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Time</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Agent</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Model</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Message</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">In</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">Out</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">Latency</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {runs.map((run) => (
-                <tr
+                <TableRow
                   key={run.id}
-                  className="cursor-pointer border-b border-border last:border-b-0 hover:bg-accent"
+                  className="cursor-pointer hover:bg-accent"
                   onClick={() => onSelect?.(run)}
                 >
-                  <td className="whitespace-nowrap px-5 py-1.5 text-muted-foreground">
+                  <TableCell className="px-5 py-1.5 text-muted-foreground">
                     {run.timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
                     })}
-                  </td>
-                  <td className="px-5 py-1.5 text-foreground">
+                  </TableCell>
+                  <TableCell className="px-5 py-1.5 text-foreground">
                     {run.agentName ?? 'Raw'}
-                  </td>
-                  <td className="max-w-[150px] truncate px-5 py-1.5 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="max-w-[150px] truncate px-5 py-1.5 text-muted-foreground">
                     {run.modelName ?? run.modelId ?? 'Default'}
-                  </td>
-                  <td className="max-w-[200px] truncate px-5 py-1.5 text-foreground">
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate px-5 py-1.5 text-foreground">
                     {run.userMessage}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-muted-foreground">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {run.metrics.inputTokens}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-muted-foreground">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {run.metrics.outputTokens}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-muted-foreground">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {(run.metrics.latencyMs / 1000).toFixed(1)}s
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

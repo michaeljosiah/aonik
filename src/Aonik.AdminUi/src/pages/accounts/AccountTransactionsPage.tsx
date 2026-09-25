@@ -6,6 +6,18 @@ import { CreateTransactionDialog } from './CreateTransactionDialog';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ArrowLeft,
   FileUp,
@@ -57,6 +69,7 @@ export function AccountTransactionsPage() {
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetTxIdRef = useRef<string | null>(null);
+  const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     if (!accountId) return;
@@ -133,7 +146,6 @@ export function AccountTransactionsPage() {
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm('Delete this attachment?')) return;
     try {
       await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
@@ -180,6 +192,7 @@ export function AccountTransactionsPage() {
       header: 'Amount',
       accessorKey: 'amount',
       sortable: true,
+      numeric: true,
       cell: (tx) => {
         const isDebit = tx.amount < 0;
         return (
@@ -219,17 +232,11 @@ export function AccountTransactionsPage() {
       header: 'Recon Status',
       accessorKey: 'reconciliationStatus',
       sortable: true,
-      cell: (tx) => {
-        const matched = tx.reconciliationStatus === 'Matched';
-        const style = matched
-          ? 'bg-success-subtle text-success'
-          : 'bg-muted text-muted-foreground';
-        return (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style}`}>
-            {tx.reconciliationStatus}
-          </span>
-        );
-      },
+      cell: (tx) => (
+        <Badge variant={tx.reconciliationStatus === 'Matched' ? 'success' : 'secondary'}>
+          {tx.reconciliationStatus}
+        </Badge>
+      ),
     },
   ];
 
@@ -253,9 +260,19 @@ export function AccountTransactionsPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/accounts')}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Back to accounts"
+                onClick={() => navigate('/accounts')}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back to accounts</TooltipContent>
+          </Tooltip>
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               {account?.maskedIdentifier ?? 'Account'} Transactions
@@ -265,7 +282,7 @@ export function AccountTransactionsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowCreateTransaction(true)} className="rounded-sm">
+        <Button onClick={() => setShowCreateTransaction(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Add Transaction
         </Button>
@@ -330,7 +347,7 @@ export function AccountTransactionsPage() {
           ) : (
             <div className="space-y-2 max-h-64 overflow-auto">
               {attachments.map((att) => (
-                <div key={att.attachmentId} className="flex items-center justify-between p-2 rounded border border-border">
+                <div key={att.attachmentId} className="flex items-center justify-between p-2 rounded-md border border-border">
                   <div className="flex items-center gap-2 min-w-0">
                     <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <a
@@ -345,19 +362,50 @@ export function AccountTransactionsPage() {
                       {(att.fileSizeBytes / 1024).toFixed(0)} KB
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteAttachment(att.attachmentId)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${att.fileName}`}
+                        onClick={() => setPendingDeleteAttachmentId(att.attachmentId)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete attachment</TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!pendingDeleteAttachmentId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteAttachmentId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete attachment?</AlertDialogTitle>
+            <AlertDialogDescription>Delete this attachment?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (pendingDeleteAttachmentId) void handleDeleteAttachment(pendingDeleteAttachmentId);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateTransactionDialog
         open={showCreateTransaction}

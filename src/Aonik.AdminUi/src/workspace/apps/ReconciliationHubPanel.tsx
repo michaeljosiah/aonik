@@ -37,7 +37,7 @@ export function ReconciliationHubPanel({ panelId, title }: WorkspacePanelRenderP
 
       <Card className="p-4 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Linked from workspace</p>
+          <p className="text-xs text-muted-foreground">Linked from workspace</p>
           <p className="text-base font-semibold text-foreground">
             {linkedInvoice ?? 'Select an invoice in Invoice Manager'}
           </p>
@@ -52,13 +52,13 @@ export function ReconciliationHubPanel({ panelId, title }: WorkspacePanelRenderP
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Matches today</p>
-          <p className="text-2xl font-semibold text-foreground">1,248</p>
+          <p className="text-xs text-muted-foreground">Matches today</p>
+          <p className="text-2xl font-semibold font-mono tabular-nums text-foreground">1,248</p>
           <p className="text-xs text-muted-foreground">97% auto-match rate</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Open exceptions</p>
-          <p className="text-2xl font-semibold text-foreground">42</p>
+          <p className="text-xs text-muted-foreground">Open exceptions</p>
+          <p className="text-2xl font-semibold font-mono tabular-nums text-foreground">42</p>
           <p className="text-xs text-muted-foreground">8 need manual review</p>
         </Card>
       </div>

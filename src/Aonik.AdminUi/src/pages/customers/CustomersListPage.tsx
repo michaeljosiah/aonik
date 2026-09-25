@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/data-table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
 import { customerService } from '@/services/customerService';
 import type { CustomerDataImportResponse } from '@/services/customerService';
@@ -120,7 +121,7 @@ function RegistryTotalValue({ totals }: { totals: CustomerRegistryCurrencyTotal[
         return (
           <span
             key={total.currency}
-            className="font-[family-name:var(--font-mono)] text-xs font-semibold tabular-nums text-foreground"
+            className="font-mono text-xs font-semibold tabular-nums text-foreground"
           >
             {text}
           </span>
@@ -277,8 +278,9 @@ export function CustomersListPage() {
       id: 'id',
       header: 'ID',
       accessorFn: (row) => row.partyId,
+      numeric: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-xs font-medium text-foreground">
+        <span className="text-xs font-medium text-foreground">
           {formatCustomerId(row.partyId)}
         </span>
       ),
@@ -299,9 +301,9 @@ export function CustomersListPage() {
 
         return (
           <div className="flex items-center gap-2.5">
-            <Avatar className="h-[26px] w-[26px] rounded-[7px]">
+            <Avatar className="h-[26px] w-[26px] rounded-md">
               {photoUrl ? <AvatarImage src={photoUrl} alt={customerName} className="object-cover" /> : null}
-              <AvatarFallback className="rounded-[7px] bg-transparent p-0 text-inherit">
+              <AvatarFallback className="rounded-md bg-transparent p-0 text-inherit">
                 <AgentAvatar name={customerName} size={26} />
               </AvatarFallback>
             </Avatar>
@@ -345,7 +347,7 @@ export function CustomersListPage() {
       accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+        <span className="font-mono text-[11px] text-muted-foreground">
           {formatDate(row.createdAt)}
         </span>
       ),
@@ -380,17 +382,17 @@ export function CustomersListPage() {
         id: 'orderCount',
         header: 'Orders',
         accessorFn: (row) => row.orderCount ?? 0,
+        numeric: true,
         // Deliberately NOT sortable: DataTable sorts client-side and the list API takes no
         // sort field, so "most orders first" would rank the loaded page only — an operator
         // would sort descending and still find bigger customers on page two. Sorting returns
         // when the endpoint can order before paging (same reason Total value is unsortable).
         cell: (row) => (
-          <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {(row.orderCount ?? 0).toLocaleString()}
           </span>
         ),
-        className: 'w-[90px] text-right',
-        headerClassName: 'text-right',
+        className: 'w-[90px]',
       },
       {
         id: 'totalValue',
@@ -398,9 +400,9 @@ export function CustomersListPage() {
         // Sorting by a cross-currency figure would rank on an invented exchange rate, so
         // this column is deliberately not sortable.
         accessorFn: (row) => (row.totalValue ?? []).length,
+        numeric: true,
         cell: (row) => <RegistryTotalValue totals={row.totalValue ?? []} />,
-        className: 'w-[150px] text-right',
-        headerClassName: 'text-right',
+        className: 'w-[150px]',
       },
     );
   }
@@ -436,7 +438,6 @@ export function CustomersListPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Transact · Customers"
         title="Customers"
         subtitle={subtitle}
         actions={
@@ -470,32 +471,36 @@ export function CustomersListPage() {
       />
 
       {importResult && (
-        <div className="rounded-md border border-success bg-success-subtle p-3 text-sm">
-          <p className="font-medium text-success">
-            Imported {importResult.totalEntities} entities
-          </p>
-          <p className="mt-1 text-muted-foreground">
-            New customer ID: <code className="text-xs">{importResult.newPartyId}</code>
-          </p>
-          {importResult.warnings.length > 0 && (
-            <ul className="mt-2 list-disc pl-5 text-warning">
-              {importResult.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <Alert variant="success">
+          <AlertTitle>
+            Imported <span className="font-mono tabular-nums">{importResult.totalEntities}</span> entities
+          </AlertTitle>
+          <AlertDescription>
+            <p>
+              New customer ID: <code className="font-mono text-xs">{importResult.newPartyId}</code>
+            </p>
+            {importResult.warnings.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-warning-foreground">
+                {importResult.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadCustomers()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadCustomers()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar

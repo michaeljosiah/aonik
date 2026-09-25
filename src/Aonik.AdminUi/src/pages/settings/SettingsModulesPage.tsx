@@ -13,7 +13,7 @@ export function SettingsModulesPage() {
   return (
     <div className="h-full overflow-auto p-6">
       <div className="mb-6">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Admin</p>
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Admin</p>
         <h1 className="text-2xl font-bold text-foreground">Modules</h1>
         <p className="max-w-3xl text-muted-foreground">
           The platform modules available to this organisation. Module state is managed by the host administrator.

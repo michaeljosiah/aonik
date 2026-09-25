@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
+import { Button } from '@/components/ui/button';
 import { useTenantBootstrap } from '@/hooks/useTenantBootstrap';
 
 /**
@@ -73,43 +74,14 @@ function GateMessage({
   onAction?: () => void;
 }) {
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center px-6"
-      style={{ background: 'var(--background)' }}
-    >
-      <div
-        className="w-full max-w-[26rem] rounded-md p-6 text-center"
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-        }}
-      >
-        <h1
-          className="text-lg font-semibold mb-2"
-          style={{ color: 'var(--foreground)' }}
-        >
-          {title}
-        </h1>
-        <p
-          className="text-sm mb-4"
-          style={{ color: 'var(--muted-foreground)' }}
-        >
-          {body}
-        </p>
+    <div className="min-h-screen w-full flex items-center justify-center bg-background px-6">
+      <div className="w-full max-w-[26rem] rounded-lg border bg-card p-6 text-center">
+        <h1 className="text-lg font-semibold mb-2 text-foreground">{title}</h1>
+        <p className="text-sm mb-4 text-muted-foreground">{body}</p>
         {actionLabel && onAction && (
-          <button
-            type="button"
-            onClick={onAction}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-opacity"
-            style={{
-              background: 'var(--primary)',
-              color: 'var(--primary-foreground)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
+          <Button type="button" onClick={onAction}>
             {actionLabel}
-          </button>
+          </Button>
         )}
       </div>
     </div>

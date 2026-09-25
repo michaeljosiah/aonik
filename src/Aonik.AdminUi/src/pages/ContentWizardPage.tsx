@@ -68,7 +68,7 @@ export function ContentWizardPage() {
                   <span
                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                       i === stepIndex
-                        ? 'bg-white/25'
+                        ? 'bg-primary-foreground/25'
                         : i < stepIndex
                           ? 'bg-primary/20'
                           : 'bg-border'

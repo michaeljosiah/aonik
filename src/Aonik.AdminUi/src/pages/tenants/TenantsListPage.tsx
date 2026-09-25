@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Plus, 
   Search, 
@@ -113,7 +115,7 @@ export function TenantsListPage() {
             Manage all tenants in the platform. Create, configure, and monitor tenant environments.
           </p>
         </div>
-        <Button onClick={() => navigate('/tenants/new')} className="rounded-sm">
+        <Button onClick={() => navigate('/tenants/new')}>
           <Plus className="w-4 h-4 mr-2" />
           Create Tenant
         </Button>
@@ -139,12 +141,12 @@ export function TenantsListPage() {
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-72 max-w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
+                <Input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for tenants"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  className="pl-10"
                 />
               </div>
 
@@ -152,7 +154,7 @@ export function TenantsListPage() {
                 value={statusFilter || undefined}
                 onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value)}
               >
-                <SelectTrigger aria-label="Filter by status" className="h-9 rounded-sm">
+                <SelectTrigger aria-label="Filter by status" className="h-9">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -168,7 +170,7 @@ export function TenantsListPage() {
                 value={environmentFilter || undefined}
                 onValueChange={(value) => setEnvironmentFilter(value === '__all__' ? '' : value)}
               >
-                <SelectTrigger aria-label="Filter by environment" className="h-9 rounded-sm">
+                <SelectTrigger aria-label="Filter by environment" className="h-9">
                   <SelectValue placeholder="Filter by environment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -186,6 +188,7 @@ export function TenantsListPage() {
               size="icon-sm"
               onClick={loadTenants}
               title="Refresh"
+              aria-label="Refresh"
               disabled={loading}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -193,41 +196,28 @@ export function TenantsListPage() {
           </div>
 
           <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Tenant
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Environment
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Currency
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Created
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+            <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="px-4 text-xs text-muted-foreground">Tenant</TableHead>
+                <TableHead className="px-4 text-xs text-muted-foreground">Environment</TableHead>
+                <TableHead className="px-4 text-xs text-muted-foreground">Status</TableHead>
+                <TableHead className="px-4 text-xs text-muted-foreground">Currency</TableHead>
+                <TableHead className="px-4 text-xs text-muted-foreground">Created</TableHead>
+                <TableHead className="px-4 text-right text-xs text-muted-foreground">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+                <TableBody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={6} className="px-4 py-12 text-center">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">Loading tenants...</p>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : tenants.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={6} className="px-4 py-12 text-center">
                         <div className="mb-3 flex justify-center text-muted-foreground">
                           <Building2 className="w-12 h-12" />
                         </div>
@@ -238,27 +228,27 @@ export function TenantsListPage() {
                             : 'Get started by creating your first tenant'}
                         </p>
                         {!searchQuery && !statusFilter && !environmentFilter && (
-                          <Button onClick={() => navigate('/tenants/new')} className="rounded-sm">
+                          <Button onClick={() => navigate('/tenants/new')}>
                             <Plus className="w-4 h-4 mr-2" />
                             Create Tenant
                           </Button>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     tenants.map((tenant) => {
                       const StatusIcon = statusConfig[tenant.status]?.icon || AlertCircle;
-                      const statusColor = statusConfig[tenant.status]?.color || 'text-gray-500';
-                      const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-gray-100';
-                      const envColor = environmentColors[tenant.environment] || 'bg-gray-100 text-gray-700';
+                      const statusColor = statusConfig[tenant.status]?.color || 'text-muted-foreground';
+                      const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-muted';
+                      const envColor = environmentColors[tenant.environment] || 'bg-muted text-foreground';
 
                       return (
-                        <tr
+                        <TableRow
                           key={tenant.tenantId}
-                          className="border-b border-border hover:bg-muted cursor-pointer transition-colors"
+                          className="cursor-pointer"
                           onClick={() => navigate(`/tenants/${tenant.tenantId}`)}
                         >
-                          <td className="px-4 py-3">
+                          <TableCell className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
                                 <Building2 className="w-5 h-5 text-primary" />
@@ -270,31 +260,31 @@ export function TenantsListPage() {
                                 </p>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <Badge className={`${envColor} font-medium`}>
                               {tenant.environment}
                             </Badge>
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusBgColor} ${statusColor}`}>
                               <StatusIcon className="w-3.5 h-3.5" />
                               {tenant.status}
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-sm text-foreground">{tenant.defaultCurrency}</span>
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <span className="font-mono text-sm text-foreground">{tenant.defaultCurrency}</span>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <span className="text-sm text-muted-foreground">
                               {formatDate(tenant.createdAt)}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="rounded-sm"
+                             
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(`/tenants/${tenant.tenantId}`);
@@ -302,15 +292,13 @@ export function TenantsListPage() {
                             >
                               View
                             </Button>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })
                   )}
-                </tbody>
-              </table>
-            </div>
-
+                </TableBody>
+            </Table>
           </div>
 
           <div className="pt-4">

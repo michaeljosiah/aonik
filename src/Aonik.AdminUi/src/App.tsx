@@ -14,13 +14,17 @@ import { isElectron, setTitleBarColor } from '@/lib/electron';
  * so the bar tracks the active theme (light/dark) and any future palette
  * tweaks without a code change.
  */
+// guardrail-ignore: Electron's native title-bar API needs concrete colours, not CSS tokens
 const LOGIN_TITLE_BAR_COLOR = '#044045';
+// guardrail-ignore: Electron's native title-bar API needs concrete colours, not CSS tokens
 const LOGIN_TITLE_BAR_SYMBOL = '#ffffff';
 
 function readPostAuthTitleBarColors(): { color: string; symbolColor: string } {
   const root = document.documentElement;
   const styles = getComputedStyle(root);
+  // guardrail-ignore: fallback for Electron's native title-bar API when the token is unresolved
   const color = styles.getPropertyValue('--color-background').trim() || '#f9fafb';
+  // guardrail-ignore: fallback for Electron's native title-bar API when the token is unresolved
   const symbolColor = styles.getPropertyValue('--color-text-primary').trim() || '#2f2f2f';
   return { color, symbolColor };
 }

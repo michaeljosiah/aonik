@@ -43,17 +43,17 @@ const TIME_RANGE_OPTIONS = [
 ];
 
 const STATUS_BORDER: Record<string, string> = {
-  healthy: 'border-emerald-500',
-  degraded: 'border-amber-500',
-  critical: 'border-red-500',
-  unknown: 'border-slate-400',
+  healthy: 'border-success',
+  degraded: 'border-warning',
+  critical: 'border-destructive',
+  unknown: 'border-input',
 };
 
 const STATUS_BG: Record<string, string> = {
-  healthy: 'bg-emerald-50 dark:bg-emerald-950/30',
-  degraded: 'bg-amber-50 dark:bg-amber-950/30',
-  critical: 'bg-red-50 dark:bg-red-950/30',
-  unknown: 'bg-slate-50 dark:bg-slate-900/30',
+  healthy: 'bg-success-subtle',
+  degraded: 'bg-warning-subtle',
+  critical: 'bg-destructive/10',
+  unknown: 'bg-muted',
 };
 
 type FlowNodeData = { node: TopologyNode; selected: boolean };
@@ -64,15 +64,15 @@ function KindIcon({ kind }: { kind: string }) {
   return <Server className="h-3.5 w-3.5" />;
 }
 
-function getRuntimeBadgeVariant(runtimeState: string | null | undefined): 'success' | 'warning' | 'error' | 'outline' | 'pending' {
+function getRuntimeBadgeVariant(runtimeState: string | null | undefined): 'success' | 'warning' | 'destructive' | 'outline' {
   switch ((runtimeState ?? '').toLowerCase()) {
     case 'running':
       return 'success';
     case 'processing':
-      return 'pending';
+      return 'warning';
     case 'degraded':
     case 'failed':
-      return 'error';
+      return 'destructive';
     case 'scaled-to-zero':
     case 'stopped':
       return 'warning';
@@ -136,7 +136,7 @@ function NodeCard({ data }: NodeProps<Node<FlowNodeData>>) {
             <KindIcon kind={node.kind} />
             <span className="truncate">{node.label}</span>
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="mt-1 text-[10px] text-muted-foreground">
             {node.kind}
           </div>
         </div>
@@ -206,7 +206,7 @@ function layoutGraph(nodes: TopologyNode[], edges: TopologyEdge[], selectedNodeI
     label: `${edge.calls.toLocaleString()} · ${formatLatency(edge.p95LatencyMs)}`,
     animated: edge.errorRatePct > 5,
     style: {
-      stroke: edge.errorRatePct > 10 ? '#ef4444' : edge.errorRatePct > 2 ? '#f59e0b' : '#94a3b8',
+      stroke: edge.errorRatePct > 10 ? 'var(--destructive)' : edge.errorRatePct > 2 ? 'var(--warning)' : 'var(--muted-foreground)',
       strokeWidth: Math.min(4, 1 + Math.log10(Math.max(1, edge.calls))),
     },
     labelStyle: { fontSize: 10, fill: 'var(--muted-foreground)' },
@@ -371,7 +371,6 @@ export function ObservabilityTopologyPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="border-b border-border bg-card px-6 py-5">
         <PageHeader
-          eyebrow="Observability"
           title="Service Topology"
           subtitle="Visualize platform dependencies and wake scaled-to-zero dev services from the same operational map."
           actions={(
@@ -421,9 +420,9 @@ export function ObservabilityTopologyPage() {
               </CardHeader>
               <CardContent>
                 <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Healthy</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" /> Degraded</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" /> Critical</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Healthy</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-warning" /> Degraded</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> Critical</span>
                   <span className="ml-auto">Generated {new Date(topology.generatedAt).toLocaleTimeString()}</span>
                 </div>
                 <div className="h-[72vh] rounded-md border border-border bg-card">
@@ -474,19 +473,19 @@ export function ObservabilityTopologyPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-sm border border-border p-3">
+                      <div className="rounded-md border border-border p-3">
                         <div className="text-xs text-muted-foreground">Calls</div>
                         <div className="mt-1 font-medium text-foreground">{selectedNode.calls.toLocaleString()}</div>
                       </div>
-                      <div className="rounded-sm border border-border p-3">
+                      <div className="rounded-md border border-border p-3">
                         <div className="text-xs text-muted-foreground">P95 latency</div>
                         <div className="mt-1 font-medium text-foreground">{formatLatency(selectedNode.p95LatencyMs)}</div>
                       </div>
-                      <div className="rounded-sm border border-border p-3">
+                      <div className="rounded-md border border-border p-3">
                         <div className="text-xs text-muted-foreground">Error rate</div>
                         <div className="mt-1 font-medium text-foreground">{selectedNode.errorRatePct.toFixed(1)}%</div>
                       </div>
-                      <div className="rounded-sm border border-border p-3">
+                      <div className="rounded-md border border-border p-3">
                         <div className="text-xs text-muted-foreground">Last seen</div>
                         <div className="mt-1 font-medium text-foreground">{formatRelativeTime(selectedNode.lastSeen)}</div>
                       </div>

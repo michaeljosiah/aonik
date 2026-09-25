@@ -3,6 +3,8 @@ import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkle
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -418,14 +420,14 @@ function getTraceTotalMs(items: AiTraceObservationResponse[]): number {
   return Math.max(1, Math.max(...ends) - Math.min(...starts));
 }
 
-function statusPill(status: 'ok' | 'held' | 'error') {
+function statusBadgeVariant(status: 'ok' | 'held' | 'error'): 'destructive' | 'warning' | 'success' {
   if (status === 'error') {
-    return 'bg-red-500/10 text-red-600';
+    return 'destructive';
   }
   if (status === 'held') {
-    return 'bg-amber-500/10 text-amber-600';
+    return 'warning';
   }
-  return 'bg-emerald-500/10 text-emerald-600';
+  return 'success';
 }
 
 function getSpanKind(item: AiTraceObservationResponse): string {
@@ -820,7 +822,6 @@ export function ObservabilityTracesPage() {
       <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
-            eyebrow="Observability · Distributed tracing"
             title="Traces"
             subtitle="Every agent run captured as a span tree using live AI observation data."
             actions={(
@@ -856,7 +857,7 @@ export function ObservabilityTracesPage() {
                   <PopoverContent align="end" className="w-80">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        <span className="text-xs font-medium text-muted-foreground">
                           Filter traces
                         </span>
                         {activeFilterCount > 0 ? (
@@ -1015,9 +1016,9 @@ export function ObservabilityTracesPage() {
         </div>
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         ) : null}
 
         {!error ? (
@@ -1058,9 +1059,9 @@ export function ObservabilityTracesPage() {
                           <span className="truncate font-mono text-xs font-semibold text-foreground">
                             {(trace.traceName ?? trace.name) || trace.traceId}
                           </span>
-                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-mono uppercase', statusPill(status))}>
+                          <Badge variant={statusBadgeVariant(status)} className="font-mono">
                             {status}
-                          </span>
+                          </Badge>
                         </div>
                         <div className="mb-2 truncate font-mono text-[10px] text-muted-foreground">
                           {trace.traceId}
@@ -1085,9 +1086,9 @@ export function ObservabilityTracesPage() {
                         {(selectedTrace.traceName ?? selectedTrace.name) || selectedTrace.traceId}
                       </span>
                       <span className="font-mono text-[10px] text-muted-foreground">{selectedTrace.traceId}</span>
-                      <span className={cn('rounded px-2 py-0.5 text-[10px] font-mono uppercase', statusPill(selectedStatus))}>
+                      <Badge variant={statusBadgeVariant(selectedStatus)} className="font-mono">
                         {selectedStatus}
-                      </span>
+                      </Badge>
                     </div>
                     <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted-foreground">
                       <span>duration <b className="text-foreground">{formatDurationMs(selectedDurationMs)}</b></span>
@@ -1110,7 +1111,7 @@ export function ObservabilityTracesPage() {
                         number of distinct LLM calls in that bucket. */}
                     {modelCallSummary.length > 0 ? (
                       <div className="mt-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                        <div className="text-xs font-medium text-muted-foreground">
                           LLM calls
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
@@ -1149,7 +1150,7 @@ export function ObservabilityTracesPage() {
                         {traceAnalysisLoading ? 'Analysing...' : 'Interpret with AI'}
                       </Button>
                       {traceAnalysisError ? (
-                        <span className="text-[11px] text-red-500">
+                        <span className="text-[11px] text-destructive">
                           {traceAnalysisError}
                         </span>
                       ) : null}
@@ -1158,13 +1159,13 @@ export function ObservabilityTracesPage() {
                     {traceAnalysis && traceAnalysisFor === selectedTraceId ? (
                       <div className="mt-3 rounded-lg border border-border bg-muted p-4 text-[12.5px] leading-relaxed text-foreground">
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                             <Sparkles className="h-3 w-3" />
                             AI trace analysis
                           </div>
                           <div className="flex items-center gap-2">
                             {voiceError ? (
-                              <span className="text-[10.5px] text-red-500">
+                              <span className="text-[10.5px] text-destructive">
                                 {voiceError}
                               </span>
                             ) : null}
@@ -1192,10 +1193,10 @@ export function ObservabilityTracesPage() {
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-5 py-3 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                  <div className="grid grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-5 py-3 text-xs font-medium text-muted-foreground">
                     <div>Span</div>
                     <div className="text-right">Duration</div>
-                    <div className="grid grid-cols-5 font-mono normal-case tracking-normal text-muted-foreground">
+                    <div className="grid grid-cols-5 font-mono text-[10px] font-normal text-muted-foreground">
                       {[0, 25, 50, 75, 100].map((tick) => (
                         <span key={tick} className={cn(tick === 100 ? 'text-right' : tick === 0 ? 'text-left' : 'text-center')}>
                           {Math.round((traceTotalMs * tick) / 100)}ms
@@ -1296,16 +1297,16 @@ export function ObservabilityTracesPage() {
                               className={cn(
                                 'absolute inset-y-1 rounded-sm',
                                 item.level.toLowerCase() === 'error'
-                                  ? 'bg-red-500'
+                                  ? 'bg-destructive'
                                 : item.level.toLowerCase() === 'warning'
-                                  ? 'bg-amber-500'
+                                  ? 'bg-warning'
                                 : item.type.toLowerCase() === 'generation'
-                                  ? 'bg-primary'
+                                  ? 'bg-chart-1'
                                   : item.type.toLowerCase() === 'db'
-                                    ? 'bg-teal-500'
+                                    ? 'bg-chart-5'
                                     : item.type.toLowerCase() === 'http'
-                                      ? 'bg-violet-500'
-                                      : 'bg-sky-500',
+                                      ? 'bg-chart-4'
+                                      : 'bg-chart-2',
                               )}
                               style={{
                                 left: `${item.offsetPct}%`,

@@ -321,7 +321,7 @@ export function AccessUsersPage() {
       accessorKey: 'roleCount',
       sortable: true,
       cell: (user) => (
-        <Badge variant="team" className="text-xs">
+        <Badge variant="default" className="text-xs">
           {user.roleCount} role{user.roleCount === 1 ? '' : 's'}
         </Badge>
       ),
@@ -390,13 +390,13 @@ export function AccessUsersPage() {
           >
             {user.status}
           </span>
-          <Badge variant="team" className="text-xs">
+          <Badge variant="default" className="text-xs">
             {user.roleCount} role{user.roleCount === 1 ? '' : 's'}
           </Badge>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Party</p>
+            <p className="text-xs text-muted-foreground">Party</p>
             <p className="text-sm text-foreground">
               {user.partyDisplayName ?? 'Not linked'}
             </p>

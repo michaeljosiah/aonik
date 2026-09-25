@@ -15,7 +15,7 @@ export function MoneyTransferForm() {
         <Banknote className="h-6 w-6" />
       </div>
       <div className="w-full max-w-[28rem]">
-        <div className="font-[family-name:var(--font-brand)] text-[18px] font-bold text-foreground">
+        <div className="text-[18px] font-bold text-foreground">
           Money transfers coming soon
         </div>
         <div className="mt-1 text-[13px] text-muted-foreground">

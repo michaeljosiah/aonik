@@ -11,8 +11,6 @@ import {
   ChevronRight,
   ChevronDown,
   ShieldAlert,
-  ShieldCheck,
-  ShieldX,
 } from 'lucide-react';
 
 import {
@@ -20,11 +18,16 @@ import {
   MessageContent,
   MessageAvatar,
 } from '@/components/ai-elements';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AiDisplayToolCard,
   AiFollowUpSuggestionsCard,
   AiOptionSelectionCard,
+  approvalSeverityConfig,
+  ApprovalResolvedAlert,
   parseFollowUpSuggestions,
   ServerApprovalCard,
   tryParseJsonRecord,
@@ -196,7 +199,7 @@ export function ChatMessageList({
             return (
               <div
                 key={m.id}
-                className="ml-10 rounded-[2px] border border-border bg-[color-mix(in_srgb,var(--card)_92%,var(--background))] px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+                className="ml-10 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground"
                 data-component="reasoning-part"
               >
                 <div className="flex items-start gap-2">
@@ -273,7 +276,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
       <div
         className={`group rounded-lg border text-xs transition-colors ${
           isError
-            ? 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)]'
+            ? 'border-destructive/25 bg-destructive/5'
             : 'border-border bg-card'
         }`}
       >
@@ -396,17 +399,18 @@ function Markdown({ text }: { text: string }) {
         ),
         // Table
         table: ({ children }) => (
-          <div className="my-2 overflow-x-auto">
-            <table className="text-xs border-collapse w-full">{children}</table>
+          <div className="my-2 overflow-hidden rounded-md border">
+            <Table className="text-xs">{children}</Table>
           </div>
         ),
+        thead: ({ children }) => <TableHeader className="bg-muted">{children}</TableHeader>,
+        tbody: ({ children }) => <TableBody>{children}</TableBody>,
+        tr: ({ children }) => <TableRow>{children}</TableRow>,
         th: ({ children }) => (
-          <th className="border border-border bg-muted px-2 py-1 text-left font-medium">
-            {children}
-          </th>
+          <TableHead className="h-8 whitespace-normal">{children}</TableHead>
         ),
         td: ({ children }) => (
-          <td className="border border-border px-2 py-1">{children}</td>
+          <TableCell className="whitespace-normal">{children}</TableCell>
         ),
       }}
     >
@@ -431,27 +435,6 @@ function tryFormatJson(str: string): string {
 }
 
 // ─── Approval Card ────────────────────────────────────────────────────────────
-
-const severityConfig = {
-  low: {
-    badge: 'bg-info-subtle text-info border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-info" />,
-    label: 'Low Risk',
-  },
-  medium: {
-    badge: 'bg-warning-subtle text-warning border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-warning" />,
-    label: 'Medium Risk',
-  },
-  high: {
-    badge: 'bg-destructive/10 text-destructive border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
-    label: 'High Risk',
-  },
-} as const;
 
 interface ApprovalCardProps {
   toolCall: ChatToolCall;
@@ -482,32 +465,16 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
     }
   }
 
-  const config = severityConfig[severity];
+  const config = approvalSeverityConfig[severity];
 
   // Completed state
   if (isCompleted) {
     return (
-      <div
-        className={`flex items-start gap-3 rounded-lg border ${
-          wasApproved ? 'border-[color-mix(in_srgb,var(--success)_25%,transparent)] bg-[color-mix(in_srgb,var(--success)_8%,transparent)]' : 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]'
-        } px-4 py-3 text-sm`}
-      >
-        {wasApproved ? (
-          <ShieldCheck className="h-5 w-5 text-success mt-0.5 shrink-0" />
-        ) : (
-          <ShieldX className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-foreground">
-            {action || 'Action'} — {wasApproved ? 'Approved' : 'Rejected'}
-          </div>
-          {description && (
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              {description}
-            </div>
-          )}
-        </div>
-      </div>
+      <ApprovalResolvedAlert
+        approved={wasApproved}
+        title={action || 'Action'}
+        detail={description || undefined}
+      />
     );
   }
 
@@ -530,19 +497,17 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
         <span className="font-semibold text-sm text-foreground">
-          Approval Required
+          Approval required
         </span>
-        <span
-          className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}
-        >
+        <Badge variant={config.badge} className="ml-auto">
           {config.label}
-        </span>
+        </Badge>
       </div>
 
       {/* Body */}
       <div className="px-4 py-3">
         <div className="font-medium text-sm text-foreground">
-          {action || 'Confirm Action'}
+          {action || 'Confirm action'}
         </div>
         {description && (
           <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
@@ -554,22 +519,20 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
       {/* Actions */}
       {isAwaitingApproval && onApprove && onReject && (
         <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border bg-muted">
-          <button
-            type="button"
-            onClick={() => onApprove(toolCall.toolCallId)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
+          <Button type="button" size="sm" variant="agent" onClick={() => onApprove(toolCall.toolCallId)}>
+            <CheckCircle2 />
             Approve
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={() => onReject(toolCall.toolCallId)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-card border border-[color-mix(in_srgb,var(--destructive)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-destructive shadow-sm hover:bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)] transition-colors"
+            className="text-destructive hover:text-destructive"
           >
-            <XCircle className="h-3.5 w-3.5" />
+            <XCircle />
             Reject
-          </button>
+          </Button>
         </div>
       )}
     </div>

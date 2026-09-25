@@ -36,6 +36,12 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
@@ -1101,7 +1107,7 @@ function PlaygroundHeader({
                 <>
                   <Play className="mr-1.5 h-3.5 w-3.5" />
                   Run All
-                  <kbd className="ml-2 rounded border border-white/20 px-1 py-0.5 text-[10px] font-normal opacity-60">
+                  <kbd className="ml-2 rounded border border-primary-foreground/20 px-1 py-0.5 text-[10px] font-normal opacity-60">
                     Ctrl+Enter
                   </kbd>
                 </>
@@ -1119,46 +1125,27 @@ function AddMessageButton({
 }: {
   onAdd: (role: 'user' | 'assistant') => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen(!open)}
-        className="h-7 text-xs text-muted-foreground"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        Message
-        <ChevronDown className="ml-1 h-3 w-3" />
-      </Button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-sm border border-border bg-card py-1 shadow-md">
-            <button
-              className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
-              onClick={() => {
-                onAdd('user');
-                setOpen(false);
-              }}
-            >
-              User
-            </button>
-            <button
-              className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
-              onClick={() => {
-                onAdd('assistant');
-                setOpen(false);
-              }}
-            >
-              Assistant
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-muted-foreground"
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          Message
+          <ChevronDown className="ml-1 h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[120px]">
+        <DropdownMenuItem className="text-xs" onSelect={() => onAdd('user')}>
+          User
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-xs" onSelect={() => onAdd('assistant')}>
+          Assistant
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

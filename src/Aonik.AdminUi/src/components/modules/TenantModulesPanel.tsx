@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Lock, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -184,10 +185,10 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
   if (error && modules.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="h-4 w-4" />
           Try again
@@ -210,10 +211,10 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="space-y-2">
@@ -272,9 +273,9 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
       </div>
 
       {!readOnly && cascade && (
-        <div className="space-y-3 rounded-md border border-warning bg-warning-subtle px-4 py-3">
-          <div className="flex items-start gap-2 text-sm text-foreground">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+        <Alert variant="warning">
+          <AlertTriangle />
+          <AlertDescription className="gap-3">
             <div className="space-y-1">
               {cascade.conflict.code === 'module.dependency_missing' ? (
                 <>
@@ -292,18 +293,18 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
                 </>
               )}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={resubmitWithCascade} disabled={saving}>
-              {cascade.conflict.code === 'module.dependency_missing'
-                ? `Enable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))} too`
-                : `Also disable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))}`}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCascade(null)} disabled={saving}>
-              Keep as is
-            </Button>
-          </div>
-        </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={resubmitWithCascade} disabled={saving}>
+                {cascade.conflict.code === 'module.dependency_missing'
+                  ? `Enable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))} too`
+                  : `Also disable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))}`}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCascade(null)} disabled={saving}>
+                Keep as is
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {!readOnly && pendingToggles.length > 0 && (

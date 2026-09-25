@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Plug, RefreshCw } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar, type FilterBarTab, Pill } from '@/components/layout/aonik';
 import type { PartnerDetail, PartnerTransmissionItem } from '@/types/partners';
 import { Chip, EmptyState, InfoNote, Panel, ViewToggle, type HubView } from './components';
@@ -183,24 +184,24 @@ function ActivityCard({ row, onOpen }: { row: TxRow; onOpen: () => void }) {
 function ActivityTable({ rows, onOpenPartner }: { rows: TxRow[]; onOpenPartner: (partnerId: string) => void }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[13px]">
-        <thead>
-          <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-            <th className="px-5 py-3 font-medium">Partner</th>
-            <th className="px-3 py-3 font-medium">Connector</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="px-3 py-3 text-right font-medium">Retries</th>
-            <th className="px-3 py-3 font-medium">Error</th>
-            <th className="px-5 py-3 font-medium">When</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="border-collapse text-left text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border text-muted-foreground hover:bg-transparent">
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Partner</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Connector</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Status</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Retries</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Error</TableHead>
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">When</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
-            <tr
+            <TableRow
               key={r.tx.transmissionId}
               className="border-b border-border last:border-0 hover:bg-muted"
             >
-              <td className="px-5 py-3">
+              <TableCell className="px-5 py-3">
                 <button
                   type="button"
                   onClick={() => onOpenPartner(r.partner.partnerId)}
@@ -209,17 +210,17 @@ function ActivityTable({ rows, onOpenPartner }: { rows: TxRow[]; onOpenPartner: 
                   <AgentAvatar name={r.partner.name} size={26} />
                   <span className="font-medium text-foreground">{r.partner.name}</span>
                 </button>
-              </td>
-              <td className="px-3 py-3 text-muted-foreground">{r.tx.connectorType ?? '—'}</td>
-              <td className="px-3 py-3">
+              </TableCell>
+              <TableCell className="px-3 py-3 text-muted-foreground">{r.tx.connectorType ?? '—'}</TableCell>
+              <TableCell className="px-3 py-3">
                 <Pill tone={transmissionTone(r.tx.status)} dot>
                   {r.tx.status}
                 </Pill>
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {r.tx.retryCount}
-              </td>
-              <td className="max-w-[260px] px-3 py-3">
+              </TableCell>
+              <TableCell className="max-w-[260px] px-3 py-3">
                 {r.tx.lastError ? (
                   <span className="block truncate text-[12px] text-destructive" title={r.tx.lastError}>
                     {r.tx.lastError}
@@ -227,12 +228,12 @@ function ActivityTable({ rows, onOpenPartner }: { rows: TxRow[]; onOpenPartner: 
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
-              </td>
-              <td className="px-5 py-3 text-muted-foreground">{formatRelative(r.tx.createdAt)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="px-5 py-3 text-muted-foreground">{formatRelative(r.tx.createdAt)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

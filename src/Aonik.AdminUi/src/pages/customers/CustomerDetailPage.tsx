@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { useModules } from '@/modules/useModules';
@@ -378,25 +380,26 @@ export function CustomerDetailPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadCustomer()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadCustomer()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Header card */}
       <div className="flex items-center gap-5 rounded-xl border border-border bg-card p-5">
         <div
-          className="flex h-[68px] w-[68px] flex-none items-center justify-center font-[family-name:var(--font-brand)] font-semibold leading-none text-white"
+          className="flex h-[68px] w-[68px] flex-none items-center justify-center rounded-xl font-semibold leading-none text-white"
           style={{
-            borderRadius: 14,
             fontSize: 26,
             background:
-              'linear-gradient(135deg, var(--primary) 0%, var(--color-brand-primary-dark) 100%)',
+              'linear-gradient(135deg, var(--primary) 0%, color-mix(in oklab, var(--primary) 85%, black) 100%)',
             letterSpacing: '-0.02em',
           }}
         >
@@ -404,14 +407,14 @@ export function CustomerDetailPage() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="font-[family-name:var(--font-brand)] text-[22px] font-bold tracking-[-0.01em] text-foreground">
+            <div className="text-[22px] font-bold tracking-[-0.01em] text-foreground">
               {customer.displayName}
             </div>
             <Pill tone={STATUS_TONE[customer.status] ?? 'default'} dot>
               {customer.status}
             </Pill>
             {registrationCode && (
-              <span className="rounded border border-border bg-muted px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+              <span className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                 {registrationCode}
               </span>
             )}
@@ -429,7 +432,7 @@ export function CustomerDetailPage() {
                 {primaryAddress.country}
               </span>
             )}
-            <span className="font-[family-name:var(--font-mono)]">
+            <span className="font-mono tabular-nums">
               customer since · {formatDate(customer.createdAt)}
             </span>
           </div>
@@ -492,7 +495,7 @@ export function CustomerDetailPage() {
         <KpiCell
           label="LTV"
           value={statsLoading && !stats ? '—' : totalPaidSummary}
-          dot="var(--color-accent-team)"
+          dot="var(--chart-4)"
           sub={
             totalOrders != null
               ? `${totalOrders.toLocaleString()} order${totalOrders === 1 ? '' : 's'}`
@@ -627,12 +630,12 @@ function KpiCell({
   dot: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-border bg-card p-3.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card p-3.5">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
         {label}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[20px] font-semibold leading-none text-foreground">
+      <div className="mt-1 font-mono text-[20px] font-semibold leading-none tabular-nums text-foreground">
         {value}
       </div>
       {sub && (
@@ -718,13 +721,13 @@ function OverviewTab({
               }
               style={{ gridTemplateColumns: '140px 1fr' }}
             >
-              <span className="text-[11px] tracking-[0.02em] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 {label}
               </span>
               <span
                 className={
                   'text-[12.5px] text-foreground ' +
-                  (mono ? 'font-[family-name:var(--font-mono)]' : '')
+                  (mono ? 'font-mono tabular-nums' : '')
                 }
               >
                 {value}
@@ -770,7 +773,7 @@ function OverviewTab({
                 <Pill tone={consent.revokedAt ? 'muted' : 'success'} size="sm">
                   {consent.revokedAt ? 'Revoked' : 'Active'}
                 </Pill>
-                <span className="min-w-[60px] text-right font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
+                <span className="min-w-[60px] text-right font-mono tabular-nums text-[10px] text-muted-foreground">
                   {formatDate(consent.grantedAt)}
                 </span>
               </div>
@@ -792,7 +795,7 @@ function OverviewTab({
                   <div className="text-[13px] font-medium text-foreground">
                     {acct.accountType}
                   </div>
-                  <div className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+                  <div className="font-mono tabular-nums text-[11px] text-muted-foreground">
                     {acct.maskedIdentifier}
                     {acct.providerRef ? ` · ${acct.providerRef}` : ''}
                   </div>
@@ -980,7 +983,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               {summary.positivePatterns.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-success">
+                  <div className="text-xs font-medium text-success">
                     Positive patterns
                   </div>
                   <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-foreground">
@@ -992,7 +995,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
               )}
               {summary.riskPatterns.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-destructive">
+                  <div className="text-xs font-medium text-destructive">
                     Risk patterns
                   </div>
                   <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-foreground">
@@ -1070,7 +1073,7 @@ function SectionEyebrow({ children, inset }: { children: ReactNode; inset?: bool
   return (
     <div
       className={
-        'text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground ' +
+        'text-xs font-medium text-muted-foreground ' +
         (inset ? 'mb-1.5' : 'mb-1.5 mt-4')
       }
     >
@@ -1103,9 +1106,9 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
       }
     >
       {error && (
-        <div className="mb-3 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-3 px-3 py-2">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
+        </Alert>
       )}
 
       {loading ? (
@@ -1142,23 +1145,29 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
                     Reference {doc.referenceNumber || '—'}
                   </div>
                 </div>
-                <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+                <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
                   uploaded {formatDate(doc.issuedOn)}
                 </span>
-                <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+                <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
                   expires {formatDate(doc.expiresOn)}
                 </span>
                 <Pill tone={tone} dot>
                   {doc.status}
                 </Pill>
-                <button
-                  type="button"
-                  onClick={() => onView(doc.documentId)}
-                  className="hover-halo"
-                  aria-label={`View ${doc.documentType}`}
-                >
-                  <Download className="h-[13px] w-[13px]" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onView(doc.documentId)}
+                      aria-label={`View ${doc.documentType}`}
+                    >
+                      <Download className="h-[13px] w-[13px]" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View document</TooltipContent>
+                </Tooltip>
               </div>
             );
           })}
@@ -1175,7 +1184,7 @@ const ACTIVITY_KIND_VISUAL: Record<
   string,
   { icon: typeof Sparkles; color: string }
 > = {
-  order_created: { icon: Plus, color: 'var(--agent)' },
+  order_created: { icon: Plus, color: 'var(--chart-4)' },
   order_updated: { icon: RefreshCw, color: 'var(--muted-foreground)' },
   payment_captured: { icon: Sparkles, color: 'var(--success)' },
   document_uploaded: { icon: FileText, color: 'var(--muted-foreground)' },
@@ -1257,7 +1266,7 @@ function ActivityList({
             <div
               className="flex h-7 w-7 items-center justify-center rounded-md"
               style={{
-                background: `${visual.color}1f`,
+                background: `color-mix(in oklab, ${visual.color} 12%, transparent)`,
                 color: visual.color,
               }}
             >
@@ -1273,7 +1282,7 @@ function ActivityList({
                 </div>
               )}
             </div>
-            <span className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
+            <span className="font-mono tabular-nums text-[10px] text-muted-foreground">
               {formatRelative(entry.timestamp)}
             </span>
           </div>
