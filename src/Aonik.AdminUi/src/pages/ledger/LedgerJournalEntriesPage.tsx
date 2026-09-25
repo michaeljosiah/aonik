@@ -547,7 +547,6 @@ export function LedgerJournalEntriesPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by entry, memo, reference…"
-        hideFilterButton
       />
 
       <div className="flex flex-col gap-3">

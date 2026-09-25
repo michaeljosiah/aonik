@@ -65,7 +65,6 @@ export function CoverageTab({ data, onOpenPartner }: CoverageTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search markets…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 

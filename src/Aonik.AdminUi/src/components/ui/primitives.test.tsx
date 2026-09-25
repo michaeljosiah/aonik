@@ -85,9 +85,9 @@ describe('Button', () => {
 });
 
 describe('Badge', () => {
-  it('keeps deprecated variant names rendering on the new tokens', () => {
-    expect(renderToStaticMarkup(<Badge variant="error">Failed</Badge>)).toContain('bg-destructive');
-    expect(renderToStaticMarkup(<Badge variant="pending">Pending</Badge>)).toContain('bg-warning-subtle');
+  it('renders status variants on the subtle tint with readable foreground', () => {
+    expect(renderToStaticMarkup(<Badge variant="destructive">Failed</Badge>)).toContain('bg-destructive');
+    expect(renderToStaticMarkup(<Badge variant="warning">Pending</Badge>)).toContain('bg-warning-subtle');
     expect(renderToStaticMarkup(<Badge variant="success">Settled</Badge>)).toContain('text-success-foreground');
   });
 });

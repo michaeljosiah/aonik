@@ -770,7 +770,7 @@ function OverviewTab({
                 <span className="flex-1 text-[12.5px] text-foreground">
                   {consent.consentType}
                 </span>
-                <Pill tone={consent.revokedAt ? 'muted' : 'success'} size="sm">
+                <Pill tone={consent.revokedAt ? 'muted' : 'success'}>
                   {consent.revokedAt ? 'Revoked' : 'Active'}
                 </Pill>
                 <span className="min-w-[60px] text-right font-mono tabular-nums text-[10px] text-muted-foreground">
@@ -800,7 +800,7 @@ function OverviewTab({
                     {acct.providerRef ? ` · ${acct.providerRef}` : ''}
                   </div>
                 </div>
-                <Pill tone={VERIFICATION_TONE[acct.verificationStatus] ?? 'muted'} size="sm">
+                <Pill tone={VERIFICATION_TONE[acct.verificationStatus] ?? 'muted'}>
                   {acct.verificationStatus}
                 </Pill>
               </div>
@@ -1013,7 +1013,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
               <SectionEyebrow>Recommended focus</SectionEyebrow>
               <div className="flex flex-wrap gap-1.5">
                 {summary.recommendedFocusAreas.map((area, i) => (
-                  <Pill key={i} tone="info" size="sm">
+                  <Pill key={i} tone="info">
                     {area}
                   </Pill>
                 ))}
@@ -1040,7 +1040,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
           subtitle={`As of ${formatDateTime(insights.snapshot.asOfUtc)}`}
           action={
             insights.snapshot.isPartial ? (
-              <Pill tone="warning" size="sm">Partial</Pill>
+              <Pill tone="warning">Partial</Pill>
             ) : null
           }
         >

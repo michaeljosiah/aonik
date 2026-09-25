@@ -228,7 +228,6 @@ export function CommerceCartsPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Carts"
         subtitle="Live, stuck and recoverable box sessions — with the drift flags computed at load and never persisted"
       />
@@ -277,7 +276,7 @@ export function CommerceCartsPage() {
         </Alert>
       )}
 
-      <FilterBar tabs={STATUS_TABS} active={status} onTabChange={setStatus} hideFilterButton />
+      <FilterBar tabs={STATUS_TABS} active={status} onTabChange={setStatus} />
 
       <AonikCard padding={0}>
         {loading ? (

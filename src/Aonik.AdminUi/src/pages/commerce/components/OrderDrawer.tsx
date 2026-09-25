@@ -174,7 +174,7 @@ function ChargeRow({
       <dt className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
         {label}
         {chip && (
-          <Pill tone="muted" size="sm">
+          <Pill tone="muted">
             {chip}
           </Pill>
         )}

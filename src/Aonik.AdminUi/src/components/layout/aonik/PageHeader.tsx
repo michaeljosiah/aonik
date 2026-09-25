@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 
 export interface PageHeaderProps {
-  /**
-   * Deprecated and not rendered (Spec 098 D6): location comes from the
-   * breadcrumb and sidebar, so the page doesn't repeat it above the title.
-   */
-  eyebrow?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;

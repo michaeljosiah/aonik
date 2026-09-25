@@ -290,7 +290,7 @@ function SurfaceRow({
           <span className="text-[11px] text-muted-foreground">Unavailable</span>
         )}
         {state.kind === 'ready' && (
-          <Pill tone={state.tone} size="sm">
+          <Pill tone={state.tone}>
             {state.summary}
           </Pill>
         )}

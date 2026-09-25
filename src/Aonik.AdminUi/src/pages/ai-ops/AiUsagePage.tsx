@@ -220,7 +220,7 @@ export function AiUsagePage() {
               : formatTokens(Math.round(totals.tokens / runs.length))
           }
           sub="needs in/out split for parity"
-          tone="var(--color-accent-team)"
+          tone="var(--agent-team)"
         />
         <UsageTile
           label="Tool calls"

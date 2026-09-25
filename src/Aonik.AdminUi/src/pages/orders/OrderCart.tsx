@@ -108,11 +108,11 @@ function CartItem({
             <span className="truncate text-[13px] font-semibold text-foreground">
               {item.billerName}
             </span>
-            <Pill tone="info" size="sm">
+            <Pill tone="info">
               Bill payment
             </Pill>
             {item.isQuoteExpired && (
-              <Pill tone="danger" size="sm">
+              <Pill tone="danger">
                 Quote expired
               </Pill>
             )}

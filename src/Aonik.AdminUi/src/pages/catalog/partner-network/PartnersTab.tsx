@@ -53,7 +53,6 @@ export function PartnersTab({ data, onOpenPartner }: PartnersTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search partners…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 

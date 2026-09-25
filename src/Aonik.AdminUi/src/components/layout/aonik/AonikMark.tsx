@@ -47,7 +47,7 @@ export function AonikMark({
           width: dotSize,
           height: dotSize,
           borderRadius: '50%',
-          background: 'var(--color-brand-mark-dot)',
+          background: 'var(--mark-dot)',
           zIndex: 2,
         }}
       />

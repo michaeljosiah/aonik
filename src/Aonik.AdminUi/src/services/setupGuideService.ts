@@ -19,7 +19,6 @@ export interface SetupGuideDefinition {
   description: string;
   category: string;
   order: number;
-  accent?: string;
   cover?: string;
 }
 

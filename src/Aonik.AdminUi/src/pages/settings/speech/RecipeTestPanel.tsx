@@ -386,7 +386,7 @@ function ChainedSttCard({
           </Button>
         )}
         {recorder.isRecording && (
-          <Badge variant="error" className="animate-pulse">
+          <Badge variant="destructive" className="animate-pulse">
             Recording…
           </Badge>
         )}
@@ -491,7 +491,7 @@ function RecipeProviderHeader({
         {chips.map((c) => (
           <Badge
             key={c.label}
-            variant={c.tone === "destructive" ? "error" : "outline"}
+            variant={c.tone === "destructive" ? "destructive" : "outline"}
             className="font-mono text-[10.5px]"
           >
             {c.label}: {c.value}

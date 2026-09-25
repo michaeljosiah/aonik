@@ -1,6 +1,6 @@
 // Design-system guardrails for the Admin UI (Spec 098 §11).
 //
-// Scans src/**/*.tsx outside components/ui (the primitive layer) and
+// Scans src/**/*.{ts,tsx} outside components/ui (the primitive layer) and
 // pages/dev, and counts patterns the shadcn/Radix alignment removes:
 // hard-coded colours, raw Tailwind palette colours, arbitrary radii and
 // z-indexes, window.confirm, raw form/table elements, and legacy CSS
@@ -58,14 +58,14 @@ const RULES = [
     label: 'Legacy CSS classes',
     re: /(?<=["'`\s])(?:hover-halo|eyebrow|aonik-input|aonik-select|theme-(?:text-color|bg|bg-light|border|active)|hover-theme-effect|theme-image-hover|theme-text-hover|hoverBorder|hover-border|shine-effect|input-focused|zoom-responsive)(?=["'`\s])/g,
   },
-  { id: 'legacyVar', label: 'Legacy var(--color-*) (info, P4)', re: /var\(--color-[a-z0-9-]+\)/g, info: true },
+  { id: 'legacyVar', label: 'Legacy var(--color-*) token', re: /var\(--color-[a-z0-9-]+\)/g },
 ];
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
-    else if (p.endsWith('.tsx') && !p.endsWith('.test.tsx')) out.push(p);
+    else if (/\.tsx?$/.test(p) && !/\.(test|d)\.tsx?$/.test(p)) out.push(p);
   }
   return out;
 }

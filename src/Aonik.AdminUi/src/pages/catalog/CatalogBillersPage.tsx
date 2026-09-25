@@ -788,7 +788,7 @@ function BillerCard({
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex gap-2.5 items-center min-w-0">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-none"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xs flex-none"
             style={{ background: tile, filter: biller.isActive ? 'none' : 'grayscale(1)' }}
           >
             {billerInitials(biller.name)}
@@ -872,7 +872,7 @@ function BillerList({
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className="w-7 h-7 rounded flex items-center justify-center text-white font-bold text-[10px] flex-none"
+                className="w-7 h-7 rounded-md flex items-center justify-center text-primary-foreground font-bold text-[10px] flex-none"
                 style={{ background: tile, filter: b.isActive ? 'none' : 'grayscale(1)' }}
               >
                 {billerInitials(b.name)}

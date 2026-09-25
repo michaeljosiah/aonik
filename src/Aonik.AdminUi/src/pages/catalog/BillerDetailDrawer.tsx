@@ -67,7 +67,7 @@ export function BillerDetailDrawer({
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-start gap-3">
           <div
-            className="w-11 h-11 rounded-lg flex items-center justify-center text-white font-bold text-[15px] flex-none"
+            className="w-11 h-11 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-[15px] flex-none"
             style={{ background: tile, filter: biller.isActive ? 'none' : 'grayscale(1)' }}
           >
             {billerInitials(biller.name)}

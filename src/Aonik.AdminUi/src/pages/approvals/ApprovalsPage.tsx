@@ -449,7 +449,7 @@ function ListColumn({ items, selectedId, loading, error, onSelect, onRefresh }: 
               }
             >
               <div className="flex items-center gap-2">
-                <Pill tone="muted" size="sm">
+                <Pill tone="muted">
                   {item.proposalType || 'Proposal'}
                 </Pill>
                 {item.riskTier === 'High' && (
@@ -473,7 +473,7 @@ function ListColumn({ items, selectedId, loading, error, onSelect, onRefresh }: 
                 </span>
               </div>
               <div className="flex items-center gap-2 pt-0.5 text-[11px]">
-                <Pill tone={RISK_TONE[item.riskTier] ?? 'default'} dot size="sm">
+                <Pill tone={RISK_TONE[item.riskTier] ?? 'default'} dot>
                   {item.riskTier || 'Unknown'}
                 </Pill>
                 <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
@@ -532,10 +532,10 @@ function DetailColumn({
             <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
               {shortProposalId(list.id)}
             </span>
-            <Pill tone={RISK_TONE[list.riskTier] ?? 'default'} dot size="sm">
+            <Pill tone={RISK_TONE[list.riskTier] ?? 'default'} dot>
               {URGENCY_LABEL[list.riskTier] ?? list.riskTier.toLowerCase()}
             </Pill>
-            <Pill tone="info" size="sm">
+            <Pill tone="info">
               {list.proposalType || 'Proposal'}
             </Pill>
           </div>

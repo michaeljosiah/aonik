@@ -228,7 +228,7 @@ export function AiRunQueuePage() {
           label="Avg duration"
           value={formatLatency(avgLatency)}
           sub={`${stats.latencyCount} timed`}
-          tone="var(--color-accent-team)"
+          tone="var(--agent-team)"
         />
         <StatTile
           label="Error rate"
@@ -262,7 +262,6 @@ export function AiRunQueuePage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by use case, model, run id…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>
@@ -313,7 +312,7 @@ export function AiRunQueuePage() {
                     {run.modelName ?? '—'}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <Pill tone={OUTCOME_TONE[run.outcome] ?? 'default'} dot size="sm">
+                    <Pill tone={OUTCOME_TONE[run.outcome] ?? 'default'} dot>
                       {run.outcome || 'Pending'}
                     </Pill>
                   </TableCell>

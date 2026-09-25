@@ -401,7 +401,6 @@ export function OrdersListPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by order ref, party, amount…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>

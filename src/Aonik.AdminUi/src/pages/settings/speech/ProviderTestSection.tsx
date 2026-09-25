@@ -274,7 +274,7 @@ function SttTestPanel({ providerId }: { providerId: string }) {
           </Button>
         )}
         {recorder.isRecording && (
-          <Badge variant="error" className="animate-pulse">
+          <Badge variant="destructive" className="animate-pulse">
             Recording…
           </Badge>
         )}

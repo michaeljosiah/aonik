@@ -190,7 +190,7 @@ export function AgentDetailHero({
             >
               {deriveKindLabel(agent.agentType)} Agent
             </span>
-            <Pill tone={pillMeta.tone} dot size="sm">
+            <Pill tone={pillMeta.tone} dot>
               {pillMeta.label}
             </Pill>
             <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">

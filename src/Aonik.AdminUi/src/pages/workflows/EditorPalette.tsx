@@ -70,7 +70,7 @@ function PaletteItem({ kind }: PaletteItemProps) {
       style={{ padding: '7px 8px', cursor: 'grab' }}
     >
       <span
-        className="inline-flex flex-none items-center justify-center text-white"
+        className="inline-flex flex-none items-center justify-center text-primary-foreground"
         style={{ width: 22, height: 22, borderRadius: 5, background: meta.tint }}
       >
         <Icon size={11} />

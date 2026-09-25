@@ -368,11 +368,11 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
             >
               {agent.name}
             </button>
-            <Pill tone="info" size="sm">
+            <Pill tone="info">
               {deriveKindLabel(agent.agentType)}
             </Pill>
             {agent.isOverride && (
-              <Pill tone="pending" size="sm">
+              <Pill tone="pending">
                 Override
               </Pill>
             )}
@@ -411,11 +411,11 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
 
       <div className="flex items-center gap-2 pt-1">
         {autoApply ? (
-          <Pill tone="success" dot size="sm">
+          <Pill tone="success" dot>
             Auto-apply
           </Pill>
         ) : (
-          <Pill tone="info" size="sm">
+          <Pill tone="info">
             Propose only
           </Pill>
         )}
@@ -501,7 +501,7 @@ function AgentListView({
                 >
                   {agent.name}
                 </span>
-                <Pill tone="info" size="sm">
+                <Pill tone="info">
                   {deriveKindLabel(agent.agentType)}
                 </Pill>
               </div>

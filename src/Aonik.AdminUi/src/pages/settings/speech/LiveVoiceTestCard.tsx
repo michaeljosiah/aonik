@@ -545,7 +545,7 @@ function ConnectionPill({ status }: { status: ConnectionStatus }) {
     case "connecting":
       return <Badge variant="outline">Connecting</Badge>;
     case "error":
-      return <Badge variant="error">Error</Badge>;
+      return <Badge variant="destructive">Error</Badge>;
     default:
       return (
         <Badge variant="outline" className="text-muted-foreground">
