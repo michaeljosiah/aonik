@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -291,22 +291,28 @@ export function AccountsSubTab({ userId }: { userId: string }) {
   const [showAdd, setShowAdd] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
 
+  // Tags each request so a slow response for a previous userId/filter can't overwrite a newer one.
+  const requestIdRef = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const data = await personalFinanceService.admin.listAccounts(userId, includeArchived);
+      if (requestId !== requestIdRef.current) return;
       setAccounts(data);
     } catch (err: unknown) {
+      if (requestId !== requestIdRef.current) return;
       const message =
         err && typeof err === 'object' && 'userMessage' in err
           ? String((err as { userMessage?: string }).userMessage ?? '')
           : '';
       setError(message || 'Failed to load accounts.');
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [includeArchived]);
+  }, [userId, includeArchived]);
 
   useEffect(() => {
     load();
