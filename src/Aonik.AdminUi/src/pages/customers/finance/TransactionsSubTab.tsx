@@ -112,16 +112,16 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-[22rem] bg-[var(--color-surface)] shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-[22rem] bg-card shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-5 py-4">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h3 className="text-sm font-semibold text-foreground">
             Add Transaction
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -154,7 +154,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Use a negative value for debits (money out).
             </p>
           </div>
@@ -171,7 +171,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-merchant">
-              Merchant <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Merchant <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Input
               id="txn-merchant"
@@ -183,7 +183,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-description">
-              Description <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Description <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Input
               id="txn-description"
@@ -195,7 +195,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-category">
-              Category <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Category <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Select
               value={form.category ?? ''}
@@ -218,7 +218,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
           {accounts.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor="txn-account">
-                Account <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+                Account <span className="text-muted-foreground font-normal">— optional</span>
               </Label>
               <Select
                 value={form.personalAccountId ?? ''}
@@ -244,7 +244,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-notes">
-              Notes <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Notes <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Textarea
               id="txn-notes"
@@ -257,7 +257,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[var(--color-border-light)] px-5 py-4 flex items-center gap-3">
+        <div className="border-t border-border px-5 py-4 flex items-center gap-3">
           <Button onClick={handleSave} disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Add Transaction'}
           </Button>
@@ -285,13 +285,13 @@ function TransactionRow({
   const account = accounts.find((a) => a.personalAccountId === txn.personalAccountId);
 
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] py-3 last:border-b-0">
+    <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0">
       {/* Direction icon */}
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
           isDebit
-            ? 'bg-[var(--color-error-light)] text-[var(--color-error)]'
-            : 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+            ? 'bg-destructive/10 text-destructive'
+            : 'bg-success-subtle text-success'
         }`}
       >
         {isDebit ? (
@@ -303,11 +303,11 @@ function TransactionRow({
 
       {/* Details */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+        <p className="truncate text-sm font-medium text-foreground">
           {txn.merchant || txn.description || 'Manual transaction'}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-[var(--color-text-tertiary)]">
+          <span className="text-xs text-muted-foreground">
             {formatDate(txn.occurredAt)}
           </span>
           {txn.category && (
@@ -316,7 +316,7 @@ function TransactionRow({
             </Badge>
           )}
           {account && (
-            <span className="text-xs text-[var(--color-text-tertiary)]">
+            <span className="text-xs text-muted-foreground">
               {account.name}
               {account.last4 ? ` ·· ${account.last4}` : ''}
             </span>
@@ -327,7 +327,7 @@ function TransactionRow({
       {/* Amount */}
       <p
         className={`shrink-0 text-sm font-semibold tabular-nums ${
-          isDebit ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'
+          isDebit ? 'text-destructive' : 'text-success'
         }`}
       >
         {isDebit ? '-' : '+'}{formatAmount(txn.amount, txn.currency)}
@@ -408,7 +408,7 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+        <p className="text-sm font-medium text-foreground">
           {loading ? 'Loading...' : `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
         </p>
         <div className="flex items-center gap-2">
@@ -425,7 +425,7 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-52">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -491,7 +491,7 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-1"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <X className="h-3 w-3" />
             Clear
@@ -501,7 +501,7 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -509,18 +509,18 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface-inset)]">
-            <ArrowUpRight className="h-7 w-7 text-[var(--color-text-tertiary)]" />
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <ArrowUpRight className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="mb-0.5 text-sm font-medium text-[var(--color-text-secondary)]">
+          <p className="mb-0.5 text-sm font-medium text-muted-foreground">
             {hasFilters ? 'No transactions match your filters' : 'No transactions yet'}
           </p>
           {!hasFilters && (
-            <p className="mb-4 text-xs text-[var(--color-text-tertiary)]">
+            <p className="mb-4 text-xs text-muted-foreground">
               Add a manual transaction or import a bank statement.
             </p>
           )}

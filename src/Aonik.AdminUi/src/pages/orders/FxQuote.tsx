@@ -39,13 +39,13 @@ export function FxQuote({ quote, originCurrency, destinationCurrency }: FxQuoteP
         : 0;
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)] px-3.5 py-2.5">
-      <div className="text-[12px] font-medium text-[var(--color-brand-primary)]">Live FX quote</div>
-      <div className="font-[family-name:var(--font-mono)] text-[13px] font-bold text-[var(--color-brand-primary)]">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-primary bg-primary/10 px-3.5 py-2.5">
+      <div className="text-[12px] font-medium text-primary">Live FX quote</div>
+      <div className="font-[family-name:var(--font-mono)] text-[13px] font-bold text-primary">
         {formatAmount(quote.destinationAmount, destinationCurrency)} →{' '}
         {formatAmount(quote.originAmount, originCurrency)}
       </div>
-      <div className="text-[11px] text-[var(--color-brand-primary)] opacity-75">
+      <div className="text-[11px] text-primary opacity-75">
         1 {destinationCurrency} = {rate.toLocaleString(undefined, { maximumFractionDigits: 4 })}{' '}
         {originCurrency}
       </div>

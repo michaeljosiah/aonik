@@ -77,7 +77,7 @@ function getJobTone(job: ScheduledJobSummary) {
     return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
   if (job.status.toLowerCase() === 'paused')
     return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
-  return 'border-[var(--color-border-light)] bg-[var(--color-surface)]';
+  return 'border-border bg-card';
 }
 
 function summarizeOutcome(job: ScheduledJobSummary): string {
@@ -248,8 +248,8 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <p className="text-xs text-muted-foreground">
             Select a job to view its audit trail in the companion panel.
           </p>
         </div>
@@ -268,22 +268,22 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
         <div className="grid grid-cols-3 gap-2">
           <Card className="p-3">
             <div className="flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[var(--color-brand-primary)]" />
-              <span className="text-xs text-[var(--color-text-tertiary)]">Scheduler</span>
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs text-muted-foreground">Scheduler</span>
             </div>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)] mt-0.5">
+            <p className="text-sm font-semibold text-foreground mt-0.5">
               {health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}
             </p>
           </Card>
           <Card className="p-3">
-            <p className="text-xs text-[var(--color-text-tertiary)]">Active</p>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)] mt-0.5">
+            <p className="text-xs text-muted-foreground">Active</p>
+            <p className="text-sm font-semibold text-foreground mt-0.5">
               {activeCount} / {jobs.length}
             </p>
           </Card>
           <Card className="p-3">
-            <p className="text-xs text-[var(--color-text-tertiary)]">Failed</p>
-            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-[var(--color-text-primary)]'}`}>
+            <p className="text-xs text-muted-foreground">Failed</p>
+            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
               {failedCount}
             </p>
           </Card>
@@ -292,9 +292,9 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
 
       {/* Job list */}
       {loading && jobs.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">Loading jobs...</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">Loading jobs...</p>
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">No scheduled jobs found.</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">No scheduled jobs found.</p>
       ) : (
         <div className="space-y-2">
           {jobs.map((job) => {
@@ -311,14 +311,14 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                 onClick={() => selectJob(job)}
                 className={`w-full text-left rounded-md border px-3 py-2.5 transition-all ${getJobTone(job)} ${
                   isSelected
-                    ? 'ring-2 ring-[var(--color-brand-primary)] ring-offset-1'
+                    ? 'ring-2 ring-primary ring-offset-1'
                     : 'hover:shadow-sm'
                 }`}
               >
                 <div className="flex flex-col gap-2">
                   {/* Name + badges */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                    <span className="text-sm font-semibold text-foreground truncate">
                       {job.displayName ?? job.jobName}
                     </span>
                     {statusBadge(job.status)}
@@ -326,7 +326,7 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                     <span title={job.cronExpression ?? undefined}>{describeCron(job.cronExpression)}</span>
                     <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
                     <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
@@ -337,14 +337,14 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                   </div>
 
                   {/* Summary */}
-                  <p className="text-[11px] text-[var(--color-text-secondary)] line-clamp-1">
+                  <p className="text-[11px] text-muted-foreground line-clamp-1">
                     {hasFailed && <FileWarning className="inline h-3 w-3 text-red-500 mr-0.5 -mt-0.5" />}
                     {summarizeOutcome(job)}
                   </p>
 
                   {/* Action bar */}
                   <div
-                    className="flex items-center justify-between gap-1 pt-1 border-t border-[var(--color-border-light)]"
+                    className="flex items-center justify-between gap-1 pt-1 border-t border-border"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center gap-1">

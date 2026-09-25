@@ -61,9 +61,9 @@ export function BillerDetailDrawer({
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute top-0 right-0 bottom-0 w-[520px] max-w-full bg-[var(--color-surface)] border-l border-[var(--color-border-light)] shadow-2xl flex flex-col">
+      <div className="absolute top-0 right-0 bottom-0 w-[520px] max-w-full bg-card border-l border-border shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[var(--color-border-light)] flex items-start gap-3">
+        <div className="px-6 py-4 border-b border-border flex items-start gap-3">
           <div
             className="w-11 h-11 rounded-lg flex items-center justify-center text-white font-bold text-[15px] flex-none"
             style={{ background: tile, filter: biller.isActive ? 'none' : 'grayscale(1)' }}
@@ -72,19 +72,19 @@ export function BillerDetailDrawer({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-[var(--color-text-primary)] truncate">{biller.name}</span>
+              <span className="text-base font-bold text-foreground truncate">{biller.name}</span>
               <Pill tone={biller.isActive ? 'success' : 'muted'} dot>
                 {biller.isActive ? 'Active' : 'Inactive'}
               </Pill>
             </div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {categoryName ?? 'Uncategorized'} · {countryName ?? biller.countryCode}
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-7 h-7 rounded-md border border-[var(--color-border-light)] grid place-items-center text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
+            className="w-7 h-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-muted"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -92,31 +92,31 @@ export function BillerDetailDrawer({
 
         <div className="flex-1 overflow-auto p-6 flex flex-col gap-5">
           {/* Provenance / mapping */}
-          <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+          <div className="rounded-lg border border-border bg-muted p-4">
             <div className="flex items-center gap-2 mb-2">
               {imported ? (
                 <Download className="w-3.5 h-3.5" style={{ color: connectorColor(sourceLabel) }} />
               ) : (
-                <Pencil className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
               )}
-              <span className="text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+              <span className="text-[12.5px] font-semibold text-foreground">
                 {imported ? `Imported from ${sourceLabel}` : 'Manually authored'}
               </span>
             </div>
             {imported && (
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11.5px] text-[var(--color-text-secondary)]">
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11.5px] text-muted-foreground">
                 <span>
                   provider biller code{' '}
-                  <b className="font-mono text-[var(--color-text-primary)]">{biller.providerBillerCode ?? DASH}</b>
+                  <b className="font-mono text-foreground">{biller.providerBillerCode ?? DASH}</b>
                 </span>
                 <span>
                   last sync{' '}
-                  <b className="text-[var(--color-text-primary)]">{formatSyncTime(biller.lastSyncedAt) ?? DASH}</b>
+                  <b className="text-foreground">{formatSyncTime(biller.lastSyncedAt) ?? DASH}</b>
                 </span>
               </div>
             )}
             {!biller.isActive && (
-              <div className="text-[11.5px] text-[var(--color-warning)] mt-2">
+              <div className="text-[11.5px] text-warning mt-2">
                 This biller was no longer offered by the partner on the last import, so it was soft-deactivated.
                 Its history and any orders are preserved.
               </div>
@@ -131,11 +131,11 @@ export function BillerDetailDrawer({
               ['p50 ETA', DASH],
               ['Fee', DASH],
             ].map(([label, value]) => (
-              <div key={label} className="bg-[var(--color-surface-inset)] rounded-lg px-3 py-2">
-                <div className="text-[9.5px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide">
+              <div key={label} className="bg-muted rounded-lg px-3 py-2">
+                <div className="text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wide">
                   {label}
                 </div>
-                <div className="font-mono text-[13.5px] font-semibold text-[var(--color-text-primary)] mt-1">
+                <div className="font-mono text-[13.5px] font-semibold text-foreground mt-1">
                   {value}
                 </div>
               </div>
@@ -145,31 +145,31 @@ export function BillerDetailDrawer({
           {/* Services */}
           <div>
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">Services</span>
-              <span className="font-mono text-[11px] font-semibold text-[var(--color-text-tertiary)] px-2 py-0.5 rounded-full bg-[var(--color-surface-inset)]">
+              <span className="text-[13px] font-semibold text-foreground">Services</span>
+              <span className="font-mono text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
                 {services.length}
               </span>
               <div className="flex-1" />
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">packages this biller offers</span>
+              <span className="text-[11px] text-muted-foreground">packages this biller offers</span>
             </div>
 
             {error ? (
-              <div className="rounded-lg border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 flex items-center gap-2 text-[var(--color-error)] text-sm">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 flex items-center gap-2 text-destructive text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>{error}</span>
               </div>
             ) : loading ? (
-              <div className="rounded-lg border border-[var(--color-border-light)] p-8 text-center">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                <p className="text-sm text-[var(--color-text-secondary)]">Loading services…</p>
+              <div className="rounded-lg border border-border p-8 text-center">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading services…</p>
               </div>
             ) : services.length === 0 ? (
-              <div className="rounded-lg border border-[var(--color-border-light)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
+              <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
                 No services on this biller yet.
               </div>
             ) : (
-              <div className="rounded-lg border border-[var(--color-border-light)] overflow-hidden">
-                <div className="grid grid-cols-[1fr_80px_84px_30px] gap-2.5 px-3 py-2 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)] text-[9.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="grid grid-cols-[1fr_80px_84px_30px] gap-2.5 px-3 py-2 bg-muted border-b border-border text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <div>Service · field</div>
                   <div>Type</div>
                   <div className="text-right">Amount</div>
@@ -183,13 +183,13 @@ export function BillerDetailDrawer({
                       key={s.serviceId}
                       className="grid grid-cols-[1fr_80px_84px_30px] gap-2.5 px-3 py-2.5 items-center"
                       style={{
-                        borderTop: i ? '1px solid var(--color-border-light)' : 'none',
+                        borderTop: i ? '1px solid var(--border)' : 'none',
                         opacity: s.isActive ? 1 : 0.5,
                       }}
                     >
                       <div className="min-w-0">
-                        <div className="text-[12.5px] font-medium text-[var(--color-text-primary)] truncate">{s.name}</div>
-                        <div className="text-[10.5px] text-[var(--color-text-tertiary)] mt-0.5 truncate">
+                        <div className="text-[12.5px] font-medium text-foreground truncate">{s.name}</div>
+                        <div className="text-[10.5px] text-muted-foreground mt-0.5 truncate">
                           {s.customerFieldLabel ?? s.type}
                           {s.providerItemCode && (
                             <>
@@ -210,7 +210,7 @@ export function BillerDetailDrawer({
                       </span>
                       <span
                         className="text-right font-mono text-[12px] font-semibold"
-                        style={{ color: amount === DASH ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)' }}
+                        style={{ color: amount === DASH ? 'var(--muted-foreground)' : 'var(--foreground)' }}
                       >
                         {amount}
                       </span>
@@ -220,7 +220,7 @@ export function BillerDetailDrawer({
                         style={{
                           width: 7,
                           height: 7,
-                          background: s.isActive ? 'var(--color-success)' : 'var(--color-text-tertiary)',
+                          background: s.isActive ? 'var(--success)' : 'var(--muted-foreground)',
                         }}
                       />
                     </div>
@@ -232,7 +232,7 @@ export function BillerDetailDrawer({
         </div>
 
         {/* Footer */}
-        <div className="flex-none px-6 py-3.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] flex justify-end gap-2">
+        <div className="flex-none px-6 py-3.5 border-t border-border bg-muted flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={() => onViewDetails(biller)}>
             View details
           </Button>

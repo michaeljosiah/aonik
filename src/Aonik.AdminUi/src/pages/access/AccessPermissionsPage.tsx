@@ -25,13 +25,13 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryBadgeStyles: Record<string, string> = {
-  Billing: 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]',
-  Payments: 'bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]',
-  Ledger: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
-  Settings: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
-  Users: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-  Roles: 'bg-[var(--color-pending-light)] text-[var(--color-pending)]',
-  Platform: 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]',
+  Billing: 'bg-primary/10 text-primary',
+  Payments: 'bg-agent/10 text-agent',
+  Ledger: 'bg-info-subtle text-info',
+  Settings: 'bg-warning-subtle text-warning',
+  Users: 'bg-success-subtle text-success',
+  Roles: 'bg-warning-subtle text-warning',
+  Platform: 'bg-muted text-muted-foreground',
 };
 
 export function AccessPermissionsPage() {
@@ -99,8 +99,8 @@ export function AccessPermissionsPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Permissions</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Permissions</h1>
+          <p className="text-muted-foreground">
             Review the global permission catalog available to tenant roles.
           </p>
         </div>
@@ -111,8 +111,8 @@ export function AccessPermissionsPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadPermissions} className="ml-auto">
@@ -127,13 +127,13 @@ export function AccessPermissionsPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-96 max-w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search for permissions"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
 
@@ -156,52 +156,52 @@ export function AccessPermissionsPage() {
             </div>
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Permission</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Description</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Category</th>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Permission</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Category</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan={3} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                        <p className="text-sm text-[var(--color-text-secondary)]">Loading permissions...</p>
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading permissions...</p>
                       </td>
                     </tr>
                   ) : filteredPermissions.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                        <div className="mb-3 flex justify-center text-muted-foreground">
                           <Key className="w-12 h-12" />
                         </div>
-                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No permissions found</p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
+                        <p className="text-foreground font-medium mb-1">No permissions found</p>
+                        <p className="text-sm text-muted-foreground">
                           {searchQuery || categoryFilter ? 'Try adjusting your filters.' : 'No permissions available yet.'}
                         </p>
                       </td>
                     </tr>
                   ) : (
                     filteredPermissions.map((permission) => {
-                      const badgeStyle = categoryBadgeStyles[permission.displayCategory] ?? 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]';
+                      const badgeStyle = categoryBadgeStyles[permission.displayCategory] ?? 'bg-muted text-muted-foreground';
 
                       return (
                         <tr
                           key={permission.key}
-                          className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors"
+                          className="border-b border-border hover:bg-muted transition-colors"
                         >
                           <td className="px-4 py-3">
-                            <span className="font-mono text-sm text-[var(--color-text-primary)]">
+                            <span className="font-mono text-sm text-foreground">
                               {permission.key}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <p className="text-sm text-[var(--color-text-secondary)]">
+                            <p className="text-sm text-muted-foreground">
                               {permission.description || 'No description provided.'}
                             </p>
                           </td>

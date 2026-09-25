@@ -83,13 +83,13 @@ export function ContentBlocksListPage() {
         <div className="flex items-center gap-2">
           {row.isEnabled ? (
             <>
-              <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
-              <span className="text-sm text-[var(--color-success)]">Enabled</span>
+              <CheckCircle className="w-4 h-4 text-success" />
+              <span className="text-sm text-success">Enabled</span>
             </>
           ) : (
             <>
-              <XCircle className="w-4 h-4 text-[var(--color-danger)]" />
-              <span className="text-sm text-[var(--color-danger)]">Disabled</span>
+              <XCircle className="w-4 h-4 text-destructive" />
+              <span className="text-sm text-destructive">Disabled</span>
             </>
           )}
         </div>
@@ -108,7 +108,7 @@ export function ContentBlocksListPage() {
       accessorFn: (row) => row.media.length,
       cell: (row) => (
         <div className="flex items-center gap-1">
-          <Image className="w-4 h-4 text-[var(--color-text-secondary)]" />
+          <Image className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm">{row.media.length}</span>
         </div>
       ),
@@ -141,8 +141,8 @@ export function ContentBlocksListPage() {
       <div className="p-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Content Blocks</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Content Blocks</h1>
+          <p className="text-muted-foreground">
             Manage dynamic content blocks for your application including banners, heroes, and marketing content.
           </p>
         </div>
@@ -151,12 +151,12 @@ export function ContentBlocksListPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
+              <div className="p-2 rounded-md bg-primary">
                 <Layers className="w-5 h-5 text-white" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Content Blocks</CardTitle>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-sm text-muted-foreground">
                   {contentBlocks.length} content block{contentBlocks.length !== 1 ? 's' : ''}
                 </p>
               </div>

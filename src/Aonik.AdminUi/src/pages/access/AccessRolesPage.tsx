@@ -78,16 +78,16 @@ export function AccessRolesPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Roles</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Roles</h1>
+          <p className="text-muted-foreground">
             Define reusable permission sets and assign them to teams.
           </p>
         </div>
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadRoles} className="ml-auto">
@@ -101,13 +101,13 @@ export function AccessRolesPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="relative w-80 max-w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search for roles"
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -123,33 +123,33 @@ export function AccessRolesPage() {
             </Button>
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Role</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Description</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Permissions</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Assigned Users</th>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Role</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Permissions</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Assigned Users</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                        <p className="text-sm text-[var(--color-text-secondary)]">Loading roles...</p>
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading roles...</p>
                       </td>
                     </tr>
                   ) : roles.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                        <div className="mb-3 flex justify-center text-muted-foreground">
                           <Shield className="w-12 h-12" />
                         </div>
-                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No roles found</p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
+                        <p className="text-foreground font-medium mb-1">No roles found</p>
+                        <p className="text-sm text-muted-foreground">
                           {searchQuery ? 'Try adjusting your search.' : 'Create a role to start assigning permissions.'}
                         </p>
                       </td>
@@ -158,13 +158,13 @@ export function AccessRolesPage() {
                     roles.map((role) => (
                       <tr
                         key={role.roleId}
-                        className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors"
+                        className="border-b border-border hover:bg-muted transition-colors"
                       >
                         <td className="px-4 py-3">
-                          <p className="font-medium text-[var(--color-text-primary)]">{role.name}</p>
+                          <p className="font-medium text-foreground">{role.name}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-[var(--color-text-secondary)]">
+                          <p className="text-sm text-muted-foreground">
                             {role.description || 'No description provided.'}
                           </p>
                         </td>

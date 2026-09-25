@@ -13,9 +13,9 @@ export function SettingsModulesPage() {
   return (
     <div className="h-full overflow-auto p-6">
       <div className="mb-6">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Admin</p>
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Modules</h1>
-        <p className="max-w-3xl text-[var(--color-text-secondary)]">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Admin</p>
+        <h1 className="text-2xl font-bold text-foreground">Modules</h1>
+        <p className="max-w-3xl text-muted-foreground">
           The platform modules available to this organisation. Module state is managed by the host administrator.
         </p>
       </div>
@@ -31,7 +31,7 @@ export function SettingsModulesPage() {
           {tenant?.tenantId ? (
             <TenantModulesPanel tenantId={tenant.tenantId} readOnly />
           ) : (
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               No organisation is selected. Choose an organisation to see its modules.
             </p>
           )}

@@ -391,14 +391,14 @@ export function LiveVoiceTestCard({
   }, [activeRecipeName, hasActiveRecipe, voiceModeEnabled]);
 
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+        <div className="text-[13px] font-semibold text-foreground">
           Live test
         </div>
         <ConnectionPill status={status} />
       </div>
-      <p className="mt-1 mb-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+      <p className="mt-1 mb-3 text-xs leading-relaxed text-muted-foreground">
         {helperText}
       </p>
 
@@ -444,7 +444,7 @@ export function LiveVoiceTestCard({
       </div>
 
       {errorMessage && (
-        <div className="mt-3 rounded-md border border-[var(--color-error-50)] bg-[var(--color-error-10)] px-3 py-2 text-[11px] text-[var(--color-error)]">
+        <div className="mt-3 rounded-md border border-destructive/10 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
           {errorMessage}
         </div>
       )}
@@ -452,32 +452,32 @@ export function LiveVoiceTestCard({
       {/* Mic / speaker indicators. Mirror the disabled placeholder's look but populated from
           live state — the brand-color border lights up when the recorder is capturing, and the
           speaking indicator flips between "you" and "bot". */}
-      <div className="mt-3 flex items-center gap-3 rounded-[10px] border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3.5">
+      <div className="mt-3 flex items-center gap-3 rounded-[10px] border border-dashed border-border bg-muted p-3.5">
         <div
           className={cn(
             "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
             recorder.isRecording
-              ? "bg-[var(--color-brand-primary-10)]"
-              : "bg-[var(--color-surface)]",
+              ? "bg-primary/10"
+              : "bg-card",
           )}
         >
           {recorder.isRecording ? (
-            <Mic className="h-4 w-4 text-[var(--color-brand-primary)]" />
+            <Mic className="h-4 w-4 text-primary" />
           ) : (
-            <MicOff className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+            <MicOff className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
-        <div className="flex-1 text-[11px] text-[var(--color-text-secondary)]">
+        <div className="flex-1 text-[11px] text-muted-foreground">
           {recorder.isRecording ? (
             <>
               Mic streaming · {RECORDER_SAMPLE_RATE / 1000} kHz PCM
               {whoIsSpeaking === "bot" && (
-                <span className="ml-2 inline-flex items-center gap-1 text-[var(--color-brand-primary)]">
+                <span className="ml-2 inline-flex items-center gap-1 text-primary">
                   <PlugZap className="h-3 w-3" /> Bot speaking
                 </span>
               )}
               {whoIsSpeaking === "user" && (
-                <span className="ml-2 inline-flex items-center gap-1 text-[var(--color-brand-primary)]">
+                <span className="ml-2 inline-flex items-center gap-1 text-primary">
                   <Plug className="h-3 w-3" /> You're speaking
                 </span>
               )}
@@ -490,10 +490,10 @@ export function LiveVoiceTestCard({
 
       {transcript.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             Transcript
           </div>
-          <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-2.5">
+          <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted p-2.5">
             {transcript.map((entry) => (
               <div
                 key={entry.id}
@@ -504,11 +504,11 @@ export function LiveVoiceTestCard({
                   className={cn(
                     "shrink-0 font-mono text-[10px]",
                     entry.who === "user" &&
-                      "border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]",
+                      "border-primary text-primary",
                     entry.who === "bot" &&
-                      "border-[var(--color-success)] text-[var(--color-success)]",
+                      "border-success text-success",
                     entry.who === "system" &&
-                      "text-[var(--color-text-tertiary)]",
+                      "text-muted-foreground",
                   )}
                 >
                   {entry.who}
@@ -517,7 +517,7 @@ export function LiveVoiceTestCard({
                   className={cn(
                     "leading-snug",
                     entry.isFinal === false &&
-                      "italic text-[var(--color-text-secondary)]",
+                      "italic text-muted-foreground",
                   )}
                 >
                   {entry.text}
@@ -537,7 +537,7 @@ function ConnectionPill({ status }: { status: ConnectionStatus }) {
       return (
         <Badge
           variant="outline"
-          className="animate-pulse border-[var(--color-success)] text-[var(--color-success)]"
+          className="animate-pulse border-success text-success"
         >
           Live
         </Badge>
@@ -548,7 +548,7 @@ function ConnectionPill({ status }: { status: ConnectionStatus }) {
       return <Badge variant="error">Error</Badge>;
     default:
       return (
-        <Badge variant="outline" className="text-[var(--color-text-tertiary)]">
+        <Badge variant="outline" className="text-muted-foreground">
           Idle
         </Badge>
       );

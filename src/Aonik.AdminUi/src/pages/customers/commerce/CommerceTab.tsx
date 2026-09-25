@@ -57,7 +57,7 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
     return (
       <AonikCard title="Storefront">
         <div className="flex items-center justify-center py-6">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
         </div>
       </AonikCard>
     );
@@ -66,13 +66,13 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
   if (error) {
     return (
       <AonikCard title="Storefront">
-        <div className="rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-3 text-xs text-[var(--color-brand-primary)] hover:underline"
+          className="mt-3 text-xs text-primary hover:underline"
         >
           Retry
         </button>
@@ -97,26 +97,26 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
       <AonikCard title="Storefront profile" subtitle="Derived from this party's own box orders">
         <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Boxes ordered
             </div>
-            <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-[var(--color-text-primary)]">
+            <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground">
               {orders.length.toLocaleString()}
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Storefront value
             </div>
             <div className="mt-1 flex flex-col gap-0.5">
               {totals.length === 0 ? (
-                <span className="text-sm text-[var(--color-text-tertiary)]">—</span>
+                <span className="text-sm text-muted-foreground">—</span>
               ) : (
                 totals.map(([currency, amount]) => (
                   <span
                     key={currency}
-                    className="font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-[var(--color-text-primary)]"
+                    className="font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground"
                   >
                     {formatCurrency(amount, currency)}
                   </span>
@@ -127,10 +127,10 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
 
           {activeCart && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Active cart
               </div>
-              <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-[var(--color-text-primary)]">
+              <div className="mt-1 font-[family-name:var(--font-mono)] text-lg font-semibold tabular-nums text-foreground">
                 {activeCart.filled}/{activeCart.size}
               </div>
             </div>
@@ -138,7 +138,7 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
 
           {data?.adopted && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Identity
               </div>
               <div className="mt-1.5">

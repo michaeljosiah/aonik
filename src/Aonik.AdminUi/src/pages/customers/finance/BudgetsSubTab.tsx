@@ -41,16 +41,16 @@ function BudgetCard({ budget }: { budget: AdminBudgetResponse }) {
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+            <p className="text-sm font-semibold text-foreground">
               {formatPeriod(budget.periodStart, budget.periodType)}
             </p>
-            <p className="text-xs text-[var(--color-text-tertiary)]">{budget.periodType} budget</p>
+            <p className="text-xs text-muted-foreground">{budget.periodType} budget</p>
           </div>
           <span
             className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               isActive
-                ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-                : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                ? 'bg-success-subtle text-success'
+                : 'bg-muted text-muted-foreground'
             }`}
           >
             {budget.status}
@@ -58,16 +58,16 @@ function BudgetCard({ budget }: { budget: AdminBudgetResponse }) {
         </div>
 
         {budget.lines.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-tertiary)]">No budget lines</p>
+          <p className="text-xs text-muted-foreground">No budget lines</p>
         ) : (
           <div className="space-y-2">
             {budget.lines.map((line, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between py-1 border-b border-[var(--color-border-light)] last:border-0"
+                className="flex items-center justify-between py-1 border-b border-border last:border-0"
               >
-                <span className="text-xs text-[var(--color-text-secondary)]">{line.category}</span>
-                <span className="text-xs font-medium text-[var(--color-text-primary)]">
+                <span className="text-xs text-muted-foreground">{line.category}</span>
+                <span className="text-xs font-medium text-foreground">
                   {formatCurrency(line.limitAmount, line.currency)}
                 </span>
               </div>
@@ -113,7 +113,7 @@ export function BudgetsSubTab({ userId }: { userId: string }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+        <p className="text-sm font-medium text-foreground">
           {budgets.length} budget period{budgets.length !== 1 ? 's' : ''}
         </p>
         <Button variant="ghost" size="icon-sm" onClick={load} disabled={loading} title="Refresh">
@@ -123,7 +123,7 @@ export function BudgetsSubTab({ userId }: { userId: string }) {
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -131,15 +131,15 @@ export function BudgetsSubTab({ userId }: { userId: string }) {
       {/* Loading */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : budgets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface-inset)]">
-            <BarChart2 className="h-7 w-7 text-[var(--color-text-tertiary)]" />
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <BarChart2 className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="text-sm font-medium text-[var(--color-text-secondary)]">No budgets yet</p>
-          <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+          <p className="text-sm font-medium text-muted-foreground">No budgets yet</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             This customer has not set up any budgets.
           </p>
         </div>

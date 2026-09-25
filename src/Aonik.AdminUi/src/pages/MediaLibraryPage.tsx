@@ -73,8 +73,8 @@ export function MediaLibraryPage() {
       <div className="p-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Media Library</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Media Library</h1>
+          <p className="text-muted-foreground">
             Browse and manage all media assets used across content blocks.
           </p>
         </div>
@@ -82,7 +82,7 @@ export function MediaLibraryPage() {
         {/* Search */}
         <div className="mb-6">
           <div className="relative max-w-[28rem]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -96,12 +96,12 @@ export function MediaLibraryPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
+              <div className="p-2 rounded-md bg-primary">
                 <Image className="w-5 h-5 text-white" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Media Assets</CardTitle>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-sm text-muted-foreground">
                   {filteredMedia.length} item{filteredMedia.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -110,13 +110,13 @@ export function MediaLibraryPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-brand-primary)]" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : filteredMedia.length === 0 ? (
               <div className="text-center py-12">
-                <Image className="w-12 h-12 mx-auto mb-4 text-[var(--color-text-tertiary)]" />
-                <p className="text-[var(--color-text-primary)] font-medium mb-1">No media found</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-foreground font-medium mb-1">No media found</p>
+                <p className="text-sm text-muted-foreground">
                   {searchQuery
                     ? 'Try adjusting your search query'
                     : 'Media will appear here when added to content blocks'}
@@ -127,7 +127,7 @@ export function MediaLibraryPage() {
                 {filteredMedia.map((item) => (
                   <div
                     key={item.id}
-                    className="group relative rounded-lg border border-[var(--color-border-light)] overflow-hidden hover:shadow-md transition-shadow"
+                    className="group relative rounded-lg border border-border overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {/* Image Preview */}
                     <div className="aspect-video bg-gray-100 relative">
@@ -170,19 +170,19 @@ export function MediaLibraryPage() {
 
                     {/* Info */}
                     <div className="p-3 space-y-1">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {item.contentBlockTitle}
                       </p>
-                      <p className="text-xs text-[var(--color-text-secondary)] truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {item.contentBlockKey}
                       </p>
                       {item.alt && (
-                        <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {item.alt}
                         </p>
                       )}
                       <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                           {item.mimeType || 'Image'}
                         </span>
                       </div>

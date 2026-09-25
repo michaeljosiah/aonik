@@ -48,7 +48,7 @@ const createEmptyForm = (): CreateAccountRequest => ({
 });
 
 const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
+  'flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring';
 
 export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAccountDialogProps) {
   const [formData, setFormData] = useState<CreateAccountRequest>(() => createEmptyForm());
@@ -130,8 +130,8 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
 
         <div className="space-y-4">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Name <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Name <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -143,8 +143,8 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Account Type <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Account Type <span className="text-destructive">*</span>
             </label>
             <Select
               value={formData.accountType}
@@ -165,8 +165,8 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Currency <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Currency <span className="text-destructive">*</span>
               </label>
               <Select
                 value={formData.currency}
@@ -186,7 +186,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Country
               </label>
               <Select
@@ -209,7 +209,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Institution Name
             </label>
             <input
@@ -222,7 +222,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Last 4 Digits
             </label>
             <input
@@ -236,7 +236,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Notes
             </label>
             <Textarea
@@ -249,7 +249,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
         </div>
 
         {error && (
-          <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}

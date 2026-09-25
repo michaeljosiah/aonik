@@ -25,7 +25,7 @@ import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { SELECTION_MODES } from './selectionModes';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -103,14 +103,14 @@ export function CreateGroupDialog({
         </DialogHeader>
 
         {error && (
-          <p className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
+          <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
             {error}
           </p>
         )}
 
         <fieldset disabled={saving} className="flex min-w-0 flex-col gap-3 border-0 p-0">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Key
             </span>
             <input
@@ -119,13 +119,13 @@ export function CreateGroupDialog({
               placeholder="spice-level"
               className={`${inputClass} font-[family-name:var(--font-mono)]`}
             />
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11px] text-muted-foreground">
               Immutable after create — every product narrowing refers to it.
             </span>
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Label
             </span>
             <input
@@ -137,7 +137,7 @@ export function CreateGroupDialog({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Selection
             </span>
             <select
@@ -156,8 +156,8 @@ export function CreateGroupDialog({
           <p
             className={`text-[11px] ${
               defaultCurrency
-                ? 'text-[var(--color-text-tertiary)]'
-                : 'text-[var(--color-warning)]'
+                ? 'text-muted-foreground'
+                : 'text-warning'
             }`}
           >
             {defaultCurrency

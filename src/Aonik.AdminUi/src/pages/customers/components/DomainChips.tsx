@@ -16,7 +16,7 @@ export function DomainChips({ domains }: DomainChipsProps) {
   // No domains is a real state — the customer exists but has transacted nowhere yet — and it
   // reads as an em dash rather than an empty cell, so it cannot be mistaken for missing data.
   if (ordered.length === 0) {
-    return <span className="text-[var(--color-text-tertiary)]">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
 
   return (

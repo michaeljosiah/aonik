@@ -272,7 +272,7 @@ export function ChatSpeechTab({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center p-12 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading chat speech preview…
       </div>
@@ -281,7 +281,7 @@ export function ChatSpeechTab({
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">
+        <CardContent className="p-6 text-destructive">
           {error}
         </CardContent>
       </Card>
@@ -311,14 +311,14 @@ export function ChatSpeechTab({
       />
 
       {/* Helper banner explaining the difference from Voice Mode */}
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-3">
-        <HelpCircle className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
-        <div className="flex-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-          <span className="font-semibold text-[var(--color-text-primary)]">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-3">
+        <HelpCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <div className="flex-1 text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">
             Chat Speech
           </span>{" "}
           reads chat replies aloud.{" "}
-          <span className="font-semibold text-[var(--color-text-primary)]">
+          <span className="font-semibold text-foreground">
             Voice Mode
           </span>{" "}
           is live spoken conversation. They share providers but configure
@@ -335,8 +335,8 @@ export function ChatSpeechTab({
 
       {/* Phase D callout — TTS service routes synthesis through the picked provider +
           voice. Credentials live on the provider row. */}
-      <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">
+      <div className="rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">
           Live
         </span>{" "}
         — chat replies are spoken using the picked TTS provider + voice. Pick
@@ -362,7 +362,7 @@ export function ChatSpeechTab({
           >
             {voices.length === 0 ? (
               <Card>
-                <CardContent className="p-6 text-sm text-[var(--color-text-secondary)]">
+                <CardContent className="p-6 text-sm text-muted-foreground">
                   No TTS providers configured yet. Add one in the{" "}
                   <button
                     type="button"
@@ -398,8 +398,8 @@ export function ChatSpeechTab({
                     );
                     if (!v) return null;
                     return (
-                      <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                      <div className="rounded-lg border border-border bg-card p-3.5">
+                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                           Voice for {v.providerName}
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
@@ -483,27 +483,27 @@ function HeroStatus({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-3.5">
         <div
           className={cn(
-            "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[var(--color-border-light)]",
+            "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-border",
             enabled
-              ? "bg-[var(--color-brand-primary-10)]"
-              : "bg-[var(--color-surface-inset)]",
+              ? "bg-primary/10"
+              : "bg-muted",
           )}
         >
           {enabled ? (
-            <Speaker className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <Speaker className="h-5 w-5 text-primary" />
           ) : (
-            <VolumeX className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+            <VolumeX className="h-5 w-5 text-muted-foreground" />
           )}
         </div>
         <div>
-          <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+          <div className="text-sm font-semibold text-foreground">
             Chat Speech is {enabled ? "on" : "off"}
           </div>
-          <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+          <div className="mt-0.5 text-xs text-muted-foreground">
             {enabled
               ? "Operators can play chat replies aloud from any chat surface."
               : "Spoken playback is disabled. Operators see text replies only."}
@@ -537,37 +537,37 @@ function VoiceCard({
       className={cn(
         "flex items-center gap-3 rounded-[10px] p-3 text-left transition-colors",
         selected
-          ? "border-2 border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]"
-          : "border border-[var(--color-border-light)] bg-[var(--color-surface)] hover:border-[var(--color-brand-primary)]/40",
+          ? "border-2 border-primary bg-primary/10"
+          : "border border-border bg-card hover:border-primary/40",
       )}
     >
       <span
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--color-border-light)]",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border",
           selected
-            ? "bg-[var(--color-brand-primary-10)]"
-            : "bg-[var(--color-surface-inset)]",
+            ? "bg-primary/10"
+            : "bg-muted",
         )}
       >
         {selected ? (
-          <Check className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
+          <Check className="h-3.5 w-3.5 text-primary" />
         ) : (
-          <Speaker className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+          <Speaker className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
           <span className="truncate">{voice.voiceLabel}</span>
           {voice.isCloned && <Pill tone="success">cloned</Pill>}
         </div>
-        <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">
+        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
           {voice.vendor} · {voice.detail}
         </div>
       </div>
       <span
         role="button"
         aria-label={`Preview ${voice.voiceLabel}`}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Play className="h-3.5 w-3.5" />
       </span>
@@ -595,11 +595,11 @@ function PreviewCard({
   disabled: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-[13px] font-semibold text-foreground">
         Preview voice
       </div>
-      <p className="mt-1 mb-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+      <p className="mt-1 mb-3 text-xs leading-relaxed text-muted-foreground">
         Synthesises a sample using the picked TTS provider + voice. Routes
         through the same production path the chat surface uses, so what you hear
         is what users hear.
@@ -637,12 +637,12 @@ function PreviewCard({
       )}
 
       {/* Static waveform placeholder */}
-      <div className="mt-3 rounded-[10px] bg-[var(--color-surface-inset)] p-3.5">
+      <div className="mt-3 rounded-[10px] bg-muted p-3.5">
         <div className="mb-2 flex items-center justify-between">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled>
             <Volume2 className="h-3.5 w-3.5" />
           </Button>
-          <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">
+          <span className="font-mono text-[11px] text-muted-foreground">
             {playing ? "Playing…" : "0:00 / 0:09"}
           </span>
         </div>
@@ -657,7 +657,7 @@ function PreviewCard({
                 width="2"
                 height={h}
                 rx="1"
-                fill="var(--color-brand-primary)"
+                fill="var(--primary)"
                 opacity={i < 24 ? 1 : 0.35}
               />
             );
@@ -679,25 +679,25 @@ function UsageCard() {
     { label: "Replies played", value: "—", pct: null },
   ];
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="mb-3 text-[13px] font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 text-[13px] font-semibold text-foreground">
         Usage · this month
       </div>
       <div className="space-y-2.5">
         {rows.map((row) => (
           <div key={row.label}>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="text-[var(--color-text-secondary)]">
+              <span className="text-muted-foreground">
                 {row.label}
               </span>
-              <span className="font-mono text-[11.5px] text-[var(--color-text-primary)]">
+              <span className="font-mono text-[11.5px] text-foreground">
                 {row.value}
               </span>
             </div>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[10.5px] text-[var(--color-text-tertiary)]">
+      <p className="mt-3 text-[10.5px] text-muted-foreground">
         Live usage metrics ship with Phase C observability.
       </p>
     </div>
@@ -706,11 +706,11 @@ function UsageCard() {
 
 function CloneCard() {
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-[13px] font-semibold text-foreground">
         Need a custom voice?
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
         Clone a voice from a 30-second sample inside your TTS provider's own UI
         (ElevenLabs, Mistral, etc.), then paste the resulting voice id above.
       </p>
@@ -735,11 +735,11 @@ function Section({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+          <h3 className="text-sm font-semibold text-foreground">
             {title}
           </h3>
           {description && (
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {description}
             </p>
           )}
@@ -765,15 +765,15 @@ function ToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
       <div className="min-w-0">
-        <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+        <div className="text-[13px] font-medium text-foreground">
           {label}
         </div>
-        <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
           {help}
         </div>
-        <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">
+        <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
           {code}
         </div>
       </div>
@@ -796,20 +796,20 @@ function RangeRow({
   onChange: (next: number) => void;
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
+    <div className="rounded-md border border-border bg-card px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+          <div className="text-[13px] font-medium text-foreground">
             {label}
           </div>
-          <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
             {help}
           </div>
-          <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">
+          <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
             {code}
           </div>
         </div>
-        <span className="font-mono text-[12.5px] text-[var(--color-text-primary)]">
+        <span className="font-mono text-[12.5px] text-foreground">
           {value.toFixed(1)}x
         </span>
       </div>
@@ -820,7 +820,7 @@ function RangeRow({
         step={0.1}
         value={value}
         onChange={(e) => onChange(Number.parseFloat(e.target.value))}
-        className="mt-3 w-full accent-[var(--color-brand-primary)]"
+        className="mt-3 w-full accent-primary"
       />
     </div>
   );

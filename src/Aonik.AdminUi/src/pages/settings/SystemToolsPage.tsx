@@ -211,25 +211,25 @@ export function SystemToolsPage() {
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">System Tools</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">System Tools</h1>
+          <p className="text-muted-foreground">
             Run platform maintenance utilities for the currently selected tenant.
           </p>
         </div>
         {tenantLabel ? (
-          <Badge className="bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+          <Badge className="bg-muted text-muted-foreground">
             Tenant: {tenantLabel}
           </Badge>
         ) : (
-          <Badge className="bg-[var(--color-warning-light)] text-[var(--color-warning)]">
+          <Badge className="bg-warning-subtle text-warning">
             No tenant selected
           </Badge>
         )}
       </div>
 
       {!selectedTenant?.tenantId && (
-        <Card className="mb-6 border-[var(--color-warning)] bg-[var(--color-warning-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-warning)]">
+        <Card className="mb-6 border-warning bg-warning-subtle">
+          <CardContent className="p-4 flex items-center gap-3 text-warning">
             <AlertCircle className="w-5 h-5" />
             <span>Select a tenant to enable system tools.</span>
           </CardContent>
@@ -242,7 +242,7 @@ export function SystemToolsPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Sprout className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                <Sprout className="w-5 h-5 text-primary" />
                 Data Seeds
               </CardTitle>
               <CardDescription>
@@ -260,7 +260,7 @@ export function SystemToolsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {dataSeedError && (
-              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+              <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {dataSeedError}
               </div>
             )}
@@ -271,60 +271,60 @@ export function SystemToolsPage() {
                   <button
                     type="button"
                     onClick={toggleAllSeeds}
-                    className="text-xs text-[var(--color-brand-primary)] hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     {selectedSeedKeys.size === availableSeeds.length ? 'Deselect all' : 'Select all'}
                   </button>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                  <span className="text-xs text-muted-foreground">
                     {selectedSeedKeys.size} of {availableSeeds.length} selected
                   </span>
                 </div>
-                <div className="rounded-md border border-[var(--color-border-light)] divide-y divide-[var(--color-border-light)]">
+                <div className="rounded-md border border-border divide-y divide-border">
                   {availableSeeds.map((seed) => (
                     <label
                       key={seed.key}
-                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--color-surface-inset)]/30"
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30"
                     >
                       <input
                         type="checkbox"
                         checked={selectedSeedKeys.has(seed.key)}
                         onChange={() => toggleSeedKey(seed.key)}
-                        className="h-4 w-4 rounded border-[var(--color-border-light)] text-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">{seed.displayName}</p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">{seed.description}</p>
+                        <p className="text-sm font-medium text-foreground">{seed.displayName}</p>
+                        <p className="text-xs text-muted-foreground">{seed.description}</p>
                       </div>
                     </label>
                   ))}
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
+              <p className="text-sm text-muted-foreground">
                 Loading available seeds...
               </p>
             )}
 
             {dataSeedResult && (
               <div className="space-y-2 pt-2">
-                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Last run</span>
                   <span>{new Date(dataSeedResult.seededAt).toLocaleString()}</span>
                 </div>
-                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                     Results
                   </p>
                   <div className="space-y-2">
                     {dataSeedResult.results.map((item) => (
                       <div key={item.key}>
-                        <p className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />
+                        <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                           {item.displayName}
                         </p>
                         <ul className="ml-5 space-y-0.5">
                           {item.operations.map((op) => (
-                            <li key={op} className="text-xs text-[var(--color-text-tertiary)]">{op}</li>
+                            <li key={op} className="text-xs text-muted-foreground">{op}</li>
                           ))}
                         </ul>
                       </div>
@@ -340,7 +340,7 @@ export function SystemToolsPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                <Database className="w-5 h-5 text-primary" />
                 Cache Management
               </CardTitle>
               <CardDescription>
@@ -359,29 +359,29 @@ export function SystemToolsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {cacheError && (
-              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+              <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {cacheError}
               </div>
             )}
 
             {cacheOverview ? (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-                  <Badge className="bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge className="bg-muted text-muted-foreground">
                     Cache sets: {cacheOverview.totalCacheSets}
                   </Badge>
-                  <Badge className="bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+                  <Badge className="bg-muted text-muted-foreground">
                     Total entries: {cacheOverview.totalEntries}
                   </Badge>
                 </div>
 
                 {cacheOverview.cacheSets.length > 0 ? (
-                  <div className="rounded-md border border-[var(--color-border-light)] divide-y divide-[var(--color-border-light)]">
+                  <div className="rounded-md border border-border divide-y divide-border">
                     {cacheOverview.cacheSets.map((cacheSet) => (
                       <div key={cacheSet.name} className="flex items-center justify-between px-4 py-3 gap-3">
                         <div>
-                          <p className="text-sm font-medium text-[var(--color-text-primary)]">{cacheSet.name}</p>
-                          <p className="text-xs text-[var(--color-text-tertiary)]">{cacheSet.entryCount} cached entr{cacheSet.entryCount === 1 ? 'y' : 'ies'}</p>
+                          <p className="text-sm font-medium text-foreground">{cacheSet.name}</p>
+                          <p className="text-xs text-muted-foreground">{cacheSet.entryCount} cached entr{cacheSet.entryCount === 1 ? 'y' : 'ies'}</p>
                         </div>
                         <Button
                           size="sm"
@@ -395,13 +395,13 @@ export function SystemToolsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">
+                  <p className="text-sm text-muted-foreground">
                     No cache entries have been registered yet.
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
+              <p className="text-sm text-muted-foreground">
                 Refresh to load the current cache sets.
               </p>
             )}
@@ -412,7 +412,7 @@ export function SystemToolsPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                <Database className="w-5 h-5 text-primary" />
                 Demo Data
               </CardTitle>
               <CardDescription>
@@ -442,29 +442,29 @@ export function SystemToolsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {demoSeedError && (
-              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+              <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {demoSeedError}
               </div>
             )}
 
             {demoSeedResult ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Last run</span>
                   <span>{new Date(demoSeedResult.seededAt).toLocaleString()}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Dataset</span>
                   <span>{demoSeedResult.seedType === 'CrossBorderPayments' ? 'Cross-border Payments' : 'Bill Collection'}</span>
                 </div>
-                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                     Operations
                   </p>
-                  <ul className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                  <ul className="space-y-1 text-sm text-muted-foreground">
                     {demoSeedResult.operations.map((operation) => (
                       <li key={operation} className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                         {operation}
                       </li>
                     ))}
@@ -472,7 +472,7 @@ export function SystemToolsPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
+              <p className="text-sm text-muted-foreground">
                 Import demo data to quickly showcase bill pay and cross-border capabilities in the admin workspace, or reverse seeded demo data when you need to reset the workspace.
               </p>
             )}
@@ -483,7 +483,7 @@ export function SystemToolsPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                <ShieldCheck className="w-5 h-5 text-primary" />
                 Permission Sync
               </CardTitle>
               <CardDescription>
@@ -503,25 +503,25 @@ export function SystemToolsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {permissionSeedError && (
-              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+              <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {permissionSeedError}
               </div>
             )}
 
             {permissionSeedResult ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Last run</span>
                   <span>{new Date(permissionSeedResult.seededAt).toLocaleString()}</span>
                 </div>
-                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                     Operations
                   </p>
-                  <ul className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                  <ul className="space-y-1 text-sm text-muted-foreground">
                     {permissionSeedResult.operations.map((operation) => (
                       <li key={operation} className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                         {operation}
                       </li>
                     ))}
@@ -529,7 +529,7 @@ export function SystemToolsPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
+              <p className="text-sm text-muted-foreground">
                 Run the sync to capture any missing permissions or role assignments.
               </p>
             )}

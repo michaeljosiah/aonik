@@ -481,10 +481,10 @@ function RecipeProviderHeader({
 }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+      <div className="text-sm font-semibold text-foreground">
         {providerName}
       </div>
-      <div className="text-[11px] text-[var(--color-text-secondary)]">
+      <div className="text-[11px] text-muted-foreground">
         {vendor}
       </div>
       <div className="flex flex-wrap gap-1.5 pt-1">

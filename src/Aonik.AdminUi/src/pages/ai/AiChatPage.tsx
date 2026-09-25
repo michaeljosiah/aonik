@@ -189,19 +189,19 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
   };
 
   return (
-    <div className="chat-primary h-full flex bg-[var(--color-surface)]">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-sidebar-bg)]">
-        <div className="flex h-[50px] items-center gap-2 border-b border-[var(--color-border-light)] px-4">
+    <div className="chat-primary h-full flex bg-card">
+      <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-sidebar">
+        <div className="flex h-[50px] items-center gap-2 border-b border-border px-4">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="grid h-7 w-7 place-items-center rounded-[2px] bg-[var(--color-surface)] border border-[var(--color-border)]">
-              <span className="text-xs font-semibold text-[var(--color-text-primary)]">A</span>
+            <div className="grid h-7 w-7 place-items-center rounded-[2px] bg-card border border-border">
+              <span className="text-xs font-semibold text-foreground">A</span>
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">AONIK AI</div>
+              <div className="truncate text-sm font-semibold text-foreground">AONIK AI</div>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="hover-theme-effect grid h-8 w-8 place-items-center text-[var(--color-text-tertiary)]" type="button">
+            <button className="hover-theme-effect grid h-8 w-8 place-items-center text-muted-foreground" type="button">
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
@@ -209,39 +209,39 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
 
         <div className="flex-1 p-4">
           <button
-            className="flex h-10 w-full items-center gap-2 rounded-[2px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-accent"
+            className="flex h-10 w-full items-center gap-2 rounded-[2px] border border-border bg-card px-3 text-sm text-foreground shadow-sm transition-colors hover:bg-accent"
             type="button"
             onClick={handleNewChat}
           >
-            <Plus className="h-4 w-4 text-[var(--color-text-secondary)]" />
+            <Plus className="h-4 w-4 text-muted-foreground" />
             New chat
           </button>
 
           <div className="mt-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search chats"
-                className="h-10 w-full rounded-[2px] border border-[var(--color-border)] bg-[var(--color-surface)] pl-9 pr-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none focus:border-[var(--color-brand-primary)]"
+                className="h-10 w-full rounded-[2px] border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
               />
             </div>
           </div>
 
           <div className="mt-5">
-            <div className="text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+            <div className="text-[11px] font-semibold tracking-wider text-muted-foreground">
               CHATS
             </div>
 
             <div className="visible-scrollbar mt-2 max-h-[calc(100vh-240px)] space-y-1 overflow-y-auto pr-1">
               {isLoadingThreads && threads.length === 0 ? (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)]" />
-                  <span className="ml-2 text-xs text-[var(--color-text-tertiary)]">Loading...</span>
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-xs text-muted-foreground">Loading...</span>
                 </div>
               ) : filteredThreads.length === 0 ? (
-                <div className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">
+                <div className="py-4 text-center text-xs text-muted-foreground">
                   {query ? 'No matching chats' : 'No conversations yet'}
                 </div>
               ) : (
@@ -253,8 +253,8 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                       className={cn(
                         'chat-history-item group flex cursor-pointer items-center gap-2 rounded-[2px] px-3 py-2',
                         isActive
-                          ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
-                          : 'hover:bg-[var(--color-sidebar-hover)]'
+                          ? 'bg-primary/10 text-primary'
+                          : 'hover:bg-sidebar-accent'
                       )}
                       onClick={() => handleThreadClick(thread)}
                     >
@@ -262,18 +262,18 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                         <div
                           className={cn(
                             'truncate text-sm font-medium',
-                            isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
+                            isActive ? 'text-foreground' : 'text-muted-foreground'
                           )}
                         >
                           {thread.title || 'Untitled'}
                         </div>
-                        <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                        <div className="text-[10px] text-muted-foreground">
                           {formatDateLabel(thread.lastMessageAt ?? thread.createdAt)}
                         </div>
                       </div>
                       <button
                         className={cn(
-                          'grid h-7 w-7 place-items-center rounded-[2px] text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)]',
+                          'grid h-7 w-7 place-items-center rounded-[2px] text-muted-foreground hover:text-destructive',
                           isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                         )}
                         title="Archive chat"
@@ -290,10 +290,10 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
         </div>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col bg-[var(--color-surface)]">
+      <section className="flex min-w-0 flex-1 flex-col bg-card">
         <div className="m-2 flex h-[50px] items-center justify-between rounded-[2px] px-2">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]" onClick={handleNewChat}>
+            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={handleNewChat}>
               <SquarePen className="w-4 h-4" />
             </Button>
             {agents && onSelectAgent ? (
@@ -303,8 +303,8 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                  onSelectAgent={onSelectAgent}
                />
             ) : (
-              <div className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--color-text-primary)]">
-                <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-primary-foreground">
+              <div className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-foreground">
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground">
                   <span className="text-xs font-semibold">A</span>
                 </div>
                 <span className="max-w-[270px] truncate font-medium">{agentLabel}</span>
@@ -313,7 +313,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
           </div>
 
           <div className="min-w-0 flex-1 px-4 text-center">
-            <h2 className="truncate text-xl font-semibold text-[var(--color-text-heading)] lg:text-2xl">
+            <h2 className="truncate text-xl font-semibold text-foreground lg:text-2xl">
               {threadTitle}
             </h2>
           </div>
@@ -321,15 +321,15 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
           <div className="w-[124px]" />
         </div>
 
-        <div className="flex-1 min-h-0 bg-[var(--color-surface)]">
+        <div className="flex-1 min-h-0 bg-card">
           <Conversation className="h-full">
             <ConversationContent className="h-full">
               {messages.length === 0 ? (
                 <ConversationEmptyState>
                   <div className="mx-auto flex w-full max-w-[820px] flex-col items-center gap-6 px-4 py-8">
                     <div className="text-center">
-                      <h1 className="text-3xl font-semibold text-[var(--color-text-heading)]">{greeting}</h1>
-                      <p className="mt-2 text-base text-[var(--color-text-secondary)]">
+                      <h1 className="text-3xl font-semibold text-foreground">{greeting}</h1>
+                      <p className="mt-2 text-base text-muted-foreground">
                         Ask anything about your workspace, agents, data products, or platform operations.
                       </p>
                     </div>
@@ -342,12 +342,12 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                             key={promptCard.id}
                             type="button"
                             onClick={() => handlePromptClick(promptCard.prompt)}
-                            className="chat-history-item flex h-[200px] w-full max-w-[220px] flex-col rounded-lg bg-[var(--color-gray-200)] p-3 text-left hover:bg-[var(--color-gray-300)]"
+                            className="chat-history-item flex h-[200px] w-full max-w-[220px] flex-col rounded-lg bg-accent p-3 text-left hover:bg-accent"
                           >
-                            <div className="chat-prompt-icon mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-gray-300)] text-[var(--color-text-secondary)]">
+                            <div className="chat-prompt-icon mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
                               <Icon className="h-5 w-5" />
                             </div>
-                            <div className="text-xl leading-7 text-[var(--color-text-secondary)]">
+                            <div className="text-xl leading-7 text-muted-foreground">
                               {promptCard.title}
                             </div>
                           </button>
@@ -371,7 +371,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
 
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                      className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                     >
                       <Search className="h-4 w-4" />
                       Browse prompts
@@ -397,7 +397,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
         </div>
 
         {messages.length > 0 && (
-          <div className="border-t border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <div className="border-t border-border bg-card">
             <div className="mx-auto w-full max-w-[900px] px-4 py-4">
               <AiChatComposer
                 mode="footer"
@@ -412,7 +412,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                 onToggleVoiceMode={setVoiceModeEnabled}
                 voicePlaybackState={voicePlaybackState}
               />
-              <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
+              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {chatRunState === 'streaming' ? (
                     <span className="inline-flex items-center gap-1">
@@ -424,9 +424,9 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                     ) : chatRunState === 'awaiting-approval' ? (
                       'Awaiting approval'
                     ) : streamError ? (
-                      <span className="text-[var(--color-danger)]">{streamError}</span>
+                      <span className="text-destructive">{streamError}</span>
                     ) : voiceError ? (
-                      <span className="text-[var(--color-warning)]">{voiceError}</span>
+                      <span className="text-warning">{voiceError}</span>
                     ) : (
                       'Connected via AG-UI protocol'
                     )}

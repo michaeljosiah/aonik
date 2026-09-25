@@ -26,17 +26,17 @@ import {
 } from '@/components/ui/select';
 
 const statusConfig: Record<TenantStatus, { icon: React.ElementType; color: string; bgColor: string }> = {
-  Active: { icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success-light)]' },
-  Provisioning: { icon: Clock, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning-light)]' },
-  Deactivated: { icon: XCircle, color: 'text-[var(--color-text-tertiary)]', bgColor: 'bg-[var(--color-surface-inset)]' },
-  Suspended: { icon: AlertCircle, color: 'text-[var(--color-error)]', bgColor: 'bg-[var(--color-error-light)]' },
+  Active: { icon: CheckCircle, color: 'text-success', bgColor: 'bg-success-subtle' },
+  Provisioning: { icon: Clock, color: 'text-warning', bgColor: 'bg-warning-subtle' },
+  Deactivated: { icon: XCircle, color: 'text-muted-foreground', bgColor: 'bg-muted' },
+  Suspended: { icon: AlertCircle, color: 'text-destructive', bgColor: 'bg-destructive/10' },
 };
 
 const environmentColors: Record<string, string> = {
-  Dev: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
-  Test: 'bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]',
-  Staging: 'bg-[var(--color-pending-light)] text-[var(--color-pending)]',
-  Prod: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
+  Dev: 'bg-info-subtle text-info',
+  Test: 'bg-agent/10 text-agent',
+  Staging: 'bg-warning-subtle text-warning',
+  Prod: 'bg-success-subtle text-success',
 };
 
 export function TenantsListPage() {
@@ -108,8 +108,8 @@ export function TenantsListPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Tenants</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Tenants</h1>
+          <p className="text-muted-foreground">
             Manage all tenants in the platform. Create, configure, and monitor tenant environments.
           </p>
         </div>
@@ -121,8 +121,8 @@ export function TenantsListPage() {
 
       {/* Error State */}
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadTenants} className="ml-auto">
@@ -138,13 +138,13 @@ export function TenantsListPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-72 max-w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for tenants"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
 
@@ -192,27 +192,27 @@ export function TenantsListPage() {
             </Button>
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Tenant
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Environment
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Status
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Currency
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Created
                     </th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Actions
                     </th>
                   </tr>
@@ -221,18 +221,18 @@ export function TenantsListPage() {
                   {loading ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                        <p className="text-sm text-[var(--color-text-secondary)]">Loading tenants...</p>
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading tenants...</p>
                       </td>
                     </tr>
                   ) : tenants.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                        <div className="mb-3 flex justify-center text-muted-foreground">
                           <Building2 className="w-12 h-12" />
                         </div>
-                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No tenants found</p>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                        <p className="text-foreground font-medium mb-1">No tenants found</p>
+                        <p className="text-sm text-muted-foreground mb-4">
                           {searchQuery || statusFilter || environmentFilter
                             ? 'Try adjusting your filters'
                             : 'Get started by creating your first tenant'}
@@ -255,17 +255,17 @@ export function TenantsListPage() {
                       return (
                         <tr
                           key={tenant.tenantId}
-                          className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] cursor-pointer transition-colors"
+                          className="border-b border-border hover:bg-muted cursor-pointer transition-colors"
                           onClick={() => navigate(`/tenants/${tenant.tenantId}`)}
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-                                <Building2 className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-primary" />
                               </div>
                               <div>
-                                <p className="font-medium text-[var(--color-text-primary)]">{tenant.name}</p>
-                                <p className="text-xs text-[var(--color-text-tertiary)] font-mono">
+                                <p className="font-medium text-foreground">{tenant.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono">
                                   {tenant.tenantId.substring(0, 8)}...
                                 </p>
                               </div>
@@ -283,10 +283,10 @@ export function TenantsListPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-sm text-[var(--color-text-primary)]">{tenant.defaultCurrency}</span>
+                            <span className="text-sm text-foreground">{tenant.defaultCurrency}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-sm text-[var(--color-text-secondary)]">
+                            <span className="text-sm text-muted-foreground">
                               {formatDate(tenant.createdAt)}
                             </span>
                           </td>

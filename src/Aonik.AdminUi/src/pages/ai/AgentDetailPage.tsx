@@ -76,7 +76,7 @@ const TABS: Tab[] = ['Overview', 'Sub-agents', 'Tools', 'Skills', 'MCP Servers',
 const DEFAULT_PAGE_SIZE = 20;
 
 const CAT_TONE: Record<DemoTool['cat'], { bg: string; fg: string }> = {
-  read: { bg: 'var(--color-brand-primary-10)', fg: 'var(--color-brand-primary)' },
+  read: { bg: 'var(--color-brand-primary-10)', fg: 'var(--primary)' },
   write: { bg: '#eb5c371a', fg: '#eb5c37' },
   compute: { bg: '#3ab7951a', fg: '#3ab795' },
   display: { bg: '#7b76b61a', fg: '#7b76b6' },
@@ -150,7 +150,7 @@ export function AgentDetailPage() {
   if (error || !agent) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-6">
-        <div className="flex items-center gap-2 text-[13px] text-[var(--color-error)]">
+        <div className="flex items-center gap-2 text-[13px] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error ?? 'Agent not found.'}
         </div>
@@ -177,7 +177,7 @@ export function AgentDetailPage() {
         />
 
         {/* Sticky tab nav */}
-        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-8">
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-border bg-card px-8">
           {TABS.map((t) => {
             const active = t === tab;
             return (
@@ -188,8 +188,8 @@ export function AgentDetailPage() {
                 className={cn(
                   '-mb-px border-b-2 px-3.5 py-3.5 text-[13px] transition-colors',
                   active
-                    ? 'font-semibold text-[var(--color-text-primary)]'
-                    : 'font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                    ? 'font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground hover:text-foreground',
                 )}
                 style={{ borderColor: active ? color : 'transparent' }}
               >
@@ -198,7 +198,7 @@ export function AgentDetailPage() {
             );
           })}
           <div className="flex-1" />
-          <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+          <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
             agent_id: {agent.id.slice(0, 12)}
           </span>
         </div>
@@ -281,13 +281,13 @@ function KpiStrip({ color }: { color: string }) {
       {DEMO_KPIS.map((k) => (
         <div
           key={k.label}
-          className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5"
+          className="rounded-xl border border-border bg-card p-3.5"
         >
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             {k.label}
           </div>
           <div className="mt-1.5 flex items-end gap-2">
-            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none tabular-nums text-[var(--color-text-primary)]">
+            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none tabular-nums text-foreground">
               {k.value}
             </div>
             <div className="flex-1" />
@@ -302,7 +302,7 @@ function KpiStrip({ color }: { color: string }) {
           </div>
           <div
             className="mt-1 font-[family-name:var(--font-mono)] text-[11px]"
-            style={{ color: k.positive ? 'var(--color-success)' : '#c44536' }}
+            style={{ color: k.positive ? 'var(--success)' : '#c44536' }}
           >
             {k.delta}
           </div>
@@ -331,12 +331,12 @@ function SubAgentsSection() {
           return (
             <div
               key={s.id}
-              className="flex cursor-pointer gap-3 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-[var(--color-text-secondary)]"
+              className="flex cursor-pointer gap-3 rounded-[10px] border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
             >
               <AgentPortrait name={s.name} color={s.color} glyph={s.glyph} size={42} ring={false} />
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+                  <span className="text-[13px] font-semibold text-foreground">
                     {s.name}
                   </span>
                   <span
@@ -346,15 +346,15 @@ function SubAgentsSection() {
                     {tone.t}
                   </span>
                 </div>
-                <div className="mb-1.5 text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">
+                <div className="mb-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
                   {s.role}
                 </div>
-                <div className="flex gap-3.5 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+                <div className="flex gap-3.5 font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
                   <span>{s.calls} calls / 24h</span>
                   <span>~{s.avgMs}ms</span>
                 </div>
               </div>
-              <ChevronRight className="h-3 w-3 self-center text-[var(--color-text-tertiary)]" />
+              <ChevronRight className="h-3 w-3 self-center text-muted-foreground" />
             </div>
           );
         })}
@@ -381,7 +381,7 @@ function ToolsSection({ tools }: { tools: DemoTool[] }) {
         </>
       }
     >
-      <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
         <ToolsHeaderRow />
         {tools.map((t, i) => (
           <ToolRow key={t.name} tool={t} last={i === tools.length - 1} />
@@ -394,19 +394,19 @@ function ToolsSection({ tools }: { tools: DemoTool[] }) {
 function ToolsHeaderRow() {
   return (
     <div
-      className="grid items-center gap-3.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3.5 py-2"
+      className="grid items-center gap-3.5 border-b border-border bg-muted px-3.5 py-2"
       style={{ gridTemplateColumns: '90px 1fr 90px 80px 24px' }}
     >
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         Kind
       </div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         Tool
       </div>
-      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         Uses · 24h
       </div>
-      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         p99
       </div>
       <div />
@@ -418,7 +418,7 @@ function ToolRow({ tool, last }: { tool: DemoTool; last: boolean }) {
   const tone = CAT_TONE[tool.cat];
   return (
     <div
-      className={cn('grid items-center gap-3.5 px-3.5 py-3', !last && 'border-b border-[var(--color-border-light)]')}
+      className={cn('grid items-center gap-3.5 px-3.5 py-3', !last && 'border-b border-border')}
       style={{ gridTemplateColumns: '90px 1fr 90px 80px 24px' }}
     >
       <span
@@ -428,23 +428,23 @@ function ToolRow({ tool, last }: { tool: DemoTool; last: boolean }) {
         {tool.cat}
       </span>
       <div className="min-w-0">
-        <div className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+        <div className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
           {tool.name}
         </div>
-        <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--color-text-secondary)]">
+        <div className="mt-0.5 line-clamp-2 text-[11.5px] text-muted-foreground">
           {tool.desc}
         </div>
       </div>
-      <div className="text-right font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-secondary)]">
+      <div className="text-right font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-muted-foreground">
         {tool.uses.toLocaleString()}
       </div>
       <div
         className="text-right font-[family-name:var(--font-mono)] text-[12px]"
-        style={{ color: tool.errors > 0 ? '#c44536' : 'var(--color-text-secondary)' }}
+        style={{ color: tool.errors > 0 ? '#c44536' : 'var(--muted-foreground)' }}
       >
         {tool.errors > 0 ? `${tool.errors} err` : tool.p99}
       </div>
-      <MoreHorizontal className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+      <MoreHorizontal className="h-3 w-3 text-muted-foreground" />
     </div>
   );
 }
@@ -474,7 +474,7 @@ function SkillsSection({ color }: { color: string }) {
           return (
             <div
               key={s.name}
-              className="grid cursor-pointer items-start gap-3 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-[var(--color-text-secondary)]"
+              className="grid cursor-pointer items-start gap-3 rounded-[10px] border border-border bg-card p-3 transition-[border-color,transform] duration-150 hover:-translate-y-px hover:border-muted-foreground"
               style={{ gridTemplateColumns: '30px 1fr auto' }}
             >
               <div
@@ -485,10 +485,10 @@ function SkillsSection({ color }: { color: string }) {
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+                  <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
                     {s.name}
                   </span>
-                  <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+                  <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
                     v{s.version}
                   </span>
                   {s.status === 'beta' && (
@@ -506,15 +506,15 @@ function SkillsSection({ color }: { color: string }) {
                     {s.source}
                   </span>
                 </div>
-                <div className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">
+                <div className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
                   {s.desc}
                 </div>
               </div>
               <div className="text-right whitespace-nowrap">
-                <div className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+                <div className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">
                   {s.last24h}
                 </div>
-                <div className="mt-px text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="mt-px text-[10px] text-muted-foreground">
                   activations · 24h
                 </div>
               </div>
@@ -528,7 +528,7 @@ function SkillsSection({ color }: { color: string }) {
 
 function McpSection() {
   const stTone = {
-    connected: { c: 'var(--color-success)', t: 'Connected' },
+    connected: { c: 'var(--success)', t: 'Connected' },
     connecting: { c: '#b4741e', t: 'Connecting' },
     error: { c: '#c44536', t: 'Error' },
   } as const;
@@ -555,22 +555,22 @@ function McpSection() {
           return (
             <div
               key={s.name}
-              className="grid items-center gap-3.5 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3.5 py-3"
+              className="grid items-center gap-3.5 rounded-[10px] border border-border bg-card px-3.5 py-3"
               style={{ gridTemplateColumns: '36px 1fr 110px 90px 90px 24px' }}
             >
-              <div className="relative grid h-8 w-8 place-items-center rounded-[7px] bg-[var(--color-surface-inset)]">
-                <Server className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+              <div className="relative grid h-8 w-8 place-items-center rounded-[7px] bg-muted">
+                <Server className="h-3.5 w-3.5 text-muted-foreground" />
                 <span
                   className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
                   style={{
                     background: st.c,
-                    borderColor: 'var(--color-surface)',
+                    borderColor: 'var(--card)',
                   }}
                 />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+                  <span className="text-[13px] font-semibold text-foreground">
                     {s.name}
                   </span>
                   {s.native && (
@@ -578,14 +578,14 @@ function McpSection() {
                       className="rounded px-1.5 py-[1px] text-[9.5px] font-semibold tracking-[0.04em]"
                       style={{
                         background: 'var(--color-brand-primary-10)',
-                        color: 'var(--color-brand-primary)',
+                        color: 'var(--primary)',
                       }}
                     >
                       NATIVE
                     </span>
                   )}
                 </div>
-                <div className="mt-px truncate font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+                <div className="mt-px truncate font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
                   {s.url}
                   {s.err && <span className="ml-2 text-[#c44536]">· {s.err}</span>}
                 </div>
@@ -597,14 +597,14 @@ function McpSection() {
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: st.c }} />
                 {st.t}
               </span>
-              <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
-                <span className="text-[var(--color-text-tertiary)]">tools </span>
+              <div className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
+                <span className="text-muted-foreground">tools </span>
                 {s.tools}
               </div>
-              <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+              <div className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                 {s.latency}
               </div>
-              <MoreHorizontal className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+              <MoreHorizontal className="h-3 w-3 text-muted-foreground" />
             </div>
           );
         })}
@@ -635,8 +635,8 @@ function ConnectionMapCard({ color, agentName }: { color: string; agentName: str
             </radialGradient>
           </defs>
           <circle cx={cx} cy={cy} r={70} fill="url(#cm-glow)" />
-          <circle cx={cx} cy={cy} r={58} fill="none" stroke="var(--color-border-light)" strokeDasharray="2 4" />
-          <circle cx={cx} cy={cy} r={84} fill="none" stroke="var(--color-border-light)" strokeDasharray="2 4" opacity={0.6} />
+          <circle cx={cx} cy={cy} r={58} fill="none" stroke="var(--border)" strokeDasharray="2 4" />
+          <circle cx={cx} cy={cy} r={84} fill="none" stroke="var(--border)" strokeDasharray="2 4" opacity={0.6} />
 
           {/* Links + animated dots */}
           {subs.map((s, i) => {
@@ -670,7 +670,7 @@ function ConnectionMapCard({ color, agentName }: { color: string; agentName: str
                   textAnchor="middle"
                   fontSize={9.5}
                   fontFamily="var(--font-mono)"
-                  fill="var(--color-text-secondary)"
+                  fill="var(--muted-foreground)"
                 >
                   {s.name.split(' ')[0]}
                 </text>
@@ -697,8 +697,8 @@ function ConnectionMapCard({ color, agentName }: { color: string; agentName: str
           </text>
         </svg>
       </div>
-      <div className="flex items-center justify-between border-t border-[var(--color-border-light)] px-3 py-2.5">
-        <span className="text-[11px] text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-between border-t border-border px-3 py-2.5">
+        <span className="text-[11px] text-muted-foreground">
           {DEMO_SUB_AGENTS.length} sub-agents · 220 calls / hr
         </span>
         <Button variant="ghost" size="sm">
@@ -731,7 +731,7 @@ function RecentRunsCard({
   const eyebrow = useReal ? `${runs.length} of ${totalRuns}` : `${DEMO_RUNS.length} of 318`;
 
   const tone: Record<'ok' | 'held' | 'err', string> = {
-    ok: 'var(--color-success)',
+    ok: 'var(--success)',
     held: '#b4741e',
     err: '#c44536',
   };
@@ -748,7 +748,7 @@ function RecentRunsCard({
     >
       <div className="flex flex-col">
         {loading && useReal === false && (
-          <div className="px-4 py-5 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="px-4 py-5 text-center text-[12px] text-muted-foreground">
             Loading…
           </div>
         )}
@@ -757,8 +757,8 @@ function RecentRunsCard({
             key={i}
             className={cn(
               'grid items-center gap-2 px-3 py-2.5',
-              i === 0 && 'border-t border-[var(--color-border-light)]',
-              'border-b border-[var(--color-border-light)]',
+              i === 0 && 'border-t border-border',
+              'border-b border-border',
             )}
             style={{ gridTemplateColumns: '40px 1fr 50px' }}
           >
@@ -769,14 +769,14 @@ function RecentRunsCard({
               {r.status}
             </span>
             <div className="min-w-0">
-              <div className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-primary)]">
+              <div className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-foreground">
                 {r.op}
               </div>
-              <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
                 {r.txn} · {r.dur}
               </div>
             </div>
-            <span className="text-right font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+            <span className="text-right font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
               {r.t}
             </span>
           </div>
@@ -814,13 +814,13 @@ function PolicyCard({ agent }: { agent: AgentConfigurationResponse }) {
           <div key={i} className="flex items-start gap-2.5">
             <span
               className="mt-0.5 flex-none"
-              style={{ color: p.soft ? 'var(--color-brand-primary)' : 'var(--color-text-secondary)' }}
+              style={{ color: p.soft ? 'var(--primary)' : 'var(--muted-foreground)' }}
             >
               {renderIcon(p.iconKey)}
             </span>
             <div className="flex-1">
-              <div className="text-[12.5px] font-medium text-[var(--color-text-primary)]">{p.title}</div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">{p.description}</div>
+              <div className="text-[12.5px] font-medium text-foreground">{p.title}</div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">{p.description}</div>
             </div>
             <Pill
               tone={p.enforced ? (p.soft ? 'info' : 'success') : 'muted'}
@@ -866,17 +866,17 @@ function SubAgentsTab() {
             </>
           }
         >
-          <div className="overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div
-              className="grid items-center gap-3.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2"
+              className="grid items-center gap-3.5 border-b border-border bg-muted px-4 py-2"
               style={{ gridTemplateColumns: '52px 1.5fr 1fr 110px 80px 90px 24px' }}
             >
               <div />
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">Agent · role</div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">Autonomy</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">Calls · 24h</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">Success</div>
-              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">Avg · last</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Agent · role</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Autonomy</div>
+              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Calls · 24h</div>
+              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Success</div>
+              <div className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Avg · last</div>
               <div />
             </div>
             {DEMO_SUB_AGENTS.map((s, i, arr) => {
@@ -884,22 +884,22 @@ function SubAgentsTab() {
               return (
                 <div
                   key={s.id}
-                  className={cn('grid cursor-pointer items-center gap-3.5 px-4 py-3.5', i < arr.length - 1 && 'border-b border-[var(--color-border-light)]')}
+                  className={cn('grid cursor-pointer items-center gap-3.5 px-4 py-3.5', i < arr.length - 1 && 'border-b border-border')}
                   style={{ gridTemplateColumns: '52px 1.5fr 1fr 110px 80px 90px 24px' }}
                 >
                   <AgentPortrait name={s.name} color={s.color} glyph={s.glyph} size={42} ring={false} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">{s.name}</span>
+                      <span className="text-[13.5px] font-semibold text-foreground">{s.name}</span>
                       <Pill tone="info" size="sm">Domain</Pill>
                     </div>
-                    <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">{s.role}</div>
+                    <div className="mt-0.5 text-[11.5px] text-muted-foreground">{s.role}</div>
                   </div>
                   <span className="justify-self-start rounded px-2 py-[3px] text-[9.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: autonomyTone.bg, color: autonomyTone.fg }}>{autonomyTone.t}</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-secondary)]">{s.calls}</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px]" style={{ color: s.successRate >= s.sla ? 'var(--color-success)' : '#b4741e' }}>{s.successRate.toFixed(1)}%</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{s.avgMs}ms · {s.last}</span>
-                  <ChevronRight className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">{s.calls}</span>
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[12px]" style={{ color: s.successRate >= s.sla ? 'var(--success)' : '#b4741e' }}>{s.successRate.toFixed(1)}%</span>
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{s.avgMs}ms · {s.last}</span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
               );
             })}
@@ -907,19 +907,19 @@ function SubAgentsTab() {
         </Section>
 
         <Section title="Recent delegations" subtitle="Invocation log across all sub-agents (24h)." count={log.length} action={<Button variant="ghost" size="sm">Open in Traces →</Button>}>
-          <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <div className="overflow-hidden rounded-[10px] border border-border bg-card">
             {log.map((entry, i) => (
-              <div key={`${entry.op}-${i}`} className={cn('grid items-center gap-3.5 px-3.5 py-2.5', i < log.length - 1 && 'border-b border-[var(--color-border-light)]')} style={{ gridTemplateColumns: '40px 1fr 1fr 80px 60px 50px' }}>
+              <div key={`${entry.op}-${i}`} className={cn('grid items-center gap-3.5 px-3.5 py-2.5', i < log.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '40px 1fr 1fr 80px 60px 50px' }}>
                 <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase tracking-[0.04em]" style={{ background: `${tone[entry.status]}1a`, color: tone[entry.status] }}>{entry.status}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-[var(--color-text-secondary)]">self</span>
-                  <ChevronRight className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" />
+                  <span className="text-[11px] text-muted-foreground">self</span>
+                  <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
                   <AgentPortrait name={entry.to.name} color={entry.to.color} glyph={entry.to.glyph} size={20} ring={false} />
-                  <span className="text-[11px] font-medium text-[var(--color-text-primary)]">{entry.to.name.replace(' Agent', '')}</span>
+                  <span className="text-[11px] font-medium text-foreground">{entry.to.name.replace(' Agent', '')}</span>
                 </div>
-                <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-primary)]">{entry.op}</span>
-                <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{entry.ms}ms</span>
-                <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{entry.at}</span>
+                <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-foreground">{entry.op}</span>
+                <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{entry.ms}ms</span>
+                <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{entry.at}</span>
                 <Button variant="ghost" size="sm" className="h-[22px] px-1.5 text-[10.5px]">trace</Button>
               </div>
             ))}
@@ -930,7 +930,7 @@ function SubAgentsTab() {
       <div className="flex flex-col gap-5">
         <ConnectionMapCard color="#eb5c37" agentName="Billing" />
         <CardShell title="How sub-agents work">
-          <div className="p-3.5 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
+          <div className="p-3.5 text-[12px] leading-relaxed text-muted-foreground">
             Calls inherit tenant scope and trace context. The callee still runs under its own policies, so Compliance can block even if Billing requested the check.
           </div>
         </CardShell>
@@ -970,7 +970,7 @@ function ToolsTab({
           </>
         }
       >
-        <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <div className="overflow-hidden rounded-[10px] border border-border bg-card">
           {tools.map((tt, i) => {
             const tone = CAT_TONE[tt.cat];
             const active = i === sel;
@@ -981,7 +981,7 @@ function ToolsTab({
                 onClick={() => setSel(i)}
                 className={cn(
                   'grid w-full items-center gap-3.5 px-3.5 py-3.5 text-left',
-                  i < tools.length - 1 && 'border-b border-[var(--color-border-light)]',
+                  i < tools.length - 1 && 'border-b border-border',
                   !tt.enabled && 'opacity-55',
                 )}
                 style={{
@@ -997,23 +997,23 @@ function ToolsTab({
                   {tt.cat}
                 </span>
                 <div>
-                  <div className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+                  <div className="font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
                     {tt.name}
                   </div>
-                  <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">
+                  <div className="mt-0.5 text-[11.5px] text-muted-foreground">
                     {tt.desc}
                   </div>
                 </div>
-                <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-secondary)]">
+                <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">
                   {tt.uses.toLocaleString()}
                 </div>
                 <div
                   className="text-right font-[family-name:var(--font-mono)] text-[12px]"
-                  style={{ color: tt.errors > 0 ? '#c44536' : 'var(--color-text-secondary)' }}
+                  style={{ color: tt.errors > 0 ? '#c44536' : 'var(--muted-foreground)' }}
                 >
                   {tt.errors > 0 ? `${tt.errors} err` : tt.p99}
                 </div>
-                <ChevronRight className="h-3 w-3" style={{ color: active ? color : 'var(--color-text-tertiary)' }} />
+                <ChevronRight className="h-3 w-3" style={{ color: active ? color : 'var(--muted-foreground)' }} />
               </button>
             );
           })}
@@ -1031,7 +1031,7 @@ function ToolsTab({
           }
         >
           <div className="flex flex-col gap-3.5 p-3.5">
-            <p className="m-0 text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
+            <p className="m-0 text-[12.5px] leading-relaxed text-muted-foreground">
               {t.desc}
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -1044,10 +1044,10 @@ function ToolsTab({
               />
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Input schema
               </div>
-              <pre className="m-0 whitespace-pre-wrap rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-[var(--color-text-primary)]">
+              <pre className="m-0 whitespace-pre-wrap rounded-md border border-border bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-foreground">
 {`{
   "candidate_id": "string",
   "context": "string",
@@ -1056,10 +1056,10 @@ function ToolsTab({
               </pre>
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Returns
               </div>
-              <pre className="m-0 whitespace-pre-wrap rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-[var(--color-text-primary)]">
+              <pre className="m-0 whitespace-pre-wrap rounded-md border border-border bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-[1.55] text-foreground">
 {`{
   "score": 0.0..1.0,
   "reasons": [string],
@@ -1081,11 +1081,11 @@ function ToolsTab({
             ].map((r, i, arr) => {
               const rowColor = r.status === 'ok' ? '#1f7a5e' : '#c44536';
               return (
-                <div key={`${r.ref}-${i}`} className={cn('grid items-center gap-2.5 px-3.5 py-2', i < arr.length - 1 && 'border-b border-[var(--color-border-light)]')} style={{ gridTemplateColumns: '40px 1fr 60px 50px' }}>
+                <div key={`${r.ref}-${i}`} className={cn('grid items-center gap-2.5 px-3.5 py-2', i < arr.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '40px 1fr 60px 50px' }}>
                   <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase" style={{ background: `${rowColor}1a`, color: rowColor }}>{r.status}</span>
-                  <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-primary)]">{r.ref}</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{r.ms}ms</span>
-                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{r.at}</span>
+                  <span className="font-[family-name:var(--font-mono)] text-[11px] text-foreground">{r.ref}</span>
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.ms}ms</span>
+                  <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.at}</span>
                 </div>
               );
             })}
@@ -1098,13 +1098,13 @@ function ToolsTab({
 
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: string | null }) {
   return (
-    <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="rounded-md border border-border bg-card px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </div>
       <div
         className="mt-1 font-[family-name:var(--font-mono)] text-[14px] font-semibold tabular-nums"
-        style={{ color: tone ?? 'var(--color-text-primary)' }}
+        style={{ color: tone ?? 'var(--foreground)' }}
       >
         {value}
       </div>
@@ -1131,16 +1131,16 @@ function SkillsTab({ color }: { color: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] md:grid-cols-3">
+      <div className="grid overflow-hidden rounded-xl border border-border bg-card md:grid-cols-3">
         {[
           { eyebrow: '1 · Discovery', title: 'Read name + description', body: 'On every turn the agent skims registered skills; only frontmatter is loaded.' },
           { eyebrow: '2 · Activation', title: 'Load full SKILL.md', body: 'When a skill matches, its full instructions enter the context window.' },
           { eyebrow: '3 · Execution', title: 'Run scripts + refs', body: 'Bundled scripts, references, and assets are pulled only when needed.' },
         ].map((step, i) => (
-          <div key={step.eyebrow} className={cn('p-4', i < 2 && 'border-b border-[var(--color-border-light)] md:border-b-0 md:border-r')}>
+          <div key={step.eyebrow} className={cn('p-4', i < 2 && 'border-b border-border md:border-b-0 md:border-r')}>
             <div className="font-[family-name:var(--font-mono)] text-[10px] font-semibold tracking-[0.06em]" style={{ color }}>{step.eyebrow}</div>
-            <div className="mt-1 text-[13px] font-semibold text-[var(--color-text-primary)]">{step.title}</div>
-            <div className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-text-tertiary)]">{step.body}</div>
+            <div className="mt-1 text-[13px] font-semibold text-foreground">{step.title}</div>
+            <div className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{step.body}</div>
           </div>
         ))}
       </div>
@@ -1172,9 +1172,9 @@ function SkillsTab({ color }: { color: string }) {
                 onClick={() => { setFilter(f.id as typeof filter); setSelected(0); }}
                 className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
                 style={{
-                  background: filter === f.id ? `${color}14` : 'var(--color-surface)',
-                  color: filter === f.id ? color : 'var(--color-text-secondary)',
-                  borderColor: filter === f.id ? `${color}55` : 'var(--color-border-light)',
+                  background: filter === f.id ? `${color}14` : 'var(--card)',
+                  color: filter === f.id ? color : 'var(--muted-foreground)',
+                  borderColor: filter === f.id ? `${color}55` : 'var(--border)',
                 }}
               >
                 {f.label}
@@ -1191,21 +1191,21 @@ function SkillsTab({ color }: { color: string }) {
                   type="button"
                   onClick={() => setSelected(i)}
                   className="grid items-start gap-3 rounded-[10px] border p-3.5 text-left"
-                  style={{ gridTemplateColumns: '32px 1fr auto', background: selectedSkill ? `${color}0a` : 'var(--color-surface)', borderColor: selectedSkill ? color : 'var(--color-border-light)' }}
+                  style={{ gridTemplateColumns: '32px 1fr auto', background: selectedSkill ? `${color}0a` : 'var(--card)', borderColor: selectedSkill ? color : 'var(--border)' }}
                 >
                   <div className="grid h-8 w-8 place-items-center rounded-[7px]" style={{ background: `${color}14`, color }}><Folder className="h-4 w-4" /></div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">{skill.displayName}</span>
-                      <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">v{skill.version}</span>
+                      <span className="text-[13.5px] font-semibold text-foreground">{skill.displayName}</span>
+                      <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">v{skill.version}</span>
                       {skill.status === 'beta' && <span className="rounded px-1.5 py-px text-[9.5px] font-semibold tracking-[0.04em]" style={{ background: '#b4741e1a', color: '#b4741e' }}>BETA</span>}
                       <span className="rounded px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-[0.04em]" style={{ background: `${tone}14`, color: tone }}>{skill.source}</span>
                     </div>
-                    <div className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">{skill.desc}</div>
+                    <div className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{skill.desc}</div>
                   </div>
                   <div className="text-right whitespace-nowrap">
-                    <div className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">{skill.last24h}</div>
-                    <div className="mt-px text-[10px] text-[var(--color-text-tertiary)]">activations · 24h</div>
+                    <div className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">{skill.last24h}</div>
+                    <div className="mt-px text-[10px] text-muted-foreground">activations · 24h</div>
                   </div>
                 </button>
               );
@@ -1221,7 +1221,7 @@ function SkillsTab({ color }: { color: string }) {
               action={<><Button variant="ghost" size="sm"><Play className="h-3 w-3" />Test</Button><Button variant="outline" size="sm"><Edit3 className="h-3 w-3" />Edit</Button></>}
             >
               <div className="flex flex-col gap-3.5 p-3.5">
-                <p className="m-0 text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">{active.desc}</p>
+                <p className="m-0 text-[12.5px] leading-relaxed text-muted-foreground">{active.desc}</p>
                 <div className="grid grid-cols-3 gap-2">
                   <MiniStat label="Activations · 24h" value={active.last24h.toString()} />
                   <MiniStat label="Hit rate" value={`${Math.round(active.hitRate * 100)}%`} tone={active.hitRate >= 0.95 ? '#1f7a5e' : '#b4741e'} />
@@ -1237,7 +1237,7 @@ function SkillsTab({ color }: { color: string }) {
                 )}
                 <div>
                   <SmallLabel>Bundle</SmallLabel>
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-2 font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
+                  <div className="rounded-lg border border-border bg-muted p-2 font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
                     {['SKILL.md', 'scripts/score.py', 'references/policy.md', 'assets/proposal.tmpl'].map((file) => (
                       <div key={file} className="flex items-center gap-2 rounded px-2 py-1">
                         <FileText className="h-3 w-3" style={{ color }} />
@@ -1246,9 +1246,9 @@ function SkillsTab({ color }: { color: string }) {
                     ))}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--color-border-light)] pt-2.5 text-[11px] text-[var(--color-text-tertiary)]">
-                  <span>installed <b className="text-[var(--color-text-secondary)]">{active.installed}</b></span>
-                  <span>visibility <b className="text-[var(--color-text-secondary)]">{active.source}</b></span>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2.5 text-[11px] text-muted-foreground">
+                  <span>installed <b className="text-muted-foreground">{active.installed}</b></span>
+                  <span>visibility <b className="text-muted-foreground">{active.source}</b></span>
                 </div>
               </div>
             </CardShell>
@@ -1286,19 +1286,19 @@ function McpTab() {
         {servers.map((server) => {
           const color = stTone[server.status];
           return (
-            <div key={server.name} className="overflow-hidden rounded-xl border bg-[var(--color-surface)]" style={{ borderColor: server.status === 'error' ? '#c4453633' : 'var(--color-border-light)' }}>
+            <div key={server.name} className="overflow-hidden rounded-xl border bg-card" style={{ borderColor: server.status === 'error' ? '#c4453633' : 'var(--border)' }}>
               <div className="grid items-center gap-3.5 px-4 py-3.5" style={{ gridTemplateColumns: '40px 1fr 100px 100px 100px 100px' }}>
-                <div className="relative grid h-9 w-9 place-items-center rounded-lg bg-[var(--color-surface-inset)]">
-                  <Server className="h-4 w-4 text-[var(--color-text-secondary)]" />
-                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-surface)]" style={{ background: color }} />
+                <div className="relative grid h-9 w-9 place-items-center rounded-lg bg-muted">
+                  <Server className="h-4 w-4 text-muted-foreground" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card" style={{ background: color }} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">{server.name}</span>
-                    {server.native && <span className="rounded px-1.5 py-px text-[9.5px] font-semibold tracking-[0.04em] text-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]">NATIVE</span>}
-                    <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-px font-[family-name:var(--font-mono)] text-[9.5px] font-semibold tracking-[0.04em] text-[var(--color-text-tertiary)]">{server.auth}</span>
+                    <span className="text-[13.5px] font-semibold text-foreground">{server.name}</span>
+                    {server.native && <span className="rounded px-1.5 py-px text-[9.5px] font-semibold tracking-[0.04em] text-primary bg-primary/10">NATIVE</span>}
+                    <span className="rounded bg-muted px-1.5 py-px font-[family-name:var(--font-mono)] text-[9.5px] font-semibold tracking-[0.04em] text-muted-foreground">{server.auth}</span>
                   </div>
-                  <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">{server.url}</div>
+                  <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">{server.url}</div>
                 </div>
                 <McpMetric value={server.tools.toString()} label="tools" />
                 <McpMetric value={server.resources.toString()} label="resources" />
@@ -1317,8 +1317,8 @@ function McpTab() {
                   <Button variant="ghost" size="sm" className="h-[22px] px-2 text-[11px]">View logs</Button>
                 </div>
               )}
-              <div className="flex items-center gap-3 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
-                <span>last sync · <b className="text-[var(--color-text-secondary)]">{server.lastSync}</b></span>
+              <div className="flex items-center gap-3 border-t border-border bg-muted px-4 py-2 text-[11px] text-muted-foreground">
+                <span>last sync · <b className="text-muted-foreground">{server.lastSync}</b></span>
                 <span>·</span>
                 <span className="font-[family-name:var(--font-mono)]">v1.4.2</span>
               </div>
@@ -1333,8 +1333,8 @@ function McpTab() {
 function McpMetric({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <div className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">{value}</div>
-      <div className="mt-px text-[10px] text-[var(--color-text-tertiary)]">{label}</div>
+      <div className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">{value}</div>
+      <div className="mt-px text-[10px] text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -1378,22 +1378,22 @@ function ActivityTab({
           </>
         }
       >
-        <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <div className="grid gap-3.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2.5" style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
+        <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+          <div className="grid gap-3.5 border-b border-border bg-muted px-4 py-2.5" style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
             {['', 'Run', 'Operation', 'Subject', 'Tools', 'Dur', 'Age'].map((h, i) => (
-              <div key={`${h}-${i}`} className={cn('text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]', i >= 4 && 'text-right')}>{h}</div>
+              <div key={`${h}-${i}`} className={cn('text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground', i >= 4 && 'text-right')}>{h}</div>
             ))}
           </div>
-          {runsLoading && (!runs || runs.items.length === 0) && <div className="px-4 py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">Loading…</div>}
+          {runsLoading && (!runs || runs.items.length === 0) && <div className="px-4 py-6 text-center text-[12px] text-muted-foreground">Loading…</div>}
           {displayRuns.map((r, i) => (
-            <div key={`${r.id}-${i}`} className={cn('grid cursor-pointer items-center gap-3.5 px-4 py-3', i < displayRuns.length - 1 && 'border-b border-[var(--color-border-light)]')} style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
+            <div key={`${r.id}-${i}`} className={cn('grid cursor-pointer items-center gap-3.5 px-4 py-3', i < displayRuns.length - 1 && 'border-b border-border')} style={{ gridTemplateColumns: '50px 100px 1fr 90px 70px 60px 60px' }}>
               <span className="rounded px-1.5 py-[2px] text-center font-[family-name:var(--font-mono)] text-[9.5px] font-semibold uppercase" style={{ background: `${tone[r.status]}1a`, color: tone[r.status] }}>{r.status}</span>
-              <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">{r.id}</span>
-              <span className="truncate font-[family-name:var(--font-mono)] text-[12.5px] text-[var(--color-text-primary)]">{r.op}</span>
-              <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">{r.txn}</span>
-              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{r.tool}{r.sub > 0 && <span className="text-[var(--color-brand-primary)]"> +{r.sub}sub</span>}</span>
-              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{r.dur}</span>
-              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">{r.t}</span>
+              <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.id}</span>
+              <span className="truncate font-[family-name:var(--font-mono)] text-[12.5px] text-foreground">{r.op}</span>
+              <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">{r.txn}</span>
+              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.tool}{r.sub > 0 && <span className="text-primary"> +{r.sub}sub</span>}</span>
+              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.dur}</span>
+              <span className="text-right font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{r.t}</span>
             </div>
           ))}
         </div>
@@ -1476,11 +1476,11 @@ function SettingsTab({
               { v: 'v0.41.4', t: '1 month ago', by: 'aaron', note: 'Bumped match threshold' },
               { v: 'v0.41.0', t: '2 months ago', by: 'maria', note: 'Initial release' },
             ].map((version) => (
-              <div key={version.v} className="grid items-center gap-2.5 rounded-lg border p-2.5" style={{ gridTemplateColumns: '70px 1fr auto', background: version.active ? 'var(--color-brand-primary-10)' : 'var(--color-surface-inset)', borderColor: version.active ? 'var(--color-brand-primary-20)' : 'var(--color-border-light)' }}>
-                <span className="font-[family-name:var(--font-mono)] text-[11px] font-semibold text-[var(--color-text-primary)]">{version.v}</span>
+              <div key={version.v} className="grid items-center gap-2.5 rounded-lg border p-2.5" style={{ gridTemplateColumns: '70px 1fr auto', background: version.active ? 'var(--color-brand-primary-10)' : 'var(--muted)', borderColor: version.active ? 'var(--color-brand-primary-20)' : 'var(--border)' }}>
+                <span className="font-[family-name:var(--font-mono)] text-[11px] font-semibold text-foreground">{version.v}</span>
                 <div className="min-w-0">
-                  <div className="text-[11.5px] text-[var(--color-text-primary)]">{version.note}</div>
-                  <div className="mt-px text-[10px] text-[var(--color-text-tertiary)]">{version.t} · @{version.by}</div>
+                  <div className="text-[11.5px] text-foreground">{version.note}</div>
+                  <div className="mt-px text-[10px] text-muted-foreground">{version.t} · @{version.by}</div>
                 </div>
                 <Button variant="ghost" size="sm" className="h-[22px] px-2 text-[10.5px]">{version.active ? 'live' : 'roll back'}</Button>
               </div>
@@ -1505,32 +1505,32 @@ function SettingLine({ label, description, children }: { label: string; descript
   return (
     <div className="flex items-center gap-3.5">
       <div className="flex-1">
-        <div className="text-[12.5px] font-medium text-[var(--color-text-primary)]">{label}</div>
-        {description && <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">{description}</div>}
+        <div className="text-[12.5px] font-medium text-foreground">{label}</div>
+        {description && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{description}</div>}
       </div>
-      <div className="text-[12px] text-[var(--color-text-primary)]">{children}</div>
+      <div className="text-[12px] text-foreground">{children}</div>
     </div>
   );
 }
 
 function SwitchPill({ on }: { on: boolean }) {
   return (
-    <span className="inline-flex h-[17px] w-[30px] items-center rounded-full p-0.5" style={{ background: on ? 'var(--color-brand-primary)' : 'var(--color-gray-300)' }}>
+    <span className="inline-flex h-[17px] w-[30px] items-center rounded-full p-0.5" style={{ background: on ? 'var(--primary)' : 'var(--border)' }}>
       <span className="h-[13px] w-[13px] rounded-full bg-white transition-transform" style={{ transform: on ? 'translateX(13px)' : 'translateX(0)' }} />
     </span>
   );
 }
 
 function Divider() {
-  return <div className="h-px bg-[var(--color-border-light)]" />;
+  return <div className="h-px bg-border" />;
 }
 
 function DangerRow({ title, description, cta, destructive }: { title: string; description: string; cta: string; destructive?: boolean }) {
   return (
-    <div className="grid items-center gap-3.5 rounded-lg border p-3" style={{ gridTemplateColumns: '1fr auto', borderColor: destructive ? '#c4453633' : 'var(--color-border-light)' }}>
+    <div className="grid items-center gap-3.5 rounded-lg border p-3" style={{ gridTemplateColumns: '1fr auto', borderColor: destructive ? '#c4453633' : 'var(--border)' }}>
       <div>
-        <div className="text-[12.5px] font-medium" style={{ color: destructive ? '#c44536' : 'var(--color-text-primary)' }}>{title}</div>
-        <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">{description}</div>
+        <div className="text-[12.5px] font-medium" style={{ color: destructive ? '#c44536' : 'var(--foreground)' }}>{title}</div>
+        <div className="mt-0.5 text-[11.5px] text-muted-foreground">{description}</div>
       </div>
       <Button variant="outline" size="sm" className={destructive ? 'border-[#c4453666] text-[#c44536]' : undefined}>{cta}</Button>
     </div>
@@ -1539,13 +1539,13 @@ function DangerRow({ title, description, cta, destructive }: { title: string; de
 
 function SettingsRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3.5 py-3">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="flex flex-col gap-1 rounded-[10px] border border-border bg-card px-3.5 py-3">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </span>
       <span
         className={cn(
-          'text-[13px] font-medium text-[var(--color-text-primary)]',
+          'text-[13px] font-medium text-foreground',
           mono && 'font-[family-name:var(--font-mono)]',
         )}
       >
@@ -1575,17 +1575,17 @@ function Section({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="m-0 font-[family-name:var(--font-brand)] text-[18px] tracking-[-0.01em] text-[var(--color-text-primary)]">
+            <h2 className="m-0 font-[family-name:var(--font-brand)] text-[18px] tracking-[-0.01em] text-foreground">
               {title}
             </h2>
             {count != null && (
-              <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+              <span className="rounded-full bg-muted px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-semibold text-muted-foreground">
                 {count}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="mt-1 max-w-[720px] text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
+            <p className="mt-1 max-w-[720px] text-[12.5px] leading-relaxed text-muted-foreground">
               {subtitle}
             </p>
           )}
@@ -1609,13 +1609,13 @@ function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       {(title || eyebrow) && (
-        <div className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3">
+        <div className="flex items-center gap-2 border-b border-border px-3.5 py-3">
           <div className="min-w-0 flex-1">
-            {title && <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">{title}</div>}
+            {title && <div className="text-[13px] font-semibold text-foreground">{title}</div>}
             {eyebrow && (
-              <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+              <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
                 {eyebrow}
               </div>
             )}
@@ -1630,7 +1630,7 @@ function CardShell({
 
 function SmallLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
       {children}
     </div>
   );

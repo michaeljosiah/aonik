@@ -182,8 +182,8 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <p className="text-xs text-muted-foreground">
             Audit trail for scheduled job runs and admin commands.
           </p>
         </div>
@@ -201,10 +201,10 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
       {linkedJob && (
         <Card className="p-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <LinkIcon className="w-3.5 h-3.5 text-[var(--color-brand-primary)] shrink-0" />
+            <LinkIcon className="w-3.5 h-3.5 text-primary shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs text-[var(--color-text-tertiary)]">Linked from workspace</p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+              <p className="text-xs text-muted-foreground">Linked from workspace</p>
+              <p className="text-sm font-semibold text-foreground truncate">
                 {linkedJobDisplay}
               </p>
             </div>
@@ -260,11 +260,11 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
 
       {/* Results */}
       {loading ? (
-        <p className="text-xs text-[var(--color-text-tertiary)] py-6 text-center">Loading audit events...</p>
+        <p className="text-xs text-muted-foreground py-6 text-center">Loading audit events...</p>
       ) : !entries || entries.items.length === 0 ? (
         <div className="py-6 text-center">
-          <ScrollText className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)] mb-2" />
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <ScrollText className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-xs text-muted-foreground">
             {linkedJob ? `No audit events found for ${linkedJobDisplay}.` : 'No audit events matched your filters.'}
           </p>
         </div>
@@ -278,12 +278,12 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
             return (
               <div
                 key={entry.id}
-                className="rounded-md border border-[var(--color-border-light)] px-3 py-2.5"
+                className="rounded-md border border-border px-3 py-2.5"
               >
                 <div className="space-y-1.5">
                   {/* Summary + badge */}
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="text-xs font-medium text-[var(--color-text-primary)] line-clamp-1">
+                    <p className="text-xs font-medium text-foreground line-clamp-1">
                       {summarize(entry)}
                     </p>
                     <Badge variant={resultVariant(entry.action)} className="text-[10px] px-1.5 py-0">
@@ -292,19 +292,19 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
                   </div>
 
                   {/* Metadata */}
-                  <p className="text-[10px] text-[var(--color-text-tertiary)] break-all">
+                  <p className="text-[10px] text-muted-foreground break-all">
                     {metadataLine(entry)}
                   </p>
 
                   {/* Error / result */}
                   {(errorMessage || resultSummary) && (
-                    <div className="rounded-sm bg-[var(--color-surface-inset)] p-2 text-[10px] text-[var(--color-text-secondary)] whitespace-pre-wrap break-words line-clamp-3">
+                    <div className="rounded-sm bg-muted p-2 text-[10px] text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">
                       {errorMessage ?? resultSummary}
                     </div>
                   )}
 
                   {/* Timestamp + correlation */}
-                  <div className="flex items-center justify-between text-[10px] text-[var(--color-text-tertiary)]">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                     <span>{formatDateTime(entry.timestamp)}</span>
                     {entry.correlationId && (
                       <span className="font-mono truncate max-w-[120px]" title={entry.correlationId}>
@@ -315,9 +315,9 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
 
                   {/* Expandable raw details */}
                   {entry.detailsJson.trim() && (
-                    <details className="text-[10px] text-[var(--color-text-tertiary)]">
+                    <details className="text-[10px] text-muted-foreground">
                       <summary className="cursor-pointer select-none">Raw details</summary>
-                      <pre className="mt-1 overflow-auto rounded-sm bg-[var(--color-surface-inset)] p-2 whitespace-pre-wrap break-words max-h-32">
+                      <pre className="mt-1 overflow-auto rounded-sm bg-muted p-2 whitespace-pre-wrap break-words max-h-32">
                         {entry.detailsJson}
                       </pre>
                     </details>
@@ -330,7 +330,7 @@ export function AuditLogPanel({ panelId, title }: WorkspacePanelRenderProps) {
           {/* Pagination */}
           {entries.totalPages > 1 && (
             <div className="flex items-center justify-between pt-1">
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">
+              <span className="text-[10px] text-muted-foreground">
                 Page {entries.pageNumber} of {entries.totalPages}
               </span>
               <div className="flex gap-1">

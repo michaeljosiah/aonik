@@ -82,10 +82,10 @@ function formatRelative(timestamp: string | null | undefined): string {
 
 function activityDotColor(iconHint: string | undefined): string {
   const hint = (iconHint ?? '').toLowerCase();
-  if (/check|success|complete|posted|settled/.test(hint)) return 'var(--color-success)';
-  if (/sparkles|agent|proposal|match/.test(hint)) return 'var(--color-brand-secondary)';
-  if (/alert|warn|drift|error/.test(hint)) return 'var(--color-warning)';
-  return 'var(--color-gray-400)';
+  if (/check|success|complete|posted|settled/.test(hint)) return 'var(--success)';
+  if (/sparkles|agent|proposal|match/.test(hint)) return 'var(--agent)';
+  if (/alert|warn|drift|error/.test(hint)) return 'var(--warning)';
+  return 'var(--muted-foreground)';
 }
 
 function formatCurrency(value: number, currency: string): string {
@@ -101,9 +101,9 @@ function formatCurrency(value: number, currency: string): string {
 }
 
 const KPI_SPARK_COLOR: Record<string, string> = {
-  'cash-position': 'var(--color-brand-primary)',
+  'cash-position': 'var(--primary)',
   revenue: 'var(--color-accent-ent)',
-  'outstanding-invoices': 'var(--color-brand-secondary)',
+  'outstanding-invoices': 'var(--agent)',
   'agent-ops-today': 'var(--color-violet)',
 };
 
@@ -204,7 +204,7 @@ export function MySpacePage() {
         <div>
           <span className="eyebrow">{eyebrow}</span>
           <h1
-            className="mt-1.5 text-[26px] font-bold tracking-tight text-[var(--color-text-primary)]"
+            className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground"
             style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}
           >
             {greeting}
@@ -230,12 +230,12 @@ export function MySpacePage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center">
-          <AlertCircle className="h-8 w-8 text-[var(--color-error)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">{error}</p>
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <p className="text-sm text-muted-foreground">{error}</p>
           <button
             type="button"
             onClick={() => void loadData()}
-            className="inline-flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]"
+            className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry
@@ -255,12 +255,12 @@ export function MySpacePage() {
         <div>
           <span className="eyebrow">{eyebrow}</span>
           <h1
-            className="mt-1.5 text-[26px] font-bold tracking-tight text-[var(--color-text-primary)]"
+            className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground"
             style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}
           >
             {greeting}
           </h1>
-          <p className="mt-1 text-[13px] text-[var(--color-text-secondary)]">
+          <p className="mt-1 text-[13px] text-muted-foreground">
             {proposalsWaiting} proposal{proposalsWaiting === 1 ? '' : 's'} waiting · {unpaidInvoiceCount} invoice
             {unpaidInvoiceCount === 1 ? '' : 's'} unpaid · cash position updated {cashFreshness}
           </p>
@@ -268,7 +268,7 @@ export function MySpacePage() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-inset)]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
             title="Filter by date range"
           >
             <Calendar className="h-3.5 w-3.5" />
@@ -277,7 +277,7 @@ export function MySpacePage() {
           <button
             type="button"
             onClick={() => navigate('/billing/invoices')}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-brand-primary)] px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-[var(--color-brand-primary-dark)]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Plus className="h-3.5 w-3.5" />
             New bill payment
@@ -357,7 +357,7 @@ export function MySpacePage() {
         action={
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-inset)]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <Filter className="h-3 w-3" />
             Filter
@@ -366,7 +366,7 @@ export function MySpacePage() {
         padding={20}
       >
         {activity.length === 0 ? (
-          <div className="py-6 text-center text-[13px] text-[var(--color-text-secondary)]">
+          <div className="py-6 text-center text-[13px] text-muted-foreground">
             No recent activity yet. Agents will surface events here as they run.
           </div>
         ) : (
@@ -378,7 +378,7 @@ export function MySpacePage() {
                 style={{
                   gridTemplateColumns: '20px 1fr auto',
                   borderBottom:
-                    i < activity.length - 1 ? '1px solid var(--color-border-light)' : 'none',
+                    i < activity.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
                 <span
@@ -387,17 +387,17 @@ export function MySpacePage() {
                   aria-hidden
                 />
                 <div className="min-w-0">
-                  <div className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                  <div className="truncate text-[13px] font-medium text-foreground">
                     {row.title}
                   </div>
                   {row.description && (
-                    <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">
+                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                       {row.description}
                     </div>
                   )}
                 </div>
                 <div
-                  className="text-[11px] text-[var(--color-text-tertiary)]"
+                  className="text-[11px] text-muted-foreground"
                   style={{ fontFamily: 'var(--font-mono)' }}
                 >
                   {row.timestamp}
@@ -449,11 +449,11 @@ function CashTimelineCard({ data, onCurrencyChange }: CashTimelineCardProps) {
                   onClick={() => {
                     if (!isActive) onCurrencyChange(code);
                   }}
-                  className="h-7 rounded-md px-2 font-medium transition-colors hover:bg-[var(--color-surface-inset)]"
+                  className="h-7 rounded-md px-2 font-medium transition-colors hover:bg-muted"
                   style={{
                     color: isActive
-                      ? 'var(--color-brand-primary)'
-                      : 'var(--color-text-secondary)',
+                      ? 'var(--primary)'
+                      : 'var(--muted-foreground)',
                   }}
                   title={isActive ? `${code} (active)` : `Switch to ${code}`}
                   aria-pressed={isActive}
@@ -474,7 +474,7 @@ function CashTimelineCard({ data, onCurrencyChange }: CashTimelineCardProps) {
         currency={currency}
       />
       <div
-        className="mt-3.5 flex flex-wrap gap-4 rounded-lg bg-[var(--color-surface-inset)] px-3 py-2.5 text-[11px] text-[var(--color-text-secondary)]"
+        className="mt-3.5 flex flex-wrap gap-4 rounded-lg bg-muted px-3 py-2.5 text-[11px] text-muted-foreground"
         style={{ fontFamily: 'var(--font-mono)' }}
       >
         <CashTimelineSummary
@@ -505,7 +505,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
   if (combined.length === 0) {
     return (
       <div
-        className="flex h-[220px] items-center justify-center text-[12px] text-[var(--color-text-tertiary)]"
+        className="flex h-[220px] items-center justify-center text-[12px] text-muted-foreground"
         style={{ fontFamily: 'var(--font-mono)' }}
       >
         No cash entries in the last 30 days.
@@ -578,11 +578,11 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
       >
         <defs>
           <linearGradient id="ms-cashGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-brand-primary)" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="var(--color-brand-primary)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
           </linearGradient>
           <pattern id="ms-grid" width="60" height="44" patternUnits="userSpaceOnUse">
-            <path d="M 60 0 L 0 0 0 44" fill="none" stroke="var(--color-border-light)" strokeWidth="1" />
+            <path d="M 60 0 L 0 0 0 44" fill="none" stroke="var(--border)" strokeWidth="1" />
           </pattern>
         </defs>
         <rect width={CASH_CHART_WIDTH} height={CASH_CHART_HEIGHT} fill="url(#ms-grid)" />
@@ -590,7 +590,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
         {histPolyline && (
           <polyline
             fill="none"
-            stroke="var(--color-brand-primary)"
+            stroke="var(--primary)"
             strokeWidth="2"
             points={histPolyline}
           />
@@ -598,7 +598,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
         {projPolyline && (
           <polyline
             fill="none"
-            stroke="var(--color-brand-primary)"
+            stroke="var(--primary)"
             strokeWidth="2"
             strokeDasharray="4 4"
             points={projPolyline}
@@ -610,7 +610,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
           y1={CASH_CHART_PADDING}
           x2={todayX}
           y2={CASH_CHART_HEIGHT - CASH_CHART_PADDING}
-          stroke="var(--color-brand-secondary)"
+          stroke="var(--agent)"
           strokeWidth="1.5"
           strokeDasharray="3 3"
         />
@@ -625,7 +625,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
         <text
           x={todayX}
           y={17}
-          fill="var(--color-brand-secondary)"
+          fill="var(--agent)"
           fontSize="10"
           fontFamily="var(--font-mono)"
           textAnchor="middle"
@@ -641,7 +641,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
             cy={y}
             r={4}
             fill="var(--color-accent-ent)"
-            stroke="var(--color-surface)"
+            stroke="var(--card)"
             strokeWidth="1.5"
           >
             <title>{event.label}</title>
@@ -649,7 +649,7 @@ function CashTimelineChart({ historical, projected, events, currency }: CashTime
         ))}
       </svg>
       <div
-        className="absolute bottom-0 left-0 right-0 flex justify-between px-3 text-[10px] text-[var(--color-text-tertiary)]"
+        className="absolute bottom-0 left-0 right-0 flex justify-between px-3 text-[10px] text-muted-foreground"
         style={{ fontFamily: 'var(--font-mono)' }}
       >
         {labelDates.map((iso) => (
@@ -726,8 +726,8 @@ function AgentProposalsCard({
       title="Agent proposals"
       subtitle="Pending your review"
       action={
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pending-light)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-pending)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-pending)]" aria-hidden />
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-[11px] font-medium text-warning">
+          <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden />
           {proposals.length} pending
         </span>
       }
@@ -739,13 +739,13 @@ function AgentProposalsCard({
             className="grid h-10 w-10 place-items-center rounded-full"
             style={{ background: 'var(--color-brand-primary-10)' }}
           >
-            <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+            <div className="text-[13px] font-medium text-foreground">
               No pending proposals
             </div>
-            <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
               Agents will surface proposals here when they need a human decision.
             </p>
           </div>
@@ -846,14 +846,14 @@ function ProposalReviewDialog({
         </DialogHeader>
 
         {loading && (
-          <div className="flex items-center justify-center py-8 text-sm text-[var(--color-text-secondary)]">
+          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Loading proposal…
           </div>
         )}
 
         {error && !loading && (
-          <div className="flex items-center gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-sm text-[var(--color-error)]">
+          <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
             {error}
           </div>
@@ -886,19 +886,19 @@ function ProposalReviewDialog({
             </div>
 
             <div>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Summary
               </div>
-              <div className="rounded-md bg-[var(--color-surface-inset)] px-3 py-2 text-[13px] text-[var(--color-text-primary)]">
+              <div className="rounded-md bg-muted px-3 py-2 text-[13px] text-foreground">
                 {detail.summary}
               </div>
             </div>
 
             <div>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Payload
               </div>
-              <pre className="max-h-[260px] overflow-auto rounded-md bg-[var(--color-surface-inset)] px-3 py-2 font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)]">
+              <pre className="max-h-[260px] overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
                 {prettyPayload || '(empty)'}
               </pre>
             </div>
@@ -927,10 +927,10 @@ function ProposalReviewDialog({
 function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div className="mt-0.5 text-[13px] text-[var(--color-text-primary)]">{value}</div>
+      <div className="mt-0.5 text-[13px] text-foreground">{value}</div>
     </div>
   );
 }

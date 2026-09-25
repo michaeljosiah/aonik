@@ -119,23 +119,23 @@ const settingsTiles: SettingsTile[] = [
 function SettingsTileGrid({ title, tiles }: { title: string; tiles: SettingsTile[] }) {
   return (
     <div>
-      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">{title}</h2>
+      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{title}</h2>
       <div className="grid gap-4 xl:grid-cols-3">
         {tiles.map((tile) => (
           <Link
             key={tile.title}
             to={tile.href}
-            className="group flex h-full flex-col gap-3 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+            className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 {tile.icon}
               </div>
-              <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="mb-1 text-[15px] font-semibold text-[var(--color-text-primary)]">{tile.title}</h3>
-              <p className="text-[13px] leading-6 text-[var(--color-text-secondary)]">{tile.description}</p>
+              <h3 className="mb-1 text-[15px] font-semibold text-foreground">{tile.title}</h3>
+              <p className="text-[13px] leading-6 text-muted-foreground">{tile.description}</p>
             </div>
             <div>
               <Badge variant="secondary">{tile.badge}</Badge>
@@ -162,18 +162,18 @@ export function SettingsLandingPage() {
 
       <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Admin</p>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Settings</h1>
-          <p className="max-w-3xl text-[var(--color-text-secondary)]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Admin</p>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="max-w-3xl text-muted-foreground">
             Centralized controls for workspace behavior, integration security, and operational governance.
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground">
             <Search className="h-3 w-3" />
             Search settings
           </button>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground">
             <BookOpen className="h-3 w-3" />
             Settings docs
           </button>

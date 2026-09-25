@@ -100,8 +100,8 @@ export function BillerGrid({
               className={cn(
                 'rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors',
                 active
-                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                  : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground',
               )}
             >
               {cat.name}
@@ -111,7 +111,7 @@ export function BillerGrid({
       </div>
 
       <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={search}
@@ -123,12 +123,12 @@ export function BillerGrid({
 
       <div className="grid max-h-[220px] grid-cols-2 gap-2 overflow-auto pr-0.5 sm:grid-cols-3 lg:grid-cols-4">
         {loading && (
-          <div className="col-span-full py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="col-span-full py-6 text-center text-[12px] text-muted-foreground">
             Loading billers…
           </div>
         )}
         {!loading && billers.length === 0 && (
-          <div className="col-span-full py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="col-span-full py-6 text-center text-[12px] text-muted-foreground">
             No billers found
           </div>
         )}
@@ -144,18 +144,18 @@ export function BillerGrid({
                 className={cn(
                   'relative flex flex-col items-center gap-1.5 rounded-[10px] px-2 py-3 transition-colors',
                   sel
-                    ? 'border-[2px] border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]'
-                    : 'border-[1.5px] border-[var(--color-border-light)] bg-[var(--color-surface)] hover:border-[var(--color-border)]',
+                    ? 'border-[2px] border-primary bg-primary/10'
+                    : 'border-[1.5px] border-border bg-card hover:border-border',
                 )}
               >
                 {sel && (
-                  <Check className="absolute right-1.5 top-1.5 h-3 w-3 text-[var(--color-brand-primary)]" />
+                  <Check className="absolute right-1.5 top-1.5 h-3 w-3 text-primary" />
                 )}
                 <BillerLogoMark name={biller.name} size={38} />
-                <div className="line-clamp-1 text-center text-[11px] font-semibold leading-tight text-[var(--color-text-primary)]">
+                <div className="line-clamp-1 text-center text-[11px] font-semibold leading-tight text-foreground">
                   {biller.name}
                 </div>
-                <div className="text-center text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="text-center text-[10px] text-muted-foreground">
                   {category?.name ?? biller.countryCode}
                 </div>
               </button>

@@ -22,13 +22,13 @@ export function ContentWizardPage() {
       {/* Left panel — Wizard */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[var(--color-border-light)] bg-[var(--color-surface)] shrink-0">
+        <div className="px-6 py-4 border-b border-border bg-card shrink-0">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-xl font-bold text-[var(--color-text-primary)]">
+              <h1 className="text-xl font-bold text-foreground">
                 AI Content Wizard
               </h1>
-              <p className="text-sm text-[var(--color-text-secondary)]">
+              <p className="text-sm text-muted-foreground">
                 Generate content blocks with AI assistance
               </p>
             </div>
@@ -46,8 +46,8 @@ export function ContentWizardPage() {
                   <div
                     className={`w-8 h-px mx-1 ${
                       i <= stepIndex
-                        ? 'bg-[var(--color-brand-primary)]'
-                        : 'bg-[var(--color-border)]'
+                        ? 'bg-primary'
+                        : 'bg-border'
                     }`}
                   />
                 )}
@@ -59,10 +59,10 @@ export function ContentWizardPage() {
                   disabled={i > stepIndex}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     i === stepIndex
-                      ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                      ? 'bg-primary text-primary-foreground'
                       : i < stepIndex
-                        ? 'bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/25'
-                        : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                        ? 'bg-primary/15 text-primary hover:bg-primary/25'
+                        : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   <span
@@ -70,8 +70,8 @@ export function ContentWizardPage() {
                       i === stepIndex
                         ? 'bg-white/25'
                         : i < stepIndex
-                          ? 'bg-[var(--color-brand-primary)]/20'
-                          : 'bg-[var(--color-border)]'
+                          ? 'bg-primary/20'
+                          : 'bg-border'
                     }`}
                   >
                     {i + 1}

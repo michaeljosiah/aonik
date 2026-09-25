@@ -128,11 +128,11 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
               onClick={() => { onChange(null); setSelectionSource(null); setSelectedPartyId(null); onImpersonationChange?.(null); }}
               className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                 value === null
-                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                  : 'border-[var(--color-border-light)] hover:border-[var(--color-border)]'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-border'
               }`}
             >
-              <span className="font-medium text-[var(--color-text-primary)]">None</span>
+              <span className="font-medium text-foreground">None</span>
             </button>
             {sampleBriefs.map((brief) => (
               <button
@@ -140,17 +140,17 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
                 onClick={() => { onChange(brief.json); setSelectionSource('samples'); setSelectedPartyId(null); onImpersonationChange?.(null); }}
                 className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                   value === brief.json
-                    ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                    : 'border-[var(--color-border-light)] hover:border-[var(--color-border)]'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-border'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-[var(--color-text-primary)]">{brief.name}</span>
+                  <span className="font-medium text-foreground">{brief.name}</span>
                   {value === brief.json && (
-                    <Check className="h-3 w-3 text-[var(--color-brand-primary)]" />
+                    <Check className="h-3 w-3 text-primary" />
                   )}
                 </div>
-                <span className="text-[var(--color-text-tertiary)]">{brief.description}</span>
+                <span className="text-muted-foreground">{brief.description}</span>
               </button>
             ))}
           </div>
@@ -160,7 +160,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
         <TabsContent value="real">
           <div className="space-y-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search customers by name, email, or phone..."
                 value={search}
@@ -171,12 +171,12 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
 
             <div className="max-h-52 overflow-y-auto space-y-0.5">
               {searching && customers.length === 0 ? (
-                <div className="flex items-center justify-center py-6 text-xs text-[var(--color-text-tertiary)]">
+                <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   Searching...
                 </div>
               ) : customers.length === 0 ? (
-                <div className="py-6 text-center text-xs text-[var(--color-text-tertiary)]">
+                <div className="py-6 text-center text-xs text-muted-foreground">
                   No customers found
                 </div>
               ) : (
@@ -190,8 +190,8 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
                       disabled={loading}
                       className={`flex w-full items-center gap-2.5 rounded-[2px] border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
                         isSelected
-                          ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                          : 'border-[var(--color-border-light)] hover:border-[var(--color-border)]'
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-border'
                       }`}
                     >
                       {customer.photoUrlTiny ? (
@@ -201,23 +201,23 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
                           className="h-7 w-7 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-bg-tertiary)]">
-                          <User className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate font-medium text-[var(--color-text-primary)]">
+                          <span className="truncate font-medium text-foreground">
                             {customer.displayName}
                           </span>
                           {isLoading && (
-                            <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-[var(--color-brand-primary)]" />
+                            <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-primary" />
                           )}
                           {isSelected && !isLoading && (
-                            <Check className="h-3 w-3 flex-shrink-0 text-[var(--color-brand-primary)]" />
+                            <Check className="h-3 w-3 flex-shrink-0 text-primary" />
                           )}
                         </div>
-                        <span className="truncate text-[var(--color-text-tertiary)]">
+                        <span className="truncate text-muted-foreground">
                           {customer.primaryEmail ?? customer.primaryPhone ?? customer.partyType}
                         </span>
                       </div>
@@ -229,7 +229,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-1 text-xs text-[var(--color-text-tertiary)]">
+              <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
                 <span>{totalCount} customer{totalCount !== 1 ? 's' : ''}</span>
                 <div className="flex items-center gap-1">
                   <Button
@@ -256,7 +256,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
             )}
 
             {error && (
-              <div className="flex items-center gap-2 text-xs text-[var(--color-error)]">
+              <div className="flex items-center gap-2 text-xs text-destructive">
                 <AlertCircle className="h-3 w-3" />
                 {error}
               </div>
@@ -277,7 +277,7 @@ export function UserBriefPicker({ value, onChange, onImpersonationChange }: User
       </Tabs>
 
       {value && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">
+        <p className="text-xs text-muted-foreground">
           Brief loaded (~{Math.round(value.length / 4)} tokens)
         </p>
       )}

@@ -73,13 +73,13 @@ export const ModelComparisonView = forwardRef<
   return (
     <div className="flex h-full flex-col">
       {/* Model selectors */}
-      <div className="grid grid-cols-2 gap-4 border-b border-[var(--color-border-light)] p-4">
+      <div className="grid grid-cols-2 gap-4 border-b border-border p-4">
         <ModelSelector label="Model A" value={modelA} onChange={(id) => setModelA(id)} />
         <ModelSelector label="Model B" value={modelB} onChange={(id) => setModelB(id)} />
       </div>
 
       {/* Side-by-side panels */}
-      <div className="grid flex-1 grid-cols-2 divide-x divide-[var(--color-border-light)] overflow-hidden">
+      <div className="grid flex-1 grid-cols-2 divide-x divide-border overflow-hidden">
         <PlaygroundChatPanel
           messages={chatA.messages}
           isStreaming={chatA.isStreaming}
@@ -109,7 +109,7 @@ export const ModelComparisonView = forwardRef<
             setSharedDraft('');
           }
         }}
-        className="border-t border-[var(--color-border-light)] p-4"
+        className="border-t border-border p-4"
       >
         <div className="flex items-center gap-2">
           <Input

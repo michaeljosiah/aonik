@@ -58,7 +58,7 @@ const createEmptyForm = (preselectedAccountId?: string): TransactionFormData => 
 });
 
 const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
+  'flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring';
 
 export function CreateTransactionDialog({
   open,
@@ -168,11 +168,11 @@ export function CreateTransactionDialog({
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Account <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Account <span className="text-destructive">*</span>
             </label>
             {accountsLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading accounts...</p>
+              <p className="text-sm text-muted-foreground">Loading accounts...</p>
             ) : (
               <Select
                 value={formData.accountId}
@@ -194,8 +194,8 @@ export function CreateTransactionDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Date <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Date <span className="text-destructive">*</span>
               </label>
               <input
                 type="date"
@@ -206,8 +206,8 @@ export function CreateTransactionDialog({
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Currency <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Currency <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -221,8 +221,8 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Amount <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Amount <span className="text-destructive">*</span>
             </label>
             <input
               type="number"
@@ -232,13 +232,13 @@ export function CreateTransactionDialog({
               className={fieldClassName}
               placeholder="Negative = debit, Positive = credit"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Negative values represent debits (money out), positive values represent credits (money in).
             </p>
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Counterparty
             </label>
             <input
@@ -251,7 +251,7 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Description
             </label>
             <input
@@ -265,7 +265,7 @@ export function CreateTransactionDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Reference
               </label>
               <input
@@ -278,7 +278,7 @@ export function CreateTransactionDialog({
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Category
               </label>
               <input
@@ -292,7 +292,7 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Notes
             </label>
             <Textarea
@@ -305,7 +305,7 @@ export function CreateTransactionDialog({
         </div>
 
         {error && (
-          <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}

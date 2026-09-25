@@ -85,7 +85,7 @@ function CartItem({
   disabled: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3">
+    <div className="flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3">
       <div className="flex items-start gap-2.5">
         <div
           className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-md font-[family-name:var(--font-brand)] font-extrabold text-white"
@@ -99,7 +99,7 @@ function CartItem({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
+            <span className="truncate text-[13px] font-semibold text-foreground">
               {item.billerName}
             </span>
             <Pill tone="info" size="sm">
@@ -111,7 +111,7 @@ function CartItem({
               </Pill>
             )}
           </div>
-          <div className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-secondary)]">
+          <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
             {item.serviceName}
           </div>
         </div>
@@ -120,38 +120,38 @@ function CartItem({
           onClick={onRemove}
           disabled={disabled}
           aria-label="Remove item"
-          className="grid h-6 w-6 flex-none place-items-center rounded-md text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-danger)] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-tertiary)]"
+          className="grid h-6 w-6 flex-none place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
         >
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-[var(--color-text-secondary)]">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
         <PartyAvatar name={payerName || '—'} size={20} />
         <span className="truncate">{payerName || '—'}</span>
-        <ArrowRight className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" />
+        <ArrowRight className="h-2.5 w-2.5 text-muted-foreground" />
         <PartyAvatar name={item.receiverName || '—'} size={20} />
         <span className="truncate">{item.receiverName || '—'}</span>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-light)] pt-2">
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
         <div>
-          <div className="text-[11px] text-[var(--color-text-tertiary)]">Amount</div>
-          <div className="font-[family-name:var(--font-mono)] text-[14px] font-bold text-[var(--color-text-primary)]">
+          <div className="text-[11px] text-muted-foreground">Amount</div>
+          <div className="font-[family-name:var(--font-mono)] text-[14px] font-bold text-foreground">
             {formatMoney(item.amountIn, item.currencyIn)}
           </div>
         </div>
         {item.currencyOut !== item.currencyIn && (
           <div className="text-right">
-            <div className="text-[11px] text-[var(--color-text-tertiary)]">Receive</div>
-            <div className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--color-brand-primary)]">
+            <div className="text-[11px] text-muted-foreground">Receive</div>
+            <div className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-primary">
               {formatMoney(item.amountOut, item.currencyOut)}
             </div>
           </div>
         )}
         <div className="text-right">
-          <div className="text-[11px] text-[var(--color-text-tertiary)]">Fee</div>
-          <div className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-secondary)]">
+          <div className="text-[11px] text-muted-foreground">Fee</div>
+          <div className="font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">
             {formatMoney(item.feesTotal, item.currencyIn)}
           </div>
         </div>
@@ -201,23 +201,23 @@ export function OrderCart({
   const withinPolicy = totalAmount > 0 && totalAmount < 50_000;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[var(--color-surface-inset)]">
-      <div className="flex-none border-b border-[var(--color-border-light)] px-5 py-4">
+    <div className="flex h-full flex-col overflow-hidden bg-muted">
+      <div className="flex-none border-b border-border px-5 py-4">
         <div className="flex items-center justify-between">
-          <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">Order</div>
+          <div className="text-[14px] font-semibold text-foreground">Order</div>
           <div className="flex items-center gap-1.5">
             <span
               className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-bold text-white"
               style={{
-                background: items.length > 0 ? 'var(--color-brand-primary)' : 'var(--color-text-tertiary)',
+                background: items.length > 0 ? 'var(--primary)' : 'var(--muted-foreground)',
               }}
             >
               {items.length}
             </span>
-            <span className="text-[12.5px] text-[var(--color-text-secondary)]">items</span>
+            <span className="text-[12.5px] text-muted-foreground">items</span>
           </div>
         </div>
-        <div className="mt-1 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+        <div className="mt-1 font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
           {formatRef(order?.orderId)}
         </div>
       </div>
@@ -225,12 +225,12 @@ export function OrderCart({
       <div className="flex flex-1 flex-col gap-2.5 overflow-auto px-4 py-3.5">
         {items.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-10 text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]">
-              <ShieldCheck className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+            <div className="grid h-12 w-12 place-items-center rounded-xl border border-dashed border-border bg-card">
+              <ShieldCheck className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <div className="text-[13px] font-medium text-[var(--color-text-secondary)]">No items yet</div>
-              <div className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
+              <div className="text-[13px] font-medium text-muted-foreground">No items yet</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
                 Configure an item on the left, then click <span className="font-medium">Add to order</span>.
               </div>
             </div>
@@ -250,20 +250,20 @@ export function OrderCart({
       </div>
 
       {items.length > 0 && (
-        <div className="flex-none space-y-3 border-t border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3.5">
+        <div className="flex-none space-y-3 border-t border-border bg-card px-4 py-3.5">
           <div className="flex flex-col gap-1.5">
             {currencies.map(([cur, totals]) => (
               <div key={cur} className="flex items-center justify-between text-[12.5px]">
-                <span className="text-[var(--color-text-secondary)]">{cur} total</span>
-                <span className="font-[family-name:var(--font-mono)] font-semibold text-[var(--color-text-primary)]">
+                <span className="text-muted-foreground">{cur} total</span>
+                <span className="font-[family-name:var(--font-mono)] font-semibold text-foreground">
                   {formatMoney(totals.amount, cur)}
                 </span>
               </div>
             ))}
             {currencies.map(([cur, totals]) => (
               <div key={`${cur}-fee`} className="flex items-center justify-between text-[12px]">
-                <span className="text-[var(--color-text-tertiary)]">Est. fees ({cur})</span>
-                <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-tertiary)]">
+                <span className="text-muted-foreground">Est. fees ({cur})</span>
+                <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
                   {formatMoney(totals.fee, cur)}
                 </span>
               </div>
@@ -274,20 +274,20 @@ export function OrderCart({
             className={
               'flex items-center gap-2 rounded-md border px-3 py-2 ' +
               (withinPolicy
-                ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]'
-                : 'border-[var(--color-warning)] bg-[var(--color-warning-light)]')
+                ? 'border-primary bg-primary/10'
+                : 'border-warning bg-warning-subtle')
             }
           >
             <ShieldCheck
               className="h-3.5 w-3.5 flex-none"
               style={{
-                color: withinPolicy ? 'var(--color-brand-primary)' : 'var(--color-warning)',
+                color: withinPolicy ? 'var(--primary)' : 'var(--warning)',
               }}
             />
             <div
               className="text-[11.5px] leading-tight"
               style={{
-                color: withinPolicy ? 'var(--color-brand-primary)' : 'var(--color-warning)',
+                color: withinPolicy ? 'var(--primary)' : 'var(--warning)',
               }}
             >
               {withinPolicy
@@ -312,7 +312,7 @@ export function OrderCart({
             </Button>
           </div>
 
-          <div className="text-center text-[11px] text-[var(--color-text-tertiary)]">
+          <div className="text-center text-[11px] text-muted-foreground">
             {items.length} item{items.length === 1 ? '' : 's'} · compliance checks run on submit
           </div>
         </div>

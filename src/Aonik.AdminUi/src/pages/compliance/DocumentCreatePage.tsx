@@ -154,8 +154,8 @@ export function DocumentCreatePage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">New Document</h1>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <h1 className="text-2xl font-bold text-foreground">New Document</h1>
+            <p className="text-sm text-muted-foreground">
               Choose a type and attach your files.
             </p>
           </div>
@@ -177,7 +177,7 @@ export function DocumentCreatePage() {
                 onChange={(e) => setOwnerPartyId(e.target.value)}
                 placeholder="e.g. party_01HXYZ..."
               />
-              <p className="text-xs text-[var(--color-text-tertiary)]">
+              <p className="text-xs text-muted-foreground">
                 The customer or entity this document belongs to.
               </p>
             </div>
@@ -221,8 +221,8 @@ export function DocumentCreatePage() {
             <div
               className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-colors ${
                 isDragOver
-                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                  : 'border-[var(--color-border-light)] hover:border-[var(--color-brand-primary)]/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50'
               }`}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -231,11 +231,11 @@ export function DocumentCreatePage() {
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleDrop}
             >
-              <CloudUpload className="mb-3 h-8 w-8 text-[var(--color-text-tertiary)]" />
-              <p className="mb-1 text-sm font-medium text-[var(--color-text-primary)]">
+              <CloudUpload className="mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="mb-1 text-sm font-medium text-foreground">
                 Drag & drop files here
               </p>
-              <p className="mb-3 text-xs text-[var(--color-text-tertiary)]">
+              <p className="mb-3 text-xs text-muted-foreground">
                 or click to browse from your computer
               </p>
               <Button
@@ -263,16 +263,16 @@ export function DocumentCreatePage() {
                   return (
                     <div
                       key={`${file.name}-${file.size}`}
-                      className="flex items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40 px-4 py-3"
+                      className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
-                        <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <FileText className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {file.name}
                         </p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           {formatFileSize(file.size)}
                           {file.type && ` \u00b7 ${file.type}`}
                         </p>
@@ -283,7 +283,7 @@ export function DocumentCreatePage() {
                       <button
                         type="button"
                         onClick={() => removeFile(index)}
-                        className="ml-1 rounded-md p-1 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-error)] transition-colors"
+                        className="ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive transition-colors"
                         title="Remove file"
                       >
                         <X className="h-4 w-4" />

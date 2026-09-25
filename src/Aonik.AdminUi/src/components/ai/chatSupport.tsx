@@ -569,21 +569,21 @@ export interface ServerApprovalState {
 
 const serverApprovalSeverityConfig = {
   low: {
-    badge: 'bg-[var(--color-info-10)] text-[var(--color-info)] border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-info)]" />,
+    badge: 'bg-info-subtle text-info border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-info" />,
     label: 'Low Risk',
   },
   medium: {
-    badge: 'bg-[var(--color-warning-10)] text-[var(--color-warning)] border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-warning)]" />,
+    badge: 'bg-warning-subtle text-warning border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-warning" />,
     label: 'Medium Risk',
   },
   high: {
-    badge: 'bg-[var(--color-danger-10)] text-[var(--color-danger)] border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-danger)]" />,
+    badge: 'bg-destructive/10 text-destructive border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
     label: 'High Risk',
   },
 } as const;
@@ -610,21 +610,21 @@ export function ServerApprovalCard({
       <div
         className={`flex items-start gap-3 rounded-lg border ${
           approved
-            ? 'border-[color-mix(in_srgb,var(--color-success)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]'
-            : 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)]'
+            ? 'border-[color-mix(in_srgb,var(--success)_25%,transparent)] bg-[color-mix(in_srgb,var(--success)_8%,transparent)]'
+            : 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]'
         } px-4 py-3 text-sm`}
       >
         {approved ? (
-          <ShieldCheck className="h-5 w-5 text-[var(--color-success)] mt-0.5 shrink-0" />
+          <ShieldCheck className="h-5 w-5 text-success mt-0.5 shrink-0" />
         ) : (
-          <ShieldX className="h-5 w-5 text-[var(--color-danger)] mt-0.5 shrink-0" />
+          <ShieldX className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-[var(--color-text-primary)]">
+          <div className="font-medium text-foreground">
             {approval.actionKind} — {approved ? 'Approved' : 'Rejected'}
           </div>
           {approval.message && (
-            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{approval.message}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{approval.message}</div>
           )}
         </div>
       </div>
@@ -635,11 +635,11 @@ export function ServerApprovalCard({
   const canDecide = !!onDecide && (approval.status === 'pending' || approval.status === 'error');
 
   return (
-    <div className={`rounded-lg border-2 ${config.border} bg-[var(--color-surface)] overflow-hidden`}>
+    <div className={`rounded-lg border-2 ${config.border} bg-card overflow-hidden`}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
-        <span className="font-semibold text-sm text-[var(--color-text-primary)]">
+        <span className="font-semibold text-sm text-foreground">
           {approval.kind === 'high' ? 'Approval Required — Money Movement' : 'Approval Required'}
         </span>
         <span
@@ -651,21 +651,21 @@ export function ServerApprovalCard({
 
       {/* Body */}
       <div className="px-4 py-3">
-        <div className="font-medium text-sm text-[var(--color-text-primary)]">{approval.actionKind}</div>
-        <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+        <div className="font-medium text-sm text-foreground">{approval.actionKind}</div>
+        <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
           {approval.kind === 'high'
             ? 'This action moves money and runs only after you approve it. It is queued as a durable proposal.'
             : 'This action needs your explicit approval before it runs.'}
         </div>
         {approval.status === 'error' && approval.message && (
-          <div className="mt-2 text-xs text-[var(--color-danger)]">{approval.message}</div>
+          <div className="mt-2 text-xs text-destructive">{approval.message}</div>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border bg-muted">
         {isDeciding ? (
-          <span className="inline-flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+          <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Recording your decision…
           </span>
@@ -675,7 +675,7 @@ export function ServerApprovalCard({
               type="button"
               disabled={!canDecide}
               onClick={() => onDecide?.(approval, 'Approve')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
               Approve
@@ -684,7 +684,7 @@ export function ServerApprovalCard({
               type="button"
               disabled={!canDecide}
               onClick={() => onDecide?.(approval, 'Reject')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-surface)] border border-[color-mix(in_srgb,var(--color-danger)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] shadow-sm hover:bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-card border border-[color-mix(in_srgb,var(--destructive)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-destructive shadow-sm hover:bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <XCircle className="h-3.5 w-3.5" />
               Reject
@@ -743,9 +743,9 @@ export function AiFollowUpSuggestionsCard({
   onSelect?: (prompt: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3 text-sm">
+    <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm">
       {suggestions.prompt && (
-        <div className="mb-3 text-xs font-semibold text-[var(--color-text-primary)]">
+        <div className="mb-3 text-xs font-semibold text-foreground">
           {suggestions.prompt}
         </div>
       )}
@@ -755,7 +755,7 @@ export function AiFollowUpSuggestionsCard({
             key={`${item.label}-${item.prompt}`}
             type="button"
             onClick={() => onSelect?.(item.prompt)}
-            className="inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--color-brand-primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-brand-primary)] transition-colors hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)]"
+            className="inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--primary)_12%,transparent)]"
           >
             {item.label}
           </button>
@@ -797,8 +797,8 @@ export function AiOptionSelectionCard({
   };
 
   return (
-    <div className="rounded-md border border-[color-mix(in_srgb,var(--color-info)_20%,transparent)] bg-[var(--color-surface)] p-3 space-y-2.5">
-      <p className="text-xs font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-md border border-[color-mix(in_srgb,var(--info)_20%,transparent)] bg-card p-3 space-y-2.5">
+      <p className="text-xs font-semibold text-foreground">
         {selection.question}
       </p>
 
@@ -812,23 +812,23 @@ export function AiOptionSelectionCard({
               onClick={() => toggleOption(option.label)}
               className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 isSelected
-                  ? 'border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)]'
-                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-accent'
+                  ? 'border-primary bg-[color-mix(in_srgb,var(--primary)_8%,transparent)]'
+                  : 'border-border bg-card hover:bg-accent'
               }`}
             >
               <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
                 isSelected
-                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
-                  : 'border-[var(--color-text-tertiary)]'
+                  ? 'border-primary bg-primary'
+                  : 'border-muted-foreground'
               }`}>
                 {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
               </span>
               <div className="min-w-0">
-                <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
+                <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {option.label}
                 </span>
                 {option.description && (
-                  <p className="mt-0.5 text-[var(--color-text-tertiary)]">{option.description}</p>
+                  <p className="mt-0.5 text-muted-foreground">{option.description}</p>
                 )}
               </div>
             </button>
@@ -855,20 +855,20 @@ const severityConfig = {
   low: {
     label: 'Low risk',
     icon: ShieldCheck,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-info)_15%,transparent)] text-[var(--color-info)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--info)_15%,transparent)] text-info',
+    borderClass: 'border-[color-mix(in_srgb,var(--info)_20%,transparent)]',
   },
   medium: {
     label: 'Medium risk',
     icon: ShieldAlert,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--warning)_15%,transparent)] text-warning',
+    borderClass: 'border-[color-mix(in_srgb,var(--warning)_20%,transparent)]',
   },
   high: {
     label: 'High risk',
     icon: ShieldX,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-danger)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] text-destructive',
+    borderClass: 'border-[color-mix(in_srgb,var(--destructive)_20%,transparent)]',
   },
 } as const;
 
@@ -887,32 +887,32 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
   };
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">Budget Breakdown</span>
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">Budget Breakdown</span>
           {period && (
-            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {period}
             </span>
           )}
         </div>
         <div className="text-right">
-          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]'}`}>
-            {fmt(totalSpent)} <span className="font-normal text-[var(--color-text-tertiary)]">/ {fmt(totalBudget)}</span>
+          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-destructive' : 'text-foreground'}`}>
+            {fmt(totalSpent)} <span className="font-normal text-muted-foreground">/ {fmt(totalBudget)}</span>
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-3 pb-1">
-        <div className="h-2 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${isOver ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-brand-primary)]'}`}
+            className={`h-full rounded-full transition-all ${isOver ? 'bg-destructive' : 'bg-primary'}`}
             style={{ width: `${spentPct}%` }}
           />
         </div>
-        <div className="mt-1 flex justify-between text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
           <span>{spentPct.toFixed(0)}% used</span>
           <span>{fmt(Math.max(totalBudget - totalSpent, 0))} remaining</span>
         </div>
@@ -928,31 +928,31 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
             const catPct = budgeted > 0 ? Math.min((spent / budgeted) * 100, 100) : 0;
             const barColor =
               status === 'over'
-                ? 'bg-[var(--color-danger)]'
+                ? 'bg-destructive'
                 : status === 'under'
-                  ? 'bg-[var(--color-success)]'
-                  : 'bg-[var(--color-brand-primary)]';
+                  ? 'bg-success'
+                  : 'bg-primary';
             const statusLabel =
               status === 'over' ? 'Over' : status === 'under' ? 'Under' : 'On track';
             const statusColor =
               status === 'over'
-                ? 'text-[var(--color-danger)]'
+                ? 'text-destructive'
                 : status === 'under'
-                  ? 'text-[var(--color-success)]'
-                  : 'text-[var(--color-text-tertiary)]';
+                  ? 'text-success'
+                  : 'text-muted-foreground';
 
             return (
               <div key={`${name}-${i}`}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-[var(--color-text-primary)]">{name}</span>
+                  <span className="font-medium text-foreground">{name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-[var(--color-text-secondary)]">
+                    <span className="tabular-nums text-muted-foreground">
                       {fmt(spent)} / {fmt(budgeted)}
                     </span>
                     <span className={`text-[10px] font-medium ${statusColor}`}>{statusLabel}</span>
                   </div>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${barColor}`}
                     style={{ width: `${catPct}%` }}
@@ -1044,25 +1044,25 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
   const paths = pathAccumulator.paths;
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">{title}</span>
         </div>
-        <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{fmt(totalSpent)}</span>
+        <span className="text-sm font-bold tabular-nums text-foreground">{fmt(totalSpent)}</span>
       </div>
 
       <div className="flex items-start gap-6 px-4 py-4">
         <div className="shrink-0">
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             {paths.map((slice, i) => (
-              <path key={i} d={slice.d} fill={slice.color} stroke="var(--color-surface)" strokeWidth="1.5" />
+              <path key={i} d={slice.d} fill={slice.color} stroke="var(--card)" strokeWidth="1.5" />
             ))}
-            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-[var(--color-text-tertiary)]" fontSize="9">
+            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-muted-foreground" fontSize="9">
               Total
             </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" className="fill-[var(--color-text-primary)] font-semibold" fontSize="12">
+            <text x={cx} y={cy + 10} textAnchor="middle" className="fill-foreground font-semibold" fontSize="12">
               {fmt(totalSpent)}
             </text>
           </svg>
@@ -1072,9 +1072,9 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
           {slices.map((slice, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: slice.color }} />
-              <span className="truncate text-[var(--color-text-secondary)] flex-1">{slice.name}</span>
-              <span className="tabular-nums font-medium text-[var(--color-text-primary)] shrink-0">{fmt(slice.amount)}</span>
-              <span className="tabular-nums text-[var(--color-text-tertiary)] shrink-0 w-10 text-right">{slice.percentage.toFixed(0)}%</span>
+              <span className="truncate text-muted-foreground flex-1">{slice.name}</span>
+              <span className="tabular-nums font-medium text-foreground shrink-0">{fmt(slice.amount)}</span>
+              <span className="tabular-nums text-muted-foreground shrink-0 w-10 text-right">{slice.percentage.toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -1099,20 +1099,20 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
   const latestRate = rateValues.length > 0 ? rateValues[rateValues.length - 1] : 0;
 
   const signalConfig = {
-    buy: { label: 'Buy now', color: 'text-[var(--color-success)]', bg: 'bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)]', Icon: TrendingDown },
-    hold: { label: 'Hold', color: 'text-[var(--color-warning)]', bg: 'bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)]', Icon: ArrowUpDown },
-    wait: { label: 'Wait', color: 'text-[var(--color-info)]', bg: 'bg-[color-mix(in_srgb,var(--color-info)_12%,transparent)]', Icon: TrendingUp },
-  }[signal] ?? { label: signal, color: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]', Icon: ArrowUpDown };
+    buy: { label: 'Buy now', color: 'text-success', bg: 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)]', Icon: TrendingDown },
+    hold: { label: 'Hold', color: 'text-warning', bg: 'bg-[color-mix(in_srgb,var(--warning)_12%,transparent)]', Icon: ArrowUpDown },
+    wait: { label: 'Wait', color: 'text-info', bg: 'bg-[color-mix(in_srgb,var(--info)_12%,transparent)]', Icon: TrendingUp },
+  }[signal] ?? { label: signal, color: 'text-muted-foreground', bg: 'bg-muted', Icon: ArrowUpDown };
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{baseCurrency}/{targetCurrency} Rate</span>
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">{baseCurrency}/{targetCurrency} Rate</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">
+          <span className="text-sm font-bold tabular-nums text-foreground">
             {latestRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
           </span>
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${signalConfig.color} ${signalConfig.bg}`}>
@@ -1136,7 +1136,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
                     })
                     .join(' ') + ` L${(rates.length - 1) * 40},58 L0,58 Z`
                 }
-                fill="var(--color-brand-primary)"
+                fill="var(--primary)"
                 opacity="0.08"
               />
               <path
@@ -1148,14 +1148,14 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
                   })
                   .join(' ')}
                 fill="none"
-                stroke="var(--color-brand-primary)"
+                stroke="var(--primary)"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </svg>
           </div>
-          <div className="flex justify-between text-[10px] text-[var(--color-text-tertiary)] mt-1">
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
             {rates.length > 0 && <span>{String((rates[0] as Record<string, unknown>).date ?? '')}</span>}
             {rates.length > 1 && <span>{String((rates[rates.length - 1] as Record<string, unknown>).date ?? '')}</span>}
           </div>
@@ -1164,7 +1164,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
 
       {signalReason && (
         <div className="px-4 pb-3 pt-1">
-          <p className="text-[var(--color-text-secondary)] leading-relaxed">{signalReason}</p>
+          <p className="text-muted-foreground leading-relaxed">{signalReason}</p>
         </div>
       )}
     </div>
@@ -1181,15 +1181,15 @@ function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
   const SeverityIcon = config.icon;
 
   return (
-    <div className={`rounded-lg border ${config.borderClass} bg-[var(--color-surface)] text-xs overflow-hidden`}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+    <div className={`rounded-lg border ${config.borderClass} bg-card text-xs overflow-hidden`}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{action}</span>
+          <Bot className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">{action}</span>
         </div>
         <div className="flex items-center gap-2">
           {agent && (
-            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {agent}
             </span>
           )}
@@ -1201,14 +1201,14 @@ function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
       </div>
 
       <div className="px-4 py-3 space-y-3">
-        <p className="text-[var(--color-text-secondary)] leading-relaxed">{description}</p>
+        <p className="text-muted-foreground leading-relaxed">{description}</p>
 
         {details.length > 0 && (
-          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] divide-y divide-[var(--color-border-light)]">
+          <div className="rounded-md border border-border bg-muted divide-y divide-border">
             {details.map((d: Record<string, unknown>, i: number) => (
               <div key={i} className="flex items-center justify-between px-3 py-2">
-                <span className="text-[var(--color-text-tertiary)]">{String(d.label ?? '')}</span>
-                <span className="font-medium text-[var(--color-text-primary)]">{String(d.value ?? '')}</span>
+                <span className="text-muted-foreground">{String(d.label ?? '')}</span>
+                <span className="font-medium text-foreground">{String(d.value ?? '')}</span>
               </div>
             ))}
           </div>

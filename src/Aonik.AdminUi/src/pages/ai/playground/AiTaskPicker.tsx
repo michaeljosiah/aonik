@@ -48,7 +48,7 @@ export function AiTaskPicker({ value, onChange, compact = false }: AiTaskPickerP
           const catTasks = publishedTasks.filter((t) => t.category === cat);
           return (
             <SelectGroup key={cat}>
-              <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 {cat}
               </SelectLabel>
               {catTasks.map((t) => (

@@ -25,10 +25,10 @@ export function WizardStepGenerate({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[var(--color-brand-primary)]" />
+              <Sparkles className="w-5 h-5 text-primary" />
               AI Suggestions
               {suggestions.length > 0 && (
-                <span className="text-sm font-normal text-[var(--color-text-secondary)]">
+                <span className="text-sm font-normal text-muted-foreground">
                   ({suggestions.length} generated)
                 </span>
               )}
@@ -44,11 +44,11 @@ export function WizardStepGenerate({
         <CardContent>
           {isGenerating && suggestions.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-[var(--color-brand-primary)]" />
-              <p className="text-sm text-[var(--color-text-secondary)]">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
                 AI is generating content suggestions...
               </p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
+              <p className="text-xs text-muted-foreground">
                 Suggestions will appear here as they are generated. You can refine them using the chat.
               </p>
             </div>
@@ -66,7 +66,7 @@ export function WizardStepGenerate({
                 />
               ))}
               {isGenerating && (
-                <div className="flex items-center gap-2 py-3 justify-center text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center gap-2 py-3 justify-center text-sm text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Generating more...
                 </div>

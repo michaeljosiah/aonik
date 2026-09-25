@@ -72,8 +72,8 @@ export function CronScheduleDisplay({ cron, onSave, compact }: CronScheduleDispl
 
   if (compact) {
     return (
-      <span className="text-xs text-[var(--color-text-secondary)]" title={cron ?? undefined}>
-        <Clock className="inline w-3 h-3 mr-1 -mt-0.5 text-[var(--color-text-tertiary)]" />
+      <span className="text-xs text-muted-foreground" title={cron ?? undefined}>
+        <Clock className="inline w-3 h-3 mr-1 -mt-0.5 text-muted-foreground" />
         {description}
       </span>
     );
@@ -82,8 +82,8 @@ export function CronScheduleDisplay({ cron, onSave, compact }: CronScheduleDispl
   return (
     <div className="flex items-center gap-2">
       <div>
-        <div className="text-sm text-[var(--color-text-primary)]">{description}</div>
-        <div className="font-mono text-xs text-[var(--color-text-tertiary)] mt-0.5">{cron ?? '--'}</div>
+        <div className="text-sm text-foreground">{description}</div>
+        <div className="font-mono text-xs text-muted-foreground mt-0.5">{cron ?? '--'}</div>
       </div>
       {onSave && (
         <Button
@@ -124,10 +124,10 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
   };
 
   return (
-    <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 space-y-4">
+    <div className="rounded-md border border-border bg-card p-4 space-y-4">
       {/* Frequency selector */}
       <div className="space-y-1.5">
-        <Label className="text-xs text-[var(--color-text-tertiary)]">Frequency</Label>
+        <Label className="text-xs text-muted-foreground">Frequency</Label>
         <Select
           value={preset.frequency}
           onValueChange={(v) => updatePreset({ frequency: v as CronFrequency })}
@@ -146,7 +146,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {/* Interval (every N minutes) */}
       {preset.frequency === 'every-n-minutes' && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Every (minutes)</Label>
+          <Label className="text-xs text-muted-foreground">Every (minutes)</Label>
           <Select
             value={String(preset.interval ?? 5)}
             onValueChange={(v) => updatePreset({ interval: parseInt(v, 10) })}
@@ -166,7 +166,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {/* Minute (for hourly) */}
       {preset.frequency === 'hourly' && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">At minute</Label>
+          <Label className="text-xs text-muted-foreground">At minute</Label>
           <Select
             value={String(preset.minute ?? 0)}
             onValueChange={(v) => updatePreset({ minute: parseInt(v, 10) })}
@@ -187,7 +187,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {(preset.frequency === 'daily' || preset.frequency === 'weekly' || preset.frequency === 'monthly') && (
         <div className="flex items-end gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs text-[var(--color-text-tertiary)]">Hour</Label>
+            <Label className="text-xs text-muted-foreground">Hour</Label>
             <Select
               value={String(preset.hour ?? 0)}
               onValueChange={(v) => updatePreset({ hour: parseInt(v, 10) })}
@@ -205,7 +205,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-[var(--color-text-tertiary)]">Minute</Label>
+            <Label className="text-xs text-muted-foreground">Minute</Label>
             <Select
               value={String(preset.minute ?? 0)}
               onValueChange={(v) => updatePreset({ minute: parseInt(v, 10) })}
@@ -226,7 +226,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {/* Day of week (for weekly) */}
       {preset.frequency === 'weekly' && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Day of week</Label>
+          <Label className="text-xs text-muted-foreground">Day of week</Label>
           <Select
             value={String(preset.dayOfWeek ?? 1)}
             onValueChange={(v) => updatePreset({ dayOfWeek: parseInt(v, 10) })}
@@ -246,7 +246,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {/* Day of month (for monthly) */}
       {preset.frequency === 'monthly' && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Day of month</Label>
+          <Label className="text-xs text-muted-foreground">Day of month</Label>
           <Select
             value={String(preset.dayOfMonth ?? 1)}
             onValueChange={(v) => updatePreset({ dayOfMonth: parseInt(v, 10) })}
@@ -266,7 +266,7 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       {/* Raw input (for custom) */}
       {preset.frequency === 'custom' && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Cron expression (Quartz 6-field)</Label>
+          <Label className="text-xs text-muted-foreground">Cron expression (Quartz 6-field)</Label>
           <Input
             value={preset.raw ?? ''}
             onChange={(e) => updatePreset({ raw: e.target.value })}
@@ -277,10 +277,10 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
       )}
 
       {/* Preview */}
-      <div className="rounded-sm bg-[var(--color-surface-inset)] px-3 py-2">
-        <div className="text-xs text-[var(--color-text-tertiary)] mb-0.5">Preview</div>
-        <div className="text-sm text-[var(--color-text-primary)]">{previewDescription}</div>
-        <div className="font-mono text-[11px] text-[var(--color-text-tertiary)] mt-0.5">{generatedCron}</div>
+      <div className="rounded-sm bg-muted px-3 py-2">
+        <div className="text-xs text-muted-foreground mb-0.5">Preview</div>
+        <div className="text-sm text-foreground">{previewDescription}</div>
+        <div className="font-mono text-[11px] text-muted-foreground mt-0.5">{generatedCron}</div>
       </div>
 
       {/* Actions */}

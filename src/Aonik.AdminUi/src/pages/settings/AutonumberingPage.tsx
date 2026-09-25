@@ -38,7 +38,7 @@ function FieldInfo({ title, description, example }: { title: string; description
       <HoverCardTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
           aria-label={`Info: ${title}`}
         >
           <Info className="h-3.5 w-3.5" />
@@ -46,11 +46,11 @@ function FieldInfo({ title, description, example }: { title: string; description
       </HoverCardTrigger>
       <HoverCardContent>
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">{title}</p>
-          <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
+          <p className="text-xs font-semibold text-foreground">{title}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
           {example && (
-            <p className="text-xs text-[var(--color-text-tertiary)]">
-              Example: <span className="font-mono text-[var(--color-text-primary)]">{example}</span>
+            <p className="text-xs text-muted-foreground">
+              Example: <span className="font-mono text-foreground">{example}</span>
             </p>
           )}
         </div>
@@ -139,12 +139,12 @@ function TestReferenceDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,40rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Test a Reference</h3>
+      <div className="w-[min(92vw,40rem)] rounded-md bg-card border border-border shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-foreground">Test a Reference</h3>
           <button
             type="button"
-            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
             onClick={onClose}
           >
             <X className="w-4 h-4" />
@@ -152,7 +152,7 @@ function TestReferenceDialog({
         </div>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -299,7 +299,7 @@ function TestReferenceDialog({
                 />
               }
             >
-              <div className="h-9 flex items-center rounded-md border border-dashed border-[var(--color-border)] px-3 text-sm text-[var(--color-text-primary)]">
+              <div className="h-9 flex items-center rounded-md border border-dashed border-border px-3 text-sm text-foreground">
                 {preview}
               </div>
             </FieldRow>
@@ -319,7 +319,7 @@ function TestReferenceDialog({
                 </>
               )}
             </Button>
-            <span className="text-xs text-[var(--color-text-tertiary)]">
+            <span className="text-xs text-muted-foreground">
               Preview uses the current date with tokens {'{YYYY}'}, {'{MM}'}, {'{DD}'}.
             </span>
           </div>
@@ -378,14 +378,14 @@ function EditProfileDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,32rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+      <div className="w-[min(92vw,32rem)] rounded-md bg-card border border-border shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-foreground">
             Edit Configuration: {profile.entityType}
           </h3>
           <button
             type="button"
-            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
             onClick={onClose}
           >
             <X className="w-4 h-4" />
@@ -393,7 +393,7 @@ function EditProfileDialog({
         </div>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -571,7 +571,7 @@ function EditProfileDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-light)]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -660,12 +660,12 @@ function CreateProfileDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-[min(92vw,34rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">New Configuration</h3>
+      <div className="w-[min(92vw,34rem)] rounded-md bg-card border border-border shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-foreground">New Configuration</h3>
           <button
             type="button"
-            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
             onClick={onClose}
           >
             <X className="w-4 h-4" />
@@ -673,7 +673,7 @@ function CreateProfileDialog({
         </div>
         <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
           {error && (
-            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -875,7 +875,7 @@ function CreateProfileDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-light)]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -1004,8 +1004,8 @@ export function AutonumberingPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Autonumbering</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Autonumbering</h1>
+          <p className="text-muted-foreground">
             Configure and validate reference sequences for invoices, orders, and other financial documents.
           </p>
         </div>
@@ -1023,8 +1023,8 @@ export function AutonumberingPage() {
 
       {/* Error State */}
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadProfiles} className="ml-auto">
@@ -1041,30 +1041,30 @@ export function AutonumberingPage() {
           <CardDescription>Active tenant-scoped numbering profiles and last issued references.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Entity Type
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Strategy
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Reset
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Range
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Last Issued
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Status
                     </th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Actions
                     </th>
                   </tr>
@@ -1073,18 +1073,18 @@ export function AutonumberingPage() {
                   {loading ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                        <p className="text-sm text-[var(--color-text-secondary)]">Loading configurations...</p>
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading configurations...</p>
                       </td>
                     </tr>
                   ) : profiles.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                        <div className="mb-3 flex justify-center text-muted-foreground">
                           <Hash className="w-12 h-12" />
                         </div>
-                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No configurations found</p>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                        <p className="text-foreground font-medium mb-1">No configurations found</p>
+                        <p className="text-sm text-muted-foreground mb-4">
                           Get started by creating your first autonumbering configuration
                         </p>
                         <Button className="rounded-sm" onClick={() => setCreateDialogOpen(true)}>
@@ -1097,32 +1097,32 @@ export function AutonumberingPage() {
                     profiles.map((profile) => (
                       <tr
                         key={profile.id}
-                        className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors"
+                        className="border-b border-border hover:bg-muted transition-colors"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-                              <Hash className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                              <Hash className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <p className="font-medium text-[var(--color-text-primary)]">{profile.entityType}</p>
-                              <p className="text-xs text-[var(--color-text-tertiary)] font-mono">
+                              <p className="font-medium text-foreground">{profile.entityType}</p>
+                              <p className="text-xs text-muted-foreground font-mono">
                                 {profile.prefixTemplate || 'No prefix'}
                               </p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-primary)]">{profile.strategy}</span>
+                          <span className="text-sm text-foreground">{profile.strategy}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-primary)]">{profile.resetPolicy}</span>
+                          <span className="text-sm text-foreground">{profile.resetPolicy}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-primary)]">{formatRange(profile)}</span>
+                          <span className="text-sm text-foreground">{formatRange(profile)}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-secondary)] font-mono">
+                          <span className="text-sm text-muted-foreground font-mono">
                             {formatLastIssued(profile)}
                           </span>
                         </td>

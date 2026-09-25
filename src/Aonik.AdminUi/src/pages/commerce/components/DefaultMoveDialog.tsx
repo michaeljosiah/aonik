@@ -82,19 +82,19 @@ export function DefaultMoveDialog({
         </DialogHeader>
 
         {!result && (
-          <div className="flex items-center gap-2.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2.5">
-            <span className="text-[13px] text-[var(--color-text-secondary)]">
+          <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted px-3 py-2.5">
+            <span className="text-[13px] text-muted-foreground">
               {current ? current.label : 'No default'}
             </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden />
-            <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="text-[13px] font-semibold text-foreground">
               {target.label}
             </span>
           </div>
         )}
 
         {error && (
-          <p className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
+          <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
             {error}
           </p>
         )}
@@ -133,7 +133,7 @@ export function DefaultMoveDialog({
 function AffectedProducts({ slugs }: { slugs: string[] }) {
   if (slugs.length === 0) {
     return (
-      <p className="text-[12.5px] text-[var(--color-text-secondary)]">
+      <p className="text-[12.5px] text-muted-foreground">
         No product’s standard preparation changed. Products that pin their own default for this
         group are unaffected by design, so they are not listed here.
       </p>
@@ -142,7 +142,7 @@ function AffectedProducts({ slugs }: { slugs: string[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[12.5px] text-[var(--color-text-secondary)]">
+      <p className="text-[12.5px] text-muted-foreground">
         {slugs.length} product{slugs.length === 1 ? '' : 's'} inherited this default, so{' '}
         {slugs.length === 1 ? 'its' : 'their'} standard preparation just changed and{' '}
         {slugs.length === 1 ? 'its content block is' : 'their content blocks are'} now flagged for

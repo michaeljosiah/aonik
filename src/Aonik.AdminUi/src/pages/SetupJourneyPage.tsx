@@ -287,11 +287,11 @@ function getStoredList(key: string) {
 
 function SetupNode({ data }: { data: SetupNodeData }) {
   const statusStyles: Record<StepStatus, string> = {
-    todo: 'border-[var(--color-border)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]',
-    'in-progress': 'border-[var(--color-info)] text-[var(--color-info)] bg-[var(--color-info-light)]',
-    blocked: 'border-[var(--color-warning)] text-[var(--color-warning)] bg-[var(--color-warning-light)]',
-    complete: 'border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]',
-    skipped: 'border-[var(--color-border)] text-[var(--color-text-tertiary)] bg-[var(--color-surface-inset)]',
+    todo: 'border-border text-muted-foreground bg-card',
+    'in-progress': 'border-info text-info bg-info-subtle',
+    blocked: 'border-warning text-warning bg-warning-subtle',
+    complete: 'border-success text-success bg-success-subtle',
+    skipped: 'border-border text-muted-foreground bg-muted',
   };
 
   const iconMap: Record<StepStatus, typeof Circle> = {
@@ -306,7 +306,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
 
   return (
     <div className={cn('w-[280px] rounded-2xl border shadow-sm overflow-hidden', statusStyles[data.status])}>
-      <Handle type="target" position={Position.Left} className="!bg-[var(--color-border)]" />
+      <Handle type="target" position={Position.Left} className="!bg-border" />
       <div
         className="h-20 bg-cover bg-center"
         style={{
@@ -316,11 +316,11 @@ function SetupNode({ data }: { data: SetupNodeData }) {
       <div className="px-4 py-4 space-y-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{data.category}</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{data.category}</span>
         </div>
         <div className="space-y-2">
-          <p className="text-base font-semibold text-[var(--color-text-primary)]">{data.title}</p>
-          <p className="text-sm text-[var(--color-text-secondary)]">{data.description}</p>
+          <p className="text-base font-semibold text-foreground">{data.title}</p>
+          <p className="text-sm text-muted-foreground">{data.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -335,7 +335,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
           </Button>
         </div>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-[var(--color-border)]" />
+      <Handle type="source" position={Position.Right} className="!bg-border" />
     </div>
   );
 }
@@ -518,8 +518,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       type: 'straight',
       animated: true,
       style: isComplete
-        ? { stroke: 'var(--color-brand-primary)', strokeWidth: 2 }
-        : { stroke: 'var(--color-border)', strokeDasharray: '6 6', strokeWidth: 2 },
+        ? { stroke: 'var(--primary)', strokeWidth: 2 }
+        : { stroke: 'var(--border)', strokeDasharray: '6 6', strokeWidth: 2 },
     } as Edge;
   });
 
@@ -745,13 +745,13 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
+    <div className="flex-1 overflow-auto bg-muted">
       <div className="px-6 py-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2 flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-brand-primary)]">Tenant Setup Journey</p>
-            <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Launch your finance stack</h1>
-            <p className="w-full max-w-none text-sm text-[var(--color-text-secondary)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Tenant Setup Journey</p>
+            <h1 className="text-3xl font-bold text-foreground">Launch your finance stack</h1>
+            <p className="w-full max-w-none text-sm text-muted-foreground">
               Each node represents a platform capability. Complete the required path to go live, or skip optional upgrades and return later.
             </p>
           </div>
@@ -772,7 +772,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                   {stepsWithStatus.map((step) => (
                     <div
                       key={step.id}
-                      className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] overflow-hidden cursor-pointer"
+                      className="rounded-2xl border border-border bg-card overflow-hidden cursor-pointer"
                       onClick={() => setSelectedStepId(step.id)}
                     >
                       <div
@@ -782,10 +782,10 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       <div className="px-4 py-4 space-y-2">
                         <div className="flex items-center gap-2">
                           <StatusPill status={step.status} />
-                          <span className="text-xs text-[var(--color-text-tertiary)]">{step.category}</span>
+                          <span className="text-xs text-muted-foreground">{step.category}</span>
                         </div>
-                        <p className="text-base font-semibold text-[var(--color-text-primary)]">{step.title}</p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">{step.description}</p>
+                        <p className="text-base font-semibold text-foreground">{step.title}</p>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
                         <div className="flex items-center gap-2">
                           <Button 
                             size="sm" 
@@ -826,7 +826,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       zoomOnDoubleClick={false}
                       preventScrolling={false}
                     >
-                      <Background color="var(--color-border-light)" gap={28} />
+                      <Background color="var(--border)" gap={28} />
                     </ReactFlow>
                   </div>
                 </div>
@@ -844,14 +844,14 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <StatusPill status={selectedStep.status} />
-                    <span className="text-xs text-[var(--color-text-tertiary)]">
+                    <span className="text-xs text-muted-foreground">
                       {selectedStep.required ? 'Required' : 'Optional'}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{selectedStep.title}</h3>
-                  <p className="text-sm text-[var(--color-text-secondary)]">{selectedStep.description}</p>
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 text-xs text-[var(--color-text-secondary)]">
-                    <p className="font-semibold text-[var(--color-text-primary)]">Dependencies</p>
+                  <h3 className="text-lg font-semibold text-foreground">{selectedStep.title}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedStep.description}</p>
+                  <div className="rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground">Dependencies</p>
                     <ul className="mt-2 space-y-1">
                       {(selectedStep.dependsOn ?? []).length === 0 ? (
                         <li>None</li>
@@ -861,9 +861,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           return (
                             <li key={dep} className="flex items-center gap-2">
                               {match?.status === 'complete' ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" />
+                                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                               ) : (
-                                <Circle className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+                                <Circle className="h-3.5 w-3.5 text-muted-foreground" />
                               )}
                               <span>{match?.title ?? dep}</span>
                             </li>
@@ -887,17 +887,17 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
         {/* Guide Articles Section */}
         <div className="mt-10">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Helpful guides</h2>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            <h2 className="text-xl font-bold text-foreground">Helpful guides</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
               Explore detailed documentation to help you get the most out of the platform.
             </p>
             {guideError && (
-              <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{guideError}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{guideError}</p>
             )}
           </div>
           {guideLoading && !resolvedManifest ? (
-            <div className="flex items-center gap-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="h-4 w-4 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               Loading guides...
             </div>
           ) : (
@@ -906,9 +906,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 <div key={section.id} className="space-y-3">
                   {section.id !== 'all' && (
                     <div>
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{section.title}</h3>
+                      <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
                       {section.description && (
-                        <p className="text-sm text-[var(--color-text-secondary)]">{section.description}</p>
+                        <p className="text-sm text-muted-foreground">{section.description}</p>
                       )}
                     </div>
                   )}
@@ -923,19 +923,19 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           />
                           <CardContent className="p-4">
                             <div className="space-y-3">
-                              <span className="inline-block rounded-full bg-[var(--color-surface-inset)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                              <span className="inline-block rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 {guide.category}
                               </span>
-                              <h3 className="text-sm font-semibold text-[var(--color-text-primary)] line-clamp-2">
+                              <h3 className="text-sm font-semibold text-foreground line-clamp-2">
                                 {guide.title}
                               </h3>
-                              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed line-clamp-3">
+                              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
                                 {guide.description}
                               </p>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 px-0 text-xs font-semibold text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] hover:bg-transparent"
+                                className="h-8 px-0 text-xs font-semibold text-primary hover:text-primary hover:bg-transparent"
                                 onClick={() => navigate(`/setup-guides/${guide.slug}`)}
                               >
                                 Read article
@@ -955,22 +955,22 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       </div>
       {wizardOpen && selectedStep && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full min-w-[320px] max-w-[720px] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+          <div className="w-full min-w-[320px] max-w-[720px] rounded-2xl border border-border bg-card shadow-xl">
             <div
               className="h-32 rounded-t-2xl bg-cover bg-center"
               style={{
                 backgroundImage: selectedStep.bannerUrl ? `url(${selectedStep.bannerUrl})` : undefined,
               }}
             />
-            <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Setup wizard</p>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{selectedStep.title}</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Setup wizard</p>
+                <h3 className="text-lg font-semibold text-foreground">{selectedStep.title}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setWizardOpen(false)}
-                className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                className="text-sm text-muted-foreground hover:text-foreground"
               >
                 Close
               </button>
@@ -985,8 +985,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                         className={cn(
                           'rounded-full px-3 py-1 text-xs font-semibold',
                           wizardStepIndex === index
-                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
                         )}
                       >
                         {index + 1}. {label}
@@ -995,48 +995,48 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                   </div>
 
                   {tenantProfileLoading ? (
-                    <div className="text-sm text-[var(--color-text-secondary)]">Loading tenant data...</div>
+                    <div className="text-sm text-muted-foreground">Loading tenant data...</div>
                   ) : tenantProfileError ? (
-                    <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-4 text-sm text-[var(--color-error)]">
+                    <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                       {tenantProfileError}
                     </div>
                   ) : wizardStepIndex === 0 ? (
                     <div className="space-y-4">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Confirm your tenant profile so the platform can tailor policies, pricing, and compliance defaults.
                       </p>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Tenant display name</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Tenant display name</label>
                           <input
                             type="text"
                             value={tenantProfile.name}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, name: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                            className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                           />
                           {tenantProfileErrors.name && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.name}</p>
+                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.name}</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Legal name</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Legal name</label>
                           <input
                             type="text"
                             value={tenantProfile.legalName}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, legalName: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                            className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                           />
                           {tenantProfileErrors.legalName && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.legalName}</p>
+                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.legalName}</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Base currency</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Base currency</label>
                           <Select
                             value={tenantProfile.defaultCurrency}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm">
                               <SelectValue placeholder="Select currency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1048,11 +1048,11 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             </SelectContent>
                           </Select>
                           {tenantProfileErrors.defaultCurrency && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.defaultCurrency}</p>
+                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.defaultCurrency}</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Primary country</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Primary country</label>
                           <CountrySelect
                             value={tenantProfile.primaryCountry}
                             onChange={handlePrimaryCountryChange}
@@ -1062,16 +1062,16 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             className="mt-2 w-full"
                           />
                           {tenantProfileErrors.primaryCountry && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.primaryCountry}</p>
+                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.primaryCountry}</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Time zone</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Time zone</label>
                           <Select
                             value={tenantProfile.timeZone}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, timeZone: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm">
                               <SelectValue placeholder="Select a time zone" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1083,28 +1083,28 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             </SelectContent>
                           </Select>
                           {tenantProfileErrors.timeZone && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.timeZone}</p>
+                            <p className="mt-1 text-xs text-destructive">{tenantProfileErrors.timeZone}</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Admin contact</label>
+                          <label className="block text-xs font-semibold text-muted-foreground">Admin contact</label>
                           <input
                             type="email"
                             value={tenantProfile.adminEmail}
                             readOnly
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]"
+                            className="mt-2 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
                           />
                         </div>
                       </div>
                       {currentTenant && (
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           Tenant environment: {currentTenant.environment}.
                         </p>
                       )}
                     </div>
                   ) : wizardStepIndex === 1 ? (
                     <div className="space-y-5">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Decide which modules are available for this tenant. You can adjust these later.
                       </p>
                       <div className="space-y-4">
@@ -1117,8 +1117,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               className={cn(
                                 'rounded-full border px-4 py-1.5 text-xs font-semibold',
                                 activeFeatureGroupId === group.id
-                                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
-                                  : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border text-muted-foreground'
                               )}
                             >
                               {group.label}
@@ -1129,11 +1129,11 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           const activeGroup = featureGroups.find((group) => group.id === activeFeatureGroupId) ?? featureGroups[0];
                           const groupSelected = activeGroup.flags.every((flag) => featureSelections[flag.key]);
                           return (
-                            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                            <div className="rounded-lg border border-border bg-muted p-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div>
-                                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{activeGroup.label}</p>
-                                  <p className="text-xs text-[var(--color-text-secondary)]">{activeGroup.description}</p>
+                                  <p className="text-sm font-semibold text-foreground">{activeGroup.label}</p>
+                                  <p className="text-xs text-muted-foreground">{activeGroup.description}</p>
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={() => handleToggleGroup(activeGroup.id)}>
                                   {groupSelected ? 'Disable all' : 'Enable all'}
@@ -1141,12 +1141,12 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               </div>
                               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {activeGroup.flags.map((flag) => (
-                                  <label key={flag.key} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                                  <label key={flag.key} className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <input
                                       type="checkbox"
                                       checked={Boolean(featureSelections[flag.key])}
                                       onChange={() => handleFeatureToggle(flag.key)}
-                                      className="h-4 w-4 rounded border-[var(--color-border)]"
+                                      className="h-4 w-4 rounded border-border"
                                     />
                                     <span>{flag.label}</span>
                                   </label>
@@ -1156,7 +1156,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           );
                         })()}
                         {featureError && (
-                          <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
+                          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
                             {featureError}
                           </div>
                         )}
@@ -1164,25 +1164,25 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Seed a guided demo dataset to explore workflows like orders, payments, and ledger activity.
                       </p>
-                      <div className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                      <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-4">
                         <input
                           type="checkbox"
                           checked={demoSeedEnabled}
                           onChange={(event) => setDemoSeedEnabled(event.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-[var(--color-border)]"
+                          className="mt-1 h-4 w-4 rounded border-border"
                         />
                         <div>
-                          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Seed demo data</p>
-                          <p className="text-xs text-[var(--color-text-secondary)]">
+                          <p className="text-sm font-semibold text-foreground">Seed demo data</p>
+                          <p className="text-xs text-muted-foreground">
                             Demo data is isolated to this tenant and can be cleared later.
                           </p>
                         </div>
                       </div>
                       {demoSeedError && (
-                        <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
+                        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
                           {demoSeedError}
                         </div>
                       )}
@@ -1191,45 +1191,45 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 </div>
               ) : wizardStepIndex === 0 ? (
                 <div className="space-y-5">
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     {selectedStep.description}
                   </p>
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Owner</label>
+                    <label className="block text-xs font-semibold text-muted-foreground">Owner</label>
                     <input
                       type="text"
                       placeholder="Assign a team lead"
-                      className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                      className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Notes</label>
+                    <label className="block text-xs font-semibold text-muted-foreground">Notes</label>
                     <textarea
                       rows={4}
                       placeholder="Add any context for this step"
-                      className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                      className="mt-2 w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm"
                     />
                   </div>
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     Review the setup details and confirm completion for this step.
                   </p>
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5 text-sm">
-                    <p className="font-semibold text-[var(--color-text-primary)]">Ready to mark complete?</p>
-                    <p className="mt-2 text-[var(--color-text-secondary)]">
+                  <div className="rounded-lg border border-border bg-muted p-5 text-sm">
+                    <p className="font-semibold text-foreground">Ready to mark complete?</p>
+                    <p className="mt-2 text-muted-foreground">
                       This will unlock the next step in your launch path.
                     </p>
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-[var(--color-border-light)] px-6 py-4">
+            <div className="flex items-center justify-between border-t border-border px-6 py-4">
               <button
                 type="button"
                 onClick={() => setWizardStepIndex((prev) => Math.max(prev - 1, 0))}
-                className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                className="text-sm text-muted-foreground hover:text-foreground"
                 disabled={wizardStepIndex === 0 || tenantProfileLoading}
               >
                 Back
@@ -1278,11 +1278,11 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
 
 function StatusPill({ status }: { status: StepStatus }) {
   const mapping: Record<StepStatus, { label: string; className: string }> = {
-    todo: { label: 'Not started', className: 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]' },
-    'in-progress': { label: 'In progress', className: 'bg-[var(--color-info-light)] text-[var(--color-info)]' },
-    blocked: { label: 'Blocked', className: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]' },
-    complete: { label: 'Complete', className: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-    skipped: { label: 'Skipped', className: 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]' },
+    todo: { label: 'Not started', className: 'bg-muted text-muted-foreground' },
+    'in-progress': { label: 'In progress', className: 'bg-info-subtle text-info' },
+    blocked: { label: 'Blocked', className: 'bg-warning-subtle text-warning' },
+    complete: { label: 'Complete', className: 'bg-success-subtle text-success' },
+    skipped: { label: 'Skipped', className: 'bg-muted text-muted-foreground' },
   };
 
   const { label, className } = mapping[status];

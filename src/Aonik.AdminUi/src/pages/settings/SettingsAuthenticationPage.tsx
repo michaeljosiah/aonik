@@ -116,7 +116,7 @@ function SettingField({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <Label htmlFor={htmlFor}>{label}</Label>
-        <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{keyName}</span>
+        <span className="font-mono text-[11px] text-muted-foreground">{keyName}</span>
       </div>
       <Input
         id={htmlFor}
@@ -253,9 +253,9 @@ export function SettingsAuthenticationPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · Platform</p>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Authentication</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Settings · Platform</p>
+          <h1 className="text-2xl font-bold text-foreground">Authentication</h1>
+          <p className="text-muted-foreground">
             Identity providers, SSO, callback configuration, and management client secrets.
           </p>
         </div>
@@ -272,8 +272,8 @@ export function SettingsAuthenticationPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="flex items-center gap-3 p-4 text-destructive">
             <AlertCircle className="h-5 w-5" />
             <span className="flex-1 text-sm">{error}</span>
             <Button variant="ghost" size="sm" onClick={() => void loadSettings()}>
@@ -286,7 +286,7 @@ export function SettingsAuthenticationPage() {
       {loading || !formState ? (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-3 text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <RefreshCw className="h-5 w-5 animate-spin" />
               <span>Loading authentication settings...</span>
             </div>
@@ -325,15 +325,15 @@ export function SettingsAuthenticationPage() {
                     className={cn(
                       'rounded-lg border p-4 text-left transition-colors',
                       active
-                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                        : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-secondary)]'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-card hover:bg-muted'
                     )}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{provider.title}</span>
+                      <span className="text-sm font-semibold text-foreground">{provider.title}</span>
                       {active ? <Badge variant="success">Active</Badge> : null}
                     </div>
-                    <p className="text-xs leading-5 text-[var(--color-text-secondary)]">{provider.description}</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{provider.description}</p>
                   </button>
                 );
               })}

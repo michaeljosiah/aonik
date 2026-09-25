@@ -18,10 +18,10 @@ export function CommercePlaceholder({ title, subtitle, spec, summary }: Commerce
       <PageHeader eyebrow="Commerce" title={title} subtitle={subtitle} />
       <AonikCard>
         <div className="flex flex-col items-start gap-2 py-6">
-          <span className="rounded-full bg-[var(--color-surface-inset)] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--color-text-secondary)]">
+          <span className="rounded-full bg-muted px-2.5 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">
             Spec {spec}
           </span>
-          <p className="max-w-xl text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+          <p className="max-w-xl text-[13px] leading-relaxed text-muted-foreground">
             {summary} This page ships with Spec {spec}; the module, navigation, data layer and
             shared components it builds on are already in place.
           </p>

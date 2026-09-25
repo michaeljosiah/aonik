@@ -47,7 +47,7 @@ import {
 } from './lib/planCurve';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 const numberClass = `${inputClass} font-[family-name:var(--font-mono)]`;
 
 export function BoxPlansPage() {
@@ -189,7 +189,7 @@ export function BoxPlansPage() {
 
       {bundles.length === 0 && !bundlesError && (
         <AonikCard>
-          <p className="py-6 text-center text-[13px] text-[var(--color-text-secondary)]">
+          <p className="py-6 text-center text-[13px] text-muted-foreground">
             No bundle products exist yet. A box plan prices a bundle, so create one in Products
             first.
           </p>
@@ -212,8 +212,8 @@ export function BoxPlansPage() {
       {error && <Banner>{error}</Banner>}
 
       {invalid && draft && (
-        <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-          <AlertCircle className="mt-px h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+        <div className="flex items-start gap-2 rounded border border-warning bg-warning-subtle px-3 py-2 text-xs text-muted-foreground">
+          <AlertCircle className="mt-px h-4 w-4 shrink-0 text-warning" aria-hidden />
           <span>{invalid}</span>
         </div>
       )}
@@ -221,7 +221,7 @@ export function BoxPlansPage() {
       {unauthored && selectedBundle && (
         <AonikCard className="border-dashed">
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <p className="text-[13px] text-[var(--color-text-secondary)]">
+            <p className="text-[13px] text-muted-foreground">
               No size plan authored for this bundle — the storefront shows no box section until
               one exists.
             </p>
@@ -231,7 +231,7 @@ export function BoxPlansPage() {
               Author a size plan
             </Button>
             {!tenantCurrency && (
-              <p className="text-[11px] text-[var(--color-text-tertiary)]">
+              <p className="text-[11px] text-muted-foreground">
                 The storefront currency could not be read, so the form starts at GBP — check it
                 before saving.
               </p>
@@ -287,32 +287,32 @@ export function BoxPlansPage() {
                   {jumps.map((jump) => (
                     <div
                       key={`${jump.from}-${jump.to}`}
-                      className="rounded-md border border-[var(--color-border-light)] px-3 py-2"
+                      className="rounded-md border border-border px-3 py-2"
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                         Grow {jump.from} → {jump.to}
                       </p>
-                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[15px] text-[var(--color-text-primary)]">
+                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[15px] text-foreground">
                         {money(jump.delta)}
                       </p>
                       {/* The subtraction, shown. The rule is only believable if the arithmetic
                           is visible — asserting it in prose is what lets per-space × spaces
                           survive in someone's head. */}
-                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                         {money(jump.toPrice)} − {money(jump.fromPrice)}
                       </p>
-                      <p className="text-[11px] text-[var(--color-text-tertiary)]">{jump.note}</p>
+                      <p className="text-[11px] text-muted-foreground">{jump.note}</p>
                     </div>
                   ))}
                   {jumps.length === 0 && (
-                    <p className="text-[12px] text-[var(--color-text-secondary)]">
+                    <p className="text-[12px] text-muted-foreground">
                       This plan sells one size, so there is no growing to price.
                     </p>
                   )}
                 </div>
               </>
             ) : (
-              <p className="py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+              <p className="py-6 text-center text-[12.5px] text-muted-foreground">
                 Set a size range to see the price curve.
               </p>
             )}
@@ -349,7 +349,7 @@ export function BoxPlansPage() {
                 onChange={(v) => setDraft({ ...draft, perSpacePrice: v })}
               />
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Currency
                 </span>
                 <input
@@ -361,7 +361,7 @@ export function BoxPlansPage() {
                 />
               </label>
             </div>
-            <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="mt-2 text-[11px] text-muted-foreground">
               Saving is a full replace of the formula and every preset. Changing the currency is
               refused while open box sessions reference this plan — the server counts them.
             </p>
@@ -380,7 +380,7 @@ export function BoxPlansPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-[12.5px]">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                  <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
                     <Th>Size</Th>
                     <Th>Price</Th>
                     <Th>Formula at size</Th>
@@ -395,14 +395,14 @@ export function BoxPlansPage() {
                     <tr>
                       <td
                         colSpan={7}
-                        className="px-4 py-6 text-center text-[var(--color-text-secondary)]"
+                        className="px-4 py-6 text-center text-muted-foreground"
                       >
                         No presets — every size prices from the formula.
                       </td>
                     </tr>
                   )}
                   {draft.presets.map((preset, index) => (
-                    <tr key={index} className="border-b border-[var(--color-border-light)]">
+                    <tr key={index} className="border-b border-border">
                       <Td>
                         <input
                           type="number"
@@ -423,7 +423,7 @@ export function BoxPlansPage() {
                         />
                       </Td>
                       {/* COMPARISON ONLY. Never written into the payload — see the footer. */}
-                      <Td className="font-[family-name:var(--font-mono)] text-[var(--color-text-tertiary)]">
+                      <Td className="font-[family-name:var(--font-mono)] text-muted-foreground">
                         {money(formulaPrice(draft, preset.size))}
                       </Td>
                       <Td>
@@ -438,7 +438,7 @@ export function BoxPlansPage() {
                             })
                           }
                           className={`${numberClass} w-[100px] ${
-                            preset.savingAmount != null ? 'text-[var(--color-success)]' : ''
+                            preset.savingAmount != null ? 'text-success' : ''
                           }`}
                           aria-label="Authored saving"
                         />
@@ -471,7 +471,7 @@ export function BoxPlansPage() {
                               presets: draft.presets.filter((_, i) => i !== index),
                             })
                           }
-                          className="rounded p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
+                          className="rounded p-1 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -481,14 +481,14 @@ export function BoxPlansPage() {
                 </tbody>
               </table>
             </div>
-            <p className="border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
               Savings are display values authored here — the storefront never computes one. The
               formula column is for comparison and is not sent.
             </p>
           </AonikCard>
 
           {selectedBundle && selectedBundle.status !== 'Active' && (
-            <p className="flex items-center gap-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+            <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
               <Pill tone="muted">{selectedBundle.status}</Pill>
               This bundle is not live, so the storefront serves none of this yet. The plan is
               still authored and saved normally.
@@ -577,7 +577,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </span>
       <input
@@ -593,7 +593,7 @@ function NumberField({
 
 function Banner({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+    <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
       <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
       {children}
     </div>

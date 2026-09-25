@@ -42,27 +42,27 @@ export function WizardStepReview({
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-sm">
-              <span className="text-[var(--color-text-secondary)]">
+              <span className="text-muted-foreground">
                 {suggestions.length} total
               </span>
-              <span className="text-[var(--color-success)] font-medium">
+              <span className="text-success font-medium">
                 {approved.length} approved
               </span>
-              <span className="text-[var(--color-text-tertiary)]">
+              <span className="text-muted-foreground">
                 {pending.length} pending
               </span>
-              <span className="text-[var(--color-danger)]">
+              <span className="text-destructive">
                 {rejected.length} rejected
               </span>
             </div>
             <div className="flex items-center gap-2">
               {pending.length > 0 && (
                 <>
-                  <Button variant="outline" size="sm" onClick={approveAll} className="gap-1.5 text-[var(--color-success)]">
+                  <Button variant="outline" size="sm" onClick={approveAll} className="gap-1.5 text-success">
                     <Check className="w-3.5 h-3.5" />
                     Approve All
                   </Button>
-                  <Button variant="outline" size="sm" onClick={rejectAll} className="gap-1.5 text-[var(--color-danger)]">
+                  <Button variant="outline" size="sm" onClick={rejectAll} className="gap-1.5 text-destructive">
                     <X className="w-3.5 h-3.5" />
                     Reject All
                   </Button>

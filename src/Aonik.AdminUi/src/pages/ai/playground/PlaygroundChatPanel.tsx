@@ -59,7 +59,7 @@ export function PlaygroundChatPanel({
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-3">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-[var(--color-text-tertiary)]">
+            <p className="text-sm text-muted-foreground">
               Send a message to start testing
             </p>
           </div>
@@ -72,8 +72,8 @@ export function PlaygroundChatPanel({
             <div
               className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm ${
                 msg.role === 'user'
-                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                  : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)]'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-card text-foreground'
               }`}
             >
               <pre className="whitespace-pre-wrap font-sans leading-relaxed">
@@ -84,7 +84,7 @@ export function PlaygroundChatPanel({
         ))}
 
         {streamError && (
-          <div className="rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+          <div className="rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {streamError}
           </div>
         )}
@@ -92,10 +92,10 @@ export function PlaygroundChatPanel({
 
       {/* Metrics bar */}
       {metrics && (
-        <div className="flex items-center gap-4 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-1.5 text-xs text-[var(--color-text-tertiary)]">
+        <div className="flex items-center gap-4 border-t border-border bg-muted px-5 py-1.5 text-xs text-muted-foreground">
           <span>{metrics.inputTokens} in</span>
           <span>{metrics.outputTokens} out</span>
-          <span className="font-medium text-[var(--color-text-secondary)]">{metrics.totalTokens} total</span>
+          <span className="font-medium text-muted-foreground">{metrics.totalTokens} total</span>
           <span>{(metrics.latencyMs / 1000).toFixed(1)}s</span>
           {metrics.estimatedCostUsd !== undefined && metrics.estimatedCostUsd !== null && (
             <span>${metrics.estimatedCostUsd.toFixed(4)}</span>
@@ -104,7 +104,7 @@ export function PlaygroundChatPanel({
       )}
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="border-t border-[var(--color-border-light)] p-4">
+      <form onSubmit={handleSubmit} className="border-t border-border p-4">
         <div className="flex items-end gap-2">
           <Textarea
             value={draft}

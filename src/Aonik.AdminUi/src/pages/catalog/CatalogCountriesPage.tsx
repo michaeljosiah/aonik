@@ -87,8 +87,8 @@ export function CatalogCountriesPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Catalog Countries</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Catalog Countries</h1>
+          <p className="text-muted-foreground">
             Reference markets available for bill pay catalogs. Filter to show only countries with active services.
           </p>
         </div>
@@ -99,8 +99,8 @@ export function CatalogCountriesPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadCountries}>
@@ -129,9 +129,9 @@ export function CatalogCountriesPage() {
                   onClick={() => setOnlyServiceCountries((prev) => !prev)}
                 >
                   {onlyServiceCountries ? (
-                    <ToggleRight className="w-4 h-4 mr-2 text-[var(--color-brand-primary)]" />
+                    <ToggleRight className="w-4 h-4 mr-2 text-primary" />
                   ) : (
-                    <ToggleLeft className="w-4 h-4 mr-2 text-[var(--color-text-tertiary)]" />
+                    <ToggleLeft className="w-4 h-4 mr-2 text-muted-foreground" />
                   )}
                   Only service countries
                 </Button>
@@ -140,40 +140,40 @@ export function CatalogCountriesPage() {
             )}
           />
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             {loading ? (
               <div className="p-12 text-center">
-                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                <p className="text-sm text-[var(--color-text-secondary)]">Loading countries...</p>
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading countries...</p>
               </div>
             ) : filteredCountries.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                <div className="mb-3 flex justify-center text-muted-foreground">
                   <Globe2 className="w-12 h-12" />
                 </div>
-                <p className="text-[var(--color-text-primary)] font-medium mb-1">No countries found</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">Try adjusting your filters.</p>
+                <p className="text-foreground font-medium mb-1">No countries found</p>
+                <p className="text-sm text-muted-foreground">Try adjusting your filters.</p>
               </div>
             ) : (
               viewMode === 'list' ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)] w-16">
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground w-16">
                           Flag
                         </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                           Country
                         </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                           Code
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {pagedCountries.map((country) => (
-                        <tr key={country.countryCode} className="border-b border-[var(--color-border-light)]">
+                        <tr key={country.countryCode} className="border-b border-border">
                           <td className="px-4 py-3">
                             <img 
                               src={getFlagUrl(country.countryCode)} 
@@ -183,8 +183,8 @@ export function CatalogCountriesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <div>
-                              <p className="font-medium text-[var(--color-text-primary)]">{country.name}</p>
-                              <p className="text-xs text-[var(--color-text-tertiary)]">Catalog availability reference</p>
+                              <p className="font-medium text-foreground">{country.name}</p>
+                              <p className="text-xs text-muted-foreground">Catalog availability reference</p>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -202,7 +202,7 @@ export function CatalogCountriesPage() {
                   {pagedCountries.map((country) => (
                     <div
                       key={country.countryCode}
-                      className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)] shadow-sm"
+                      className="border border-border rounded-md p-4 bg-card shadow-sm"
                     >
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="secondary" className="font-mono">
@@ -214,8 +214,8 @@ export function CatalogCountriesPage() {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       </div>
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{country.name}</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">Catalog availability reference</p>
+                      <h3 className="text-lg font-semibold text-foreground">{country.name}</h3>
+                      <p className="text-sm text-muted-foreground">Catalog availability reference</p>
                     </div>
                   ))}
                 </div>

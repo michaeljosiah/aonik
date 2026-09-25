@@ -346,7 +346,7 @@ export function BillPaymentForm({
 
       {/* 2. Biller */}
       <div>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           Biller
         </div>
         <BillerGrid
@@ -373,7 +373,7 @@ export function BillPaymentForm({
       {selectedBiller && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="text-[12px] text-[var(--color-text-secondary)]">
+            <label className="text-[12px] text-muted-foreground">
               Service type
               <select
                 value={state.selectedServiceId}
@@ -391,7 +391,7 @@ export function BillPaymentForm({
               </select>
             </label>
             {primaryField ? (
-              <label className="text-[12px] text-[var(--color-text-secondary)]">
+              <label className="text-[12px] text-muted-foreground">
                 {primaryField.label || accountFieldLabel}
                 <input
                   type="text"
@@ -411,7 +411,7 @@ export function BillPaymentForm({
                 />
               </label>
             ) : (
-              <label className="text-[12px] text-[var(--color-text-secondary)]">
+              <label className="text-[12px] text-muted-foreground">
                 {accountFieldLabel}
                 <input
                   type="text"
@@ -427,7 +427,7 @@ export function BillPaymentForm({
           {extraFields.length > 0 && (
             <div className="flex flex-col gap-3">
               {extraFields.map((field) => (
-                <label key={field.key} className="text-[12px] text-[var(--color-text-secondary)]">
+                <label key={field.key} className="text-[12px] text-muted-foreground">
                   {field.label}
                   <input
                     type="text"
@@ -456,8 +456,8 @@ export function BillPaymentForm({
               className={
                 'text-[11.5px] ' +
                 (state.validationResult.isValid
-                  ? 'text-[var(--color-brand-primary)]'
-                  : 'text-[var(--color-error)]')
+                  ? 'text-primary'
+                  : 'text-destructive')
               }
             >
               {state.validationResult.isValid
@@ -472,7 +472,7 @@ export function BillPaymentForm({
 
       {/* 4. Currency + Amount (80px + 1fr) */}
       <div className="grid grid-cols-[80px_1fr] gap-2.5">
-        <label className="text-[12px] text-[var(--color-text-secondary)]">
+        <label className="text-[12px] text-muted-foreground">
           Currency
           <select
             value={state.destinationCurrency || ''}
@@ -493,7 +493,7 @@ export function BillPaymentForm({
             <option value="KES">KES</option>
           </select>
         </label>
-        <label className="text-[12px] text-[var(--color-text-secondary)]">
+        <label className="text-[12px] text-muted-foreground">
           Amount
           <input
             type="number"

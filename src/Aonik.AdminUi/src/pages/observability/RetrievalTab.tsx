@@ -36,32 +36,32 @@ export function RetrievalTab({ data }: { data: RetrievalResponse }) {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-border-light)]">
-                <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">Instrument</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Samples</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p50</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p95</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p99</th>
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Instrument</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Samples</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Avg</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">p50</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">p95</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">p99</th>
               </tr>
             </thead>
             <tbody>
               {data.latencies.map((l, idx) => (
                 <tr
                   key={l.instrument}
-                  className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
+                  className={`border-b border-border ${idx % 2 === 1 ? 'bg-muted' : ''}`}
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--color-text-primary)]">{l.instrument}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatNumber(l.samples)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.avgMs)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p50Ms)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p95Ms)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p99Ms)}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-foreground">{l.instrument}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatNumber(l.samples)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(l.avgMs)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(l.p50Ms)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(l.p95Ms)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(l.p99Ms)}</td>
                 </tr>
               ))}
               {data.latencies.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No retrieval latency data yet. Ensure the <code>Aonik.VectorStore</code> meter is wired in OTel.
                   </td>
                 </tr>
@@ -79,36 +79,36 @@ export function RetrievalTab({ data }: { data: RetrievalResponse }) {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-border-light)]">
-                <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">Collection</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Searches</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg Results</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Empty</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p95</th>
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Collection</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Searches</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Avg Results</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Empty</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Avg</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">p95</th>
               </tr>
             </thead>
             <tbody>
               {data.collections.map((c, idx) => (
                 <tr
                   key={c.collection}
-                  className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
+                  className={`border-b border-border ${idx % 2 === 1 ? 'bg-muted' : ''}`}
                 >
-                  <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{c.collection}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatNumber(c.searches)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{c.avgResultCount.toFixed(1)}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">{c.collection}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatNumber(c.searches)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{c.avgResultCount.toFixed(1)}</td>
                   <td className="px-4 py-3 text-right">
-                    <span className={c.emptySearches > 0 ? 'text-amber-600 font-medium' : 'text-[var(--color-text-primary)]'}>
+                    <span className={c.emptySearches > 0 ? 'text-amber-600 font-medium' : 'text-foreground'}>
                       {formatNumber(c.emptySearches)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(c.avgLatencyMs)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(c.p95LatencyMs)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(c.avgLatencyMs)}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{formatMs(c.p95LatencyMs)}</td>
                 </tr>
               ))}
               {data.collections.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No per-collection search data yet.
                   </td>
                 </tr>

@@ -264,7 +264,7 @@ export function InvoicesListPage() {
       accessorKey: 'invoiceNumber',
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-[var(--color-text-primary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-foreground">
           {shortInvoiceNumber(row.invoiceNumber)}
         </span>
       ),
@@ -282,11 +282,11 @@ export function InvoicesListPage() {
           <div className="flex items-center gap-2.5">
             <AgentAvatar name={label} size={26} />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+              <span className="truncate text-[13px] font-medium text-foreground">
                 {label}
               </span>
               {sub && (
-                <span className="font-[family-name:var(--font-mono)] truncate text-[11px] text-[var(--color-text-tertiary)]">
+                <span className="font-[family-name:var(--font-mono)] truncate text-[11px] text-muted-foreground">
                   {sub}
                 </span>
               )}
@@ -303,10 +303,10 @@ export function InvoicesListPage() {
         const issued = formatDate(row.issuedUtc);
         const due = formatDate(row.dueUtc);
         return (
-          <span className="text-[12px] text-[var(--color-text-secondary)]">
+          <span className="text-[12px] text-muted-foreground">
             issued {issued} · due {due}
             {overdue && (
-              <span className="ml-2 text-[var(--color-danger)]">overdue</span>
+              <span className="ml-2 text-destructive">overdue</span>
             )}
           </span>
         );
@@ -319,7 +319,7 @@ export function InvoicesListPage() {
       accessorFn: (row) => (row.issuedUtc ? new Date(row.issuedUtc) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {formatDate(row.issuedUtc)}
         </span>
       ),
@@ -349,7 +349,7 @@ export function InvoicesListPage() {
       accessorFn: (row) => row.totalAmount,
       sortable: true,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
           {formatMoney(row.totalAmount, row.currency)}
         </span>
       ),
@@ -379,7 +379,7 @@ export function InvoicesListPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button variant="outline" size="sm" onClick={() => void loadInvoices()}>

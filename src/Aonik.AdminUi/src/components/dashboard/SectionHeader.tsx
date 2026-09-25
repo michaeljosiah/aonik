@@ -13,13 +13,13 @@ export function SectionHeader({ icon, title, description, actions }: SectionHead
     <div className="flex items-center justify-between mb-1">
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="w-12 h-12 rounded-lg bg-[var(--color-brand-primary)] flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
             {icon}
           </div>
         )}
         <div>
-          <h2 className="font-bold text-xl lg:text-[24px] text-[var(--color-text-heading)]">{title}</h2>
-          <p className="text-sm text-[var(--color-text-secondary)]">{description}</p>
+          <h2 className="font-bold text-xl lg:text-[24px] text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}

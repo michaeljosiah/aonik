@@ -76,8 +76,8 @@ export function AlertsPage() {
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Platform Alerts</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Platform Alerts</h1>
+          <p className="text-muted-foreground">
             Azure Monitor alerts that have been ingested, analyzed, and surfaced to platform administrators.
           </p>
         </div>
@@ -91,7 +91,7 @@ export function AlertsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <AlertTriangle className="h-5 w-5 text-primary" />
             Alert Feed
           </CardTitle>
           <CardDescription>
@@ -100,32 +100,32 @@ export function AlertsPage() {
         </CardHeader>
         <CardContent>
           {loading && alerts.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading alerts...</p>
+            <p className="text-sm text-muted-foreground">Loading alerts...</p>
           ) : alerts.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No platform alerts have been ingested yet.</p>
+            <p className="text-sm text-muted-foreground">No platform alerts have been ingested yet.</p>
           ) : (
             <div className="space-y-3">
               {alerts.map((alert) => (
                 <button
                   key={alert.id}
                   type="button"
-                  className="w-full rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 text-left shadow-sm transition-colors hover:bg-[var(--color-surface-inset)]"
+                  className="w-full rounded-md border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted"
                   onClick={() => navigate(`/admin/alerts/${alert.id}`)}
                 >
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{alert.alertRuleName}</h2>
+                        <h2 className="text-sm font-semibold text-foreground">{alert.alertRuleName}</h2>
                         {severityBadge(alert.severity, alert.monitorCondition)}
                       </div>
-                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {alert.normalizedType} · {alert.signalType} · received {formatRelativeTime(alert.receivedAtUtc)}
                       </p>
                     </div>
-                    <span className="text-xs text-[var(--color-text-tertiary)]">{alert.status}</span>
+                    <span className="text-xs text-muted-foreground">{alert.status}</span>
                   </div>
 
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     {alert.analysisSummary || 'Analysis is still being prepared for this alert.'}
                   </p>
 

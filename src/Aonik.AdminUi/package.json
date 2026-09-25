@@ -10,6 +10,7 @@
     "build:desktop": "tsc -b && vite build --base=./",
     "lint": "eslint .",
     "check:contrast": "node scripts/check-contrast.mjs",
+    "check:design": "node scripts/check-design-guardrails.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

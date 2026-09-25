@@ -78,8 +78,8 @@ export function ConfirmDeleteUserDialog({
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-error-light)] flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 text-[var(--color-error)]" />
+            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
             </div>
             <div>
               <DialogTitle>Permanently delete this user?</DialogTitle>
@@ -93,16 +93,16 @@ export function ConfirmDeleteUserDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 text-sm">
-            <p className="text-[var(--color-text-tertiary)]">User</p>
-            <p className="text-[var(--color-text-primary)] font-medium">
+          <div className="rounded-md border border-border bg-muted p-3 text-sm">
+            <p className="text-muted-foreground">User</p>
+            <p className="text-foreground font-medium">
               {userDisplayName ?? userEmail}
             </p>
-            <p className="text-xs text-[var(--color-text-tertiary)]">{userEmail}</p>
+            <p className="text-xs text-muted-foreground">{userEmail}</p>
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="confirm-email" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label htmlFor="confirm-email" className="text-sm font-medium text-foreground">
               Type the user's email to confirm
             </label>
             <input
@@ -111,14 +111,14 @@ export function ConfirmDeleteUserDialog({
               autoComplete="off"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-error)] focus-visible:ring-offset-2"
+              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
               placeholder={userEmail}
               disabled={submitting}
             />
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="delete-reason" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label htmlFor="delete-reason" className="text-sm font-medium text-foreground">
               Reason (≥ 10 characters)
             </label>
             <textarea
@@ -126,17 +126,17 @@ export function ConfirmDeleteUserDialog({
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="flex w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-error)] focus-visible:ring-offset-2"
+              className="flex w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
               placeholder="e.g., GDPR erasure request received 2026-05-19"
               disabled={submitting}
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               {reason.trim().length}/10 characters minimum. Captured on the tombstone for compliance review.
             </p>
           </div>
 
           {error && (
-            <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -149,7 +149,7 @@ export function ConfirmDeleteUserDialog({
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="bg-[var(--color-error)] hover:bg-[var(--color-error)] text-white"
+            className="bg-destructive hover:bg-destructive text-white"
           >
             {submitting ? (
               <>

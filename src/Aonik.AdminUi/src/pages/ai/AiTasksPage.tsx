@@ -868,7 +868,7 @@ export function AiTasksPage() {
                     }, {});
                     return Object.entries(grouped).map(([provider, providerModels]) => (
                       <SelectGroup key={provider}>
-                        <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+                        <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground">
                           {provider}
                         </div>
                         {providerModels.map((m) => (
@@ -882,11 +882,11 @@ export function AiTasksPage() {
                 </SelectContent>
               </Select>
               {formPrimaryModelId ? (
-                <p className="text-xs text-[var(--color-text-tertiary)]">
+                <p className="text-xs text-muted-foreground">
                   Tenant override — overrides the global default for this tenant.
                 </p>
               ) : formGlobalModelName ? (
-                <p className="text-xs text-[var(--color-text-tertiary)]">
+                <p className="text-xs text-muted-foreground">
                   Using global default: <span className="font-medium">{formGlobalModelName}</span>. Select a model above to override for this tenant.
                 </p>
               ) : null}

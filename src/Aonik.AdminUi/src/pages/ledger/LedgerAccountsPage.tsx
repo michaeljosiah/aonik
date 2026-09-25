@@ -368,7 +368,7 @@ export function LedgerAccountsPage() {
                     </Select>
                   </div>
                   {formError && (
-                    <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                    <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                       {formError}
                     </div>
                   )}
@@ -393,7 +393,7 @@ export function LedgerAccountsPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button
@@ -421,7 +421,7 @@ export function LedgerAccountsPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <tr className="border-b border-border bg-muted text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 <th className="px-4 py-3 w-[120px]">Code</th>
                 <th className="px-4 py-3">Account</th>
                 <th className="px-4 py-3 w-[140px]">Type</th>
@@ -434,8 +434,8 @@ export function LedgerAccountsPage() {
               {loading && accounts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
-                    <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
-                    <p className="text-sm text-[var(--color-text-secondary)]">
+                    <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">
                       Loading accounts…
                     </p>
                   </td>
@@ -443,10 +443,10 @@ export function LedgerAccountsPage() {
               ) : filteredAccounts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    <p className="text-sm font-medium text-foreground">
                       No accounts found
                     </p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {searchQuery || typeFilter
                         ? 'Try adjusting the active tab or search.'
                         : 'Create the first account in this ledger.'}
@@ -491,8 +491,8 @@ function RenderTypeGroup({
 
   return (
     <>
-      <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40">
-        <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-bold text-[var(--color-brand-primary)]">
+      <tr className="border-b border-border bg-muted/40">
+        <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-bold text-primary">
           {type === 'Asset'
             ? '1000'
             : type === 'Liability'
@@ -503,13 +503,13 @@ function RenderTypeGroup({
                   ? '4000'
                   : '5000'}
         </td>
-        <td colSpan={3} className="px-4 py-3 text-[13px] font-bold text-[var(--color-text-primary)]">
+        <td colSpan={3} className="px-4 py-3 text-[13px] font-bold text-foreground">
           {type === 'Income' ? 'Revenue' : type === 'Expense' ? 'Expenses' : `${type}s`}
-          <span className="ml-2 text-[11px] font-normal text-[var(--color-text-tertiary)]">
+          <span className="ml-2 text-[11px] font-normal text-muted-foreground">
             {list.length} {list.length === 1 ? 'account' : 'accounts'}
           </span>
         </td>
-        <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[12px] font-bold text-[var(--color-text-primary)]">
+        <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[12px] font-bold text-foreground">
           {groupTotalDisplay}
         </td>
         <td className="px-4 py-3" />
@@ -519,13 +519,13 @@ function RenderTypeGroup({
         return (
           <tr
             key={account.id}
-            className="border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]"
+            className="border-b border-border transition-colors hover:bg-muted"
           >
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-tertiary)]">
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-muted-foreground">
               {account.code}
             </td>
             <td className="px-4 py-3 pl-8">
-              <span className="text-[13px] text-[var(--color-text-primary)]">
+              <span className="text-[13px] text-foreground">
                 {account.name}
               </span>
             </td>
@@ -534,20 +534,20 @@ function RenderTypeGroup({
                 {account.accountType}
               </Pill>
             </td>
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {account.currency || '—'}
             </td>
             <td className="px-4 py-3 text-right">
-              <div className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-[var(--color-text-primary)]">
+              <div className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-foreground">
                 {balanceSummary.primary}
               </div>
               {balanceSummary.secondary && (
-                <div className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
                   {balanceSummary.secondary}
                 </div>
               )}
             </td>
-            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {formatDate(account.createdUtc)}
             </td>
           </tr>

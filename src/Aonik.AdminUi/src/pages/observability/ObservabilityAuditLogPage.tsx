@@ -20,7 +20,7 @@ import { userService } from '@/services/userService';
 import type { AccessUserSummary, PagedResult, Tenant } from '@/types';
 
 const RISK_COLORS = {
-  low: 'var(--color-success)',
+  low: 'var(--success)',
   med: '#b4741e',
   high: '#c44536',
 } as const;
@@ -93,7 +93,7 @@ function riskLevel(entry: AuditLogListItem): 'low' | 'med' | 'high' {
 
 function kindTone(kind: 'human' | 'agent' | 'system') {
   if (kind === 'agent') return { bg: '#055a6018', fg: '#055a60', label: 'agent' };
-  if (kind === 'system') return { bg: 'var(--color-surface-inset)', fg: 'var(--color-text-secondary)', label: 'system' };
+  if (kind === 'system') return { bg: 'var(--muted)', fg: 'var(--muted-foreground)', label: 'system' };
   return { bg: '#3f41a018', fg: '#3f41a0', label: 'human' };
 }
 
@@ -198,7 +198,7 @@ export function ObservabilityAuditLogPage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
             eyebrow="Observability · Compliance & audit"
@@ -230,13 +230,13 @@ export function ObservabilityAuditLogPage() {
 
       <div className="flex-1 p-6">
         <div className="space-y-5">
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-5 rounded-[10px] border border-[var(--color-border-light)] border-l-[3px] border-l-[var(--color-brand-primary)] bg-[linear-gradient(90deg,rgba(5,90,96,.06),rgba(5,90,96,.02))] px-4 py-3">
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]">
-              <AonikTemplateIcon name="verified" size={18} color="var(--color-brand-primary)" />
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-5 rounded-[10px] border border-border border-l-[3px] border-l-primary bg-[linear-gradient(90deg,rgba(5,90,96,.06),rgba(5,90,96,.02))] px-4 py-3">
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] bg-primary/10 text-primary">
+              <AonikTemplateIcon name="verified" size={18} color="var(--primary)" />
             </div>
             <div>
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">Ledger chain verified</div>
-              <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">
+              <div className="text-[13.5px] font-semibold text-foreground">Ledger chain verified</div>
+              <div className="mt-0.5 text-[11.5px] text-muted-foreground">
                 The audit stream is backed by immutable records from the admin compliance log.
               </div>
             </div>
@@ -246,14 +246,14 @@ export function ObservabilityAuditLogPage() {
               ['Root hash', entries ? shortHash(items[0]?.correlationId) : '—'],
             ].map(([label, value]) => (
               <div key={label} className="text-right">
-                <div className="font-mono text-[12.5px] font-semibold text-[var(--color-text-primary)]">{value}</div>
-                <div className="mt-0.5 text-[10.5px] text-[var(--color-text-tertiary)]">{label}</div>
+                <div className="font-mono text-[12.5px] font-semibold text-foreground">{value}</div>
+                <div className="mt-0.5 text-[10.5px] text-muted-foreground">{label}</div>
               </div>
             ))}
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            <AuditKpi label="Events · total" value={String(kpis.events)} tone="var(--color-brand-primary)" />
+            <AuditKpi label="Events · total" value={String(kpis.events)} tone="var(--primary)" />
             <AuditKpi label="Human actions" value={String(kpis.human)} tone="#3f41a0" />
             <AuditKpi label="Policy overrides" value={String(kpis.overrides)} tone="#c44536" />
             <AuditKpi label="High-risk events" value={String(kpis.highRisk)} tone="#b4741e" />
@@ -271,7 +271,7 @@ export function ObservabilityAuditLogPage() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Search by action, job, message, or correlation ID"
-                className="bg-[var(--color-surface)]"
+                className="bg-card"
               />
             </form>
 
@@ -279,7 +279,7 @@ export function ObservabilityAuditLogPage() {
               setPage(1);
               setActionFilter(value);
             }}>
-              <SelectTrigger className="bg-[var(--color-surface)]">
+              <SelectTrigger className="bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -296,7 +296,7 @@ export function ObservabilityAuditLogPage() {
               setPage(1);
               setResourceFilter(value);
             }}>
-              <SelectTrigger className="bg-[var(--color-surface)]">
+              <SelectTrigger className="bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -312,8 +312,8 @@ export function ObservabilityAuditLogPage() {
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-            <div className="grid grid-cols-[88px_80px_220px_180px_minmax(0,1fr)_120px_60px] gap-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2.5 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+          <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+            <div className="grid grid-cols-[88px_80px_220px_180px_minmax(0,1fr)_120px_60px] gap-3 border-b border-border bg-muted px-4 py-2.5 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
               <div>Time</div>
               <div>Kind</div>
               <div>Actor</div>
@@ -324,14 +324,14 @@ export function ObservabilityAuditLogPage() {
             </div>
 
             {loading ? (
-              <div className="flex items-center gap-2 px-4 py-8 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-2 px-4 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading audit log...
               </div>
             ) : error ? (
               <div className="px-4 py-8 text-sm text-[#c44536]">{error}</div>
             ) : items.length === 0 ? (
-              <div className="px-4 py-8 text-sm text-[var(--color-text-secondary)]">No audit events matched your filters.</div>
+              <div className="px-4 py-8 text-sm text-muted-foreground">No audit events matched your filters.</div>
             ) : (
               items.map((entry, index) => {
                 const kind = actorKind(entry);
@@ -342,9 +342,9 @@ export function ObservabilityAuditLogPage() {
                   <div
                     key={entry.id}
                     className="grid grid-cols-[88px_80px_220px_180px_minmax(0,1fr)_120px_60px] gap-3 px-4 py-3"
-                    style={{ borderTop: index === 0 ? 'none' : '1px solid var(--color-border-light)' }}
+                    style={{ borderTop: index === 0 ? 'none' : '1px solid var(--border)' }}
                   >
-                    <div className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{formatAuditTime(entry.timestamp)}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground">{formatAuditTime(entry.timestamp)}</div>
                     <div>
                       <span
                         className="rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]"
@@ -355,7 +355,7 @@ export function ObservabilityAuditLogPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {kind === 'system' ? (
-                        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+                        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-muted text-muted-foreground">
                           <Settings className="h-3 w-3" />
                         </div>
                       ) : (
@@ -363,26 +363,26 @@ export function ObservabilityAuditLogPage() {
                           name={actor}
                           size={22}
                           color={kind === 'agent' ? '#055a6018' : 'var(--color-brand-primary-10)'}
-                          textColor={kind === 'agent' ? '#055a60' : 'var(--color-brand-primary)'}
+                          textColor={kind === 'agent' ? '#055a60' : 'var(--primary)'}
                         />
                       )}
-                      <span className="truncate text-[12px] font-medium text-[var(--color-text-primary)]" title={actor}>
+                      <span className="truncate text-[12px] font-medium text-foreground" title={actor}>
                         {actor}
                       </span>
                     </div>
                     <div>
-                      <div className="font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{entry.resourceType}</div>
-                      <div className="mt-0.5 text-[12px] text-[var(--color-text-primary)]">{deriveScope(entry)}</div>
+                      <div className="font-mono text-[10.5px] text-muted-foreground">{entry.resourceType}</div>
+                      <div className="mt-0.5 text-[12px] text-foreground">{deriveScope(entry)}</div>
                     </div>
-                    <div className="text-[12px] leading-5 text-[var(--color-text-secondary)]">
+                    <div className="text-[12px] leading-5 text-muted-foreground">
                       {summarize(entry)}
                       {entry.correlationId ? (
-                        <div className="mt-1 font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                        <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                           corr {entry.correlationId}
                         </div>
                       ) : null}
                     </div>
-                    <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
+                    <div className="font-mono text-[11px] text-muted-foreground">
                       {tenantLabel(entry, tenantMap)}
                     </div>
                     <div className="flex items-center justify-center">
@@ -402,7 +402,7 @@ export function ObservabilityAuditLogPage() {
 
           {entries && entries.totalPages > 1 ? (
             <div className="flex items-center justify-between gap-3">
-              <div className="text-[11px] text-[var(--color-text-tertiary)]">
+              <div className="text-[11px] text-muted-foreground">
                 Page {entries.pageNumber} of {entries.totalPages} ({entries.totalCount} total)
               </div>
               <div className="flex gap-2">
@@ -423,9 +423,9 @@ export function ObservabilityAuditLogPage() {
 
 function AuditKpi({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
-      <div className="font-mono text-[18px] font-semibold text-[var(--color-text-primary)]">{value}</div>
-      <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{label}</div>
+    <div className="rounded-[10px] border border-border bg-card px-4 py-3">
+      <div className="font-mono text-[18px] font-semibold text-foreground">{value}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{label}</div>
       <div className="mt-2 h-1.5 w-16 rounded-full" style={{ background: `${tone}22` }}>
         <div className="h-1.5 rounded-full" style={{ width: '70%', background: tone }} />
       </div>

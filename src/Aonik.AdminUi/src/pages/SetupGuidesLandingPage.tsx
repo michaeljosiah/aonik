@@ -66,12 +66,12 @@ export function SetupGuidesLandingPage() {
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
+    <div className="flex-1 overflow-auto bg-muted">
       <div className="mx-auto w-full max-w-[1680px] px-12 py-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Guides Home</p>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Setup Guides</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Guides Home</p>
+            <h1 className="text-2xl font-semibold text-foreground">Setup Guides</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">Filter</Button>
@@ -79,16 +79,16 @@ export function SetupGuidesLandingPage() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Latest Guides & Updates</h2>
+        <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground">Latest Guides & Updates</h2>
 
           {state.loading ? (
-            <div className="mt-6 flex items-center gap-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="h-5 w-5 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+            <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               Loading guides...
             </div>
           ) : state.error ? (
-            <p className="mt-4 text-sm text-[var(--color-error)]">{state.error}</p>
+            <p className="mt-4 text-sm text-destructive">{state.error}</p>
           ) : (
             <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
               <div className="space-y-4">
@@ -98,7 +98,7 @@ export function SetupGuidesLandingPage() {
                     onClick={() => navigate(`/setup-guides/${featuredGuide.slug}`)}
                     className="w-full text-left"
                   >
-                    <div className="overflow-hidden rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+                    <div className="overflow-hidden rounded-2xl border border-border bg-card">
                       <div
                         className={
                           resolveCover(featuredGuide)
@@ -108,13 +108,13 @@ export function SetupGuidesLandingPage() {
                         style={resolveCover(featuredGuide) ? { backgroundImage: `url(${resolveCover(featuredGuide)})` } : undefined}
                       />
                       <div className="px-5 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                           {featuredGuide.category}
                         </p>
-                        <h3 className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">
+                        <h3 className="mt-2 text-base font-semibold text-foreground">
                           {featuredGuide.title}
                         </h3>
-                        <p className="mt-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                           {featuredGuide.description}
                         </p>
                       </div>
@@ -132,20 +132,20 @@ export function SetupGuidesLandingPage() {
                     className="flex w-full items-start gap-4 text-left"
                   >
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] leading-snug">
+                      <h3 className="text-sm font-semibold text-foreground leading-snug">
                         {guide.title}
                       </h3>
-                      <p className="mt-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                         {guide.description}
                       </p>
-                      <div className="mt-3 inline-flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-                        <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-1 font-semibold uppercase tracking-[0.2em]">
+                      <div className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="rounded-full bg-muted px-2 py-1 font-semibold uppercase tracking-[0.2em]">
                           {guide.category}
                         </span>
                         <span>Guide</span>
                       </div>
                     </div>
-                    <ArrowRight className="mt-1 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <ArrowRight className="mt-1 h-4 w-4 text-muted-foreground" />
                   </button>
                 ))}
               </div>

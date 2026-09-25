@@ -89,7 +89,7 @@ export function ChatMessageList({
                     </MessageContent>
                   ) : isStreaming && !m.toolCalls?.length ? (
                     <MessageContent from="assistant">
-                      <span className="inline-flex items-center gap-2 text-[var(--color-text-tertiary)]">
+                      <span className="inline-flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Thinking...
                       </span>
@@ -180,12 +180,12 @@ export function ChatMessageList({
             return (
               <div
                 key={m.id}
-                className="flex items-center gap-2 px-2 py-1 text-xs text-[var(--color-text-tertiary)]"
+                className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground"
               >
                 {m.status === 'started' ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-3 w-3 text-[var(--color-success)]" />
+                  <CheckCircle2 className="h-3 w-3 text-success" />
                 )}
                 <ChevronRight className="h-3 w-3" />
                 <span>{m.stepName}</span>
@@ -196,7 +196,7 @@ export function ChatMessageList({
             return (
               <div
                 key={m.id}
-                className="ml-10 rounded-[2px] border border-[var(--color-border-light)] bg-[color-mix(in_srgb,var(--color-surface)_92%,var(--color-background))] px-3 py-2 text-xs leading-relaxed text-[var(--color-text-tertiary)]"
+                className="ml-10 rounded-[2px] border border-border bg-[color-mix(in_srgb,var(--card)_92%,var(--background))] px-3 py-2 text-xs leading-relaxed text-muted-foreground"
                 data-component="reasoning-part"
               >
                 <div className="flex items-start gap-2">
@@ -209,13 +209,13 @@ export function ChatMessageList({
           case 'activity':
             return (
               <Message from="system" key={m.id}>
-                <div className="flex items-start gap-2 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 text-xs">
-                  <Activity className="h-3.5 w-3.5 mt-0.5 text-[var(--color-brand-primary)] shrink-0" />
+                <div className="flex items-start gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
+                  <Activity className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
                   <div className="min-w-0">
-                    <div className="font-medium text-[var(--color-text-secondary)]">
+                    <div className="font-medium text-muted-foreground">
                       {m.activityType}
                     </div>
-                    <pre className="mt-0.5 text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
+                    <pre className="mt-0.5 text-muted-foreground whitespace-pre-wrap break-all">
                       {JSON.stringify(m.content, null, 2)}
                     </pre>
                   </div>
@@ -247,13 +247,13 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
   const effectiveOpen = isActive ? true : open;
 
   const statusIcon = {
-    streaming: <Loader2 className="h-3 w-3 animate-spin text-[var(--color-info)]" />,
-    pending: <Loader2 className="h-3 w-3 animate-spin text-[var(--color-warning)]" />,
+    streaming: <Loader2 className="h-3 w-3 animate-spin text-info" />,
+    pending: <Loader2 className="h-3 w-3 animate-spin text-warning" />,
     executing: <Loader2 className="h-3 w-3 animate-spin text-[var(--color-violet)]" />,
-    completed: <CheckCircle2 className="h-3 w-3 text-[var(--color-success)]" />,
-    error: <XCircle className="h-3 w-3 text-[var(--color-danger)]" />,
-    'awaiting-approval': <ShieldAlert className="h-3 w-3 text-[var(--color-warning)]" />,
-    'awaiting-selection': <ChevronRight className="h-3 w-3 text-[var(--color-info)]" />,
+    completed: <CheckCircle2 className="h-3 w-3 text-success" />,
+    error: <XCircle className="h-3 w-3 text-destructive" />,
+    'awaiting-approval': <ShieldAlert className="h-3 w-3 text-warning" />,
+    'awaiting-selection': <ChevronRight className="h-3 w-3 text-info" />,
   }[toolCall.status];
 
   const statusLabel = {
@@ -273,8 +273,8 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
       <div
         className={`group rounded-lg border text-xs transition-colors ${
           isError
-            ? 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)]'
-            : 'border-[var(--color-border-light)] bg-[var(--color-surface)]'
+            ? 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)]'
+            : 'border-border bg-card'
         }`}
       >
         {/* Trigger row */}
@@ -283,7 +283,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
             type="button"
             className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent rounded-lg transition-colors"
           >
-            <Wrench className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
+            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
             {/* Tool name — shimmer when active */}
             <span
@@ -291,15 +291,15 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
                 isActive
                   ? 'text-shimmer'
                   : isError
-                    ? 'text-[var(--color-danger)]'
-                    : 'text-[var(--color-text-secondary)]'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
               }`}
             >
               {toolCall.toolCallName}
             </span>
 
             {/* Status badge */}
-            <span className="inline-flex items-center gap-1 text-[var(--color-text-tertiary)]">
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
               {statusIcon}
               <span className="hidden sm:inline">{statusLabel}</span>
             </span>
@@ -307,7 +307,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
             {/* Expand chevron — hover-reveal */}
             {hasContent && (
               <ChevronDown
-                className={`ml-auto h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0 transition-all duration-150
+                className={`ml-auto h-3.5 w-3.5 text-muted-foreground shrink-0 transition-all duration-150
                   opacity-0 group-hover:opacity-100
                   ${effectiveOpen ? 'rotate-0' : '-rotate-90'}`}
               />
@@ -317,19 +317,19 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
 
         {/* Expandable content */}
         <CollapsibleContent>
-          <div className="border-t border-[var(--color-border-light)] px-3 py-2 space-y-1">
+          <div className="border-t border-border px-3 py-2 space-y-1">
             {toolCall.args && (
-              <pre className="text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
+              <pre className="text-muted-foreground whitespace-pre-wrap break-all">
                 {tryFormatJson(toolCall.args)}
               </pre>
             )}
             {toolCall.result && (
-              <div className="text-[var(--color-text-tertiary)]">
+              <div className="text-muted-foreground">
                 Result: {truncate(toolCall.result, 200)}
               </div>
             )}
             {toolCall.error && (
-              <div className="text-[var(--color-danger)]">Error: {toolCall.error}</div>
+              <div className="text-destructive">Error: {toolCall.error}</div>
             )}
           </div>
         </CollapsibleContent>
@@ -365,13 +365,13 @@ function Markdown({ text }: { text: string }) {
           // Block code has a className like "language-xxx"
           if (className) {
             return (
-              <code className="block bg-[var(--color-surface-inset)] rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all my-2">
+              <code className="block bg-muted rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all my-2">
                 {children}
               </code>
             );
           }
           return (
-            <code className="bg-[var(--color-surface-inset)] rounded px-1 py-0.5 text-xs font-mono">
+            <code className="bg-muted rounded px-1 py-0.5 text-xs font-mono">
               {children}
             </code>
           );
@@ -382,15 +382,15 @@ function Markdown({ text }: { text: string }) {
         em: ({ children }) => <em>{children}</em>,
         // Links
         a: ({ href, children }) => (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-brand-primary)] underline hover:opacity-80">
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80">
             {children}
           </a>
         ),
         // Horizontal rule
-        hr: () => <hr className="my-2 border-[var(--color-border-light)]" />,
+        hr: () => <hr className="my-2 border-border" />,
         // Blockquote
         blockquote: ({ children }) => (
-          <blockquote className="border-l-2 border-[var(--color-border-light)] pl-3 my-2 text-[var(--color-text-secondary)] italic">
+          <blockquote className="border-l-2 border-border pl-3 my-2 text-muted-foreground italic">
             {children}
           </blockquote>
         ),
@@ -401,12 +401,12 @@ function Markdown({ text }: { text: string }) {
           </div>
         ),
         th: ({ children }) => (
-          <th className="border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-1 text-left font-medium">
+          <th className="border border-border bg-muted px-2 py-1 text-left font-medium">
             {children}
           </th>
         ),
         td: ({ children }) => (
-          <td className="border border-[var(--color-border-light)] px-2 py-1">{children}</td>
+          <td className="border border-border px-2 py-1">{children}</td>
         ),
       }}
     >
@@ -434,21 +434,21 @@ function tryFormatJson(str: string): string {
 
 const severityConfig = {
   low: {
-    badge: 'bg-[var(--color-info-10)] text-[var(--color-info)] border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-info)]" />,
+    badge: 'bg-info-subtle text-info border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--info)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-info" />,
     label: 'Low Risk',
   },
   medium: {
-    badge: 'bg-[var(--color-warning-10)] text-[var(--color-warning)] border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-warning)]" />,
+    badge: 'bg-warning-subtle text-warning border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--warning)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-warning" />,
     label: 'Medium Risk',
   },
   high: {
-    badge: 'bg-[var(--color-danger-10)] text-[var(--color-danger)] border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
-    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-danger)]" />,
+    badge: 'bg-destructive/10 text-destructive border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
     label: 'High Risk',
   },
 } as const;
@@ -489,20 +489,20 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
     return (
       <div
         className={`flex items-start gap-3 rounded-lg border ${
-          wasApproved ? 'border-[color-mix(in_srgb,var(--color-success)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]' : 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)]'
+          wasApproved ? 'border-[color-mix(in_srgb,var(--success)_25%,transparent)] bg-[color-mix(in_srgb,var(--success)_8%,transparent)]' : 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]'
         } px-4 py-3 text-sm`}
       >
         {wasApproved ? (
-          <ShieldCheck className="h-5 w-5 text-[var(--color-success)] mt-0.5 shrink-0" />
+          <ShieldCheck className="h-5 w-5 text-success mt-0.5 shrink-0" />
         ) : (
-          <ShieldX className="h-5 w-5 text-[var(--color-danger)] mt-0.5 shrink-0" />
+          <ShieldX className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-[var(--color-text-primary)]">
+          <div className="font-medium text-foreground">
             {action || 'Action'} — {wasApproved ? 'Approved' : 'Rejected'}
           </div>
           {description && (
-            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+            <div className="mt-0.5 text-xs text-muted-foreground">
               {description}
             </div>
           )}
@@ -515,9 +515,9 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
   if (toolCall.status === 'streaming' || toolCall.status === 'pending') {
     return (
       <div
-        className={`flex items-start gap-3 rounded-lg border ${config.border} bg-[var(--color-surface)] px-4 py-3 text-sm`}
+        className={`flex items-start gap-3 rounded-lg border ${config.border} bg-card px-4 py-3 text-sm`}
       >
-        <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)] mt-0.5 shrink-0" />
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-0.5 shrink-0" />
         <div className="text-shimmer font-medium">Preparing approval request...</div>
       </div>
     );
@@ -525,11 +525,11 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
 
   // Awaiting approval — interactive card
   return (
-    <div className={`rounded-lg border-2 ${config.border} bg-[var(--color-surface)] overflow-hidden`}>
+    <div className={`rounded-lg border-2 ${config.border} bg-card overflow-hidden`}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
-        <span className="font-semibold text-sm text-[var(--color-text-primary)]">
+        <span className="font-semibold text-sm text-foreground">
           Approval Required
         </span>
         <span
@@ -541,11 +541,11 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
 
       {/* Body */}
       <div className="px-4 py-3">
-        <div className="font-medium text-sm text-[var(--color-text-primary)]">
+        <div className="font-medium text-sm text-foreground">
           {action || 'Confirm Action'}
         </div>
         {description && (
-          <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+          <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
             {description}
           </div>
         )}
@@ -553,11 +553,11 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
 
       {/* Actions */}
       {isAwaitingApproval && onApprove && onReject && (
-        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border bg-muted">
           <button
             type="button"
             onClick={() => onApprove(toolCall.toolCallId)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Approve
@@ -565,7 +565,7 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
           <button
             type="button"
             onClick={() => onReject(toolCall.toolCallId)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-surface)] border border-[color-mix(in_srgb,var(--color-danger)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] shadow-sm hover:bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-md bg-card border border-[color-mix(in_srgb,var(--destructive)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-destructive shadow-sm hover:bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)] transition-colors"
           >
             <XCircle className="h-3.5 w-3.5" />
             Reject

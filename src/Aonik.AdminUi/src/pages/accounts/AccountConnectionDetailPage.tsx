@@ -45,31 +45,31 @@ import { CreateTransactionDialog } from './CreateTransactionDialog';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
   Connected: {
-    text: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
+    text: 'text-success',
+    bg: 'bg-success-subtle',
   },
   ActionRequired: {
-    text: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
+    text: 'text-warning',
+    bg: 'bg-warning-subtle',
   },
   Disconnected: {
-    text: 'text-[var(--color-text-tertiary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
+    text: 'text-muted-foreground',
+    bg: 'bg-muted',
   },
 };
 
 const reconciliationStyles: Record<string, { text: string; bg: string }> = {
   Matched: {
-    text: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
+    text: 'text-success',
+    bg: 'bg-success-subtle',
   },
   Unmatched: {
-    text: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
+    text: 'text-warning',
+    bg: 'bg-warning-subtle',
   },
   Excluded: {
-    text: 'text-[var(--color-text-tertiary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
+    text: 'text-muted-foreground',
+    bg: 'bg-muted',
   },
 };
 
@@ -304,7 +304,7 @@ export function AccountConnectionDetailPage() {
       accessorFn: (row) => (row.occurredAt ? new Date(row.occurredAt) : null),
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(tx.occurredAt)}</span>
+        <span className="text-sm text-muted-foreground">{formatDate(tx.occurredAt)}</span>
       ),
     },
     {
@@ -314,7 +314,7 @@ export function AccountConnectionDetailPage() {
       sortable: true,
       cell: (tx) => (
         <span
-          className={`text-sm font-medium ${tx.amount < 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}
+          className={`text-sm font-medium ${tx.amount < 0 ? 'text-destructive' : 'text-success'}`}
         >
           {formatCurrency(tx.amount, tx.currency)}
         </span>
@@ -337,7 +337,7 @@ export function AccountConnectionDetailPage() {
       accessorKey: 'counterparty',
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-primary)]">{tx.counterparty || '—'}</span>
+        <span className="text-sm text-foreground">{tx.counterparty || '—'}</span>
       ),
     },
     {
@@ -346,7 +346,7 @@ export function AccountConnectionDetailPage() {
       accessorKey: 'description',
       sortable: false,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-secondary)] truncate max-w-[200px] block">
+        <span className="text-sm text-muted-foreground truncate max-w-[200px] block">
           {tx.description || '—'}
         </span>
       ),
@@ -358,8 +358,8 @@ export function AccountConnectionDetailPage() {
       sortable: true,
       cell: (tx) => {
         const style = reconciliationStyles[tx.reconciliationStatus] ?? {
-          text: 'text-[var(--color-text-secondary)]',
-          bg: 'bg-[var(--color-surface-inset)]',
+          text: 'text-muted-foreground',
+          bg: 'bg-muted',
         };
         return (
           <span
@@ -378,8 +378,8 @@ export function AccountConnectionDetailPage() {
   if (error || !connection) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error || 'Connection not found.'}</span>
             <Button variant="outline" size="sm" onClick={() => navigate('/accounts')} className="ml-auto">
@@ -392,8 +392,8 @@ export function AccountConnectionDetailPage() {
   }
 
   const statusStyle = statusStyles[connection.status] ?? {
-    text: 'text-[var(--color-text-secondary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
+    text: 'text-muted-foreground',
+    bg: 'bg-muted',
   };
 
   return (
@@ -408,7 +408,7 @@ export function AccountConnectionDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              <h1 className="text-2xl font-bold text-foreground">
                 {connection.institutionName}
               </h1>
               <span
@@ -417,7 +417,7 @@ export function AccountConnectionDetailPage() {
                 {connection.status}
               </span>
             </div>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="text-muted-foreground">
               {connection.providerDisplayName} &middot; Connected {formatDate(connection.createdAt)}
             </p>
           </div>
@@ -445,7 +445,7 @@ export function AccountConnectionDetailPage() {
             size="sm"
             onClick={handleDisconnect}
             disabled={actionLoading || connection.status === 'Disconnected'}
-            className="text-[var(--color-error)] border-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+            className="text-destructive border-destructive hover:bg-destructive/10"
           >
             <Link2Off className="w-4 h-4 mr-1" />
             Disconnect
@@ -455,8 +455,8 @@ export function AccountConnectionDetailPage() {
 
       {/* Connection info */}
       {connection.lastError && (
-        <Card className="mb-6 border-[var(--color-warning)] bg-[var(--color-warning-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-warning)]">
+        <Card className="mb-6 border-warning bg-warning-subtle">
+          <CardContent className="p-4 flex items-center gap-3 text-warning">
             <AlertCircle className="w-5 h-5" />
             <span className="text-sm">{connection.lastError}</span>
           </CardContent>
@@ -465,12 +465,12 @@ export function AccountConnectionDetailPage() {
 
       {/* Linked Accounts */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">
+        <h2 className="text-lg font-semibold text-foreground mb-3">
           Linked Accounts ({connection.linkedAccounts.length})
         </h2>
         {connection.linkedAccounts.length === 0 ? (
-          <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-            <CardContent className="p-6 text-center text-[var(--color-text-tertiary)]">
+          <Card className="rounded-none border-border bg-card">
+            <CardContent className="p-6 text-center text-muted-foreground">
               No linked accounts found for this connection.
             </CardContent>
           </Card>
@@ -479,39 +479,39 @@ export function AccountConnectionDetailPage() {
             {connection.linkedAccounts.map((account) => (
               <Card
                 key={account.linkedAccountId}
-                className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]"
+                className="rounded-none border-border bg-card"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                      <p className="font-medium text-[var(--color-text-primary)]">{account.name}</p>
+                      <CreditCard className="w-4 h-4 text-muted-foreground" />
+                      <p className="font-medium text-foreground">{account.name}</p>
                     </div>
                     <Badge variant="outline" className="text-xs">
                       {account.status}
                     </Badge>
                   </div>
-                  <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Type:</span>{' '}
+                      <span className="text-muted-foreground">Type:</span>{' '}
                       {account.accountType}
                       {account.accountSubtype ? ` / ${account.accountSubtype}` : ''}
                     </p>
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Currency:</span> {account.currency}
+                      <span className="text-muted-foreground">Currency:</span> {account.currency}
                     </p>
                     {account.last4 && (
                       <p>
-                        <span className="text-[var(--color-text-tertiary)]">Last 4:</span> ****{account.last4}
+                        <span className="text-muted-foreground">Last 4:</span> ****{account.last4}
                       </p>
                     )}
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Last synced:</span>{' '}
+                      <span className="text-muted-foreground">Last synced:</span>{' '}
                       {formatDateTime(account.lastSyncedAt)}
                     </p>
                   </div>
                   {account.lastError && (
-                    <p className="mt-2 text-xs text-[var(--color-error)]">{account.lastError}</p>
+                    <p className="mt-2 text-xs text-destructive">{account.lastError}</p>
                   )}
                 </CardContent>
               </Card>
@@ -522,10 +522,10 @@ export function AccountConnectionDetailPage() {
 
       {/* Transactions */}
       <div>
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">Transactions</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Transactions</h2>
         <Card>
           <CardContent className="p-4">
-            <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <div className="rounded-md border border-border overflow-hidden">
               <DataTable
                 data={transactions}
                 columns={txColumns}
@@ -588,11 +588,11 @@ export function AccountConnectionDetailPage() {
           </DialogHeader>
           {attachmentsLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-[var(--color-text-tertiary)]" />
-              <span className="ml-2 text-sm text-[var(--color-text-secondary)]">Loading...</span>
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
             </div>
           ) : attachments.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+            <p className="text-sm text-muted-foreground py-4 text-center">
               No attachments found for this transaction.
             </p>
           ) : (
@@ -600,13 +600,13 @@ export function AccountConnectionDetailPage() {
               {attachments.map((att) => (
                 <div
                   key={att.attachmentId}
-                  className="flex items-center justify-between p-3 border border-[var(--color-border-light)] rounded-sm"
+                  className="flex items-center justify-between p-3 border border-border rounded-sm"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {att.fileName}
                     </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <p className="text-xs text-muted-foreground">
                       {att.contentType} &middot; {(att.fileSizeBytes / 1024).toFixed(1)} KB
                     </p>
                   </div>
@@ -615,7 +615,7 @@ export function AccountConnectionDetailPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteAttachment(att.attachmentId)}
-                      className="text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+                      className="text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

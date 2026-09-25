@@ -75,24 +75,24 @@ function GateMessage({
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-6"
-      style={{ background: 'var(--color-background)' }}
+      style={{ background: 'var(--background)' }}
     >
       <div
         className="w-full max-w-[26rem] rounded-md p-6 text-center"
         style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
         }}
       >
         <h1
           className="text-lg font-semibold mb-2"
-          style={{ color: 'var(--color-text-primary)' }}
+          style={{ color: 'var(--foreground)' }}
         >
           {title}
         </h1>
         <p
           className="text-sm mb-4"
-          style={{ color: 'var(--color-text-secondary)' }}
+          style={{ color: 'var(--muted-foreground)' }}
         >
           {body}
         </p>
@@ -102,7 +102,7 @@ function GateMessage({
             onClick={onAction}
             className="px-4 py-2 rounded-md text-sm font-medium transition-opacity"
             style={{
-              background: 'var(--color-brand-primary)',
+              background: 'var(--primary)',
               color: 'var(--primary-foreground)',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}

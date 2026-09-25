@@ -344,7 +344,7 @@ export function LoginPage() {
               width: 6,
               height: 6,
               borderRadius: 999,
-              background: 'var(--color-success)',
+              background: 'var(--success)',
             }}
           />
           All systems operational

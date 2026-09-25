@@ -65,7 +65,7 @@ export function AgentDetailHero({
 
   return (
     <div
-      className="relative overflow-hidden border-b border-[var(--color-border-light)]"
+      className="relative overflow-hidden border-b border-border"
       style={{
         padding: '36px 32px 32px',
         background: `linear-gradient(135deg, ${color}1a 0%, ${color}08 60%, transparent 100%)`,
@@ -162,15 +162,15 @@ export function AgentDetailHero({
                   width: 14,
                   height: 14,
                   borderRadius: 999,
-                  background: 'var(--color-success)',
-                  boxShadow: '0 0 0 3px var(--color-surface)',
+                  background: 'var(--success)',
+                  boxShadow: '0 0 0 3px var(--card)',
                 }}
               >
                 <span
                   className="absolute inset-0"
                   style={{
                     borderRadius: 999,
-                    background: 'var(--color-success)',
+                    background: 'var(--success)',
                     opacity: 0.4,
                     animation: 'agt-pulse 1.6s ease-out infinite',
                   }}
@@ -192,16 +192,16 @@ export function AgentDetailHero({
             <Pill tone={pillMeta.tone} dot size="sm">
               {pillMeta.label}
             </Pill>
-            <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
               v0.42.1
             </span>
-            <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11.5px] text-muted-foreground">
               · deployed {formatRelativeTime(agent.createdAt)}
             </span>
             {agent.isOverride && (
               <span
                 className="rounded-[4px] px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.08em]"
-                style={{ color: 'var(--color-brand-secondary)', background: 'var(--color-brand-secondary-10)' }}
+                style={{ color: 'var(--agent)', background: 'var(--color-brand-secondary-10)' }}
               >
                 Override
               </span>
@@ -209,13 +209,13 @@ export function AgentDetailHero({
           </div>
 
           <h1
-            className="m-0 mb-2 font-[family-name:var(--font-brand)] font-bold tracking-[-0.02em] text-[var(--color-text-primary)]"
+            className="m-0 mb-2 font-[family-name:var(--font-brand)] font-bold tracking-[-0.02em] text-foreground"
             style={{ fontSize: 38, lineHeight: 1.05 }}
           >
             {agent.name}
           </h1>
 
-          <p className="m-0 mb-4 max-w-[720px] text-[15px] leading-relaxed text-[var(--color-text-secondary)]">
+          <p className="m-0 mb-4 max-w-[720px] text-[15px] leading-relaxed text-muted-foreground">
             {agent.description || 'No description set.'}
           </p>
 
@@ -244,10 +244,10 @@ export function AgentDetailHero({
 
         {/* Configuration card */}
         <div
-          className="flex-none rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 shadow-[0_4px_16px_-8px_rgba(20,25,30,0.08)]"
+          className="flex-none rounded-xl border border-border bg-card p-4 shadow-[0_4px_16px_-8px_rgba(20,25,30,0.08)]"
           style={{ width: 220 }}
         >
-          <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+          <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Configuration
           </div>
           <div className="flex flex-col gap-2.5">
@@ -257,7 +257,7 @@ export function AgentDetailHero({
             <ConfRow
               label="Auto-apply"
               value={autoApply ? 'Enabled' : 'Off'}
-              accent={autoApply ? 'var(--color-success)' : null}
+              accent={autoApply ? 'var(--success)' : null}
             />
             <ConfRow label="Region" value="eu-west-2" mono />
             {lastRunAt && <ConfRow label="Last run" value={formatRelativeTime(lastRunAt)} mono />}
@@ -286,12 +286,12 @@ function ConfRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2.5">
-      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{label}</span>
+      <span className="text-[11.5px] text-muted-foreground">{label}</span>
       <span
         className="text-[12px] font-semibold"
         style={{
           fontFamily: mono ? 'var(--font-mono)' : 'inherit',
-          color: accent ?? 'var(--color-text-primary)',
+          color: accent ?? 'var(--foreground)',
         }}
       >
         {value}

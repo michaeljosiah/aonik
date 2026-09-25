@@ -522,7 +522,7 @@ export function NotificationTemplatesPage() {
         header: 'Base Template',
         cell: (row) => row.baseTemplateId
           ? <span className="text-sm">{templateNameMap.get(row.baseTemplateId) ?? row.baseTemplateId.slice(0, 8) + '...'}</span>
-          : <span className="text-[var(--color-text-tertiary)]">None</span>,
+          : <span className="text-muted-foreground">None</span>,
       },
       {
         id: 'overrideTemplateId',
@@ -530,7 +530,7 @@ export function NotificationTemplatesPage() {
         header: 'Override',
         cell: (row) => row.overrideTemplateId
           ? <span className="text-sm">{templateNameMap.get(row.overrideTemplateId) ?? row.overrideTemplateId.slice(0, 8) + '...'}</span>
-          : <span className="text-[var(--color-text-tertiary)]">None</span>,
+          : <span className="text-muted-foreground">None</span>,
       },
       {
         id: 'isEnabled',
@@ -568,14 +568,14 @@ export function NotificationTemplatesPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-brand-primary-light)]">
-            <Bell className="h-4.5 w-4.5 text-[var(--color-brand-primary)]" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <Bell className="h-4.5 w-4.5 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Notification Templates</h1>
-            <p className="text-xs text-[var(--color-text-secondary)]">
+            <h1 className="text-lg font-semibold text-foreground">Notification Templates</h1>
+            <p className="text-xs text-muted-foreground">
               Manage email MJML, SMS text, and push templates with Liquid syntax
             </p>
           </div>
@@ -592,14 +592,14 @@ export function NotificationTemplatesPage() {
       {activeTab === 'templates' && (
         <div className="flex-1 flex overflow-hidden">
           {/* ─── Left sidebar: template list ───────────────────────────── */}
-          <div className="w-64 flex-shrink-0 border-r border-[var(--color-border)] flex flex-col bg-[var(--color-surface-inset)]">
+          <div className="w-64 flex-shrink-0 border-r border-border flex flex-col bg-muted">
             <div className="p-3 space-y-2">
               <Button size="sm" className="w-full rounded-sm" onClick={startCreate}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 New Template
               </Button>
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search templates..."
                   className="h-8 pl-8 text-xs"
@@ -612,7 +612,7 @@ export function NotificationTemplatesPage() {
             <div className="flex-1 overflow-y-auto px-2 pb-3">
               {loadingTemplates ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 CHANNELS.map((ch) => {
@@ -626,7 +626,7 @@ export function NotificationTemplatesPage() {
                     <div key={ch} className="mb-1">
                       <button
                         onClick={() => toggleChannel(ch)}
-                        className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded transition-colors"
                       >
                         {isCollapsed ? (
                           <ChevronRight className="h-3 w-3" />
@@ -635,13 +635,13 @@ export function NotificationTemplatesPage() {
                         )}
                         <Icon className="h-3 w-3" />
                         {ch}
-                        <span className="ml-auto text-[var(--color-text-tertiary)]">{items.length}</span>
+                        <span className="ml-auto text-muted-foreground">{items.length}</span>
                       </button>
 
                       {!isCollapsed && (
                         <div className="ml-3 space-y-0.5">
                           {items.length === 0 ? (
-                            <p className="text-xs text-[var(--color-text-tertiary)] px-2 py-1 italic">No templates</p>
+                            <p className="text-xs text-muted-foreground px-2 py-1 italic">No templates</p>
                           ) : (
                             items.map((t) => (
                               <button
@@ -649,14 +649,14 @@ export function NotificationTemplatesPage() {
                                 onClick={() => selectTemplate(t.id)}
                                 className={`w-full text-left px-2.5 py-1.5 rounded-sm text-xs transition-colors ${
                                   selectedId === t.id
-                                    ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] font-medium'
-                                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-gray-100)]'
+                                    ? 'bg-primary/10 text-primary font-medium'
+                                    : 'text-foreground hover:bg-muted'
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="truncate">{t.name}</span>
                                   {!t.isActive && (
-                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--color-text-tertiary)]" />
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground" />
                                   )}
                                 </div>
                               </button>
@@ -677,12 +677,12 @@ export function NotificationTemplatesPage() {
               /* Empty state */
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center space-y-3">
-                  <Mail className="h-12 w-12 mx-auto text-[var(--color-text-tertiary)] opacity-40" />
+                  <Mail className="h-12 w-12 mx-auto text-muted-foreground opacity-40" />
                   <div>
-                    <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+                    <p className="text-sm font-medium text-muted-foreground">
                       Select a template to edit
                     </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Or create a new one to get started
                     </p>
                   </div>
@@ -694,19 +694,19 @@ export function NotificationTemplatesPage() {
               </div>
             ) : loadingDetail ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-[var(--color-text-tertiary)]" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
                 {/* Editor toolbar */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-card">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    <h2 className="text-sm font-semibold text-foreground">
                       {isCreating ? 'New Template' : form.name}
                     </h2>
                     {!isCreating && <ChannelBadge channel={form.channel} />}
                     {dirty && (
-                      <span className="text-xs text-[var(--color-warning)] font-medium">Unsaved</span>
+                      <span className="text-xs text-warning font-medium">Unsaved</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -724,7 +724,7 @@ export function NotificationTemplatesPage() {
                         variant="outline"
                         size="sm"
                         onClick={deleteSelected}
-                        className="text-[var(--color-error)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -793,7 +793,7 @@ export function NotificationTemplatesPage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-6 gap-1 text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-primary)]"
+                          className="h-6 gap-1 text-[10px] text-muted-foreground hover:text-primary"
                           onClick={generateDescription}
                           disabled={generatingDescription}
                         >
@@ -833,10 +833,10 @@ export function NotificationTemplatesPage() {
                         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-[var(--color-text-primary)]">Email authoring format</p>
+                              <p className="text-sm font-medium text-foreground">Email authoring format</p>
                               <Badge variant="outline">Preview compiles MJML</Badge>
                             </div>
-                            <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
                               MJML is stored as the email body template, rendered with Liquid variables, then compiled to responsive HTML for preview and send.
                             </p>
                           </div>
@@ -878,7 +878,7 @@ export function NotificationTemplatesPage() {
                         <Label htmlFor="tpl-body" className="text-xs">
                           {form.authoringFormat === 'MJML' ? 'MJML Body Template' : form.authoringFormat === 'Text' ? 'Text Body Template' : 'HTML Body Template'}
                         </Label>
-                        <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                        <span className="text-[10px] text-muted-foreground">
                           {form.authoringFormat === 'MJML'
                             ? 'MJML + Liquid syntax: <mj-section>, <mj-column>, {{ variable }}'
                             : `Liquid syntax: {{ variable }} {% if condition %}...{% endif %} {% for item in list %}...{% endfor %}`}
@@ -913,11 +913,11 @@ export function NotificationTemplatesPage() {
                             />
                             <div>
                               <Label htmlFor="tpl-shared" className="text-sm cursor-pointer">Shared</Label>
-                              <p className="text-[10px] text-[var(--color-text-tertiary)]">Available to all tenants</p>
+                              <p className="text-[10px] text-muted-foreground">Available to all tenants</p>
                             </div>
                           </div>
                           {selectedDetail && (
-                            <div className="ml-auto text-xs text-[var(--color-text-tertiary)]">
+                            <div className="ml-auto text-xs text-muted-foreground">
                               Last updated {selectedDetail.updatedAt ? new Date(selectedDetail.updatedAt).toLocaleDateString() : 'N/A'}
                             </div>
                           )}
@@ -928,13 +928,13 @@ export function NotificationTemplatesPage() {
 
                   {/* Preview panel (collapsible right side) */}
                   {previewOpen && (
-                    <div className="w-[440px] flex-shrink-0 border-l border-[var(--color-border)] flex flex-col bg-[var(--color-surface-inset)]">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
+                    <div className="w-[440px] flex-shrink-0 border-l border-border flex flex-col bg-muted">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                         <div>
-                          <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wide">
+                          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
                             Preview Window
                           </h3>
-                          <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
                             {form.authoringFormat === 'MJML' ? 'Liquid rendered, MJML compiled to HTML' : 'Liquid rendered output'}
                           </p>
                         </div>
@@ -946,7 +946,7 @@ export function NotificationTemplatesPage() {
                       <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {/* Sample data input */}
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                             Sample Data (JSON)
                           </Label>
                           <Textarea
@@ -961,29 +961,29 @@ export function NotificationTemplatesPage() {
                           <div className="space-y-3">
                             {previewResult.subject && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)] mb-1.5 font-medium">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 font-medium">
                                   Subject
                                 </p>
-                                <div className="bg-[var(--color-surface)] rounded-sm border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-text-primary)]">
+                                <div className="bg-card rounded-sm border border-border px-3 py-2 text-sm text-foreground">
                                   {previewResult.subject}
                                 </div>
                               </div>
                             )}
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)] mb-1.5 font-medium">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 font-medium">
                                 Body
                               </p>
                               {form.channel === 'SMS' ? (
                                 /* SMS phone-style preview */
-                                <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4">
-                                  <div className="bg-[var(--color-brand-primary-light)] rounded-2xl rounded-bl-sm px-4 py-3 max-w-[280px]">
-                                    <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap">
+                                <div className="bg-card rounded-lg border border-border p-4">
+                                  <div className="bg-primary/10 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[280px]">
+                                    <p className="text-sm text-foreground whitespace-pre-wrap">
                                       {previewResult.body}
                                     </p>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="overflow-hidden rounded-sm border border-[var(--color-border)] bg-white">
+                                <div className="overflow-hidden rounded-sm border border-border bg-white">
                                   <iframe
                                     title="Rendered notification preview"
                                     sandbox=""
@@ -998,8 +998,8 @@ export function NotificationTemplatesPage() {
 
                         {!previewResult && !previewing && (
                           <div className="text-center py-8">
-                            <Eye className="h-8 w-8 mx-auto text-[var(--color-text-tertiary)] opacity-30 mb-2" />
-                            <p className="text-xs text-[var(--color-text-tertiary)]">
+                            <Eye className="h-8 w-8 mx-auto text-muted-foreground opacity-30 mb-2" />
+                            <p className="text-xs text-muted-foreground">
                               Preview will render automatically as you type
                             </p>
                           </div>
@@ -1007,7 +1007,7 @@ export function NotificationTemplatesPage() {
 
                         {previewing && (
                           <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                           </div>
                         )}
                       </div>
@@ -1025,10 +1025,10 @@ export function NotificationTemplatesPage() {
         <div className="flex-1 overflow-auto p-6">
           <Card>
             <CardContent className="p-0">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border)]">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
                 <div>
-                  <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Template Bindings</h2>
-                  <p className="text-xs text-[var(--color-text-secondary)]">
+                  <h2 className="text-sm font-semibold text-foreground">Template Bindings</h2>
+                  <p className="text-xs text-muted-foreground">
                     Map notification templates to tenants with optional base and override templates
                   </p>
                 </div>

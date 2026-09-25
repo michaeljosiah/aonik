@@ -106,7 +106,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fieldClassName =
-    "flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]";
+    "flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring";
 
   const isValid = useMemo(() => {
     if (!formData.displayName.trim()) return false;
@@ -192,10 +192,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Person Card */}
         <Card
-          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-primary group"
           onClick={handleSelectPerson}
         >
-          <div className="h-32 bg-gradient-to-br from-[var(--color-brand-primary)] to-[var(--color-brand-secondary)] flex items-center justify-center relative overflow-hidden">
+          <div className="h-32 bg-gradient-to-br from-primary to-agent flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-20">
               <img
                 src="/assets/images/person-card.png"
@@ -210,10 +210,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             <User className="w-16 h-16 text-white relative z-10" />
           </div>
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
               Individual Person
             </h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Register an individual customer with personal details, contact information, and address.
             </p>
           </div>
@@ -221,7 +221,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Business Card */}
         <Card
-          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-primary group"
           onClick={handleSelectBusiness}
         >
           <div className="h-32 bg-gradient-to-br from-[#055a60] to-[#044448] flex items-center justify-center relative overflow-hidden">
@@ -238,10 +238,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             <Building2 className="w-16 h-16 text-white relative z-10" />
           </div>
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
               Business Entity
             </h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Register a business or organization with company details, contact information, and address.
             </p>
           </div>
@@ -267,13 +267,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
         {/* Basic Info */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Basic Information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Display Name <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Display Name <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -286,7 +286,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <label className="text-sm font-medium text-foreground">Status</label>
               <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -300,7 +300,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
+              <label className="text-sm font-medium text-foreground">Customer Tier</label>
               <input
                 type="text"
                 value={formData.customerTierCode || ''}
@@ -314,13 +314,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Personal Details */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Personal Details
           </h4>
           
           <div className="grid grid-cols-3 gap-4 items-start">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
+              <label className="text-sm font-medium text-foreground">Title</label>
               <Select value={formData.title || ''} onValueChange={(value) => updateField('title', value || null)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select title" />
@@ -335,7 +335,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">First Name</label>
+              <label className="text-sm font-medium text-foreground">First Name</label>
               <input
                 type="text"
                 value={formData.firstName || ''}
@@ -344,7 +344,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Last Name</label>
+              <label className="text-sm font-medium text-foreground">Last Name</label>
               <input
                 type="text"
                 value={formData.lastName || ''}
@@ -355,7 +355,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Date of Birth</label>
+            <label className="text-sm font-medium text-foreground">Date of Birth</label>
             <input
               type="date"
               value={formData.dob || ''}
@@ -366,7 +366,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Nationality</label>
+              <label className="text-sm font-medium text-foreground">Nationality</label>
               <CountrySelect
                 value={formData.nationality || ''}
                 onChange={(value) => updateField('nationality', value || null)}
@@ -374,7 +374,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Occupation</label>
+              <label className="text-sm font-medium text-foreground">Occupation</label>
               <input
                 type="text"
                 value={formData.occupation || ''}
@@ -384,7 +384,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             </div>
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+            <label className="text-sm font-medium text-foreground">Country</label>
             <CountrySelect
               value={formData.countryCode || ''}
               onChange={(value) => updateField('countryCode', value || null)}
@@ -395,12 +395,12 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Contact Information */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Contact Information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <label className="text-sm font-medium text-foreground">Email Address</label>
             <InputGroup>
               <InputGroupAddon>
                 <Mail aria-hidden="true" />
@@ -415,7 +415,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <label className="text-sm font-medium text-foreground">Phone Number</label>
             <InputGroup>
               <InputGroupAddon>
                 <Phone aria-hidden="true" />
@@ -437,10 +437,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             onClick={() => setAddressExpanded(!addressExpanded)}
             className="flex items-center justify-between w-full text-left group"
           >
-            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
+            <h4 className="text-sm font-medium text-foreground border-b border-border pb-2 flex-1">
               Address Details
             </h4>
-            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <span className="ml-2 text-muted-foreground group-hover:text-primary transition-colors">
               {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </span>
           </button>
@@ -448,7 +448,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           {addressExpanded && (
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
+                <label className="text-sm font-medium text-foreground">Address Type</label>
                 <Select
                   value={formData.addresses[0]?.type || 'Home'}
                   onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
@@ -467,7 +467,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
+                <label className="text-sm font-medium text-foreground">Line 1</label>
                 <input
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
@@ -479,7 +479,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
+                  <label className="text-sm font-medium text-foreground">Line 2</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
@@ -489,7 +489,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
+                  <label className="text-sm font-medium text-foreground">Line 3</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
@@ -501,7 +501,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
+                  <label className="text-sm font-medium text-foreground">City</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.city || ''}
@@ -510,7 +510,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
+                  <label className="text-sm font-medium text-foreground">State/Province</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.state || ''}
@@ -522,7 +522,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
+                  <label className="text-sm font-medium text-foreground">Postcode</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.postcode || ''}
@@ -531,7 +531,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <label className="text-sm font-medium text-foreground">Country</label>
                   <CountrySelect
                     value={formData.addresses[0]?.country || ''}
                     onChange={(value) => updateAddress('country', value)}
@@ -545,7 +545,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       </div>
 
       {error && (
-        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -578,13 +578,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
         {/* Basic Info */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Basic Information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Display Name <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Display Name <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -597,7 +597,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <label className="text-sm font-medium text-foreground">Status</label>
               <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -611,7 +611,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
+              <label className="text-sm font-medium text-foreground">Customer Tier</label>
               <input
                 type="text"
                 value={formData.customerTierCode || ''}
@@ -625,12 +625,12 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Business Details */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Business Details
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Registration Number</label>
+            <label className="text-sm font-medium text-foreground">Registration Number</label>
             <input
               type="text"
               value={formData.registrationNumber || ''}
@@ -642,7 +642,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Incorporation Country</label>
+              <label className="text-sm font-medium text-foreground">Incorporation Country</label>
               <CountrySelect
                 value={formData.incorporationCountry || ''}
                 onChange={(value) => updateField('incorporationCountry', value || null)}
@@ -650,7 +650,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
+              <label className="text-sm font-medium text-foreground">Industry</label>
               <input
                 type="text"
                 value={formData.industry || ''}
@@ -663,12 +663,12 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Contact Information */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
             Contact Information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <label className="text-sm font-medium text-foreground">Email Address</label>
             <InputGroup>
               <InputGroupAddon>
                 <Mail aria-hidden="true" />
@@ -683,7 +683,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <label className="text-sm font-medium text-foreground">Phone Number</label>
             <InputGroup>
               <InputGroupAddon>
                 <Phone aria-hidden="true" />
@@ -705,10 +705,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             onClick={() => setAddressExpanded(!addressExpanded)}
             className="flex items-center justify-between w-full text-left group"
           >
-            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
+            <h4 className="text-sm font-medium text-foreground border-b border-border pb-2 flex-1">
               Address Details
             </h4>
-            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <span className="ml-2 text-muted-foreground group-hover:text-primary transition-colors">
               {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </span>
           </button>
@@ -716,7 +716,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           {addressExpanded && (
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
+                <label className="text-sm font-medium text-foreground">Address Type</label>
                 <Select
                   value={formData.addresses[0]?.type || 'Work'}
                   onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
@@ -734,7 +734,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
+                <label className="text-sm font-medium text-foreground">Line 1</label>
                 <input
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
@@ -746,7 +746,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
+                  <label className="text-sm font-medium text-foreground">Line 2</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
@@ -756,7 +756,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
+                  <label className="text-sm font-medium text-foreground">Line 3</label>
                   <input
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
@@ -768,7 +768,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
+                  <label className="text-sm font-medium text-foreground">City</label>
                 <input
                   type="text"
                   value={formData.addresses[0]?.city || ''}
@@ -777,7 +777,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
+                  <label className="text-sm font-medium text-foreground">State/Province</label>
                 <input
                   type="text"
                   value={formData.addresses[0]?.state || ''}
@@ -789,7 +789,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
+                  <label className="text-sm font-medium text-foreground">Postcode</label>
                 <input
                   type="text"
                   value={formData.addresses[0]?.postcode || ''}
@@ -798,7 +798,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <label className="text-sm font-medium text-foreground">Country</label>
                   <CountrySelect
                     value={formData.addresses[0]?.country || ''}
                     onChange={(value) => updateAddress('country', value)}
@@ -812,7 +812,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       </div>
 
       {error && (
-        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}

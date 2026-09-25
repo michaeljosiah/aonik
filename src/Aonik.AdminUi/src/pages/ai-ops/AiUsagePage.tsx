@@ -210,7 +210,7 @@ export function AiUsagePage() {
           label="Tokens"
           value={formatTokens(totals.tokens)}
           sub={`${runs.length} runs · in+out combined`}
-          tone="var(--color-brand-primary)"
+          tone="var(--primary)"
         />
         <UsageTile
           label="Avg per run"
@@ -226,18 +226,18 @@ export function AiUsagePage() {
           label="Tool calls"
           value="—"
           sub="needs AiTrace aggregation"
-          tone="var(--color-brand-secondary)"
+          tone="var(--agent)"
         />
         <UsageTile
           label="Monthly cost"
           value={formatCost(totals.cost)}
           sub={runs.length > 0 ? `${formatCost(totals.cost / runs.length)} avg` : 'no runs'}
-          tone="var(--color-warning)"
+          tone="var(--warning)"
         />
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button variant="outline" size="sm" onClick={() => void loadRuns()}>
@@ -251,7 +251,7 @@ export function AiUsagePage() {
         <AonikCard title="Token usage" subtitle="Daily totals · last 30 days">
           {loading && runs.length === 0 ? (
             <div className="flex items-center justify-center py-10">
-              <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
             </div>
           ) : (
             <DailyBarChart series={dailySeries} max={tokenChartMax} />
@@ -260,7 +260,7 @@ export function AiUsagePage() {
 
         <AonikCard title="By use case" subtitle="Share of cost in the visible window">
           {byUseCase.length === 0 ? (
-            <p className="py-6 text-center text-sm text-[var(--color-text-tertiary)]">
+            <p className="py-6 text-center text-sm text-muted-foreground">
               No usage to break down yet.
             </p>
           ) : (
@@ -271,14 +271,14 @@ export function AiUsagePage() {
                 return (
                   <div key={entry.useCase}>
                     <div className="mb-1 flex justify-between text-[12px]">
-                      <span className="truncate text-[var(--color-text-primary)]">
+                      <span className="truncate text-foreground">
                         {entry.useCase}
                       </span>
-                      <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
                         {formatCost(entry.cost)} · {percent}%
                       </span>
                     </div>
-                    <div className="h-1 overflow-hidden rounded-full bg-[var(--color-surface-inset)]">
+                    <div className="h-1 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full"
                         style={{ width: `${percent}%`, background: colour }}
@@ -319,7 +319,7 @@ function DailyBarChart({
             y1={y}
             x2={width}
             y2={y}
-            stroke="var(--color-border-light)"
+            stroke="var(--border)"
             strokeDasharray="2 4"
           />
         ))}
@@ -333,7 +333,7 @@ function DailyBarChart({
               y={height - h}
               width={barWidth}
               height={h}
-              fill="var(--color-brand-primary)"
+              fill="var(--primary)"
               opacity={d.tokens === 0 ? 0.15 : 0.85}
             >
               <title>
@@ -343,7 +343,7 @@ function DailyBarChart({
           );
         })}
       </svg>
-      <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         <span>{series[0]?.date ?? '—'}</span>
         <span>{series[series.length - 1]?.date ?? '—'}</span>
       </div>
@@ -365,15 +365,15 @@ function UsageTile({
   tone: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+    <div className="rounded-[10px] border border-border bg-card p-3.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
         {label}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-[var(--color-text-primary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         {sub}
       </div>
     </div>

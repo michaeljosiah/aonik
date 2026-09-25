@@ -58,19 +58,19 @@ export function OrdersSpineTab({
         <button
           type="button"
           onClick={onReload}
-          className="text-xs text-[var(--color-brand-primary)] hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           Refresh
         </button>
       }
     >
-      <p className="mb-3 text-[11px] leading-relaxed text-[var(--color-text-tertiary)]">
+      <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
         Every order, one spine — boxes, bill payments and transfers share the Order record
         (ADR-011); filter by type, never by screen.
       </p>
 
       {error && (
-        <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="mb-3 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </div>
       )}
@@ -79,12 +79,12 @@ export function OrdersSpineTab({
           operator is reading; the Load more button disables itself instead. */}
       {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-6">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : orders.length === 0 ? (
         <div className="py-6 text-center">
-          <FileText className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             No orders recorded for this customer yet.
           </p>
         </div>
@@ -92,7 +92,7 @@ export function OrdersSpineTab({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 <th className="px-2 py-2.5">Order</th>
                 <th className="px-2 py-2.5">Type</th>
                 <th className="px-2 py-2.5">Date</th>
@@ -110,12 +110,12 @@ export function OrdersSpineTab({
                     key={order.orderId}
                     onClick={() => onView(order.orderId)}
                     className={
-                      'cursor-pointer transition-colors hover:bg-[var(--color-surface-inset)] ' +
-                      (isLast ? '' : 'border-b border-[var(--color-border-light)]')
+                      'cursor-pointer transition-colors hover:bg-muted ' +
+                      (isLast ? '' : 'border-b border-border')
                     }
                   >
                     <td className="px-2 py-2.5">
-                      <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-primary">
                         ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
                       </span>
                     </td>
@@ -125,7 +125,7 @@ export function OrdersSpineTab({
                       </Pill>
                     </td>
                     <td className="px-2 py-2.5">
-                      <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                         {formatDate(order.createdAt)}
                       </span>
                     </td>
@@ -135,7 +135,7 @@ export function OrdersSpineTab({
                       </Pill>
                     </td>
                     <td className="px-2 py-2.5 text-right">
-                      <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-foreground">
                         {formatCurrency(order.totalAmountIn, order.originCurrency)}
                       </span>
                     </td>
@@ -151,7 +151,7 @@ export function OrdersSpineTab({
                 type="button"
                 onClick={onLoadMore}
                 disabled={loading}
-                className="text-xs text-[var(--color-brand-primary)] hover:underline disabled:opacity-50"
+                className="text-xs text-primary hover:underline disabled:opacity-50"
               >
                 Load more
               </button>

@@ -127,7 +127,7 @@ export function CommerceCartsPage() {
       header: 'Cart',
       accessorFn: (row) => row.cartId,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">
           {row.cartId.slice(0, 8)}
         </span>
       ),
@@ -150,7 +150,7 @@ export function CommerceCartsPage() {
         const overFilled = !!box && box.filled > box.size;
         return (
           <span className="flex flex-col">
-            <span className="font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-secondary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-muted-foreground">
               {formatBoxFill(box)}
             </span>
             {/* Drift and OVER-fill earn the warn line; an under-filled box does not. Under-fill
@@ -159,17 +159,17 @@ export function CommerceCartsPage() {
                 cannot resolve by carrying on. The drawer states every cause, where the
                 operator is actually diagnosing. */}
             {box?.drift && (
-              <span className="text-[11px] text-[var(--color-warning)]">
+              <span className="text-[11px] text-warning">
                 drift — checkout blocked
               </span>
             )}
             {overFilled && !box?.drift && (
-              <span className="text-[11px] text-[var(--color-warning)]">
+              <span className="text-[11px] text-warning">
                 over capacity — checkout blocked
               </span>
             )}
             {!!box && !box.drift && !overFilled && box.filled < box.size && (
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">still filling</span>
+              <span className="text-[11px] text-muted-foreground">still filling</span>
             )}
           </span>
         );
@@ -181,7 +181,7 @@ export function CommerceCartsPage() {
       header: 'Items',
       accessorFn: (row) => row.itemCount,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-secondary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-muted-foreground">
           {row.itemCount}
         </span>
       ),
@@ -193,7 +193,7 @@ export function CommerceCartsPage() {
       header: 'Value',
       accessorFn: (row) => row.total,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-foreground">
           {formatCurrency(row.total, row.currency)}
         </span>
       ),
@@ -212,7 +212,7 @@ export function CommerceCartsPage() {
       header: 'Activity',
       accessorFn: (row) => row.updatedAtUtc,
       cell: (row) => (
-        <span className="text-[12px] text-[var(--color-text-secondary)]">
+        <span className="text-[12px] text-muted-foreground">
           {formatDateTime(row.updatedAtUtc)}
         </span>
       ),
@@ -265,7 +265,7 @@ export function CommerceCartsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
           <button type="button" onClick={() => void load()} className="ml-auto underline">
@@ -279,7 +279,7 @@ export function CommerceCartsPage() {
       <AonikCard padding={0}>
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

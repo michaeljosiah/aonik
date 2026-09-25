@@ -40,11 +40,11 @@ function SecretBadge({ field, pending }: { field: CredentialFieldState; pending:
 
 function SectionCard({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mb-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-      <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] px-5 py-4">
+    <section className="mb-4 rounded-xl border border-border bg-card">
+      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-text-secondary)]">{description}</p> : null}
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p> : null}
         </div>
         {action ? <div className="flex-none">{action}</div> : null}
       </div>
@@ -180,11 +180,11 @@ export function SettingsCredentialBundlesPage() {
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Settings · Credential bundles
             </p>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Credential bundles</h2>
-            <p className="text-[var(--color-text-secondary)]">
+            <h2 className="text-2xl font-bold text-foreground">Credential bundles</h2>
+            <p className="text-muted-foreground">
               Partner-owned connector credentials, encrypted at rest. A connector binds a bundle by its reference; secret values are never displayed.
             </p>
           </div>
@@ -202,7 +202,7 @@ export function SettingsCredentialBundlesPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 flex items-start gap-2 rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 p-3 text-sm text-[var(--color-danger)]">
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4" />
             <span>{error}</span>
           </div>
@@ -224,7 +224,7 @@ export function SettingsCredentialBundlesPage() {
                   <Label htmlFor="bundle-kind">Connector kind</Label>
                   <select
                     id="bundle-kind"
-                    className="mt-1 flex h-10 w-full rounded-[2px] border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 text-sm text-[var(--color-form-field-text)]"
+                    className="mt-1 flex h-10 w-full rounded-[2px] border border-input bg-background px-3 text-sm text-foreground"
                     value={create.kind}
                     onChange={(event) => setCreate({ ...create, kind: event.target.value, secrets: {} })}
                   >
@@ -254,12 +254,12 @@ export function SettingsCredentialBundlesPage() {
               </div>
 
               {selectedKind ? (
-                <div className="space-y-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Credential fields</p>
+                <div className="space-y-3 rounded-lg border border-border bg-muted p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Credential fields</p>
                   {selectedKind.credentialFields.map((field) => (
                     <div key={field.name} className="grid gap-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
                       <Label htmlFor={`secret-${field.name}`} className="text-[13px]">
-                        {field.label}{field.required ? <span className="text-[var(--color-danger)]"> *</span> : null}
+                        {field.label}{field.required ? <span className="text-destructive"> *</span> : null}
                       </Label>
                       <Input
                         id={`secret-${field.name}`}
@@ -289,10 +289,10 @@ export function SettingsCredentialBundlesPage() {
           ) : null}
 
           {bundles.length === 0 && !create ? (
-            <div className="rounded-xl border border-dashed border-[var(--color-border-light)] p-10 text-center">
-              <KeyRound className="mx-auto h-6 w-6 text-[var(--color-text-tertiary)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">No credential bundles yet</p>
-              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+            <div className="rounded-xl border border-dashed border-border p-10 text-center">
+              <KeyRound className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium text-foreground">No credential bundles yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 Create a bundle, or lift existing Flutterwave settings into one.
               </p>
             </div>
@@ -309,12 +309,12 @@ export function SettingsCredentialBundlesPage() {
             >
               <div className="flex flex-wrap gap-2">
                 {bundle.fields.map((field) => (
-                  <div key={field.name} className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-1.5">
-                    <span className="text-[12px] text-[var(--color-text-primary)]">{field.label}</span>
+                  <div key={field.name} className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5">
+                    <span className="text-[12px] text-foreground">{field.label}</span>
                     <SecretBadge field={field} pending={false} />
                     <button
                       type="button"
-                      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-primary)]"
+                      className="text-muted-foreground hover:text-primary"
                       title={field.isSet ? 'Rotate this secret' : 'Set this secret'}
                       onClick={() => setEditField({ ref: bundle.ref, field: field.name, value: '', isSet: field.isSet })}
                     >
@@ -325,7 +325,7 @@ export function SettingsCredentialBundlesPage() {
               </div>
 
               {editField?.ref === bundle.ref ? (
-                <div className="grid gap-2 rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-light)]/40 p-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+                <div className="grid gap-2 rounded-lg border border-warning/40 bg-warning-subtle/40 p-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
                   <Input
                     type="password"
                     value={editField.value}

@@ -31,10 +31,10 @@ interface FieldLabelProps {
 
 function FieldLabel({ children, hint }: FieldLabelProps) {
   return (
-    <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
       {children}
       {hint && (
-        <span className="font-medium normal-case tracking-normal text-[var(--color-text-tertiary)]">
+        <span className="font-medium normal-case tracking-normal text-muted-foreground">
           · {hint}
         </span>
       )}
@@ -59,13 +59,13 @@ function TextField({ label, value, onChange, mono, hint, placeholder }: TextFiel
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 box-border w-full rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
+        className="mt-1.5 box-border w-full rounded-md border border-border bg-card text-foreground"
         style={{
           padding: '8px 10px',
           fontSize: 12.5,
           fontFamily: mono ? 'var(--font-mono)' : 'inherit',
           borderBottomWidth: 2,
-          borderBottomColor: 'var(--color-border-light)',
+          borderBottomColor: 'var(--border)',
         }}
       />
     </div>
@@ -84,7 +84,7 @@ function TextArea({ label, value, onChange, hint, rows = 3, mono }: TextAreaProp
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="mt-1.5 box-border w-full resize-y rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
+        className="mt-1.5 box-border w-full resize-y rounded-md border border-border bg-card text-foreground"
         style={{
           padding: '8px 10px',
           fontSize: 12,
@@ -111,7 +111,7 @@ function SelectField({ label, value, onChange, options, hint }: SelectProps) {
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 box-border w-full rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
+        className="mt-1.5 box-border w-full rounded-md border border-border bg-card text-foreground"
         style={{ padding: '8px 10px', fontSize: 12.5 }}
       >
         {options.map((o) => (
@@ -136,19 +136,19 @@ interface InspectorShellProps {
 function InspectorShell({ title, eyebrow, kindTint, children }: InspectorShellProps) {
   return (
     <aside
-      className="flex flex-none flex-col overflow-hidden border-l border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="flex flex-none flex-col overflow-hidden border-l border-border bg-card"
       style={{ width: 320 }}
     >
-      <div className="border-b border-[var(--color-border-light)]" style={{ padding: 16 }}>
+      <div className="border-b border-border" style={{ padding: 16 }}>
         {eyebrow && (
           <div
             className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.08em]"
-            style={{ color: kindTint ?? 'var(--color-text-tertiary)' }}
+            style={{ color: kindTint ?? 'var(--muted-foreground)' }}
           >
             {eyebrow}
           </div>
         )}
-        <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">{title}</div>
+        <div className="text-[14px] font-semibold text-foreground">{title}</div>
       </div>
       <div
         className="flex flex-1 flex-col gap-4 overflow-y-auto"
@@ -374,14 +374,14 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
 
       {/* Footer */}
       <div
-        className="mt-auto flex flex-col gap-2.5 border-t border-[var(--color-border-light)]"
+        className="mt-auto flex flex-col gap-2.5 border-t border-border"
         style={{ paddingTop: 12 }}
       >
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           Node ID
         </div>
         <div
-          className="text-[11px] text-[var(--color-text-secondary)]"
+          className="text-[11px] text-muted-foreground"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
           {node.id}
@@ -415,19 +415,19 @@ function EdgeInspector({ edge, nodes, onDelete }: EdgeInspectorProps) {
   return (
     <InspectorShell title="Connection" eyebrow="Edge">
       <div
-        className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]"
+        className="rounded-md border border-border bg-muted"
         style={{ padding: 12 }}
       >
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           From
         </div>
-        <div className="mt-0.5 text-[12.5px] font-medium text-[var(--color-text-primary)]">
+        <div className="mt-0.5 text-[12.5px] font-medium text-foreground">
           {a?.label}
         </div>
-        <div className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <div className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           To
         </div>
-        <div className="mt-0.5 text-[12.5px] font-medium text-[var(--color-text-primary)]">
+        <div className="mt-0.5 text-[12.5px] font-medium text-foreground">
           {b?.label}
         </div>
       </div>
@@ -435,7 +435,7 @@ function EdgeInspector({ edge, nodes, onDelete }: EdgeInspectorProps) {
         <div>
           <FieldLabel>Label</FieldLabel>
           <div
-            className="mt-1.5 text-[12px] text-[var(--color-text-primary)]"
+            className="mt-1.5 text-[12px] text-foreground"
             style={{ fontFamily: 'var(--font-mono)' }}
           >
             {edge.label}
@@ -466,7 +466,7 @@ interface MultiInspectorProps {
 function MultiInspector({ count, onDeleteAll }: MultiInspectorProps) {
   return (
     <InspectorShell title={`${count} nodes selected`} eyebrow="Multi-select">
-      <div className="text-[12px] text-[var(--color-text-secondary)]" style={{ lineHeight: 1.5 }}>
+      <div className="text-[12px] text-muted-foreground" style={{ lineHeight: 1.5 }}>
         Drag any node to move them together. Or run a bulk action below.
       </div>
       <Button variant="outline" size="sm" className="h-7">
@@ -514,7 +514,7 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
       <div>
         <FieldLabel>Composition</FieldLabel>
         <div className="mt-2 flex flex-col gap-1">
-          <div className="text-[11.5px] text-[var(--color-text-secondary)]">
+          <div className="text-[11.5px] text-muted-foreground">
             <span style={{ fontFamily: 'var(--font-mono)' }}>{nodes.length}</span> node
             {nodes.length === 1 ? '' : 's'} ·{' '}
             <span style={{ fontFamily: 'var(--font-mono)' }}>{edges.length}</span> connection
@@ -527,7 +527,7 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
               return (
                 <div
                   key={k}
-                  className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-text-secondary)]"
+                  className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
                 >
                   <span
                     className="rounded-[2px]"
@@ -581,7 +581,7 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
 function EmptyInspector() {
   return (
     <InspectorShell title="Nothing selected" eyebrow="Inspector">
-      <div className="text-[12px] text-[var(--color-text-secondary)]" style={{ lineHeight: 1.5 }}>
+      <div className="text-[12px] text-muted-foreground" style={{ lineHeight: 1.5 }}>
         Select a node or an edge to edit its properties.
       </div>
     </InspectorShell>

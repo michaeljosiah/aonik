@@ -11,7 +11,7 @@ export function ToolToggleList({ allTools, enabledTools, onChange }: ToolToggleL
     return (
       <div className="space-y-1.5">
         <Label className="text-xs">Tools</Label>
-        <p className="text-xs italic text-[var(--color-text-tertiary)]">
+        <p className="text-xs italic text-muted-foreground">
           No tools (raw mode)
         </p>
       </div>
@@ -40,12 +40,12 @@ export function ToolToggleList({ allTools, enabledTools, onChange }: ToolToggleL
         </Label>
         <button
           onClick={toggleAll}
-          className="text-xs text-[var(--color-brand-primary)] hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           {allEnabled ? 'None' : 'All'}
         </button>
       </div>
-      <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-[2px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-2">
+      <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-[2px] border border-border bg-card p-2">
         {allTools.map((name) => {
           const enabled = enabledTools.includes(name);
           return (
@@ -59,7 +59,7 @@ export function ToolToggleList({ allTools, enabledTools, onChange }: ToolToggleL
                 onChange={() => toggleTool(name)}
                 className="rounded"
               />
-              <span className={enabled ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)]'}>
+              <span className={enabled ? 'text-foreground' : 'text-muted-foreground'}>
                 {name}
               </span>
             </label>

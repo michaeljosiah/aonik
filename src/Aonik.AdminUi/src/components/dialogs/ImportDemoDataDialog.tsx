@@ -103,8 +103,8 @@ export function ImportDemoDataDialog({
                       key={option.seedType}
                       className={`cursor-pointer overflow-hidden transition-all group ${
                         selected
-                          ? 'border-[var(--color-brand-primary)] shadow-md'
-                          : 'hover:shadow-lg hover:border-[var(--color-brand-primary)]'
+                          ? 'border-primary shadow-md'
+                          : 'hover:shadow-lg hover:border-primary'
                       }`}
                       onClick={() => setSelectedType(option.seedType)}
                     >
@@ -112,10 +112,10 @@ export function ImportDemoDataDialog({
                         <Icon className="w-14 h-14 text-white" />
                       </div>
                       <div className="p-5 space-y-2">
-                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+                        <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                           {option.title}
                         </h3>
-                        <p className="text-sm text-[var(--color-text-secondary)]">{option.description}</p>
+                        <p className="text-sm text-muted-foreground">{option.description}</p>
                       </div>
                     </Card>
                   );
@@ -131,21 +131,21 @@ export function ImportDemoDataDialog({
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-4 py-3 text-sm text-[var(--color-warning)] flex items-start gap-3">
+              <div className="rounded-md border border-warning bg-warning-subtle px-4 py-3 text-sm text-warning flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5" />
                 <span>Proceed only if this tenant is intended for demo or sandbox workflows.</span>
               </div>
 
               <Card className="p-4 space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Selected Dataset</p>
-                <p className="text-base font-semibold text-[var(--color-text-primary)]">{selectedOption.title}</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">{selectedOption.description}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected Dataset</p>
+                <p className="text-base font-semibold text-foreground">{selectedOption.title}</p>
+                <p className="text-sm text-muted-foreground">{selectedOption.description}</p>
               </Card>
             </>
           )}
 
           {error && (
-            <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+            <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
           )}

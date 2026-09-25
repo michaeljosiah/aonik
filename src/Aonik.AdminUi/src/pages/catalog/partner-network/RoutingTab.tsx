@@ -152,11 +152,11 @@ export function RoutingTab({ details, onOpenPartner }: RoutingTabProps) {
 
 function ConditionsView({ conditions }: { conditions: ReturnType<typeof parseConditions> }) {
   if (!conditions) {
-    return <span className="text-[11.5px] text-[var(--color-text-tertiary)]">Any instruction</span>;
+    return <span className="text-[11.5px] text-muted-foreground">Any instruction</span>;
   }
   if (typeof conditions === 'string') {
     return (
-      <code className="block truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+      <code className="block truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
         {conditions}
       </code>
     );
@@ -165,8 +165,8 @@ function ConditionsView({ conditions }: { conditions: ReturnType<typeof parseCon
     <div className="flex flex-wrap gap-1.5">
       {conditions.map(([k, v]) => (
         <Chip key={k} dense>
-          <span className="text-[var(--color-text-tertiary)]">{k}</span>
-          <span className="text-[var(--color-text-secondary)]">{v}</span>
+          <span className="text-muted-foreground">{k}</span>
+          <span className="text-muted-foreground">{v}</span>
         </Chip>
       ))}
     </div>
@@ -177,8 +177,8 @@ function TargetView({ target, targetId }: { target?: PartnerConnectorItem; targe
   if (target) {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className="font-medium text-[var(--color-text-primary)]">{target.connectorType}</span>
-        <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+        <span className="font-medium text-foreground">{target.connectorType}</span>
+        <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
           {target.connectorId.slice(0, 8)}
         </span>
       </span>
@@ -186,27 +186,27 @@ function TargetView({ target, targetId }: { target?: PartnerConnectorItem; targe
   }
   if (targetId) {
     return (
-      <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+      <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
         {targetId.slice(0, 8)}
       </span>
     );
   }
-  return <span className="text-[var(--color-text-tertiary)]">—</span>;
+  return <span className="text-muted-foreground">—</span>;
 }
 
 function RouteCard({ row, onOpen }: { row: RuleRow; onOpen: () => void }) {
   const conditions = parseConditions(row.rule.conditionsJson);
   return (
-    <div className="flex flex-col gap-3.5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+    <div className="flex flex-col gap-3.5 rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <button type="button" onClick={onOpen} className="flex min-w-0 items-center gap-2.5 text-left">
           <AgentAvatar name={row.partner.name} size={32} />
-          <span className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{row.partner.name}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{row.partner.name}</span>
         </button>
         <div className="flex flex-none items-center gap-2">
           <Chip dense>
-            <span className="text-[var(--color-text-tertiary)]">priority</span>
-            <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+            <span className="text-muted-foreground">priority</span>
+            <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
               {row.rule.priority}
             </span>
           </Chip>
@@ -217,13 +217,13 @@ function RouteCard({ row, onOpen }: { row: RuleRow; onOpen: () => void }) {
       </div>
 
       <div>
-        <p className="mb-1.5 text-[10.5px] uppercase tracking-wide text-[var(--color-text-tertiary)]">When</p>
+        <p className="mb-1.5 text-[10.5px] uppercase tracking-wide text-muted-foreground">When</p>
         <ConditionsView conditions={conditions} />
       </div>
 
-      <div className="flex items-center gap-2 border-t border-[var(--color-border-light)] pt-3 text-[13px]">
-        <span className="text-[10.5px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Route to</span>
-        <ArrowRight size={13} className="text-[var(--color-text-tertiary)]" />
+      <div className="flex items-center gap-2 border-t border-border pt-3 text-[13px]">
+        <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Route to</span>
+        <ArrowRight size={13} className="text-muted-foreground" />
         <TargetView target={row.target} targetId={row.rule.targetConnectorId} />
       </div>
     </div>
@@ -235,7 +235,7 @@ function RouteTable({ rows, onOpenPartner }: { rows: RuleRow[]; onOpenPartner: (
     <Panel bodyClassName="overflow-x-auto">
       <table className="w-full border-collapse text-left text-[13px]">
         <thead>
-          <tr className="border-b border-[var(--color-border-light)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
             <th className="px-5 py-3 font-medium">Partner</th>
             <th className="px-3 py-3 text-right font-medium">Priority</th>
             <th className="px-3 py-3 font-medium">Status</th>
@@ -247,7 +247,7 @@ function RouteTable({ rows, onOpenPartner }: { rows: RuleRow[]; onOpenPartner: (
           {rows.map((r) => (
             <tr
               key={r.rule.routingRuleId}
-              className="border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-surface-inset)]"
+              className="border-b border-border last:border-0 hover:bg-muted"
             >
               <td className="px-5 py-3">
                 <button
@@ -256,10 +256,10 @@ function RouteTable({ rows, onOpenPartner }: { rows: RuleRow[]; onOpenPartner: (
                   className="flex items-center gap-2.5 text-left"
                 >
                   <AgentAvatar name={r.partner.name} size={26} />
-                  <span className="font-medium text-[var(--color-text-primary)]">{r.partner.name}</span>
+                  <span className="font-medium text-foreground">{r.partner.name}</span>
                 </button>
               </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-muted-foreground">
                 {r.rule.priority}
               </td>
               <td className="px-3 py-3">

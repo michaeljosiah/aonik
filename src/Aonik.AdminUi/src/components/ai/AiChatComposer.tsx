@@ -73,9 +73,9 @@ export function AiChatComposer({
       {/* Input container — Centrali: rounded-[1rem], border, focus: themed bottom border */}
       <div
         className={cn(
-          'rounded-[1rem] border border-[var(--color-border)] bg-[var(--color-surface)]',
+          'rounded-[1rem] border border-border bg-card',
           'transition-all duration-150',
-          'focus-within:border-b-2 focus-within:border-b-[var(--color-brand-primary)]',
+          'focus-within:border-b-2 focus-within:border-b-primary',
           'focus-within:shadow-[0px_4px_0px_-2px_var(--color-brand-primary-60)]'
         )}
       >
@@ -88,8 +88,8 @@ export function AiChatComposer({
             placeholder={placeholder}
             rows={isCenter ? 3 : 1}
             className={cn(
-              'w-full resize-none bg-transparent text-sm text-[var(--color-text-primary)]',
-              'placeholder:text-[var(--color-gray-400)] outline-none leading-6',
+              'w-full resize-none bg-transparent text-sm text-foreground',
+              'placeholder:text-muted-foreground outline-none leading-6',
               'max-h-[40vh]',
               isCenter ? 'min-h-[96px]' : 'min-h-9'
             )}
@@ -100,7 +100,7 @@ export function AiChatComposer({
         <div className="px-3 pb-3 flex items-center justify-between">
           {/* Left: Attach button — Centrali: IconSquarePlus, 40x40, gray-400, hover bg-gray-200, rounded-full */}
           <button
-            className="h-10 w-10 rounded-full grid place-items-center text-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)] transition-colors"
+            className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground hover:bg-accent transition-colors"
             title="Attach"
             type="button"
           >
@@ -111,11 +111,11 @@ export function AiChatComposer({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-gray-200)] transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
               title="Model"
             >
               {modelLabel}
-              <ChevronDown className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
 
             <button
@@ -124,9 +124,9 @@ export function AiChatComposer({
                 'h-9 w-9 rounded-full grid place-items-center transition-colors',
                 voiceModeAvailable
                   ? voiceModeEnabled
-                    ? 'bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)]'
-                    : 'text-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)]'
-                  : 'text-[var(--color-gray-300)] cursor-not-allowed'
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'text-muted-foreground hover:bg-accent'
+                  : 'text-muted-foreground cursor-not-allowed'
               )}
               title={voiceModeAvailable ? `Voice mode ${voicePlaybackState}` : 'Voice unavailable'}
               disabled={!voiceModeAvailable}
@@ -139,7 +139,7 @@ export function AiChatComposer({
             {/* Send / Stop — Centrali: rounded-[0.7rem], p-[0.5rem], theme-bg, white icon */}
             {isStreaming ? (
               <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)] transition-colors"
+                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 title="Stop"
                 type="button"
                 onClick={onStop}
@@ -148,7 +148,7 @@ export function AiChatComposer({
               </button>
             ) : hasText ? (
               <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)] transition-colors"
+                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 title="Send"
                 type="button"
                 onClick={onSend}
@@ -162,13 +162,13 @@ export function AiChatComposer({
 
       {/* Helper text */}
       {shouldShowHelper && (
-        <div className="px-4 pt-2 flex items-center justify-between text-[12px] text-[var(--color-text-tertiary)]">
+        <div className="px-4 pt-2 flex items-center justify-between text-[12px] text-muted-foreground">
           <span>Shift+Enter for newline</span>
           {shouldShowClear && onClear && (
             <button
               type="button"
               onClick={onClear}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-[var(--color-gray-200)] transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clear

@@ -52,8 +52,8 @@ export function MessageContent({ className, from, ...props }: MessageContentProp
       className={cn(
         'w-fit max-w-full text-sm leading-relaxed rounded-lg px-3 py-2.5',
         isUser
-          ? 'bg-[var(--color-chat-user-bubble)] text-[var(--color-text-primary)]'
-          : 'bg-[var(--color-chat-bot-bubble)] text-[var(--color-text-primary)]',
+          ? 'bg-primary/10 text-foreground'
+          : 'bg-muted text-foreground',
         className
       )}
       {...props}
@@ -73,7 +73,7 @@ export function MessageAvatar({ className, initials = 'A', ...props }: MessageAv
   return (
     <div
       className={cn(
-        'flex-shrink-0 h-8 w-8 rounded-full bg-[var(--color-brand-primary)] grid place-items-center mr-2 mt-2',
+        'flex-shrink-0 h-8 w-8 rounded-full bg-primary grid place-items-center mr-2 mt-2',
         className
       )}
       {...props}

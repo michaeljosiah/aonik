@@ -45,7 +45,7 @@ import {
 } from '../lib/variantSelection';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 interface ContentVariantSheetProps {
   productId: string;
@@ -325,7 +325,7 @@ export function ContentVariantSheet({
 
         <SheetBody>
           {error && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
               <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
               <span className="flex-1">{error}</span>
               {conflict && (
@@ -343,11 +343,11 @@ export function ContentVariantSheet({
 
           <fieldset disabled={saving || reloading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Combination
               </p>
               {groups.length === 0 ? (
-                <p className="text-[12px] text-[var(--color-text-secondary)]">
+                <p className="text-[12px] text-muted-foreground">
                   This product offers no option groups, so it has no combinations to describe.
                 </p>
               ) : (
@@ -368,7 +368,7 @@ export function ContentVariantSheet({
                       />
                     ) : (
                       <label key={group.key} className="flex items-center gap-2">
-                        <span className="w-[130px] shrink-0 text-[12px] text-[var(--color-text-secondary)]">
+                        <span className="w-[130px] shrink-0 text-[12px] text-muted-foreground">
                           {group.label ?? group.key}
                         </span>
                         <select
@@ -394,7 +394,7 @@ export function ContentVariantSheet({
                 </div>
               )}
               {baseline && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Pill tone="muted" size="sm">
                     fixed
                   </Pill>
@@ -438,9 +438,9 @@ function MultiGroup({
   const picked = Array.isArray(value) ? value : value ? [value] : [];
   return (
     <div className="flex items-start gap-2">
-      <span className="mt-1 w-[130px] shrink-0 text-[12px] text-[var(--color-text-secondary)]">
+      <span className="mt-1 w-[130px] shrink-0 text-[12px] text-muted-foreground">
         {group.label ?? group.key}
-        <span className="ml-1 text-[10px] text-[var(--color-text-tertiary)]">any</span>
+        <span className="ml-1 text-[10px] text-muted-foreground">any</span>
       </span>
       <div className="flex flex-wrap gap-1.5">
         {group.choices.map((choice) => (
@@ -452,8 +452,8 @@ function MultiGroup({
             className={[
               'rounded-full border px-2.5 py-1 text-[11.5px]',
               picked.includes(choice.key)
-                ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/10 text-[var(--color-text-primary)]'
-                : 'border-dashed border-[var(--color-border)] text-[var(--color-text-tertiary)]',
+                ? 'border-primary bg-primary/10 text-foreground'
+                : 'border-dashed border-border text-muted-foreground',
               disabled ? 'cursor-default' : 'cursor-pointer',
             ].join(' ')}
           >

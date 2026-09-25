@@ -311,10 +311,10 @@ export function ContentBlockEditPage() {
         {/* Page Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            <h1 className="text-2xl font-bold text-foreground">
               {isNew ? 'Create Content Block' : 'Edit Content Block'}
             </h1>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="text-muted-foreground">
               {isNew
                 ? 'Create a new content block for dynamic content management.'
                 : `Editing: ${contentBlock?.title}`}
@@ -334,9 +334,9 @@ export function ContentBlockEditPage() {
 
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
-            <TabsTrigger value="general" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">General</TabsTrigger>
-            <TabsTrigger value="content" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">Content</TabsTrigger>
-            <TabsTrigger value="media" disabled={isNew} className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">
+            <TabsTrigger value="general" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">General</TabsTrigger>
+            <TabsTrigger value="content" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">Content</TabsTrigger>
+            <TabsTrigger value="media" disabled={isNew} className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary">
               Media ({contentBlock?.media.length || 0})
             </TabsTrigger>
           </TabsList>
@@ -345,7 +345,7 @@ export function ContentBlockEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                  <Layers className="w-5 h-5 text-primary" />
                   Content Block Details
                 </CardTitle>
               </CardHeader>
@@ -360,7 +360,7 @@ export function ContentBlockEditPage() {
                     placeholder="e.g., myspace.banner"
                     disabled={!isNew}
                   />
-                  <p className="text-xs text-[var(--color-text-secondary)]">
+                  <p className="text-xs text-muted-foreground">
                     Unique identifier for this content block. Cannot be changed after creation.
                   </p>
                 </div>
@@ -404,7 +404,7 @@ export function ContentBlockEditPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-muted-foreground">
                       Determines where this content block can be used in the application.
                     </p>
                   </div>
@@ -424,7 +424,7 @@ export function ContentBlockEditPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-muted-foreground">
                       Determines the content editing experience and how the body is interpreted.
                     </p>
                   </div>
@@ -441,7 +441,7 @@ export function ContentBlockEditPage() {
                       onChange={(e) => setLocale(e.target.value)}
                       placeholder="e.g., en"
                     />
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-muted-foreground">
                       ISO language code (e.g., en, fr, es)
                     </p>
                   </div>
@@ -455,17 +455,17 @@ export function ContentBlockEditPage() {
                       value={priority}
                       onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
                     />
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-muted-foreground">
                       Lower numbers display first when multiple blocks are in the same area.
                     </p>
                   </div>
                 </div>
 
                 {/* Enabled Switch */}
-                <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-light)] p-4">
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div className="space-y-0.5">
                     <Label htmlFor="isEnabled">Enabled</Label>
-                    <p className="text-sm text-[var(--color-text-secondary)]">
+                    <p className="text-sm text-muted-foreground">
                       Content block will be visible when enabled.
                     </p>
                   </div>
@@ -485,7 +485,7 @@ export function ContentBlockEditPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Video className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    <Video className="w-5 h-5 text-primary" />
                     Video Settings
                   </CardTitle>
                 </CardHeader>
@@ -501,13 +501,13 @@ export function ContentBlockEditPage() {
                     />
                     {extractedVideoId && /^[a-zA-Z0-9_-]{11}$/.test(extractedVideoId) && (
                       <div className="mt-3 space-y-2">
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                          Video ID: <span className="font-mono font-medium text-[var(--color-text-primary)]">{extractedVideoId}</span>
+                        <p className="text-xs text-muted-foreground">
+                          Video ID: <span className="font-mono font-medium text-foreground">{extractedVideoId}</span>
                         </p>
                         <img
                           src={`https://img.youtube.com/vi/${extractedVideoId}/hqdefault.jpg`}
                           alt="Video thumbnail preview"
-                          className="rounded-lg border border-[var(--color-border-light)] max-w-xs"
+                          className="rounded-lg border border-border max-w-xs"
                         />
                       </div>
                     )}
@@ -567,7 +567,7 @@ export function ContentBlockEditPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    <FileText className="w-5 h-5 text-primary" />
                     Markdown Editor
                   </CardTitle>
                 </CardHeader>
@@ -586,13 +586,13 @@ export function ContentBlockEditPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Preview</Label>
-                      <div className="rounded-lg border border-[var(--color-border-light)] p-4 min-h-[24rem] overflow-auto prose prose-sm max-w-none text-[var(--color-text-primary)]">
+                      <div className="rounded-lg border border-border p-4 min-h-[24rem] overflow-auto prose prose-sm max-w-none text-foreground">
                         {body ? (
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {body}
                           </ReactMarkdown>
                         ) : (
-                          <p className="text-[var(--color-text-secondary)] italic">
+                          <p className="text-muted-foreground italic">
                             Markdown preview will appear here...
                           </p>
                         )}
@@ -605,7 +605,7 @@ export function ContentBlockEditPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Code className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    <Code className="w-5 h-5 text-primary" />
                     HTML Editor
                   </CardTitle>
                 </CardHeader>
@@ -625,12 +625,12 @@ export function ContentBlockEditPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    <ImageIcon className="w-5 h-5 text-primary" />
                     Image Set
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     Use the <span className="font-medium">Media</span> tab to add and manage images for this content block.
                   </p>
                   <div className="space-y-2">
@@ -650,7 +650,7 @@ export function ContentBlockEditPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Code className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    <Code className="w-5 h-5 text-primary" />
                     JSON / Raw Content
                   </CardTitle>
                 </CardHeader>
@@ -676,7 +676,7 @@ export function ContentBlockEditPage() {
                       rows={4}
                       className="font-mono text-sm"
                     />
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-muted-foreground">
                       Additional structured metadata used by the mobile app for content targeting.
                     </p>
                   </div>
@@ -689,13 +689,13 @@ export function ContentBlockEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Image className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                  <Image className="w-5 h-5 text-primary" />
                   Media Library
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Add Media Form */}
-                <div className="space-y-4 rounded-lg border border-[var(--color-border-light)] p-4">
+                <div className="space-y-4 rounded-lg border border-border p-4">
                   <h3 className="font-medium">Add New Media</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">

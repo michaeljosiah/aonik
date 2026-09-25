@@ -22,13 +22,13 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[12px] text-muted-foreground">
           {slug}
         </span>
         <Pill tone="muted" size="sm">
           {kind}
         </Pill>
-        <span className="text-[11px] text-[var(--color-text-tertiary)]">
+        <span className="text-[11px] text-muted-foreground">
           Slug is fixed after create — links and content bindings resolve against it
         </span>
       </div>
@@ -109,11 +109,11 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
           spellCheck={false}
           className={`${inputClass} font-[family-name:var(--font-mono)] text-[12px]`}
         />
-        <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
+        <p className="mt-1 text-[11px] text-muted-foreground">
           The attribute contract facet groups match on — paths traverse from this JSON's root.
         </p>
         {attributesError && (
-          <p className="mt-1 text-[11px] text-[var(--color-error)]">{attributesError}</p>
+          <p className="mt-1 text-[11px] text-destructive">{attributesError}</p>
         )}
       </Field>
     </div>
@@ -123,7 +123,7 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
 // ─── Small shared editor pieces ────────────────────────────────────────────
 
 export const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 export function Field({
   label,
@@ -136,7 +136,7 @@ export function Field({
 }) {
   return (
     <label className={`flex flex-col gap-1 ${className ?? ''}`}>
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </span>
       {children}
@@ -162,18 +162,18 @@ export function ChipEditor({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-1.5">
       {values.map((value, index) => (
         <span
           key={`${value}-${index}`}
-          className="flex items-center gap-1 rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[11.5px] text-[var(--color-text-primary)]"
+          className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11.5px] text-foreground"
         >
           {value}
           <button
             type="button"
             aria-label={`Remove ${value}`}
             onClick={() => onChange(values.filter((_, i) => i !== index))}
-            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
+            className="text-muted-foreground hover:text-destructive"
           >
             ×
           </button>

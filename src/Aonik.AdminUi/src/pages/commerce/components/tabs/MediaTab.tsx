@@ -41,13 +41,13 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[11px] text-[var(--color-text-tertiary)]">
+      <p className="text-[11px] text-muted-foreground">
         Order is position — the first image is the hero. Saving replaces the whole list.
         {heroIndex === -1 && items.length > 0 && ' No image here, so the storefront has no hero.'}
       </p>
 
       {items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-[var(--color-border)] py-6 text-center text-sm text-[var(--color-text-secondary)]">
+        <p className="rounded-md border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
           No media yet.
         </p>
       ) : (
@@ -55,7 +55,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
           {items.map((item, index) => (
             <li
               key={`${item.url}-${index}`}
-              className="flex items-center gap-2.5 rounded-md border border-[var(--color-border-light)] p-2"
+              className="flex items-center gap-2.5 rounded-md border border-border p-2"
             >
               <img
                 src={item.url}
@@ -67,11 +67,11 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                   e.currentTarget.style.visibility = 'hidden';
                 }}
               />
-              <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+              <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                 {item.url}
               </span>
               {index === heroIndex && (
-                <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-secondary)]">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                   Hero
                 </span>
               )}
@@ -80,7 +80,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                 aria-label="Move up"
                 disabled={index === 0}
                 onClick={() => onChange(moveItem(items, index, index - 1))}
-                className="rounded p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] disabled:opacity-30"
+                className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
               >
                 <ArrowUp className="h-3.5 w-3.5" />
               </button>
@@ -89,7 +89,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                 aria-label="Move down"
                 disabled={index === items.length - 1}
                 onClick={() => onChange(moveItem(items, index, index + 1))}
-                className="rounded p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] disabled:opacity-30"
+                className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
               >
                 <ArrowDown className="h-3.5 w-3.5" />
               </button>
@@ -97,7 +97,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                 type="button"
                 aria-label="Remove"
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
-                className="rounded p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
+                className="rounded p-1 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -123,12 +123,12 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
           <button
             type="button"
             onClick={add}
-            className="rounded-md border border-[var(--color-border)] px-3 text-[13px] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]"
+            className="rounded-md border border-border px-3 text-[13px] text-foreground hover:bg-muted"
           >
             Add
           </button>
         </div>
-        {addError && <p className="mt-1 text-[11px] text-[var(--color-error)]">{addError}</p>}
+        {addError && <p className="mt-1 text-[11px] text-destructive">{addError}</p>}
       </Field>
     </div>
   );

@@ -35,8 +35,8 @@ function ViewToggle({ open, set, label, icon }: ToggleProps) {
       className={cn(
         'inline-flex items-center gap-1.5 rounded border-0 text-[11.5px] font-medium transition-colors',
         open
-          ? 'bg-[var(--color-surface)] text-[var(--color-text-primary)]'
-          : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+          ? 'bg-card text-foreground'
+          : 'bg-transparent text-muted-foreground hover:text-foreground',
       )}
       style={{
         padding: '5px 10px',
@@ -84,18 +84,18 @@ export function EditorHeader({
 }: EditorHeaderProps) {
   return (
     <div
-      className="flex flex-none items-center gap-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="flex flex-none items-center gap-3 border-b border-border bg-card"
       style={{ height: 52, padding: '0 16px' }}
     >
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex items-center gap-1.5 rounded-md text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
+        className="inline-flex items-center gap-1.5 rounded-md text-[12px] text-muted-foreground hover:bg-muted"
         style={{ padding: '6px 10px' }}
       >
         <ArrowLeft size={12} /> Back to Workflows
       </button>
-      <span className="h-5 w-px bg-[var(--color-border-light)]" />
+      <span className="h-5 w-px bg-border" />
 
       {/* Title block */}
       <div className="flex min-w-0 items-center gap-2.5">
@@ -113,17 +113,17 @@ export function EditorHeader({
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+            <span className="text-[14px] font-semibold text-foreground">
               {workflow.name}
             </span>
             <span
-              className="text-[10.5px] text-[var(--color-text-tertiary)]"
+              className="text-[10.5px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {workflow.id}
             </span>
             <span
-              className="rounded-[3px] bg-[var(--color-surface-inset)] px-1.5 py-px text-[10px] text-[var(--color-text-tertiary)]"
+              className="rounded-[3px] bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {workflow.version}
@@ -169,7 +169,7 @@ export function EditorHeader({
 
       {/* View toggles */}
       <div
-        className="flex items-center gap-0.5 rounded-md bg-[var(--color-surface-inset)]"
+        className="flex items-center gap-0.5 rounded-md bg-muted"
         style={{ padding: 2 }}
       >
         <ViewToggle

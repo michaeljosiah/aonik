@@ -46,9 +46,9 @@ export function ContentWorkbench({
   if (state === 'none' || !block) {
     return (
       <AonikCard padding={0}>
-        <div className="m-3 flex flex-col items-center gap-2 rounded-md border border-dashed border-[var(--color-border)] px-4 py-10 text-center">
-          <p className="text-[13px] text-[var(--color-text-primary)]">Nothing published</p>
-          <p className="max-w-[380px] text-[12px] text-[var(--color-text-secondary)]">
+        <div className="m-3 flex flex-col items-center gap-2 rounded-md border border-dashed border-border px-4 py-10 text-center">
+          <p className="text-[13px] text-foreground">Nothing published</p>
+          <p className="max-w-[380px] text-[12px] text-muted-foreground">
             The product page shows its explicit not-yet-published state. No figures, no
             declarations, nothing withheld — there is simply no block.
           </p>
@@ -113,7 +113,7 @@ export function ContentWorkbench({
       }
     >
       {servedByVariant && (
-        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
           <Info className="mt-px h-4 w-4 shrink-0" aria-hidden />
           <span>
             An authored COMBINATION is serving this selection, not the default block — editing
@@ -126,7 +126,7 @@ export function ContentWorkbench({
       )}
 
       {state === 'review' && !servedByVariant && (
-        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
+        <p className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-warning bg-warning-subtle px-3 py-2 text-[12px] text-warning">
           <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden />
           <span>
             The standard preparation changed underneath this block. Until it is confirmed,
@@ -157,15 +157,15 @@ function FigureGrid({ nutrition }: { nutrition: ProductContentDto['nutrition'] }
         const value = nutrition[field.key as FigureKey];
         return (
           <div key={field.key} className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               {field.label}
             </span>
-            <span className="font-[family-name:var(--font-mono)] text-[13px] tabular-nums text-[var(--color-text-primary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[13px] tabular-nums text-foreground">
               {/* A DASH for null, never 0. "0 g salt" is a published claim about the food;
                   nothing published is the absence of one. */}
               {value == null ? '—' : `${value}${field.unit === 'kcal' ? '' : ''}`}
               {value != null && (
-                <span className="ml-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                <span className="ml-0.5 text-[10px] text-muted-foreground">
                   {field.unit}
                 </span>
               )}
@@ -189,18 +189,18 @@ function DeclarationCell({
 }) {
   const render = renderDeclaration(text, underReview ? 'review' : 'authored');
   return (
-    <div className="rounded-md border border-[var(--color-border-light)] p-2.5">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="rounded-md border border-border p-2.5">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </p>
       {render.kind === 'authored' && (
-        <p className="text-[12.5px] text-[var(--color-text-primary)]">{render.text}</p>
+        <p className="text-[12.5px] text-foreground">{render.text}</p>
       )}
       {render.kind === 'withheld-review' && (
-        <p className="text-[12.5px] italic text-[var(--color-warning)]">Withheld while under review</p>
+        <p className="text-[12.5px] italic text-warning">Withheld while under review</p>
       )}
       {render.kind === 'absent' && (
-        <p className="text-[12.5px] italic text-[var(--color-text-tertiary)]">
+        <p className="text-[12.5px] italic text-muted-foreground">
           Not yet published — exact-authored or absent, never substituted
         </p>
       )}
@@ -222,13 +222,13 @@ function Heating({
   const hasSteps = !!steps && steps.length > 0;
 
   return (
-    <div className="mt-3 rounded-md border border-[var(--color-border-light)] p-2.5">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="mt-3 rounded-md border border-border p-2.5">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         Heating &amp; usage
       </p>
       {withheld ? (
         // Withheld under review, or withheld because the matched variant authored none.
-        <p className="text-[12.5px] italic text-[var(--color-warning)]">
+        <p className="text-[12.5px] italic text-warning">
           {underReview
             ? 'Withheld while under review'
             : 'Withheld — this combination authored no heating, and nothing is inherited'}
@@ -240,7 +240,7 @@ function Heating({
               <Pill tone="muted" size="sm">
                 {step.method}
               </Pill>
-              <span className="text-[12.5px] text-[var(--color-text-primary)]">{step.body}</span>
+              <span className="text-[12.5px] text-foreground">{step.body}</span>
             </li>
           ))}
         </ul>
@@ -248,7 +248,7 @@ function Heating({
         // Not withheld and no steps: an authored EMPTY panel. The block upsert coerces a null
         // heatingJson to "[]", so this is what a block with no steps genuinely serves —
         // calling it "not yet published" would report a gap that is not being flagged.
-        <p className="text-[12.5px] italic text-[var(--color-text-tertiary)]">
+        <p className="text-[12.5px] italic text-muted-foreground">
           No steps published — customers see an explicitly empty panel, not a withheld one
         </p>
       )}

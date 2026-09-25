@@ -70,7 +70,7 @@ export function NodeShape({
 
   let ringColor = 'transparent';
   if (traceCurrent) ringColor = '#3ab795';
-  else if (selected) ringColor = 'var(--color-brand-primary)';
+  else if (selected) ringColor = 'var(--primary)';
   else if (hasError) ringColor = '#c44536';
   const ringWidth = traceCurrent || selected || hasError ? 2 : 0;
 
@@ -100,8 +100,8 @@ export function NodeShape({
         width={NODE_W}
         height={NODE_H}
         rx={7}
-        fill="var(--color-surface)"
-        stroke="var(--color-border-light)"
+        fill="var(--card)"
+        stroke="var(--border)"
         strokeWidth={1}
         filter="drop-shadow(0 1px 2px rgba(0,0,0,0.04))"
         onMouseDown={onMouseDown}
@@ -200,7 +200,7 @@ export function NodeShape({
             style={{
               fontSize: 12.5,
               fontWeight: 600,
-              color: 'var(--color-text-primary)',
+              color: 'var(--foreground)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -212,7 +212,7 @@ export function NodeShape({
             <div
               style={{
                 fontSize: 10.5,
-                color: 'var(--color-text-tertiary)',
+                color: 'var(--muted-foreground)',
                 fontFamily: 'var(--font-mono)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -241,7 +241,7 @@ export function NodeShape({
             cx={0}
             cy={0}
             r={PORT_R}
-            fill="var(--color-surface)"
+            fill="var(--card)"
             stroke={tint}
             strokeWidth={2}
             pointerEvents="none"
@@ -270,7 +270,7 @@ export function NodeShape({
               cy={0}
               r={PORT_R}
               fill={tint}
-              stroke="var(--color-surface)"
+              stroke="var(--card)"
               strokeWidth={2}
               pointerEvents="none"
             />
@@ -280,7 +280,7 @@ export function NodeShape({
                 y={3}
                 fontSize="9"
                 fontFamily="var(--font-mono)"
-                fill="var(--color-text-tertiary)"
+                fill="var(--muted-foreground)"
                 pointerEvents="none"
               >
                 {node.kind === 'decision'

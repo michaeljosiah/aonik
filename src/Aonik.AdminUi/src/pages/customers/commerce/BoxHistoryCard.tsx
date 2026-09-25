@@ -26,14 +26,14 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
       subtitle="Party-scoped — exactly what the customer sees in their own account"
     >
       {orders.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
+        <p className="py-4 text-center text-sm text-muted-foreground">
           No storefront orders yet.
         </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 <th className="px-2 py-2.5">Order</th>
                 <th className="px-2 py-2.5">Date</th>
                 <th className="px-2 py-2.5">Size</th>
@@ -48,16 +48,16 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                   className={
                     idx === orders.length - 1
                       ? ''
-                      : 'border-b border-[var(--color-border-light)]'
+                      : 'border-b border-border'
                   }
                 >
                   <td className="px-2 py-2.5">
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-primary)]">
+                    <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-foreground">
                       ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
                     </span>
                   </td>
                   <td className="px-2 py-2.5">
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+                    <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                       {formatDate(order.placedAtUtc)}
                     </span>
                   </td>
@@ -65,7 +65,7 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                     {/* Extras summary needs per-order line detail the party-scoped summary
                         does not carry, so the column shows size alone rather than an
                         approximation. */}
-                    <span className="text-[12.5px] text-[var(--color-text-secondary)]">
+                    <span className="text-[12.5px] text-muted-foreground">
                       {order.boxSize != null ? `${order.boxSize}` : '—'}
                     </span>
                   </td>
@@ -75,7 +75,7 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                     </Pill>
                   </td>
                   <td className="px-2 py-2.5 text-right">
-                    <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                    <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-foreground">
                       {formatCurrency(order.total, order.currency)}
                     </span>
                   </td>

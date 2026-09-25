@@ -75,12 +75,12 @@ export function OverviewTab({ data, onOpenPartner, onViewAllPartners }: Overview
             </Button>
           }
           className="lg:col-span-2"
-          bodyClassName="divide-y divide-[var(--color-border-light)]"
+          bodyClassName="divide-y divide-border"
         >
           {blank ? (
             <LoadingRows />
           ) : partners.length === 0 ? (
-            <p className="px-5 py-10 text-center text-[13px] text-[var(--color-text-tertiary)]">
+            <p className="px-5 py-10 text-center text-[13px] text-muted-foreground">
               No partners connected yet.
             </p>
           ) : (
@@ -93,12 +93,12 @@ export function OverviewTab({ data, onOpenPartner, onViewAllPartners }: Overview
         <Panel
           title="Recently updated"
           subtitle="Latest configuration changes"
-          bodyClassName="divide-y divide-[var(--color-border-light)]"
+          bodyClassName="divide-y divide-border"
         >
           {blank ? (
             <LoadingRows rows={4} />
           ) : recentlyUpdated.length === 0 ? (
-            <p className="px-5 py-10 text-center text-[13px] text-[var(--color-text-tertiary)]">
+            <p className="px-5 py-10 text-center text-[13px] text-muted-foreground">
               No recent changes.
             </p>
           ) : (
@@ -107,12 +107,12 @@ export function OverviewTab({ data, onOpenPartner, onViewAllPartners }: Overview
                 key={p.partnerId}
                 type="button"
                 onClick={() => onOpenPartner(p.partnerId)}
-                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[var(--color-surface-inset)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted"
               >
                 <AgentAvatar name={p.name} size={28} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{p.name}</p>
-                  <p className="text-[11px] text-[var(--color-text-tertiary)]">{formatRelative(p.updatedAt)}</p>
+                  <p className="truncate text-[13px] font-medium text-foreground">{p.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{formatRelative(p.updatedAt)}</p>
                 </div>
                 <Pill tone={partnerStatusTone(p.status)} dot>
                   {p.status}
@@ -131,12 +131,12 @@ function HealthRow({ partner, onOpen }: { partner: PartnerListItem; onOpen: () =
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-surface-inset)]"
+      className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition-colors hover:bg-muted"
     >
       <AgentAvatar name={partner.name} size={36} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">{partner.name}</p>
-        <div className="mt-0.5 flex items-center gap-3 text-[11.5px] text-[var(--color-text-tertiary)]">
+        <p className="truncate text-sm font-medium text-foreground">{partner.name}</p>
+        <div className="mt-0.5 flex items-center gap-3 text-[11.5px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Building2 size={11} />
             {partner.branchCount}
@@ -167,10 +167,10 @@ function LoadingRows({ rows = 6 }: { rows?: number }) {
     <>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3.5 px-5 py-3.5">
-          <div className="h-9 w-9 animate-pulse rounded-lg bg-[var(--color-surface-inset)]" />
+          <div className="h-9 w-9 animate-pulse rounded-lg bg-muted" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--color-surface-inset)]" />
-            <div className="h-2.5 w-1/4 animate-pulse rounded bg-[var(--color-surface-inset)]" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+            <div className="h-2.5 w-1/4 animate-pulse rounded bg-muted" />
           </div>
         </div>
       ))}

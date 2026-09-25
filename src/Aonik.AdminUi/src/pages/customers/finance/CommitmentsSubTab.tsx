@@ -39,9 +39,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string }> = {
-  Active: { bg: 'bg-[var(--color-success-light)]', text: 'text-[var(--color-success)]' },
-  Paused: { bg: 'bg-[var(--color-warning-light)]', text: 'text-[var(--color-warning)]' },
-  Cancelled: { bg: 'bg-[var(--color-surface-inset)]', text: 'text-[var(--color-text-tertiary)]' },
+  Active: { bg: 'bg-success-subtle', text: 'text-success' },
+  Paused: { bg: 'bg-warning-subtle', text: 'text-warning' },
+  Cancelled: { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -50,8 +50,8 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string }> = {
 
 function CommitmentRow({ item }: { item: CommitmentItem }) {
   const status = STATUS_CONFIG[item.status] ?? {
-    bg: 'bg-[var(--color-surface-inset)]',
-    text: 'text-[var(--color-text-secondary)]',
+    bg: 'bg-muted',
+    text: 'text-muted-foreground',
   };
   const isDueSoon =
     item.status === 'Active' && new Date(item.dueDate) <= new Date(Date.now() + 7 * 86400_000);
@@ -61,10 +61,10 @@ function CommitmentRow({ item }: { item: CommitmentItem }) {
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+            <p className="text-sm font-semibold text-foreground truncate">
               {item.displayName}
             </p>
-            <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {TYPE_LABELS[item.commitmentType] ?? item.commitmentType}
               {item.frequency ? ` · ${item.frequency}` : ''}
               {item.category ? ` · ${item.category}` : ''}
@@ -72,7 +72,7 @@ function CommitmentRow({ item }: { item: CommitmentItem }) {
           </div>
 
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <p className="text-sm font-bold text-[var(--color-text-primary)]">
+            <p className="text-sm font-bold text-foreground">
               {formatCurrency(item.amount, item.currency)}
             </p>
             <Badge className={`rounded-full text-xs ${status.bg} ${status.text}`}>
@@ -81,15 +81,15 @@ function CommitmentRow({ item }: { item: CommitmentItem }) {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-3 text-xs text-[var(--color-text-tertiary)]">
+        <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
           <span
-            className={isDueSoon ? 'font-medium text-[var(--color-warning)]' : ''}
+            className={isDueSoon ? 'font-medium text-warning' : ''}
           >
             Due {formatDate(item.dueDate)}
             {isDueSoon ? ' — soon' : ''}
           </span>
           {item.autopay && (
-            <span className="text-[var(--color-brand-primary)]">Autopay</span>
+            <span className="text-primary">Autopay</span>
           )}
           {item.lastPaidAt && (
             <span>Last paid {formatDate(item.lastPaidAt)}</span>
@@ -138,11 +138,11 @@ export function CommitmentsSubTab({ userId }: { userId: string }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-[var(--color-text-primary)]">
+          <p className="text-sm font-medium text-foreground">
             {items.length} commitment{items.length !== 1 ? 's' : ''}
           </p>
           {totals && totals.totalUpcomingAmount > 0 && (
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               {totals.dueSoonCount > 0 ? `${totals.dueSoonCount} due within 7 days` : 'No upcoming payments'}
             </p>
           )}
@@ -154,7 +154,7 @@ export function CommitmentsSubTab({ userId }: { userId: string }) {
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -162,15 +162,15 @@ export function CommitmentsSubTab({ userId }: { userId: string }) {
       {/* Loading */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface-inset)]">
-            <CalendarClock className="h-7 w-7 text-[var(--color-text-tertiary)]" />
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <CalendarClock className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="text-sm font-medium text-[var(--color-text-secondary)]">No commitments</p>
-          <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+          <p className="text-sm font-medium text-muted-foreground">No commitments</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             No bills, subscriptions, or recurring commitments found.
           </p>
         </div>

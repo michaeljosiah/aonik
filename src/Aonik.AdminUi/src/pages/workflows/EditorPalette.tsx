@@ -64,7 +64,7 @@ function PaletteItem({ kind }: PaletteItemProps) {
     <div
       draggable
       onDragStart={handleDragStart}
-      className="group flex select-none items-center gap-2.5 rounded-md border border-transparent hover:border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)]"
+      className="group flex select-none items-center gap-2.5 rounded-md border border-transparent hover:border-border hover:bg-muted"
       style={{ padding: '7px 8px', cursor: 'grab' }}
     >
       <span
@@ -74,14 +74,14 @@ function PaletteItem({ kind }: PaletteItemProps) {
         <Icon size={11} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-[12px] font-medium text-[var(--color-text-primary)]">
+        <div className="text-[12px] font-medium text-foreground">
           {meta.label}
         </div>
-        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-muted-foreground">
           {meta.desc}
         </div>
       </div>
-      <MoreHorizontal size={10} className="text-[var(--color-text-tertiary)]" />
+      <MoreHorizontal size={10} className="text-muted-foreground" />
     </div>
   );
 }
@@ -94,22 +94,22 @@ export interface EditorPaletteProps {
 export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
   return (
     <div
-      className="flex flex-none flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface)] transition-[width] duration-150"
+      className="flex flex-none flex-col border-r border-border bg-card transition-[width] duration-150"
       style={{ width: collapsed ? 48 : 240 }}
     >
       <div
-        className="flex items-center border-b border-[var(--color-border-light)]"
+        className="flex items-center border-b border-border"
         style={{ padding: collapsed ? '12px 0' : '12px 14px' }}
       >
         {!collapsed && (
-          <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
+          <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             Nodes
           </span>
         )}
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded p-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)]"
+          className="rounded p-1.5 text-muted-foreground hover:bg-muted"
           style={{ margin: collapsed ? '0 auto' : 0 }}
           aria-label={collapsed ? 'Expand palette' : 'Collapse palette'}
         >
@@ -122,7 +122,7 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
           {GROUPS.map((g) => (
             <div key={g.name} className="mb-3.5">
               <div
-                className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]"
+                className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
                 style={{ padding: '6px 8px' }}
               >
                 {g.name}
@@ -135,10 +135,10 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
             </div>
           ))}
           <div
-            className="mt-1.5 flex gap-2 rounded-md bg-[var(--color-brand-primary-10)] text-[11px] text-[var(--color-text-secondary)]"
+            className="mt-1.5 flex gap-2 rounded-md bg-primary/10 text-[11px] text-muted-foreground"
             style={{ margin: '6px 8px 0', padding: 10, lineHeight: 1.5 }}
           >
-            <Info size={11} className="flex-none text-[var(--color-brand-primary)]" />
+            <Info size={11} className="flex-none text-primary" />
             <span>
               Drag any node onto the canvas. Hold <b>Space</b> to pan.
             </span>

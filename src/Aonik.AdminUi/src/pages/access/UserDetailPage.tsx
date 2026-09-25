@@ -36,19 +36,19 @@ import type { AccessUserDetail, UpdateUserProfileRequest, UserDiagnosticResult }
 // Detail Item Component
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="py-3 border-b border-[var(--color-border-light)] last:border-b-0">
-      <p className="text-xs font-medium text-[var(--color-text-primary)] mb-0.5">{label}</p>
-      <p className="text-sm text-[var(--color-text-secondary)]">{value}</p>
+    <div className="py-3 border-b border-border last:border-b-0">
+      <p className="text-xs font-medium text-foreground mb-0.5">{label}</p>
+      <p className="text-sm text-muted-foreground">{value}</p>
     </div>
   );
 }
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
-  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Invited: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Deactivated: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
-  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
+  Active: { text: 'text-success', bg: 'bg-success-subtle' },
+  Invited: { text: 'text-warning', bg: 'bg-warning-subtle' },
+  Pending: { text: 'text-warning', bg: 'bg-warning-subtle' },
+  Deactivated: { text: 'text-muted-foreground', bg: 'bg-muted' },
+  Suspended: { text: 'text-destructive', bg: 'bg-destructive/10' },
 };
 
 export function UserDetailPage() {
@@ -318,9 +318,9 @@ export function UserDetailPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--color-error)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">User Not Found</h2>
-          <p className="text-[var(--color-text-secondary)] mb-4">The user you're looking for doesn't exist or has been deleted.</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">User Not Found</h2>
+          <p className="text-muted-foreground mb-4">The user you're looking for doesn't exist or has been deleted.</p>
           <Button onClick={() => navigate('/access/users')}>
             Back to Users
           </Button>
@@ -329,14 +329,14 @@ export function UserDetailPage() {
     );
   }
 
-  const statusStyle = statusStyles[user.status] ?? { text: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]' };
+  const statusStyle = statusStyles[user.status] ?? { text: 'text-muted-foreground', bg: 'bg-muted' };
 
   return (
     <div className="h-full overflow-auto bg-background">
       {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="px-6 py-4 flex items-center justify-between border-b border-border bg-card">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">User Details</h1>
+          <h1 className="text-lg font-semibold text-foreground">User Details</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* Spec 026 Part 1 — only meaningful for placeholders that haven't accepted yet. */}
@@ -371,7 +371,7 @@ export function UserDetailPage() {
             variant="outline"
             size="sm"
             onClick={() => setDeleteDialogOpen(true)}
-            className="border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+            className="border-destructive text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Delete user
@@ -382,9 +382,9 @@ export function UserDetailPage() {
       {/* Action message banner */}
       {actionMessage && (
         <div className="px-6 pt-4">
-          <Card className="border-[var(--color-info)] bg-[var(--color-info-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-text-primary)]">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[var(--color-info)]" />
+          <Card className="border-info bg-info-subtle">
+            <CardContent className="p-4 flex items-center gap-3 text-foreground">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-info" />
               <span className="flex-1 text-sm">{actionMessage}</span>
               <Button variant="ghost" size="sm" onClick={() => setActionMessage(null)}>
                 Dismiss
@@ -397,8 +397,8 @@ export function UserDetailPage() {
       {/* Error Alert */}
       {error && (
         <div className="px-6 pt-4">
-          <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="p-4 flex items-center gap-3 text-destructive">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1">{error}</span>
               <Button variant="ghost" size="sm" onClick={loadUser}>
@@ -412,17 +412,17 @@ export function UserDetailPage() {
       {/* Diagnostic Banner */}
       {diagnostic?.hasIssues && (
         <div className="px-6 pt-4">
-          <Card className="border-[var(--color-warning)] bg-[var(--color-warning-light)]">
+          <Card className="border-warning bg-warning-subtle">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 text-[var(--color-warning)] mt-0.5" />
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-warning mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  <p className="text-sm font-medium text-foreground mb-1">
                     {diagnostic.issues.length} issue{diagnostic.issues.length !== 1 ? 's' : ''} detected
                   </p>
                   <ul className="space-y-1">
                     {diagnostic.issues.map((issue) => (
-                      <li key={issue.code} className="text-xs text-[var(--color-text-secondary)]">
+                      <li key={issue.code} className="text-xs text-muted-foreground">
                         {issue.description}
                       </li>
                     ))}
@@ -453,14 +453,14 @@ export function UserDetailPage() {
       {/* Repair Success */}
       {repairSuccess && repairSuccess.length > 0 && !diagnostic?.hasIssues && (
         <div className="px-6 pt-4">
-          <Card className="border-[var(--color-success)] bg-[var(--color-success-light)]">
+          <Card className="border-success bg-success-subtle">
             <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[var(--color-success)]" />
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-success" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                <p className="text-sm font-medium text-foreground">
                   Repairs applied successfully
                 </p>
-                <p className="text-xs text-[var(--color-text-secondary)]">
+                <p className="text-xs text-muted-foreground">
                   {repairSuccess.join('. ')}.
                 </p>
               </div>
@@ -497,8 +497,8 @@ export function UserDetailPage() {
                             className={imageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
                           />
                           {imageLoading && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
-                              <div className="w-8 h-8 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                              <div className="w-8 h-8 border-2 border-border border-t-primary rounded-full animate-spin" />
                             </div>
                           )}
                         </>
@@ -529,10 +529,10 @@ export function UserDetailPage() {
                         <button
                           onClick={handleDeletePhoto}
                           disabled={uploadingPhoto}
-                          className="p-2 bg-white rounded-full hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors disabled:opacity-50"
+                          className="p-2 bg-white rounded-full hover:bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] transition-colors disabled:opacity-50"
                           title="Delete photo"
                         >
-                          <Trash2 className="w-4 h-4 text-[var(--color-danger)]" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </button>
                       )}
                     </div>
@@ -547,53 +547,53 @@ export function UserDetailPage() {
                     />
                     
                     {user.status === 'Active' && (
-                      <span className="absolute bottom-0 right-0 w-4 h-4 bg-[var(--color-success)] border-2 border-white rounded-full" />
+                      <span className="absolute bottom-0 right-0 w-4 h-4 bg-success border-2 border-white rounded-full" />
                     )}
                   </div>
                   
                   {/* Photo Error Message */}
                   {photoError && (
-                    <div className="mt-2 text-xs text-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 rounded">
+                    <div className="mt-2 text-xs text-destructive bg-destructive/10 px-3 py-2 rounded">
                       {photoError}
                     </div>
                   )}
                   
-                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  <h2 className="text-lg font-semibold text-foreground">
                     {getFullName()}
                   </h2>
-                  <p className="text-sm text-[var(--color-text-tertiary)]">
+                  <p className="text-sm text-muted-foreground">
                     {user.personProfile?.occupation || user.partyType || 'User'}
                   </p>
                 </div>
 
                 {/* Stats */}
-                <div className="flex justify-center gap-6 mb-6 pb-6 border-b border-[var(--color-border-light)]">
+                <div className="flex justify-center gap-6 mb-6 pb-6 border-b border-border">
                   <div className="text-center">
                     <div className="flex items-center gap-1 justify-center">
-                      <span className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      <span className="text-lg font-semibold text-foreground">
                         {user.roles?.length || 0}
                       </span>
-                      <TrendingUp className="w-3 h-3 text-[var(--color-success)]" />
+                      <TrendingUp className="w-3 h-3 text-success" />
                     </div>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Roles</p>
+                    <p className="text-xs text-muted-foreground">Roles</p>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center gap-1 justify-center">
-                      <span className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      <span className="text-lg font-semibold text-foreground">
                         {user.permissions?.length || 0}
                       </span>
-                      <TrendingDown className="w-3 h-3 text-[var(--color-error)]" />
+                      <TrendingDown className="w-3 h-3 text-destructive" />
                     </div>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Permissions</p>
+                    <p className="text-xs text-muted-foreground">Permissions</p>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center gap-1 justify-center">
-                      <span className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      <span className="text-lg font-semibold text-foreground">
                         {user.lastLoginAt ? '1' : '0'}
                       </span>
-                      <TrendingUp className="w-3 h-3 text-[var(--color-success)]" />
+                      <TrendingUp className="w-3 h-3 text-success" />
                     </div>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Logins</p>
+                    <p className="text-xs text-muted-foreground">Logins</p>
                   </div>
                 </div>
 
@@ -604,11 +604,11 @@ export function UserDetailPage() {
                       className="flex items-center gap-2 cursor-pointer" 
                       onClick={() => setDetailsExpanded(!detailsExpanded)}
                     >
-                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Details</span>
+                      <span className="text-sm font-medium text-foreground">Details</span>
                       {detailsExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       )}
                     </div>
                     {user.personProfile && (
@@ -631,7 +631,7 @@ export function UserDetailPage() {
                           {user.status === 'Active' ? 'Premium user' : user.status}
                         </Badge>
                         {user.personProfile?.idvStatus && (
-                          <Badge className="ml-2 bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                          <Badge className="ml-2 bg-info-subtle text-info text-xs">
                             IDV: {user.personProfile.idvStatus}
                           </Badge>
                         )}
@@ -663,26 +663,26 @@ export function UserDetailPage() {
 
                 {/* Contact Information */}
                 {user.contacts && user.contacts.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
-                    <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Contact Information</h3>
+                  <div className="mt-6 pt-6 border-t border-border">
+                    <h3 className="text-sm font-medium text-foreground mb-3">Contact Information</h3>
                     <div className="space-y-2">
                       {user.contacts.map(contact => (
                         <div key={contact.contactId} className="flex items-start gap-2 text-sm">
                           {contact.type === 'Email' ? (
-                            <Mail className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                            <Mail className="w-4 h-4 text-muted-foreground mt-0.5" />
                           ) : (
-                            <Phone className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                            <Phone className="w-4 h-4 text-muted-foreground mt-0.5" />
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-[var(--color-text-secondary)] truncate">{contact.value}</span>
+                              <span className="text-muted-foreground truncate">{contact.value}</span>
                               {contact.isPrimary && (
-                                <Badge className="bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] text-xs">
+                                <Badge className="bg-primary/10 text-primary text-xs">
                                   Primary
                                 </Badge>
                               )}
                             </div>
-                            <span className="text-xs text-[var(--color-text-tertiary)]">{contact.type}</span>
+                            <span className="text-xs text-muted-foreground">{contact.type}</span>
                           </div>
                         </div>
                       ))}
@@ -692,15 +692,15 @@ export function UserDetailPage() {
 
                 {/* Addresses */}
                 {user.addresses && user.addresses.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
-                    <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Addresses</h3>
+                  <div className="mt-6 pt-6 border-t border-border">
+                    <h3 className="text-sm font-medium text-foreground mb-3">Addresses</h3>
                     <div className="space-y-3">
                       {user.addresses.map(address => (
                         <div key={address.addressId} className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                          <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-[var(--color-text-primary)] mb-1">{address.type}</div>
-                            <div className="text-[var(--color-text-secondary)] text-xs space-y-0.5">
+                            <div className="font-medium text-foreground mb-1">{address.type}</div>
+                            <div className="text-muted-foreground text-xs space-y-0.5">
                               {address.line1 && <div>{address.line1}</div>}
                               {address.line2 && <div>{address.line2}</div>}
                               {address.line3 && <div>{address.line3}</div>}
@@ -725,23 +725,23 @@ export function UserDetailPage() {
               <CardContent className="p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   {/* Tabs Header */}
-                  <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4">
+                  <div className="flex items-center justify-between border-b border-border px-4">
                     <TabsList className="bg-transparent p-0 h-auto gap-0">
                       <TabsTrigger
                         value="overview"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]"
+                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
                       >
                         Overview
                       </TabsTrigger>
                       <TabsTrigger
                         value="events"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]"
+                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
                       >
                         Events & Logs
                       </TabsTrigger>
                       <TabsTrigger
                         value="statements"
-                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]"
+                        className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
                       >
                         Statements
                       </TabsTrigger>
@@ -756,7 +756,7 @@ export function UserDetailPage() {
                     <TabsContent value="overview" className="mt-0">
                     {/* User Profile Summary */}
                     <div className="mb-8">
-                      <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-4">Profile Summary</h3>
+                      <h3 className="text-base font-semibold text-foreground mb-4">Profile Summary</h3>
                       <div className="grid grid-cols-2 gap-6">
                         {/* Personal Information */}
                         <Card>
@@ -767,31 +767,31 @@ export function UserDetailPage() {
                             {user.personProfile ? (
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                  <span className="text-[var(--color-text-tertiary)]">Full Name</span>
-                                  <span className="text-[var(--color-text-primary)] font-medium">{getFullName()}</span>
+                                  <span className="text-muted-foreground">Full Name</span>
+                                  <span className="text-foreground font-medium">{getFullName()}</span>
                                 </div>
                                 {user.personProfile.dob && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Date of Birth</span>
-                                    <span className="text-[var(--color-text-primary)]">{formatDate(user.personProfile.dob)}</span>
+                                    <span className="text-muted-foreground">Date of Birth</span>
+                                    <span className="text-foreground">{formatDate(user.personProfile.dob)}</span>
                                   </div>
                                 )}
                                 {user.personProfile.nationality && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Nationality</span>
-                                    <span className="text-[var(--color-text-primary)]">{user.personProfile.nationality}</span>
+                                    <span className="text-muted-foreground">Nationality</span>
+                                    <span className="text-foreground">{user.personProfile.nationality}</span>
                                   </div>
                                 )}
                                 {user.personProfile.occupation && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Occupation</span>
-                                    <span className="text-[var(--color-text-primary)]">{user.personProfile.occupation}</span>
+                                    <span className="text-muted-foreground">Occupation</span>
+                                    <span className="text-foreground">{user.personProfile.occupation}</span>
                                   </div>
                                 )}
                                 {user.personProfile.idvStatus && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Verification</span>
-                                    <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                                    <span className="text-muted-foreground">Verification</span>
+                                    <Badge className="bg-info-subtle text-info text-xs">
                                       {user.personProfile.idvStatus}
                                     </Badge>
                                   </div>
@@ -800,38 +800,38 @@ export function UserDetailPage() {
                             ) : user.businessProfile ? (
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                  <span className="text-[var(--color-text-tertiary)]">Business Name</span>
-                                  <span className="text-[var(--color-text-primary)] font-medium">{user.displayName}</span>
+                                  <span className="text-muted-foreground">Business Name</span>
+                                  <span className="text-foreground font-medium">{user.displayName}</span>
                                 </div>
                                 {user.businessProfile.registrationNumber && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Registration No.</span>
-                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.registrationNumber}</span>
+                                    <span className="text-muted-foreground">Registration No.</span>
+                                    <span className="text-foreground">{user.businessProfile.registrationNumber}</span>
                                   </div>
                                 )}
                                 {user.businessProfile.incorporationCountry && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Country</span>
-                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.incorporationCountry}</span>
+                                    <span className="text-muted-foreground">Country</span>
+                                    <span className="text-foreground">{user.businessProfile.incorporationCountry}</span>
                                   </div>
                                 )}
                                 {user.businessProfile.industry && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Industry</span>
-                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.industry}</span>
+                                    <span className="text-muted-foreground">Industry</span>
+                                    <span className="text-foreground">{user.businessProfile.industry}</span>
                                   </div>
                                 )}
                                 {user.businessProfile.kybStatus && (
                                   <div className="flex justify-between">
-                                    <span className="text-[var(--color-text-tertiary)]">Verification</span>
-                                    <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                                    <span className="text-muted-foreground">Verification</span>
+                                    <Badge className="bg-info-subtle text-info text-xs">
                                       {user.businessProfile.kybStatus}
                                     </Badge>
                                   </div>
                                 )}
                               </div>
                             ) : (
-                              <div className="text-center py-6 text-[var(--color-text-tertiary)] text-sm">
+                              <div className="text-center py-6 text-muted-foreground text-sm">
                                 No profile information available
                               </div>
                             )}
@@ -846,30 +846,30 @@ export function UserDetailPage() {
                           <CardContent>
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Status</span>
+                                <span className="text-muted-foreground">Status</span>
                                 <Badge className={`${statusStyle.bg} ${statusStyle.text} text-xs`}>
                                   {user.status}
                                 </Badge>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Party Type</span>
-                                <span className="text-[var(--color-text-primary)]">{user.partyType || 'N/A'}</span>
+                                <span className="text-muted-foreground">Party Type</span>
+                                <span className="text-foreground">{user.partyType || 'N/A'}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Email</span>
-                                <span className="text-[var(--color-text-primary)]">{user.email}</span>
+                                <span className="text-muted-foreground">Email</span>
+                                <span className="text-foreground">{user.email}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Last Login</span>
-                                <span className="text-[var(--color-text-primary)]">{formatDate(user.lastLoginAt)}</span>
+                                <span className="text-muted-foreground">Last Login</span>
+                                <span className="text-foreground">{formatDate(user.lastLoginAt)}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Roles</span>
-                                <span className="text-[var(--color-text-primary)]">{user.roles?.length || 0}</span>
+                                <span className="text-muted-foreground">Roles</span>
+                                <span className="text-foreground">{user.roles?.length || 0}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-[var(--color-text-tertiary)]">Permissions</span>
-                                <span className="text-[var(--color-text-primary)]">{user.permissions?.length || 0}</span>
+                                <span className="text-muted-foreground">Permissions</span>
+                                <span className="text-foreground">{user.permissions?.length || 0}</span>
                               </div>
                             </div>
                           </CardContent>
@@ -880,10 +880,10 @@ export function UserDetailPage() {
                     {/* Roles & Permissions */}
                     {(user.roles && user.roles.length > 0) && (
                       <div className="mb-8">
-                        <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-4">Roles</h3>
+                        <h3 className="text-base font-semibold text-foreground mb-4">Roles</h3>
                         <div className="flex flex-wrap gap-2">
                           {user.roles.map((role) => (
-                            <Badge key={role.roleId} className="bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]">
+                            <Badge key={role.roleId} className="bg-muted text-foreground">
                               {role.name}
                             </Badge>
                           ))}
@@ -894,17 +894,17 @@ export function UserDetailPage() {
 
                   <TabsContent value="events" className="mt-0">
                     <div className="text-center py-12">
-                      <Clock className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                      <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">Events & Logs</h3>
-                      <p className="text-[var(--color-text-secondary)]">User activity and event logs will appear here.</p>
+                      <Clock className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">Events & Logs</h3>
+                      <p className="text-muted-foreground">User activity and event logs will appear here.</p>
                     </div>
                   </TabsContent>
 
                     <TabsContent value="statements" className="mt-0">
                       <div className="text-center py-12">
-                        <Download className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                        <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">Statements</h3>
-                        <p className="text-[var(--color-text-secondary)]">Account statements will appear here.</p>
+                        <Download className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                        <h3 className="text-lg font-medium text-foreground mb-2">Statements</h3>
+                        <p className="text-muted-foreground">Account statements will appear here.</p>
                       </div>
                     </TabsContent>
                   </div>

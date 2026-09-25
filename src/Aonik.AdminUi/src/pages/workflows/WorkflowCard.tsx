@@ -24,12 +24,12 @@ interface StateTone {
 const STATE_TONES: Record<WorkflowSummary['state'], StateTone> = {
   Active: { c: 'var(--color-success, #1f7a5e)', label: 'active', pulse: true },
   Paused: { c: '#b4741e', label: 'paused', pulse: false },
-  Draft: { c: 'var(--color-text-tertiary)', label: 'draft', pulse: false },
+  Draft: { c: 'var(--muted-foreground)', label: 'draft', pulse: false },
 };
 
 function successColor(value: number): string {
   if (value >= 0.95) return 'var(--color-success, #1f7a5e)';
-  if (value >= 0.85) return 'var(--color-text-primary)';
+  if (value >= 0.85) return 'var(--foreground)';
   return '#b4741e';
 }
 
@@ -41,11 +41,11 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
       onClick={onClick}
       className={cn(
         'flex flex-col gap-3 cursor-pointer rounded-[10px] transition-[border-color,box-shadow] duration-150',
-        'bg-[var(--color-surface)]',
+        'bg-card',
       )}
       style={{
         padding: '16px 18px',
-        border: '1px solid ' + (active ? 'var(--color-brand-primary)' : 'var(--color-border-light)'),
+        border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)'),
         boxShadow: active ? '0 0 0 3px var(--color-brand-primary-10)' : 'none',
       }}
     >
@@ -53,24 +53,24 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+            <span className="text-[14px] font-semibold text-foreground">
               {wf.name}
             </span>
             <span
-              className="text-[10.5px] text-[var(--color-text-tertiary)]"
+              className="text-[10.5px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {wf.id}
             </span>
             <span
-              className="rounded-[3px] bg-[var(--color-surface-inset)] px-1.5 py-px text-[10px] text-[var(--color-text-tertiary)]"
+              className="rounded-[3px] bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {wf.version}
             </span>
           </div>
           <div
-            className="mt-1 text-[12px] text-[var(--color-text-secondary)]"
+            className="mt-1 text-[12px] text-muted-foreground"
             style={{ lineHeight: 1.5 }}
           >
             {wf.desc}
@@ -99,18 +99,18 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
       <StepRail steps={wf.steps} />
 
       {/* Footer row — owner, stats */}
-      <div className="flex items-center gap-4 text-[11.5px] text-[var(--color-text-secondary)]">
+      <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span
             className="rounded-full flex-none"
             style={{ width: 8, height: 8, background: wf.ownerColor }}
           />
-          <span className="font-medium text-[var(--color-text-primary)]">{wf.owner}</span>
+          <span className="font-medium text-foreground">{wf.owner}</span>
           {wf.contributors.length > 0 && (
-            <span className="text-[var(--color-text-tertiary)]">· +{wf.contributors.length}</span>
+            <span className="text-muted-foreground">· +{wf.contributors.length}</span>
           )}
         </div>
-        <span className="h-3.5 w-px bg-[var(--color-border-light)]" />
+        <span className="h-3.5 w-px bg-border" />
         <div className="flex items-center gap-1">
           <Zap size={11} />
           <span style={{ fontFamily: 'var(--font-mono)' }}>{wf.triggers}</span>
@@ -135,7 +135,7 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
           <span style={{ fontFamily: 'var(--font-mono)' }}>{formatDuration(wf.avgMs)}</span>
         </div>
         <div className="flex-1" />
-        <span className="text-[11px] text-[var(--color-text-tertiary)]">updated {wf.updated}</span>
+        <span className="text-[11px] text-muted-foreground">updated {wf.updated}</span>
       </div>
     </div>
   );

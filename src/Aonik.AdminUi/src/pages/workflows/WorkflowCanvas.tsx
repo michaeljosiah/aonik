@@ -338,7 +338,7 @@ export function WorkflowCanvas({
 
   return (
     <div
-      className="relative flex-1 min-w-0 overflow-hidden bg-[var(--color-surface-inset)]"
+      className="relative flex-1 min-w-0 overflow-hidden bg-muted"
       style={{ height: '100%', cursor }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -430,7 +430,7 @@ export function WorkflowCanvas({
 
             let stroke = '#9aa3ad';
             if (isTraced) stroke = '#3ab795';
-            else if (isSel) stroke = 'var(--color-brand-primary)';
+            else if (isSel) stroke = 'var(--primary)';
             else if (isHover) stroke = '#055a60';
             const sw = isSel || isTraced ? 2.5 : isHover ? 2 : 1.5;
             const markerEnd = isTraced
@@ -471,8 +471,8 @@ export function WorkflowCanvas({
                       width={36}
                       height={16}
                       rx={3}
-                      fill="var(--color-surface)"
-                      stroke="var(--color-border-light)"
+                      fill="var(--card)"
+                      stroke="var(--border)"
                       strokeWidth={1}
                     />
                     <text
@@ -481,7 +481,7 @@ export function WorkflowCanvas({
                       textAnchor="middle"
                       fontSize={10}
                       fontFamily="var(--font-mono)"
-                      fill="var(--color-text-secondary)"
+                      fill="var(--muted-foreground)"
                     >
                       {e.label}
                     </text>
@@ -495,7 +495,7 @@ export function WorkflowCanvas({
           {drag?.kind === 'wire' && (
             <path
               d={bezierPath(drag.fromPt.x, drag.fromPt.y, drag.to.x, drag.to.y)}
-              stroke="var(--color-brand-primary)"
+              stroke="var(--primary)"
               strokeWidth={2}
               strokeDasharray="5 4"
               fill="none"
@@ -557,7 +557,7 @@ export function WorkflowCanvas({
               width={Math.abs(drag.end.x - drag.start.x)}
               height={Math.abs(drag.end.y - drag.start.y)}
               fill="var(--color-brand-primary-10)"
-              stroke="var(--color-brand-primary)"
+              stroke="var(--primary)"
               strokeWidth={1}
               strokeDasharray="4 3"
               pointerEvents="none"

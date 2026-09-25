@@ -65,7 +65,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                 className="font-medium"
                 style={{
                   fontSize: dense ? 10.5 : 11.5,
-                  color: 'var(--color-text-primary)',
+                  color: 'var(--foreground)',
                   fontFamily: s.kind === 'tool' ? 'var(--font-mono)' : 'inherit',
                 }}
               >
@@ -78,7 +78,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                 style={{
                   width: dense ? 12 : 16,
                   height: 1,
-                  background: 'var(--color-border)',
+                  background: 'var(--border)',
                 }}
               >
                 <span
@@ -88,7 +88,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                     top: -2,
                     width: 0,
                     height: 0,
-                    borderLeft: '4px solid var(--color-border)',
+                    borderLeft: '4px solid var(--border)',
                     borderTop: '3px solid transparent',
                     borderBottom: '3px solid transparent',
                   }}

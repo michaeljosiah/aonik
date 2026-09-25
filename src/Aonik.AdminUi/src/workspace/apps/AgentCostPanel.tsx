@@ -73,7 +73,7 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
   if (loading && !perf) {
     return (
       <div className="h-full overflow-auto p-4">
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Loading cost data...
         </p>
       </div>
@@ -141,7 +141,7 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
             <PanelInfoPopover
               title="Cost & Tokens"
               description={
@@ -194,7 +194,7 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
               })}
             />
           </div>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <p className="text-xs text-muted-foreground">
             {selectedAgent ? `Filtered: ${selectedAgent}` : 'All agents'}
           </p>
         </div>
@@ -254,21 +254,21 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
                   return (
                     <div key={agent.agentName} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-[var(--color-text-primary)] truncate">
+                        <span className="font-medium text-foreground truncate">
                           {agent.agentName}
                         </span>
-                        <span className="text-[var(--color-text-secondary)] flex items-center gap-1">
+                        <span className="text-muted-foreground flex items-center gap-1">
                           <TrendingUp className="w-2.5 h-2.5" />
                           {fmtTokens(agentTotal)} ({pct.toFixed(1)}%)
                         </span>
                       </div>
                       <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[var(--color-brand-primary)] rounded-full transition-all"
+                          className="h-full bg-primary rounded-full transition-all"
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />
                       </div>
-                      <div className="flex justify-between text-[10px] text-[var(--color-text-tertiary)]">
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
                         <span>{fmtTokens(agent.totalInputTokens)} input</span>
                         <span>{fmtTokens(agent.totalOutputTokens)} output</span>
                         <span>{agent.runs} runs</span>
@@ -284,7 +284,7 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
       {/* Cost note */}
       <Card className="border-dashed">
         <CardContent className="p-3">
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">
+          <p className="text-[11px] text-muted-foreground">
             Cost estimates will appear here once model cost profiles are configured.
             Token volumes are tracked in real time via the AG-UI streaming pipeline.
           </p>

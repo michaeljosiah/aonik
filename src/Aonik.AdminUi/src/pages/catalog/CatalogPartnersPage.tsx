@@ -139,7 +139,7 @@ export function CatalogPartnersPage() {
   return (
     <div className="flex min-h-full flex-col">
       {/* Mobile sub-nav (the left rail is hidden below md). */}
-      <div className="flex gap-1 overflow-x-auto border-b border-[var(--color-border-light)] px-4 py-2 md:hidden">
+      <div className="flex gap-1 overflow-x-auto border-b border-border px-4 py-2 md:hidden">
         {NAV_GROUPS.flatMap((g) => g.items).map((item) => (
           <HubNavButton
             key={item.id}
@@ -152,11 +152,11 @@ export function CatalogPartnersPage() {
       </div>
 
       <div className="flex min-h-full flex-1">
-        <aside className="hidden w-52 flex-none border-r border-[var(--color-border-light)] md:block">
+        <aside className="hidden w-52 flex-none border-r border-border md:block">
           <nav className="sticky top-0 flex flex-col gap-5 p-4">
             {NAV_GROUPS.map((group) => (
               <div key={group.label} className="flex flex-col gap-1">
-                <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {group.label}
                 </p>
                 {group.items.map((item) => (
@@ -193,7 +193,7 @@ export function CatalogPartnersPage() {
             />
 
             {data.error && (
-              <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+              <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 flex-none" />
                 <span className="flex-1">{data.error}</span>
                 <Button variant="outline" size="sm" onClick={data.reload}>
@@ -245,11 +245,11 @@ function HubNavButton({
         'flex items-center gap-2.5 rounded-lg text-[13px] font-medium transition-colors',
         compact ? 'flex-none px-3 py-1.5' : 'w-full px-3 py-2',
         active
-          ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
-          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]',
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >
-      <Icon size={15} className={cn('flex-none', !active && 'text-[var(--color-text-tertiary)]')} />
+      <Icon size={15} className={cn('flex-none', !active && 'text-muted-foreground')} />
       <span className="whitespace-nowrap">{item.label}</span>
     </button>
   );

@@ -49,7 +49,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-background)',
+        background: 'var(--background)',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -76,7 +76,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
           alignItems: 'center',
           gap: 8,
           fontSize: 11,
-          color: 'var(--color-text-tertiary)',
+          color: 'var(--muted-foreground)',
           fontFamily: 'var(--font-mono)',
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
@@ -87,7 +87,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
             width: 5,
             height: 5,
             borderRadius: 999,
-            background: 'var(--color-brand-secondary)',
+            background: 'var(--agent)',
             animation: 'aonikLoadingLiveDot 1.4s ease-in-out infinite',
           }}
         />
@@ -112,7 +112,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
             fontWeight: 700,
             fontSize: 32,
             letterSpacing: '-0.015em',
-            color: 'var(--color-text-primary)',
+            color: 'var(--foreground)',
             lineHeight: 1,
           }}
         >
@@ -123,7 +123,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
           style={{
             minHeight: 18,
             fontSize: 13,
-            color: 'var(--color-text-secondary)',
+            color: 'var(--muted-foreground)',
             letterSpacing: '0.01em',
             display: 'flex',
             alignItems: 'center',
@@ -138,7 +138,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
               fontFamily: 'var(--font-mono)',
               fontVariantNumeric: 'tabular-nums',
               fontSize: 11,
-              color: 'var(--color-text-tertiary)',
+              color: 'var(--muted-foreground)',
             }}
           >
             {percentLabel}%
@@ -149,7 +149,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
           style={{
             width: 220,
             height: 3,
-            background: 'var(--color-border-light)',
+            background: 'var(--border)',
             borderRadius: 999,
             overflow: 'hidden',
             position: 'relative',
@@ -160,7 +160,7 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
               position: 'absolute',
               top: 0,
               bottom: 0,
-              background: 'var(--color-brand-primary)',
+              background: 'var(--primary)',
               borderRadius: 999,
               animation: 'aonikLoadingSlide 1.6s cubic-bezier(.65,0,.35,1) infinite',
               width: '40%',
@@ -182,13 +182,13 @@ export function LoadingScreen({ phase = 'loading-workspace' }: LoadingScreenProp
           gap: 4,
         }}
       >
-        <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+        <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
           Agents propose · Systems apply
         </div>
         <div
           style={{
             fontSize: 10,
-            color: 'var(--color-text-tertiary)',
+            color: 'var(--muted-foreground)',
             fontFamily: 'var(--font-mono)',
             fontVariantNumeric: 'tabular-nums',
           }}
@@ -238,11 +238,11 @@ function AonikLoadingMark({ size = 88 }: { size?: number }) {
         width: size,
         height: size,
         borderRadius: radius,
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border-light)',
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
         boxShadow:
           '0 8px 24px -10px rgba(5,90,96,.25), 0 0 0 6px rgba(5,90,96,.04)',
-        color: 'var(--color-text-tertiary)',
+        color: 'var(--muted-foreground)',
         fontFamily: 'var(--font-brand)',
         fontWeight: 700,
         fontSize: Math.round(size * 0.58),
@@ -257,7 +257,7 @@ function AonikLoadingMark({ size = 88 }: { size?: number }) {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'var(--color-brand-primary)',
+          background: 'var(--primary)',
           animation: 'aonikLoadingTintRise 2.2s ease-in-out infinite',
           zIndex: 0,
         }}

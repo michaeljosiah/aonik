@@ -244,10 +244,10 @@ function getProviderStatus(
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: BadgeTone }) {
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <p className="text-[11px] font-medium text-[var(--color-text-tertiary)]">{label}</p>
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-baseline gap-2">
-        <p className="text-lg font-semibold text-[var(--color-text-primary)]">{value}</p>
+        <p className="text-lg font-semibold text-foreground">{value}</p>
         {tone ? <Badge variant={tone} className="text-[10px]">{tone === 'success' ? 'OK' : 'Check'}</Badge> : null}
       </div>
     </div>
@@ -256,11 +256,11 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: Badg
 
 function SettingsSection({ title, description, children, action }: { title: string; description?: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <section className="mb-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-      <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] px-5 py-4">
+    <section className="mb-4 rounded-xl border border-border bg-card">
+      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          {description ? <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-text-secondary)]">{description}</p> : null}
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {description ? <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{description}</p> : null}
         </div>
         {action}
       </div>
@@ -273,9 +273,9 @@ function Field({ label, code, help, children }: { label: string; code?: string; 
   return (
     <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
       <div>
-        <p className="text-[13px] font-medium text-[var(--color-text-primary)]">{label}</p>
-        {code ? <p className="mt-1 break-all font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{code}</p> : null}
-        {help ? <p className="mt-1.5 text-[11.5px] leading-5 text-[var(--color-text-tertiary)]">{help}</p> : null}
+        <p className="text-[13px] font-medium text-foreground">{label}</p>
+        {code ? <p className="mt-1 break-all font-mono text-[10.5px] text-muted-foreground">{code}</p> : null}
+        {help ? <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">{help}</p> : null}
       </div>
       <div>{children}</div>
     </div>
@@ -306,14 +306,14 @@ function HealthBadge({ health }: { health: MessagingChannelHealth | undefined })
 
 function ProviderSetupPreview({ provider }: { provider: ProviderDefinition }) {
   return (
-    <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-surface-inset)] p-4">
-      <div className="mb-3 flex items-start gap-2 text-xs text-[var(--color-text-secondary)]">
-        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
+    <div className="rounded-lg border border-dashed border-border bg-muted p-4">
+      <div className="mb-3 flex items-start gap-2 text-xs text-muted-foreground">
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
         <span>
           The {provider.name} connector is not implemented in the API yet. The settings shape is reserved so this provider can be enabled without changing the page layout.
         </span>
       </div>
-      <div className="rounded border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 font-mono text-[12px] leading-relaxed">
+      <div className="rounded border border-border bg-card p-3 font-mono text-[12px] leading-relaxed">
         {provider.setupKeys.map((key) => (
           <div key={key}>{key}=&lt;...&gt;</div>
         ))}
@@ -482,8 +482,8 @@ export function SettingsCommunicationPage() {
           className={cn(
             'flex items-center gap-2.5 rounded-[10px] border p-3 text-left transition-colors',
             active
-              ? 'border-[var(--color-brand-primary)] bg-[var(--color-surface)]'
-              : 'border-transparent hover:bg-[var(--color-surface)]',
+              ? 'border-primary bg-card'
+              : 'border-transparent hover:bg-card',
           )}
         >
           <span className="grid h-8 w-8 flex-none place-items-center rounded-md text-[13px] font-bold text-white" style={{ backgroundColor: provider.color }}>
@@ -491,13 +491,13 @@ export function SettingsCommunicationPage() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-1.5">
-              <span className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{provider.name}</span>
+              <span className="truncate text-[13px] font-semibold text-foreground">{provider.name}</span>
               <Badge variant={status.tone} className="gap-1 text-[10px]">
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 {status.label}
               </Badge>
             </span>
-            <span className="mt-0.5 block truncate text-[11px] text-[var(--color-text-secondary)]">{provider.description}</span>
+            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{provider.description}</span>
           </span>
         </button>
       );
@@ -510,9 +510,9 @@ export function SettingsCommunicationPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
-      <aside className="w-full flex-none overflow-auto border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-[18px] lg:w-80 lg:border-b-0 lg:border-r">
-        <h1 className="text-[17px] font-semibold text-[var(--color-text-primary)]">Communication</h1>
-        <p className="mt-1 mb-4 text-[12.5px] leading-5 text-[var(--color-text-secondary)]">
+      <aside className="w-full flex-none overflow-auto border-b border-border bg-muted p-[18px] lg:w-80 lg:border-b-0 lg:border-r">
+        <h1 className="text-[17px] font-semibold text-foreground">Communication</h1>
+        <p className="mt-1 mb-4 text-[12.5px] leading-5 text-muted-foreground">
           Configure outbound email and SMS providers independently.
         </p>
         <Button
@@ -527,13 +527,13 @@ export function SettingsCommunicationPage() {
 
         <div className="space-y-4">
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               <Mail className="h-3 w-3" /> Email providers
             </div>
             <div className="flex flex-col gap-1.5">{renderProviderRows('Email')}</div>
           </div>
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               <MessageSquare className="h-3 w-3" /> SMS providers
             </div>
             <div className="flex flex-col gap-1.5">{renderProviderRows('SMS')}</div>
@@ -544,11 +544,11 @@ export function SettingsCommunicationPage() {
       <main className="min-w-0 flex-1 overflow-auto px-5 py-5 lg:px-8 lg:py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Settings · Communication · {selectedProvider.channel} · {selectedProvider.region}
             </p>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">{selectedProvider.name}</h2>
-            <p className="max-w-3xl text-[var(--color-text-secondary)]">{selectedProvider.description}</p>
+            <h2 className="text-2xl font-bold text-foreground">{selectedProvider.name}</h2>
+            <p className="max-w-3xl text-muted-foreground">{selectedProvider.description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading || saving} className="gap-1.5">
@@ -565,8 +565,8 @@ export function SettingsCommunicationPage() {
         </div>
 
         {error && (
-          <Card className="mt-5 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
+          <Card className="mt-5 border-destructive bg-destructive/10">
+            <CardContent className="flex items-center gap-3 p-4 text-destructive">
               <AlertCircle className="h-5 w-5 shrink-0" />
               <span className="flex-1 text-sm">{error}</span>
               <Button variant="ghost" size="sm" onClick={() => void handleRefresh()}>
@@ -596,7 +596,7 @@ export function SettingsCommunicationPage() {
                 <Field label="Active provider" code="Communication.Email.Provider" help="Controls which provider dispatches outbound email.">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={selectedIsActive ? 'success' : 'secondary'}>{formState?.emailActiveProvider ?? 'AzureCommunicationServices'}</Badge>
-                    {!selectedIsActive ? <span className="text-xs text-[var(--color-text-tertiary)]">Click Activate, then Save to make this provider active.</span> : null}
+                    {!selectedIsActive ? <span className="text-xs text-muted-foreground">Click Activate, then Save to make this provider active.</span> : null}
                   </div>
                 </Field>
                 <Field
@@ -628,7 +628,7 @@ export function SettingsCommunicationPage() {
                 <Field label="Active provider" code="Communication.Sms.Provider" help="Controls which provider dispatches outbound SMS.">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={selectedIsActive ? 'success' : 'secondary'}>{formState?.smsActiveProvider ?? 'AzureCommunicationServices'}</Badge>
-                    {!selectedIsActive ? <span className="text-xs text-[var(--color-text-tertiary)]">Click Activate, then Save to make this provider active.</span> : null}
+                    {!selectedIsActive ? <span className="text-xs text-muted-foreground">Click Activate, then Save to make this provider active.</span> : null}
                   </div>
                 </Field>
                 <Field
@@ -658,7 +658,7 @@ export function SettingsCommunicationPage() {
             )}
 
             {selectedHealth && !selectedHealth.configured && selectedProvider.implemented && (
-              <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning)]">
+              <div className="flex items-start gap-2 rounded border border-warning bg-warning-subtle px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{selectedHealth.reason ?? `${selectedProvider.channel} provider is not configured.`}</span>
               </div>
@@ -672,8 +672,8 @@ export function SettingsCommunicationPage() {
           >
             <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
               <div>
-                <p className="text-[13px] font-medium text-[var(--color-text-primary)]">Recipient</p>
-                <p className="mt-1.5 text-[11.5px] leading-5 text-[var(--color-text-tertiary)]">
+                <p className="text-[13px] font-medium text-foreground">Recipient</p>
+                <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">
                   {selectedProvider.channel === 'Email' ? 'Use an email address you can check.' : 'Use an E.164 phone number.'}
                 </p>
               </div>
@@ -693,15 +693,15 @@ export function SettingsCommunicationPage() {
                   </Button>
                 </div>
                 {selectedHealth && !selectedHealth.configured ? (
-                  <p className="text-xs text-[var(--color-warning)]">Channel is not configured. The test send is expected to fail until credentials are set.</p>
+                  <p className="text-xs text-warning">Channel is not configured. The test send is expected to fail until credentials are set.</p>
                 ) : null}
                 {testResult && (
                   <div
                     className={cn(
                       'flex items-start gap-2 rounded border px-3 py-2 text-xs',
                       testResult.sent
-                        ? 'border-[var(--color-success)] bg-[var(--color-success-light)] text-[var(--color-success)]'
-                        : 'border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)]',
+                        ? 'border-success bg-success-subtle text-success'
+                        : 'border-destructive bg-destructive/10 text-destructive',
                     )}
                   >
                     {testResult.sent ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
@@ -718,25 +718,25 @@ export function SettingsCommunicationPage() {
 
           <SettingsSection title="Routing model" description="Email and SMS are separate channels. Each can use a different provider, credential set, and sender identity.">
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="rounded-lg border border-border bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Mail className="h-4 w-4" /> Email
                 </div>
-                <p className="text-xs leading-5 text-[var(--color-text-secondary)]">
-                  Active provider: <span className="font-mono text-[var(--color-text-primary)]">{settings?.email.activeProvider ?? 'AzureCommunicationServices'}</span>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Active provider: <span className="font-mono text-foreground">{settings?.email.activeProvider ?? 'AzureCommunicationServices'}</span>
                 </p>
-                <p className="mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]">
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   Used for invitations, password reset, verification, and transactional notifications.
                 </p>
               </div>
-              <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="rounded-lg border border-border bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <MessageSquare className="h-4 w-4" /> SMS
                 </div>
-                <p className="text-xs leading-5 text-[var(--color-text-secondary)]">
-                  Active provider: <span className="font-mono text-[var(--color-text-primary)]">{settings?.sms.activeProvider ?? 'AzureCommunicationServices'}</span>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Active provider: <span className="font-mono text-foreground">{settings?.sms.activeProvider ?? 'AzureCommunicationServices'}</span>
                 </p>
-                <p className="mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]">
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   Used for phone verification OTPs and future SMS notification flows.
                 </p>
               </div>
@@ -748,7 +748,7 @@ export function SettingsCommunicationPage() {
             description="Notification templates currently render with Fluid/Liquid variables. MJML should be treated as an email-only authoring layer, not as the runtime format for all channels."
             action={<Badge variant="outline">Recommendation</Badge>}
           >
-            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-xs leading-5 text-[var(--color-text-secondary)]">
+            <div className="rounded-lg border border-border bg-muted p-4 text-xs leading-5 text-muted-foreground">
               Support MJML for email templates when we add a template format field. The safe path is: store Email templates as Liquid HTML or Liquid MJML, compile MJML to responsive HTML during preview/send, then render Liquid variables with the existing Fluid renderer. SMS should remain plain Liquid text.
             </div>
           </SettingsSection>

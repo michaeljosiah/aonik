@@ -37,10 +37,10 @@ import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { PartnerDetail, UpdatePartnerRequest } from '@/types/partners';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
-  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-  Inactive: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
+  Active: { text: 'text-success', bg: 'bg-success-subtle' },
+  Pending: { text: 'text-warning', bg: 'bg-warning-subtle' },
+  Suspended: { text: 'text-destructive', bg: 'bg-destructive/10' },
+  Inactive: { text: 'text-muted-foreground', bg: 'bg-muted' },
 };
 
 const statusOptions = [
@@ -53,8 +53,8 @@ const statusOptions = [
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2">
-      <span className="text-xs text-[var(--color-text-tertiary)]">{label}</span>
-      <span className="text-right text-sm text-[var(--color-text-primary)]">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-right text-sm text-foreground">{value}</span>
     </div>
   );
 }
@@ -315,9 +315,9 @@ export function CatalogPartnerDetailPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="mx-auto mb-3 h-12 w-12 text-[var(--color-error)]" />
-          <h2 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">Partner Not Found</h2>
-          <p className="mb-4 text-[var(--color-text-secondary)]">
+          <AlertCircle className="mx-auto mb-3 h-12 w-12 text-destructive" />
+          <h2 className="mb-2 text-xl font-semibold text-foreground">Partner Not Found</h2>
+          <p className="mb-4 text-muted-foreground">
             The partner might have been deleted, or you no longer have access.
           </p>
           <Button onClick={() => navigate('/catalog/partners')}>
@@ -331,7 +331,7 @@ export function CatalogPartnerDetailPage() {
 
   const statusStyle =
     statusStyles[partner.status] ??
-    ({ text: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]' } as const);
+    ({ text: 'text-muted-foreground', bg: 'bg-muted' } as const);
 
   const branches = partner.branches ?? [];
   const connectors = partner.connectors ?? [];
@@ -347,9 +347,9 @@ export function CatalogPartnerDetailPage() {
   const linkedBillerCount = partner.linkedBillerCount ?? linkedBillers.length;
   return (
     <div className="h-full overflow-auto bg-background">
-      <div className="flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Partner Details</h1>
+          <h1 className="text-lg font-semibold text-foreground">Partner Details</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -388,8 +388,8 @@ export function CatalogPartnerDetailPage() {
 
       {error && (
         <div className="px-6 pt-4">
-          <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="flex items-center gap-3 p-4 text-destructive">
               <AlertCircle className="h-5 w-5" />
               <span className="flex-1">{error}</span>
               <Button variant="ghost" size="sm" onClick={loadPartner}>
@@ -406,11 +406,11 @@ export function CatalogPartnerDetailPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="mb-6 text-center">
-                  <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-brand-primary-light)]">
-                    <Building2 className="h-10 w-10 text-[var(--color-brand-primary)]" />
+                  <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                    <Building2 className="h-10 w-10 text-primary" />
                   </div>
-                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{partner.name}</h2>
-                  <p className="text-sm text-[var(--color-text-tertiary)]">Partner ID {partner.partnerId.slice(0, 8)}</p>
+                  <h2 className="text-lg font-semibold text-foreground">{partner.name}</h2>
+                  <p className="text-sm text-muted-foreground">Partner ID {partner.partnerId.slice(0, 8)}</p>
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                     <Badge className={`${statusStyle.bg} ${statusStyle.text} text-xs`}>{partner.status}</Badge>
                     <Badge variant="outline" className="text-xs">
@@ -419,33 +419,33 @@ export function CatalogPartnerDetailPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3 border-t border-[var(--color-border-light)] pt-4">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                <div className="space-y-3 border-t border-border pt-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
                     <span>{countriesCovered} countries covered</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Cable className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Cable className="h-4 w-4 text-muted-foreground" />
                     <span>{connectorCount} active connectors</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Route className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Route className="h-4 w-4 text-muted-foreground" />
                     <span>{activeRoutes} routing rules</span>
                   </div>
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Branches</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)]">{branchCount}</p>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Branches</p>
+                    <p className="text-lg font-semibold text-foreground">{branchCount}</p>
                   </div>
-                  <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Linked billers</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)]">{linkedBillerCount}</p>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Linked billers</p>
+                    <p className="text-lg font-semibold text-foreground">{linkedBillerCount}</p>
                   </div>
-                  <div className="col-span-2 rounded-lg border border-[var(--color-border-light)] p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Last updated</p>
-                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  <div className="col-span-2 rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Last updated</p>
+                    <p className="text-sm font-medium text-foreground">
                       {formatDateTime(partner.updatedAt ?? partner.createdAt)}
                     </p>
                   </div>
@@ -458,7 +458,7 @@ export function CatalogPartnerDetailPage() {
             <Card>
               <CardContent className="p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <div className="border-b border-[var(--color-border-light)] px-4">
+                  <div className="border-b border-border px-4">
                     <TabsList className="h-auto flex-wrap gap-0 bg-transparent p-0">
                       {[ 
                         { value: 'overview', label: 'Overview' },
@@ -470,7 +470,7 @@ export function CatalogPartnerDetailPage() {
                         <TabsTrigger
                           key={tab.value}
                           value={tab.value}
-                          className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]"
+                          className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
                         >
                           {tab.label}
                         </TabsTrigger>
@@ -564,28 +564,28 @@ export function CatalogPartnerDetailPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {branches.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">
+                            <p className="text-sm text-muted-foreground">
                               No branches are configured for this partner yet.
                             </p>
                           ) : (
                             branches.map((branch) => (
                               <div
                                 key={branch.branchId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                                className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-b-0"
                               >
                                 <div className="flex items-start gap-3">
-                                  <MapPin className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                                  <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                                   <div>
-                                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{branch.name}</div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">
+                                    <div className="text-sm font-medium text-foreground">{branch.name}</div>
+                                    <div className="text-xs text-muted-foreground">
                                       {branch.city}, {branch.country}
                                     </div>
                                     {branch.metadataJson && (
-                                      <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">{branch.metadataJson}</div>
+                                      <div className="mt-1 text-xs text-muted-foreground">{branch.metadataJson}</div>
                                     )}
                                   </div>
                                 </div>
-                                <span className="text-xs text-[var(--color-text-tertiary)]">
+                                <span className="text-xs text-muted-foreground">
                                   {formatDate(branch.updatedAt ?? branch.createdAt)}
                                 </span>
                               </div>
@@ -603,29 +603,29 @@ export function CatalogPartnerDetailPage() {
                           </CardHeader>
                           <CardContent className="space-y-4">
                             {connectors.length === 0 ? (
-                              <p className="text-sm text-[var(--color-text-tertiary)]">No connectors configured.</p>
+                              <p className="text-sm text-muted-foreground">No connectors configured.</p>
                             ) : (
                               connectors.map((connector) => (
                                 <div
                                   key={connector.connectorId}
-                                  className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                                  className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-b-0"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <Cable className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                                    <Cable className="mt-0.5 h-4 w-4 text-muted-foreground" />
                                     <div>
-                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      <div className="text-sm font-medium text-foreground">
                                         {connector.connectorType}
                                       </div>
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">
+                                      <div className="text-xs text-muted-foreground">
                                         Ref {connector.connectorId.slice(0, 8)}
                                       </div>
                                       {connector.credentialsRef && (
-                                        <div className="text-xs text-[var(--color-text-tertiary)]">
+                                        <div className="text-xs text-muted-foreground">
                                           Credentials {connector.credentialsRef}
                                         </div>
                                       )}
                                       {connector.configJson && (
-                                        <div className="mt-1 max-w-[28rem] truncate font-mono text-[11px] text-[var(--color-text-tertiary)]">
+                                        <div className="mt-1 max-w-[28rem] truncate font-mono text-[11px] text-muted-foreground">
                                           {connector.configJson}
                                         </div>
                                       )}
@@ -647,13 +647,13 @@ export function CatalogPartnerDetailPage() {
                                 </div>
                               ))
                             )}
-                            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                            <div className="rounded-lg border border-border bg-muted p-4">
                               <div className="mb-3 flex items-center justify-between">
                                 <div>
-                                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                                  <h3 className="text-sm font-semibold text-foreground">
                                     {editingConnectorId ? 'Edit connector' : 'Add connector'}
                                   </h3>
-                                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                                  <p className="text-xs text-muted-foreground">
                                     Credentials ref binds this connector to a credential bundle. Create and rotate
                                     bundles in Settings → Credential Bundles; secrets are never entered here.
                                   </p>
@@ -701,24 +701,24 @@ export function CatalogPartnerDetailPage() {
                           </CardHeader>
                           <CardContent className="space-y-4">
                             {routingRules.length === 0 ? (
-                              <p className="text-sm text-[var(--color-text-tertiary)]">No routing rules assigned.</p>
+                              <p className="text-sm text-muted-foreground">No routing rules assigned.</p>
                             ) : (
                               routingRules.map((rule) => (
                                 <div
                                   key={rule.routingRuleId}
-                                  className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                                  className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-b-0"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <Route className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                                    <Route className="mt-0.5 h-4 w-4 text-muted-foreground" />
                                     <div>
-                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      <div className="text-sm font-medium text-foreground">
                                         Priority {rule.priority}
                                       </div>
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">
+                                      <div className="text-xs text-muted-foreground">
                                         {rule.conditionsJson || 'No condition payload'}
                                       </div>
                                       {rule.targetConnectorId && (
-                                        <div className="text-xs text-[var(--color-text-tertiary)]">
+                                        <div className="text-xs text-muted-foreground">
                                           Connector {rule.targetConnectorId.slice(0, 8)}
                                         </div>
                                       )}
@@ -742,20 +742,20 @@ export function CatalogPartnerDetailPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {linkedBillers.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">
+                            <p className="text-sm text-muted-foreground">
                               No billers are currently mapped to this partner.
                             </p>
                           ) : (
                             linkedBillers.map((biller) => (
                               <div
                                 key={biller.billerId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                                className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-b-0"
                               >
                                 <div className="flex items-start gap-3">
-                                  <Store className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                                  <Store className="mt-0.5 h-4 w-4 text-muted-foreground" />
                                   <div>
-                                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{biller.name}</div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">
+                                    <div className="text-sm font-medium text-foreground">{biller.name}</div>
+                                    <div className="text-xs text-muted-foreground">
                                       {biller.countryCode} · {biller.serviceCount} services
                                     </div>
                                   </div>
@@ -788,28 +788,28 @@ export function CatalogPartnerDetailPage() {
                           </CardHeader>
                           <CardContent className="space-y-4">
                             {transmissions.length === 0 ? (
-                              <p className="text-sm text-[var(--color-text-tertiary)]">No transmissions recorded yet.</p>
+                              <p className="text-sm text-muted-foreground">No transmissions recorded yet.</p>
                             ) : (
                               transmissions.map((transmission) => (
                                 <div
                                   key={transmission.transmissionId}
-                                  className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                                  className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-b-0"
                                 >
                                   <div className="flex items-start gap-3">
-                                    <Link2 className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
+                                    <Link2 className="mt-0.5 h-4 w-4 text-muted-foreground" />
                                     <div>
-                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      <div className="text-sm font-medium text-foreground">
                                         {transmission.connectorType || 'Connector'} · {transmission.status}
                                       </div>
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">
+                                      <div className="text-xs text-muted-foreground">
                                         Retries {transmission.retryCount}
                                       </div>
                                       {transmission.lastError && (
-                                        <div className="text-xs text-[var(--color-error)]">{transmission.lastError}</div>
+                                        <div className="text-xs text-destructive">{transmission.lastError}</div>
                                       )}
                                     </div>
                                   </div>
-                                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                                  <span className="text-xs text-muted-foreground">
                                     {formatDateTime(transmission.createdAt)}
                                   </span>
                                 </div>
@@ -827,9 +827,9 @@ export function CatalogPartnerDetailPage() {
                             <DetailRow label="Updated" value={formatDateTime(partner.updatedAt ?? partner.createdAt)} />
                             <DetailRow label="Partner reference" value={partner.partnerId} />
                             <DetailRow label="Status" value={partner.status} />
-                            <div className="mt-4 flex items-center gap-2 rounded-lg border border-[var(--color-border-light)] p-3">
-                              <Clock3 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                              <span className="text-xs text-[var(--color-text-secondary)]">
+                            <div className="mt-4 flex items-center gap-2 rounded-lg border border-border p-3">
+                              <Clock3 className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
                                 Operational events and audits will expand here as partner telemetry is integrated.
                               </span>
                             </div>

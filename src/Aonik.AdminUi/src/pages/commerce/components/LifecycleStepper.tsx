@@ -13,14 +13,14 @@ export function LifecycleStepper({ lifecycle }: { lifecycle: OrderLifecycle }) {
           <li key={step.key} className="flex items-start gap-1">
             <Step step={step} />
             {index < lifecycle.steps.length - 1 && (
-              <span className="mt-[11px] h-px w-5 bg-[var(--color-border)]" aria-hidden />
+              <span className="mt-[11px] h-px w-5 bg-border" aria-hidden />
             )}
           </li>
         ))}
       </ol>
 
       {lifecycle.halted && (
-        <p className="text-[11.5px] text-[var(--color-error)]">
+        <p className="text-[11.5px] text-destructive">
           <span className="font-semibold">{lifecycle.halted.label}</span> — {lifecycle.halted.reason}
         </p>
       )}
@@ -40,13 +40,13 @@ function Step({ step }: { step: LifecycleStep }) {
         className={[
           'flex h-[22px] w-[22px] items-center justify-center rounded-full border text-[10px] font-semibold',
           done
-            ? 'border-[var(--color-success)] bg-[var(--color-success)] text-white'
+            ? 'border-success bg-success text-white'
             : current
-              ? 'border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]'
+              ? 'border-primary text-primary'
               : // Untracked and pending look alike deliberately — neither has happened. The
                 // difference is in the note, which says WHY, rather than in a colour the
                 // operator would have to interpret.
-                'border-dashed border-[var(--color-border)] text-[var(--color-text-tertiary)]',
+                'border-dashed border-border text-muted-foreground',
         ].join(' ')}
       >
         {done ? <Check className="h-3 w-3" /> : ''}
@@ -54,14 +54,14 @@ function Step({ step }: { step: LifecycleStep }) {
       <span
         className={`text-[11px] ${
           done || current
-            ? 'text-[var(--color-text-primary)]'
-            : 'text-[var(--color-text-tertiary)]'
+            ? 'text-foreground'
+            : 'text-muted-foreground'
         }`}
       >
         {step.label}
       </span>
       {untracked && step.note && (
-        <span className="max-w-[92px] text-center text-[10px] leading-tight text-[var(--color-text-tertiary)]">
+        <span className="max-w-[92px] text-center text-[10px] leading-tight text-muted-foreground">
           {step.note}
         </span>
       )}

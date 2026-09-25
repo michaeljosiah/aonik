@@ -149,7 +149,7 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
               onChange={(event) => setCapabilities(event.target.value)}
               placeholder="BillPay, Collections"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Enter comma-separated values used by routing and operations teams.
             </p>
           </div>
@@ -166,7 +166,7 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
           </div>
 
           {error && (
-            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-sm border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}

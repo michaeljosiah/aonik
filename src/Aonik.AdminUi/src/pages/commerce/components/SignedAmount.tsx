@@ -18,10 +18,10 @@ export function SignedAmount({ amount, currency, className }: SignedAmountProps)
       className={cn(
         'font-mono text-[12.5px] tabular-nums',
         isZero
-          ? 'text-[var(--color-text-tertiary)]'
+          ? 'text-muted-foreground'
           : amount > 0
-            ? 'text-[var(--color-text-primary)]'
-            : 'text-[var(--color-success)]',
+            ? 'text-foreground'
+            : 'text-success',
         className,
       )}
     >

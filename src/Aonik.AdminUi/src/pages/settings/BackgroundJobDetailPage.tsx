@@ -207,7 +207,7 @@ export function BackgroundJobDetailPage() {
   if (!detail) {
     return (
       <div className="h-full overflow-auto p-6">
-        <p className="text-sm text-[var(--color-text-tertiary)]">Job not found.</p>
+        <p className="text-sm text-muted-foreground">Job not found.</p>
       </div>
     );
   }
@@ -223,10 +223,10 @@ export function BackgroundJobDetailPage() {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{detail.displayName}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{detail.displayName}</h1>
             {statusBadge(detail.state)}
           </div>
-          <p className="text-[var(--color-text-secondary)]">{detail.description}</p>
+          <p className="text-muted-foreground">{detail.description}</p>
         </div>
         <div className="flex items-center gap-2">
           {isPaused ? (
@@ -257,13 +257,13 @@ export function BackgroundJobDetailPage() {
               <>
                 <div className="flex items-center justify-between gap-2">
                   {statusBadge(latestRun.outcome)}
-                  <span className="text-[var(--color-text-tertiary)]">{formatDateTime(latestRun.firedAtUtc)}</span>
+                  <span className="text-muted-foreground">{formatDateTime(latestRun.firedAtUtc)}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="w-4 h-4" />
                   {formatDuration(latestRun.durationMs)}
                 </div>
-                <p className="text-[var(--color-text-secondary)] break-words">
+                <p className="text-muted-foreground break-words">
                   {latestRun.errorMessage ?? `Triggered by ${latestRun.triggeredBy}.`}
                 </p>
                 <Button asChild size="sm" variant="outline">
@@ -271,7 +271,7 @@ export function BackgroundJobDetailPage() {
                 </Button>
               </>
             ) : (
-              <p className="text-[var(--color-text-tertiary)]">No runs recorded yet.</p>
+              <p className="text-muted-foreground">No runs recorded yet.</p>
             )}
           </CardContent>
         </Card>
@@ -288,9 +288,9 @@ export function BackgroundJobDetailPage() {
                     <Badge variant="outline">{latestCommand.commandType}</Badge>
                     {statusBadge(latestCommand.status)}
                   </div>
-                  <span className="text-[var(--color-text-tertiary)]">{formatDateTime(latestCommand.createdAt)}</span>
+                  <span className="text-muted-foreground">{formatDateTime(latestCommand.createdAt)}</span>
                 </div>
-                <p className="text-[var(--color-text-secondary)] break-words">
+                <p className="text-muted-foreground break-words">
                   {latestCommand.resultMessage ?? 'Awaiting worker processing.'}
                 </p>
                 <Button asChild size="sm" variant="outline">
@@ -298,7 +298,7 @@ export function BackgroundJobDetailPage() {
                 </Button>
               </>
             ) : (
-              <p className="text-[var(--color-text-tertiary)]">No commands recorded yet.</p>
+              <p className="text-muted-foreground">No commands recorded yet.</p>
             )}
           </CardContent>
         </Card>
@@ -307,12 +307,12 @@ export function BackgroundJobDetailPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Current Projection</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-            <div><span className="text-[var(--color-text-tertiary)]">Next:</span> {formatRelativeTime(detail.nextFireTimeUtc)}</div>
-            <div><span className="text-[var(--color-text-tertiary)]">Last:</span> {formatRelativeTime(detail.previousFireTimeUtc)}</div>
-            <div><span className="text-[var(--color-text-tertiary)]">Duration:</span> {detail.lastDurationMs != null ? formatDuration(detail.lastDurationMs) : '--'}</div>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div><span className="text-muted-foreground">Next:</span> {formatRelativeTime(detail.nextFireTimeUtc)}</div>
+            <div><span className="text-muted-foreground">Last:</span> {formatRelativeTime(detail.previousFireTimeUtc)}</div>
+            <div><span className="text-muted-foreground">Duration:</span> {detail.lastDurationMs != null ? formatDuration(detail.lastDurationMs) : '--'}</div>
             {detail.lastOutcomeSummary && (
-              <div className="rounded-sm bg-[var(--color-surface-inset)] p-3 text-xs whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">
+              <div className="rounded-sm bg-muted p-3 text-xs whitespace-pre-wrap break-words text-muted-foreground">
                 {detail.lastOutcomeSummary}
               </div>
             )}
@@ -336,7 +336,7 @@ export function BackgroundJobDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-sm">Agent Names</Label>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                  <p className="text-xs text-muted-foreground">
                     Only conversations with these agents will be summarised. If empty, no conversations are summarised.
                   </p>
                   <div className="flex items-center gap-2">
@@ -357,13 +357,13 @@ export function BackgroundJobDetailPage() {
                       {agentNames.map((name) => (
                         <span
                           key={name}
-                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)] font-mono"
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-border font-mono"
                         >
                           {name}
                           <button
                             type="button"
                             onClick={() => removeAgentName(name)}
-                            className="ml-0.5 rounded-full hover:bg-[var(--color-error-light)] hover:text-[var(--color-error)] p-0.5 transition-colors"
+                            className="ml-0.5 rounded-full hover:bg-destructive/10 hover:text-destructive p-0.5 transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -383,7 +383,7 @@ export function BackgroundJobDetailPage() {
                     <Button size="sm" variant="secondary" onClick={resetConfiguration} disabled={configSaving}>
                       Reset
                     </Button>
-                    <span className="text-xs text-[var(--color-text-tertiary)]">Unsaved changes</span>
+                    <span className="text-xs text-muted-foreground">Unsaved changes</span>
                   </div>
                 )}
               </CardContent>
@@ -396,41 +396,41 @@ export function BackgroundJobDetailPage() {
             <CardContent>
               <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Job Name</dt>
+                  <dt className="text-muted-foreground">Job Name</dt>
                   <dd className="font-mono">{detail.jobName}</dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Group</dt>
+                  <dt className="text-muted-foreground">Group</dt>
                   <dd className="font-mono">{detail.groupName}</dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)] mb-1">Schedule</dt>
+                  <dt className="text-muted-foreground mb-1">Schedule</dt>
                   <dd><CronScheduleDisplay cron={detail.cronExpression} /></dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Time Zone</dt>
+                  <dt className="text-muted-foreground">Time Zone</dt>
                   <dd>{detail.timeZoneId}</dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Next Fire Time</dt>
-                  <dd>{formatRelativeTime(detail.nextFireTimeUtc)} <span className="text-[var(--color-text-tertiary)]">({formatDateTime(detail.nextFireTimeUtc)})</span></dd>
+                  <dt className="text-muted-foreground">Next Fire Time</dt>
+                  <dd>{formatRelativeTime(detail.nextFireTimeUtc)} <span className="text-muted-foreground">({formatDateTime(detail.nextFireTimeUtc)})</span></dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Previous Fire Time</dt>
-                  <dd>{formatRelativeTime(detail.previousFireTimeUtc)} <span className="text-[var(--color-text-tertiary)]">({formatDateTime(detail.previousFireTimeUtc)})</span></dd>
+                  <dt className="text-muted-foreground">Previous Fire Time</dt>
+                  <dd>{formatRelativeTime(detail.previousFireTimeUtc)} <span className="text-muted-foreground">({formatDateTime(detail.previousFireTimeUtc)})</span></dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Last Outcome</dt>
+                  <dt className="text-muted-foreground">Last Outcome</dt>
                   <dd>{detail.lastOutcome ? statusBadge(detail.lastOutcome) : '--'}</dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Last Duration</dt>
+                  <dt className="text-muted-foreground">Last Duration</dt>
                   <dd>{detail.lastDurationMs != null ? formatDuration(detail.lastDurationMs) : '--'}</dd>
                 </div>
                 {detail.lastOutcomeSummary ? (
                   <div className="col-span-2">
-                    <dt className="text-[var(--color-text-tertiary)]">Latest Output</dt>
-                    <dd className="text-xs bg-[var(--color-surface-inset)] p-3 rounded mt-1 whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">{detail.lastOutcomeSummary}</dd>
+                    <dt className="text-muted-foreground">Latest Output</dt>
+                    <dd className="text-xs bg-muted p-3 rounded mt-1 whitespace-pre-wrap break-words text-muted-foreground">{detail.lastOutcomeSummary}</dd>
                   </div>
                 ) : null}
                 {detail.lastOutcome?.toLowerCase() === 'failed' && (
@@ -445,7 +445,7 @@ export function BackgroundJobDetailPage() {
                   </div>
                 )}
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Last Synced</dt>
+                  <dt className="text-muted-foreground">Last Synced</dt>
                   <dd>{formatRelativeTime(detail.lastSyncedAtUtc)}</dd>
                 </div>
               </dl>
@@ -460,23 +460,23 @@ export function BackgroundJobDetailPage() {
             </CardHeader>
             <CardContent>
               {!runs || runs.items.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No runs recorded yet.</p>
+                <p className="text-sm text-muted-foreground">No runs recorded yet.</p>
               ) : (
                 <div className="space-y-3">
                   {runs.items.map((run) => (
-                    <div key={run.id} className="rounded-md border border-[var(--color-border-light)] p-4">
+                    <div key={run.id} className="rounded-md border border-border p-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="space-y-2 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             {statusBadge(run.outcome)}
                             <Badge variant="outline">{run.triggeredBy}</Badge>
-                            <span className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(run.firedAtUtc)}</span>
+                            <span className="text-xs text-muted-foreground">{formatDateTime(run.firedAtUtc)}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="w-4 h-4" />
                             {formatDuration(run.durationMs)}
                           </div>
-                          <p className="text-sm text-[var(--color-text-secondary)] break-words">
+                          <p className="text-sm text-muted-foreground break-words">
                             {run.errorMessage ?? 'Run completed without a recorded error.'}
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -494,7 +494,7 @@ export function BackgroundJobDetailPage() {
 
                   {runs.totalPages > 1 && (
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-[var(--color-text-tertiary)]">Page {runs.pageNumber} of {runs.totalPages} ({runs.totalCount} total)</span>
+                      <span className="text-xs text-muted-foreground">Page {runs.pageNumber} of {runs.totalPages} ({runs.totalCount} total)</span>
                       <div className="flex gap-2">
                         <Button size="sm" variant="secondary" disabled={runsPage <= 1} onClick={() => { setRunsPage(runsPage - 1); void loadRuns(runsPage - 1); }}>
                           <ArrowLeft className="w-3.5 h-3.5" />
@@ -518,22 +518,22 @@ export function BackgroundJobDetailPage() {
             </CardHeader>
             <CardContent>
               {!commands || commands.items.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No commands recorded yet.</p>
+                <p className="text-sm text-muted-foreground">No commands recorded yet.</p>
               ) : (
                 <div className="space-y-3">
                   {commands.items.map((cmd) => (
-                    <div key={cmd.id} className="rounded-md border border-[var(--color-border-light)] p-4">
+                    <div key={cmd.id} className="rounded-md border border-border p-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="space-y-2 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="outline">{cmd.commandType}</Badge>
                             {statusBadge(cmd.status)}
-                            <span className="text-xs text-[var(--color-text-tertiary)]">Requested {formatDateTime(cmd.createdAt)}</span>
+                            <span className="text-xs text-muted-foreground">Requested {formatDateTime(cmd.createdAt)}</span>
                           </div>
-                          <p className="text-sm text-[var(--color-text-secondary)] break-words">
+                          <p className="text-sm text-muted-foreground break-words">
                             {cmd.resultMessage ?? 'Awaiting worker processing.'}
                           </p>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span>Processed: {formatDateTime(cmd.processedAtUtc)}</span>
                           </div>
                           <Button asChild size="sm" variant="outline">
@@ -549,7 +549,7 @@ export function BackgroundJobDetailPage() {
 
                   {commands.totalPages > 1 && (
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-[var(--color-text-tertiary)]">Page {commands.pageNumber} of {commands.totalPages} ({commands.totalCount} total)</span>
+                      <span className="text-xs text-muted-foreground">Page {commands.pageNumber} of {commands.totalPages} ({commands.totalCount} total)</span>
                       <div className="flex gap-2">
                         <Button size="sm" variant="secondary" disabled={commandsPage <= 1} onClick={() => { setCommandsPage(commandsPage - 1); void loadCommands(commandsPage - 1); }}>
                           <ArrowLeft className="w-3.5 h-3.5" />

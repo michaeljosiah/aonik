@@ -176,8 +176,8 @@ export function PlaygroundOutputPanel({
       ref={panelRef}
       className={
         side
-          ? 'flex h-full flex-col bg-[var(--color-surface)]'
-          : 'shrink-0 border-t border-[var(--color-border-light)] bg-[var(--color-surface)]'
+          ? 'flex h-full flex-col bg-card'
+          : 'shrink-0 border-t border-border bg-card'
       }
       style={side ? undefined : { height }}
     >
@@ -185,25 +185,25 @@ export function PlaygroundOutputPanel({
       {!side && (
         <div
           onMouseDown={onMouseDown}
-          className="group flex cursor-row-resize items-center justify-center border-b border-[var(--color-border-light)] py-1"
+          className="group flex cursor-row-resize items-center justify-center border-b border-border py-1"
         >
-          <GripHorizontal className="h-4 w-4 text-[var(--color-text-tertiary)] transition-colors group-hover:text-[var(--color-text-secondary)]" />
+          <GripHorizontal className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-muted-foreground" />
         </div>
       )}
 
       {/* Header row */}
-      <div className={`flex shrink-0 items-center justify-between px-6 py-2${side ? ' border-b border-[var(--color-border-light)]' : ''}`}>
+      <div className={`flex shrink-0 items-center justify-between px-6 py-2${side ? ' border-b border-border' : ''}`}>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+          <span className="text-xs font-medium text-muted-foreground">
             Output
           </span>
           {(metrics?.modelName || modelName) && (
-            <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {metrics?.modelName || modelName}
             </span>
           )}
           {voiceModeEnabled && (
-            <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               Voice {voicePlaybackState === 'error' ? 'unavailable' : voicePlaybackState}
             </span>
           )}
@@ -211,10 +211,10 @@ export function PlaygroundOutputPanel({
         <div className="flex items-center gap-2">
           {/* Metrics inline */}
           {metrics && (
-            <div className="flex items-center gap-3 text-[10px] tabular-nums text-[var(--color-text-tertiary)]">
+            <div className="flex items-center gap-3 text-[10px] tabular-nums text-muted-foreground">
               <span>{metrics.inputTokens} in</span>
               <span>{metrics.outputTokens} out</span>
-              <span className="font-medium text-[var(--color-text-secondary)]">
+              <span className="font-medium text-muted-foreground">
                 {metrics.totalTokens} total
               </span>
               <span>{(metrics.latencyMs / 1000).toFixed(1)}s</span>
@@ -297,7 +297,7 @@ export function PlaygroundOutputPanel({
                       );
                     case 'text':
                       return (
-                        <div key={`t-${i}`} className="text-sm leading-relaxed text-[var(--color-text-primary)]">
+                        <div key={`t-${i}`} className="text-sm leading-relaxed text-foreground">
                           <Markdown text={part.content} />
                         </div>
                       );
@@ -314,7 +314,7 @@ export function PlaygroundOutputPanel({
                   }
                 })}
                 {isStreaming && outputParts.length === 0 && (
-                  <span className="inline-flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Thinking...
                   </span>
@@ -322,33 +322,33 @@ export function PlaygroundOutputPanel({
               </div>
             ) : (
               /* Fallback: plain text rendering (no tool calls/reasoning) */
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[var(--color-text-primary)]">
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
                 {output || (isStreaming ? '...' : '')}
               </pre>
             )}
             {streamError && (
-              <div className="mt-3 rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              <div className="mt-3 rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {streamError}
               </div>
             )}
             {voiceModeEnabled && voiceDetails && (
-              <div className="mt-3 rounded-[2px] border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-3 text-xs text-[var(--color-text-secondary)]">
-                <div className="mb-2 flex items-center gap-2 text-[var(--color-text-primary)]">
+              <div className="mt-3 rounded-[2px] border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
+                <div className="mb-2 flex items-center gap-2 text-foreground">
                   <Volume2 className="h-3.5 w-3.5" />
                   <span className="font-medium">Speech render</span>
                 </div>
                 <div className="space-y-1">
-                  <div>Provider: <span className="font-medium text-[var(--color-text-primary)]">{voiceDetails.provider ?? 'Pending'}</span></div>
-                  <div>Voice: <span className="font-medium text-[var(--color-text-primary)]">{voiceDetails.voiceId ?? 'Pending'}</span></div>
-                  <div>AiRunId: <span className="font-mono text-[var(--color-text-primary)]">{voiceDetails.aiRunId ?? 'n/a'}</span></div>
+                  <div>Provider: <span className="font-medium text-foreground">{voiceDetails.provider ?? 'Pending'}</span></div>
+                  <div>Voice: <span className="font-medium text-foreground">{voiceDetails.voiceId ?? 'Pending'}</span></div>
+                  <div>AiRunId: <span className="font-mono text-foreground">{voiceDetails.aiRunId ?? 'n/a'}</span></div>
                 </div>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-[var(--color-text-primary)]">
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
                   {voiceDetails.speechText}
                 </pre>
               </div>
             )}
             {voiceModeEnabled && voiceError && (
-              <div className="mt-3 rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              <div className="mt-3 rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <div className="font-medium">Voice playback unavailable</div>
                 {voiceError}
               </div>
@@ -364,7 +364,7 @@ export function PlaygroundOutputPanel({
             )}
           </>
         ) : (
-          <p className="text-xs italic text-[var(--color-text-tertiary)]">
+          <p className="text-xs italic text-muted-foreground">
             Run the playground to see output here.
           </p>
         )}
@@ -378,7 +378,7 @@ export function PlaygroundOutputPanel({
 function ReasoningBlock({ content }: { content: string }) {
   return (
     <div
-      className="rounded-[2px] border border-[var(--color-border-light)] bg-[color-mix(in_srgb,var(--color-surface)_92%,var(--color-background))] px-3 py-2 text-xs leading-relaxed text-[var(--color-text-tertiary)]"
+      className="rounded-[2px] border border-border bg-[color-mix(in_srgb,var(--card)_92%,var(--background))] px-3 py-2 text-xs leading-relaxed text-muted-foreground"
       data-component="reasoning-part"
     >
       <div className="flex items-start gap-2">
@@ -426,19 +426,19 @@ function ToolCallCard({
   const effectiveOpen = isActive || isAwaiting ? true : open;
 
   const statusIcon = isActive ? (
-    <Loader2 className="h-3 w-3 animate-spin text-[var(--color-info)]" />
+    <Loader2 className="h-3 w-3 animate-spin text-info" />
   ) : toolCall.status === 'awaiting-approval' ? (
-    <ShieldAlert className="h-3 w-3 text-[var(--color-warning)]" />
+    <ShieldAlert className="h-3 w-3 text-warning" />
   ) : toolCall.status === 'awaiting-selection' ? (
-    <ShieldAlert className="h-3 w-3 text-[var(--color-info)]" />
+    <ShieldAlert className="h-3 w-3 text-info" />
   ) : isError ? (
-    <XCircle className="h-3 w-3 text-[var(--color-danger)]" />
+    <XCircle className="h-3 w-3 text-destructive" />
   ) : toolCall.result === 'approved' ? (
-    <ShieldCheck className="h-3 w-3 text-[var(--color-success)]" />
+    <ShieldCheck className="h-3 w-3 text-success" />
   ) : toolCall.result === 'rejected' ? (
-    <ShieldX className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+    <ShieldX className="h-3 w-3 text-muted-foreground" />
   ) : (
-    <CheckCircle2 className="h-3 w-3 text-[var(--color-success)]" />
+    <CheckCircle2 className="h-3 w-3 text-success" />
   );
 
   const statusLabel = isActive
@@ -478,10 +478,10 @@ function ToolCallCard({
       <div
         className={`group rounded-lg border text-xs transition-colors ${
           isError
-            ? 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)]'
+            ? 'border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_6%,transparent)]'
             : isAwaiting
-              ? 'border-[color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-warning)_6%,transparent)]'
-              : 'border-[var(--color-border-light)] bg-[var(--color-surface)]'
+              ? 'border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning)_6%,transparent)]'
+              : 'border-border bg-card'
         }`}
       >
         <CollapsibleTrigger asChild disabled={!hasContent}>
@@ -489,27 +489,27 @@ function ToolCallCard({
             type="button"
             className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent rounded-lg transition-colors"
           >
-            <Wrench className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
+            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span
               className={`font-medium ${
                 isActive
                   ? 'text-shimmer'
                   : isAwaiting
-                    ? 'text-[var(--color-warning)]'
+                    ? 'text-warning'
                     : isError
-                      ? 'text-[var(--color-danger)]'
-                      : 'text-[var(--color-text-secondary)]'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground'
               }`}
             >
               {toolCall.toolCallName}
             </span>
-            <span className="inline-flex items-center gap-1 text-[var(--color-text-tertiary)]">
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
               {statusIcon}
               <span className="hidden sm:inline">{statusLabel}</span>
             </span>
             {hasContent && (
               <ChevronDown
-                className={`ml-auto h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0 transition-all duration-150
+                className={`ml-auto h-3.5 w-3.5 text-muted-foreground shrink-0 transition-all duration-150
                   opacity-0 group-hover:opacity-100
                   ${effectiveOpen ? 'rotate-0' : '-rotate-90'}`}
               />
@@ -518,7 +518,7 @@ function ToolCallCard({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="border-t border-[var(--color-border-light)] px-3 py-2 space-y-2">
+          <div className="border-t border-border px-3 py-2 space-y-2">
             {/* Approval interaction */}
             {toolCall.status === 'awaiting-approval' && toolCall.approval && (
               <ApprovalInteraction
@@ -540,17 +540,17 @@ function ToolCallCard({
 
             {/* Args (show for non-interactive states, or below interactive UI) */}
             {toolCall.args && !isAwaiting && (
-              <pre className="text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
+              <pre className="text-muted-foreground whitespace-pre-wrap break-all">
                 {tryFormatJson(toolCall.args)}
               </pre>
             )}
             {toolCall.result && (
-              <div className="text-[var(--color-text-tertiary)]">
+              <div className="text-muted-foreground">
                 Result: {truncate(toolCall.result, 300)}
               </div>
             )}
             {toolCall.error && (
-              <div className="text-[var(--color-danger)]">Error: {toolCall.error}</div>
+              <div className="text-destructive">Error: {toolCall.error}</div>
             )}
           </div>
         </CollapsibleContent>
@@ -565,20 +565,20 @@ const severityConfig = {
   low: {
     label: 'Low risk',
     icon: ShieldCheck,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-info)_15%,transparent)] text-[var(--color-info)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--info)_15%,transparent)] text-info',
+    borderClass: 'border-[color-mix(in_srgb,var(--info)_20%,transparent)]',
   },
   medium: {
     label: 'Medium risk',
     icon: ShieldAlert,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--warning)_15%,transparent)] text-warning',
+    borderClass: 'border-[color-mix(in_srgb,var(--warning)_20%,transparent)]',
   },
   high: {
     label: 'High risk',
     icon: ShieldX,
-    badgeClass: 'bg-[color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]',
-    borderClass: 'border-[color-mix(in_srgb,var(--color-danger)_20%,transparent)]',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] text-destructive',
+    borderClass: 'border-[color-mix(in_srgb,var(--destructive)_20%,transparent)]',
   },
 } as const;
 
@@ -597,21 +597,21 @@ function ApprovalInteraction({
   const SeverityIcon = config.icon;
 
   return (
-    <div className={`rounded-md border ${config.borderClass} bg-[var(--color-surface)] p-3 space-y-2.5`}>
+    <div className={`rounded-md border ${config.borderClass} bg-card p-3 space-y-2.5`}>
       {/* Severity badge + action name */}
       <div className="flex items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.badgeClass}`}>
           <SeverityIcon className="h-3 w-3" />
           {config.label}
         </span>
-        <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+        <span className="text-xs font-semibold text-foreground">
           {approval.action}
         </span>
       </div>
 
       {/* Description */}
       {approval.description && (
-        <p className="text-xs leading-relaxed text-[var(--color-text-secondary)]">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {approval.description}
         </p>
       )}
@@ -620,7 +620,7 @@ function ApprovalInteraction({
       <div className="flex items-center gap-2 pt-1">
         <Button
           size="sm"
-          className="h-7 gap-1.5 bg-[var(--color-success)] px-3 text-xs font-medium text-white hover:bg-[color-mix(in_srgb,var(--color-success)_85%,black)]"
+          className="h-7 gap-1.5 bg-success px-3 text-xs font-medium text-white hover:bg-[color-mix(in_srgb,var(--success)_85%,black)]"
           onClick={() => onApprove?.(toolCallId)}
         >
           <Check className="h-3 w-3" />
@@ -629,7 +629,7 @@ function ApprovalInteraction({
         <Button
           variant="outline"
           size="sm"
-          className="h-7 gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]"
+          className="h-7 gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:border-destructive"
           onClick={() => onReject?.(toolCallId)}
         >
           <X className="h-3 w-3" />
@@ -679,9 +679,9 @@ function OptionSelectionInteraction({
   };
 
   return (
-    <div className="rounded-md border border-[color-mix(in_srgb,var(--color-info)_20%,transparent)] bg-[var(--color-surface)] p-3 space-y-2.5">
+    <div className="rounded-md border border-[color-mix(in_srgb,var(--info)_20%,transparent)] bg-card p-3 space-y-2.5">
       {/* Question */}
-      <p className="text-xs font-semibold text-[var(--color-text-primary)]">
+      <p className="text-xs font-semibold text-foreground">
         {selection.question}
       </p>
 
@@ -696,24 +696,24 @@ function OptionSelectionInteraction({
               onClick={() => toggleOption(option.label)}
               className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 isSelected
-                  ? 'border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)]'
-                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-accent'
+                  ? 'border-primary bg-[color-mix(in_srgb,var(--primary)_8%,transparent)]'
+                  : 'border-border bg-card hover:bg-accent'
               }`}
             >
               {/* Radio/checkbox indicator */}
               <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
                 isSelected
-                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
-                  : 'border-[var(--color-text-tertiary)]'
+                  ? 'border-primary bg-primary'
+                  : 'border-muted-foreground'
               }`}>
                 {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
               </span>
               <div className="min-w-0">
-                <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
+                <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {option.label}
                 </span>
                 {option.description && (
-                  <p className="mt-0.5 text-[var(--color-text-tertiary)]">{option.description}</p>
+                  <p className="mt-0.5 text-muted-foreground">{option.description}</p>
                 )}
               </div>
             </button>
@@ -783,34 +783,34 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
   };
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">Budget Breakdown</span>
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">Budget Breakdown</span>
           {period && (
-            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {period}
             </span>
           )}
         </div>
         <div className="text-right">
-          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]'}`}>
-            {fmt(totalSpent)} <span className="font-normal text-[var(--color-text-tertiary)]">/ {fmt(totalBudget)}</span>
+          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-destructive' : 'text-foreground'}`}>
+            {fmt(totalSpent)} <span className="font-normal text-muted-foreground">/ {fmt(totalBudget)}</span>
           </div>
         </div>
       </div>
 
       {/* Overall progress bar */}
       <div className="px-4 pt-3 pb-1">
-        <div className="h-2 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${isOver ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-brand-primary)]'}`}
+            className={`h-full rounded-full transition-all ${isOver ? 'bg-destructive' : 'bg-primary'}`}
             style={{ width: `${spentPct}%` }}
           />
         </div>
-        <div className="mt-1 flex justify-between text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
           <span>{spentPct.toFixed(0)}% used</span>
           <span>{fmt(Math.max(totalBudget - totalSpent, 0))} remaining</span>
         </div>
@@ -827,31 +827,31 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
             const catPct = budgeted > 0 ? Math.min((spent / budgeted) * 100, 100) : 0;
             const barColor =
               status === 'over'
-                ? 'bg-[var(--color-danger)]'
+                ? 'bg-destructive'
                 : status === 'under'
-                  ? 'bg-[var(--color-success)]'
-                  : 'bg-[var(--color-brand-primary)]';
+                  ? 'bg-success'
+                  : 'bg-primary';
             const statusLabel =
               status === 'over' ? 'Over' : status === 'under' ? 'Under' : 'On track';
             const statusColor =
               status === 'over'
-                ? 'text-[var(--color-danger)]'
+                ? 'text-destructive'
                 : status === 'under'
-                  ? 'text-[var(--color-success)]'
-                  : 'text-[var(--color-text-tertiary)]';
+                  ? 'text-success'
+                  : 'text-muted-foreground';
 
             return (
               <div key={`${name}-${i}`}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-[var(--color-text-primary)]">{name}</span>
+                  <span className="font-medium text-foreground">{name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-[var(--color-text-secondary)]">
+                    <span className="tabular-nums text-muted-foreground">
                       {fmt(spent)} / {fmt(budgeted)}
                     </span>
                     <span className={`text-[10px] font-medium ${statusColor}`}>{statusLabel}</span>
                   </div>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${barColor}`}
                     style={{ width: `${catPct}%` }}
@@ -950,14 +950,14 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
   });
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">{title}</span>
         </div>
-        <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{fmt(totalSpent)}</span>
+        <span className="text-sm font-bold tabular-nums text-foreground">{fmt(totalSpent)}</span>
       </div>
 
       {/* Chart + Legend */}
@@ -970,15 +970,15 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
                 key={i}
                 d={slice.d}
                 fill={slice.color}
-                stroke="var(--color-surface)"
+                stroke="var(--card)"
                 strokeWidth="1.5"
               />
             ))}
             {/* Center text */}
-            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-[var(--color-text-tertiary)]" fontSize="9">
+            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-muted-foreground" fontSize="9">
               Total
             </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" className="fill-[var(--color-text-primary)] font-semibold" fontSize="12">
+            <text x={cx} y={cy + 10} textAnchor="middle" className="fill-foreground font-semibold" fontSize="12">
               {fmt(totalSpent)}
             </text>
           </svg>
@@ -992,9 +992,9 @@ function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{ backgroundColor: slice.color }}
               />
-              <span className="truncate text-[var(--color-text-secondary)] flex-1">{slice.name}</span>
-              <span className="tabular-nums font-medium text-[var(--color-text-primary)] shrink-0">{fmt(slice.amount)}</span>
-              <span className="tabular-nums text-[var(--color-text-tertiary)] shrink-0 w-10 text-right">
+              <span className="truncate text-muted-foreground flex-1">{slice.name}</span>
+              <span className="tabular-nums font-medium text-foreground shrink-0">{fmt(slice.amount)}</span>
+              <span className="tabular-nums text-muted-foreground shrink-0 w-10 text-right">
                 {slice.percentage.toFixed(0)}%
               </span>
             </div>
@@ -1021,23 +1021,23 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
   const latestRate = rateValues.length > 0 ? rateValues[rateValues.length - 1] : 0;
 
   const signalConfig = {
-    buy: { label: 'Buy now', color: 'text-[var(--color-success)]', bg: 'bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)]', Icon: TrendingDown },
-    hold: { label: 'Hold', color: 'text-[var(--color-warning)]', bg: 'bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)]', Icon: ArrowUpDown },
-    wait: { label: 'Wait', color: 'text-[var(--color-info)]', bg: 'bg-[color-mix(in_srgb,var(--color-info)_12%,transparent)]', Icon: TrendingUp },
-  }[signal] ?? { label: signal, color: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]', Icon: ArrowUpDown };
+    buy: { label: 'Buy now', color: 'text-success', bg: 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)]', Icon: TrendingDown },
+    hold: { label: 'Hold', color: 'text-warning', bg: 'bg-[color-mix(in_srgb,var(--warning)_12%,transparent)]', Icon: ArrowUpDown },
+    wait: { label: 'Wait', color: 'text-info', bg: 'bg-[color-mix(in_srgb,var(--info)_12%,transparent)]', Icon: TrendingUp },
+  }[signal] ?? { label: signal, color: 'text-muted-foreground', bg: 'bg-muted', Icon: ArrowUpDown };
 
   return (
-    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+    <div className="rounded-lg border border-border bg-card text-xs overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">
             {baseCurrency}/{targetCurrency} Rate
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">
+          <span className="text-sm font-bold tabular-nums text-foreground">
             {latestRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
           </span>
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${signalConfig.color} ${signalConfig.bg}`}>
@@ -1063,7 +1063,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
                     })
                     .join(' ') + ` L${(rates.length - 1) * 40},58 L0,58 Z`
                 }
-                fill="var(--color-brand-primary)"
+                fill="var(--primary)"
                 opacity="0.08"
               />
               {/* Line */}
@@ -1076,7 +1076,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
                   })
                   .join(' ')}
                 fill="none"
-                stroke="var(--color-brand-primary)"
+                stroke="var(--primary)"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -1084,7 +1084,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
             </svg>
           </div>
           {/* Date labels */}
-          <div className="flex justify-between text-[10px] text-[var(--color-text-tertiary)] mt-1">
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
             {rates.length > 0 && <span>{String((rates[0] as Record<string, unknown>).date ?? '')}</span>}
             {rates.length > 1 && <span>{String((rates[rates.length - 1] as Record<string, unknown>).date ?? '')}</span>}
           </div>
@@ -1094,7 +1094,7 @@ function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
       {/* Signal reason */}
       {signalReason && (
         <div className="px-4 pb-3 pt-1">
-          <p className="text-[var(--color-text-secondary)] leading-relaxed">{signalReason}</p>
+          <p className="text-muted-foreground leading-relaxed">{signalReason}</p>
         </div>
       )}
     </div>
@@ -1111,16 +1111,16 @@ function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
   const SeverityIcon = config.icon;
 
   return (
-    <div className={`rounded-lg border ${config.borderClass} bg-[var(--color-surface)] text-xs overflow-hidden`}>
+    <div className={`rounded-lg border ${config.borderClass} bg-card text-xs overflow-hidden`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{action}</span>
+          <Bot className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-foreground">{action}</span>
         </div>
         <div className="flex items-center gap-2">
           {agent && (
-            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {agent}
             </span>
           )}
@@ -1133,15 +1133,15 @@ function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
 
       {/* Description */}
       <div className="px-4 py-3 space-y-3">
-        <p className="text-[var(--color-text-secondary)] leading-relaxed">{description}</p>
+        <p className="text-muted-foreground leading-relaxed">{description}</p>
 
         {/* Detail rows */}
         {details.length > 0 && (
-          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] divide-y divide-[var(--color-border-light)]">
+          <div className="rounded-md border border-border bg-muted divide-y divide-border">
             {details.map((d: Record<string, unknown>, i: number) => (
               <div key={i} className="flex items-center justify-between px-3 py-2">
-                <span className="text-[var(--color-text-tertiary)]">{String(d.label ?? '')}</span>
-                <span className="font-medium text-[var(--color-text-primary)]">{String(d.value ?? '')}</span>
+                <span className="text-muted-foreground">{String(d.label ?? '')}</span>
+                <span className="font-medium text-foreground">{String(d.value ?? '')}</span>
               </div>
             ))}
           </div>
@@ -1169,13 +1169,13 @@ function Markdown({ text }: { text: string }) {
           code: ({ children, className }) => {
             if (className) {
               return (
-                <code className="block bg-[var(--color-surface-inset)] rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all my-2">
+                <code className="block bg-muted rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all my-2">
                   {children}
                 </code>
               );
             }
             return (
-              <code className="bg-[var(--color-surface-inset)] rounded px-1 py-0.5 text-xs font-mono">
+              <code className="bg-muted rounded px-1 py-0.5 text-xs font-mono">
                 {children}
               </code>
             );
@@ -1184,13 +1184,13 @@ function Markdown({ text }: { text: string }) {
           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
           em: ({ children }) => <em>{children}</em>,
           a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-brand-primary)] underline hover:opacity-80">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80">
               {children}
             </a>
           ),
-          hr: () => <hr className="my-2 border-[var(--color-border-light)]" />,
+          hr: () => <hr className="my-2 border-border" />,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-[var(--color-border-light)] pl-3 my-2 text-[var(--color-text-secondary)] italic">
+            <blockquote className="border-l-2 border-border pl-3 my-2 text-muted-foreground italic">
               {children}
             </blockquote>
           ),
@@ -1200,12 +1200,12 @@ function Markdown({ text }: { text: string }) {
             </div>
           ),
           th: ({ children }) => (
-            <th className="border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-1 text-left font-medium">
+            <th className="border border-border bg-muted px-2 py-1 text-left font-medium">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border border-[var(--color-border-light)] px-2 py-1">{children}</td>
+            <td className="border border-border px-2 py-1">{children}</td>
           ),
         }}
       >
@@ -1231,42 +1231,42 @@ function ReviewResultsPanel({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="mt-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] overflow-hidden">
+    <div className="mt-4 rounded-lg border border-border bg-muted overflow-hidden">
       {/* Header */}
       <button
         type="button"
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_srgb,var(--color-surface-inset)_90%,var(--color-background))] transition-colors"
+        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_srgb,var(--muted)_90%,var(--background))] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-[var(--color-brand-primary)]" />
-          <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold text-foreground">
             AI Review
           </span>
           {result && (
-            <span className="flex items-center gap-1 rounded-full bg-[var(--color-brand-primary)] px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+            <span className="flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
               <Star className="h-2.5 w-2.5" />
               {result.overallScore.toFixed(1)} / 5
             </span>
           )}
           {isReviewing && (
-            <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               Analyzing...
             </span>
           )}
         </div>
         {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </button>
 
       {expanded && (
-        <div className="border-t border-[var(--color-border-light)] px-4 py-3 space-y-4">
+        <div className="border-t border-border px-4 py-3 space-y-4">
           {error && (
-            <div className="rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-[2px] border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -1283,11 +1283,11 @@ function ReviewResultsPanel({
               {/* Strengths */}
               {result.strengths.length > 0 && (
                 <div>
-                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-success)]">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-success">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Strengths
                   </div>
-                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                  <ul className="space-y-1 pl-5 text-xs text-muted-foreground list-disc">
                     {result.strengths.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
@@ -1298,11 +1298,11 @@ function ReviewResultsPanel({
               {/* Suggestions */}
               {result.suggestions.length > 0 && (
                 <div>
-                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-warning)]">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-warning">
                     <Lightbulb className="h-3.5 w-3.5" />
                     Suggestions
                   </div>
-                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                  <ul className="space-y-1 pl-5 text-xs text-muted-foreground list-disc">
                     {result.suggestions.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
@@ -1313,11 +1313,11 @@ function ReviewResultsPanel({
               {/* Prompt Improvements */}
               {result.promptImprovements.length > 0 && (
                 <div>
-                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-brand-primary)]">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
                     <Zap className="h-3.5 w-3.5" />
                     Prompt Improvements
                   </div>
-                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                  <ul className="space-y-1 pl-5 text-xs text-muted-foreground list-disc">
                     {result.promptImprovements.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
@@ -1329,7 +1329,7 @@ function ReviewResultsPanel({
 
           {/* Fallback: show raw text if structured parsing failed */}
           {!result && rawText && !isReviewing && (
-            <div className="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap">
+            <div className="text-xs text-muted-foreground whitespace-pre-wrap">
               {rawText}
             </div>
           )}
@@ -1337,7 +1337,7 @@ function ReviewResultsPanel({
           {/* Loading state */}
           {isReviewing && !result && !error && (
             <div className="flex items-center justify-center py-6">
-              <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Evaluating response quality...
               </div>
@@ -1352,17 +1352,17 @@ function ReviewResultsPanel({
 function MetricCard({ metric }: { metric: PlaygroundReviewResult['metrics'][0] }) {
   const scoreColor =
     metric.score >= 4
-      ? 'text-[var(--color-success)]'
+      ? 'text-success'
       : metric.score >= 3
-        ? 'text-[var(--color-warning)]'
-        : 'text-[var(--color-error)]';
+        ? 'text-warning'
+        : 'text-destructive';
 
   const bgColor =
     metric.score >= 4
-      ? 'bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]'
+      ? 'bg-[color-mix(in_srgb,var(--success)_8%,transparent)]'
       : metric.score >= 3
-        ? 'bg-[color-mix(in_srgb,var(--color-warning)_8%,transparent)]'
-        : 'bg-[color-mix(in_srgb,var(--color-error)_8%,transparent)]';
+        ? 'bg-[color-mix(in_srgb,var(--warning)_8%,transparent)]'
+        : 'bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]';
 
   const MetricIcon =
     metric.name === 'Faithfulness'
@@ -1374,11 +1374,11 @@ function MetricCard({ metric }: { metric: PlaygroundReviewResult['metrics'][0] }
           : CheckCircle2;
 
   return (
-    <div className={`rounded-lg border border-[var(--color-border-light)] ${bgColor} px-3 py-2.5`}>
+    <div className={`rounded-lg border border-border ${bgColor} px-3 py-2.5`}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <MetricIcon className={`h-3 w-3 ${scoreColor}`} />
-          <span className="text-[10px] font-semibold text-[var(--color-text-primary)]">
+          <span className="text-[10px] font-semibold text-foreground">
             {metric.name}
           </span>
         </div>
@@ -1386,7 +1386,7 @@ function MetricCard({ metric }: { metric: PlaygroundReviewResult['metrics'][0] }
           {metric.score}/5
         </span>
       </div>
-      <p className="text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
         {metric.explanation}
       </p>
     </div>

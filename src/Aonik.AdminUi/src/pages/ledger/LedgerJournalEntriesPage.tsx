@@ -499,7 +499,7 @@ export function LedgerJournalEntriesPage() {
                     />
                   </div>
                   {formError && (
-                    <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                    <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
                       {formError}
                     </div>
                   )}
@@ -524,7 +524,7 @@ export function LedgerJournalEntriesPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button
@@ -552,16 +552,16 @@ export function LedgerJournalEntriesPage() {
         {loading && entries.length === 0 ? (
           <AonikCard>
             <div className="flex items-center justify-center py-10">
-              <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
             </div>
           </AonikCard>
         ) : filteredEntries.length === 0 ? (
           <AonikCard>
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
+              <p className="text-sm font-medium text-foreground">
                 No journal entries
               </p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {searchQuery || statusFilter
                   ? 'Try adjusting the active tab or search.'
                   : 'Post the first entry into this ledger.'}
@@ -591,15 +591,15 @@ function EntryCard({
   const tone = STATUS_TONE[entry.status] ?? 'default';
 
   return (
-    <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-      <div className="flex items-center gap-3.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-3">
-        <span className="font-[family-name:var(--font-mono)] text-[12px] font-semibold text-[var(--color-brand-primary)]">
+    <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <div className="flex items-center gap-3.5 border-b border-border bg-muted px-4 py-3">
+        <span className="font-[family-name:var(--font-mono)] text-[12px] font-semibold text-primary">
           {shortEntryId(entry.id)}
         </span>
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {formatDate(entry.entryUtc)}
         </span>
-        <span className="flex-1 truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+        <span className="flex-1 truncate text-[13px] font-medium text-foreground">
           {entry.description ?? entry.reference ?? '—'}
         </span>
         <Pill tone={tone} dot>
@@ -609,7 +609,7 @@ function EntryCard({
 
       <div>
         <div
-          className="grid items-center gap-3.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]"
+          className="grid items-center gap-3.5 border-b border-border bg-card px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
           style={{ gridTemplateColumns: '1fr 140px 140px' }}
         >
           <div>Account</div>
@@ -627,14 +627,14 @@ function EntryCard({
               key={line.id}
               className={
                 'grid items-center gap-3.5 px-4 py-2.5 ' +
-                (i < entry.lines.length - 1 ? 'border-b border-[var(--color-border-light)]' : '')
+                (i < entry.lines.length - 1 ? 'border-b border-border' : '')
               }
               style={{ gridTemplateColumns: '1fr 140px 140px' }}
             >
-              <div className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+              <div className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">
                 {accountLabel}
                 {line.narration && (
-                  <span className="ml-2 font-[family-name:var(--font-sans)] text-[11px] text-[var(--color-text-tertiary)]">
+                  <span className="ml-2 font-[family-name:var(--font-sans)] text-[11px] text-muted-foreground">
                     · {line.narration}
                   </span>
                 )}
@@ -643,8 +643,8 @@ function EntryCard({
                 className={
                   'text-right font-[family-name:var(--font-mono)] text-[12px] ' +
                   (isDebit
-                    ? 'text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-tertiary)]')
+                    ? 'text-foreground'
+                    : 'text-muted-foreground')
                 }
               >
                 {isDebit ? formatMoney(line.amount, line.currency) : '—'}
@@ -653,8 +653,8 @@ function EntryCard({
                 className={
                   'text-right font-[family-name:var(--font-mono)] text-[12px] ' +
                   (isDebit
-                    ? 'text-[var(--color-text-tertiary)]'
-                    : 'text-[var(--color-text-primary)]')
+                    ? 'text-muted-foreground'
+                    : 'text-foreground')
                 }
               >
                 {isDebit ? '—' : formatMoney(line.amount, line.currency)}
@@ -663,14 +663,14 @@ function EntryCard({
           );
         })}
         <div
-          className="grid items-center gap-3.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]"
+          className="grid items-center gap-3.5 border-t border-border bg-muted px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
           style={{ gridTemplateColumns: '1fr 140px 140px' }}
         >
           <div>Totals</div>
-          <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+          <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-foreground">
             {formatMoney(totals.debit, totals.currency)}
           </div>
-          <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+          <div className="text-right font-[family-name:var(--font-mono)] text-[12px] text-foreground">
             {formatMoney(totals.credit, totals.currency)}
           </div>
         </div>

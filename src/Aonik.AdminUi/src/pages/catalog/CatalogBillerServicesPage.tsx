@@ -64,8 +64,8 @@ export function CatalogBillerServicesPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Biller Services</h1>
-          <p className="text-[var(--color-text-secondary)]">Review available services and their limits.</p>
+          <h1 className="text-2xl font-bold text-foreground">Biller Services</h1>
+          <p className="text-muted-foreground">Review available services and their limits.</p>
         </div>
         <Button variant="outline" onClick={loadServices} disabled={loading} className="rounded-sm">
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -74,8 +74,8 @@ export function CatalogBillerServicesPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadServices}>
@@ -89,48 +89,48 @@ export function CatalogBillerServicesPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="relative w-96 max-w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search for services"
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               />
             </div>
 
             <Badge variant="secondary">{filteredServices.length} services</Badge>
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Service</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Type</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Currency</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Flags</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Limits</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Actions</th>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Service</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Type</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Currency</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Flags</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Limits</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                        <p className="text-sm text-[var(--color-text-secondary)]">Loading services...</p>
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Loading services...</p>
                       </td>
                     </tr>
                   ) : filteredServices.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center">
-                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                        <div className="mb-3 flex justify-center text-muted-foreground">
                           <Wrench className="w-12 h-12" />
                         </div>
-                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No services found</p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
+                        <p className="text-foreground font-medium mb-1">No services found</p>
+                        <p className="text-sm text-muted-foreground">
                           {search ? 'Try adjusting your search.' : 'No services are configured for this biller.'}
                         </p>
                       </td>
@@ -139,40 +139,40 @@ export function CatalogBillerServicesPage() {
                     filteredServices.map((service) => (
                       <tr
                         key={service.serviceId}
-                        className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors cursor-pointer"
+                        className="border-b border-border hover:bg-muted transition-colors cursor-pointer"
                         onClick={() => navigate(`/catalog/billers/${billerId}/services/${service.serviceId}`)}
                       >
                         <td className="px-4 py-3">
-                          <p className="font-medium text-[var(--color-text-primary)]">{service.name}</p>
-                          <p className="text-xs text-[var(--color-text-tertiary)] font-mono">{service.serviceId.slice(0, 8)}...</p>
+                          <p className="font-medium text-foreground">{service.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{service.serviceId.slice(0, 8)}...</p>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-secondary)]">{service.type}</span>
+                          <span className="text-sm text-muted-foreground">{service.type}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-secondary)]">{service.currency}</span>
+                          <span className="text-sm text-muted-foreground">{service.currency}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {!service.isActive && (
-                              <Badge variant="outline" className="text-[var(--color-text-tertiary)]">
+                              <Badge variant="outline" className="text-muted-foreground">
                                 Inactive
                               </Badge>
                             )}
                             {service.requiresValidation && (
-                              <Badge className="bg-[var(--color-pending-light)] text-[var(--color-pending)]">
+                              <Badge className="bg-warning-subtle text-warning">
                                 Validation
                               </Badge>
                             )}
                             {service.supportsPartialPayment && (
-                              <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)]">
+                              <Badge className="bg-info-subtle text-info">
                                 Partial
                               </Badge>
                             )}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--color-text-secondary)]">
+                          <span className="text-sm text-muted-foreground">
                             {service.minAmount ?? '—'} to {service.maxAmount ?? '—'}
                           </span>
                         </td>

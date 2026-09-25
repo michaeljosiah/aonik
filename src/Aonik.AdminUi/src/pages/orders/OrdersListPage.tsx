@@ -91,15 +91,15 @@ interface OrderStatBucket {
 }
 
 const STAT_BUCKETS: OrderStatBucket[] = [
-  { key: 'settled', label: 'Settled', status: 'Complete', tone: 'var(--color-success)' },
-  { key: 'inflight', label: 'In flight', status: 'Submitted', tone: 'var(--color-brand-primary)' },
+  { key: 'settled', label: 'Settled', status: 'Complete', tone: 'var(--success)' },
+  { key: 'inflight', label: 'In flight', status: 'Submitted', tone: 'var(--primary)' },
   {
     key: 'pending',
     label: 'Pending compliance',
     status: 'PendingCompliance',
-    tone: 'var(--color-warning)',
+    tone: 'var(--warning)',
   },
-  { key: 'failed', label: 'Failed', status: 'Failed', tone: 'var(--color-danger)' },
+  { key: 'failed', label: 'Failed', status: 'Failed', tone: 'var(--destructive)' },
 ];
 
 // ─── Page ────────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ export function OrdersListPage() {
       header: 'Order',
       accessorKey: 'orderId',
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-primary">
           {shortOrderId(row.orderId)}
         </span>
       ),
@@ -234,7 +234,7 @@ export function OrdersListPage() {
       accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {formatDate(row.createdAt)}
         </span>
       ),
@@ -246,7 +246,7 @@ export function OrdersListPage() {
       accessorKey: 'orderType',
       sortable: true,
       cell: (row) => (
-        <span className="text-xs text-[var(--color-text-secondary)]">{row.orderType}</span>
+        <span className="text-xs text-muted-foreground">{row.orderType}</span>
       ),
       className: 'w-[120px]',
     },
@@ -258,7 +258,7 @@ export function OrdersListPage() {
       cell: (row) => (
         <div className="flex items-center gap-2.5">
           <AgentAvatar name={row.payerName || 'Unknown'} size={22} />
-          <span className="truncate text-[13px] text-[var(--color-text-primary)]">
+          <span className="truncate text-[13px] text-foreground">
             {row.payerName || '—'}
           </span>
         </div>
@@ -272,7 +272,7 @@ export function OrdersListPage() {
           ? `${row.originCurrency}→${row.destinationCurrency}`
           : row.originCurrency,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {row.originCountry ? `${row.originCountry} · ` : ''}
           {row.destinationCurrency
             ? `${row.originCurrency}→${row.destinationCurrency}`
@@ -299,7 +299,7 @@ export function OrdersListPage() {
       accessorFn: (row) => row.totalAmountIn,
       sortable: true,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-foreground">
           {formatMoney(row.totalAmountIn, row.originCurrency)}
         </span>
       ),
@@ -359,21 +359,21 @@ export function OrdersListPage() {
                 setActiveTab(`type:${bucket.orderType}`);
               }
             }}
-            className="flex flex-col items-start gap-1 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5 text-left transition-colors hover:bg-[var(--color-surface-inset)]"
+            className="flex flex-col items-start gap-1 rounded-[10px] border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted"
           >
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span
                 className="h-1.5 w-1.5 rounded-full"
                 style={{ background: bucket.tone }}
               />
               {bucket.label}
             </div>
-            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-[var(--color-text-primary)]">
+            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-foreground">
               {statsLoading
                 ? '—'
                 : (stats[bucket.key] ?? 0).toLocaleString()}
             </div>
-            <div className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+            <div className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
               today · click to filter status
             </div>
           </button>
@@ -381,7 +381,7 @@ export function OrdersListPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button variant="outline" size="sm" onClick={() => void loadOrders()}>
@@ -432,7 +432,7 @@ export function OrdersListPage() {
             setPageSize(n);
             setPageNumber(1);
           }}
-          className="border-t border-[var(--color-border-light)]"
+          className="border-t border-border"
         />
       </AonikCard>
     </div>

@@ -52,36 +52,36 @@ const formatDateTime = (dateString?: string | null) => {
 
 const statusConfig: Record<string, { bg: string; text: string; dot: string }> = {
   Draft: {
-    bg: 'bg-[var(--color-surface-inset)]',
-    text: 'text-[var(--color-text-secondary)]',
-    dot: 'bg-[var(--color-text-tertiary)]',
+    bg: 'bg-muted',
+    text: 'text-muted-foreground',
+    dot: 'bg-muted-foreground',
   },
   Pending: {
-    bg: 'bg-[var(--color-warning-light)]',
-    text: 'text-[var(--color-warning)]',
-    dot: 'bg-[var(--color-warning)]',
+    bg: 'bg-warning-subtle',
+    text: 'text-warning',
+    dot: 'bg-warning',
   },
   Approved: {
-    bg: 'bg-[var(--color-success-light)]',
-    text: 'text-[var(--color-success)]',
-    dot: 'bg-[var(--color-success)]',
+    bg: 'bg-success-subtle',
+    text: 'text-success',
+    dot: 'bg-success',
   },
   Rejected: {
-    bg: 'bg-[var(--color-error-light)]',
-    text: 'text-[var(--color-error)]',
-    dot: 'bg-[var(--color-error)]',
+    bg: 'bg-destructive/10',
+    text: 'text-destructive',
+    dot: 'bg-destructive',
   },
   Expired: {
-    bg: 'bg-[var(--color-pending-light)]',
-    text: 'text-[var(--color-pending)]',
-    dot: 'bg-[var(--color-pending)]',
+    bg: 'bg-warning-subtle',
+    text: 'text-warning',
+    dot: 'bg-warning',
   },
 };
 
 const fallbackStatus = {
-  bg: 'bg-[var(--color-surface-inset)]',
-  text: 'text-[var(--color-text-secondary)]',
-  dot: 'bg-[var(--color-text-tertiary)]',
+  bg: 'bg-muted',
+  text: 'text-muted-foreground',
+  dot: 'bg-muted-foreground',
 };
 
 function formatFileSize(bytes?: number | null): string {
@@ -206,8 +206,8 @@ export function DocumentDetailPage() {
   if (error || !doc) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="flex items-center gap-3 p-4 text-destructive">
             <AlertTriangle className="h-5 w-5" />
             <span>{error || 'Document not found.'}</span>
             <Button
@@ -239,7 +239,7 @@ export function DocumentDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              <h1 className="text-2xl font-bold text-foreground">
                 {doc.document.documentType}
               </h1>
               <Badge className={`rounded-full text-xs ${status.bg} ${status.text}`}>
@@ -247,7 +247,7 @@ export function DocumentDetailPage() {
                 {doc.document.status}
               </Badge>
             </div>
-            <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Owner: {doc.document.ownerPartyId}
             </p>
           </div>
@@ -261,7 +261,7 @@ export function DocumentDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
-              <Files className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <Files className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-sm">
                 Files ({doc.files.length})
               </CardTitle>
@@ -274,20 +274,20 @@ export function DocumentDetailPage() {
                 {doc.files.map((file) => (
                   <div
                     key={file.documentFileId}
-                    className="flex items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40 px-4 py-3"
+                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
-                      <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <FileText className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {file.fileName || file.storageKey}
                       </p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-xs text-muted-foreground">
                         {file.contentType} \u00b7 {formatFileSize(file.fileSizeBytes)}
                       </p>
                     </div>
-                    <div className="text-right text-xs text-[var(--color-text-tertiary)]">
+                    <div className="text-right text-xs text-muted-foreground">
                       <p>{file.storageProvider}</p>
                       <p>{formatDateTime(file.createdAt)}</p>
                     </div>
@@ -297,15 +297,15 @@ export function DocumentDetailPage() {
             )}
 
             {doc.files.length === 0 && pendingFiles.length === 0 && (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No files attached yet.</p>
+              <p className="text-sm text-muted-foreground">No files attached yet.</p>
             )}
 
             {/* Upload drop zone */}
             <div
               className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 transition-colors ${
                 isDragOver
-                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                  : 'border-[var(--color-border-light)] hover:border-[var(--color-brand-primary)]/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50'
               }`}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -314,11 +314,11 @@ export function DocumentDetailPage() {
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleDrop}
             >
-              <CloudUpload className="mb-2 h-6 w-6 text-[var(--color-text-tertiary)]" />
-              <p className="mb-1 text-sm text-[var(--color-text-secondary)]">
+              <CloudUpload className="mb-2 h-6 w-6 text-muted-foreground" />
+              <p className="mb-1 text-sm text-muted-foreground">
                 Drag & drop files to upload
               </p>
-              <p className="mb-3 text-xs text-[var(--color-text-tertiary)]">or click to browse</p>
+              <p className="mb-3 text-xs text-muted-foreground">or click to browse</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -339,22 +339,22 @@ export function DocumentDetailPage() {
             {/* Pending uploads */}
             {pendingFiles.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <p className="text-xs font-medium text-muted-foreground">
                   Ready to upload ({pendingFiles.length})
                 </p>
                 {pendingFiles.map((file, idx) => (
                   <div
                     key={`${file.name}-${file.size}`}
-                    className="flex items-center gap-3 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary-light)]/40 px-4 py-3"
+                    className="flex items-center gap-3 rounded-lg border border-primary/30 bg-[var(--color-brand-primary-light)]/40 px-4 py-3"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
-                      <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <FileText className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {file.name}
                       </p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-xs text-muted-foreground">
                         {formatFileSize(file.size)}
                         {file.type && ` \u00b7 ${file.type}`}
                       </p>
@@ -362,7 +362,7 @@ export function DocumentDetailPage() {
                     <button
                       type="button"
                       onClick={() => setPendingFiles((p) => p.filter((_, i) => i !== idx))}
-                      className="rounded-md p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] transition-colors"
+                      className="rounded-md p-1 text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -383,7 +383,7 @@ export function DocumentDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <Pencil className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-sm">Document Details</CardTitle>
             </div>
           </CardHeader>
@@ -409,7 +409,7 @@ export function DocumentDetailPage() {
               />
               {doc.document.tags.length > 0 && (
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <p className="mb-1 text-xs text-[var(--color-text-tertiary)]">Tags</p>
+                  <p className="mb-1 text-xs text-muted-foreground">Tags</p>
                   <div className="flex flex-wrap gap-1.5">
                     {doc.document.tags.map((tag) => (
                       <Badge key={tag} variant="secondary" className="rounded-full text-xs">
@@ -431,15 +431,15 @@ export function DocumentDetailPage() {
         <Collapsible open={usageOpen} onOpenChange={setUsageOpen}>
           <Card>
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+              <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
                     <CardTitle className="text-sm">
                       Usage Records ({doc.usages.length})
                     </CardTitle>
                   </div>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                  <span className="text-xs text-muted-foreground">
                     {usageOpen ? 'Collapse' : 'Expand'}
                   </span>
                 </div>
@@ -448,23 +448,23 @@ export function DocumentDetailPage() {
             <CollapsibleContent>
               <CardContent className="space-y-3 pt-0">
                 {doc.usages.length === 0 ? (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No usage records.</p>
+                  <p className="text-sm text-muted-foreground">No usage records.</p>
                 ) : (
                   doc.usages.map((usage) => (
                     <div
                       key={usage.documentUsageId}
-                      className="flex items-start justify-between gap-4 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                      className="flex items-start justify-between gap-4 rounded-lg border border-border px-4 py-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                        <p className="text-sm font-medium text-foreground">
                           {usage.purpose}
                         </p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           {usage.relatedEntityType
                             ? `${usage.relatedEntityType} \u00b7 ${usage.relatedEntityId ?? '\u2014'}`
                             : 'No related entity'}
                         </p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           Status: {usage.status} \u00b7 Verified: {formatDateTime(usage.verifiedAt)}
                         </p>
                       </div>
@@ -483,15 +483,15 @@ export function DocumentDetailPage() {
         <Collapsible open={verificationsOpen} onOpenChange={setVerificationsOpen}>
           <Card>
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+              <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                     <CardTitle className="text-sm">
                       Verifications ({verifications.length})
                     </CardTitle>
                   </div>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                  <span className="text-xs text-muted-foreground">
                     {verificationsOpen ? 'Collapse' : 'Expand'}
                   </span>
                 </div>
@@ -500,35 +500,35 @@ export function DocumentDetailPage() {
             <CollapsibleContent>
               <CardContent className="space-y-3 pt-0">
                 {verifications.length === 0 ? (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No verifications recorded.</p>
+                  <p className="text-sm text-muted-foreground">No verifications recorded.</p>
                 ) : (
                   verifications.map(({ usage, verification }) => (
                     <div
                       key={verification.documentVerificationId}
-                      className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                      className="flex items-start gap-3 rounded-lg border border-border px-4 py-3"
                     >
-                      <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" />
+                      <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                          <span className="text-sm font-medium text-foreground">
                             {verification.decision}
                           </span>
                           <Badge variant="outline" className="text-xs">
                             {usage.purpose}
                           </Badge>
                         </div>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           {verification.verifierType} \u00b7{' '}
                           {verification.verifierId || 'Unknown'} \u00b7{' '}
                           {formatDateTime(verification.createdAt)}
                         </p>
                         {verification.decisionNotes && (
-                          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {verification.decisionNotes}
                           </p>
                         )}
                         {verification.aiRunId && (
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
+                          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Hash className="h-3 w-3" />
                             AI Run: {verification.aiRunId}
                           </p>
@@ -546,15 +546,15 @@ export function DocumentDetailPage() {
         <Collapsible open={versionsOpen} onOpenChange={setVersionsOpen}>
           <Card>
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+              <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
                     <CardTitle className="text-sm">
                       Versions ({doc.versions.length})
                     </CardTitle>
                   </div>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                  <span className="text-xs text-muted-foreground">
                     {versionsOpen ? 'Collapse' : 'Expand'}
                   </span>
                 </div>
@@ -563,22 +563,22 @@ export function DocumentDetailPage() {
             <CollapsibleContent>
               <CardContent className="space-y-3 pt-0">
                 {doc.versions.length === 0 ? (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No versions recorded.</p>
+                  <p className="text-sm text-muted-foreground">No versions recorded.</p>
                 ) : (
                   doc.versions.map((version) => (
                     <div
                       key={version.documentVersionId}
-                      className="flex items-start justify-between gap-4 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                      className="flex items-start justify-between gap-4 rounded-lg border border-border px-4 py-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                        <p className="text-sm font-medium text-foreground">
                           Version {version.version}
                         </p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           Status: {version.status} \u00b7 Submitted: {formatDateTime(version.submittedAt)}
                         </p>
                       </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-xs text-muted-foreground">
                         Decisioned: {formatDateTime(version.decisionedAt)}
                       </p>
                     </div>
@@ -612,17 +612,17 @@ function DetailField({
 }) {
   return (
     <div>
-      <p className="mb-0.5 text-xs text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="mb-0.5 text-xs text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2">
         <p
-          className={`text-sm text-[var(--color-text-primary)] ${mono ? 'font-mono' : ''} ${
-            highlight ? 'text-[var(--color-warning)] font-medium' : ''
+          className={`text-sm text-foreground ${mono ? 'font-mono' : ''} ${
+            highlight ? 'text-warning font-medium' : ''
           }`}
         >
           {value || '\u2014'}
         </p>
         {highlight && highlightLabel && (
-          <Badge className="rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] text-xs">
+          <Badge className="rounded-full bg-warning-subtle text-warning text-xs">
             {highlightLabel}
           </Badge>
         )}

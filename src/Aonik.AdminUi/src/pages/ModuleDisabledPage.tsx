@@ -36,18 +36,18 @@ export function ModuleDisabledPage({ moduleId: moduleIdProp }: ModuleDisabledPag
 
   return (
     <div className="flex h-full items-center justify-center px-6 py-10">
-      <div className="w-full max-w-[32rem] rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-8">
-        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+      <div className="w-full max-w-[32rem] rounded-xl border border-border bg-card p-8">
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Blocks className="h-5 w-5" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Module not enabled</p>
-        <h1 className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Module not enabled</p>
+        <h1 className="mt-1 text-2xl font-bold text-foreground">
           {name} is not enabled for this organisation
         </h1>
         {description && (
-          <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">{description}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{description}</p>
         )}
-        <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Module state is managed by the host administrator. You can review which modules are enabled for this organisation in Settings.
         </p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">

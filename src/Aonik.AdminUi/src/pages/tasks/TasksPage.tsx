@@ -83,8 +83,8 @@ export function TasksPage() {
     <div className="h-full overflow-auto p-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Tasks</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+          <p className="text-muted-foreground">
             Scheduled units of future work — reminders, scheduled actions, and agent jobs — fired by the
             once-a-minute dispatcher.
           </p>
@@ -107,7 +107,7 @@ export function TasksPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ListChecks className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <ListChecks className="h-5 w-5 text-primary" />
             Scheduled Tasks
           </CardTitle>
           <CardDescription>
@@ -116,9 +116,9 @@ export function TasksPage() {
         </CardHeader>
         <CardContent>
           {loading && tasks.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading tasks...</p>
+            <p className="text-sm text-muted-foreground">Loading tasks...</p>
           ) : tasks.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No tasks have been scheduled yet.</p>
+            <p className="text-sm text-muted-foreground">No tasks have been scheduled yet.</p>
           ) : (
             <div className="space-y-3">
               {tasks.map((task) => {
@@ -127,16 +127,16 @@ export function TasksPage() {
                 return (
                   <div
                     key={task.id}
-                    className="w-full rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 shadow-sm"
+                    className="w-full rounded-md border border-border bg-card p-4 shadow-sm"
                   >
                     <div className="mb-2 flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{task.title}</h2>
+                          <h2 className="text-sm font-semibold text-foreground">{task.title}</h2>
                           {statusBadge(task.status)}
                           <Badge variant="outline" className="text-xs">{task.kind}</Badge>
                         </div>
-                        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {task.actionType} · {task.scheduleType}
                           {task.recurrenceCron ? ` (${task.recurrenceCron})` : ''} · next run {formatDateTime(task.nextRunAtUtc)} · runs {task.runCount}
                           {task.maxRuns != null ? `/${task.maxRuns}` : ''}
@@ -178,7 +178,7 @@ export function TasksPage() {
                     </div>
 
                     {task.description && (
-                      <p className="text-sm text-[var(--color-text-secondary)]">{task.description}</p>
+                      <p className="text-sm text-muted-foreground">{task.description}</p>
                     )}
 
                     {task.lastError && (

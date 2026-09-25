@@ -137,7 +137,7 @@ export function GenerateScenarioDialog({
           </div>
 
           {(agentName || aiTaskId) && (
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Context: {agentName ? `Agent: ${agentName}` : `AI Task: ${aiTaskId}`}
             </p>
           )}
@@ -161,10 +161,10 @@ export function GenerateScenarioDialog({
           {/* Preview */}
           {generatedScenario && (
             <div className="space-y-3">
-              <div className="rounded-md border border-[var(--color-border-light)] bg-muted p-3">
+              <div className="rounded-md border border-border bg-muted p-3">
                 <h4 className="text-sm font-medium">{generatedScenario.name}</h4>
                 {generatedScenario.description && (
-                  <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {generatedScenario.description}
                   </p>
                 )}
@@ -173,7 +173,7 @@ export function GenerateScenarioDialog({
                     {generatedScenario.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full bg-[var(--color-brand-primary)]/10 px-2 py-0.5 text-[10px] text-[var(--color-brand-primary)]"
+                        className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary"
                       >
                         {tag}
                       </span>
@@ -182,7 +182,7 @@ export function GenerateScenarioDialog({
                 )}
               </div>
 
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-[var(--color-border-light)] p-3">
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
                 {generatedScenario.turns.map((turn, i) => (
                   <div key={i} className="flex gap-2 text-xs">
                     <span
@@ -194,7 +194,7 @@ export function GenerateScenarioDialog({
                     >
                       {turn.role}
                     </span>
-                    <p className="text-[var(--color-text-secondary)] line-clamp-3">{turn.content}</p>
+                    <p className="text-muted-foreground line-clamp-3">{turn.content}</p>
                   </div>
                 ))}
               </div>

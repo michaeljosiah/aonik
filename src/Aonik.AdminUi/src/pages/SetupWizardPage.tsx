@@ -152,9 +152,9 @@ export function SetupWizardPage() {
     <div className="flex-1 h-full overflow-auto bg-background">
       <div className="w-full max-w-[1400px] mx-auto px-8 py-12 lg:px-12">
         <div className="flex flex-col gap-2 mb-10">
-          <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Initial Setup</p>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Welcome to the Future of Finance</h1>
-          <p className="text-[var(--color-text-secondary)] max-w-[52rem] leading-relaxed">
+          <p className="text-sm font-semibold text-primary">Initial Setup</p>
+          <h1 className="text-3xl font-bold text-foreground">Welcome to the Future of Finance</h1>
+          <p className="text-muted-foreground max-w-[52rem] leading-relaxed">
             Step into AI-powered financial operations. This wizard will get your Aonik platform running with intelligent automation, 
             smart insights, and seamless money movement at your fingertips.
           </p>
@@ -210,7 +210,7 @@ export function SetupWizardPage() {
                       }}
                       placeholder="Paste the one-time install code"
                     />
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <p className="text-xs text-muted-foreground">
                       This must match the current `BOOTSTRAP_SETUP_SECRET` configured for the API.
                     </p>
                   </div>
@@ -274,8 +274,8 @@ export function SetupWizardPage() {
                 }
               >
                 {!tenantExists && (
-                  <div className="flex w-full flex-col gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-[var(--color-text-secondary)]">
+                  <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-muted-foreground">
                       When both fields are complete, run bootstrap to create the tenant and continue into guided setup.
                     </div>
                     <Button
@@ -290,7 +290,7 @@ export function SetupWizardPage() {
               </SetupStep>
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ShieldCheck className="w-4 h-4" />
                 Bootstrap creates a pending owner profile first, then links it to {providerName} on the next sign-in.
               </div>
@@ -314,8 +314,8 @@ export function SetupWizardPage() {
               <StatusRow label="Ready to bootstrap" value={state.canBootstrap ? 'Yes' : 'No'} />
 
               {bootstrapResult && (
-                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-sm text-[var(--color-text-secondary)]">
-                  <p className="font-semibold text-[var(--color-text-primary)] mb-2">Bootstrap complete</p>
+                <div className="rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
+                  <p className="font-semibold text-foreground mb-2">Bootstrap complete</p>
                   <p>Tenant: {bootstrapResult.tenantName}</p>
                   <p>Tenant ID: {bootstrapResult.tenantId}</p>
                   <p>User ID: {bootstrapResult.userId}</p>
@@ -324,7 +324,7 @@ export function SetupWizardPage() {
               )}
 
               {state.error && (
-                <div className="flex gap-2 rounded-md border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+                <div className="flex gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                   <AlertCircle className="w-4 h-4 mt-0.5" />
                   <span>{state.error}</span>
                 </div>
@@ -347,7 +347,7 @@ export function SetupWizardPage() {
                 </Button>
               )}
               <a
-                className="inline-flex items-center justify-center text-sm text-[var(--color-brand-primary)] hover:underline"
+                className="inline-flex items-center justify-center text-sm text-primary hover:underline"
                 href="/setup-guides"
                 target="_blank"
                 rel="noreferrer"
@@ -379,23 +379,23 @@ function SetupStep({
   const statusConfig = {
     complete: {
       icon: CheckCircle2,
-      bg: 'bg-[var(--color-success-light)]',
-      text: 'text-[var(--color-success)]',
+      bg: 'bg-success-subtle',
+      text: 'text-success',
     },
     pending: {
       icon: Circle,
-      bg: 'bg-[var(--color-info-light)]',
-      text: 'text-[var(--color-info)]',
+      bg: 'bg-info-subtle',
+      text: 'text-info',
     },
     warning: {
       icon: AlertCircle,
-      bg: 'bg-[var(--color-warning-light)]',
-      text: 'text-[var(--color-warning)]',
+      bg: 'bg-warning-subtle',
+      text: 'text-warning',
     },
     locked: {
       icon: AlertCircle,
-      bg: 'bg-[var(--color-surface-inset)]',
-      text: 'text-[var(--color-text-tertiary)]',
+      bg: 'bg-muted',
+      text: 'text-muted-foreground',
     },
   } as const;
 
@@ -403,14 +403,14 @@ function SetupStep({
   const Icon = config.icon;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border-light)] p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-border p-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${config.bg}`}>
           <Icon className={`h-4 w-4 ${config.text}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
-          <p className="text-sm text-[var(--color-text-secondary)]">{description}</p>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {inlineAction ? <div className="shrink-0 self-start">{inlineAction}</div> : null}
       </div>
@@ -422,8 +422,8 @@ function SetupStep({
 function StatusRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-[var(--color-text-secondary)]">{label}</span>
-      <span className="font-medium text-[var(--color-text-primary)]">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }

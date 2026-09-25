@@ -16,9 +16,9 @@ interface AgentCardProps {
 }
 
 const riskTierStyles: Record<string, { text: string; bg: string }> = {
-  low: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  medium: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  high: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
+  low: { text: 'text-success', bg: 'bg-success-subtle' },
+  medium: { text: 'text-warning', bg: 'bg-warning-subtle' },
+  high: { text: 'text-destructive', bg: 'bg-destructive/10' },
 };
 
 function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
@@ -36,7 +36,7 @@ function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
 
 function AgentAvatar({ iconUrl }: { iconUrl?: string }) {
   return (
-    <div className="w-[60px] h-[60px] rounded-full bg-[var(--color-brand-secondary-light)] flex items-center justify-center border border-[#CFCDD9] overflow-hidden">
+    <div className="w-[60px] h-[60px] rounded-full bg-agent/10 flex items-center justify-center border border-[#CFCDD9] overflow-hidden">
       {iconUrl ? (
         <img src={iconUrl} alt="" className="w-full h-full object-cover" />
       ) : (
@@ -84,16 +84,16 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
         'flex flex-col h-full overflow-visible',
         'border border-[#d9d9e3] rounded-[4px]',
         'transition-all duration-300',
-        'hoverBorder hover:border-[var(--color-brand-primary)] hover:shadow-lg hover:scale-[1.01]',
-        'bg-[var(--color-surface-elevated)]',
+        'hoverBorder hover:border-primary hover:shadow-lg hover:scale-[1.01]',
+        'bg-popover',
       )}>
         <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
           {actions ?? (
             <>
-              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground">
                 <CheckSquare className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground">
                 <MoreVertical className="w-3.5 h-3.5" />
               </Button>
             </>
@@ -102,16 +102,16 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
 
         <div className="flex flex-1 flex-col px-4 pb-4 mt-6 pt-2">
           <div className="flex items-center gap-2 mb-1.5">
-            <h3 className="text-[18px] font-bold text-[var(--color-text-heading)] line-clamp-1">
+            <h3 className="text-[18px] font-bold text-foreground line-clamp-1">
               {agent.name}
             </h3>
             {agent.isOverride && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
                 OVERRIDE
               </span>
             )}
           </div>
-          <p className="text-[13px] leading-6 text-[var(--color-text-secondary)] line-clamp-3 mb-4 min-h-[54px]">
+          <p className="text-[13px] leading-6 text-muted-foreground line-clamp-3 mb-4 min-h-[54px]">
             {agent.description}
           </p>
 
@@ -125,17 +125,17 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
               )}
               {agent.isActive !== undefined && (
                 agent.isActive ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success">
                     <Check className="w-3 h-3" /> Active
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                     <X className="w-3 h-3" /> Inactive
                   </span>
                 )
               )}
               {agent.modelName && (
-                <span className="text-xs text-[var(--color-text-tertiary)] bg-[var(--color-surface-inset)] px-2 py-0.5 rounded">
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {agent.modelName}
                 </span>
               )}
@@ -144,17 +144,17 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
 
           <div className="flex items-center justify-between text-xs mb-4">
             <div>
-              <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Visibility</p>
+              <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Visibility</p>
               <VisibilityBadge visibility={agent.visibility} />
             </div>
             <div className="text-right">
-              <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Source</p>
-              <p className="font-medium text-[var(--color-text-primary)]">{agent.source}</p>
+              <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Source</p>
+              <p className="font-medium text-foreground">{agent.source}</p>
             </div>
           </div>
 
           <div className="mb-4">
-            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Skills</p>
+            <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Skills</p>
             <div className="flex flex-wrap gap-1.5">
               {agent.skills.length > 0 ? (
                 <>
@@ -167,29 +167,29 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
                     </span>
                   ))}
                   {agent.skills.length > 3 && (
-                    <span className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-3 py-1.5 rounded-full text-xs font-medium">
+                    <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium">
                       +{agent.skills.length - 3}
                     </span>
                   )}
                 </>
               ) : (
-                <span className="text-xs text-[var(--color-text-tertiary)]">None configured</span>
+                <span className="text-xs text-muted-foreground">None configured</span>
               )}
             </div>
           </div>
 
           <div className="mb-4">
-            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Plugins</p>
+            <p className="font-bold text-foreground text-[10px] uppercase tracking-wide mb-1.5">Plugins</p>
             <div className="flex gap-2">
               {agent.plugins.length > 0 ? (
                 agent.plugins.slice(0, 3).map((_, index) => (
                   <PluginIcon key={index} color={pluginColors[index % pluginColors.length]} />
                 ))
               ) : (
-                <span className="text-xs text-[var(--color-text-tertiary)]">None configured</span>
+                <span className="text-xs text-muted-foreground">None configured</span>
               )}
               {agent.plugins.length > 3 && (
-                <span className="flex items-center text-xs text-[var(--color-text-tertiary)]">
+                <span className="flex items-center text-xs text-muted-foreground">
                   +{agent.plugins.length - 3}
                 </span>
               )}

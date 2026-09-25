@@ -130,8 +130,8 @@ export function AccountsListPage() {
           className="text-left hover:underline"
           onClick={() => navigate(`/accounts/${account.accountId}/transactions`)}
         >
-          <p className="font-medium text-[var(--color-text-primary)]">{account.maskedIdentifier}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{account.accountId.slice(0, 8)}...</p>
+          <p className="font-medium text-foreground">{account.maskedIdentifier}</p>
+          <p className="text-xs text-muted-foreground">{account.accountId.slice(0, 8)}...</p>
         </button>
       ),
     },
@@ -141,7 +141,7 @@ export function AccountsListPage() {
       accessorKey: 'accountType',
       sortable: true,
       cell: (account) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{account.accountType}</span>
+        <span className="text-sm text-muted-foreground">{account.accountType}</span>
       ),
     },
     {
@@ -152,8 +152,8 @@ export function AccountsListPage() {
       cell: (account) => {
         const isLinked = account.verificationStatus === 'Verified';
         const style = isLinked
-          ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-          : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]';
+          ? 'bg-success-subtle text-success'
+          : 'bg-muted text-muted-foreground';
         const label = isLinked ? 'Linked' : 'Manual';
         return (
           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style}`}>
@@ -168,7 +168,7 @@ export function AccountsListPage() {
       accessorFn: (row) => row.currency ?? '',
       sortable: true,
       cell: (account) => (
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">{account.currency || '—'}</span>
+        <span className="text-sm font-medium text-foreground">{account.currency || '—'}</span>
       ),
     },
     {
@@ -177,7 +177,7 @@ export function AccountsListPage() {
       accessorFn: (row) => row.country ?? '',
       sortable: true,
       cell: (account) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{account.country || '—'}</span>
+        <span className="text-sm text-muted-foreground">{account.country || '—'}</span>
       ),
     },
     {
@@ -186,7 +186,7 @@ export function AccountsListPage() {
       accessorFn: (row) => new Date(row.createdAt),
       sortable: true,
       cell: (account) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-sm text-muted-foreground">
           {new Date(account.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
       ),
@@ -205,8 +205,8 @@ export function AccountsListPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Accounts</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Accounts</h1>
+          <p className="text-muted-foreground">
             Manage accounts for this tenant.
           </p>
         </div>
@@ -226,47 +226,47 @@ export function AccountsListPage() {
       </div>
 
       <div className="grid gap-4 mb-6 md:grid-cols-3">
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total Accounts</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalAccounts}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">All accounts</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Accounts</p>
+              <p className="text-2xl font-semibold text-foreground">{totalAccounts}</p>
+              <p className="text-xs text-muted-foreground">All accounts</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Linked</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{linkedAccounts}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Via Plaid or provider</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Linked</p>
+              <p className="text-2xl font-semibold text-foreground">{linkedAccounts}</p>
+              <p className="text-xs text-muted-foreground">Via Plaid or provider</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Manual</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{manualAccounts}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Manually added</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Manual</p>
+              <p className="text-2xl font-semibold text-foreground">{manualAccounts}</p>
+              <p className="text-xs text-muted-foreground">Manually added</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadAccounts} className="ml-auto">
@@ -317,7 +317,7 @@ export function AccountsListPage() {
             )}
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <DataTable
               data={paginatedAccounts}
               columns={columns}

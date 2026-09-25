@@ -98,7 +98,7 @@ const DOMAIN_TAB_PREFIX = 'domain:';
  */
 function RegistryTotalValue({ totals }: { totals: CustomerRegistryCurrencyTotal[] }) {
   if (totals.length === 0) {
-    return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+    return <span className="block text-right text-muted-foreground">—</span>;
   }
 
   return (
@@ -120,7 +120,7 @@ function RegistryTotalValue({ totals }: { totals: CustomerRegistryCurrencyTotal[
         return (
           <span
             key={total.currency}
-            className="font-[family-name:var(--font-mono)] text-xs font-semibold tabular-nums text-[var(--color-text-primary)]"
+            className="font-[family-name:var(--font-mono)] text-xs font-semibold tabular-nums text-foreground"
           >
             {text}
           </span>
@@ -278,7 +278,7 @@ export function CustomersListPage() {
       header: 'ID',
       accessorFn: (row) => row.partyId,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-xs font-medium text-[var(--color-text-primary)]">
+        <span className="font-[family-name:var(--font-mono)] text-xs font-medium text-foreground">
           {formatCustomerId(row.partyId)}
         </span>
       ),
@@ -306,11 +306,11 @@ export function CustomersListPage() {
               </AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+              <span className="truncate text-[13px] font-medium text-foreground">
                 {row.displayName || row.primaryEmail || '—'}
               </span>
               {row.primaryEmail && row.displayName && (
-                <span className="truncate text-[11px] text-[var(--color-text-tertiary)]">
+                <span className="truncate text-[11px] text-muted-foreground">
                   {row.primaryEmail}
                 </span>
               )}
@@ -325,7 +325,7 @@ export function CustomersListPage() {
       accessorKey: 'partyType',
       sortable: true,
       cell: (row) => (
-        <span className="text-xs text-[var(--color-text-secondary)]">{row.partyType}</span>
+        <span className="text-xs text-muted-foreground">{row.partyType}</span>
       ),
       className: 'w-[100px]',
     },
@@ -345,7 +345,7 @@ export function CustomersListPage() {
       accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
       cell: (row) => (
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {formatDate(row.createdAt)}
         </span>
       ),
@@ -365,7 +365,7 @@ export function CustomersListPage() {
         header: 'Country',
         accessorFn: (row) => row.country ?? '',
         cell: (row) => (
-          <span className="text-xs text-[var(--color-text-secondary)]">{row.country || '—'}</span>
+          <span className="text-xs text-muted-foreground">{row.country || '—'}</span>
         ),
         className: 'w-[100px]',
       },
@@ -385,7 +385,7 @@ export function CustomersListPage() {
         // would sort descending and still find bigger customers on page two. Sorting returns
         // when the endpoint can order before paging (same reason Total value is unsortable).
         cell: (row) => (
-          <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
+          <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-muted-foreground">
             {(row.orderCount ?? 0).toLocaleString()}
           </span>
         ),
@@ -470,15 +470,15 @@ export function CustomersListPage() {
       />
 
       {importResult && (
-        <div className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-light)] p-3 text-sm">
-          <p className="font-medium text-[var(--color-success)]">
+        <div className="rounded-md border border-success bg-success-subtle p-3 text-sm">
+          <p className="font-medium text-success">
             Imported {importResult.totalEntities} entities
           </p>
-          <p className="mt-1 text-[var(--color-text-secondary)]">
+          <p className="mt-1 text-muted-foreground">
             New customer ID: <code className="text-xs">{importResult.newPartyId}</code>
           </p>
           {importResult.warnings.length > 0 && (
-            <ul className="mt-2 list-disc pl-5 text-[var(--color-warning)]">
+            <ul className="mt-2 list-disc pl-5 text-warning">
               {importResult.warnings.map((w, i) => (
                 <li key={i}>{w}</li>
               ))}
@@ -488,7 +488,7 @@ export function CustomersListPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button variant="outline" size="sm" onClick={() => void loadCustomers()}>
@@ -534,7 +534,7 @@ export function CustomersListPage() {
             setPageSize(n);
             setPageNumber(1);
           }}
-          className="border-t border-[var(--color-border-light)]"
+          className="border-t border-border"
         />
       </AonikCard>
 

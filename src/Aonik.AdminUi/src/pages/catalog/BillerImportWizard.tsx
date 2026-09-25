@@ -35,12 +35,12 @@ function StepDots({ step }: { step: number }) {
                 className="w-5 h-5 rounded-full grid place-items-center text-[10.5px] font-bold"
                 style={{
                   background: active
-                    ? 'var(--color-brand-primary)'
+                    ? 'var(--primary)'
                     : done
                       ? 'var(--color-brand-primary-10)'
-                      : 'var(--color-surface-inset)',
-                  color: active ? '#fff' : done ? 'var(--color-brand-primary)' : 'var(--color-text-tertiary)',
-                  border: active ? 'none' : '1px solid var(--color-border-light)',
+                      : 'var(--muted)',
+                  color: active ? '#fff' : done ? 'var(--primary)' : 'var(--muted-foreground)',
+                  border: active ? 'none' : '1px solid var(--border)',
                 }}
               >
                 {done ? <Check className="w-2.5 h-2.5" /> : n}
@@ -49,13 +49,13 @@ function StepDots({ step }: { step: number }) {
                 className="text-xs"
                 style={{
                   fontWeight: active ? 600 : 500,
-                  color: active ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                  color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
                 }}
               >
                 {label}
               </span>
             </div>
-            {n < 3 && <div className="w-5 h-px bg-[var(--color-border-light)]" />}
+            {n < 3 && <div className="w-5 h-px bg-border" />}
           </div>
         );
       })}
@@ -64,9 +64,9 @@ function StepDots({ step }: { step: number }) {
 }
 
 const STATUS_STYLES: Record<string, { fg: string; bg: string }> = {
-  New: { fg: 'var(--color-brand-primary)', bg: 'var(--color-brand-primary-10)' },
+  New: { fg: 'var(--primary)', bg: 'var(--color-brand-primary-10)' },
   Changed: { fg: '#b4741e', bg: '#b4741e18' },
-  Mapped: { fg: 'var(--color-text-tertiary)', bg: 'var(--color-surface-inset)' },
+  Mapped: { fg: 'var(--muted-foreground)', bg: 'var(--muted)' },
 };
 
 function StatusChip({ status }: { status: string }) {
@@ -212,14 +212,14 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
       onClick={onClose}
     >
       <div
-        className="w-[min(880px,94%)] max-h-[90%] bg-[var(--color-surface)] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-[min(880px,94%)] max-h-[90%] bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 pt-4 pb-3.5 border-b border-[var(--color-border-light)] flex items-center gap-4">
+        <div className="px-6 pt-4 pb-3.5 border-b border-border flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <div className="text-base font-bold text-[var(--color-text-primary)]">Import billers from a partner</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+            <div className="text-base font-bold text-foreground">Import billers from a partner</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
               Pull a connector's live catalogue · idempotent upsert · no money moves
             </div>
           </div>
@@ -227,7 +227,7 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-7 h-7 rounded-md border border-[var(--color-border-light)] grid place-items-center text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] flex-none"
+            className="w-7 h-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-muted flex-none"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -235,9 +235,9 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
 
         {/* Preview toolbar */}
         {step === 2 && !done && (
-          <div className="px-6 py-2.5 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] flex items-center gap-2.5 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 text-[11.5px] text-[var(--color-text-secondary)]">
-              <span className="w-[7px] h-[7px] rounded-full bg-[var(--color-success)]" /> Live ·{' '}
+          <div className="px-6 py-2.5 border-b border-border bg-muted flex items-center gap-2.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <span className="w-[7px] h-[7px] rounded-full bg-success" /> Live ·{' '}
               {selectedConnector?.connectorType}
             </span>
             <div className="flex gap-1 flex-wrap">
@@ -249,9 +249,9 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                     onClick={() => setCatFilter(c)}
                     className="text-[11px] px-2.5 py-1 rounded-full border"
                     style={{
-                      borderColor: on ? 'var(--color-brand-primary)' : 'var(--color-border-light)',
-                      background: on ? 'var(--color-brand-primary-10)' : 'var(--color-surface)',
-                      color: on ? 'var(--color-brand-primary)' : 'var(--color-text-secondary)',
+                      borderColor: on ? 'var(--primary)' : 'var(--border)',
+                      background: on ? 'var(--color-brand-primary-10)' : 'var(--card)',
+                      color: on ? 'var(--primary)' : 'var(--muted-foreground)',
                       fontWeight: on ? 600 : 500,
                     }}
                   >
@@ -273,19 +273,19 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
             <ResultScreen summary={summary} connectorType={selectedConnector?.connectorType ?? 'the partner'} />
           ) : step === 1 ? (
             <div className="flex flex-col gap-2.5">
-              <div className="text-[12.5px] text-[var(--color-text-secondary)] mb-0.5">
+              <div className="text-[12.5px] text-muted-foreground mb-0.5">
                 Choose a configured partner connector to import from. Catalogues are NG-only for bill payment.
               </div>
 
               {sourcesLoading ? (
                 <div className="p-10 text-center">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                  <p className="text-sm text-[var(--color-text-secondary)]">Loading connectors…</p>
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading connectors…</p>
                 </div>
               ) : sourcesError ? (
                 <ErrorBox message={sourcesError} />
               ) : sources.length === 0 ? (
-                <div className="rounded-xl border border-[var(--color-border-light)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
+                <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
                   No bill-payment connectors are configured for this tenant.
                 </div>
               ) : (
@@ -298,9 +298,9 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                         onClick={() => setConnectorId(c.connectorId)}
                         className="flex items-center gap-3 p-3.5 rounded-xl cursor-pointer border"
                         style={{
-                          borderColor: on ? 'var(--color-brand-primary)' : 'var(--color-border-light)',
-                          background: on ? 'var(--color-brand-primary-10)' : 'var(--color-surface)',
-                          boxShadow: on ? '0 0 0 1px var(--color-brand-primary)' : 'none',
+                          borderColor: on ? 'var(--primary)' : 'var(--border)',
+                          background: on ? 'var(--color-brand-primary-10)' : 'var(--card)',
+                          boxShadow: on ? '0 0 0 1px var(--primary)' : 'none',
                         }}
                       >
                         <div
@@ -311,30 +311,30 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                            <span className="text-sm font-semibold text-foreground">
                               {c.connectorType}
                             </span>
                             <Pill tone={c.isSandbox ? 'muted' : 'success'} dot>
                               {c.isSandbox ? 'Sandbox' : 'Connected'}
                             </Pill>
                           </div>
-                          <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                          <div className="text-xs text-muted-foreground mt-0.5">
                             {c.isSandbox ? 'Sandbox connector · fallback' : 'NG · Bill payment'} · {c.status}
                           </div>
                         </div>
                         <span
                           className="w-[18px] h-[18px] rounded-full grid place-items-center flex-none"
-                          style={{ border: `2px solid ${on ? 'var(--color-brand-primary)' : 'var(--color-border-medium)'}` }}
+                          style={{ border: `2px solid ${on ? 'var(--primary)' : 'var(--input)'}` }}
                         >
-                          {on && <span className="w-2 h-2 rounded-full bg-[var(--color-brand-primary)]" />}
+                          {on && <span className="w-2 h-2 rounded-full bg-primary" />}
                         </span>
                       </div>
                     );
                   })}
                   {!hasLiveConnector && (
-                    <div className="text-[11.5px] text-[var(--color-text-tertiary)] mt-1">
+                    <div className="text-[11.5px] text-muted-foreground mt-1">
                       Only the sandbox connector is available. Configure a live partner's bills secret in{' '}
-                      <b className="text-[var(--color-text-secondary)]">Settings → Payment Gateways</b> to import a real catalogue.
+                      <b className="text-muted-foreground">Settings → Payment Gateways</b> to import a real catalogue.
                     </div>
                   )}
                   {previewError && <ErrorBox message={previewError} />}
@@ -344,7 +344,7 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
           ) : step === 2 ? (
             <div className="flex flex-col gap-4">
               {entries.length === 0 ? (
-                <div className="rounded-xl border border-[var(--color-border-light)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
+                <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
                   The partner returned no billers for this catalogue.
                 </div>
               ) : (
@@ -358,18 +358,18 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                         className="flex items-center gap-2 py-1 px-0.5 cursor-pointer mb-1.5"
                       >
                         {open ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+                          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
-                        <span className="text-[12.5px] font-bold text-[var(--color-text-primary)]">{g.category}</span>
-                        <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{g.items.length}</span>
+                        <span className="text-[12.5px] font-bold text-foreground">{g.category}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">{g.items.length}</span>
                         {groupNew > 0 && (
-                          <span className="text-[10px] text-[var(--color-brand-primary)] font-semibold">· {groupNew} new</span>
+                          <span className="text-[10px] text-primary font-semibold">· {groupNew} new</span>
                         )}
                       </div>
                       {open && (
-                        <div className="rounded-lg border border-[var(--color-border-light)] overflow-hidden">
+                        <div className="rounded-lg border border-border overflow-hidden">
                           {g.items.map((it, i) => {
                             const checked = selection.has(it.billerCode);
                             return (
@@ -378,24 +378,24 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                                 onClick={() => toggle(it.billerCode)}
                                 className="grid grid-cols-[22px_1fr_auto] gap-3 items-center px-3.5 py-2.5 cursor-pointer"
                                 style={{
-                                  borderTop: i ? '1px solid var(--color-border-light)' : 'none',
+                                  borderTop: i ? '1px solid var(--border)' : 'none',
                                   background: checked ? 'var(--color-brand-primary-10)' : 'transparent',
                                 }}
                               >
                                 <span
                                   className="w-[17px] h-[17px] rounded grid place-items-center flex-none"
                                   style={{
-                                    border: `1.5px solid ${checked ? 'var(--color-brand-primary)' : 'var(--color-border-medium)'}`,
-                                    background: checked ? 'var(--color-brand-primary)' : 'var(--color-surface)',
+                                    border: `1.5px solid ${checked ? 'var(--primary)' : 'var(--input)'}`,
+                                    background: checked ? 'var(--primary)' : 'var(--card)',
                                   }}
                                 >
                                   {checked && <Check className="w-2.5 h-2.5 text-white" />}
                                 </span>
                                 <div className="min-w-0">
-                                  <div className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">
+                                  <div className="text-[13px] font-medium text-foreground truncate">
                                     {it.billerName}
                                   </div>
-                                  <div className="text-[10.5px] text-[var(--color-text-tertiary)] truncate">
+                                  <div className="text-[10.5px] text-muted-foreground truncate">
                                     <span className="font-mono">{it.billerCode}</span> · {it.serviceCount} service
                                     {it.serviceCount === 1 ? '' : 's'}
                                     {it.changeNote && <span style={{ color: '#b4741e' }}> · {it.changeNote}</span>}
@@ -415,33 +415,33 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
           ) : (
             /* step 3 — confirm */
             <div className="flex flex-col gap-4">
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">Review import</div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+              <div className="text-[13.5px] font-semibold text-foreground">Review import</div>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted border border-border">
                 <div
                   className="w-10 h-10 rounded-lg grid place-items-center text-white font-bold text-xs flex-none"
                   style={{ background: connectorColor(selectedConnector?.connectorType ?? '') }}
                 >
                   {connectorInitials(selectedConnector?.connectorType ?? '')}
                 </div>
-                <ArrowRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">Aonik catalog</span>
+                <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                <span className="text-[13px] font-semibold text-foreground">Aonik catalog</span>
                 <div className="flex-1" />
-                <span className="text-xs text-[var(--color-text-secondary)]">
-                  <b className="font-mono text-[var(--color-text-primary)]">{selectedItems.length}</b> selected
+                <span className="text-xs text-muted-foreground">
+                  <b className="font-mono text-foreground">{selectedItems.length}</b> selected
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2.5">
                 {[
-                  ['Billers created', String(projected.created), 'var(--color-brand-primary)'],
-                  ['Billers updated', String(projected.updated), 'var(--color-text-primary)'],
-                  ['Deactivated', DASH, 'var(--color-warning)'],
-                  ['Services created', String(projected.servicesCreated), 'var(--color-brand-primary)'],
-                  ['Services updated', String(projected.servicesUpdated), 'var(--color-text-primary)'],
-                  ['Duplicates', '0', 'var(--color-text-tertiary)'],
+                  ['Billers created', String(projected.created), 'var(--primary)'],
+                  ['Billers updated', String(projected.updated), 'var(--foreground)'],
+                  ['Deactivated', DASH, 'var(--warning)'],
+                  ['Services created', String(projected.servicesCreated), 'var(--primary)'],
+                  ['Services updated', String(projected.servicesUpdated), 'var(--foreground)'],
+                  ['Duplicates', '0', 'var(--muted-foreground)'],
                 ].map(([label, value, color]) => (
-                  <div key={label} className="bg-[var(--color-surface)] border border-[var(--color-border-light)] rounded-lg px-3.5 py-3">
-                    <div className="text-[10.5px] text-[var(--color-text-tertiary)] uppercase tracking-wide font-semibold">
+                  <div key={label} className="bg-card border border-border rounded-lg px-3.5 py-3">
+                    <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide font-semibold">
                       {label}
                     </div>
                     <div className="font-mono text-[22px] font-bold mt-1" style={{ color }}>
@@ -451,11 +451,11 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
                 ))}
               </div>
 
-              <div className="flex gap-2.5 px-3.5 py-3 rounded-r-lg bg-[var(--color-brand-primary-10)] border-l-[3px] border-[var(--color-brand-primary)]">
-                <RotateCw className="w-3.5 h-3.5 text-[var(--color-brand-primary)] mt-0.5 flex-none" />
-                <div className="text-[11.5px] text-[var(--color-text-secondary)] leading-relaxed">
+              <div className="flex gap-2.5 px-3.5 py-3 rounded-r-lg bg-primary/10 border-l-[3px] border-primary">
+                <RotateCw className="w-3.5 h-3.5 text-primary mt-0.5 flex-none" />
+                <div className="text-[11.5px] text-muted-foreground leading-relaxed">
                   Identity is the provider mapping, so this is{' '}
-                  <b className="text-[var(--color-text-primary)]">idempotent</b> — running it again reports{' '}
+                  <b className="text-foreground">idempotent</b> — running it again reports{' '}
                   <span className="font-mono">0 created</span>. Any deactivation is a biller the partner no longer
                   offers; it is kept (soft-deactivated), never deleted. The actual counts are confirmed after import.
                 </div>
@@ -467,15 +467,15 @@ export function BillerImportWizard({ onClose, onImported }: BillerImportWizardPr
         </div>
 
         {/* Footer */}
-        <div className="flex-none px-6 py-3.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] flex items-center justify-between gap-3">
-          <div className="text-xs text-[var(--color-text-secondary)]">
+        <div className="flex-none px-6 py-3.5 border-t border-border bg-muted flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
             {done ? (
               <span>Catalogue refreshed.</span>
             ) : step === 1 ? (
               <span>{selectedConnector ? `${selectedConnector.connectorType} · ${selectedConnector.status}` : 'Select a connector'}</span>
             ) : step === 2 ? (
               <span>
-                <b className="font-mono text-[var(--color-text-primary)]">{selectedItems.length}</b> selected · {selNew.length} new ·{' '}
+                <b className="font-mono text-foreground">{selectedItems.length}</b> selected · {selNew.length} new ·{' '}
                 {selChanged.length} changed
               </span>
             ) : (
@@ -539,35 +539,35 @@ function ResultScreen({
   connectorType: string;
 }) {
   const cells: Array<[string, number, string]> = [
-    ['created', summary.billersCreated, 'var(--color-success)'],
-    ['updated', summary.billersUpdated, 'var(--color-text-primary)'],
-    ['duplicates', 0, 'var(--color-text-tertiary)'],
-    ['deactivated', summary.deactivated, 'var(--color-warning)'],
+    ['created', summary.billersCreated, 'var(--success)'],
+    ['updated', summary.billersUpdated, 'var(--foreground)'],
+    ['duplicates', 0, 'var(--muted-foreground)'],
+    ['deactivated', summary.deactivated, 'var(--warning)'],
   ];
   return (
     <div className="flex flex-col items-center text-center pt-4 pb-2 gap-3.5">
-      <span className="w-13 h-13 rounded-full bg-[var(--color-success)] text-white grid place-items-center" style={{ width: 52, height: 52 }}>
+      <span className="w-13 h-13 rounded-full bg-success text-white grid place-items-center" style={{ width: 52, height: 52 }}>
         <Check className="w-6 h-6" />
       </span>
       <div>
-        <div className="text-lg font-bold text-[var(--color-text-primary)]">Import complete</div>
-        <div className="text-[13px] text-[var(--color-text-secondary)] mt-1">
+        <div className="text-lg font-bold text-foreground">Import complete</div>
+        <div className="text-[13px] text-muted-foreground mt-1">
           Billers from {connectorType} are now in your catalogue, each routed through its connector mapping.
         </div>
       </div>
-      <div className="flex gap-6 px-6 py-3.5 rounded-xl bg-[var(--color-surface-inset)] border border-[var(--color-border-light)] font-mono">
+      <div className="flex gap-6 px-6 py-3.5 rounded-xl bg-muted border border-border font-mono">
         {cells.map(([label, value, color]) => (
           <div key={label} className="text-center">
             <div className="text-2xl font-bold" style={{ color }}>
               {value}
             </div>
-            <div className="text-[10.5px] text-[var(--color-text-tertiary)] uppercase tracking-wide mt-0.5 font-sans">
+            <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide mt-0.5 font-sans">
               {label}
             </div>
           </div>
         ))}
       </div>
-      <div className="text-[11.5px] text-[var(--color-text-tertiary)] max-w-[440px] leading-relaxed">
+      <div className="text-[11.5px] text-muted-foreground max-w-[440px] leading-relaxed">
         Re-running this import is safe — it would refresh changed rows and create nothing new.
       </div>
     </div>
@@ -576,7 +576,7 @@ function ResultScreen({
 
 function ErrorBox({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 flex items-start gap-2 text-[var(--color-error)] text-sm">
+    <div className="rounded-lg border border-destructive bg-destructive/10 p-3 flex items-start gap-2 text-destructive text-sm">
       <AlertCircle className="w-4 h-4 mt-0.5 flex-none" />
       <span>{message}</span>
     </div>

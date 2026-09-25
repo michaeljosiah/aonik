@@ -105,8 +105,8 @@ export function FxRatesPage() {
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="flex-1 max-w-[48rem]">
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">FX Rate Management</h1>
-            <p className="text-[var(--color-text-secondary)]">
+            <h1 className="text-2xl font-bold text-foreground mb-2">FX Rate Management</h1>
+            <p className="text-muted-foreground">
               Manage foreign exchange quotes, rate sources, spread policies, and refresh schedules.
             </p>
           </div>
@@ -136,18 +136,18 @@ export function FxRatesPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                <ArrowRightLeft className="w-5 h-5 text-primary" />
                 FX Quotes
               </CardTitle>
               <CardDescription>Current and historical exchange rate quotes</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeExpired}
                   onChange={(e) => setIncludeExpired(e.target.checked)}
-                  className="rounded border-[var(--color-border-light)]"
+                  className="rounded border-border"
                 />
                 Show expired
               </label>
@@ -156,11 +156,11 @@ export function FxRatesPage() {
         </CardHeader>
         <CardContent>
           {loading && (
-            <div className="text-center py-8 text-[var(--color-text-secondary)]">Loading quotes...</div>
+            <div className="text-center py-8 text-muted-foreground">Loading quotes...</div>
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] text-[var(--color-danger)]">
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] border border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] text-destructive">
               <AlertCircle className="w-5 h-5" />
               <div>
                 <div className="font-semibold">Error loading quotes</div>
@@ -171,9 +171,9 @@ export function FxRatesPage() {
 
           {!loading && !error && quotes.length === 0 && (
             <div className="text-center py-12">
-              <ArrowRightLeft className="w-12 h-12 mx-auto text-[var(--color-text-tertiary)] mb-4" />
-              <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">No FX quotes found</h3>
-              <p className="text-[var(--color-text-secondary)] mb-4">
+              <ArrowRightLeft className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No FX quotes found</h3>
+              <p className="text-muted-foreground mb-4">
                 {includeExpired
                   ? 'No quotes available.'
                   : 'No active quotes found. Create your first quote or check expired quotes.'}
@@ -192,14 +192,14 @@ export function FxRatesPage() {
                   key={quote.id}
                   className={`flex items-center justify-between p-4 rounded-lg border ${
                     isExpired(quote.expiresAt)
-                      ? 'border-[var(--color-border-light)] bg-gray-50/50 opacity-60'
-                      : 'border-[var(--color-border-light)] hover:border-[var(--color-brand-primary)] transition-colors'
+                      ? 'border-border bg-gray-50/50 opacity-60'
+                      : 'border-border hover:border-primary transition-colors'
                   }`}
                 >
                   <div className="flex-1 grid grid-cols-12 gap-4 items-center">
                     <div className="col-span-3">
                       <div className="flex items-center gap-2">
-                        <div className="font-semibold text-[var(--color-text-primary)]">
+                        <div className="font-semibold text-foreground">
                           {quote.baseCurrency} → {quote.targetCurrency}
                         </div>
                         {isExpired(quote.expiresAt) && (
@@ -209,31 +209,31 @@ export function FxRatesPage() {
                         )}
                       </div>
                       {quote.provider && (
-                        <div className="text-xs text-[var(--color-text-tertiary)] mt-1">{quote.provider}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{quote.provider}</div>
                       )}
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-sm text-[var(--color-text-secondary)]">Rate</div>
-                      <div className="font-mono font-semibold text-[var(--color-text-primary)]">
+                      <div className="text-sm text-muted-foreground">Rate</div>
+                      <div className="font-mono font-semibold text-foreground">
                         {quote.rate.toFixed(6)}
                       </div>
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-sm text-[var(--color-text-secondary)]">Expires</div>
-                      <div className="text-sm text-[var(--color-text-primary)]">{formatDateTime(quote.expiresAt)}</div>
+                      <div className="text-sm text-muted-foreground">Expires</div>
+                      <div className="text-sm text-foreground">{formatDateTime(quote.expiresAt)}</div>
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-sm text-[var(--color-text-secondary)]">Time left</div>
+                      <div className="text-sm text-muted-foreground">Time left</div>
                       <div
                         className={`text-sm font-semibold ${
                           isExpired(quote.expiresAt)
-                            ? 'text-[var(--color-danger)]'
+                            ? 'text-destructive'
                             : getTimeUntilExpiry(quote.expiresAt).endsWith('m')
-                              ? 'text-[var(--color-warning)]'
-                              : 'text-[var(--color-success)]'
+                              ? 'text-warning'
+                              : 'text-success'
                         }`}
                       >
                         {getTimeUntilExpiry(quote.expiresAt)}
@@ -241,8 +241,8 @@ export function FxRatesPage() {
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-sm text-[var(--color-text-secondary)]">Created</div>
-                      <div className="text-sm text-[var(--color-text-primary)]">{formatDateTime(quote.createdAt)}</div>
+                      <div className="text-sm text-muted-foreground">Created</div>
+                      <div className="text-sm text-foreground">{formatDateTime(quote.createdAt)}</div>
                     </div>
 
                     <div className="col-span-1 flex justify-end gap-2">
@@ -253,7 +253,7 @@ export function FxRatesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(quote.id)}
-                        className="text-[var(--color-danger)] hover:text-[var(--color-danger)]"
+                        className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -267,43 +267,43 @@ export function FxRatesPage() {
       </Card>
 
       <div className="mt-6 grid gap-3 md:grid-cols-3">
-        <Card className="hover:border-[var(--color-brand-primary)] transition-colors cursor-pointer">
+        <Card className="hover:border-primary transition-colors cursor-pointer">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Settings className="w-4 h-4 text-[var(--color-brand-primary)]" />
+              <Settings className="w-4 h-4 text-primary" />
               Rate Sources
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Configure external FX rate providers and fallback sources
             </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:border-[var(--color-brand-primary)] transition-colors cursor-pointer">
+        <Card className="hover:border-primary transition-colors cursor-pointer">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[var(--color-brand-primary)]" />
+              <TrendingUp className="w-4 h-4 text-primary" />
               Spread Policies
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Manage markup policies by currency corridor and customer tier
             </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:border-[var(--color-brand-primary)] transition-colors cursor-pointer">
+        <Card className="hover:border-primary transition-colors cursor-pointer">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[var(--color-brand-primary)]" />
+              <Clock className="w-4 h-4 text-primary" />
               Refresh Schedules
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Set up automated rate refresh intervals and schedules
             </p>
           </CardContent>

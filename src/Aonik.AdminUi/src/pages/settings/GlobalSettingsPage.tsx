@@ -351,10 +351,10 @@ function ToggleRow({ title, description, checked, onCheckedChange }: {
   title: string; description: string; checked: boolean; onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-md border border-[var(--color-border-light)] px-4 py-3">
+    <div className="flex items-start justify-between gap-4 rounded-md border border-border px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">{title}</p>
-        <p className="text-xs text-[var(--color-text-tertiary)]">{description}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
@@ -664,15 +664,15 @@ export function GlobalSettingsPage() {
 
   const renderFieldLabel = (field: FieldDef) => (
     <div className="flex items-center gap-1.5">
-      <Label className="text-sm font-medium text-[var(--color-text-primary)]">{field.label}</Label>
+      <Label className="text-sm font-medium text-foreground">{field.label}</Label>
       {field.help && (
         <button
           type="button"
           onClick={() => toggleHelp(field.key)}
           className={`rounded-full p-0.5 transition-colors ${
             expandedHelp.has(field.key)
-              ? 'text-[var(--color-brand-primary)]'
-              : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-muted-foreground'
           }`}
           title="Toggle help"
         >
@@ -685,7 +685,7 @@ export function GlobalSettingsPage() {
   const renderFieldHelp = (field: FieldDef) => {
     if (!field.help || !expandedHelp.has(field.key)) return null;
     return (
-      <div className="rounded-md border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/5 px-3 py-2 text-xs text-[var(--color-text-secondary)] max-w-[28rem]">
+      <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground max-w-[28rem]">
         {field.help}
       </div>
     );
@@ -738,7 +738,7 @@ export function GlobalSettingsPage() {
         return (
           <div key={field.key} className={`space-y-1.5 transition-opacity ${dimClass}`}>
             {renderFieldLabel(field)}
-            {field.description && <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
             {renderFieldHelp(field)}
             <Input
               value={value ?? ''}
@@ -755,7 +755,7 @@ export function GlobalSettingsPage() {
               {renderFieldLabel(field)}
               {renderPasswordStatus(field)}
             </div>
-            {field.description && <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
             {renderFieldHelp(field)}
             <div className="relative max-w-[28rem]">
               <Input
@@ -768,7 +768,7 @@ export function GlobalSettingsPage() {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility(field.key)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
               >
                 {revealedPasswords.has(field.key) ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -779,7 +779,7 @@ export function GlobalSettingsPage() {
         return (
           <div key={field.key} className={`space-y-1.5 transition-opacity ${dimClass}`}>
             {renderFieldLabel(field)}
-            {field.description && <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
             {renderFieldHelp(field)}
             <div className="max-w-[28rem]">
               <Select value={value ?? field.defaultValue ?? ''} onValueChange={(v) => updateGlobalValue(field.key, v)}>
@@ -798,7 +798,7 @@ export function GlobalSettingsPage() {
           <div key={field.key} className={`flex items-center justify-between max-w-[28rem] transition-opacity ${dimClass}`}>
             <div className="space-y-0.5">
               {renderFieldLabel(field)}
-              {field.description && <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>}
+              {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
               {renderFieldHelp(field)}
             </div>
             <Switch
@@ -842,23 +842,23 @@ export function GlobalSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {tenantSettingsLoading ? (
-            <p className="text-sm text-[var(--color-text-secondary)]">Loading tenant country settings...</p>
+            <p className="text-sm text-muted-foreground">Loading tenant country settings...</p>
           ) : (
             <>
               {tenantSettingsError && (
-                <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+                <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                   {tenantSettingsError}
                 </div>
               )}
               <div className="space-y-2">
                 <Label>Supported countries</Label>
-                <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                   {tenantCountryOptions.map((country) => (
                     <button key={country.code} type="button" onClick={() => toggleSupportedCountry(country.code)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.supportedCountries.includes(country.code)
-                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                          : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-border'
                       }`}
                     >
                       {formatTenantCountryLabel(country.code)}
@@ -868,13 +868,13 @@ export function GlobalSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Countries customers can send from</Label>
-                <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                   {tenantMarketSettings.supportedCountries.map((countryCode) => (
                     <button key={`origin-${countryCode}`} type="button" onClick={() => toggleScopedCountry('allowedOriginCountries', countryCode)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.allowedOriginCountries.includes(countryCode)
-                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                          : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-border'
                       }`}
                     >
                       {formatTenantCountryLabel(countryCode)}
@@ -884,13 +884,13 @@ export function GlobalSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Countries customers can send to</Label>
-                <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                   {tenantMarketSettings.supportedCountries.map((countryCode) => (
                     <button key={`dest-${countryCode}`} type="button" onClick={() => toggleScopedCountry('allowedDestinationCountries', countryCode)}
                       className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         tenantMarketSettings.allowedDestinationCountries.includes(countryCode)
-                          ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                          : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-border'
                       }`}
                     >
                       {formatTenantCountryLabel(countryCode)}
@@ -950,7 +950,7 @@ export function GlobalSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[var(--color-brand-primary)]" />
+            <ShieldCheck className="h-4 w-4 text-primary" />
             Approval Controls
           </CardTitle>
           <CardDescription>Guardrails for risky operations and production-impacting changes.</CardDescription>
@@ -995,11 +995,11 @@ export function GlobalSettingsPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex w-[260px] flex-none flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5">
+      <div className="flex w-[260px] flex-none flex-col border-r border-border bg-muted p-5">
 
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Platform</p>
-        <h1 className="mb-1 text-[17px] font-semibold text-[var(--color-text-primary)]">Global settings</h1>
-        <p className="mb-5 text-[12.5px] leading-5 text-[var(--color-text-secondary)]">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Platform</p>
+        <h1 className="mb-1 text-[17px] font-semibold text-foreground">Global settings</h1>
+        <p className="mb-5 text-[12.5px] leading-5 text-muted-foreground">
           Workspace identity, AI provider, storage, communication, and feature configuration.
         </p>
 
@@ -1021,25 +1021,25 @@ export function GlobalSettingsPage() {
                 className={cn(
                   'flex items-center justify-between rounded-md px-3 py-2 text-left text-[13px] transition-colors',
                   isActive
-                    ? 'bg-[var(--color-brand-primary-light)] font-semibold text-[var(--color-brand-primary)]'
-                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]',
+                    ? 'bg-primary/10 font-semibold text-primary'
+                    : 'text-foreground hover:bg-card',
                   noSearchMatch && 'opacity-40'
                 )}
               >
                 <span className="flex items-center gap-2">
                   <span>{tab.label}</span>
-                  {hasSearchMatch && <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />}
+                  {hasSearchMatch && <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />}
                 </span>
                 <span className="flex items-center gap-1.5">
                   {tabDirtyCount > 0 && (
-                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] px-1 text-[10px] font-semibold text-primary-foreground">
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
                       {tabDirtyCount}
                     </span>
                   )}
                   {tab.badge && (
                     <span className={cn(
-                      'rounded-full border border-[var(--color-border-light)] px-1.5 py-0.5 text-[10px] leading-none',
-                      isActive ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+                      'rounded-full border border-border px-1.5 py-0.5 text-[10px] leading-none',
+                      isActive ? 'bg-primary/10 text-primary' : 'bg-card text-muted-foreground'
                     )}>
                       {tab.badge}
                     </span>
@@ -1050,12 +1050,12 @@ export function GlobalSettingsPage() {
           })}
         </div>
 
-        <div className="mt-auto rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
+        <div className="mt-auto rounded-xl border border-border bg-card p-3.5">
           <div className="mb-1.5 flex items-center gap-2">
-            <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-warning)]" />
-            <p className="text-xs font-semibold text-[var(--color-text-primary)]">Unsaved changes</p>
+            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+            <p className="text-xs font-semibold text-foreground">Unsaved changes</p>
           </div>
-          <p className="mb-3 text-[11.5px] leading-5 text-[var(--color-text-secondary)]">{unsavedSummary}</p>
+          <p className="mb-3 text-[11.5px] leading-5 text-muted-foreground">{unsavedSummary}</p>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={handleSaveGlobal} disabled={!isGlobalDirty || globalSaving}>
               {globalSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
@@ -1071,9 +1071,9 @@ export function GlobalSettingsPage() {
       <div className="min-w-0 flex-1 overflow-auto p-6">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · Platform</p>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">{activeStarterkitTab?.label ?? 'Settings'}</h2>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Settings · Platform</p>
+            <h2 className="text-2xl font-bold text-foreground">{activeStarterkitTab?.label ?? 'Settings'}</h2>
+            <p className="text-muted-foreground">
               {activeTab === 'general'
                 ? 'Workspace identity, locale defaults, tenant country access, and approval controls.'
                 : activeGlobalTab?.sections[0]?.description ?? 'Configure platform-wide settings for the active environment.'}
@@ -1082,7 +1082,7 @@ export function GlobalSettingsPage() {
           <div className="flex shrink-0 items-center gap-2">
             {searchOpen ? (
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -1100,7 +1100,7 @@ export function GlobalSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -1128,10 +1128,10 @@ export function GlobalSettingsPage() {
         </div>
 
         {globalError && (
-          <Card className="mb-4 border-[var(--color-error)]/30 bg-[var(--color-error)]/5">
+          <Card className="mb-4 border-destructive/30 bg-destructive/5">
             <CardContent className="flex items-center gap-3 p-4">
-              <AlertTriangle className="h-5 w-5 text-[var(--color-error)]" />
-              <p className="text-sm text-[var(--color-error)]">{globalError}</p>
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <p className="text-sm text-destructive">{globalError}</p>
             </CardContent>
           </Card>
         )}
@@ -1141,8 +1141,8 @@ export function GlobalSettingsPage() {
         ) : globalLoading ? (
           <Card>
             <CardContent className="flex items-center justify-center py-16">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
-              <span className="text-[var(--color-text-secondary)]">Loading settings...</span>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="text-muted-foreground">Loading settings...</span>
             </CardContent>
           </Card>
         ) : (
@@ -1163,7 +1163,7 @@ export function GlobalSettingsPage() {
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-base">{section.title}</CardTitle>
                       {hidden && (
-                        <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Inactive
                         </span>
                       )}

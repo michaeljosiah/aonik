@@ -93,12 +93,12 @@ function TierPill({ tier }: { tier?: string }) {
   );
 }
 
-const TXT1 = 'var(--color-text-primary)';
-const TXT2 = 'var(--color-text-secondary)';
-const TXT3 = 'var(--color-text-tertiary)';
-const SURFACE = 'var(--color-surface)';
-const INSET = 'var(--color-surface-inset)';
-const BORDER = 'var(--color-border-light)';
+const TXT1 = 'var(--foreground)';
+const TXT2 = 'var(--muted-foreground)';
+const TXT3 = 'var(--muted-foreground)';
+const SURFACE = 'var(--card)';
+const INSET = 'var(--muted)';
+const BORDER = 'var(--border)';
 const MONO = 'var(--font-mono, ui-monospace, monospace)';
 
 function factLine(e: Extension): string {
@@ -229,7 +229,7 @@ export function AgentExtensionsPanel({ title }: WorkspacePanelRenderProps) {
               ))}
               {items.length === 0 && (
                 <div style={{ gridColumn: '1 / -1', padding: '40px 10px', textAlign: 'center', color: TXT3 }}>
-                  <Check size={22} color="var(--color-success)" />
+                  <Check size={22} color="var(--success)" />
                   <div style={{ fontSize: 13, fontWeight: 500, color: TXT2, marginTop: 8 }}>
                     {isPlatform ? 'Nothing in the review queue' : 'No extensions yet'}
                   </div>
@@ -266,7 +266,7 @@ function RoleLens({ lens, setLens, reviewCount }: { lens: 'tenant' | 'platform';
           }}>
             {l.label}
             {l.id === 'platform' && reviewCount > 0 && (
-              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, minWidth: 15, textAlign: 'center', padding: '0 4px', borderRadius: 999, background: 'var(--color-warning)', color: '#fff' }}>{reviewCount}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, minWidth: 15, textAlign: 'center', padding: '0 4px', borderRadius: 999, background: 'var(--warning)', color: '#fff' }}>{reviewCount}</span>
             )}
           </button>
         );
@@ -315,7 +315,7 @@ function LibCard({ e, platform, selected, onClick }: { e: Extension; platform: b
       </div>
       <div style={{ fontSize: 12, color: TXT2, lineHeight: 1.5, minHeight: 36 }}>{e.description}</div>
       {platform && e.reviewNotes && (
-        <div style={{ fontSize: 11, color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 11, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertTriangle size={11} /> {e.reviewNotes}
         </div>
       )}
@@ -417,7 +417,7 @@ function DetailDrawer({ e, review, busy, runAction, onClose, onActed }: {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: TXT3, flex: 1 }}>Approving makes it eligible — the tenant still activates.</span>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, false, notes), 'Rejected.')} style={{ color: 'var(--color-error)' }}>Reject</Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, false, notes), 'Rejected.')} style={{ color: 'var(--destructive)' }}>Reject</Button>
             <Button size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, true, notes), 'Approved.')}><Check className="w-3.5 h-3.5" /> Approve</Button>
           </div>
         </div>
@@ -487,18 +487,18 @@ function Timeline({ e }: { e: Extension }) {
       {order.map((st, i) => {
         const done = i <= curIdx && !(rejected && i > 0);
         const isRejectStop = rejected && i === 1;
-        const dotColor = isRejectStop ? 'var(--color-error)' : done ? '#055a60' : INSET;
+        const dotColor = isRejectStop ? 'var(--destructive)' : done ? '#055a60' : INSET;
         return (
           <div key={st} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 999, background: dotColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: done || isRejectStop ? 'none' : `1px solid var(--color-border)` }}>
+              <div style={{ width: 20, height: 20, borderRadius: 999, background: dotColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: done || isRejectStop ? 'none' : `1px solid var(--border)` }}>
                 {isRejectStop ? <X size={11} /> : done ? <Check size={11} /> : null}
               </div>
               {i < order.length - 1 && <div style={{ width: 2, height: 20, background: done && i < curIdx ? '#055a60' : BORDER }} />}
             </div>
             <div style={{ paddingBottom: 12 }}>
               <div style={{ fontSize: 12.5, fontWeight: done || isRejectStop ? 600 : 500, color: done || isRejectStop ? TXT1 : TXT3 }}>{isRejectStop ? 'Rejected' : labels[st]}</div>
-              {isRejectStop && e.reviewNotes && <div style={{ fontSize: 11, color: 'var(--color-error)', marginTop: 2 }}>{e.reviewNotes}</div>}
+              {isRejectStop && e.reviewNotes && <div style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 2 }}>{e.reviewNotes}</div>}
             </div>
           </div>
         );
@@ -577,7 +577,7 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
                   <div style={{ fontSize: 13, fontWeight: 600, color: TXT1 }}>{t.label}</div>
                   <div style={{ fontSize: 11.5, color: TXT2 }}>{blurb}</div>
                 </div>
-                <div style={{ width: 18, height: 18, borderRadius: 999, border: `2px solid ${on ? t.color : 'var(--color-border)'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 18, height: 18, borderRadius: 999, border: `2px solid ${on ? t.color : 'var(--border)'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                   {on && <span style={{ width: 8, height: 8, borderRadius: 999, background: t.color }} />}
                 </div>
               </div>
@@ -594,12 +594,12 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
             </FormField>
             {validation && !validation.isValid && (
               <div style={{ padding: '10px 12px', background: 'rgba(196,69,54,0.05)', border: '1px solid rgba(196,69,54,0.16)', borderRadius: 8, fontSize: 11.5, color: TXT2 }}>
-                {validation.errors.map((er, i) => <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><AlertTriangle size={12} color="var(--color-error)" style={{ marginTop: 2 }} /><span>{er}</span></div>)}
+                {validation.errors.map((er, i) => <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><AlertTriangle size={12} color="var(--destructive)" style={{ marginTop: 2 }} /><span>{er}</span></div>)}
               </div>
             )}
             {validation?.isValid && (
               <div style={{ padding: '10px 12px', background: 'rgba(31,122,94,0.06)', border: '1px solid rgba(31,122,94,0.2)', borderRadius: 8, fontSize: 11.5, color: TXT2, display: 'flex', gap: 6 }}>
-                <Check size={13} color="var(--color-success)" /><span>Valid — “{validation.name}”, {validation.allowedTools.length} allowed tools{validation.scriptsPresent ? ', has scripts' : ''}.</span>
+                <Check size={13} color="var(--success)" /><span>Valid — “{validation.name}”, {validation.allowedTools.length} allowed tools{validation.scriptsPresent ? ', has scripts' : ''}.</span>
               </div>
             )}
           </div>
@@ -638,7 +638,7 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
               onChange={(p) => setHttp({ ...http, authKind: p.kind, authSecret: p.secret, authUsername: p.username, authHeaderName: p.header })} />
             {http.method.toUpperCase() !== 'GET' && (
               <div style={{ padding: '10px 12px', background: 'rgba(196,69,54,0.05)', border: '1px solid rgba(196,69,54,0.16)', borderRadius: 8, fontSize: 11.5, color: TXT2, display: 'flex', gap: 8 }}>
-                <AlertTriangle size={13} color="var(--color-error)" />
+                <AlertTriangle size={13} color="var(--destructive)" />
                 <span>A non-GET call writes to an external system, so it defaults to <b style={{ color: '#b3261e' }}>HIGH</b> — a durable proposal that never runs in-band.</span>
               </div>
             )}

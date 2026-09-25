@@ -17,24 +17,24 @@ interface AuthErrorProps {
 
 const iconStyles: Record<string, { icon: string; bg: string; border: string }> = {
   configuration: {
-    icon: 'text-[var(--color-warning)]',
-    bg: 'bg-[color-mix(in_srgb,var(--color-warning)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-warning)_30%,transparent)]',
+    icon: 'text-warning',
+    bg: 'bg-[color-mix(in_srgb,var(--warning)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--warning)_30%,transparent)]',
   },
   network: {
-    icon: 'text-[var(--color-info)]',
-    bg: 'bg-[color-mix(in_srgb,var(--color-info)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-info)_30%,transparent)]',
+    icon: 'text-info',
+    bg: 'bg-[color-mix(in_srgb,var(--info)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--info)_30%,transparent)]',
   },
   provider: {
-    icon: 'text-[var(--color-danger)]',
-    bg: 'bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+    icon: 'text-destructive',
+    bg: 'bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--destructive)_30%,transparent)]',
   },
   unknown: {
-    icon: 'text-[var(--color-danger)]',
-    bg: 'bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]',
-    border: 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+    icon: 'text-destructive',
+    bg: 'bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--destructive)_30%,transparent)]',
   },
 };
 
@@ -53,7 +53,7 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[var(--color-gray-100)] p-6">
+    <div className="flex items-center justify-center min-h-screen bg-muted p-6">
       <Card className="max-w-[500px] w-full border-none shadow-lg">
         <CardContent className="p-8">
           {/* Icon */}
@@ -64,30 +64,30 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl font-bold text-[var(--color-text-heading)] text-center mb-2">
+          <h1 className="text-2xl font-bold text-foreground text-center mb-2">
             {error.title}
           </h1>
 
           {/* Message */}
-          <p className="text-[15px] text-[var(--color-text-secondary)] text-center mb-6 leading-relaxed">
+          <p className="text-[15px] text-muted-foreground text-center mb-6 leading-relaxed">
             {error.message}
           </p>
 
           {/* Details box */}
           {error.details && (
-            <div className="bg-[var(--color-gray-100)] rounded-lg p-4 mb-6 font-mono text-[13px] text-[var(--color-gray-600)] overflow-x-auto whitespace-pre-wrap break-words">
+            <div className="bg-muted rounded-lg p-4 mb-6 font-mono text-[13px] text-muted-foreground overflow-x-auto whitespace-pre-wrap break-words">
               {error.details}
             </div>
           )}
 
           {/* Configuration help for config errors */}
           {error.type === 'configuration' && (
-            <div className="bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-brand-primary)_25%,transparent)] rounded-lg p-4 mb-6">
-              <p className="text-sm font-semibold text-[var(--color-brand-primary)] mb-2">
+            <div className="bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] border border-[color-mix(in_srgb,var(--primary)_25%,transparent)] rounded-lg p-4 mb-6">
+              <p className="text-sm font-semibold text-primary mb-2">
                 How to fix this:
               </p>
-              <ol className="text-[13px] text-[var(--color-brand-primary)] m-0 pl-5 leading-[1.8]">
-                <li>Copy <code className="bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.example</code> to <code className="bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.local</code></li>
+              <ol className="text-[13px] text-primary m-0 pl-5 leading-[1.8]">
+                <li>Copy <code className="bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.example</code> to <code className="bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.local</code></li>
                 <li>Fill in your {error.provider || 'identity provider'} credentials</li>
                 <li>Restart the development server</li>
               </ol>
@@ -111,7 +111,7 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
                 href="https://github.com/michaeljosiah/aonik#authentication-setup"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-[var(--color-gray-200)] bg-[var(--color-surface)] text-[var(--color-text-heading)] no-underline text-sm font-medium hover:bg-[var(--color-gray-50)] transition-colors"
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-card text-foreground no-underline text-sm font-medium hover:bg-muted transition-colors"
               >
                 <ExternalLink className="w-[18px] h-[18px]" />
                 View Documentation
@@ -120,7 +120,7 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
           </div>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-xs text-[var(--color-text-muted)]">
+          <p className="mt-6 text-center text-xs text-muted-foreground">
             If this problem persists, please contact your administrator.
           </p>
         </CardContent>

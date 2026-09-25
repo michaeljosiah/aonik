@@ -29,7 +29,7 @@ interface NewTaskDialogProps {
 }
 
 const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
+  'flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-ring';
 
 type ScheduleMode = 'oneoff' | 'recurring';
 
@@ -141,8 +141,8 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
         <div className="space-y-4 py-1">
           {/* Title */}
           <div className="space-y-1.5">
-            <label htmlFor="task-title" className="text-xs font-medium text-[var(--color-text-primary)]">
-              Title <span className="text-[var(--color-danger)]">*</span>
+            <label htmlFor="task-title" className="text-xs font-medium text-foreground">
+              Title <span className="text-destructive">*</span>
             </label>
             <input
               id="task-title"
@@ -158,8 +158,8 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
 
           {/* Target user */}
           <div className="space-y-1.5">
-            <label htmlFor="task-user" className="text-xs font-medium text-[var(--color-text-primary)]">
-              Notify user <span className="text-[var(--color-danger)]">*</span>
+            <label htmlFor="task-user" className="text-xs font-medium text-foreground">
+              Notify user <span className="text-destructive">*</span>
             </label>
             <select
               id="task-user"
@@ -180,8 +180,8 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
 
           {/* Message body */}
           <div className="space-y-1.5">
-            <label htmlFor="task-body" className="text-xs font-medium text-[var(--color-text-primary)]">
-              Message <span className="text-[var(--color-danger)]">*</span>
+            <label htmlFor="task-body" className="text-xs font-medium text-foreground">
+              Message <span className="text-destructive">*</span>
             </label>
             <textarea
               id="task-body"
@@ -196,7 +196,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
 
           {/* Severity */}
           <div className="space-y-1.5">
-            <label htmlFor="task-severity" className="text-xs font-medium text-[var(--color-text-primary)]">
+            <label htmlFor="task-severity" className="text-xs font-medium text-foreground">
               Severity
             </label>
             <select
@@ -215,7 +215,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
 
           {/* Schedule */}
           <div className="space-y-1.5">
-            <label htmlFor="task-schedule" className="text-xs font-medium text-[var(--color-text-primary)]">
+            <label htmlFor="task-schedule" className="text-xs font-medium text-foreground">
               Schedule
             </label>
             <select
@@ -238,7 +238,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
                   className={fieldClassName}
                   disabled={submitting}
                 />
-                <p className="text-[11px] text-[var(--color-text-tertiary)]">
+                <p className="text-[11px] text-muted-foreground">
                   Leave blank to fire on the next dispatch sweep (within a minute).
                 </p>
               </>
@@ -252,7 +252,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
                   className={fieldClassName}
                   disabled={submitting}
                 />
-                <p className="text-[11px] text-[var(--color-text-tertiary)]">
+                <p className="text-[11px] text-muted-foreground">
                   Quartz cron (6-field, with seconds). Default fires every minute.
                 </p>
               </>
@@ -260,7 +260,7 @@ export function NewTaskDialog({ open, onOpenChange, onSuccess }: NewTaskDialogPr
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded border border-[var(--color-danger)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-danger)]">
+            <div className="flex items-start gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{error}</span>
             </div>

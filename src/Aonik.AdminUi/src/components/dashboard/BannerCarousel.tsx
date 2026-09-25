@@ -66,7 +66,7 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-[4px] bg-gradient-to-br from-[var(--color-brand-primary)] to-[var(--color-brand-primary-dark,#044448)]',
+        'group relative overflow-hidden rounded-[4px] bg-gradient-to-br from-primary to-[var(--color-brand-primary-dark,#044448)]',
         className ?? 'h-[225px]'
       )}
     >
@@ -171,7 +171,7 @@ export function BannerCarousel({ images = placeholderImages, className }: Banner
       {images[selectedIndex]?.ctaLabel && (
         <button
           onClick={images[selectedIndex].onClick}
-          className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-white text-[var(--color-brand-primary)] px-4 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
+          className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-white text-primary px-4 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
         >
           {images[selectedIndex].ctaLabel}
           <ExternalLink className="w-4 h-4" />

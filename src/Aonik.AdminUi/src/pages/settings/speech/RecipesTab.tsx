@@ -139,7 +139,7 @@ export function RecipesTab({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center p-12 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading recipes…
       </div>
@@ -148,7 +148,7 @@ export function RecipesTab({
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">
+        <CardContent className="p-6 text-destructive">
           {error}
         </CardContent>
       </Card>
@@ -214,8 +214,8 @@ export function RecipesTab({
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
                       active
-                        ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground"
-                        : "border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]",
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-foreground hover:border-primary",
                     )}
                   >
                     {f.label}
@@ -224,7 +224,7 @@ export function RecipesTab({
                         "font-mono text-[11px]",
                         active
                           ? "text-white/85"
-                          : "text-[var(--color-text-tertiary)]",
+                          : "text-muted-foreground",
                       )}
                     >
                       {count}
@@ -242,7 +242,7 @@ export function RecipesTab({
               />
               <label
                 htmlFor="include-disabled-recipes"
-                className="text-xs text-[var(--color-text-secondary)]"
+                className="text-xs text-muted-foreground"
               >
                 Show disabled
               </label>
@@ -328,14 +328,14 @@ function FirstRecipeHero({
 }) {
   if (tenantHasNoProviders) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-12 text-center">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand-primary-10)]">
-          <Plug className="h-6 w-6 text-[var(--color-brand-primary)]" />
+      <div className="rounded-2xl border border-border bg-card p-12 text-center">
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-primary/10">
+          <Plug className="h-6 w-6 text-primary" />
         </div>
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+        <h2 className="text-lg font-semibold text-foreground">
           Add a provider before composing recipes
         </h2>
-        <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
+        <p className="mx-auto mt-1 max-w-[28rem] text-sm text-muted-foreground">
           Recipes are pipelines that wire providers together. Add at least one
           Speech-to-Text and one Text-to-Speech provider, then come back to
           compose them.
@@ -350,14 +350,14 @@ function FirstRecipeHero({
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-12 text-center">
-      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand-primary-10)]">
-        <Layers className="h-6 w-6 text-[var(--color-brand-primary)]" />
+    <div className="rounded-2xl border border-border bg-card p-12 text-center">
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-primary/10">
+        <Layers className="h-6 w-6 text-primary" />
       </div>
-      <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+      <h2 className="text-lg font-semibold text-foreground">
         Compose your first voice recipe
       </h2>
-      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
+      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-muted-foreground">
         A recipe wires your providers into a pipeline that powers Voice Mode.
         Pick a chained STT → Agent → TTS flow, or a single-vendor realtime
         composite.
@@ -396,15 +396,15 @@ function RecipeKindChoice({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col items-center gap-2 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5 text-center transition-colors hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary-10)]"
+      className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-muted p-5 text-center transition-colors hover:border-primary hover:bg-primary/10"
     >
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--color-surface)] text-[var(--color-brand-primary)] transition-colors group-hover:bg-[var(--color-brand-primary)] group-hover:text-white">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-card text-primary transition-colors group-hover:bg-primary group-hover:text-white">
         {icon}
       </span>
-      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+      <span className="text-sm font-semibold text-foreground">
         {title}
       </span>
-      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+      <span className="text-[11.5px] text-muted-foreground">
         {description}
       </span>
     </button>
@@ -416,7 +416,7 @@ function FilterEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-3 p-12 text-center">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-muted-foreground">
           No recipes in this category yet.
         </p>
         <Button onClick={onAdd}>

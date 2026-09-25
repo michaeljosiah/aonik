@@ -78,7 +78,7 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
   if (loading && !overview) {
     return (
       <div className="h-full overflow-auto p-4">
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Loading error data...
         </p>
       </div>
@@ -150,7 +150,7 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
             <PanelInfoPopover
               title="Errors & Failures"
               description={
@@ -193,7 +193,7 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
               })}
             />
           </div>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <p className="text-xs text-muted-foreground">
             Error rates and failure analysis.
           </p>
         </div>
@@ -265,12 +265,12 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
               {errorGroups.map((error, i) => (
                 <div
                   key={`${error.type}-${i}`}
-                  className="rounded-md border border-[var(--color-border-light)] px-3 py-2 space-y-1"
+                  className="rounded-md border border-border px-3 py-2 space-y-1"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <XCircle className="w-3 h-3 text-red-500 shrink-0" />
-                      <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">
+                      <span className="text-xs font-medium text-foreground truncate">
                         {error.type}
                       </span>
                     </div>
@@ -278,12 +278,12 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
                       <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-[10px] px-1.5 py-0">
                         {error.count}x
                       </Badge>
-                      <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                      <span className="text-[10px] text-muted-foreground">
                         {formatTimestamp(error.lastSeen)}
                       </span>
                     </div>
                   </div>
-                  <p className="text-[11px] text-[var(--color-text-secondary)] line-clamp-2">
+                  <p className="text-[11px] text-muted-foreground line-clamp-2">
                     {error.innermostMessage || error.outerMessage}
                   </p>
                 </div>

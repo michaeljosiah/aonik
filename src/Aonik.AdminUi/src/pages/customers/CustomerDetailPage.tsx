@@ -326,11 +326,11 @@ export function CustomerDetailPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="mx-auto mb-3 h-12 w-12 text-[var(--color-error)]" />
-          <h2 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">
+          <AlertCircle className="mx-auto mb-3 h-12 w-12 text-destructive" />
+          <h2 className="mb-2 text-xl font-semibold text-foreground">
             Customer not found
           </h2>
-          <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+          <p className="mb-4 text-sm text-muted-foreground">
             The customer you're looking for doesn't exist or you don't have access.
           </p>
           <Button onClick={() => navigate('/customers')}>Back to Customers</Button>
@@ -378,7 +378,7 @@ export function CustomerDetailPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-none" />
           <span className="flex-1">{error}</span>
           <Button variant="outline" size="sm" onClick={() => void loadCustomer()}>
@@ -389,14 +389,14 @@ export function CustomerDetailPage() {
       )}
 
       {/* Header card */}
-      <div className="flex items-center gap-5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+      <div className="flex items-center gap-5 rounded-xl border border-border bg-card p-5">
         <div
           className="flex h-[68px] w-[68px] flex-none items-center justify-center font-[family-name:var(--font-brand)] font-semibold leading-none text-white"
           style={{
             borderRadius: 14,
             fontSize: 26,
             background:
-              'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%)',
+              'linear-gradient(135deg, var(--primary) 0%, var(--color-brand-primary-dark) 100%)',
             letterSpacing: '-0.02em',
           }}
         >
@@ -404,19 +404,19 @@ export function CustomerDetailPage() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="font-[family-name:var(--font-brand)] text-[22px] font-bold tracking-[-0.01em] text-[var(--color-text-primary)]">
+            <div className="font-[family-name:var(--font-brand)] text-[22px] font-bold tracking-[-0.01em] text-foreground">
               {customer.displayName}
             </div>
             <Pill tone={STATUS_TONE[customer.status] ?? 'default'} dot>
               {customer.status}
             </Pill>
             {registrationCode && (
-              <span className="rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="rounded border border-border bg-muted px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                 {registrationCode}
               </span>
             )}
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-3.5 text-xs text-[var(--color-text-secondary)]">
+          <div className="mt-1.5 flex flex-wrap gap-3.5 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <Building2 className="h-3 w-3" />
               {customer.partyType}
@@ -480,13 +480,13 @@ export function CustomerDetailPage() {
         <KpiCell
           label="T12M revenue"
           value={statsLoading && !stats ? '—' : trailingTwelveSummary}
-          dot="var(--color-brand-primary)"
+          dot="var(--primary)"
           sub="captured · trailing 12mo"
         />
         <KpiCell
           label="T30D revenue"
           value={statsLoading && !stats ? '—' : trailingThirtySummary}
-          dot="var(--color-success)"
+          dot="var(--success)"
           sub="rough monthly run rate"
         />
         <KpiCell
@@ -508,7 +508,7 @@ export function CustomerDetailPage() {
               ? openOrderCount.toLocaleString()
               : '—'
           }
-          dot="var(--color-warning)"
+          dot="var(--warning)"
           sub={
             stats && stats.outstandingByCurrency.length > 0
               ? `${outstandingSummary} open`
@@ -518,13 +518,13 @@ export function CustomerDetailPage() {
         <KpiCell
           label="Last activity"
           value={formatRelative(lastActivityAt)}
-          dot="var(--color-brand-secondary)"
+          dot="var(--agent)"
           sub={lastActivityAt ? formatDate(lastActivityAt) : 'no activity yet'}
         />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-[var(--color-border-light)] px-0.5">
+      <div className="flex gap-0.5 border-b border-border px-0.5">
         {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.value;
           return (
@@ -535,8 +535,8 @@ export function CustomerDetailPage() {
               className={
                 'h-[38px] -mb-px border-b-2 px-3.5 text-[13px] transition-colors ' +
                 (isActive
-                  ? 'border-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)]'
-                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')
+                  ? 'border-primary font-semibold text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground')
               }
             >
               {tab.label}
@@ -627,16 +627,16 @@ function KpiCell({
   dot: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+    <div className="rounded-[10px] border border-border bg-card p-3.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
         {label}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[20px] font-semibold leading-none text-[var(--color-text-primary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[20px] font-semibold leading-none text-foreground">
         {value}
       </div>
       {sub && (
-        <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">{sub}</div>
+        <div className="mt-1 text-[11px] text-muted-foreground">{sub}</div>
       )}
     </div>
   );
@@ -713,17 +713,17 @@ function OverviewTab({
               className={
                 'grid gap-3 py-2 ' +
                 (idx < detailRows.length - 1
-                  ? 'border-b border-[var(--color-border-light)]'
+                  ? 'border-b border-border'
                   : '')
               }
               style={{ gridTemplateColumns: '140px 1fr' }}
             >
-              <span className="text-[11px] tracking-[0.02em] text-[var(--color-text-tertiary)]">
+              <span className="text-[11px] tracking-[0.02em] text-muted-foreground">
                 {label}
               </span>
               <span
                 className={
-                  'text-[12.5px] text-[var(--color-text-primary)] ' +
+                  'text-[12.5px] text-foreground ' +
                   (mono ? 'font-[family-name:var(--font-mono)]' : '')
                 }
               >
@@ -749,7 +749,7 @@ function OverviewTab({
       >
         <div className="flex flex-col gap-2.5">
           {consents.length === 0 ? (
-            <p className="text-xs text-[var(--color-text-tertiary)]">No consents recorded.</p>
+            <p className="text-xs text-muted-foreground">No consents recorded.</p>
           ) : (
             consents.map((consent) => (
               <div
@@ -760,17 +760,17 @@ function OverviewTab({
                   className="h-2 w-2 rounded-full"
                   style={{
                     background: consent.revokedAt
-                      ? 'var(--color-text-tertiary)'
-                      : 'var(--color-success)',
+                      ? 'var(--muted-foreground)'
+                      : 'var(--success)',
                   }}
                 />
-                <span className="flex-1 text-[12.5px] text-[var(--color-text-primary)]">
+                <span className="flex-1 text-[12.5px] text-foreground">
                   {consent.consentType}
                 </span>
                 <Pill tone={consent.revokedAt ? 'muted' : 'success'} size="sm">
                   {consent.revokedAt ? 'Revoked' : 'Active'}
                 </Pill>
-                <span className="min-w-[60px] text-right font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+                <span className="min-w-[60px] text-right font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
                   {formatDate(consent.grantedAt)}
                 </span>
               </div>
@@ -785,14 +785,14 @@ function OverviewTab({
             {externalAccounts.map((acct) => (
               <div
                 key={acct.partyAccountId}
-                className="flex items-center gap-3 rounded-md border border-[var(--color-border-light)] p-3"
+                className="flex items-center gap-3 rounded-md border border-border p-3"
               >
-                <Building2 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                <Building2 className="h-4 w-4 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+                  <div className="text-[13px] font-medium text-foreground">
                     {acct.accountType}
                   </div>
-                  <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                  <div className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                     {acct.maskedIdentifier}
                     {acct.providerRef ? ` · ${acct.providerRef}` : ''}
                   </div>
@@ -838,11 +838,11 @@ function FinanceTab({ subTabs, financeSub, onSubChange, userId }: FinanceTabProp
     return (
       <AonikCard>
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Globe className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-tertiary)]">
+          <Globe className="mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             No finance views are enabled for this organisation.
           </p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <p className="text-xs text-muted-foreground">
             Accounts, transactions, budgets and commitments appear here once the
             Personal Finance module is enabled.
           </p>
@@ -855,11 +855,11 @@ function FinanceTab({ subTabs, financeSub, onSubChange, userId }: FinanceTabProp
     return (
       <AonikCard>
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Globe className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-tertiary)]">
+          <Globe className="mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             No user account linked to this customer.
           </p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <p className="text-xs text-muted-foreground">
             Finance views require a linked Aonik user.
           </p>
         </div>
@@ -883,8 +883,8 @@ function FinanceTab({ subTabs, financeSub, onSubChange, userId }: FinanceTabProp
               className={
                 'inline-flex h-[30px] items-center rounded-md px-3 text-xs transition-colors ' +
                 (isActive
-                  ? 'bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')
+                  ? 'bg-primary/10 font-semibold text-primary'
+                  : 'text-muted-foreground hover:text-foreground')
               }
             >
               {sub.label}
@@ -915,7 +915,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
     return (
       <AonikCard>
         <div className="flex items-center justify-center py-10">
-          <RefreshCw className="h-6 w-6 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-6 w-6 animate-spin text-primary" />
         </div>
       </AonikCard>
     );
@@ -924,7 +924,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
   if (error) {
     return (
       <AonikCard>
-        <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+        <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
@@ -936,11 +936,11 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
     return (
       <AonikCard>
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Lightbulb className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <Lightbulb className="mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             No insights generated yet for this customer.
           </p>
-          <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+          <p className="mt-1 text-xs text-muted-foreground">
             Insights appear after the snapshot pipeline and AI summary run.
           </p>
         </div>
@@ -958,17 +958,17 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
           subtitle={`Generated ${formatRelative(summary.createdUtc)} · v${summary.narrativeVersion}`}
           action={<Pill tone="info" dot>fresh</Pill>}
         >
-          <div className="text-[15px] font-semibold leading-snug text-[var(--color-text-primary)]">
+          <div className="text-[15px] font-semibold leading-snug text-foreground">
             {summary.headline}
           </div>
-          <p className="mt-2.5 text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">
             {summary.summary}
           </p>
 
           {summary.keyObservations.length > 0 && (
             <>
               <SectionEyebrow>Key observations</SectionEyebrow>
-              <ul className="ml-4 list-disc space-y-1.5 text-[12.5px] text-[var(--color-text-primary)]">
+              <ul className="ml-4 list-disc space-y-1.5 text-[12.5px] text-foreground">
                 {summary.keyObservations.map((obs, i) => (
                   <li key={i}>{obs}</li>
                 ))}
@@ -980,10 +980,10 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               {summary.positivePatterns.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-success)]">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-success">
                     Positive patterns
                   </div>
-                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-[var(--color-text-primary)]">
+                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-foreground">
                     {summary.positivePatterns.map((p, i) => (
                       <li key={i}>{p}</li>
                     ))}
@@ -992,10 +992,10 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
               )}
               {summary.riskPatterns.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-danger)]">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-destructive">
                     Risk patterns
                   </div>
-                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-[var(--color-text-primary)]">
+                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-foreground">
                     {summary.riskPatterns.map((p, i) => (
                       <li key={i}>{p}</li>
                     ))}
@@ -1019,9 +1019,9 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
           )}
 
           {summary.caveats.length > 0 && (
-            <div className="mt-4 rounded-md bg-[var(--color-surface-inset)] p-3">
+            <div className="mt-4 rounded-md bg-muted p-3">
               <SectionEyebrow inset>Caveats</SectionEyebrow>
-              <ul className="space-y-1 text-[11px] text-[var(--color-text-tertiary)]">
+              <ul className="space-y-1 text-[11px] text-muted-foreground">
                 {summary.caveats.map((c, i) => (
                   <li key={i}>{c}</li>
                 ))}
@@ -1043,11 +1043,11 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
         >
           {insights.snapshot.topSignalTitle && (
             <>
-              <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+              <div className="text-[14px] font-semibold text-foreground">
                 {insights.snapshot.topSignalTitle}
               </div>
               {insights.snapshot.topSignalDescription && (
-                <p className="mt-1 text-[13px] text-[var(--color-text-secondary)]">
+                <p className="mt-1 text-[13px] text-muted-foreground">
                   {insights.snapshot.topSignalDescription}
                 </p>
               )}
@@ -1055,7 +1055,7 @@ function InsightsTab({ insights, loading, error }: InsightsTabProps) {
           )}
           {insights.snapshot.cashflowStressLevel &&
             insights.snapshot.cashflowStressLevel !== 'Low' && (
-              <div className="mt-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="mt-3 text-sm text-muted-foreground">
                 Cashflow stress:{' '}
                 <span className="font-medium">{insights.snapshot.cashflowStressLevel}</span>
               </div>
@@ -1070,7 +1070,7 @@ function SectionEyebrow({ children, inset }: { children: ReactNode; inset?: bool
   return (
     <div
       className={
-        'text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)] ' +
+        'text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground ' +
         (inset ? 'mb-1.5' : 'mb-1.5 mt-4')
       }
     >
@@ -1096,26 +1096,26 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
       action={
         <Link
           to="/compliance/documents"
-          className="text-xs text-[var(--color-brand-primary)] hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           View all
         </Link>
       }
     >
       {error && (
-        <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="mb-3 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-6">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : documents.length === 0 ? (
         <div className="py-6 text-center">
-          <FileText className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">No documents recorded.</p>
+          <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No documents recorded.</p>
         </div>
       ) : (
         <div className="flex flex-col">
@@ -1129,23 +1129,23 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
                 key={doc.documentId}
                 className={
                   'grid items-center gap-3 py-3 ' +
-                  (isLast ? '' : 'border-b border-[var(--color-border-light)]')
+                  (isLast ? '' : 'border-b border-border')
                 }
                 style={{ gridTemplateColumns: '24px 1fr auto auto auto auto' }}
               >
-                <FileText className="h-[18px] w-[18px] text-[var(--color-text-tertiary)]" />
+                <FileText className="h-[18px] w-[18px] text-muted-foreground" />
                 <div className="min-w-0">
-                  <div className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                  <div className="truncate text-[13px] font-medium text-foreground">
                     {doc.documentType}
                   </div>
-                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                  <div className="text-[11px] text-muted-foreground">
                     Reference {doc.referenceNumber || '—'}
                   </div>
                 </div>
-                <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                   uploaded {formatDate(doc.issuedOn)}
                 </span>
-                <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                   expires {formatDate(doc.expiresOn)}
                 </span>
                 <Pill tone={tone} dot>
@@ -1175,11 +1175,11 @@ const ACTIVITY_KIND_VISUAL: Record<
   string,
   { icon: typeof Sparkles; color: string }
 > = {
-  order_created: { icon: Plus, color: 'var(--color-brand-secondary)' },
-  order_updated: { icon: RefreshCw, color: 'var(--color-text-secondary)' },
-  payment_captured: { icon: Sparkles, color: 'var(--color-success)' },
-  document_uploaded: { icon: FileText, color: 'var(--color-text-secondary)' },
-  audit_log: { icon: Lightbulb, color: 'var(--color-warning)' },
+  order_created: { icon: Plus, color: 'var(--agent)' },
+  order_updated: { icon: RefreshCw, color: 'var(--muted-foreground)' },
+  payment_captured: { icon: Sparkles, color: 'var(--success)' },
+  document_uploaded: { icon: FileText, color: 'var(--muted-foreground)' },
+  audit_log: { icon: Lightbulb, color: 'var(--warning)' },
 };
 
 function ActivityList({
@@ -1195,7 +1195,7 @@ function ActivityList({
 }) {
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+      <div className="flex items-center gap-2 text-sm text-destructive">
         <AlertCircle className="h-4 w-4" />
         {error}
       </div>
@@ -1205,14 +1205,14 @@ function ActivityList({
   if (loading && entries.length === 0) {
     return (
       <div className="flex items-center justify-center py-6">
-        <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+        <RefreshCw className="h-5 w-5 animate-spin text-primary" />
       </div>
     );
   }
 
   if (entries.length === 0) {
     return (
-      <div className="py-6 text-center text-sm text-[var(--color-text-tertiary)]">
+      <div className="py-6 text-center text-sm text-muted-foreground">
         No activity recorded for this customer yet.
       </div>
     );
@@ -1224,7 +1224,7 @@ function ActivityList({
         const visual =
           ACTIVITY_KIND_VISUAL[entry.kind] ?? {
             icon: Sparkles,
-            color: 'var(--color-text-secondary)',
+            color: 'var(--muted-foreground)',
           };
         const Icon = visual.icon;
         const isLast = idx === entries.length - 1;
@@ -1247,9 +1247,9 @@ function ActivityList({
             }
             className={
               'grid items-center gap-2.5 py-2.5 ' +
-              (isLast ? '' : 'border-b border-[var(--color-border-light)] ') +
+              (isLast ? '' : 'border-b border-border ') +
               (clickable
-                ? 'cursor-pointer transition-colors hover:bg-[var(--color-surface-inset)] -mx-2 px-2 rounded-md'
+                ? 'cursor-pointer transition-colors hover:bg-muted -mx-2 px-2 rounded-md'
                 : '')
             }
             style={{ gridTemplateColumns: '28px 1fr auto' }}
@@ -1264,16 +1264,16 @@ function ActivityList({
               <Icon className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0">
-              <div className="truncate text-[12.5px] text-[var(--color-text-primary)]">
+              <div className="truncate text-[12.5px] text-foreground">
                 {entry.title}
               </div>
               {entry.subtitle && (
-                <div className="truncate text-[11px] text-[var(--color-text-tertiary)]">
+                <div className="truncate text-[11px] text-muted-foreground">
                   {entry.subtitle}
                 </div>
               )}
             </div>
-            <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
               {formatRelative(entry.timestamp)}
             </span>
           </div>

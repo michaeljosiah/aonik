@@ -112,8 +112,8 @@ function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
 function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="mr-2 h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
-      <span className="text-[var(--color-text-secondary)]">Loading overview...</span>
+      <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+      <span className="text-muted-foreground">Loading overview...</span>
     </div>
   );
 }
@@ -124,8 +124,8 @@ function ErrorState({ message }: { message: string }) {
       <CardContent className="flex items-center gap-3 p-5">
         <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
         <div>
-          <p className="text-sm font-medium text-[var(--color-text-primary)]">Failed to load overview</p>
-          <p className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{message}</p>
+          <p className="text-sm font-medium text-foreground">Failed to load overview</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{message}</p>
         </div>
       </CardContent>
     </Card>
@@ -137,11 +137,11 @@ function NotConfiguredBanner() {
     <Card className="mb-6 border-l-4 border-l-amber-500">
       <CardContent className="flex items-center gap-3 p-5">
         <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-muted-foreground">
           Application Insights is not configured. Go to{' '}
           <a
             href="/settings/global"
-            className="font-medium text-[var(--color-brand-primary)] hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             Settings &gt; Observability
           </a>{' '}
@@ -297,12 +297,12 @@ export function ObservabilityPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Observability</h1>
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              <h1 className="text-xl font-semibold text-foreground">Observability</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Route-based observability shell. Overview is now a standalone page and the remaining surfaces will be ported individually.
               </p>
             </div>
@@ -335,7 +335,7 @@ export function ObservabilityPage() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="mb-4 flex items-center gap-1.5">
-          <span className="text-sm font-medium text-[var(--color-text-secondary)]">Platform Overview</span>
+          <span className="text-sm font-medium text-muted-foreground">Platform Overview</span>
           <PanelInfoPopover
             title="Platform Overview"
             description={
@@ -373,15 +373,15 @@ export function ObservabilityPage() {
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-brand-primary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
                       Observability · System health
                     </p>
-                    <h2 className="mt-3 text-4xl font-bold tracking-tight text-[var(--color-text-primary)]">Overview</h2>
-                    <p className="mt-2 max-w-3xl text-sm text-[var(--color-text-secondary)]">
+                    <h2 className="mt-3 text-4xl font-bold tracking-tight text-foreground">Overview</h2>
+                    <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                       Live pulse across requests, dependencies, and application failures for the selected time range.
                     </p>
                     {depsLoading && (
-                      <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
+                      <p className="mt-3 text-xs text-muted-foreground">
                         Refreshing dependency health for the overview...
                       </p>
                     )}
@@ -417,8 +417,8 @@ export function ObservabilityPage() {
                       />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-[var(--color-text-primary)]">{headline}</div>
-                      <div className="mt-1 text-xs text-[var(--color-text-secondary)]">{headlineDetail}</div>
+                      <div className="text-sm font-semibold text-foreground">{headline}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{headlineDetail}</div>
                     </div>
                     {[
                       { label: 'Success', value: formatPercent(successRate) },
@@ -428,8 +428,8 @@ export function ObservabilityPage() {
                       { label: 'Errors · window', value: formatNumber(errorTotal) },
                     ].map((item) => (
                       <div key={item.label} className="text-left lg:text-right">
-                        <div className="font-mono text-sm font-semibold text-[var(--color-text-primary)]">{item.value}</div>
-                        <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{item.label}</div>
+                        <div className="font-mono text-sm font-semibold text-foreground">{item.value}</div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">{item.label}</div>
                       </div>
                     ))}
                   </CardContent>
@@ -466,12 +466,12 @@ export function ObservabilityPage() {
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-start justify-between gap-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Traffic & latency</h3>
-                          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                          <h3 className="text-lg font-semibold text-foreground">Traffic & latency</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
                             Request volume, error rate, and latency trend across the selected window.
                           </p>
                         </div>
-                        <div className="text-right text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-brand-primary)]">
+                        <div className="text-right text-xs font-semibold uppercase tracking-[0.12em] text-primary">
                           {dateLabel}
                         </div>
                       </div>
@@ -505,12 +505,12 @@ export function ObservabilityPage() {
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Incidents</h3>
-                          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                          <h3 className="text-lg font-semibold text-foreground">Incidents</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
                             Derived from top error fingerprints until a dedicated incident stream exists.
                           </p>
                         </div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">{topErrors.length} surfaced</span>
+                        <span className="text-xs text-muted-foreground">{topErrors.length} surfaced</span>
                       </div>
 
                       <div className="space-y-3">
@@ -520,21 +520,21 @@ export function ObservabilityPage() {
                             ? 'border-l-red-500 text-red-500 bg-red-500/10'
                             : severity === 'warning'
                             ? 'border-l-amber-500 text-amber-500 bg-amber-500/10'
-                            : 'border-l-slate-400 text-[var(--color-text-secondary)] bg-[var(--color-surface)]';
+                            : 'border-l-slate-400 text-muted-foreground bg-card';
                           return (
                             <div
                               key={`${error.type}-${error.lastSeen}`}
                               className={cn(
-                                'rounded-xl border border-[var(--color-border-light)] border-l-4 bg-[var(--color-surface-inset)] p-4',
+                                'rounded-xl border border-border border-l-4 bg-muted p-4',
                                 severityClass,
                               )}
                             >
                               <div className="mb-2 flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+                                  <div className="text-sm font-semibold text-foreground">
                                     {error.outerMessage || error.type}
                                   </div>
-                                  <div className="mt-1 truncate font-mono text-[11px] text-[var(--color-text-secondary)]">
+                                  <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                                     {error.type}
                                   </div>
                                 </div>
@@ -542,10 +542,10 @@ export function ObservabilityPage() {
                                   {severity === 'critical' ? 'critical' : severity === 'warning' ? 'warning' : 'info'}
                                 </span>
                               </div>
-                              <div className="text-sm text-[var(--color-text-secondary)]">
+                              <div className="text-sm text-muted-foreground">
                                 {error.innermostMessage || 'No inner exception message captured.'}
                               </div>
-                              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--color-text-tertiary)]">
+                              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
                                 <span>{formatNumber(error.count)} occurrences</span>
                                 <span>{relativeTime(error.lastSeen)}</span>
                               </div>
@@ -553,7 +553,7 @@ export function ObservabilityPage() {
                           );
                         })}
                         {topErrors.length === 0 && (
-                          <div className="rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                          <div className="rounded-xl border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                             No incident-like error spikes captured in this window.
                           </div>
                         )}
@@ -593,29 +593,29 @@ export function ObservabilityPage() {
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Highest traffic services</h3>
-                          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                          <h3 className="text-lg font-semibold text-foreground">Highest traffic services</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
                             The busiest dependencies in the current window.
                           </p>
                         </div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">Top 5</span>
+                        <span className="text-xs text-muted-foreground">Top 5</span>
                       </div>
                       <div className="space-y-3">
                         {topTrafficServices.map((service, index) => (
-                          <div key={`${service.type}-${service.name}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3">
-                            <span className="font-mono text-xs text-[var(--color-text-tertiary)]">#{index + 1}</span>
+                          <div key={`${service.type}-${service.name}`} className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3">
+                            <span className="font-mono text-xs text-muted-foreground">#{index + 1}</span>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate font-mono text-xs text-[var(--color-text-primary)]">{service.name}</div>
-                              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{service.type}</div>
+                              <div className="truncate font-mono text-xs text-foreground">{service.name}</div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">{service.type}</div>
                             </div>
                             <div className="text-right">
-                              <div className="font-mono text-xs font-semibold text-[var(--color-text-primary)]">{formatNumber(service.totalCalls)}</div>
-                              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">calls</div>
+                              <div className="font-mono text-xs font-semibold text-foreground">{formatNumber(service.totalCalls)}</div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">calls</div>
                             </div>
                           </div>
                         ))}
                         {topTrafficServices.length === 0 && (
-                          <div className="rounded-lg border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                             No dependency volume data yet.
                           </div>
                         )}
@@ -627,29 +627,29 @@ export function ObservabilityPage() {
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Slowest services</h3>
-                          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                          <h3 className="text-lg font-semibold text-foreground">Slowest services</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
                             Dependencies with the highest average duration.
                           </p>
                         </div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">Top 5</span>
+                        <span className="text-xs text-muted-foreground">Top 5</span>
                       </div>
                       <div className="space-y-3">
                         {slowestServices.map((service, index) => (
-                          <div key={`${service.type}-${service.name}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3">
-                            <span className="font-mono text-xs text-[var(--color-text-tertiary)]">#{index + 1}</span>
+                          <div key={`${service.type}-${service.name}`} className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3">
+                            <span className="font-mono text-xs text-muted-foreground">#{index + 1}</span>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate font-mono text-xs text-[var(--color-text-primary)]">{service.name}</div>
-                              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{service.type} · {formatPercent(service.successRatePercent)} success</div>
+                              <div className="truncate font-mono text-xs text-foreground">{service.name}</div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">{service.type} · {formatPercent(service.successRatePercent)} success</div>
                             </div>
                             <div className="text-right">
-                              <div className="font-mono text-xs font-semibold text-[var(--color-text-primary)]">{formatMs(service.avgDurationMs)}</div>
-                              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">avg</div>
+                              <div className="font-mono text-xs font-semibold text-foreground">{formatMs(service.avgDurationMs)}</div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">avg</div>
                             </div>
                           </div>
                         ))}
                         {slowestServices.length === 0 && (
-                          <div className="rounded-lg border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                             No dependency latency data yet.
                           </div>
                         )}
@@ -661,12 +661,12 @@ export function ObservabilityPage() {
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Needs attention</h3>
-                          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                          <h3 className="text-lg font-semibold text-foreground">Needs attention</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
                             Services with elevated latency or below-target success rates.
                           </p>
                         </div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">Top 5</span>
+                        <span className="text-xs text-muted-foreground">Top 5</span>
                       </div>
                       <div className="space-y-3">
                         {riskServices.map((service) => {
@@ -676,11 +676,11 @@ export function ObservabilityPage() {
                             ? 'warning'
                             : 'good';
                           return (
-                            <div key={`${service.type}-${service.name}`} className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3">
+                            <div key={`${service.type}-${service.name}`} className="rounded-lg border border-border bg-muted p-3">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="truncate font-mono text-xs text-[var(--color-text-primary)]">{service.name}</div>
-                                  <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{service.type}</div>
+                                  <div className="truncate font-mono text-xs text-foreground">{service.name}</div>
+                                  <div className="mt-1 text-[11px] text-muted-foreground">{service.type}</div>
                                 </div>
                                 <span className={cn(
                                   'rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide',
@@ -695,19 +695,19 @@ export function ObservabilityPage() {
                               </div>
                               <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
                                 <div>
-                                  <div className="text-[var(--color-text-tertiary)]">Success</div>
-                                  <div className="mt-1 font-mono text-[var(--color-text-primary)]">{formatPercent(service.successRatePercent)}</div>
+                                  <div className="text-muted-foreground">Success</div>
+                                  <div className="mt-1 font-mono text-foreground">{formatPercent(service.successRatePercent)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-[var(--color-text-tertiary)]">Avg latency</div>
-                                  <div className="mt-1 font-mono text-[var(--color-text-primary)]">{formatMs(service.avgDurationMs)}</div>
+                                  <div className="text-muted-foreground">Avg latency</div>
+                                  <div className="mt-1 font-mono text-foreground">{formatMs(service.avgDurationMs)}</div>
                                 </div>
                               </div>
                             </div>
                           );
                         })}
                         {riskServices.length === 0 && (
-                          <div className="rounded-lg border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                             No elevated dependency risk signals in this window.
                           </div>
                         )}
@@ -720,12 +720,12 @@ export function ObservabilityPage() {
                   <CardContent className="p-5">
                     <div className="mb-4 flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Services</h3>
-                        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                        <h3 className="text-lg font-semibold text-foreground">Services</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
                           Backing services and external dependencies currently visible from Application Insights.
                         </p>
                       </div>
-                      <span className="text-xs text-[var(--color-text-tertiary)]">{services.length} surfaced</span>
+                      <span className="text-xs text-muted-foreground">{services.length} surfaced</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -743,16 +743,16 @@ export function ObservabilityPage() {
                         return (
                           <div
                             key={`${service.type}-${service.name}`}
-                            className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3"
+                            className="rounded-lg border border-border bg-muted p-3"
                           >
                             <div className="flex items-start gap-3">
                               <span className={cn('mt-1 h-2.5 w-2.5 shrink-0 rounded-full', statusColor)} />
                               <div className="min-w-0 flex-1">
-                                <div className="truncate font-mono text-xs text-[var(--color-text-primary)]">{service.name}</div>
-                                <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
+                                <div className="truncate font-mono text-xs text-foreground">{service.name}</div>
+                                <div className="mt-1 text-[11px] text-muted-foreground">
                                   {service.type} · {formatPercent(service.successRatePercent)} success
                                 </div>
-                                <div className="mt-2 text-[11px] text-[var(--color-text-secondary)]">
+                                <div className="mt-2 text-[11px] text-muted-foreground">
                                   {formatMs(service.avgDurationMs)} avg · {formatNumber(service.totalCalls)} calls
                                 </div>
                               </div>
@@ -761,7 +761,7 @@ export function ObservabilityPage() {
                         );
                       })}
                       {services.length === 0 && (
-                        <div className="rounded-lg border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-10 text-center text-sm text-[var(--color-text-secondary)] md:col-span-2 xl:col-span-4">
+                        <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
                           Service health is not available until dependency data is loaded.
                         </div>
                       )}

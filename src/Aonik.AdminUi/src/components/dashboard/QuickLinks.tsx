@@ -23,8 +23,8 @@ export function QuickLinks({ links }: QuickLinksProps) {
   return (
     <Card className="h-full rounded-[4px] px-4 py-3 flex flex-col overflow-hidden">
       <div className="mb-3 flex items-center justify-between shrink-0">
-        <span className="text-[18px] font-bold text-[var(--color-text-primary)]">Quick links</span>
-        <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
+        <span className="text-[18px] font-bold text-foreground">Quick links</span>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
           <MoreVertical className="w-4 h-4" />
         </Button>
       </div>
@@ -39,8 +39,8 @@ export function QuickLinks({ links }: QuickLinksProps) {
               href={link.href}
               className="flex items-center gap-3 text-sm font-medium group"
             >
-              <Icon className="w-[16px] h-[16px] text-[var(--color-text-tertiary)] flex-shrink-0" />
-              <span className="text-[var(--color-text-secondary)] cursor-pointer group-hover:text-[var(--color-text-primary)] group-hover:underline transition-all">
+              <Icon className="w-[16px] h-[16px] text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground cursor-pointer group-hover:text-foreground group-hover:underline transition-all">
                 {link.label}
               </span>
             </a>

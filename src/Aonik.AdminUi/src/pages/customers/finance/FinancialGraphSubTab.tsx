@@ -297,8 +297,8 @@ function SummaryBar({ summary, nodeCount, edgeCount, skippedTransactions }: {
     <div className="flex items-center gap-4 flex-wrap">
       {stats.map(s => (
         <div key={s.label} className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-[var(--color-text-primary)]">{s.value}</span>
-          <span className="text-xs text-[var(--color-text-tertiary)]">{s.label}</span>
+          <span className="text-xs font-semibold text-foreground">{s.value}</span>
+          <span className="text-xs text-muted-foreground">{s.label}</span>
         </div>
       ))}
       {skippedTransactions && (
@@ -317,8 +317,8 @@ function Legend({ visibleTypes }: { visibleTypes: Set<string> }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 bg-[var(--color-surface)]/90 backdrop-blur-sm border border-[var(--color-border-light)] rounded-lg px-3 py-2 shadow-sm">
-      <p className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1.5">Legend</p>
+    <div className="absolute bottom-4 left-4 z-10 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Legend</p>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {items.map(([type, config]) => (
           <div key={type} className="flex items-center gap-1.5">
@@ -326,7 +326,7 @@ function Legend({ visibleTypes }: { visibleTypes: Set<string> }) {
               className="w-2.5 h-2.5 rounded-full border"
               style={{ background: config.bg, borderColor: config.border }}
             />
-            <span className="text-[10px] text-[var(--color-text-secondary)]">{config.label}</span>
+            <span className="text-[10px] text-muted-foreground">{config.label}</span>
           </div>
         ))}
       </div>
@@ -392,7 +392,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <p className="text-sm text-[var(--color-error)] mb-3">{error}</p>
+        <p className="text-sm text-destructive mb-3">{error}</p>
         <Button size="sm" variant="outline" onClick={() => void loadGraph()}>
           <RefreshCw className="w-3.5 h-3.5 mr-1" />
           Retry
@@ -404,9 +404,9 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <Network className="w-10 h-10 text-[var(--color-text-tertiary)] mb-3 opacity-40" />
-        <p className="text-sm text-[var(--color-text-tertiary)]">No financial graph data for this customer.</p>
-        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">The graph populates as accounts, transactions, and financial data are added.</p>
+        <Network className="w-10 h-10 text-muted-foreground mb-3 opacity-40" />
+        <p className="text-sm text-muted-foreground">No financial graph data for this customer.</p>
+        <p className="text-xs text-muted-foreground mt-1">The graph populates as accounts, transactions, and financial data are added.</p>
       </div>
     );
   }
@@ -431,7 +431,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
 
       {/* Graph canvas */}
       <div
-        className="rounded-lg border border-[var(--color-border-light)] overflow-hidden relative"
+        className="rounded-lg border border-border overflow-hidden relative"
         style={{ height: 600 }}
       >
         <ReactFlow
@@ -456,7 +456,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
           />
           <Controls
             showInteractive={false}
-            className="!bg-[var(--color-surface)] !border-[var(--color-border-light)] !shadow-sm [&>button]:!bg-[var(--color-surface)] [&>button]:!border-[var(--color-border-light)] [&>button:hover]:!bg-[var(--color-surface-inset)]"
+            className="!bg-card !border-border !shadow-sm [&>button]:!bg-card [&>button]:!border-border [&>button:hover]:!bg-muted"
           />
           <MiniMap
             nodeColor={(node) => {
@@ -464,7 +464,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
               return config.border;
             }}
             maskColor="rgba(0,0,0,0.08)"
-            className="!bg-[var(--color-surface)] !border-[var(--color-border-light)]"
+            className="!bg-card !border-border"
             pannable
             zoomable
           />

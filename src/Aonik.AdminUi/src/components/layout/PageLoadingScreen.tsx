@@ -20,7 +20,7 @@ export function PageLoadingScreen({ message = 'Loading' }: PageLoadingScreenProp
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-background)',
+        background: 'var(--background)',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -51,7 +51,7 @@ export function PageLoadingScreen({ message = 'Loading' }: PageLoadingScreenProp
         <div
           style={{
             fontSize: 13,
-            color: 'var(--color-text-secondary)',
+            color: 'var(--muted-foreground)',
             letterSpacing: '0.01em',
             display: 'flex',
             alignItems: 'center',
@@ -92,11 +92,11 @@ function AonikLoadingMark({ size = 72 }: { size?: number }) {
         width: size,
         height: size,
         borderRadius: radius,
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border-light)',
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
         boxShadow:
           '0 8px 24px -10px rgba(5,90,96,.25), 0 0 0 6px rgba(5,90,96,.04)',
-        color: 'var(--color-text-tertiary)',
+        color: 'var(--muted-foreground)',
         fontFamily: 'var(--font-brand)',
         fontWeight: 700,
         fontSize: Math.round(size * 0.58),
@@ -111,7 +111,7 @@ function AonikLoadingMark({ size = 72 }: { size?: number }) {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'var(--color-brand-primary)',
+          background: 'var(--primary)',
           animation: 'aonikLoadingTintRise 2.2s ease-in-out infinite',
           zIndex: 0,
         }}

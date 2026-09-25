@@ -25,7 +25,7 @@ export function WizardStepConfigure({ config, onConfigChange, onGenerate }: Wiza
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-[var(--color-brand-primary)]" />
+          <Sparkles className="w-5 h-5 text-primary" />
           Content Generation Settings
         </CardTitle>
       </CardHeader>
@@ -40,7 +40,7 @@ export function WizardStepConfigure({ config, onConfigChange, onGenerate }: Wiza
             placeholder="e.g., Budget planning tips for young professionals, saving strategies for beginners..."
             rows={3}
           />
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <p className="text-xs text-muted-foreground">
             Describe what kind of content you want the AI to generate. Be specific for better results.
           </p>
         </div>
@@ -123,15 +123,15 @@ export function WizardStepConfigure({ config, onConfigChange, onGenerate }: Wiza
         </div>
 
         {/* Include Images */}
-        <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
+        <div className="rounded-lg border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <ImageIcon className="w-5 h-5 text-[var(--color-text-secondary)]" />
+              <ImageIcon className="w-5 h-5 text-muted-foreground" />
               <div>
                 <Label htmlFor="wizard-images" className="text-sm font-medium">
                   Generate Hero Images
                 </Label>
-                <p className="text-xs text-[var(--color-text-secondary)]">
+                <p className="text-xs text-muted-foreground">
                   AI will generate a banner image for each article (uses image generation API)
                 </p>
               </div>
@@ -163,7 +163,7 @@ export function WizardStepConfigure({ config, onConfigChange, onGenerate }: Wiza
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[var(--color-text-secondary)]">
+              <p className="text-xs text-muted-foreground">
                 Auto-set based on content area. Override if needed.
               </p>
             </div>

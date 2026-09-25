@@ -112,8 +112,8 @@ export function AiTraceDetailPage() {
       <div className="space-y-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Run Trace</h1>
-            <p className="text-sm text-[var(--color-text-secondary)] font-mono break-all">{run.runId}</p>
+            <h1 className="text-2xl font-semibold text-foreground">Run Trace</h1>
+            <p className="text-sm text-muted-foreground font-mono break-all">{run.runId}</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge className={`text-xs ${outcomeClass(run.outcome)}`}>{run.outcome}</Badge>
@@ -171,35 +171,35 @@ export function AiTraceDetailPage() {
               <CardContent>
                 <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Started</dt>
+                    <dt className="text-muted-foreground">Started</dt>
                     <dd>{formatDateTime(run.startedAt)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Completed</dt>
+                    <dt className="text-muted-foreground">Completed</dt>
                     <dd>{formatDateTime(metrics?.completedAt)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Use Case</dt>
+                    <dt className="text-muted-foreground">Use Case</dt>
                     <dd className="font-mono text-xs">{run.useCase}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Configured Model</dt>
+                    <dt className="text-muted-foreground">Configured Model</dt>
                     <dd className="font-mono text-xs">{run.aiModelName ?? run.aiModelId}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Requested Model</dt>
+                    <dt className="text-muted-foreground">Requested Model</dt>
                     <dd className="font-mono text-xs">{metrics?.requestedModel ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Actual Model</dt>
+                    <dt className="text-muted-foreground">Actual Model</dt>
                     <dd className="font-mono text-xs">{metrics?.actualModel ?? run.aiModelName ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Prompt Spec ID</dt>
+                    <dt className="text-muted-foreground">Prompt Spec ID</dt>
                     <dd className="font-mono text-xs break-all">{run.promptSpecId ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Policy ID</dt>
+                    <dt className="text-muted-foreground">Policy ID</dt>
                     <dd className="font-mono text-xs break-all">{run.aiPolicyId ?? '--'}</dd>
                   </div>
                 </dl>
@@ -212,12 +212,12 @@ export function AiTraceDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 <div>
-                  <div className="text-[var(--color-text-tertiary)] mb-1">Input References</div>
-                  <pre className="rounded-md bg-[var(--color-surface-inset)] p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-52 overflow-auto">{run.inputRefsJson}</pre>
+                  <div className="text-muted-foreground mb-1">Input References</div>
+                  <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-52 overflow-auto">{run.inputRefsJson}</pre>
                 </div>
                 <div>
-                  <div className="text-[var(--color-text-tertiary)] mb-1">Output Reference</div>
-                  <pre className="rounded-md bg-[var(--color-surface-inset)] p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto">{run.outputRef ?? '--'}</pre>
+                  <div className="text-muted-foreground mb-1">Output Reference</div>
+                  <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto">{run.outputRef ?? '--'}</pre>
                 </div>
               </CardContent>
             </Card>
@@ -232,16 +232,16 @@ export function AiTraceDetailPage() {
             <CardContent>
               <div className="space-y-4">
                 {trace.timeline.map((event, index) => (
-                  <div key={`${event.timestamp}-${event.eventType}-${index}`} className="border-l border-[var(--color-border-light)] pl-4">
+                  <div key={`${event.timestamp}-${event.eventType}-${index}`} className="border-l border-border pl-4">
                     <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                      <div className="font-medium text-[var(--color-text-primary)]">{event.title}</div>
-                      <div className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(event.timestamp)}</div>
+                      <div className="font-medium text-foreground">{event.title}</div>
+                      <div className="text-xs text-muted-foreground">{formatDateTime(event.timestamp)}</div>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{event.eventType}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{event.eventType}</span>
                       {event.status ? <Badge variant="outline" className="text-[10px]">{event.status}</Badge> : null}
                     </div>
-                    {event.description ? <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{event.description}</p> : null}
+                    {event.description ? <p className="mt-2 text-sm text-muted-foreground">{event.description}</p> : null}
                   </div>
                 ))}
               </div>
@@ -256,20 +256,20 @@ export function AiTraceDetailPage() {
             </CardHeader>
             <CardContent>
               {trace.rawTelemetry.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No correlated Application Insights telemetry was found for this run.</p>
+                <p className="text-sm text-muted-foreground">No correlated Application Insights telemetry was found for this run.</p>
               ) : (
                 <div className="space-y-4">
                   {trace.rawTelemetry.map((event, index) => (
-                    <div key={`${event.timestamp}-${index}`} className="rounded-md border border-[var(--color-border-light)] p-4">
+                    <div key={`${event.timestamp}-${index}`} className="rounded-md border border-border p-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="font-medium text-[var(--color-text-primary)]">{event.message}</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(event.timestamp)}</div>
+                        <div className="font-medium text-foreground">{event.message}</div>
+                        <div className="text-xs text-muted-foreground">{formatDateTime(event.timestamp)}</div>
                       </div>
                       <div className="mt-3 grid gap-2 md:grid-cols-2">
                         {Object.entries(event.dimensions).map(([key, value]) => (
-                          <div key={key} className="rounded bg-[var(--color-surface-inset)] px-3 py-2 text-xs">
-                            <div className="text-[var(--color-text-tertiary)]">{key}</div>
-                            <div className="font-mono break-all text-[var(--color-text-primary)]">{value ?? '--'}</div>
+                          <div key={key} className="rounded bg-muted px-3 py-2 text-xs">
+                            <div className="text-muted-foreground">{key}</div>
+                            <div className="font-mono break-all text-foreground">{value ?? '--'}</div>
                           </div>
                         ))}
                       </div>

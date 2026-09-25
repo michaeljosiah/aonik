@@ -277,7 +277,7 @@ export function BillPaymentOrderFormPage() {
 
   if (orderLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-secondary)]">
+      <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
         Loading order…
       </div>
     );
@@ -286,19 +286,19 @@ export function BillPaymentOrderFormPage() {
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px]">
       {/* ── Left: builder ── */}
-      <div className="flex min-h-0 flex-col overflow-auto border-b border-[var(--color-border-light)] lg:border-b-0 lg:border-r">
+      <div className="flex min-h-0 flex-col overflow-auto border-b border-border lg:border-b-0 lg:border-r">
         {/* Top section: eyebrow / title / subtitle / Draft pill / mode tabs */}
         <div className="flex-none px-6 pt-[18px]">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             Orders · New order
           </div>
 
           <div className="mt-1 mb-4 flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[22px] font-bold leading-tight tracking-[-0.01em] text-[var(--color-text-primary)]">
+              <div className="text-[22px] font-bold leading-tight tracking-[-0.01em] text-foreground">
                 Create order
               </div>
-              <div className="mt-0.5 text-[13px] text-[var(--color-text-secondary)]">
+              <div className="mt-0.5 text-[13px] text-muted-foreground">
                 Build a multi-item order — mix bill payments and money transfers in one submission.
               </div>
             </div>
@@ -308,7 +308,7 @@ export function BillPaymentOrderFormPage() {
           </div>
 
           {/* Mode tabs — fit-content, surface-inset bg, padding 4, radius 10 */}
-          <div className="mb-5 flex w-fit items-center gap-0 rounded-[10px] bg-[var(--color-surface-inset)] p-1">
+          <div className="mb-5 flex w-fit items-center gap-0 rounded-[10px] bg-muted p-1">
             {([
               { value: 'bill' as Mode, label: 'Bill payment', icon: Receipt },
               { value: 'transfer' as Mode, label: 'Money transfer', icon: Send },
@@ -322,13 +322,13 @@ export function BillPaymentOrderFormPage() {
                   className={cn(
                     'flex items-center gap-1.5 rounded-[7px] px-4 py-[7px] text-[13px] font-medium transition-all',
                     active
-                      ? 'bg-[var(--color-surface)] text-[var(--color-text-primary)] shadow-[0_1px_3px_rgb(0_0_0/_0.08)]'
-                      : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                      ? 'bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/_0.08)]'
+                      : 'bg-transparent text-muted-foreground hover:text-foreground',
                   )}
                 >
                   <tab.icon
                     className="h-3.5 w-3.5"
-                    style={{ color: active ? 'var(--color-brand-primary)' : 'currentColor' }}
+                    style={{ color: active ? 'var(--primary)' : 'currentColor' }}
                   />
                   {tab.label}
                 </button>
@@ -339,7 +339,7 @@ export function BillPaymentOrderFormPage() {
 
         {/* Page-level error (no inline banner inside form) */}
         {orderError && (
-          <div className="mx-6 mb-3 flex items-center gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12.5px] text-[var(--color-error)]">
+          <div className="mx-6 mb-3 flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">
             <AlertCircle className="h-3.5 w-3.5 flex-none" />
             <span className="flex-1">{orderError}</span>
             <Button variant="outline" size="sm" onClick={() => void loadOrder()}>

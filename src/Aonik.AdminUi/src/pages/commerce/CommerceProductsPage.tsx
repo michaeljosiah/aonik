@@ -161,13 +161,13 @@ export function CommerceProductsPage() {
               }}
             />
           ) : (
-            <span className="h-8 w-8 rounded bg-[var(--color-surface-inset)]" />
+            <span className="h-8 w-8 rounded bg-muted" />
           )}
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+            <span className="truncate text-[13px] font-medium text-foreground">
               {row.name}
             </span>
-            <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {row.slug}
             </span>
           </span>
@@ -180,7 +180,7 @@ export function CommerceProductsPage() {
       id: 'kind',
       header: 'Kind',
       accessorKey: 'kind',
-      cell: (row) => <span className="text-xs text-[var(--color-text-secondary)]">{row.kind}</span>,
+      cell: (row) => <span className="text-xs text-muted-foreground">{row.kind}</span>,
       className: 'w-[110px]',
     },
     {
@@ -195,7 +195,7 @@ export function CommerceProductsPage() {
       header: 'Variants',
       accessorFn: (row) => row.variantCount,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-muted-foreground">
           {row.variantCount}
         </span>
       ),
@@ -208,7 +208,7 @@ export function CommerceProductsPage() {
       accessorFn: (row) => row.tags.join(','),
       cell: (row) =>
         row.tags.length === 0 ? (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
+          <span className="text-muted-foreground">—</span>
         ) : (
           <span className="flex flex-wrap gap-1">
             {row.tags.slice(0, 3).map((tag) => (
@@ -217,7 +217,7 @@ export function CommerceProductsPage() {
               </Pill>
             ))}
             {row.tags.length > 3 && (
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="text-[11px] text-muted-foreground">
                 +{row.tags.length - 3}
               </span>
             )}
@@ -237,7 +237,7 @@ export function CommerceProductsPage() {
             Set
           </Pill>
         ) : (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
+          <span className="text-muted-foreground">—</span>
         ),
       className: 'w-[110px]',
     },
@@ -283,7 +283,7 @@ export function CommerceProductsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
           <button type="button" onClick={() => void load()} className="ml-auto underline">
@@ -307,7 +307,7 @@ export function CommerceProductsPage() {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             aria-label="Status"
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[12.5px] text-[var(--color-text-primary)] outline-none"
+            className="rounded-md border border-border bg-card px-2 py-1.5 text-[12.5px] text-foreground outline-none"
           >
             <option value="">Any status</option>
             {STATUSES.map((value) => (
@@ -323,7 +323,7 @@ export function CommerceProductsPage() {
       <AonikCard padding={0}>
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

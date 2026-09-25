@@ -67,7 +67,7 @@ export function SystemPromptEditor({
         rows={8}
         className="min-h-[120px] flex-1 resize-y font-mono text-xs leading-relaxed"
       />
-      <p className="text-xs text-[var(--color-text-tertiary)]">
+      <p className="text-xs text-muted-foreground">
         ~{Math.round(value.length / 4)} tokens
       </p>
     </div>
