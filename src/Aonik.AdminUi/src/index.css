@@ -49,6 +49,9 @@
   --popover-foreground: #1f2328;
   --primary: #055a60;
   --primary-foreground: #ffffff;
+  /* Hover/pressed fill for primary: darker in light mode, lighter in dark
+     mode, so the label keeps its contrast in both (6.5:1 / 9.6:1). */
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, black);
   --secondary: #f1f2f4;
   --secondary-foreground: #1f2328;
   --muted: #f4f5f6;
@@ -114,6 +117,7 @@
   --popover-foreground: #e8eaed;
   --primary: #3a9ea4;
   --primary-foreground: #0d1f21;
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, white);
   --secondary: #2a2e34;
   --secondary-foreground: #e8eaed;
   --muted: #22262b;
@@ -164,6 +168,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -278,7 +283,7 @@
      Keep the ~7,000 existing var(--color-*) call sites rendering on the new
      tokens. New code must not use these; they are deleted in P4. */
   --color-brand-primary: var(--primary);
-  --color-brand-primary-dark: color-mix(in oklab, var(--primary) 85%, black);
+  --color-brand-primary-dark: var(--primary-hover);
   --color-brand-primary-light: color-mix(in oklab, var(--primary) 12%, transparent);
   --color-brand-primary-10: color-mix(in oklab, var(--primary) 12%, transparent);
   --color-brand-primary-20: color-mix(in oklab, var(--primary) 20%, transparent);

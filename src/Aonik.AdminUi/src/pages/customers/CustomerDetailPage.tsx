@@ -391,7 +391,7 @@ export function CustomerDetailPage() {
       {/* Header card */}
       <div className="flex items-center gap-5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
         <div
-          className="flex h-[68px] w-[68px] flex-none items-center justify-center font-[family-name:var(--font-brand)] font-semibold leading-none text-white"
+          className="flex h-[68px] w-[68px] flex-none items-center justify-center font-[family-name:var(--font-brand)] font-semibold leading-none text-primary-foreground"
           style={{
             borderRadius: 14,
             fontSize: 26,

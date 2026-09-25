@@ -78,7 +78,7 @@ export function MessageAvatar({ className, initials = 'A', ...props }: MessageAv
       )}
       {...props}
     >
-      <span className="text-xs font-bold text-white">{initials}</span>
+      <span className="text-xs font-bold text-primary-foreground">{initials}</span>
     </div>
   );
 }

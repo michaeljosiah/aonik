@@ -528,7 +528,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           {/* Logo */}
           <div className="flex items-center gap-2 mb-12">
             <div className="w-8 h-8 rounded bg-[var(--color-brand-primary)] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
+              <span className="text-primary-foreground font-bold text-sm">A</span>
             </div>
             <span className="font-semibold text-[var(--color-text-primary)]">Aonik</span>
           </div>
@@ -747,7 +747,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                                 )}
                               >
                                 {(isAllEnabled || isPartialEnabled) && (
-                                  <Check className="h-3 w-3 text-white" />
+                                  <Check className="h-3 w-3 text-primary-foreground" />
                                 )}
                               </div>
                             </div>
