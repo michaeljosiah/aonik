@@ -325,7 +325,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant="secondary"
+            variant="default"
             onClick={(event) => {
               event.stopPropagation();
               data.onStart();
@@ -789,7 +789,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                         <div className="flex items-center gap-2">
                           <Button 
                             size="sm" 
-                            variant="secondary" 
+                            variant="default" 
                             onClick={(event) => {
                               event.stopPropagation();
                               openWizardForStep(step.id);
@@ -873,7 +873,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                     </ul>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => openWizardForStep(selectedStep.id)}>
+                    <Button size="sm" onClick={() => openWizardForStep(selectedStep.id)}>
                       Start
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

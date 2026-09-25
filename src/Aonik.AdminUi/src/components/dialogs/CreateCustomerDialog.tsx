@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CountrySelect } from '@/components/ui/country-select';
-import { InputGroup } from '@/components/ui/input-group';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import {
   Select,
   SelectContent,
@@ -401,24 +401,32 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
-            <InputGroup
-              type="email"
-              icon={<Mail className="w-4 h-4" aria-hidden="true" />}
-              value={formData.contacts[0]?.value || ''}
-              onChange={(e) => updateContact(0, e.target.value)}
-              placeholder="email@example.com"
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Mail aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="email"
+                value={formData.contacts[0]?.value || ''}
+                onChange={(e) => updateContact(0, e.target.value)}
+                placeholder="email@example.com"
+              />
+            </InputGroup>
           </div>
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
-            <InputGroup
-              type="tel"
-              icon={<Phone className="w-4 h-4" aria-hidden="true" />}
-              value={formData.contacts[1]?.value || ''}
-              onChange={(e) => updateContact(1, e.target.value)}
-              placeholder="+1234567890"
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Phone aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="tel"
+                value={formData.contacts[1]?.value || ''}
+                onChange={(e) => updateContact(1, e.target.value)}
+                placeholder="+1234567890"
+              />
+            </InputGroup>
           </div>
         </div>
 
@@ -661,24 +669,32 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
-            <InputGroup
-              type="email"
-              icon={<Mail className="w-4 h-4" aria-hidden="true" />}
-              value={formData.contacts[0]?.value || ''}
-              onChange={(e) => updateContact(0, e.target.value)}
-              placeholder="business@example.com"
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Mail aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="email"
+                value={formData.contacts[0]?.value || ''}
+                onChange={(e) => updateContact(0, e.target.value)}
+                placeholder="business@example.com"
+              />
+            </InputGroup>
           </div>
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
-            <InputGroup
-              type="tel"
-              icon={<Phone className="w-4 h-4" aria-hidden="true" />}
-              value={formData.contacts[1]?.value || ''}
-              onChange={(e) => updateContact(1, e.target.value)}
-              placeholder="+1234567890"
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Phone aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="tel"
+                value={formData.contacts[1]?.value || ''}
+                onChange={(e) => updateContact(1, e.target.value)}
+                placeholder="+1234567890"
+              />
+            </InputGroup>
           </div>
         </div>
 

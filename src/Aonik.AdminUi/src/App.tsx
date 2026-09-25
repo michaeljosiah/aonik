@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, createElement, useCallback } from 'react';
+import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isElectron, setTitleBarColor } from '@/lib/electron';
 
@@ -69,7 +69,7 @@ function TitleBarColorSync() {
 // Use HashRouter under Electron: the renderer is loaded via file://, so
 // BrowserRouter's pathname matching never lines up with the app routes.
 const Router = isElectron ? HashRouter : BrowserRouter;
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AiChatPanel, LoadingScreen } from '@/components/layout';
 import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';
@@ -566,7 +566,12 @@ function AuthenticatedApp() {
   );
 }
 
+// Dev-only kitchen sink for the Spec 098 primitives. `import.meta.env.DEV` is
+// false in production builds, so the page and its import are dropped there.
+const DevUiPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevUiPage')) : null;
+
 function App() {
+  const showDevUi = DevUiPage !== null && window.location.pathname.startsWith('/dev/ui');
   return (
     <Router>
       <ThemeProvider>
@@ -581,8 +586,14 @@ function App() {
             {isElectron && <div className="app-titlebar" aria-hidden="true" />}
             <TitleBarColorSync />
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-              <AuthenticatedApp />
-              <Toaster richColors position="top-right" />
+              {showDevUi && DevUiPage ? (
+                <Suspense fallback={null}>
+                  <DevUiPage />
+                </Suspense>
+              ) : (
+                <AuthenticatedApp />
+              )}
+              <Toaster position="top-right" />
             </div>
           </TooltipProvider>
         </AuthProvider>

@@ -256,7 +256,7 @@ export function ProvidersTab() {
 
       {/* Slide-out edit panel */}
       <Sheet open={sheetOpen} onOpenChange={(open) => !open && closeSheet()}>
-        <SheetContent size="md" className="sm:max-w-none">
+        <SheetContent size="md">
           {sheetOpen && (
             <ProviderEditPanel
               initial={editing}

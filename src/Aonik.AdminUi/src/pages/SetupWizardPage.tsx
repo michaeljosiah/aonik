@@ -333,16 +333,16 @@ export function SetupWizardPage() {
             <CardFooter className="flex flex-col gap-2">
               {tenantExists ? (
                 isAuthenticated ? (
-                  <Button variant="secondary" onClick={handleGoToMySpace} className="w-full">
+                  <Button onClick={handleGoToMySpace} className="w-full">
                     Go to My Space
                   </Button>
                 ) : (
-                  <Button variant="secondary" onClick={handleContinueToSignIn} className="w-full">
+                  <Button onClick={handleContinueToSignIn} className="w-full">
                     Continue to sign in
                   </Button>
                 )
               ) : (
-                <Button variant="secondary" onClick={handleGoToMySpace} disabled className="w-full">
+                <Button onClick={handleGoToMySpace} disabled className="w-full">
                   Go to My Space
                 </Button>
               )}

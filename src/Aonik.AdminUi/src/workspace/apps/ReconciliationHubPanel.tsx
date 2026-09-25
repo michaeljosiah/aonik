@@ -30,7 +30,7 @@ export function ReconciliationHubPanel({ panelId, title }: WorkspacePanelRenderP
             Streamline matching across ledger, payment, and partner feeds.
           </p>
         </div>
-        <Button variant="secondary" size="sm">
+        <Button size="sm">
           Run Match
         </Button>
       </div>

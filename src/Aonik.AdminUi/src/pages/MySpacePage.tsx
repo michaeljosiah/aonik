@@ -911,7 +911,7 @@ function ProposalReviewDialog({
               <Button variant="ghost" onClick={() => detail && onDismiss(detail.id)}>
                 Dismiss
               </Button>
-              <Button onClick={() => detail && onApprove(detail.id)}>Apply</Button>
+              <Button variant="agent" onClick={() => detail && onApprove(detail.id)}>Apply</Button>
             </>
           ) : (
             <Button variant="ghost" onClick={onClose}>

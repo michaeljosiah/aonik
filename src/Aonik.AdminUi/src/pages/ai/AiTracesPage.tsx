@@ -1047,7 +1047,7 @@ export function AiTracesPage() {
       </Card>
 
       <Dialog open={selectedObservation !== null} onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}>
-        <DialogContent className="left-auto right-0 top-0 flex h-screen max-h-screen w-[min(760px,100vw)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
+        <DialogContent showCloseButton={false} className="left-auto right-0 top-0 flex h-screen max-h-screen w-[min(760px,100vw)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
           {selectedObservation ? (
             <div className="flex min-h-0 h-full flex-1 flex-col">
               <div className="border-b border-[var(--color-border-light)] px-5 py-4">
