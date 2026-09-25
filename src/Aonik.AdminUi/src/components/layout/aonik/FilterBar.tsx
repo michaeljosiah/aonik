@@ -18,11 +18,6 @@ export interface FilterBarProps {
   onSearchChange?: (value: string) => void;
   /** Extra controls rendered after the search input. */
   extra?: ReactNode;
-  /**
-   * No longer used: the trailing "Filters" button had no action and was
-   * removed (Spec 098 §7.5). Pass filter controls through `extra` instead.
-   */
-  hideFilterButton?: boolean;
 }
 
 /**

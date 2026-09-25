@@ -163,7 +163,7 @@ export function AgentEditPanel({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <SheetTitle className="text-[15px]">{name}</SheetTitle>
-              <Pill tone="info" size="sm">
+              <Pill tone="info">
                 {deriveKindLabel(agent.agentType)}
               </Pill>
             </div>
@@ -575,7 +575,7 @@ function ToolsTab({
 function toolCategoryColor(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes('create') || lower.includes('issue') || lower.includes('cancel') || lower.includes('capture') || lower.includes('apply') || lower.includes('send')) return 'var(--warning)';
-  if (lower.includes('display') || lower.includes('confirm') || lower.includes('render')) return 'var(--color-violet)';
+  if (lower.includes('display') || lower.includes('confirm') || lower.includes('render')) return 'var(--chart-4)';
   return 'var(--primary)';
 }
 
@@ -622,7 +622,7 @@ function PoliciesTab() {
                 <div className="text-[12px] font-medium text-foreground">{policy.title}</div>
                 <div className="mt-px text-[11px] text-muted-foreground">{policy.description}</div>
               </div>
-              <Pill tone="info" size="sm">enforced</Pill>
+              <Pill tone="info">enforced</Pill>
             </div>
           ))}
         </div>
@@ -737,7 +737,7 @@ function TriggerListRow({ trigger }: { trigger: TriggerRow }) {
           → runs <span className="font-[family-name:var(--font-mono)] text-primary">{trigger.workflow}</span>
         </div>
       </div>
-      <Pill tone={trigger.enabled ? 'success' : 'muted'} dot={trigger.enabled} size="sm">
+      <Pill tone={trigger.enabled ? 'success' : 'muted'} dot={trigger.enabled}>
         {trigger.enabled ? 'on' : 'off'}
       </Pill>
       <MoreHorizontal className="h-3 w-3 text-muted-foreground" />

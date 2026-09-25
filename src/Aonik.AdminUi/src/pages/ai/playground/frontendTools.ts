@@ -41,64 +41,18 @@ interface CreatePlaygroundFrontendToolsOptions {
   includeOptionSelector?: boolean;
 }
 
-/** Fallback using browser native window.confirm (used when no React handler is provided). */
-function defaultConfirmAction(
-  _toolCallId: string,
-  args: Required<ConfirmActionArgs>,
-): Promise<string> {
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-    return Promise.resolve('rejected');
-  }
-
-  const approved = window.confirm(
-    `[${args.severity.toUpperCase()}] ${args.action}\n\n${args.description}\n\nApprove this action?`,
-  );
-  return Promise.resolve(approved ? 'approved' : 'rejected');
+/**
+ * Fallbacks when no React handler is supplied. They fail closed: an agent
+ * action is never approved, and no option is chosen, without the in-app UI
+ * (the ServerApprovalCard / option selector) putting the decision in front
+ * of a person. Every production caller passes its own handlers.
+ */
+function defaultConfirmAction(): Promise<string> {
+  return Promise.resolve('rejected');
 }
 
-/** Fallback using browser native window.prompt (used when no React handler is provided). */
-function defaultSelectOptions(
-  _toolCallId: string,
-  args: {
-    question: string;
-    options: Array<{ label: string; description?: string }>;
-    multiSelect: boolean;
-  },
-): Promise<string> {
-  if (args.options.length === 0) {
-    return Promise.resolve('');
-  }
-
-  if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
-    return Promise.resolve(args.options[0].label);
-  }
-
-  const promptBody = args.options
-    .map((option, index) => `${index + 1}. ${option.label}${option.description ? ` - ${option.description}` : ''}`)
-    .join('\n');
-
-  const rawSelection = window.prompt(
-    `${args.question}\n\n${promptBody}\n\n${args.multiSelect ? 'Enter comma-separated option numbers.' : 'Enter one option number.'}`,
-    '1',
-  );
-
-  if (!rawSelection) {
-    return Promise.resolve(args.options[0].label);
-  }
-
-  const selectedLabels = rawSelection
-    .split(',')
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .filter((value) => Number.isFinite(value) && value >= 1 && value <= args.options.length)
-    .map((value) => args.options[value - 1]?.label)
-    .filter((label): label is string => typeof label === 'string' && label.length > 0);
-
-  if (selectedLabels.length === 0) {
-    return Promise.resolve(args.options[0].label);
-  }
-
-  const result = args.multiSelect ? selectedLabels : [selectedLabels[0]];
-  return Promise.resolve(result.length <= 1 ? (result[0] ?? '') : JSON.stringify(result));
+function defaultSelectOptions(): Promise<string> {
+  return Promise.resolve('');
 }
 
 const displayHandler: PlaygroundFrontendToolHandler = async () => 'displayed';

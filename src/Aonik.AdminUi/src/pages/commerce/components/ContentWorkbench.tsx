@@ -240,7 +240,7 @@ function Heating({
         <ul className="flex flex-col gap-1">
           {steps!.map((step, index) => (
             <li key={`${step.method}-${index}`} className="flex gap-2">
-              <Pill tone="muted" size="sm">
+              <Pill tone="muted">
                 {step.method}
               </Pill>
               <span className="text-[12.5px] text-foreground">{step.body}</span>

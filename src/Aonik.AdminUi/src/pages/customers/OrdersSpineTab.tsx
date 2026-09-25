@@ -122,7 +122,7 @@ export function OrdersSpineTab({
                       </span>
                     </TableCell>
                     <TableCell className="px-2 py-2.5">
-                      <Pill tone={type.tone} size="sm">
+                      <Pill tone={type.tone}>
                         {type.label}
                       </Pill>
                     </TableCell>
@@ -132,7 +132,7 @@ export function OrdersSpineTab({
                       </span>
                     </TableCell>
                     <TableCell className="px-2 py-2.5">
-                      <Pill tone={statusTone} dot size="sm">
+                      <Pill tone={statusTone} dot>
                         {order.status}
                       </Pill>
                     </TableCell>

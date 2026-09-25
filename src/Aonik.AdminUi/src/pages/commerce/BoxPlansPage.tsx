@@ -155,7 +155,6 @@ export function BoxPlansPage() {
   return (
     <div className="flex flex-col gap-5 p-6">
       <PageHeader
-        eyebrow="Commerce"
         title="Box plans"
         subtitle="Presets win at their size; every other size prices as base + (size − base) × per-space. Growing a box charges the difference between the two box prices, never per-space × spaces."
         actions={

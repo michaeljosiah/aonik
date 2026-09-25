@@ -24,8 +24,8 @@ function formatDateTime(isoDate: string) {
   return new Date(isoDate).toLocaleString();
 }
 
-function resultVariant(action: string): 'success' | 'warning' | 'error' | 'outline' {
-  if (action.endsWith('Failed')) return 'error';
+function resultVariant(action: string): 'success' | 'warning' | 'destructive' | 'outline' {
+  if (action.endsWith('Failed')) return 'destructive';
   if (action.endsWith('Queued')) return 'warning';
   if (action.endsWith('Succeeded')) return 'success';
   return 'outline';

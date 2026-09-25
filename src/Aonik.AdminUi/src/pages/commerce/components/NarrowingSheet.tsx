@@ -508,7 +508,7 @@ function GroupSection({
           {group.key}
         </span>
         {!group.isActive && (
-          <Pill tone="muted" size="sm">
+          <Pill tone="muted">
             Retired
           </Pill>
         )}

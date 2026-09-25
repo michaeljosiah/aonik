@@ -77,12 +77,12 @@ function ItemRow({
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-[13px] text-foreground">{item.name}</span>
             {item.isAddOn && (
-              <Pill tone="info" size="sm">
+              <Pill tone="info">
                 ADD-ON
               </Pill>
             )}
             {item.isDeliveryFee && (
-              <Pill tone="muted" size="sm">
+              <Pill tone="muted">
                 DELIVERY
               </Pill>
             )}

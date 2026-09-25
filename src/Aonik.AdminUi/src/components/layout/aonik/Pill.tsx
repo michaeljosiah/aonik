@@ -15,8 +15,6 @@ export interface PillProps {
   tone?: PillTone;
   /** Leading status dot. Signifies state, so it stays (no decorative dots). */
   dot?: boolean;
-  /** Kept for compatibility; both sizes render as the standard badge. */
-  size?: 'sm' | 'md';
   className?: string;
   children: ReactNode;
 }

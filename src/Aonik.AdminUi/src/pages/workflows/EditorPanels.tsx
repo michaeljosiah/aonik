@@ -256,7 +256,7 @@ export function HistoryPanel({ versions, onClose, onRestore }: HistoryPanelProps
                 {v.tag}
               </span>
               {i === 0 && (
-                <Pill tone="info" size="sm">
+                <Pill tone="info">
                   current
                 </Pill>
               )}

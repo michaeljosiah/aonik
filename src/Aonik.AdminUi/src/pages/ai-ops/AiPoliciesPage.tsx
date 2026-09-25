@@ -330,7 +330,7 @@ function PolicyRow({
           <div className="text-[14px] font-semibold text-foreground">
             {policy.name}
           </div>
-          <Pill tone={tone} dot size="sm">
+          <Pill tone={tone} dot>
             {policy.isActive ? 'active' : 'inactive'}
           </Pill>
         </div>

@@ -40,8 +40,7 @@
       "title": "Getting started with Aonik",
       "description": "A tour of the setup journey, policies, and core capabilities to launch with confidence.",
       "category": "Foundations",
-      "order": 1,
-      "accent": "from-slate-500/20 to-slate-300/30"
+      "order": 1
     },
     {
       "id": "correspondent-network",
@@ -49,8 +48,7 @@
       "title": "Setting up your correspondent network",
       "description": "Learn how to connect and manage your payment correspondents for seamless cross-border transactions.",
       "category": "Partners",
-      "order": 2,
-      "accent": "from-blue-500/20 to-cyan-500/20"
+      "order": 2
     },
     {
       "id": "email-provider",
@@ -58,8 +56,7 @@
       "title": "Configuring your email provider",
       "description": "Set up transactional email delivery for notifications, receipts, and customer communications.",
       "category": "Notifications",
-      "order": 3,
-      "accent": "from-purple-500/20 to-pink-500/20"
+      "order": 3
     },
     {
       "id": "api-keys",
@@ -67,8 +64,7 @@
       "title": "Generating API keys",
       "description": "Create and manage API credentials for secure programmatic access to the platform.",
       "category": "Security",
-      "order": 4,
-      "accent": "from-indigo-500/20 to-violet-500/20"
+      "order": 4
     },
     {
       "id": "compliance-rules",
@@ -76,8 +72,7 @@
       "title": "Understanding compliance rules",
       "description": "Configure KYC/KYB workflows, transaction limits, and automated screening policies.",
       "category": "Compliance",
-      "order": 5,
-      "accent": "from-amber-500/20 to-orange-500/20"
+      "order": 5
     },
     {
       "id": "webhook-integration",
@@ -85,8 +80,7 @@
       "title": "Integrating webhooks",
       "description": "Receive real-time event notifications for payments, settlements, and status changes.",
       "category": "Integration",
-      "order": 6,
-      "accent": "from-emerald-500/20 to-teal-500/20"
+      "order": 6
     },
     {
       "id": "fx-rates",
@@ -94,8 +88,7 @@
       "title": "Managing FX rates and spreads",
       "description": "Configure currency exchange rates, margins, and automatic rate refresh schedules.",
       "category": "Pricing",
-      "order": 7,
-      "accent": "from-rose-500/20 to-red-500/20"
+      "order": 7
     }
   ]
 }

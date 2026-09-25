@@ -12,6 +12,12 @@ npm run check:design -- --only pages/orders --files
 npm run check:contrast
 ```
 
+Both run in CI (`Admin UI checks` job) with `check:design -- --strict`, so a new
+hard-coded colour, raw palette class, arbitrary radius or z-index,
+`window.confirm`, raw form/table element, legacy class or `var(--color-*)`
+token fails the PR. A genuine exception carries `// guardrail-ignore: <reason>`
+on the line (or the line above).
+
 ## Which primitive for which job
 
 | Job | Use | Not |
@@ -53,7 +59,8 @@ Use semantic utilities only; they flip with the theme.
 | Success / warning / info as text on page | `text-success`, `text-warning`, `text-info` |
 | Status chip or tinted box | `bg-success-subtle text-success-foreground` (same for warning, info); `bg-destructive/10 text-destructive` |
 | Error text | `text-destructive` |
-| Categorical series (charts, avatars, tags) | `var(--chart-1)` … `var(--chart-5)` |
+| Categorical series (charts, avatars, tags, workflow step kinds) | `var(--chart-1)` … `var(--chart-10)` (each clears 3:1 on the card) |
+| Brand accents (logo only / agent tiers) | `var(--mark-dot)` (the gold dot on the mark, never a CTA or status), `var(--agent-team)`, `var(--agent-enterprise)` |
 
 Mapping raw Tailwind palette classes:
 
@@ -62,7 +69,7 @@ Mapping raw Tailwind palette classes:
 - `red|rose`: `text-destructive`, `bg-destructive/10 text-destructive`, `bg-destructive`.
 - `amber|yellow|orange`: warning equivalents.
 - `blue|sky|indigo|cyan`: info equivalents (or `primary` when it is really the brand/action colour).
-- `purple|violet|fuchsia|pink|teal` used as categories: `--chart-N`.
+- `purple|violet|fuchsia|pink|teal` used as categories: `--chart-N` (1–10).
 - Drop the matching `dark:` variant: tokens already flip.
 
 Hex colours become the token they stand for (`#055a60` → `primary`, `#eb5c37` → `agent`, greys → foreground/muted/border, status hues → status tokens, series → `--chart-N`). A colour that is genuinely data (a partner's brand colour from the API, a user-picked colour) stays, with `// guardrail-ignore: <reason>`.

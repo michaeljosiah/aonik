@@ -269,7 +269,7 @@ export function GroupEditorSheet({
                     {addingChoice ? 'Adding…' : 'Add choice'}
                   </Button>
                   {!hasDefault && (
-                    <Pill tone="info" size="sm">
+                    <Pill tone="info">
                       becomes the default
                     </Pill>
                   )}

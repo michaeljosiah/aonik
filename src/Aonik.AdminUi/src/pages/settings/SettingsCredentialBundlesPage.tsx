@@ -36,7 +36,7 @@ function SecretBadge({ field, pending }: { field: CredentialFieldState; pending:
       </Badge>
     );
   }
-  return <Badge variant={field.required ? 'error' : 'outline'}>{field.required ? 'Required' : 'Not set'}</Badge>;
+  return <Badge variant={field.required ? 'destructive' : 'outline'}>{field.required ? 'Required' : 'Not set'}</Badge>;
 }
 
 function SectionCard({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {

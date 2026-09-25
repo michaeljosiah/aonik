@@ -189,7 +189,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
   };
 
   return (
-    <div className="chat-primary h-full flex bg-card">
+    <div className="h-full flex bg-card">
       <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-sidebar">
         <div className="flex h-[50px] items-center gap-2 border-b border-border px-4">
           <div className="flex min-w-0 items-center gap-2">
@@ -251,7 +251,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                     <div
                       key={thread.id}
                       className={cn(
-                        'chat-history-item group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2',
+                        'group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2',
                         isActive
                           ? 'bg-primary/10 text-primary'
                           : 'hover:bg-sidebar-accent'
@@ -343,9 +343,9 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                             key={promptCard.id}
                             type="button"
                             onClick={() => handlePromptClick(promptCard.prompt)}
-                            className="chat-history-item flex h-[200px] w-full max-w-[220px] flex-col rounded-lg bg-accent p-3 text-left hover:bg-accent"
+                            className="flex h-[200px] w-full max-w-[220px] flex-col rounded-lg bg-accent p-3 text-left hover:bg-accent"
                           >
-                            <div className="chat-prompt-icon mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
+                            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
                               <Icon className="h-5 w-5" />
                             </div>
                             <div className="text-xl leading-7 text-muted-foreground">

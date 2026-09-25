@@ -148,7 +148,7 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
               <div className="mt-1.5">
                 {/* A recorded fact, not a timeline: the guest token on a party-bound cart
                     was retired. No timestamps — nothing persists when adoption happened. */}
-                <Pill tone="info" size="sm">
+                <Pill tone="info">
                   Guest-built cart adopted — token retired
                 </Pill>
               </div>

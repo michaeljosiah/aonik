@@ -424,7 +424,6 @@ export function LedgerAccountsPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter accounts by name, code, type…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>
@@ -538,7 +537,7 @@ function RenderTypeGroup({
               </span>
             </TableCell>
             <TableCell className="px-4 py-3">
-              <Pill tone={TYPE_TONE[account.accountType] ?? 'default'} size="sm">
+              <Pill tone={TYPE_TONE[account.accountType] ?? 'default'}>
                 {account.accountType}
               </Pill>
             </TableCell>
