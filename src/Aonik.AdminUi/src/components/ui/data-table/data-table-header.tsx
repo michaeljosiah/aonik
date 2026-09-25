@@ -1,13 +1,9 @@
-import { Search, List, LayoutGrid } from 'lucide-react';
+import { LayoutGridIcon, ListIcon, SearchIcon } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 export type ViewMode = 'list' | 'grid';
 
@@ -35,7 +31,7 @@ export interface DataTableHeaderProps {
 export function DataTableHeader({
   searchValue,
   onSearchChange,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = 'Search…',
   filterValue = '',
   onFilterChange,
   filterOptions = [],
@@ -48,33 +44,29 @@ export function DataTableHeader({
   className,
 }: DataTableHeaderProps) {
   return (
-    <div className={cn(
-      "flex items-center justify-between gap-4 px-4 py-3 border-b border-[var(--color-border-light)]",
-      className
-    )}>
-      {/* Left side: Search and Filter */}
-      <div className="flex items-center gap-6 flex-1">
-        {/* Search input */}
+    <div className={cn('flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3', className)}>
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         {showSearch && (
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
-            <input
-              type="text"
+          <InputGroup className="w-full sm:w-64">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              aria-label={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
             />
-          </div>
+          </InputGroup>
         )}
 
-        {/* Filter dropdown */}
         {filterOptions.length > 0 && onFilterChange && (
           <Select
             value={filterValue || undefined}
             onValueChange={(value) => onFilterChange(value === '__all__' ? '' : value)}
           >
-            <SelectTrigger aria-label={filterPlaceholder} className="h-9 rounded-sm">
+            <SelectTrigger aria-label={filterPlaceholder} className="w-auto min-w-36">
               <SelectValue placeholder={filterPlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -89,41 +81,24 @@ export function DataTableHeader({
         )}
       </div>
 
-      {/* Right side: Actions and View Toggle */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {actions}
-
         {showViewToggle && onViewModeChange && (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => onViewModeChange('list')}
-              className={cn(
-                "rounded-md",
-                viewMode === 'list'
-                  ? "text-[var(--color-text-primary)]"
-                  : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-              )}
-              title="List view"
-            >
-              <List className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => onViewModeChange('grid')}
-              className={cn(
-                "rounded-md",
-                viewMode === 'grid'
-                  ? "text-[var(--color-text-primary)]"
-                  : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-              )}
-              title="Grid view"
-            >
-              <LayoutGrid className="w-5 h-5" />
-            </Button>
-          </div>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={viewMode}
+            onValueChange={(value) => value && onViewModeChange(value as ViewMode)}
+            aria-label="View"
+          >
+            <ToggleGroupItem value="list" aria-label="List view">
+              <ListIcon />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grid" aria-label="Grid view">
+              <LayoutGridIcon />
+            </ToggleGroupItem>
+          </ToggleGroup>
         )}
       </div>
     </div>
