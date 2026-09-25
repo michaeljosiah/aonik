@@ -560,7 +560,7 @@ function WorkspaceSwitcher() {
         aria-expanded={isOpen}
       >
         <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-primary-foreground"
           style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
         >
           {tenantInitials(tenant.name)}
@@ -618,7 +618,7 @@ function WorkspaceSwitcher() {
                 )}
               >
                 <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-primary-foreground"
                   style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
                 >
                   {tenantInitials(t.name)}

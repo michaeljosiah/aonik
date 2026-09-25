@@ -97,7 +97,7 @@ export function MediaLibraryPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
-                <Image className="w-5 h-5 text-white" />
+                <Image className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Media Assets</CardTitle>

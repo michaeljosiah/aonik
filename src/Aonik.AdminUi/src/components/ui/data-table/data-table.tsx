@@ -231,7 +231,7 @@ export function DataTable<T>({
                     {someSelected ? (
                       <div className="w-2 h-0.5 bg-white" />
                     ) : (
-                      <Check className="w-3 h-3 text-white" />
+                      <Check className="w-3 h-3 text-primary-foreground" />
                     )}
                   </Checkbox.Indicator>
                 </Checkbox.Root>
@@ -296,7 +296,7 @@ export function DataTable<T>({
                         className="w-4 h-4 rounded border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center data-[state=checked]:bg-[var(--color-brand-primary)] data-[state=checked]:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:ring-offset-1"
                       >
                         <Checkbox.Indicator>
-                          <Check className="w-3 h-3 text-white" />
+                          <Check className="w-3 h-3 text-primary-foreground" />
                         </Checkbox.Indicator>
                       </Checkbox.Root>
                     </td>
