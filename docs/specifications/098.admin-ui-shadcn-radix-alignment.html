@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 098 - Admin UI design alignment: shadcn/ui on Radix</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 960px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 12px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); overflow-wrap: anywhere; }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 13px; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    td.num { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; text-align: right; white-space: nowrap; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout strong:first-child { margin-right: 4px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 15px; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11.5px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.rebuild { background: #fce8e2; color: #9b3815; }
+    .tag.restyle { background: #e4f6ea; color: #1f6b3a; }
+    .tag.merge { background: #f3e8fb; color: #6b3fa0; }
+    .tag.retire { background: #efefef; color: #555; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 18px; }
+    .sw { flex: 1 1 150px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 13px; background: #fff; }
+    .sw div:first-child { height: 44px; }
+    .sw div:last-child { padding: 6px 10px; }
+    .sw code { border: 0; background: none; padding: 0; font-size: 12px; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+<header class="spec-meta">
+  <span class="meta-tag">Spec 098</span>
+  <span class="meta-tag status-draft">Status: Rev 2, decisions resolved; P0 implemented in the working tree</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Module: AdminUi</span>
+  <h1>Admin UI design alignment: shadcn/ui on Radix</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The Admin UI already <em>looks</em> shadcn-shaped (cva, <code>cn()</code>, Radix, lucide), but it grew three
+    competing primitive sets, two radius philosophies, ad-hoc z-indexes and a colour vocabulary that is half
+    Aonik tokens, half raw Tailwind palette. This spec plans a complete, control-by-control restyle onto the
+    <strong>shadcn/ui (Tailwind v4, "new-york") anatomy and semantic tokens</strong>, keeping Aonik's teal,
+    its charcoal dark mode and its tabular money figures as the only brand-specific notes.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#ask">The ask and the success signal</a></li>
+    <li><a href="#today">What exists today</a></li>
+    <li><a href="#direction">Design direction</a></li>
+    <li><a href="#decisions">Decisions</a></li>
+    <li><a href="#tokens">Token system</a></li>
+    <li><a href="#controls">Control-by-control restyle</a></li>
+    <li><a href="#shell">App shell and page layout</a></li>
+    <li><a href="#strategy">Migration strategy</a></li>
+    <li><a href="#phasing">Phasing and tasks</a></li>
+    <li><a href="#guardrails">Guardrails</a></li>
+    <li><a href="#testing">Verification</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#out-of-scope">Out of scope</a></li>
+    <li><a href="#open">Decisions resolved</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<ul>
+  <li><strong>Adopt shadcn's semantic token contract</strong> (<code>background</code>, <code>foreground</code>, <code>card</code>, <code>popover</code>, <code>primary</code>, <code>secondary</code>, <code>muted</code>, <code>accent</code>, <code>destructive</code>, <code>border</code>, <code>input</code>, <code>ring</code>, <code>chart-1..5</code>, <code>sidebar-*</code>) via Tailwind v4 <code>@theme inline</code>. The 7,000+ existing <code>var(--color-*)</code> references keep working through a legacy alias layer that is deleted in the last phase.</li>
+  <li><strong>One primitive set.</strong> <code>components/ui/*</code> becomes the only home. The parallel kit in <code>components/layout/aonik/</code> (Card, Pill, KpiTile, FilterBar, PageHeader) is rebuilt as compositions of <code>ui/*</code>, and hand-rolled controls (custom Tabs, custom Switch, inline checkboxes in DataTable, 13 bespoke <code>fixed inset-0</code> overlays, 10 files using <code>window.confirm</code>) are replaced.</li>
+  <li><strong>Every control restyled to shadcn anatomy:</strong> 36 controls inventoried in <a href="#controls">§7</a>, each with its target classes, variants, a11y behaviour and migration blast radius.</li>
+  <li><strong>Fixes three latent bugs on the way:</strong> Radix enter/exit animations never run (no <code>tw-animate-css</code>), secondary text and warning text fail WCAG AA contrast, and Tabs have no arrow-key navigation.</li>
+  <li><strong>Delivered in five phases</strong>, foundations first, so each PR is visually shippable and reversible.</li>
+</ul>
+
+<h2 id="ask">2. The ask and the success signal</h2>
+<p>
+  The ask: make Aonik "more aligned with clean shadcn with Radix design", going through each control to restyle it.
+  The success signal is that a developer who knows shadcn can open any Admin UI screen and recognise every control's
+  shape, spacing, focus behaviour and states, and that adding a new control is <code>npx shadcn add &lt;name&gt;</code>
+  followed by zero edits beyond brand tokens.
+</p>
+<p>Measurable proxies, checked by the guardrails in <a href="#guardrails">§11</a>:</p>
+<ul>
+  <li>0 hex literals in <code>.tsx</code> (today: ~380 across the repo's React apps, the majority in the Admin UI).</li>
+  <li>0 raw Tailwind palette colours (<code>bg-gray-100</code>, <code>text-red-600</code>…) in Admin UI source (today: ~420).</li>
+  <li>0 <code>window.confirm</code> calls (today: 10 files), 0 bespoke overlays outside <code>ui/</code> (today: 11).</li>
+  <li>Radius values drawn only from the token scale (today: 10 distinct radii including <code>rounded-[2px]</code>, <code>rounded-[4px]</code>, <code>rounded-[10px]</code>, <code>rounded-none</code>).</li>
+  <li>axe-core pass on the kitchen-sink route in both themes.</li>
+</ul>
+
+<h2 id="today">3. What exists today</h2>
+<p>Audit of <code>src/Aonik.AdminUi/src</code> (298 <code>.tsx</code> files) on master at <code>6c6c3f79</code>.</p>
+
+<h3>3.1 Primitives in <code>components/ui</code></h3>
+<div class="table-wrap"><table>
+  <tr><th>Primitive</th><th>Built on</th><th>Divergence from shadcn</th><th>Importing files</th></tr>
+  <tr><td>Button</td><td>cva + Slot</td><td><code>rounded-[2px]</code>; <code>secondary</code> is coral (brand says coral is for applying agent proposals only); <code>destructive</code> uses raw <code>red-600</code>; ring is 1px; no <code>aria-invalid</code>, no <code>has-[&gt;svg]</code> padding</td><td class="num">177</td></tr>
+  <tr><td>Input</td><td>native</td><td><code>h-10</code>, <code>rounded-[2px]</code>, focus is border-colour only (no ring), no invalid state</td><td class="num">50</td></tr>
+  <tr><td>InputGroup</td><td>native</td><td><code>rounded-none</code>, icon cell has its own border; shadcn's InputGroup uses addons without dividers</td><td class="num">—</td></tr>
+  <tr><td>Textarea</td><td>native</td><td><code>rounded-none</code>, no <code>field-sizing-content</code></td><td class="num">—</td></tr>
+  <tr><td>Select</td><td>Radix Select</td><td>Trigger <code>rounded-none h-10</code> while content is <code>rounded-md</code>; no size variant</td><td class="num">50</td></tr>
+  <tr><td>Switch</td><td><strong>hand-rolled button</strong></td><td>Duplicates state (internal <code>useState</code> mirrors <code>checked</code>); no form integration; off track uses a 30% alpha of a text colour</td><td class="num">4</td></tr>
+  <tr><td>Tabs</td><td><strong>hand-rolled context</strong></td><td>No <code>tablist</code> roving focus, no arrow keys, no <code>aria-controls</code>; Radix Tabs not installed</td><td class="num">9</td></tr>
+  <tr><td>Card</td><td>div</td><td><code>rounded-[2px]</code> + <code>shadow-md</code>, while the other Card (<code>layout/aonik/Card</code>) is <code>rounded-xl</code> with no shadow</td><td class="num">82</td></tr>
+  <tr><td>Badge</td><td>cva</td><td><code>rounded-full</code>; <code>team</code>/<code>enterprise</code> variants encode product tiers into a primitive; <code>warning</code> text is yellow-on-yellow</td><td class="num">60</td></tr>
+  <tr><td>Dialog</td><td>Radix Dialog</td><td><code>rounded-sm</code>; <code>bg-black/60 backdrop-blur</code>; no built-in close button; animations reference utilities that are not installed</td><td class="num">30</td></tr>
+  <tr><td>Sheet</td><td>Radix Dialog</td><td>Fixed widths (460/540/720px) break under 480px viewports; header/footer baked in</td><td class="num">16</td></tr>
+  <tr><td>Popover, HoverCard, Tooltip</td><td>Radix</td><td>Tooltip is a light bordered card (shadcn's is inverted <code>bg-foreground</code>); z-index 130/140/9999</td><td class="num">4 / 1 / 14</td></tr>
+  <tr><td>Avatar, Collapsible, Label, Breadcrumb</td><td>Radix / native</td><td>Label is native (not Radix Label); Breadcrumb is props-driven, not compositional</td><td class="num">—</td></tr>
+  <tr><td>DataTable (5 files)</td><td>native table</td><td>Inline Radix Checkbox with its own classes; header <code>bg-surface-inset/50</code>; first column <code>pl-0</code></td><td class="num">22</td></tr>
+  <tr><td>CountrySelect</td><td>hand-rolled combobox</td><td>Custom open/close, outside-click and filtering; no Command/cmdk; loads flags from third-party CDNs</td><td class="num">—</td></tr>
+</table></div>
+
+<h3>3.2 The second kit in <code>components/layout/aonik</code></h3>
+<p>
+  Ported from the starter template, used by 57 files: <code>Card</code> (title/subtitle/action props, inline <code>style</code> padding),
+  <code>Pill</code> (51 files; a second badge with <code>tone</code> and a 10px font), <code>KpiTile</code> (10), <code>FilterBar</code> (13; its own
+  segmented tabs and search), <code>PageHeader</code> (27; uppercase eyebrow + Infra H1), plus <code>AonikSidebar</code>, <code>AonikTopBar</code>,
+  <code>NavPopover</code>, <code>ProposalCard</code>. Together with <code>components/ui</code> and the legacy <code>index.css</code> classes
+  (<code>.aonik-input</code>, <code>.aonik-select</code>, <code>.theme-*</code>, <code>.hover-halo</code>, <code>.eyebrow</code>, <code>.chat-*</code>) that is
+  three primitive vocabularies.
+</p>
+
+<h3>3.3 Tokens and global CSS</h3>
+<ul>
+  <li><code>index.css</code> (804 lines) defines ~110 <code>--color-*</code> tokens in <code>@theme</code> and overrides them under <code>[data-theme="dark"]</code>. Dark mode <em>redefines the gray scale inverted</em> (<code>--color-gray-50</code> becomes the darkest), so <code>bg-gray-100</code> means different things per theme, a trap for any shadcn component dropped in.</li>
+  <li><code>--color-brand-primary</code> is the same <code>#055a60</code> in dark mode: teal on charcoal at 2.1:1, below the 3:1 non-text minimum for focus indicators and filled controls.</li>
+  <li><code>--color-text-secondary: #888888</code> on white is 3.5:1, failing AA for body text. <code>--color-warning: #ebc334</code> used as text on its own 12% tint is ~1.6:1.</li>
+  <li>Radius tokens: <code>sm 2px</code>, <code>md 8px</code>, <code>lg 8px</code>, <code>xl 12px</code>; <code>md</code> and <code>lg</code> are identical, so the scale has no middle.</li>
+  <li><code>animate-in</code>, <code>fade-in-0</code>, <code>zoom-in-95</code>, <code>slide-in-from-*</code> appear in Dialog, Sheet, Popover, Select, HoverCard and Tooltip, but neither <code>tailwindcss-animate</code> nor <code>tw-animate-css</code> is installed. <strong>Every Radix overlay opens and closes with no motion today.</strong></li>
+  <li>z-index is ad hoc: 100 (overlay), 110 (dialog), 130 (popover/select), 140 (hover-card), 9999 (tooltip).</li>
+</ul>
+
+<h3>3.4 Usage signals</h3>
+<div class="table-wrap"><table>
+  <tr><th>Signal</th><th>Count</th><th>Implication</th></tr>
+  <tr><td>Button <code>variant="outline"</code> / <code>ghost</code></td><td class="num">342 / 184</td><td>Restyling these two variants changes most of the UI; do it in P1 with screenshots</td></tr>
+  <tr><td>Button <code>variant="secondary"</code> (coral)</td><td class="num">61</td><td>Needs per-site triage (<a href="#d4">D4</a>)</td></tr>
+  <tr><td>Badge <code>outline</code> / <code>secondary</code></td><td class="num">49 / 25</td><td>Map straight onto shadcn variants</td></tr>
+  <tr><td><code>rounded-md</code> / <code>rounded-lg</code> / <code>rounded-xl</code> in pages</td><td class="num">413 / 162 / 70</td><td>Radius lives in pages, not primitives; P3 sweep</td></tr>
+  <tr><td>Native <code>&lt;table&gt;</code> outside DataTable</td><td class="num">~20 files</td><td>Move onto the new <code>ui/table</code> primitive</td></tr>
+  <tr><td><code>type="checkbox"</code> / <code>type="radio"</code></td><td class="num">14 / 2</td><td>Replace with Radix Checkbox / RadioGroup</td></tr>
+  <tr><td><code>Loader2</code> spinners</td><td class="num">46 files</td><td>Standardise as <code>ui/spinner</code>; loading layouts get <code>ui/skeleton</code></td></tr>
+  <tr><td>Native <code>type="date"</code></td><td class="num">6 files</td><td>Date picker (Popover + Calendar), <a href="#open">open decision</a></td></tr>
+</table></div>
+
+<h2 id="direction">4. Design direction</h2>
+<p>
+  The brief pins the visual language: clean shadcn on Radix. The design work is therefore not inventing a new look but
+  deciding <strong>where Aonik is allowed to differ from stock shadcn</strong>. The answer is: in three places, and nowhere else.
+</p>
+<ol>
+  <li><strong>Teal is the only chromatic colour in chrome.</strong> Primary actions, the focus ring, selected nav and chart series 1 are teal. Everything else in the frame is neutral. Status colours appear only on status (badges, alerts, deltas), never as decoration.</li>
+  <li><strong>Money reads as money.</strong> Amounts, IDs, dates-in-tables and confidence scores are set in JetBrains Mono with <code>tabular-nums</code>, right-aligned in tables. This is the one typographic flourish; it earns its place because Aonik is a ledger platform and column alignment of figures is the job.</li>
+  <li><strong>Charcoal dark mode.</strong> shadcn's neutral dark is near-black; Aonik keeps the existing charcoal surfaces (<code>#1a1d21</code> to <code>#2a2e34</code>), with a lifted teal so filled controls clear 3:1.</li>
+</ol>
+<p>
+  Everything else is deliberately stock: shadcn heights (<code>h-9</code> controls, <code>h-8</code> small), <code>rounded-md</code> controls inside
+  <code>rounded-xl</code> cards, a 3px translucent focus ring, a single <code>shadow-xs</code> on controls and cards, <code>bg-foreground</code> tooltips, and
+  sentence-case labels. Stock is the point: the value is recognisability and the ability to pull components from the registry unmodified.
+</p>
+
+<h3>4.1 Review against the brief</h3>
+<p>What the first draft did and what changed:</p>
+<ul>
+  <li><strong>Draft kept the uppercase eyebrow above every page title</strong> because the current <code>PageHeader</code> and the aonik-design skill use one. shadcn pages don't, and an eyebrow repeated on every screen carries no information that the breadcrumb and sidebar selection don't already give. Revised: eyebrow removed; breadcrumb carries location (<a href="#d6">D6</a>).</li>
+  <li><strong>Draft set page titles in Infra.</strong> Two display faces in chrome dilutes shadcn's single-family calm. Revised: Infra is for the logo and auth/landing moments only; page titles are DM Sans 600.</li>
+  <li><strong>Draft kept a coloured tint behind the active sidebar item</strong> (teal 12%). shadcn's sidebar uses a neutral <code>sidebar-accent</code> with foreground text. Revised: neutral fill, teal only on the icon of the active item, which keeps teal meaning "you are here" without painting the rail.</li>
+  <li><strong>Draft used a gradient sparkline fill in KpiTile.</strong> Decoration, not data. Revised: 1.5px line, no fill.</li>
+</ul>
+
+<h2 id="decisions">5. Decisions</h2>
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>Decision</th><th>Why</th></tr>
+  <tr id="d1"><td>D1</td><td>Adopt shadcn's token names as the canonical contract; keep <code>--color-*</code> as aliases until P4.</td><td>Registry components and every shadcn example work unmodified; aliasing avoids a 7,000-line big-bang edit.</td></tr>
+  <tr id="d2"><td>D2</td><td>Add <code>components.json</code> (style <code>new-york</code>, <code>tailwind.cssVariables: true</code>, <code>iconLibrary: lucide</code>) and pull components with the shadcn CLI, then apply brand tokens only.</td><td>Keeps our primitives diff-able against upstream; future upgrades are a <code>shadcn diff</code>.</td></tr>
+  <tr id="d3"><td>D3</td><td><strong>Replace the bottom-bar input focus with shadcn's ring</strong>: <code>focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50</code>, on every focusable control.</td><td>One focus language across buttons, inputs, checkboxes, tabs. The bottom bar only exists on inputs today, so keyboard users see two focus styles. <em>Supersedes aonik-design hard rule 3; the skill must be updated in P0.</em></td></tr>
+  <tr id="d4"><td>D4</td><td>Button <code>secondary</code> becomes shadcn's neutral secondary. Coral moves to a new <code>agent</code> variant used only by "Apply proposal".</td><td>Aligns the name with shadcn and with the brand rule that coral is agent-apply only. The 61 current <code>secondary</code> call sites are triaged: most become <code>secondary</code> (neutral) or <code>default</code>; proposal applies become <code>agent</code>.</td></tr>
+  <tr id="d5"><td>D5</td><td>Radius scale from one variable, <code>--radius: 0.625rem</code>: <code>sm 6px</code>, <code>md 8px</code>, <code>lg 10px</code>, <code>xl 14px</code>. Controls <code>md</code>, cards/dialogs <code>xl</code>, badges <code>md</code>, avatars/switch <code>full</code>.</td><td>Removes the 2px-vs-12px split. Nested radii step down (card 14, control inside 8).</td></tr>
+  <tr id="d6"><td>D6</td><td>Page headers: breadcrumb, H1, description, actions. No eyebrow.</td><td>See §4.1.</td></tr>
+  <tr id="d7"><td>D7</td><td>Retire the <code>layout/aonik</code> kit into compositions of <code>ui/*</code>: <code>Pill</code> becomes <code>Badge</code> variants, aonik <code>Card</code> becomes <code>ui/card</code> with <code>CardAction</code>, <code>FilterBar</code> becomes <code>ToggleGroup</code> + <code>InputGroup</code>.</td><td>One vocabulary. Public props are kept as thin wrappers during P2 so call sites migrate incrementally.</td></tr>
+  <tr id="d8"><td>D8</td><td>Semantic z-index layers as tokens used through <code>z-(--z-*)</code>: <code>--z-overlay 100</code>, <code>--z-modal 110</code>, <code>--z-popover 130</code>, <code>--z-hover-card 140</code>, <code>--z-tooltip 9000</code>, <code>--z-titlebar 9999</code>. P0 keeps today's numeric order so nothing re-stacks; P2 renumbers once the bespoke overlays (some at <code>z-[200]</code> and <code>z-[1000]</code>) are gone.</td><td>shadcn uses <code>z-50</code> for everything, which collides with page-level <code>z-50</code> sticky bars and Dockview's floating groups. Layers keep popovers above dialogs that open them.</td></tr>
+  <tr id="d9"><td>D9</td><td>Remove the inverted gray scale in dark mode. Pages that relied on <code>bg-gray-*</code> flipping are migrated to semantic tokens (<code>bg-muted</code>, <code>text-muted-foreground</code>).</td><td>Tailwind palette classes must mean the same thing in both themes, or registry components render wrong in dark.</td></tr>
+  <tr id="d10"><td>D10</td><td>Status palette extends shadcn with <code>success</code>, <code>warning</code>, <code>info</code>, each as a trio: solid, <code>-foreground</code> (text on tint, AA), <code>-subtle</code> (tint background).</td><td>shadcn only ships <code>destructive</code>; a finance admin needs settled/pending/failed at a glance.</td></tr>
+</table></div>
+
+<h2 id="tokens">6. Token system</h2>
+
+<h3>6.1 Palette</h3>
+<div class="swatches">
+  <div class="sw"><div style="background:#055a60"></div><div><strong>Primary</strong><br><code>#055a60</code> light, <code>#3a9ea4</code> dark (dark text on fills)</div></div>
+  <div class="sw"><div style="background:#ffffff; border-bottom:1px solid #e5e7eb"></div><div><strong>Background</strong><br><code>#ffffff</code> light, <code>#1a1d21</code> dark</div></div>
+  <div class="sw"><div style="background:#f4f5f6"></div><div><strong>Muted / sidebar</strong><br><code>#f4f5f6</code> light, <code>#22262b</code> dark</div></div>
+  <div class="sw"><div style="background:#1f2328"></div><div><strong>Foreground</strong><br><code>#1f2328</code> light, <code>#e8eaed</code> dark</div></div>
+  <div class="sw"><div style="background:#5f6670"></div><div><strong>Muted foreground</strong><br><code>#5f6670</code> light (5.8:1), <code>#9aa0a8</code> dark</div></div>
+  <div class="sw"><div style="background:#eb5c37"></div><div><strong>Agent (coral)</strong><br><code>#eb5c37</code>, apply-proposal only</div></div>
+</div>
+
+<h3>6.2 <code>index.css</code> shape after P0</h3>
+<pre><code>@import "tailwindcss";
+@import "tw-animate-css";
+@import "dockview/dist/styles/dockview.css";
+
+@custom-variant dark (&amp;:is([data-theme="dark"] *));
+
+:root {
+  --radius: 0.625rem;
+  --background: #ffffff;          --foreground: #1f2328;
+  --card: #ffffff;                --card-foreground: #1f2328;
+  --popover: #ffffff;             --popover-foreground: #1f2328;
+  --primary: #055a60;             --primary-foreground: #ffffff;
+  --secondary: #f1f2f4;           --secondary-foreground: #1f2328;
+  --muted: #f4f5f6;               --muted-foreground: #5f6670;
+  --accent: #eef0f2;              --accent-foreground: #1f2328;
+  --destructive: #c62828;         --destructive-foreground: #ffffff;
+  --success: #2e7d32;  --success-foreground: #1b5e20;  --success-subtle: #e8f5e9;
+  --warning: #a16207;  --warning-foreground: #7a4b00;  --warning-subtle: #fff6db;
+  --info:    #2256d0;  --info-foreground:    #1e40af;  --info-subtle:    #e8effd;
+  --agent:   #eb5c37;  --agent-foreground:   #ffffff;
+  --border: #e4e6e9;              --input: #d8dbdf;          --ring: #055a60;
+  --chart-1: #055a60; --chart-2: #3a9ea4; --chart-3: #eb5c37; --chart-4: #7b76b6; --chart-5: #d49b00;
+  --sidebar: #f7f8f9;             --sidebar-foreground: #1f2328;
+  --sidebar-primary: #055a60;     --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eceef0;      --sidebar-accent-foreground: #1f2328;
+  --sidebar-border: #e4e6e9;      --sidebar-ring: #055a60;
+}
+
+[data-theme="dark"] {
+  --background: #1a1d21;          --foreground: #e8eaed;
+  --card: #202328;                --popover: #262a2f;
+  --primary: #3a9ea4;             --primary-foreground: #0d1f21;
+  --secondary: #2a2e34;           --muted: #22262b;          --muted-foreground: #9aa0a8;
+  --accent: #2a2e34;              --destructive: #f26b6b;    --destructive-foreground: #1a1d21;
+  --success: #5cbf6a;  --warning: #e0a93a;  --info: #6b9bff;   /* light enough to read as text */
+  --border: #33383f;              --input: #3a3f46;          --ring: #3a9ea4;
+  --sidebar: #1e2125;             --sidebar-accent: #2a2e34;
+  /* status + chart overrides … */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  /* …one line per token above… */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-brand: "Infra", "DM Sans", sans-serif;
+}
+
+/* LEGACY ALIASES: deleted in P4. Keeps var(--color-*) call sites rendering. */
+:root, [data-theme="dark"] {
+  --color-brand-primary: var(--primary);
+  --color-surface: var(--card);
+  --color-border: var(--border);
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --color-form-field-border: var(--input);
+  /* …full map in §6.4… */
+}</code></pre>
+<div class="callout ok"><strong>Why dark fills carry dark text.</strong> The audit found brand teal used as <em>text</em> 260 times and as a fill 104 times, and the status colours used as text roughly 90% of the time (e.g. <code>--color-error</code>: 208 text, 7 fill). So in dark mode the solids are tuned to read as text on charcoal (4.5:1 or better), and filled controls carry dark foreground text, as shadcn's own dark theme does. P0 moved the 42 class strings that paired a teal fill with <code>text-white</code> onto <code>text-primary-foreground</code>.</div>
+<div class="callout"><strong>Note.</strong> Hex values are shown for review. Implementation may express them in <code>oklch()</code> to match upstream shadcn, provided the rendered colours and contrast ratios are unchanged. Every foreground/background pair is checked in P0 (text 4.5:1, non-text 3:1).</div>
+
+<h3>6.3 Type, spacing, elevation, motion</h3>
+<div class="table-wrap"><table>
+  <tr><th>Token</th><th>Value</th><th>Use</th></tr>
+  <tr><td>Page title</td><td>DM Sans 600, 24/32, <code>tracking-tight</code></td><td>H1 in PageHeader</td></tr>
+  <tr><td>Section title</td><td>DM Sans 600, 16/24</td><td>CardTitle, dialog title (18/28)</td></tr>
+  <tr><td>Body / control</td><td>DM Sans 400, 14/20</td><td>Inputs, buttons, table cells</td></tr>
+  <tr><td>Small / description</td><td>DM Sans 400, 13/18, <code>text-muted-foreground</code></td><td>CardDescription, helper text</td></tr>
+  <tr><td>Caption</td><td>DM Sans 500, 12/16</td><td>Badges, table headers (sentence case, not uppercase)</td></tr>
+  <tr><td>Figures</td><td>JetBrains Mono 500, <code>tabular-nums</code></td><td>Money, IDs, KPIs (KPI value 28/36)</td></tr>
+  <tr><td>Control heights</td><td><code>h-8</code> sm, <code>h-9</code> default, <code>h-10</code> lg</td><td>Button, Input, SelectTrigger, ToggleGroup</td></tr>
+  <tr><td>Card padding</td><td><code>py-6 px-6</code>, <code>gap-6</code></td><td>shadcn v4 Card</td></tr>
+  <tr><td>Elevation</td><td><code>shadow-xs</code> on controls and cards; <code>shadow-md</code> popovers/menus; <code>shadow-lg</code> dialogs/sheets</td><td>Three steps only</td></tr>
+  <tr><td>Motion</td><td><code>tw-animate-css</code> defaults (150ms fade/zoom-95/slide-2); Sheet 300ms/200ms</td><td>Honours <code>prefers-reduced-motion</code></td></tr>
+</table></div>
+
+<h3>6.4 Legacy alias map (excerpt)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Legacy token</th><th>Maps to</th><th>Note</th></tr>
+  <tr><td><code>--color-brand-primary</code>, <code>-dark</code></td><td><code>--primary</code>, <code>color-mix(in oklab, var(--primary) 88%, black)</code></td><td></td></tr>
+  <tr><td><code>--color-brand-primary-10/20/60</code></td><td><code>color-mix(... var(--primary) 10%/20%/60%, transparent)</code></td><td></td></tr>
+  <tr><td><code>--color-brand-secondary*</code></td><td><code>--agent</code></td><td>Flags coral usage for D4 triage</td></tr>
+  <tr><td><code>--color-background</code></td><td><code>--background</code></td><td>Page bg moves from <code>#f9fafb</code> to white; sidebar/muted carry the grey</td></tr>
+  <tr><td><code>--color-surface</code>, <code>-elevated</code>, <code>-inset</code></td><td><code>--card</code>, <code>--popover</code>, <code>--muted</code></td><td></td></tr>
+  <tr><td><code>--color-border</code>, <code>-light</code></td><td><code>--border</code></td><td>Two border greys collapse into one</td></tr>
+  <tr><td><code>--color-text-primary/secondary/tertiary/heading</code></td><td><code>--foreground</code>, <code>--muted-foreground</code> ×2, <code>--foreground</code></td><td>Tertiary folds into muted to fix contrast</td></tr>
+  <tr><td><code>--color-form-field-*</code></td><td><code>--input</code>, <code>--ring</code>, <code>--background</code>, <code>--foreground</code>, <code>--muted-foreground</code></td><td></td></tr>
+  <tr><td><code>--color-success/warning/error/danger/info(-light)</code></td><td>status trios, <code>--destructive</code></td><td>Text uses <code>-foreground</code>, never the solid</td></tr>
+  <tr><td><code>--color-gray-50..900</code></td><td>Removed from theme (D9)</td><td>Tailwind's default gray returns, same in both themes</td></tr>
+  <tr><td><code>--color-sidebar-*</code>, <code>--color-navbar-*</code></td><td><code>--sidebar-*</code></td><td></td></tr>
+</table></div>
+
+<h2 id="controls">7. Control-by-control restyle</h2>
+<p>
+  Legend: <span class="tag new">new</span> add from registry, <span class="tag rebuild">rebuild</span> replace implementation with the
+  Radix-based registry version, <span class="tag restyle">restyle</span> keep implementation, change classes and variants,
+  <span class="tag merge">merge</span> fold a duplicate into a <code>ui/*</code> primitive, <span class="tag retire">retire</span> delete after call sites move.
+  Class strings are the shadcn new-york v4 defaults unless stated; only deltas are called out.
+</p>
+
+<h3>7.1 Actions</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Button</td><td><span class="tag restyle">restyle</span></td><td>Base <code>rounded-md text-sm font-medium gap-2 h-9 px-4 has-[&gt;svg]:px-3 shadow-xs</code>, 3px ring, <code>aria-invalid</code> styling. Variants: <code>default</code>, <code>secondary</code> (neutral), <code>outline</code> (<code>bg-background border hover:bg-accent</code>), <code>ghost</code>, <code>link</code>, <code>destructive</code> (<code>bg-destructive</code>), <code>agent</code> (coral). Sizes: <code>sm</code>, <code>default</code>, <code>lg</code>, <code>icon</code>, <code>icon-sm</code>, <code>icon-lg</code>.</td><td>177 files. Drop <code>success</code> and <code>warning</code> button variants (13 uses): a green or amber button is a status, not an action; those sites become <code>default</code>. Coral triage per D4 (61 sites).</td></tr>
+  <tr><td>Button with spinner</td><td><span class="tag new">new</span></td><td><code>ui/spinner</code> (<code>Loader2Icon animate-spin size-4</code>, <code>role="status"</code>) placed inside Button, with <code>disabled</code></td><td>Replaces 46 files' ad-hoc <code>Loader2</code>. Keep the button label, prefix the spinner; don't swap text for "Loading…".</td></tr>
+  <tr><td>ButtonGroup</td><td><span class="tag new">new</span></td><td>shadcn ButtonGroup (joined borders, inner radii 0)</td><td>Toolbar clusters in Orders, Ledger, AI Playground.</td></tr>
+  <tr><td>Toggle / ToggleGroup</td><td><span class="tag new">new</span></td><td>Radix Toggle Group, <code>variant="outline"</code>, <code>size="sm"</code>; <code>data-[state=on]:bg-accent</code></td><td>Replaces FilterBar tab buttons and view switches (grid/list in DataTable grid view).</td></tr>
+  <tr><td>Icon-only buttons</td><td><span class="tag restyle">restyle</span></td><td><code>size="icon"</code> + <code>ghost</code>, mandatory <code>aria-label</code>, wrapped in Tooltip</td><td>26 raw <code>&lt;button&gt;</code> elements, mostly icon buttons in chat, sidebar and panels.</td></tr>
+</table></div>
+
+<h3>7.2 Forms</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Label</td><td><span class="tag rebuild">rebuild</span></td><td>Radix Label, <code>flex items-center gap-2 text-sm font-medium select-none group-data-[disabled=true]:opacity-50</code></td><td>Add <code>@radix-ui/react-label</code>.</td></tr>
+  <tr><td>Field (form layout)</td><td><span class="tag new">new</span></td><td>shadcn Field set: <code>Field</code>, <code>FieldLabel</code>, <code>FieldDescription</code>, <code>FieldError</code>, <code>FieldGroup</code>, <code>FieldSet</code>/<code>FieldLegend</code>, orientation <code>vertical|horizontal|responsive</code></td><td>Every form currently hand-builds label/help/error spacing. Error text is <code>text-destructive text-sm</code> and the control gets <code>aria-invalid</code> + <code>aria-describedby</code>.</td></tr>
+  <tr><td>Input</td><td><span class="tag restyle">restyle</span></td><td><code>h-9 rounded-md border border-input bg-transparent px-3 py-1 shadow-xs dark:bg-input/30</code>, ring focus, <code>aria-invalid:border-destructive aria-invalid:ring-destructive/20</code>, file-input styling</td><td>50 files; height change 40 to 36px is the biggest visual shift, review forms in P1 screenshots.</td></tr>
+  <tr><td>InputGroup</td><td><span class="tag rebuild">rebuild</span></td><td>shadcn InputGroup: <code>InputGroupAddon</code> (inline/block, start/end), <code>InputGroupInput</code>, <code>InputGroupButton</code>, <code>InputGroupText</code>; focus ring on the group via <code>has-[:focus-visible]</code></td><td>Current API <code>icon=</code> kept as a compatibility wrapper. Used for search, currency prefix, URL suffix.</td></tr>
+  <tr><td>Textarea</td><td><span class="tag restyle">restyle</span></td><td>Same as Input plus <code>min-h-16 field-sizing-content</code></td><td>Chat composer keeps its own auto-grow but adopts the tokens.</td></tr>
+  <tr><td>Select</td><td><span class="tag restyle">restyle</span></td><td>Trigger <code>h-9 rounded-md border-input shadow-xs data-[placeholder]:text-muted-foreground</code>, <code>size="sm"|"default"</code>; Content <code>rounded-md border shadow-md</code>; Item <code>rounded-sm py-1.5 pr-8 pl-2 focus:bg-accent</code> with check on the right; <code>SelectLabel</code>, <code>SelectSeparator</code>, scroll buttons</td><td>50 files. Fixes the square-trigger / round-menu mismatch.</td></tr>
+  <tr><td>Native select (<code>.aonik-select</code>)</td><td><span class="tag merge">merge</span></td><td>shadcn NativeSelect for the few places that need native behaviour (mobile, very long lists); else Select</td><td>3 raw <code>&lt;select&gt;</code>, 4 files using <code>.aonik-select/.aonik-input</code>. CSS classes retired in P4.</td></tr>
+  <tr><td>Checkbox</td><td><span class="tag new">new</span></td><td>Radix Checkbox: <code>size-4 rounded-[4px] border-input shadow-xs data-[state=checked]:bg-primary</code>, indeterminate via <code>MinusIcon</code></td><td>Replaces 14 native checkboxes and DataTable's two inline copies.</td></tr>
+  <tr><td>RadioGroup</td><td><span class="tag new">new</span></td><td>Radix RadioGroup, <code>size-4 rounded-full</code>, indicator <code>size-2 fill-primary</code>; plus the "choice card" pattern (<code>FieldLabel</code> wrapping a bordered <code>Field</code>, <code>has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5</code>)</td><td>2 native radios; the choice-card pattern replaces bespoke plan/provider pickers in setup wizards.</td></tr>
+  <tr><td>Switch</td><td><span class="tag rebuild">rebuild</span></td><td>Radix Switch: track <code>h-[1.15rem] w-8 rounded-full data-[state=checked]:bg-primary data-[state=unchecked]:bg-input</code>, thumb <code>size-4 bg-background</code></td><td>Removes the mirrored-state bug. Props (<code>checked</code>, <code>onCheckedChange</code>) are unchanged, so 4 files need no edits.</td></tr>
+  <tr><td>Slider</td><td><span class="tag new">new</span></td><td>Radix Slider</td><td>Only if AI settings (temperature, top-p) move off number inputs; see open decisions.</td></tr>
+  <tr><td>Combobox</td><td><span class="tag new">new</span></td><td>Popover + Command (<code>cmdk</code>): trigger styled as an outline Button with <code>ChevronsUpDown</code>, <code>CommandInput</code>, <code>CommandEmpty</code>, <code>CommandGroup</code>, check on selected</td><td>Rebuild <code>CountrySelect</code> on it (keeps its data loading); reuse for currency, biller, customer and agent pickers.</td></tr>
+  <tr><td>Date picker</td><td><span class="tag new">new</span></td><td>Popover + Calendar (<code>react-day-picker</code> v9), range variant for report filters</td><td>6 files with native date inputs. Gated on an open decision about the dependency.</td></tr>
+  <tr><td>Input OTP</td><td><span class="tag retire">skip</span></td><td>n/a</td><td>No OTP entry in the Admin UI; don't add.</td></tr>
+  <tr><td>Cron schedule editor</td><td><span class="tag restyle">restyle</span></td><td>Compose from ToggleGroup (frequency), Select, Input, Field; description line in <code>text-muted-foreground</code></td><td><code>components/cron-schedule-editor.tsx</code>.</td></tr>
+</table></div>
+
+<h3>7.3 Display</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Card</td><td><span class="tag restyle">restyle</span> + <span class="tag merge">merge</span></td><td>v4 anatomy: <code>Card</code> <code>flex flex-col gap-6 rounded-xl border bg-card py-6 shadow-xs</code>; <code>CardHeader</code> grid with <code>CardAction</code> slot top-right; <code>CardTitle</code> <code>font-semibold leading-none</code>; <code>CardDescription</code>; <code>CardContent px-6</code>; <code>CardFooter px-6 [.border-t]:pt-6</code></td><td>82 + 15 files. aonik <code>Card</code>'s <code>title/subtitle/action/padding</code> props become a wrapper over these parts. Remove the global <code>.card</code> utility.</td></tr>
+  <tr><td>KPI tile</td><td><span class="tag merge">merge</span></td><td>A Card composition: <code>CardHeader</code> with <code>CardDescription</code> (label) and <code>CardAction</code> (delta Badge), <code>CardTitle</code> as the figure in mono 28px tabular, optional 1.5px sparkline, <code>CardFooter</code> for comparison text</td><td>10 files. Delta badge uses <code>success</code>/<code>destructive</code> subtle variants with a trend icon; neutral delta uses <code>outline</code>.</td></tr>
+  <tr><td>Badge</td><td><span class="tag restyle">restyle</span></td><td><code>inline-flex rounded-md border px-2 py-0.5 text-xs font-medium gap-1 [&amp;&gt;svg]:size-3</code>. Variants: <code>default</code>, <code>secondary</code>, <code>outline</code>, <code>destructive</code>, plus <code>success</code>, <code>warning</code>, <code>info</code> using <code>-subtle</code> bg and <code>-foreground</code> text</td><td>60 files. <code>team</code>/<code>enterprise</code> removed from the primitive (7 + 1 uses become <code>default</code>/<code>outline</code> with the tier as text). <code>error</code> renamed <code>destructive</code>, <code>pending</code> becomes <code>warning</code>.</td></tr>
+  <tr><td>Pill</td><td><span class="tag merge">merge</span></td><td><code>Badge</code>. <code>tone</code> maps: default/muted to <code>secondary</code>, success/warning/info to the same, danger to <code>destructive</code>, pending to <code>warning</code>. The <code>dot</code> prop becomes a leading <code>size-1.5 rounded-full bg-current</code> status dot</td><td>51 files. The dot stays because it signifies state (consistent with the no-decorative-dots rule). 10px text rises to 12px.</td></tr>
+  <tr><td>Status badge helper</td><td><span class="tag new">new</span></td><td><code>StatusBadge status="Settled"</code> mapping domain statuses (order, payment, invoice, run, proposal) to Badge variants in one table</td><td>Today each page picks its own colour for "Pending". One map ends the drift.</td></tr>
+  <tr><td>Avatar</td><td><span class="tag restyle">restyle</span></td><td><code>size-8</code> default, fallback <code>bg-muted text-muted-foreground</code>; AvatarGroup via <code>-space-x-2 *:ring-2 *:ring-background</code></td><td>Agent avatars keep their accent colour (team/enterprise agent tokens) as the only exception.</td></tr>
+  <tr><td>Alert / callout</td><td><span class="tag new">new</span></td><td>shadcn Alert: <code>rounded-lg border px-4 py-3 grid-cols-[auto_1fr]</code> with icon, <code>AlertTitle</code>, <code>AlertDescription</code>; variants <code>default</code>, <code>destructive</code>, <code>warning</code>, <code>info</code>, <code>success</code></td><td>Replaces inline coloured boxes and the <code>PanelInfoPopover</code> callouts.</td></tr>
+  <tr><td>Empty state</td><td><span class="tag new">new</span></td><td>shadcn Empty: <code>EmptyMedia variant="icon"</code>, <code>EmptyTitle</code>, <code>EmptyDescription</code>, <code>EmptyContent</code> with the primary action</td><td>DataTable's built-in empty row uses it; copy says what to do next ("Create your first invoice"), not "No data".</td></tr>
+  <tr><td>Skeleton</td><td><span class="tag new">new</span></td><td><code>animate-pulse rounded-md bg-accent</code></td><td>Table, card and detail-page loading layouts replace centred spinners.</td></tr>
+  <tr><td>Progress</td><td><span class="tag new">new</span></td><td>Radix Progress, <code>h-2 rounded-full bg-primary/20</code>, indicator <code>bg-primary</code></td><td>Setup journey, import wizards, budget and quota meters.</td></tr>
+  <tr><td>Separator</td><td><span class="tag new">new</span></td><td>Radix Separator, <code>bg-border</code>, horizontal and vertical</td><td>Replaces <code>border-t</code> divs used as rules in menus and toolbars.</td></tr>
+  <tr><td>Kbd</td><td><span class="tag new">new</span></td><td>shadcn Kbd / KbdGroup</td><td>Command palette hints, tooltip shortcuts.</td></tr>
+  <tr><td>Accordion</td><td><span class="tag new">new</span></td><td>Radix Accordion: trigger <code>py-4 text-sm font-medium hover:underline</code>, chevron rotates, content uses <code>animate-accordion-*</code></td><td>Setup guides, FAQ-like settings sections; Collapsible stays for single toggles.</td></tr>
+  <tr><td>Collapsible</td><td><span class="tag restyle">restyle</span></td><td>Keep; switch custom keyframes to <code>tw-animate-css</code> collapsible utilities</td><td>Delete the local <code>@keyframes collapsible-*</code>.</td></tr>
+  <tr><td>Charts</td><td><span class="tag restyle">restyle</span></td><td>shadcn Chart (<code>ChartContainer</code>, <code>ChartConfig</code>, <code>ChartTooltipContent</code>, <code>ChartLegendContent</code>) over the existing Recharts 3, colours from <code>--chart-1..5</code></td><td>5 files. Axis ticks <code>text-muted-foreground</code>, grid <code>stroke-border</code>, tooltip values in mono tabular.</td></tr>
+</table></div>
+
+<h3>7.4 Overlays</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Dialog</td><td><span class="tag restyle">restyle</span></td><td>Overlay <code>bg-black/50</code> (no blur); Content <code>rounded-lg border p-6 shadow-lg sm:max-w-lg gap-4</code>, built-in close <code>XIcon</code> top-right (opt out with <code>showCloseButton={false}</code>); <code>DialogTitle text-lg font-semibold</code>; footer <code>flex-col-reverse sm:flex-row sm:justify-end gap-2</code></td><td>30 files. Animations now work once <code>tw-animate-css</code> lands.</td></tr>
+  <tr><td>AlertDialog</td><td><span class="tag new">new</span></td><td>Radix AlertDialog, same shell as Dialog, <code>AlertDialogAction</code> takes <code>buttonVariants({variant:"destructive"})</code> for destructive confirms</td><td>Replaces <code>window.confirm</code> in 10 files and the <code>confirmAction</code> presentation for Spec 032 medium approvals. Title names the action ("Delete attachment?"), the confirm button repeats the verb ("Delete").</td></tr>
+  <tr><td>Sheet</td><td><span class="tag rebuild">rebuild</span></td><td>shadcn Sheet with <code>side</code> (<code>right</code> default, <code>left</code>, <code>top</code>, <code>bottom</code>); widths <code>w-full sm:max-w-[460px|540px|720px]</code> via the existing <code>size</code> prop; <code>SheetHeader</code>/<code>SheetFooter</code> as parts; body scrolls in a <code>ScrollArea</code></td><td>16 files. Keeps the current size API; the icon-badge header becomes optional.</td></tr>
+  <tr><td>Drawer (mobile)</td><td><span class="tag retire">skip</span></td><td>n/a</td><td>Admin UI is desktop-first; Sheet <code>side="bottom"</code> covers narrow viewports.</td></tr>
+  <tr><td>Bespoke overlays</td><td><span class="tag retire">retire</span></td><td>Move to Dialog / Sheet</td><td>11 files outside <code>ui/</code> with <code>fixed inset-0</code>: <code>NotificationsPanel</code>, <code>AgentEditPanel</code>, <code>AiPlaygroundPage</code>, <code>PlaygroundMessageBlock</code>, <code>BillerDetailDrawer</code>, <code>BillerImportWizard</code>, <code>AccountsSubTab</code>, <code>TransactionsSubTab</code>, <code>AutonumberingPage</code>, <code>SetupJourneyPage</code>, <code>TenantSetupWizardPage</code>. Each gains focus trap and Escape.</td></tr>
+  <tr><td>Popover</td><td><span class="tag restyle">restyle</span></td><td><code>w-72 rounded-md border bg-popover p-4 shadow-md</code>, layer <code>--z-popover</code></td><td>4 files plus every Combobox/DatePicker.</td></tr>
+  <tr><td>HoverCard</td><td><span class="tag restyle">restyle</span></td><td>Same shell as Popover, <code>w-64</code></td><td>1 file.</td></tr>
+  <tr><td>Tooltip</td><td><span class="tag restyle">restyle</span></td><td>Inverted: <code>bg-foreground text-background rounded-md px-3 py-1.5 text-xs</code> with arrow; single <code>TooltipProvider delayDuration={0}</code> at the app root</td><td>14 files. Light bordered tooltips become dark, the recognisable shadcn cue.</td></tr>
+  <tr><td>DropdownMenu</td><td><span class="tag new">new</span></td><td>shadcn DropdownMenu: content <code>min-w-[8rem] rounded-md border bg-popover p-1 shadow-md</code>; items <code>rounded-sm px-2 py-1.5 text-sm focus:bg-accent</code>, <code>variant="destructive"</code>, <code>inset</code>, shortcuts, checkbox/radio items, sub-menus</td><td>The dependency is installed but only 2 files use it raw. Standardises row actions, user menu, tenant switcher, "more" buttons.</td></tr>
+  <tr><td>ContextMenu</td><td><span class="tag retire">skip</span></td><td>n/a</td><td>Unless Dockview tab menus need it; revisit in P2.</td></tr>
+  <tr><td>Command palette</td><td><span class="tag new">new</span></td><td><code>CommandDialog</code> (cmdk) on <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>: navigate to any nav item, jump to an order or customer by ID, run common actions</td><td>Driven by the existing sidebar nav registry and module manifest (Spec 097), so disabled modules never appear.</td></tr>
+  <tr><td>Toast (Sonner)</td><td><span class="tag restyle">restyle</span></td><td>shadcn's Sonner wrapper: <code>toastOptions</code> classes from <code>--popover</code>, <code>--border</code>; drop <code>richColors</code>, show status by icon; <code>theme</code> follows <code>ThemeContext</code></td><td>62 files call <code>toast()</code>; no call-site changes. Toast text follows the action name ("Invoice sent", not "Success!").</td></tr>
+  <tr><td>PanelInfoPopover</td><td><span class="tag restyle">restyle</span></td><td>Popover + Alert callouts + Switch (voice mode) + Button; "Explain my data" as <code>outline sm</code></td><td>Largest bespoke popover; move its callout colours onto Alert variants.</td></tr>
+</table></div>
+
+<h3>7.5 Navigation</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Tabs</td><td><span class="tag rebuild">rebuild</span></td><td>Radix Tabs. Default: <code>TabsList</code> <code>h-9 rounded-lg bg-muted p-[3px]</code>, trigger <code>rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm</code>. Add <code>variant="line"</code> (underline, <code>border-b</code> list, active <code>after:bg-primary after:h-0.5</code>) for page-level section tabs such as Customer detail</td><td>9 files; API (<code>value</code>, <code>onValueChange</code>, <code>defaultValue</code>) is identical, so imports just swap. Gains arrow keys and <code>aria-controls</code>.</td></tr>
+  <tr><td>FilterBar</td><td><span class="tag merge">merge</span></td><td>Toolbar row, no card chrome: ToggleGroup (tabs with count Badges), <code>InputGroup</code> search with <code>SearchIcon</code>, "Filters" DropdownMenu with checkbox items, active filters as removable <code>outline</code> Badges</td><td>13 files. Counts stay mono; the active count stops turning coral.</td></tr>
+  <tr><td>Breadcrumb</td><td><span class="tag rebuild">rebuild</span></td><td>Compositional shadcn Breadcrumb (<code>BreadcrumbList</code>, <code>Item</code>, <code>Link asChild</code> for router links, <code>Page</code>, <code>Separator</code>, <code>Ellipsis</code> with DropdownMenu for deep paths)</td><td>Keep an <code>items=</code> convenience wrapper. Links use React Router, not <code>href</code> full reloads (current bug).</td></tr>
+  <tr><td>Pagination</td><td><span class="tag restyle">restyle</span></td><td>DataTable pagination: "Rows per page" Select <code>size="sm"</code>, "Page 3 of 12" text, icon buttons <code>outline size="icon-sm"</code> for first/prev/next/last</td><td>shadcn's data-table example layout.</td></tr>
+  <tr><td>Sidebar</td><td><span class="tag rebuild">rebuild</span></td><td>shadcn Sidebar block: <code>SidebarProvider</code>, <code>collapsible="icon"</code>, <code>SidebarHeader</code> (tenant switcher DropdownMenu), <code>SidebarGroup</code> + <code>SidebarGroupLabel</code> per nav section, <code>SidebarMenuButton</code> with <code>tooltip</code> when collapsed, <code>SidebarMenuSub</code> for nested items, <code>SidebarFooter</code> (user menu), <code>SidebarRail</code>, <kbd>Ctrl</kbd>+<kbd>B</kbd></td><td><code>Sidebar.tsx</code> is 1,219 lines plus <code>AonikSidebar</code> and <code>NavPopover</code>. The collapsed flyout (NavPopover) becomes HoverCard/DropdownMenu on the collapsed button. Nav data (<code>sidebarNav.ts</code>) and module gating are kept. Width tokens 16rem / 3rem.</td></tr>
+  <tr><td>Top bar / Header</td><td><span class="tag restyle">restyle</span></td><td><code>h-14 border-b bg-background</code>: <code>SidebarTrigger</code>, vertical Separator, Breadcrumb; right side search trigger (opens Command), notifications icon button with count Badge, theme toggle, AI panel toggle, user Avatar DropdownMenu</td><td><code>Header.tsx</code> (388) and <code>AonikTopBar</code> collapse into one.</td></tr>
+  <tr><td>Notifications panel</td><td><span class="tag rebuild">rebuild</span></td><td>Sheet <code>side="right" size="sm"</code> with Tabs (All/Unread), list items with Avatar, text, relative time, and unread state as a <code>bg-primary size-2</code> dot (state, not decoration)</td><td>335 lines; bespoke overlay today.</td></tr>
+</table></div>
+
+<h3>7.6 Data</h3>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>Action</th><th>Target</th><th>Notes and blast radius</th></tr>
+  <tr><td>Table</td><td><span class="tag new">new</span></td><td>shadcn Table primitives: container <code>relative w-full overflow-x-auto</code>; <code>TableHead h-10 px-2 font-medium text-foreground</code>; <code>TableRow hover:bg-muted/50 data-[state=selected]:bg-muted border-b</code>; <code>TableCell p-2</code>; <code>TableCaption</code>, <code>TableFooter bg-muted/50</code></td><td>~20 files with raw tables move onto it. Numeric columns get a <code>numeric</code> cell helper: <code>text-right font-mono tabular-nums</code>.</td></tr>
+  <tr><td>DataTable</td><td><span class="tag restyle">restyle</span></td><td>Rebuilt on <code>ui/table</code> + <code>ui/checkbox</code>, wrapped in a bordered <code>rounded-md</code> container (not a Card); header sort buttons are <code>ghost sm</code> with <code>ArrowUpDown</code>; column visibility DropdownMenu; Skeleton rows while loading; Empty for no rows; sticky header option</td><td>22 files; props API preserved. Consider TanStack Table as a follow-up only if column resizing/pinning is needed (out of scope here).</td></tr>
+  <tr><td>Row actions</td><td><span class="tag restyle">restyle</span></td><td><code>ghost size="icon-sm"</code> with <code>MoreHorizontal</code>, opens DropdownMenu; destructive item opens AlertDialog</td><td><code>data-table-row-actions.tsx</code>.</td></tr>
+  <tr><td>Grid view</td><td><span class="tag restyle">restyle</span></td><td>Card grid, <code>grid gap-4 sm:grid-cols-2 xl:grid-cols-3</code>, selection via Checkbox in <code>CardAction</code></td><td><code>data-table-grid-view.tsx</code>.</td></tr>
+  <tr><td>Description list</td><td><span class="tag new">new</span></td><td><code>ui/description-list</code>: <code>dl grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3</code>, <code>dt text-muted-foreground</code>, <code>dd</code> with mono values for IDs/amounts and a copy button</td><td>Detail pages (order, payment, invoice, customer) all hand-roll this.</td></tr>
+  <tr><td>Scroll area</td><td><span class="tag new">new</span></td><td>Radix ScrollArea</td><td>Replaces <code>.visible-scrollbar</code> and the dark-mode <code>*</code> scrollbar rules in panels, sheets, the chat list.</td></tr>
+</table></div>
+
+<h3>7.7 Composites and domain surfaces</h3>
+<div class="table-wrap"><table>
+  <tr><th>Surface</th><th>Action</th><th>Target</th></tr>
+  <tr><td>PageHeader</td><td><span class="tag restyle">restyle</span></td><td>Breadcrumb (optional), H1 DM Sans 600 24px, description <code>text-muted-foreground</code>, actions right. <code>eyebrow</code> prop kept but ignored and flagged deprecated (27 files).</td></tr>
+  <tr><td>ProposalCard</td><td><span class="tag restyle">restyle</span></td><td>Card with <code>border-l-2 border-l-agent</code>, header Avatar + agent name + confidence Badge (mono), diff block in <code>bg-muted rounded-md font-mono text-xs</code> with <code>+</code>/<code>-</code> lines in success/destructive <code>-foreground</code>, footer Apply (<code>agent</code>), Review (<code>outline</code>), Dismiss (<code>ghost</code>).</td></tr>
+  <tr><td>Chat / ai-elements</td><td><span class="tag restyle">restyle</span></td><td>User bubbles <code>bg-primary/10 rounded-lg</code>, agent messages unboxed on <code>bg-background</code> (shadcn/ai-elements style), composer is an <code>InputGroup</code> with block-end addon holding model Select and send <code>icon</code> Button. Retire <code>.chat-*</code> scoping classes; keep the text shimmer for streaming.</td></tr>
+  <tr><td>Tool-call trace</td><td><span class="tag restyle">restyle</span></td><td>Numbered steps stay numbered (it is a sequence). Collapsible per step, status icon (spinner / <code>CheckIcon</code> success / <code>XIcon</code> destructive), args and results in <code>ScrollArea</code> + mono.</td></tr>
+  <tr><td>Dockview workspace</td><td><span class="tag restyle">restyle</span></td><td>Theme via CSS variables: tab bar <code>bg-muted</code>, active tab <code>bg-background</code> with <code>border-b-primary</code>, separators <code>--border</code>, drop target <code>primary/10</code>. Layer below overlays (<a href="#d8">D8</a>).</td></tr>
+  <tr><td>Setup wizards and journey</td><td><span class="tag restyle">restyle</span></td><td>Stepper built from a numbered list (a real sequence) with Progress, RadioGroup choice cards, Field forms, sticky footer with Back (<code>outline</code>) / Continue (<code>default</code>).</td></tr>
+  <tr><td>Login, org picker, loading screens</td><td><span class="tag restyle">restyle</span></td><td>shadcn login-01 layout: centred Card <code>max-w-sm</code>, Infra wordmark as the one brand moment; LoadingScreen becomes the mark plus Spinner, no full-screen animation.</td></tr>
+  <tr><td>Legacy CSS (<code>.theme-*</code>, <code>.hover-halo</code>, <code>.hoverBorder</code>, <code>.shine-effect</code>, <code>.input-focused</code>, <code>.zoom-responsive</code>, <code>.eyebrow</code>)</td><td><span class="tag retire">retire</span></td><td>Deleted in P4 once grep shows zero references.</td></tr>
+</table></div>
+
+<h2 id="shell">8. App shell and page layout</h2>
+<div class="ascii-diagram">┌──────────────┬───────────────────────────────────────────────────────────┬────────────┐
+│ SidebarHeader│ [≡] │ Finance / Orders / ORD-10442           [⌘K] [🔔] [◐] [👤]│            │
+│ tenant ▾     ├───────────────────────────────────────────────────────────┤  AI panel  │
+│──────────────│  Orders                                    [Export][+ New]│  (Sheet-   │
+│ Transact     │  Every requested transaction and where it is now.         │   like     │
+│  Orders   ●  │                                                           │   rail,    │
+│  Customers   │  [All 1,204][Open 38][Settled][Failed]  [🔍 Search…] [Filters]│ resizable) │
+│ Finance      │  ┌───────────────────────────────────────────────────────┐│            │
+│  Ledger      │  │ ☐  Order        Customer      Status      Amount     ⋯││            │
+│  Payments    │  │ ☐  ORD-10442    A. Okafor     Settled   £1,250.00   ⋯││            │
+│ AI           │  │ ☐  ORD-10441    B. Mensah     Pending     £310.00   ⋯││            │
+│  Agents      │  └───────────────────────────────────────────────────────┘│            │
+│──────────────│  Rows per page [25▾]            Page 1 of 49  [«][‹][›][»]│            │
+│ user ▾       │                                                           │            │
+└──────────────┴───────────────────────────────────────────────────────────┴────────────┘</div>
+<ul>
+  <li>Content is left-aligned in a <code>max-w-screen-2xl</code> container with <code>px-6 py-6</code> and <code>gap-6</code> between blocks. Forms cap at <code>max-w-2xl</code> for line length.</li>
+  <li>The page background is white; grouping comes from borders and whitespace, not grey canvases with floating white cards. Cards are used where content is a discrete object (a KPI, a summary, a form section), not to wrap every block.</li>
+  <li>KPI rows keep the four-up grid on dashboards, collapsing to two then one.</li>
+  <li>At under 768px the sidebar becomes an off-canvas Sheet (built into shadcn Sidebar) and the AI panel becomes a full-height Sheet.</li>
+</ul>
+
+<h2 id="strategy">9. Migration strategy</h2>
+<ol>
+  <li><strong>Tokens before components.</strong> P0 changes how every existing class resolves (via aliases) without touching call sites, so the whole app shifts to the new neutrals, radius and focus in one reviewable PR.</li>
+  <li><strong>Primitives keep their public API.</strong> Where a primitive is rebuilt (Tabs, Switch, Sheet, Breadcrumb, InputGroup), the existing props keep working; new capability is additive. Call-site churn is concentrated in P3.</li>
+  <li><strong>Registry first, brand second.</strong> Pull via <code>npx shadcn@latest add</code>, commit the untouched file, then commit brand deltas separately so <code>shadcn diff</code> stays meaningful.</li>
+  <li><strong>Module-by-module page sweep.</strong> P3 PRs are cut by module folder (<code>pages/orders</code>, <code>pages/ledger</code>, …) so parallel sessions don't collide. Check <code>gh pr list</code> for overlapping UI PRs before opening one.</li>
+  <li><strong>Aliases die last.</strong> P4 deletes the <code>--color-*</code> alias block and legacy CSS classes only after the guardrail grep reports zero references.</li>
+</ol>
+
+<h2 id="phasing">10. Phasing and tasks</h2>
+<div class="table-wrap"><table>
+  <tr><th>Phase</th><th>Scope</th><th>Exit criterion</th></tr>
+  <tr><td>P0 Foundations</td><td>
+    <code>components.json</code>; install <code>tw-animate-css</code>, <code>@radix-ui/react-{label,tabs,switch,radio-group,toggle,toggle-group,separator,scroll-area,progress,accordion,alert-dialog}</code>, <code>cmdk</code>; rewrite <code>index.css</code> tokens (§6.2) with the alias block (§6.4); <code>@custom-variant dark</code> bound to <code>data-theme</code>; z-index layers; single <code>TooltipProvider</code>; contrast check script; update <code>.claude/skills/aonik-design</code> (focus rule, card radius, eyebrow, coral variant name) so future agents don't reintroduce the old rules.
+  </td><td>App renders in both themes; overlays animate; contrast report green. <strong>Done (Rev 2)</strong>, see §10.1.</td></tr>
+  <tr><td>P1 Core primitives</td><td>Button, Input, Textarea, Label, Field, Select, NativeSelect, Checkbox, RadioGroup, Switch, InputGroup, Badge, Card, Separator, Skeleton, Spinner, Tabs, Tooltip, Popover, HoverCard, Dialog, AlertDialog, Sheet, DropdownMenu, Sonner. Kitchen-sink route <code>/dev/ui</code> (dev builds only) showing every variant and state.</td><td>Kitchen sink matches shadcn docs side by side; axe clean; vitest for Switch/Tabs controlled and uncontrolled behaviour.</td></tr>
+  <tr><td>P2 Composites and shell</td><td>Sidebar block, Header, Breadcrumb, Command palette, Notifications Sheet, Table + DataTable, Pagination, FilterBar, PageHeader, KPI tile, Alert, Empty, Progress, Accordion, ScrollArea, Combobox (+ CountrySelect), Chart wrapper, ProposalCard, chat composer, Dockview theme. aonik kit components become wrappers.</td><td>Shell and all list pages render on the new composites; <code>layout/aonik</code> exports are wrappers only.</td></tr>
+  <tr><td>P3 Page sweep</td><td>Per module: Pill to Badge, raw tables to Table, native checkboxes/radios/selects, <code>window.confirm</code> to AlertDialog, bespoke overlays to Dialog/Sheet, coral <code>secondary</code> triage, hex and raw palette classes to tokens, page radii to the scale, mono tabular on figures, copy pass on buttons, empty states and toasts.</td><td>Guardrail counts reach zero per module folder.</td></tr>
+  <tr><td>P4 Cleanup</td><td>Delete alias block, legacy CSS classes, <code>.card</code> utility, <code>layout/aonik</code> wrappers (or keep <code>PageHeader</code>/<code>ProposalCard</code> as genuine compositions), old keyframes; flip guardrails from warn to error.</td><td><code>index.css</code> under ~250 lines; guardrails enforced in CI.</td></tr>
+</table></div>
+
+<h3>10.1 P0 as implemented</h3>
+<ul>
+  <li><code>components.json</code> (new-york, CSS variables, lucide) and <code>tw-animate-css</code>, <code>cmdk</code> and the eleven Radix packages installed.</li>
+  <li><code>index.css</code>: shadcn raw tokens on <code>:root</code> / <code>[data-theme="dark"]</code>, exposed through <code>@theme inline</code>; radius scale from <code>--radius</code>; <code>--shadow-xs</code> and a ring-based <code>--shadow-focus</code>; layer tokens; the legacy <code>--color-*</code> names re-pointed at the new tokens (§6.4) with the dark-mode gray inversion kept as a marked shim until D9 lands in P3.</li>
+  <li><code>@custom-variant dark</code> bound to <code>data-theme</code>. Previously the 117 <code>dark:</code> classes followed the OS preference, not the app toggle, so they were wrong whenever the two disagreed.</li>
+  <li>Base layer: unset borders take <code>--border</code> (Tailwind v4 defaults to <code>currentColor</code>); body uses <code>--background</code>/<code>--foreground</code>.</li>
+  <li>Page canvas is white (O3). <code>--color-background</code> keeps its shadcn meaning, so its 47 uses as a grey fill or hover moved to <code>bg-muted</code> / <code>hover:bg-accent</code>, and 9 page containers to <code>bg-background</code>.</li>
+  <li>Overlay primitives (Dialog, Sheet, Popover, Select, HoverCard, Tooltip) use the layer tokens; Dialog drops the v3 slide classes that would now animate a sideways jump; a single app-root <code>TooltipProvider</code>.</li>
+  <li>Local collapsible keyframes removed in favour of tw-animate-css. <code>.aonik-input</code>/<code>.aonik-select</code> restyled to the shadcn shape with the ring focus (retired in P4).</li>
+  <li><code>npm run check:contrast</code> (<code>scripts/check-contrast.mjs</code>) checks 35 pairs per theme and passes.</li>
+  <li><code>.claude/skills/aonik-design</code> SKILL and README updated: shadcn tokens, ring focus, <code>agent</code> variant, radius scale, no eyebrow, dark-mode text rule.</li>
+</ul>
+<div class="callout"><strong>Known gap.</strong> White text on the brand coral is 3.4:1: fine for large or bold text and non-text, short of 4.5:1 for 14px labels. The Apply button should use 600 weight, or coral text on a coral tint; decide in P1 when the <code>agent</code> variant lands.</div>
+
+<h2 id="guardrails">11. Guardrails</h2>
+<ul>
+  <li>An ESLint rule (<code>no-restricted-syntax</code> on JSX attribute strings) or a small script in <code>npm run lint</code> that fails on: hex literals in <code>className</code>/<code>style</code>; <code>(bg|text|border|ring)-(gray|slate|zinc|red|green|blue|amber|emerald|yellow)-\d+</code>; <code>rounded-\[</code> and <code>rounded-none</code>; <code>window.confirm</code>; raw <code>&lt;select&gt;</code>, <code>&lt;table&gt;</code>, <code>type="checkbox"</code> outside <code>components/ui</code>; <code>z-\[</code>.</li>
+  <li>Warn-only from P1 with a per-folder baseline; error once each folder is swept.</li>
+  <li>A <code>components/ui/README.md</code> naming which primitive to use for which job (Dialog vs Sheet vs AlertDialog; Select vs Combobox vs NativeSelect; Card vs bordered section).</li>
+</ul>
+
+<h2 id="testing">12. Verification</h2>
+<ul>
+  <li><strong>Kitchen sink</strong> at <code>/dev/ui</code>: every primitive, every variant, disabled, invalid, loading, both themes, plus a narrow-viewport pass at 375px.</li>
+  <li><strong>Screenshots per phase</strong> of a fixed page set (Dashboard, Orders list, Order detail, Customer detail, Ledger, AI Playground, Settings, Setup wizard, Login) in light and dark, via the AppHost-launched Admin UI (not bare Vite).</li>
+  <li><strong>Accessibility:</strong> axe-core on the kitchen sink and the page set; keyboard walk of Tabs, Menus, Combobox, Dialog focus return, Sidebar collapse; visible focus on every control.</li>
+  <li><strong>Unit tests</strong> (vitest) for rebuilt primitives that keep a compatibility API (Switch, Tabs, Breadcrumb <code>items</code>, InputGroup <code>icon</code>, Sheet <code>size</code>) and for the StatusBadge map.</li>
+  <li><code>npm run build</code> and <code>npm run lint</code> green on every PR.</li>
+</ul>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<ol>
+  <li>Every control in §7 is implemented to its target, or explicitly deferred in §15 with a reason.</li>
+  <li><code>components/ui</code> is the only primitive layer; <code>components.json</code> exists and <code>npx shadcn diff</code> reports only intentional brand deltas.</li>
+  <li>Guardrail counts in §2 are zero and enforced in CI.</li>
+  <li>All text pairs meet WCAG AA (4.5:1) and all focus indicators and filled controls meet 3:1, in both themes.</li>
+  <li>Every Radix overlay animates in and out, and none animate under <code>prefers-reduced-motion</code>.</li>
+  <li>No page uses <code>window.confirm</code>; every destructive action goes through AlertDialog with a verb-named confirm button.</li>
+  <li>Money amounts and IDs in tables are right-aligned, mono and tabular across all modules.</li>
+  <li>The aonik-design skill reflects the new rules.</li>
+</ol>
+
+<h2 id="out-of-scope">14. Out of scope</h2>
+<ul>
+  <li><code>apps/Payabo</code>, the Simi mobile app and the AbbysTable storefront: separate products with their own design systems.</li>
+  <li>TanStack Table migration, column resizing and pinning.</li>
+  <li>New screens, IA changes or navigation restructuring beyond what the Sidebar block requires.</li>
+  <li>Spec 032's medium-approval card behaviour (transport, <code>DecideAsync</code> wiring): this spec only supplies the AlertDialog/Card presentation it will use.</li>
+  <li>Brand identity changes (logo, teal hue, typefaces).</li>
+</ul>
+
+<h2 id="open">15. Decisions resolved (Rev 2)</h2>
+<div class="callout ok"><strong>O1 Focus style: shadcn ring.</strong> Replaces the bottom-bar focus; the aonik-design skill is updated.</div>
+<div class="callout ok"><strong>O2 Date picker: adopt</strong> <code>react-day-picker</code> + <code>date-fns</code> for the Calendar, installed in P2 with the Popover-based DatePicker.</div>
+<div class="callout ok"><strong>O3 Page background: white</strong>, with the grey on the sidebar rail and muted fills. Landed in P0.</div>
+<div class="callout ok"><strong>O4 Tooltip polarity: inverted</strong> (<code>bg-foreground text-background</code>), landing with the Tooltip restyle in P1.</div>
+<div class="callout ok"><strong>O5 AI parameter sliders: not now.</strong> Number inputs stay.</div>
+
+<footer>
+  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 2 (decisions resolved, P0 implemented) · 2026-09-25.
+  Audit taken on master at <code>6c6c3f79</code>. Related: <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> (approval presentation),
+  <a href="097.per-tenant-module-enablement.html">Spec 097</a> (module-gated nav feeding the Sidebar and Command palette).
+</footer>
+</body>
+</html>

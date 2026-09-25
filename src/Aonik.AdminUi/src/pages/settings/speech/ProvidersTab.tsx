@@ -202,7 +202,7 @@ export function ProvidersTab() {
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
                       active
-                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
+                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
                         : 'border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]',
                     )}
                   >

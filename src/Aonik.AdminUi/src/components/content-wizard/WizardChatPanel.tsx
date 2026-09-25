@@ -32,7 +32,7 @@ export function WizardChatPanel({ chat }: WizardChatPanelProps) {
   return (
     <div className="flex flex-col h-full border-l border-[var(--color-border-light)] bg-[var(--color-surface)]">
       {/* Header */}
-      <div className="h-[50px] px-4 bg-[var(--color-brand-primary)] text-white flex items-center shrink-0">
+      <div className="h-[50px] px-4 bg-[var(--color-brand-primary)] text-primary-foreground flex items-center shrink-0">
         <div className="flex items-center gap-2 font-semibold">
           <div className="h-7 w-7 rounded-[2px] bg-white/15 grid place-items-center">
             <span className="text-xs font-bold">A</span>

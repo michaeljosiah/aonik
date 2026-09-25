@@ -51,7 +51,7 @@ export function AiAgentSelector({ agents, selectedAgentId, onSelectAgent }: AiAg
             .filter((a) => a.group === 'personal')
             .map((a) => (
               <DropdownMenu.Item key={a.id} onSelect={() => onSelectAgent(a.id)} className="outline-none">
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--color-background)]">
+                <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent">
                   <div className="h-8 w-8 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
                     <span className="text-xs font-semibold text-[var(--color-text-primary)]">{renderIcon(a.icon)}</span>
                   </div>
@@ -73,7 +73,7 @@ export function AiAgentSelector({ agents, selectedAgentId, onSelectAgent }: AiAg
             .filter((a) => a.group === 'agents')
             .map((a) => (
               <DropdownMenu.Item key={a.id} onSelect={() => onSelectAgent(a.id)} className="outline-none">
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--color-background)]">
+                <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent">
                   <div className="h-8 w-8 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
                     <span className="text-xs font-semibold text-[var(--color-text-primary)]">{renderIcon(a.icon)}</span>
                   </div>
@@ -91,7 +91,7 @@ export function AiAgentSelector({ agents, selectedAgentId, onSelectAgent }: AiAg
           <div className="p-3">
             <button
               type="button"
-              className="w-full h-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
+              className="w-full h-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text-primary)] hover:bg-accent"
             >
               Manage agents
             </button>

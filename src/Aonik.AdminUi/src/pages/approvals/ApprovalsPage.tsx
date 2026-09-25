@@ -367,7 +367,7 @@ function RailButton({
         className={
           'min-w-[20px] rounded px-1.5 py-0.5 text-center font-[family-name:var(--font-mono)] text-[10px] ' +
           (active
-            ? 'bg-[var(--color-brand-primary)] text-white'
+            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
             : 'bg-[var(--color-surface)] text-[var(--color-text-tertiary)]')
         }
       >

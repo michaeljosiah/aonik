@@ -72,7 +72,7 @@ export function PlaygroundChatPanel({
             <div
               className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm ${
                 msg.role === 'user'
-                  ? 'bg-[var(--color-brand-primary)] text-white'
+                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                   : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)]'
               }`}
             >

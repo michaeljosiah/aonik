@@ -19,7 +19,7 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-5 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
+        className="flex w-full items-center justify-between px-5 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-accent"
       >
         <div className="flex items-center gap-1.5">
           {expanded ? (
@@ -63,7 +63,7 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
               {runs.map((run) => (
                 <tr
                   key={run.id}
-                  className="cursor-pointer border-b border-[var(--color-border-light)] last:border-b-0 hover:bg-[var(--color-background)]"
+                  className="cursor-pointer border-b border-[var(--color-border-light)] last:border-b-0 hover:bg-accent"
                   onClick={() => onSelect?.(run)}
                 >
                   <td className="whitespace-nowrap px-5 py-1.5 text-[var(--color-text-tertiary)]">

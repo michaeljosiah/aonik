@@ -311,7 +311,7 @@ export function PlaygroundMessageBlock({
 
       {/* ── Fullscreen overlay ── */}
       {fullscreen && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-[var(--color-background)]">
+        <div className="fixed inset-0 z-[200] flex flex-col bg-background">
           {/* Toolbar */}
           <div className="flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-6 py-3">
             <div className="flex items-center gap-3">

@@ -133,7 +133,7 @@ export function ScenarioPicker({
                   key={scenario.id}
                   role="button"
                   tabIndex={0}
-                  className="flex w-full cursor-pointer items-start gap-2 border-b border-[var(--color-border-light)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--color-background)]"
+                  className="flex w-full cursor-pointer items-start gap-2 border-b border-[var(--color-border-light)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-accent"
                   onClick={() => !loadingId && handleSelectScenario(scenario.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSelectScenario(scenario.id); }}
                 >

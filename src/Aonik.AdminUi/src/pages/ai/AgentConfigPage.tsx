@@ -258,7 +258,7 @@ export function AgentConfigPage() {
                   className={cn(
                     'inline-flex items-center gap-1.5 px-3 text-[11.5px] transition-colors',
                     active
-                      ? 'bg-[var(--color-brand-primary)] font-semibold text-white'
+                      ? 'bg-[var(--color-brand-primary)] font-semibold text-primary-foreground'
                       : 'bg-transparent font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                   )}
                 >

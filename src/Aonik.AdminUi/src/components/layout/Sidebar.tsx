@@ -845,7 +845,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
         {/* Avatar - positioned to overlap the top of the card (40% above, 60% below) */}
         <Avatar 
           className={cn(
-            "absolute left-4 cursor-pointer border-4 border-[var(--color-background)] z-10",
+            "absolute left-4 cursor-pointer border-4 border-sidebar z-10",
             isExpanded ? "w-16 h-16 -top-6" : "w-16 h-16 -top-6"
           )}
           onClick={() => setIsExpanded(!isExpanded)}
@@ -890,7 +890,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   </Badge>
                 )}
                  <button 
-                   className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                   className="p-1.5 rounded-md hover:bg-accent text-[var(--color-text-tertiary)]"
                    onClick={() => setIsExpanded(true)}
                  >
                    <Settings2 className="w-5 h-5" />
@@ -923,7 +923,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 </Badge>
               )}
                <button 
-                 className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                 className="p-1.5 rounded-md hover:bg-accent text-[var(--color-text-tertiary)]"
                  onClick={() => setIsExpanded(false)}
                >
                  <X className="w-5 h-5" />
@@ -950,7 +950,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
               {menuItems.map((item) => (
                 <button
                   key={item.label}
-                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-[4px] text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-[4px] text-sm text-[var(--color-text-primary)] hover:bg-accent transition-colors"
                   onClick={() => {
                     if (item.href) {
                       window.location.href = item.href;
@@ -966,7 +966,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
             {/* Theme switcher */}
             <div className="py-3 border-t border-[var(--color-border-light)]">
               <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">Theme</p>
-              <div className="flex bg-[var(--color-background)] rounded-md p-1">
+              <div className="flex bg-muted rounded-md p-1">
                 <button
                   onClick={() => setTheme('light')}
                   className={cn(
@@ -996,7 +996,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'system' 
-                      ? "bg-[var(--color-brand-primary)] text-white" 
+                      ? "bg-[var(--color-brand-primary)] text-primary-foreground" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                   )}
                 >
@@ -1010,7 +1010,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
             <div className="pt-3 border-t border-[var(--color-border-light)]">
               <button 
                 onClick={onLogout}
-                className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-accent transition-colors"
               >
                 <LogOut className="w-5 h-5 text-[var(--color-text-secondary)]" />
                 Log out

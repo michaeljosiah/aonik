@@ -3,7 +3,7 @@
 A ground-truth design system for **Aonik**, an AI-native finance + operations platform. Agents live inline on every surface — proposing, explaining, and applying changes under human oversight. The canonical phrase: **"Agents propose. Systems apply."**
 
 The system is split into two skins:
-- **In-product** (this system, `tokens.css`) — teal primary, coral secondary, charcoal dark mode. Used for Admin UI, dashboards, ledger, agent tools.
+- **In-product** (this system) — shadcn/ui on Radix with Aonik tokens: teal primary, coral reserved for agent-apply, charcoal dark mode. In the Admin UI the source of truth is `src/Aonik.AdminUi/src/index.css`; `tokens.css` here serves design canvases. Used for Admin UI, dashboards, ledger, agent tools.
 - **Marketing** — indigo / violet skin used only on the marketing site. Not covered here.
 
 ---
@@ -30,10 +30,10 @@ Load once at the root of any surface:
 | Primary | `--brand-primary` | `#055a60` | CTAs, links, focus states, agent primary theme |
 | Secondary | `--brand-secondary` | `#eb5c37` | Agent-apply actions, pending pills, the left rail on proposal cards |
 | Favicon dot | `--brand-mark-dot` | `#e8a838` | Logo glyph only — never a utility color |
-| Success | `--success` | `#4caf50` | Paid, settled, passing checks |
-| Warning | `--warning` | `#ebc334` | Validation, policy band drift |
-| Danger | `--danger` | `#cc2e2e` | Overdue, failed posts |
-| Pending | `--pending` | `#eb5c37` | Awaiting human apply (same coral as secondary) |
+| Success | `--success` | `#2e7d32` | Paid, settled, passing checks |
+| Warning | `--warning` | `#a16207` | Validation, policy band drift, pending states |
+| Destructive | `--destructive` | `#c62828` | Overdue, failed posts, destructive actions |
+| Pending | `--warning` | `#a16207` | Pending is a status, so it uses warning amber; coral stays agent-only |
 
 Accent theme colors for scoping agent conversations: `--accent-violet`, `--accent-patrol`, `--accent-jade`, `--accent-team`, `--accent-ent`. Apply with `.chat-primary`, `.chat-team`, etc.
 
@@ -53,12 +53,12 @@ Numerical data is always tabular-nums mono. Never style amounts with sans.
 
 Primitives ship as CSS classes in `tokens.css`; composed components ship as JSX in `ui_kits/aonik-admin/`.
 
-- **Buttons** — `.btn-primary` (teal) for everything neutral-destination. `.btn-secondary` (coral) is **reserved** for "Apply proposal" — do not use it as a general CTA.
-- **Inputs** — signature bottom-bar focus (`box-shadow: 0 4px 0 -2px var(--brand-primary-60)`). Do not replace with a ring.
+- **Buttons** — shadcn variants: `default` (teal), `secondary` (neutral), `outline`, `ghost`, `link`, `destructive`, plus `agent` (coral), which is **reserved** for "Apply proposal".
+- **Inputs** — shadcn Input (`h-9 rounded-md border-input shadow-xs`) with the shared 3px ring focus. The bottom-bar focus is retired (Spec 098 D3).
 - **Pills** — `pill`, `pill-tint`, `pill-success`, `pill-warning`, `pill-danger`, `pill-pending`.
 - **Hover halo** — the micro-interaction behind every icon button. `.hover-halo` → 28×28 circle, tints on hover with a tinted halo ring.
-- **Radius** — default card is 4–8px; 12px for large cards; never above 16px except pill.
-- **Shadow** — `--shadow-sm` at rest, `--shadow-md` on hover/popover, `--shadow-lg` for modals. `--shadow-focus` for focus rings.
+- **Radius** — one scale from `--radius: 0.625rem`: controls 8px (`rounded-md`), cards 14px (`rounded-xl`), dialogs 10px (`rounded-lg`), pills/avatars full.
+- **Shadow** — `shadow-xs` on controls and cards, `shadow-md` on popovers/menus, `shadow-lg` on dialogs/sheets. `--shadow-focus` is the 3px ring.
 
 ---
 

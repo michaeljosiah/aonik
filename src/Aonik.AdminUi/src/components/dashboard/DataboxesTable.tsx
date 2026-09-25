@@ -46,7 +46,7 @@ export function DataboxesTable({ databoxes }: DataboxesTableProps) {
           {databoxes.map((databox) => (
             <div
               key={databox.id}
-              className="flex items-center justify-between px-3 py-3 hover:bg-[var(--color-background)] cursor-pointer transition-colors"
+              className="flex items-center justify-between px-3 py-3 hover:bg-accent cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-background)_65%,transparent)]">

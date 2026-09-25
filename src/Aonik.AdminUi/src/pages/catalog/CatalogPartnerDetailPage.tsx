@@ -346,7 +346,7 @@ export function CatalogPartnerDetailPage() {
   const branchCount = partner.branchCount ?? branches.length;
   const linkedBillerCount = partner.linkedBillerCount ?? linkedBillers.length;
   return (
-    <div className="h-full overflow-auto bg-[var(--color-background)]">
+    <div className="h-full overflow-auto bg-background">
       <div className="flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Partner Details</h1>

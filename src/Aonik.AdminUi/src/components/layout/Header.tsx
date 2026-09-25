@@ -176,7 +176,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
                     type="button"
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors whitespace-nowrap ${
                       isActive
-                        ? 'bg-[var(--color-brand-primary)] text-white border-[var(--color-brand-primary)]'
+                        ? 'bg-[var(--color-brand-primary)] text-primary-foreground border-[var(--color-brand-primary)]'
                         : 'bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:text-[var(--color-text-primary)]'
                     }`}
                     onClick={() => {

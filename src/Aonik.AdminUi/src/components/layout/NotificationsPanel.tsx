@@ -135,7 +135,7 @@ export function NotificationsPanel({
         aria-label="Notifications"
         className="fixed right-0 top-0 h-full w-[420px] max-w-[94vw] bg-[var(--color-surface)] border-l border-[var(--color-border-light)] shadow-xl flex flex-col"
       >
-        <div className="h-14 px-4 bg-[var(--color-brand-primary)] text-white flex items-center justify-between">
+        <div className="h-14 px-4 bg-[var(--color-brand-primary)] text-primary-foreground flex items-center justify-between">
           <div className="flex items-center gap-2 font-semibold">
             <Bell className="w-4 h-4" />
             Notifications

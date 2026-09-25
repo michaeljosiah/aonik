@@ -59,7 +59,7 @@ export function ContentWizardPage() {
                   disabled={i > stepIndex}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     i === stepIndex
-                      ? 'bg-[var(--color-brand-primary)] text-white'
+                      ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                       : i < stepIndex
                         ? 'bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/25'
                         : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'

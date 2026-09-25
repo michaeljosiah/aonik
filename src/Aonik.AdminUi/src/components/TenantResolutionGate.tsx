@@ -103,7 +103,7 @@ function GateMessage({
             className="px-4 py-2 rounded-md text-sm font-medium transition-opacity"
             style={{
               background: 'var(--color-brand-primary)',
-              color: 'white',
+              color: 'var(--primary-foreground)',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}

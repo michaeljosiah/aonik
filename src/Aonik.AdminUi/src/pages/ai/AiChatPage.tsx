@@ -209,7 +209,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
 
         <div className="flex-1 p-4">
           <button
-            className="flex h-10 w-full items-center gap-2 rounded-[2px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--color-background)]"
+            className="flex h-10 w-full items-center gap-2 rounded-[2px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-accent"
             type="button"
             onClick={handleNewChat}
           >
@@ -304,7 +304,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                />
             ) : (
               <div className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--color-text-primary)]">
-                <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-white">
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-primary-foreground">
                   <span className="text-xs font-semibold">A</span>
                 </div>
                 <span className="max-w-[270px] truncate font-medium">{agentLabel}</span>

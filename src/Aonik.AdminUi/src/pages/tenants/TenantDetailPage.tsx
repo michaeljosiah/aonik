@@ -577,8 +577,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleSupportedCountry(country.code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.supportedCountries?.includes(country.code)
-                                  ? 'bg-[var(--color-brand-primary)] text-white'
-                                  : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                               }`}
                             >
                               {formatTenantCountryLabel(country.code)}
@@ -618,8 +618,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleScopedCountry('allowedOriginCountries', code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.allowedOriginCountries?.includes(code)
-                                  ? 'bg-[var(--color-brand-primary)] text-white'
-                                  : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                               }`}
                             >
                               {formatTenantCountryLabel(code)}
@@ -662,8 +662,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleScopedCountry('allowedDestinationCountries', code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.allowedDestinationCountries?.includes(code)
-                                  ? 'bg-[var(--color-brand-primary)] text-white'
-                                  : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
+                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                               }`}
                             >
                               {formatTenantCountryLabel(code)}

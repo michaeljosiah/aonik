@@ -70,6 +70,7 @@ function TitleBarColorSync() {
 // BrowserRouter's pathname matching never lines up with the app routes.
 const Router = isElectron ? HashRouter : BrowserRouter;
 import { Toaster } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AiChatPanel, LoadingScreen } from '@/components/layout';
 import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';
 import { AonikTopBar } from '@/components/layout/aonik/AonikTopBar';
@@ -254,7 +255,7 @@ function AppLayout() {
   }, [isAiChat, navigate]);
 
   return (
-    <div className="flex min-h-screen bg-[var(--color-background)]">
+    <div className="flex min-h-screen bg-background">
       <AonikSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -378,7 +379,7 @@ function AiChatRoute({
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center min-h-screen w-screen overflow-auto bg-[var(--color-background)] px-6">
+    <div className="flex items-center justify-center min-h-screen w-screen overflow-auto bg-background px-6">
       <div className="max-w-[32rem] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Setup Status Unavailable</p>
         <h1 className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">We could not determine first-run status</h1>
@@ -387,7 +388,7 @@ function BootstrapStatusUnavailablePage({ message }: { message: string }) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="rounded-md bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             Retry
           </button>
@@ -570,18 +571,20 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          {/* Electron-only: a transparent drag strip pinned to the top of the
-              window. Required because `titleBarStyle: 'hidden'` removes the
-              OS title bar; without -webkit-app-region:drag on this strip
-              the user cannot move the window. Sits above all content via
-              z-index, the native min/max/close buttons (WCO) overlay it on
-              the right. No-op in the web build. */}
-          {isElectron && <div className="app-titlebar" aria-hidden="true" />}
-          <TitleBarColorSync />
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-            <AuthenticatedApp />
-            <Toaster richColors position="top-right" />
-          </div>
+          <TooltipProvider delayDuration={200}>
+            {/* Electron-only: a transparent drag strip pinned to the top of the
+                window. Required because `titleBarStyle: 'hidden'` removes the
+                OS title bar; without -webkit-app-region:drag on this strip
+                the user cannot move the window. Sits above all content via
+                z-index, the native min/max/close buttons (WCO) overlay it on
+                the right. No-op in the web build. */}
+            {isElectron && <div className="app-titlebar" aria-hidden="true" />}
+            <TitleBarColorSync />
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <AuthenticatedApp />
+              <Toaster richColors position="top-right" />
+            </div>
+          </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

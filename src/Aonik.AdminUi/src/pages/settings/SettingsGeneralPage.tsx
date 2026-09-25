@@ -294,7 +294,7 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleSupportedCountry(country.code)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.supportedCountries.includes(country.code)
-                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                             : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                         }`}
                       >
@@ -314,7 +314,7 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleScopedCountry('allowedOriginCountries', countryCode)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.allowedOriginCountries.includes(countryCode)
-                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                             : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                         }`}
                       >
@@ -334,7 +334,7 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleScopedCountry('allowedDestinationCountries', countryCode)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.allowedDestinationCountries.includes(countryCode)
-                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
                             : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                         }`}
                       >

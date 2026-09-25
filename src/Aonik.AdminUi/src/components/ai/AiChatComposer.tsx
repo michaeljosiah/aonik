@@ -124,7 +124,7 @@ export function AiChatComposer({
                 'h-9 w-9 rounded-full grid place-items-center transition-colors',
                 voiceModeAvailable
                   ? voiceModeEnabled
-                    ? 'bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-primary-dark)]'
+                    ? 'bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)]'
                     : 'text-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)]'
                   : 'text-[var(--color-gray-300)] cursor-not-allowed'
               )}
@@ -139,7 +139,7 @@ export function AiChatComposer({
             {/* Send / Stop — Centrali: rounded-[0.7rem], p-[0.5rem], theme-bg, white icon */}
             {isStreaming ? (
               <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-primary-dark)] transition-colors"
+                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)] transition-colors"
                 title="Stop"
                 type="button"
                 onClick={onStop}
@@ -148,7 +148,7 @@ export function AiChatComposer({
               </button>
             ) : hasText ? (
               <button
-                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-primary-dark)] transition-colors"
+                className="h-10 w-10 rounded-[0.7rem] grid place-items-center bg-[var(--color-brand-primary)] text-primary-foreground hover:bg-[var(--color-brand-primary-dark)] transition-colors"
                 title="Send"
                 type="button"
                 onClick={onSend}
