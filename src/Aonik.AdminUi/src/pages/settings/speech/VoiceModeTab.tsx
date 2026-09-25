@@ -313,7 +313,7 @@ function HeroStatus({
       className={cn(
         "flex flex-wrap items-center justify-between gap-6 rounded-2xl p-6",
         enabled
-          ? "bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklab,var(--primary)_70%,black))] text-white"
+          ? "bg-[linear-gradient(135deg,var(--primary),var(--primary-hover))] text-primary-foreground"
           : "border border-border bg-muted text-foreground",
       )}
     >
