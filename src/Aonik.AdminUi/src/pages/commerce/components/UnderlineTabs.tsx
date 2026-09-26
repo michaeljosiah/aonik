@@ -16,7 +16,7 @@ interface UnderlineTabsProps {
 
 export function UnderlineTabs({ tabs, active, onChange }: UnderlineTabsProps) {
   return (
-    <div className="flex items-center gap-1 border-b border-[var(--color-border-light)]">
+    <div className="flex items-center gap-1 border-b border-border">
       {tabs.map((tab) => {
         const isActive = tab.key === active;
         return (
@@ -27,13 +27,13 @@ export function UnderlineTabs({ tabs, active, onChange }: UnderlineTabsProps) {
             className={
               'h-[38px] -mb-px flex items-center gap-1.5 border-b-2 px-3.5 text-[13px] transition-colors ' +
               (isActive
-                ? 'border-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)]'
-                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')
+                ? 'border-primary font-semibold text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground')
             }
           >
             {tab.label}
             {tab.badge != null && tab.badge !== 0 && (
-              <span className="rounded-full bg-[var(--color-surface-inset)] px-1.5 py-px font-mono text-[10px] font-semibold text-[var(--color-text-secondary)]">
+              <span className="rounded-full bg-muted px-1.5 py-px font-mono text-[10px] font-semibold text-muted-foreground">
                 {tab.badge}
               </span>
             )}

@@ -36,6 +36,12 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
@@ -729,14 +735,14 @@ export function AiPlaygroundPage() {
       />
 
       {/* Config bar: mode toggle + agent/task picker + model + popover triggers */}
-      <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-6 py-2.5">
+      <div className="flex items-center gap-3 border-b border-border px-6 py-2.5">
         {/* Mode toggle: Agent | AI Task */}
-        <div className="flex rounded-md border border-[var(--color-border-light)]">
+        <div className="flex rounded-md border border-border">
           <button
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
               playgroundMode === 'agent'
-                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                : 'text-[var(--color-text-secondary)] hover:bg-accent'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             } rounded-l-md`}
             onClick={() => handlePlaygroundModeChange('agent')}
           >
@@ -746,8 +752,8 @@ export function AiPlaygroundPage() {
           <button
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
               playgroundMode === 'task'
-                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                : 'text-[var(--color-text-secondary)] hover:bg-accent'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             } rounded-r-md`}
             onClick={() => handlePlaygroundModeChange('task')}
           >
@@ -769,11 +775,11 @@ export function AiPlaygroundPage() {
           onChange={(id, name) => updateConfig({ modelId: id, modelName: name ?? null })}
         />
 
-        <div className="mx-1 h-5 w-px bg-[var(--color-border-light)]" />
+        <div className="mx-1 h-5 w-px bg-border" />
 
-        <div className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] px-3 py-1.5">
-          <Volume2 className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
-          <Label htmlFor="playground-voice-mode" className="text-xs text-[var(--color-text-secondary)]">
+        <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
+          <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <Label htmlFor="playground-voice-mode" className="text-xs text-muted-foreground">
             Voice mode
           </Label>
           <Switch
@@ -790,10 +796,10 @@ export function AiPlaygroundPage() {
             }}
           />
           {voicePlaybackState === 'loading' && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-text-tertiary)]" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
           )}
           {voicePlaybackState === 'playing' && (
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">Playing</span>
+            <span className="text-[10px] text-muted-foreground">Playing</span>
           )}
         </div>
 
@@ -805,7 +811,7 @@ export function AiPlaygroundPage() {
                 <Wrench className="mr-1.5 h-3.5 w-3.5" />
                 Tools
                 {config.enabledToolNames.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-primary-foreground">
+                  <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">
                     {config.enabledToolNames.length}
                   </span>
                 )}
@@ -829,7 +835,7 @@ export function AiPlaygroundPage() {
                 <Variable className="mr-1.5 h-3.5 w-3.5" />
                 Variables
                 {Object.keys(config.promptVariables).length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-primary-foreground">
+                  <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">
                     {Object.keys(config.promptVariables).length}
                   </span>
                 )}
@@ -853,7 +859,7 @@ export function AiPlaygroundPage() {
                 <Variable className="mr-1.5 h-3.5 w-3.5" />
                 User Brief
                 {config.userBriefJson && (
-                  <span className="ml-1.5 h-2 w-2 rounded-full bg-[var(--color-brand-primary)]" />
+                  <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />
                 )}
               </Button>
             </PopoverTrigger>
@@ -919,7 +925,7 @@ export function AiPlaygroundPage() {
           </PopoverContent>
         </Popover>
 
-        <div className="mx-1 h-5 w-px bg-[var(--color-border-light)]" />
+        <div className="mx-1 h-5 w-px bg-border" />
 
         {/* Scenarios */}
         <ScenarioPicker
@@ -978,13 +984,13 @@ export function AiPlaygroundPage() {
             ))}
 
             {/* Add message controls */}
-            <div className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-6 py-2.5">
+            <div className="flex items-center gap-2 border-b border-border px-6 py-2.5">
               <AddMessageButton onAdd={addMessage} />
             </div>
           </div>
 
           {/* Submit button */}
-          <div className="shrink-0 border-t border-[var(--color-border-light)] px-6 py-3">
+          <div className="shrink-0 border-t border-border px-6 py-3">
             <Button
               className="w-full"
               onClick={isStreaming ? stopStreaming : handleSubmit}
@@ -1006,7 +1012,7 @@ export function AiPlaygroundPage() {
         </div>
 
         {/* Right column: output panel (full height) */}
-        <div className="flex w-[45%] shrink-0 flex-col overflow-hidden border-l border-[var(--color-border-light)]">
+        <div className="flex w-[45%] shrink-0 flex-col overflow-hidden border-l border-border">
           <PlaygroundOutputPanel
             output={output}
             outputParts={outputParts}
@@ -1059,10 +1065,10 @@ function PlaygroundHeader({
     <div className="shrink-0 px-6 pt-5 pb-0">
       <div className="mt-3 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+          <h1 className="text-2xl font-bold text-foreground">
             AI Playground
           </h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <p className="text-sm text-muted-foreground">
             Test agents, AI tasks, prompts, and models interactively.
           </p>
         </div>
@@ -1101,7 +1107,7 @@ function PlaygroundHeader({
                 <>
                   <Play className="mr-1.5 h-3.5 w-3.5" />
                   Run All
-                  <kbd className="ml-2 rounded border border-white/20 px-1 py-0.5 text-[10px] font-normal opacity-60">
+                  <kbd className="ml-2 rounded border border-primary-foreground/20 px-1 py-0.5 text-[10px] font-normal opacity-60">
                     Ctrl+Enter
                   </kbd>
                 </>
@@ -1119,46 +1125,27 @@ function AddMessageButton({
 }: {
   onAdd: (role: 'user' | 'assistant') => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen(!open)}
-        className="h-7 text-xs text-[var(--color-text-secondary)]"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        Message
-        <ChevronDown className="ml-1 h-3 w-3" />
-      </Button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-sm border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-md">
-            <button
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-accent"
-              onClick={() => {
-                onAdd('user');
-                setOpen(false);
-              }}
-            >
-              User
-            </button>
-            <button
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-accent"
-              onClick={() => {
-                onAdd('assistant');
-                setOpen(false);
-              }}
-            >
-              Assistant
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-muted-foreground"
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          Message
+          <ChevronDown className="ml-1 h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[120px]">
+        <DropdownMenuItem className="text-xs" onSelect={() => onAdd('user')}>
+          User
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-xs" onSelect={() => onAdd('assistant')}>
+          Assistant
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -7,7 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -57,7 +61,7 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit User Profile</DialogTitle>
+          <DialogTitle>Edit user profile</DialogTitle>
           <DialogDescription>
             Update the user's personal information below.
           </DialogDescription>
@@ -66,9 +70,9 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
         <div className="grid gap-4 py-4">
           {/* Title */}
           <div className="grid gap-2">
-            <label htmlFor="title" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <Label htmlFor="title">
               Title
-            </label>
+            </Label>
             <Select
               value={formData.title ?? undefined}
               onValueChange={(value) => handleChange('title', value === '__clear__' ? '' : value)}
@@ -76,7 +80,6 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
               <SelectTrigger
                 id="title"
                 aria-label="Title"
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               >
                 <SelectValue placeholder="Select title" />
               </SelectTrigger>
@@ -93,45 +96,42 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
 
           {/* First Name */}
           <div className="grid gap-2">
-            <label htmlFor="firstName" className="text-sm font-medium text-[var(--color-text-primary)]">
-              First Name
-            </label>
-            <input
+            <Label htmlFor="firstName">
+              First name
+            </Label>
+            <Input
               id="firstName"
               type="text"
               value={formData.firstName || ''}
               onChange={(e) => handleChange('firstName', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               placeholder="Enter first name"
             />
           </div>
 
           {/* Last Name */}
           <div className="grid gap-2">
-            <label htmlFor="lastName" className="text-sm font-medium text-[var(--color-text-primary)]">
-              Last Name
-            </label>
-            <input
+            <Label htmlFor="lastName">
+              Last name
+            </Label>
+            <Input
               id="lastName"
               type="text"
               value={formData.lastName || ''}
               onChange={(e) => handleChange('lastName', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               placeholder="Enter last name"
             />
           </div>
 
           {/* Country Code */}
           <div className="grid gap-2">
-            <label htmlFor="countryCode" className="text-sm font-medium text-[var(--color-text-primary)]">
-              Country Code
-            </label>
-            <input
+            <Label htmlFor="countryCode">
+              Country code
+            </Label>
+            <Input
               id="countryCode"
               type="text"
               value={formData.countryCode || ''}
               onChange={(e) => handleChange('countryCode', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               placeholder="e.g., US, GB, NG"
               maxLength={2}
             />
@@ -139,39 +139,38 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
 
           {/* Nationality */}
           <div className="grid gap-2">
-            <label htmlFor="nationality" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <Label htmlFor="nationality">
               Nationality
-            </label>
-            <input
+            </Label>
+            <Input
               id="nationality"
               type="text"
               value={formData.nationality || ''}
               onChange={(e) => handleChange('nationality', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               placeholder="Enter nationality"
             />
           </div>
 
           {/* Occupation */}
           <div className="grid gap-2">
-            <label htmlFor="occupation" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <Label htmlFor="occupation">
               Occupation
-            </label>
-            <input
+            </Label>
+            <Input
               id="occupation"
               type="text"
               value={formData.occupation || ''}
               onChange={(e) => handleChange('occupation', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
               placeholder="Enter occupation"
             />
           </div>
 
           {/* Error Display */}
           {error && (
-            <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

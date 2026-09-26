@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, User, Building2, Mail, Phone } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, User, Building2, Mail, Phone } from 'lucide-react';
 
 import {
   Dialog,
@@ -9,10 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CountrySelect } from '@/components/ui/country-select';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -105,8 +109,6 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fieldClassName =
-    "flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]";
 
   const isValid = useMemo(() => {
     if (!formData.displayName.trim()) return false;
@@ -183,7 +185,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
   const renderSelectionScreen = () => (
     <div className="space-y-6">
       <DialogHeader>
-        <DialogTitle>Create New Customer</DialogTitle>
+        <DialogTitle>Create new customer</DialogTitle>
         <DialogDescription>
           Choose the type of customer you want to register
         </DialogDescription>
@@ -192,10 +194,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Person Card */}
         <Card
-          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-primary group"
           onClick={handleSelectPerson}
         >
-          <div className="h-32 bg-gradient-to-br from-[var(--color-brand-primary)] to-[var(--color-brand-secondary)] flex items-center justify-center relative overflow-hidden">
+          <div className="h-32 bg-gradient-to-br from-primary to-agent flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-20">
               <img
                 src="/assets/images/person-card.png"
@@ -207,13 +209,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 }}
               />
             </div>
-            <User className="w-16 h-16 text-white relative z-10" />
+            <User className="w-16 h-16 text-primary-foreground relative z-10" />
           </div>
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
-              Individual Person
+            <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+              Individual person
             </h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Register an individual customer with personal details, contact information, and address.
             </p>
           </div>
@@ -221,10 +223,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
 
         {/* Business Card */}
         <Card
-          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-primary group"
           onClick={handleSelectBusiness}
         >
-          <div className="h-32 bg-gradient-to-br from-[#055a60] to-[#044448] flex items-center justify-center relative overflow-hidden">
+          <div className="h-32 bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_78%,black)] flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-20">
               <img
                 src="/assets/images/business-card.png"
@@ -235,13 +237,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 }}
               />
             </div>
-            <Building2 className="w-16 h-16 text-white relative z-10" />
+            <Building2 className="w-16 h-16 text-primary-foreground relative z-10" />
           </div>
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
-              Business Entity
+            <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+              Business entity
             </h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               Register a business or organization with company details, contact information, and address.
             </p>
           </div>
@@ -254,10 +256,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     <div className="space-y-6">
       <DialogHeader>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2">
+          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2" aria-label="Back">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <DialogTitle>Register Individual</DialogTitle>
+          <DialogTitle>Register individual</DialogTitle>
         </div>
         <DialogDescription>
           Enter the individual's information below
@@ -267,26 +269,25 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
         {/* Basic Info */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Basic Information
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Basic information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Display Name <span className="text-[var(--color-error)]">*</span>
-            </label>
-            <input
+            <Label>
+              Display name <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="text"
               value={formData.displayName}
               onChange={(e) => updateField('displayName', e.target.value)}
-              className={fieldClassName}
               placeholder="Enter display name"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <Label>Status</Label>
               <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -300,27 +301,26 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
-              <input
+              <Label>Customer tier</Label>
+              <Input
                 type="text"
                 value={formData.customerTierCode || ''}
                 onChange={(e) => updateField('customerTierCode', e.target.value || null)}
-                className={fieldClassName}
                 placeholder="e.g., Standard, Premium"
               />
             </div>
           </div>
         </div>
 
-        {/* Personal Details */}
+        {/* Personal details */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Personal Details
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Personal details
           </h4>
           
           <div className="grid grid-cols-3 gap-4 items-start">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
+              <Label>Title</Label>
               <Select value={formData.title || ''} onValueChange={(value) => updateField('title', value || null)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select title" />
@@ -335,38 +335,35 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">First Name</label>
-              <input
+              <Label>First name</Label>
+              <Input
                 type="text"
                 value={formData.firstName || ''}
                 onChange={(e) => updateField('firstName', e.target.value || null)}
-                className={fieldClassName}
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Last Name</label>
-              <input
+              <Label>Last name</Label>
+              <Input
                 type="text"
                 value={formData.lastName || ''}
                 onChange={(e) => updateField('lastName', e.target.value || null)}
-                className={fieldClassName}
               />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Date of Birth</label>
-            <input
-              type="date"
+            <Label>Date of birth</Label>
+            <DatePicker
               value={formData.dob || ''}
-              onChange={(e) => updateField('dob', e.target.value || null)}
-              className={fieldClassName}
+              onChange={(value) => updateField('dob', value || null)}
+              placeholder="Select date of birth"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Nationality</label>
+              <Label>Nationality</Label>
               <CountrySelect
                 value={formData.nationality || ''}
                 onChange={(value) => updateField('nationality', value || null)}
@@ -374,17 +371,16 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Occupation</label>
-              <input
+              <Label>Occupation</Label>
+              <Input
                 type="text"
                 value={formData.occupation || ''}
                 onChange={(e) => updateField('occupation', e.target.value || null)}
-                className={fieldClassName}
               />
             </div>
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+            <Label>Country</Label>
             <CountrySelect
               value={formData.countryCode || ''}
               onChange={(value) => updateField('countryCode', value || null)}
@@ -393,14 +389,14 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
         </div>
 
-        {/* Contact Information */}
+        {/* Contact information */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Contact Information
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Contact information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <Label>Email address</Label>
             <InputGroup>
               <InputGroupAddon>
                 <Mail aria-hidden="true" />
@@ -415,7 +411,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <Label>Phone number</Label>
             <InputGroup>
               <InputGroupAddon>
                 <Phone aria-hidden="true" />
@@ -437,10 +433,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             onClick={() => setAddressExpanded(!addressExpanded)}
             className="flex items-center justify-between w-full text-left group"
           >
-            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
-              Address Details
+            <h4 className="text-sm font-medium text-foreground border-b border-border pb-2 flex-1">
+              Address details
             </h4>
-            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <span className="ml-2 text-muted-foreground group-hover:text-primary transition-colors">
               {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </span>
           </button>
@@ -448,7 +444,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           {addressExpanded && (
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
+                <Label>Address type</Label>
                 <Select
                   value={formData.addresses[0]?.type || 'Home'}
                   onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
@@ -467,71 +463,65 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
-                <input
+                <Label>Line 1</Label>
+                <Input
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
                   onChange={(e) => updateAddress('line1', e.target.value)}
-                  className={fieldClassName}
                   placeholder="Street address"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
-                  <input
+                  <Label>Line 2</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
                     onChange={(e) => updateAddress('line2', e.target.value)}
-                    className={fieldClassName}
                     placeholder="Apartment, suite, etc."
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
-                  <input
+                  <Label>Line 3</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
                     onChange={(e) => updateAddress('line3', e.target.value)}
-                    className={fieldClassName}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
-                  <input
+                  <Label>City</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.city || ''}
                     onChange={(e) => updateAddress('city', e.target.value)}
-                    className={fieldClassName}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
-                  <input
+                  <Label>State/Province</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.state || ''}
                     onChange={(e) => updateAddress('state', e.target.value)}
-                    className={fieldClassName}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
-                  <input
+                  <Label>Postcode</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.postcode || ''}
                     onChange={(e) => updateAddress('postcode', e.target.value)}
-                    className={fieldClassName}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <Label>Country</Label>
                   <CountrySelect
                     value={formData.addresses[0]?.country || ''}
                     onChange={(value) => updateAddress('country', value)}
@@ -545,9 +535,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       </div>
 
       {error && (
-        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <DialogFooter>
@@ -555,7 +546,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           Back
         </Button>
         <Button onClick={handleSave} disabled={saving || !isValid}>
-          {saving ? 'Creating...' : 'Create Customer'}
+          {saving ? 'Creating...' : 'Create customer'}
         </Button>
       </DialogFooter>
     </div>
@@ -565,10 +556,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     <div className="space-y-6">
       <DialogHeader>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2">
+          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2" aria-label="Back">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <DialogTitle>Register Business</DialogTitle>
+          <DialogTitle>Register business</DialogTitle>
         </div>
         <DialogDescription>
           Enter the business information below
@@ -578,26 +569,25 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
         {/* Basic Info */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Basic Information
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Basic information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Display Name <span className="text-[var(--color-error)]">*</span>
-            </label>
-            <input
+            <Label>
+              Display name <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="text"
               value={formData.displayName}
               onChange={(e) => updateField('displayName', e.target.value)}
-              className={fieldClassName}
               placeholder="Enter business display name"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <Label>Status</Label>
               <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -611,38 +601,36 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
-              <input
+              <Label>Customer tier</Label>
+              <Input
                 type="text"
                 value={formData.customerTierCode || ''}
                 onChange={(e) => updateField('customerTierCode', e.target.value || null)}
-                className={fieldClassName}
                 placeholder="e.g., Standard, Premium"
               />
             </div>
           </div>
         </div>
 
-        {/* Business Details */}
+        {/* Business details */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Business Details
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Business details
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Registration Number</label>
-            <input
+            <Label>Registration number</Label>
+            <Input
               type="text"
               value={formData.registrationNumber || ''}
               onChange={(e) => updateField('registrationNumber', e.target.value || null)}
-              className={fieldClassName}
               placeholder="Company registration number"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Incorporation Country</label>
+              <Label>Incorporation country</Label>
               <CountrySelect
                 value={formData.incorporationCountry || ''}
                 onChange={(value) => updateField('incorporationCountry', value || null)}
@@ -650,25 +638,24 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
-              <input
+              <Label>Industry</Label>
+              <Input
                 type="text"
                 value={formData.industry || ''}
                 onChange={(e) => updateField('industry', e.target.value || null)}
-                className={fieldClassName}
               />
             </div>
           </div>
         </div>
 
-        {/* Contact Information */}
+        {/* Contact information */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
-            Contact Information
+          <h4 className="text-sm font-medium text-foreground border-b border-border pb-2">
+            Contact information
           </h4>
           
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <Label>Email address</Label>
             <InputGroup>
               <InputGroupAddon>
                 <Mail aria-hidden="true" />
@@ -683,7 +670,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <Label>Phone number</Label>
             <InputGroup>
               <InputGroupAddon>
                 <Phone aria-hidden="true" />
@@ -705,10 +692,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             onClick={() => setAddressExpanded(!addressExpanded)}
             className="flex items-center justify-between w-full text-left group"
           >
-            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
-              Address Details
+            <h4 className="text-sm font-medium text-foreground border-b border-border pb-2 flex-1">
+              Address details
             </h4>
-            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+            <span className="ml-2 text-muted-foreground group-hover:text-primary transition-colors">
               {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </span>
           </button>
@@ -716,7 +703,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           {addressExpanded && (
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
+                <Label>Address type</Label>
                 <Select
                   value={formData.addresses[0]?.type || 'Work'}
                   onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
@@ -734,71 +721,65 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
-                <input
+                <Label>Line 1</Label>
+                <Input
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
                   onChange={(e) => updateAddress('line1', e.target.value)}
-                  className={fieldClassName}
                   placeholder="Street address"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
-                  <input
+                  <Label>Line 2</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
                     onChange={(e) => updateAddress('line2', e.target.value)}
-                    className={fieldClassName}
                     placeholder="Suite, floor, etc."
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
-                  <input
+                  <Label>Line 3</Label>
+                  <Input
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
                     onChange={(e) => updateAddress('line3', e.target.value)}
-                    className={fieldClassName}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
-                <input
+                  <Label>City</Label>
+                <Input
                   type="text"
                   value={formData.addresses[0]?.city || ''}
                   onChange={(e) => updateAddress('city', e.target.value)}
-                  className={fieldClassName}
                 />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
-                <input
+                  <Label>State/Province</Label>
+                <Input
                   type="text"
                   value={formData.addresses[0]?.state || ''}
                   onChange={(e) => updateAddress('state', e.target.value)}
-                  className={fieldClassName}
                 />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
-                <input
+                  <Label>Postcode</Label>
+                <Input
                   type="text"
                   value={formData.addresses[0]?.postcode || ''}
                   onChange={(e) => updateAddress('postcode', e.target.value)}
-                  className={fieldClassName}
                 />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <Label>Country</Label>
                   <CountrySelect
                     value={formData.addresses[0]?.country || ''}
                     onChange={(value) => updateAddress('country', value)}
@@ -812,9 +793,10 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       </div>
 
       {error && (
-        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <DialogFooter>
@@ -822,7 +804,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           Back
         </Button>
         <Button onClick={handleSave} disabled={saving || !isValid}>
-          {saving ? 'Creating...' : 'Create Customer'}
+          {saving ? 'Creating...' : 'Create customer'}
         </Button>
       </DialogFooter>
     </div>

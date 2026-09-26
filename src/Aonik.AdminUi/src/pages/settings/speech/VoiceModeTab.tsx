@@ -129,7 +129,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center p-12 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading voice mode…
       </div>
@@ -138,7 +138,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">
+        <CardContent className="p-6 text-destructive">
           {error}
         </CardContent>
       </Card>
@@ -170,8 +170,8 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
       {/* Phase D callout — the WSS pipeline reads the active recipe + provider rows
           (with their encrypted API keys) from the speech library. No separate legacy
           page in the loop. */}
-      <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">
+      <div className="rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">
           Live
         </span>{" "}
         — the WebSocket voice pipeline reads the active recipe (and the recipe's
@@ -205,14 +205,14 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
             }
           >
             {active ? (
-              <div className="rounded-xl border-2 border-[var(--color-brand-primary)] bg-[var(--color-surface)] p-4">
+              <div className="rounded-xl border-2 border-primary bg-card p-4">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    <div className="text-sm font-semibold text-foreground">
                       {active.displayName}
                     </div>
                     {active.description && (
-                      <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {active.description}
                       </p>
                     )}
@@ -227,14 +227,14 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
                 />
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-6 text-center text-sm text-[var(--color-text-secondary)]">
+              <div className="rounded-xl border border-dashed border-border bg-muted p-6 text-center text-sm text-muted-foreground">
                 No recipe selected. Switch from the list below.
               </div>
             )}
 
             {others.length > 0 && (
               <div className="mt-4">
-                <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">
                   Switch to
                 </div>
                 <div className="flex flex-col gap-2">
@@ -262,16 +262,16 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
                   .map((s, i) => (
                     <div
                       key={`${s.label}-${i}`}
-                      className="flex items-center gap-2.5 rounded-[10px] bg-[var(--color-surface-inset)] p-3"
+                      className="flex items-center gap-2.5 rounded-lg bg-muted p-3"
                     >
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-                        <s.icon className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-card">
+                        <s.icon className="h-3.5 w-3.5 text-primary" />
                       </span>
                       <div className="min-w-0">
-                        <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                        <div className="text-xs font-medium text-muted-foreground">
                           {s.label}
                         </div>
-                        <div className="mt-0.5 truncate text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                        <div className="mt-0.5 truncate text-[12.5px] font-medium text-foreground">
                           {s.detail}
                         </div>
                       </div>
@@ -313,8 +313,8 @@ function HeroStatus({
       className={cn(
         "flex flex-wrap items-center justify-between gap-6 rounded-2xl p-6",
         enabled
-          ? "bg-[linear-gradient(135deg,var(--color-brand-primary),#044045)] text-white"
-          : "border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]",
+          ? "bg-[linear-gradient(135deg,var(--primary),var(--primary-hover))] text-primary-foreground"
+          : "border border-border bg-muted text-foreground",
       )}
     >
       <div className="flex items-center gap-4">
@@ -323,20 +323,20 @@ function HeroStatus({
             "grid h-14 w-14 shrink-0 place-items-center rounded-2xl border",
             enabled
               ? "border-white/25 bg-white/20"
-              : "border-[var(--color-border-light)] bg-[var(--color-surface)]",
+              : "border-border bg-card",
           )}
         >
           {enabled ? (
             <Mic className="h-6 w-6" />
           ) : (
-            <MicOff className="h-6 w-6 text-[var(--color-text-tertiary)]" />
+            <MicOff className="h-6 w-6 text-muted-foreground" />
           )}
         </div>
         <div>
           <div
             className={cn(
-              "text-[10.5px] font-semibold uppercase tracking-[0.08em]",
-              enabled ? "opacity-85" : "text-[var(--color-text-tertiary)]",
+              "text-xs font-medium",
+              enabled ? "opacity-85" : "text-muted-foreground",
             )}
           >
             {enabled ? "Voice Mode is on" : "Voice Mode is off"}
@@ -349,7 +349,7 @@ function HeroStatus({
           <div
             className={cn(
               "mt-1 text-xs",
-              enabled ? "opacity-80" : "text-[var(--color-text-secondary)]",
+              enabled ? "opacity-80" : "text-muted-foreground",
             )}
           >
             {enabled
@@ -365,7 +365,7 @@ function HeroStatus({
         onClick={onToggle}
         className={cn(
           "relative h-8 w-14 shrink-0 rounded-full transition-colors",
-          enabled ? "bg-white/30" : "bg-[var(--color-border)]",
+          enabled ? "bg-white/30" : "bg-border",
         )}
         aria-pressed={enabled}
       >
@@ -392,16 +392,16 @@ function SwitchRow({
   const Icon = recipe.kind === "Composite" ? Radio : Layers;
   const stepCount = recipe.kind === "Composite" ? 1 : 4;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[var(--color-surface-inset)]">
-          <Icon className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         </span>
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+          <div className="text-[13px] font-semibold text-foreground">
             {recipe.displayName}
           </div>
-          <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
             {recipe.kind === "Composite"
               ? "Realtime"
               : `Chained · ${stepCount} steps`}{" "}
@@ -428,25 +428,25 @@ function UsageCard() {
     { label: "TTS characters", value: "— / 500k", pct: null },
   ];
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="mb-3 text-[13px] font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 text-[13px] font-semibold text-foreground">
         Last 24 hours
       </div>
       <div className="space-y-2.5">
         {rows.map((row) => (
           <div key={row.label}>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="text-[var(--color-text-secondary)]">
+              <span className="text-muted-foreground">
                 {row.label}
               </span>
-              <span className="font-mono text-[11.5px] text-[var(--color-text-primary)]">
+              <span className="font-mono text-[11.5px] text-foreground">
                 {row.value}
               </span>
             </div>
             {row.pct != null && (
-              <div className="h-1 overflow-hidden rounded-full bg-[var(--color-surface-inset)]">
+              <div className="h-1 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full bg-[var(--color-brand-primary)]"
+                  className="h-full bg-primary"
                   style={{ width: `${row.pct}%` }}
                 />
               </div>
@@ -454,7 +454,7 @@ function UsageCard() {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[10.5px] text-[var(--color-text-tertiary)]">
+      <p className="mt-3 text-[10.5px] text-muted-foreground">
         Live usage metrics ship with Phase C observability.
       </p>
     </div>
@@ -463,13 +463,13 @@ function UsageCard() {
 
 function HelperCard({ onJump }: { onJump?: (tab: TabId) => void }) {
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-[13px] font-semibold text-foreground">
         Voice Mode vs Chat Speech
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
         Voice Mode is the live spoken conversation.{" "}
-        <span className="font-semibold text-[var(--color-text-primary)]">
+        <span className="font-semibold text-foreground">
           Chat Speech
         </span>{" "}
         is optional voice-over for written replies — they share providers but
@@ -504,11 +504,11 @@ function Section({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+          <h3 className="text-sm font-semibold text-foreground">
             {title}
           </h3>
           {description && (
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {description}
             </p>
           )}

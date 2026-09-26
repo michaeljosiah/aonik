@@ -104,10 +104,10 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
   // glyph in the header where the template puts "reading this page · 4 tools".
   const statusDotColor =
     chatRunState === 'streaming'
-      ? 'var(--color-warning)'
+      ? 'var(--warning)'
       : streamError
-        ? 'var(--color-error)'
-        : 'var(--color-success)';
+        ? 'var(--destructive)'
+        : 'var(--success)';
   const statusLabel =
     chatRunState === 'streaming'
       ? 'Working on it…'
@@ -164,10 +164,8 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
         </Tooltip>
       </div>
 
-      {/* Conversation area — scoped in .chat-primary so descendant agent
-          components (chat bubbles, tool traces) read the brand-primary
-          theme variables (--theme-color, --theme-color-100, etc.). */}
-      <div className="chat-primary min-h-0 flex-1 bg-background">
+      {/* Conversation area. */}
+      <div className="min-h-0 flex-1 bg-background">
         <Conversation className="h-full">
           <ConversationContent className="h-full">
             {messages.length === 0 ? (
@@ -177,10 +175,10 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
                     <Sparkles className="size-5" />
                   </div>
                   <div>
-                    <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    <div className="text-lg font-semibold text-foreground">
                       Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}.
                     </div>
-                    <div className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    <div className="mt-1 text-sm text-muted-foreground">
                       Ask me anything about your AONIK platform, agents, workspaces, or operations.
                     </div>
                   </div>
@@ -206,7 +204,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
       </div>
 
       {/* Composer */}
-      <div className="border-t border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 shrink-0">
+      <div className="border-t border-border bg-card p-3 shrink-0">
         <AiChatComposer
           mode="footer"
           value={draft}
@@ -217,7 +215,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
           isStreaming={isStreaming}
           placeholder="Ask me anything..."
         />
-        <div className="mt-2 flex items-center justify-between text-xs text-[var(--color-text-tertiary)] px-1">
+        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>
             {chatRunState === 'streaming' ? (
               <span className="inline-flex items-center gap-1">
@@ -229,7 +227,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
             ) : chatRunState === 'awaiting-approval' ? (
               'Awaiting approval'
             ) : streamError ? (
-              <span className="text-[var(--color-danger)]">{streamError}</span>
+              <span className="text-destructive">{streamError}</span>
             ) : (
               'AG-UI connected'
             )}

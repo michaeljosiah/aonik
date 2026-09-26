@@ -53,9 +53,9 @@ export function CatalogBillerServiceDetailPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--color-error)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Service Not Found</h2>
-          <p className="text-[var(--color-text-secondary)] mb-4">We could not find that service definition.</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Service Not Found</h2>
+          <p className="text-muted-foreground mb-4">We could not find that service definition.</p>
           <Button onClick={() => navigate(`/catalog/billers/${billerId}/services`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Services
@@ -71,8 +71,8 @@ export function CatalogBillerServiceDetailPage() {
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{service.name}</h1>
-          <p className="text-[var(--color-text-secondary)]">Service definition and validation schema.</p>
+          <h1 className="text-2xl font-bold text-foreground">{service.name}</h1>
+          <p className="text-muted-foreground">Service definition and validation schema.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleBack} className="rounded-sm">
@@ -87,8 +87,8 @@ export function CatalogBillerServiceDetailPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadService}>
@@ -108,32 +108,32 @@ export function CatalogBillerServiceDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {service.fields.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-secondary)]">No input fields configured.</p>
+              <p className="text-sm text-muted-foreground">No input fields configured.</p>
             ) : (
               service.fields.map((field) => (
                 <div
                   key={field.key}
-                  className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)]"
+                  className="border border-border rounded-md p-4 bg-card"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{field.label}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{field.label}</h3>
                     <Badge variant={field.required ? 'default' : 'outline'}>
                       {field.required ? 'Required' : 'Optional'}
                     </Badge>
                   </div>
-                  <div className="text-sm text-[var(--color-text-secondary)] mb-2">{field.key}</div>
-                  <div className="flex flex-wrap gap-2 text-xs text-[var(--color-text-tertiary)]">
+                  <div className="text-sm text-muted-foreground mb-2">{field.key}</div>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     <Badge variant="secondary">{field.fieldType}</Badge>
                     {field.minLength && <Badge variant="outline">Min {field.minLength}</Badge>}
                     {field.maxLength && <Badge variant="outline">Max {field.maxLength}</Badge>}
                     {field.mask && <Badge variant="outline">Mask {field.mask}</Badge>}
                   </div>
                   {field.placeholder && (
-                    <p className="text-xs text-[var(--color-text-tertiary)] mt-2">Placeholder: {field.placeholder}</p>
+                    <p className="text-xs text-muted-foreground mt-2">Placeholder: {field.placeholder}</p>
                   )}
                   {field.options && field.options.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Options</p>
+                      <p className="text-xs text-muted-foreground mb-1">Options</p>
                       <div className="flex flex-wrap gap-2">
                         {field.options.map((option) => (
                           <Badge key={option.value} variant="secondary">
@@ -158,40 +158,40 @@ export function CatalogBillerServiceDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Type</span>
+              <span className="text-sm text-muted-foreground">Type</span>
               <Badge variant="secondary">{service.type}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Currency</span>
+              <span className="text-sm text-muted-foreground">Currency</span>
               <Badge variant="outline">{service.currency}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Min Amount</span>
-              <span className="text-sm text-[var(--color-text-primary)]">{service.minAmount ?? '—'}</span>
+              <span className="text-sm text-muted-foreground">Min Amount</span>
+              <span className="text-sm text-foreground">{service.minAmount ?? '—'}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Max Amount</span>
-              <span className="text-sm text-[var(--color-text-primary)]">{service.maxAmount ?? '—'}</span>
+              <span className="text-sm text-muted-foreground">Max Amount</span>
+              <span className="text-sm text-foreground">{service.maxAmount ?? '—'}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Partial Payment</span>
+              <span className="text-sm text-muted-foreground">Partial Payment</span>
               {service.supportsPartialPayment ? (
-                <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
+                <CheckCircle className="w-5 h-5 text-success" />
               ) : (
-                <XCircle className="w-5 h-5 text-[var(--color-text-tertiary)]" />
+                <XCircle className="w-5 h-5 text-muted-foreground" />
               )}
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-text-secondary)]">Validation Required</span>
+              <span className="text-sm text-muted-foreground">Validation Required</span>
               {service.requiresValidation ? (
-                <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
+                <CheckCircle className="w-5 h-5 text-success" />
               ) : (
-                <XCircle className="w-5 h-5 text-[var(--color-text-tertiary)]" />
+                <XCircle className="w-5 h-5 text-muted-foreground" />
               )}
             </div>
-            <div className="pt-2 border-t border-[var(--color-border-light)]">
-              <p className="text-sm text-[var(--color-text-secondary)]">Validation Endpoint</p>
-              <p className="text-xs text-[var(--color-text-tertiary)] break-all">
+            <div className="pt-2 border-t border-border">
+              <p className="text-sm text-muted-foreground">Validation Endpoint</p>
+              <p className="text-xs text-muted-foreground break-all">
                 {service.validation?.validationEndpoint ?? 'Not configured'}
               </p>
             </div>

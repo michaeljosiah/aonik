@@ -41,17 +41,17 @@ export function RecipeCard({
   return (
     <div
       className={cn(
-        "rounded-xl bg-[var(--color-surface)] p-5 transition-colors",
+        "rounded-xl bg-card p-5 transition-colors",
         activeInVoiceMode
-          ? "border-2 border-[var(--color-brand-primary)]"
-          : "border border-[var(--color-border-light)]",
+          ? "border-2 border-primary"
+          : "border border-border",
       )}
     >
       {/* Header row */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-semibold text-[var(--color-text-primary)]">
+            <span className="text-[15px] font-semibold text-foreground">
               {recipe.displayName}
             </span>
             {activeInVoiceMode && (
@@ -67,7 +67,7 @@ export function RecipeCard({
             )}
           </div>
           {recipe.description && (
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
               {recipe.description}
             </p>
           )}
@@ -97,7 +97,7 @@ export function RecipeCard({
       {steps.length > 0 ? (
         <RecipeFlow steps={steps} kind={flowKind} />
       ) : (
-        <div className="rounded-[10px] bg-[var(--color-surface-inset)] p-4 text-xs text-[var(--color-text-tertiary)]">
+        <div className="rounded-lg bg-muted p-4 text-xs text-muted-foreground">
           Recipe body is empty — open the editor to configure providers.
         </div>
       )}

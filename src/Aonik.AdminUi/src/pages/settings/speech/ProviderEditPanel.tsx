@@ -3,6 +3,7 @@ import { Loader2, Plug, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -105,7 +106,7 @@ export function ProviderEditPanel({
           title="Loading vendor catalog…"
         />
         <SheetBody>
-          <p className="text-sm text-[var(--color-text-secondary)]">Just a moment.</p>
+          <p className="text-sm text-muted-foreground">Just a moment.</p>
         </SheetBody>
       </>
     );
@@ -232,11 +233,11 @@ export function ProviderEditPanel({
         {/* Phase D: API key directly on the provider row. The unified credential resolver
             reads it as the tenant override; host default + configuration fallback still
             apply if this is left blank. */}
-        <div className="space-y-2 rounded-md border border-[var(--color-border-light)] p-4">
+        <div className="space-y-2 rounded-md border border-border p-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="provider-api-key">
               API key{' '}
-              <span className="font-normal text-[var(--color-text-tertiary)]">
+              <span className="font-normal text-muted-foreground">
                 (encrypted at rest)
               </span>
             </Label>
@@ -279,7 +280,7 @@ export function ProviderEditPanel({
             }
             disabled={saving}
           />
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">
+          <p className="text-[11px] text-muted-foreground">
             {isEditing
               ? clearStoredApiKey
                 ? 'Saving with the field blank will remove the stored credential. Cancel above to keep it.'
@@ -289,8 +290,8 @@ export function ProviderEditPanel({
         </div>
 
         {schema && (
-          <div className="space-y-3 rounded-md border border-[var(--color-border-light)] p-4">
-            <div className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div className="text-xs font-medium text-muted-foreground">
               {schema.configKind} configuration
             </div>
             {schema.fields.map((field) => (
@@ -376,14 +377,12 @@ function FieldRenderer({
         // the form state so the existing string-keyed values map keeps working;
         // buildConfig() converts back to a real bool before posting.
         <label className="flex items-center gap-2 text-sm">
-          <input
+          <Checkbox
             id={id}
-            type="checkbox"
             checked={value === 'true'}
-            onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-            className="h-4 w-4"
+            onCheckedChange={(checked) => onChange(checked === true ? 'true' : 'false')}
           />
-          <span className="text-[var(--color-text-secondary)]">
+          <span className="text-muted-foreground">
             {field.placeholder ?? 'Enabled'}
           </span>
         </label>
@@ -400,7 +399,7 @@ function FieldRenderer({
       )}
 
       {field.description && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>
+        <p className="text-xs text-muted-foreground">{field.description}</p>
       )}
     </div>
   );
@@ -516,14 +515,14 @@ function RemoteSelectField({
       )}
 
       {field.description && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>
+        <p className="text-xs text-muted-foreground">{field.description}</p>
       )}
 
       {error && (
-        <p className="text-xs text-[var(--color-error)]">
+        <p className="text-xs text-destructive">
           {error}{' '}
           {provider && (
-            <span className="text-[var(--color-text-tertiary)]">
+            <span className="text-muted-foreground">
               Set the {provider} API key on this provider above.
             </span>
           )}
@@ -531,7 +530,7 @@ function RemoteSelectField({
       )}
 
       {!error && !loading && options.length === 0 && provider && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">
+        <p className="text-xs text-muted-foreground">
           No voices loaded yet. Save this provider with a {provider} API key, then click Refresh.
         </p>
       )}

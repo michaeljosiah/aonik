@@ -81,7 +81,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
   if (loading && !data) {
     return (
       <div className="h-full overflow-auto p-4">
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Loading agent fleet...
         </p>
       </div>
@@ -122,7 +122,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
     return (
       <div className="h-full overflow-auto p-4">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <PanelInfoPopover
             title="Agent Fleet"
             description={fleetDescription}
@@ -137,7 +137,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
             getMetrics={() => ({ configured: false })}
           />
         </div>
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Observability not configured. Connect Application Insights to see agent metrics.
         </p>
       </div>
@@ -218,7 +218,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
             <PanelInfoPopover
               title="Agent Fleet"
               description={fleetDescription}
@@ -241,7 +241,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
               })}
             />
           </div>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <p className="text-xs text-muted-foreground">
             Select an agent to filter other panels.
           </p>
         </div>
@@ -284,7 +284,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
 
       {/* Agent list */}
       {agents.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           No agent activity in this period.
         </p>
       ) : (
@@ -299,19 +299,19 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
                   type="button"
                   onClick={() => selectAgent(agent)}
                   className={`w-full text-left rounded-md border px-3 py-2.5 transition-all
-                    border-[var(--color-border-light)] bg-[var(--color-surface)]
-                    ${isSelected ? 'ring-2 ring-[var(--color-brand-primary)] ring-offset-1' : 'hover:shadow-sm'}`}
+                    border-border bg-card
+                    ${isSelected ? 'ring-2 ring-primary ring-offset-1' : 'hover:shadow-sm'}`}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
-                    <Bot className="w-3.5 h-3.5 text-[var(--color-brand-primary)]" />
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                    <Bot className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-sm font-semibold text-foreground truncate">
                       {agent.agentName}
                     </span>
-                    <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] px-1.5 py-0 ml-auto">
+                    <Badge variant="secondary" className="text-muted-foreground font-mono tabular-nums text-[10px] px-1.5 py-0 ml-auto">
                       {agent.calls} calls
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-3 gap-x-3 text-[11px] text-[var(--color-text-secondary)]">
+                  <div className="grid grid-cols-3 gap-x-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-0.5">
                       <Zap className="w-2.5 h-2.5" />
                       {formatDuration(agent.avgDurationMs)}
@@ -322,7 +322,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
                     </span>
                     <span className="flex items-center gap-0.5">
                       {agent.avgDurationMs > 10_000 && (
-                        <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
+                        <AlertTriangle className="w-2.5 h-2.5 text-warning" />
                       )}
                       {agent.avgDurationMs > 10_000 ? 'Slow' : 'Healthy'}
                     </span>

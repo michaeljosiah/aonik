@@ -14,6 +14,7 @@
 // The default's badge text is the tenant's configured label, fetched live — product identity
 // is configuration, never a literal in platform code (ADR-013).
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Plus, RefreshCw, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,6 +22,14 @@ import { toast } from 'sonner';
 import { Card as AonikCard, KpiTile, PageHeader, Pill } from '@/components/layout/aonik';
 import { DataTable, DataTablePagination, type ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
@@ -189,8 +198,8 @@ export function PersonalisationPage() {
       accessorFn: (row) => row.name,
       cell: (row) => (
         <span className="flex flex-col">
-          <span className="text-[13px] text-[var(--color-text-primary)]">{row.name}</span>
-          <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+          <span className="text-[13px] text-foreground">{row.name}</span>
+          <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
             {row.slug}
           </span>
         </span>
@@ -207,11 +216,11 @@ export function PersonalisationPage() {
         if (!groupLabels) {
           // Unread or failed — NOT "not personalisable". Claiming a product offers nothing
           // because a request failed would send an operator to fix something that is fine.
-          return <span className="text-[11px] text-[var(--color-text-tertiary)]">unknown</span>;
+          return <span className="text-[11px] text-muted-foreground">unknown</span>;
         }
         if (groupLabels.length === 0) {
           return (
-            <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11.5px] text-muted-foreground">
               Not personalisable — panel hidden
             </span>
           );
@@ -219,12 +228,12 @@ export function PersonalisationPage() {
         return (
           <span className="flex flex-wrap gap-1">
             {groupLabels.slice(0, 3).map((label) => (
-              <Pill key={label} tone="muted" size="sm">
+              <Pill key={label} tone="muted">
                 {label}
               </Pill>
             ))}
             {groupLabels.length > 3 && (
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="text-[11px] text-muted-foreground">
                 +{groupLabels.length - 3}
               </span>
             )}
@@ -248,26 +257,26 @@ export function PersonalisationPage() {
         // fresher read that proves it is gone.
         if (facts) {
           if (facts.surcharge == null) {
-            return <span className="block text-right text-[var(--color-text-tertiary)]">—</span>;
+            return <span className="block text-right text-muted-foreground">—</span>;
           }
           return facts.currency ? (
-            <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
+            <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-foreground">
               {formatCurrency(facts.surcharge, facts.currency)}
             </span>
           ) : (
             // An amount with no denomination is the thing the marker exists to avoid.
-            <Pill tone="info" size="sm" dot>
+            <Pill tone="info" dot>
               Set
             </Pill>
           );
         }
         // Unread: the summary is all there is, and it carries no currency.
         return row.unitSurcharge != null ? (
-          <Pill tone="info" size="sm" dot>
+          <Pill tone="info" dot>
             Set
           </Pill>
         ) : (
-          <span className="block text-right text-[var(--color-text-tertiary)]">—</span>
+          <span className="block text-right text-muted-foreground">—</span>
         );
       },
       className: 'w-[150px] text-right',
@@ -278,7 +287,7 @@ export function PersonalisationPage() {
       header: '',
       accessorFn: () => '',
       cell: () => (
-        <span className="block text-right text-[11.5px] text-[var(--color-brand-primary)]">
+        <span className="block text-right text-[11.5px] text-primary">
           Edit offer
         </span>
       ),
@@ -291,7 +300,6 @@ export function PersonalisationPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Personalisation"
         subtitle={`Stored prices are absolute; every “vs default” figure is derived against the group's default${
           recommendedLabel ? `, which the storefront labels “${recommendedLabel}”` : ''
@@ -333,18 +341,20 @@ export function PersonalisationPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void loadData()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void loadData()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : (
         <>
@@ -363,7 +373,7 @@ export function PersonalisationPage() {
             >
               {groups.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-                  <p className="text-[12.5px] text-[var(--color-text-secondary)]">
+                  <p className="text-[12.5px] text-muted-foreground">
                     No option groups yet — products cannot be personalised until one exists.
                   </p>
                   <Button variant="outline" size="sm" onClick={() => setCreatingGroup(true)}>
@@ -371,7 +381,7 @@ export function PersonalisationPage() {
                   </Button>
                 </div>
               ) : (
-                <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+                <ul className="flex flex-col divide-y divide-border">
                   {groups.map((group) => {
                     const groupDefault = effectiveDefaultChoice(group.choices);
                     return (
@@ -379,26 +389,26 @@ export function PersonalisationPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedGroupKey(group.key)}
-                          className={`flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-[var(--color-surface-inset)] ${
-                            group.key === selectedGroupKey ? 'bg-[var(--color-surface-inset)]' : ''
+                          className={`flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-muted ${
+                            group.key === selectedGroupKey ? 'bg-muted' : ''
                           }`}
                         >
                           <span className="flex items-center gap-1.5">
-                            <span className="text-[13px] text-[var(--color-text-primary)]">
+                            <span className="text-[13px] text-foreground">
                               {group.label}
                             </span>
                             {!group.isActive && (
-                              <Pill tone="muted" size="sm">
+                              <Pill tone="muted">
                                 Retired
                               </Pill>
                             )}
                           </span>
-                          <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                          <span className="text-[11px] text-muted-foreground">
                             {group.choices.length} choice{group.choices.length === 1 ? '' : 's'}
                             {groupDefault ? ` — ${groupDefault.label}` : ''}
                           </span>
                           {hasNoActiveChoices(group.choices) && (
-                            <span className="text-[11px] text-[var(--color-warning)]">
+                            <span className="text-[11px] text-warning">
                               {group.choices.length === 0 ? 'no choices yet' : 'every choice retired'}
                             </span>
                           )}
@@ -421,7 +431,7 @@ export function PersonalisationPage() {
               />
             ) : (
               <AonikCard padding={12}>
-                <p className="py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                <p className="py-6 text-center text-[12.5px] text-muted-foreground">
                   Select a group to see its choices.
                 </p>
               </AonikCard>
@@ -556,89 +566,86 @@ function ChoicesCard({
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50 text-left">
-              <th className="w-10 px-3 py-2" />
-              <th className="px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="h-auto w-10 px-3 py-2" />
+              <TableHead className="h-auto px-2 py-2 text-xs text-muted-foreground">
                 Choice
-              </th>
-              <th className="w-[120px] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
-                vs default
-              </th>
-              <th className="w-[100px] px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              </TableHead>
+              <TableHead numeric className="h-auto w-[120px] px-2 py-2 text-xs text-muted-foreground">
+                Vs default
+              </TableHead>
+              <TableHead className="h-auto w-[100px] px-2 py-2 text-xs text-muted-foreground">
                 Status
-              </th>
-              <th className="w-[170px] px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead className="h-auto w-[170px] px-3 py-2" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {group.choices.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="px-4 py-6 text-center whitespace-normal">
                   <span className="flex flex-col items-center gap-2">
-                    <span className="text-[12.5px] text-[var(--color-text-secondary)]">
+                    <span className="text-[12.5px] text-muted-foreground">
                       This group has no choices yet, so the storefront shows it to nobody.
                     </span>
                     <Button variant="outline" size="sm" onClick={onEditGroup}>
                       <Plus className="mr-1 h-3.5 w-3.5" /> Add the first choice
                     </Button>
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {group.choices.map((choice) => {
               const delta = choiceDelta(choice, baseline);
               const isDefault = baseline?.key === choice.key;
               return (
-                <tr
-                  key={choice.key}
-                  className="border-b border-[var(--color-border-light)] last:border-0"
-                >
-                  <td className="px-3 py-2">
+                <TableRow key={choice.key}>
+                  <TableCell className="px-3 py-2">
                     {isDefault && (
                       <Star
-                        className="h-3.5 w-3.5 fill-[var(--color-warning)] text-[var(--color-warning)]"
+                        className="h-3.5 w-3.5 fill-warning text-warning"
                         aria-label="Recommended default"
                       />
                     )}
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2 whitespace-normal">
                     <span className="flex flex-col gap-0.5">
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[13px] text-[var(--color-text-primary)]">
+                        <span className="text-[13px] text-foreground">
                           {choice.label}
                         </span>
                         {isDefault && recommendedLabel && (
-                          <Pill tone="info" size="sm">
+                          <Pill tone="info">
                             {recommendedLabel}
                           </Pill>
                         )}
                       </span>
                       {choice.note && (
-                        <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                        <span className="text-[11px] text-muted-foreground">
                           {choice.note}
                         </span>
                       )}
                     </span>
-                  </td>
-                  <td className="px-2 py-2 text-right">
+                  </TableCell>
+                  <TableCell numeric className="px-2 py-2">
                     {delta === null ? (
                       // No default means no baseline. Showing the absolute price under a column
                       // headed "vs default" would read as a delta and overstate every choice.
-                      <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                      <span className="font-sans text-[11px] text-muted-foreground">
                         no default
                       </span>
                     ) : (
                       <SignedAmount amount={delta} currency={group.currency} />
                     )}
-                  </td>
-                  <td className="px-2 py-2">
-                    <Pill tone={choice.isActive ? 'success' : 'muted'} size="sm">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
+                    <Pill tone={choice.isActive ? 'success' : 'muted'}>
                       {choice.isActive ? 'Active' : 'Retired'}
                     </Pill>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <span className="flex justify-end gap-2.5">
                       {/* Not offered while the GROUP is inactive: the move succeeds but stages
                           no content review, because the group is absent from every effective
@@ -649,7 +656,7 @@ function ChoicesCard({
                         <button
                           type="button"
                           onClick={() => onMoveDefault(choice)}
-                          className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                          className="text-[11.5px] text-primary hover:underline"
                         >
                           Make default
                         </button>
@@ -657,33 +664,33 @@ function ChoicesCard({
                       <button
                         type="button"
                         onClick={() => onEditChoice(choice)}
-                        className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                        className="text-[11.5px] text-primary hover:underline"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => void toggleRetired(choice)}
-                        className="text-[11.5px] text-[var(--color-text-secondary)] hover:underline"
+                        className="text-[11.5px] text-muted-foreground hover:underline"
                       >
                         {choice.isActive ? 'Retire' : 'Reactivate'}
                       </button>
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {!group.isActive && (
-        <p className="border-t border-[var(--color-border-light)] px-3 py-2 text-[11px] text-[var(--color-warning)]">
+        <p className="border-t border-border px-3 py-2 text-[11px] text-warning">
           This group is retired, so it appears on no storefront. Defaults cannot be moved while
           it is inactive — the move would change nothing customers can see.
         </p>
       )}
-      <p className="border-t border-[var(--color-border-light)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+      <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
         Stored prices are absolute (Spec 066 §8) — the figures above are differences against{' '}
         {baseline ? baseline.label : 'the default'}, derived, never authored.
         {baseline &&

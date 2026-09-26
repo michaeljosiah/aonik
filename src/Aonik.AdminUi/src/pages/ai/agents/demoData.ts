@@ -29,7 +29,7 @@ export const DEMO_SUB_AGENTS: DemoSubAgent[] = [
     id: 'ledger',
     name: 'Ledger Agent',
     glyph: 'columns',
-    color: '#055a60',
+    color: '#055a60', // guardrail-ignore: demo agent identity colour
     role: 'Posts journal entries from matched txns',
     autonomy: 'auto',
     calls: 142,
@@ -42,7 +42,7 @@ export const DEMO_SUB_AGENTS: DemoSubAgent[] = [
     id: 'fx',
     name: 'FX Agent',
     glyph: 'wave',
-    color: '#3ab795',
+    color: '#3ab795', // guardrail-ignore: demo agent identity colour
     role: 'Quotes rates for cross-currency invoices',
     autonomy: 'propose',
     calls: 38,
@@ -55,7 +55,7 @@ export const DEMO_SUB_AGENTS: DemoSubAgent[] = [
     id: 'compl',
     name: 'Compliance Agent',
     glyph: 'shield',
-    color: '#7b76b6',
+    color: '#7b76b6', // guardrail-ignore: demo agent identity colour
     role: 'KYC re-checks before any new counterparty',
     autonomy: 'block',
     calls: 12,
@@ -68,7 +68,7 @@ export const DEMO_SUB_AGENTS: DemoSubAgent[] = [
     id: 'dunn',
     name: 'Dunning Agent',
     glyph: 'envelope',
-    color: '#5facbd',
+    color: '#5facbd', // guardrail-ignore: demo agent identity colour
     role: 'Drafts overdue reminders when match fails',
     autonomy: 'propose',
     calls: 28,

@@ -121,12 +121,12 @@ export function WizardStepSave({
           <CardTitle className="flex items-center gap-2">
             {saving ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin text-[var(--color-brand-primary)]" />
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
                 Saving Content Blocks...
               </>
             ) : done ? (
               <>
-                <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
+                <CheckCircle className="w-5 h-5 text-success" />
                 Save Complete
               </>
             ) : (
@@ -137,12 +137,12 @@ export function WizardStepSave({
         <CardContent className="space-y-3">
           {/* Progress */}
           {(saving || done) && (
-            <div className="text-sm text-[var(--color-text-secondary)]">
+            <div className="text-sm text-muted-foreground">
               {saving
                 ? `Saving ${results.length} of ${suggestions.length}...`
                 : `${successResults.length} of ${suggestions.length} saved successfully.`}
               {failedResults.length > 0 && (
-                <span className="text-[var(--color-danger)] ml-2">
+                <span className="text-destructive ml-2">
                   {failedResults.length} failed.
                 </span>
               )}
@@ -156,16 +156,16 @@ export function WizardStepSave({
                 key={result.suggestion.id}
                 className={`py-2 px-3 rounded border ${
                   result.success
-                    ? 'border-[var(--color-success)]/30 bg-[var(--color-success)]/5'
-                    : 'border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5'
+                    ? 'border-success/30 bg-success/5'
+                    : 'border-destructive/30 bg-destructive/5'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {result.success ? (
-                      <CheckCircle className="w-4 h-4 text-[var(--color-success)] shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-success shrink-0" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-[var(--color-danger)] shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
                     )}
                     <span className="text-sm truncate">{result.suggestion.title}</span>
                   </div>
@@ -181,7 +181,7 @@ export function WizardStepSave({
                     </Button>
                   )}
                   {!result.success && (
-                    <span className="text-xs text-[var(--color-danger)] shrink-0">
+                    <span className="text-xs text-destructive shrink-0">
                       {result.error}
                     </span>
                   )}
@@ -191,28 +191,28 @@ export function WizardStepSave({
                   <div className="flex items-center gap-1.5 mt-1 ml-6 text-xs">
                     {result.imageStatus === 'generating' && (
                       <>
-                        <Loader2 className="w-3 h-3 animate-spin text-[var(--color-brand-primary)]" />
-                        <span className="text-[var(--color-text-secondary)]">Generating image...</span>
+                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                        <span className="text-muted-foreground">Generating image...</span>
                       </>
                     )}
                     {result.imageStatus === 'done' && (
                       <>
-                        <ImageIcon className="w-3 h-3 text-[var(--color-success)]" />
-                        <span className="text-[var(--color-success)]">Image generated</span>
+                        <ImageIcon className="w-3 h-3 text-success" />
+                        <span className="text-success">Image generated</span>
                       </>
                     )}
                     {result.imageStatus === 'failed' && (
                       <>
-                        <AlertCircle className="w-3 h-3 text-[var(--color-warning)]" />
-                        <span className="text-[var(--color-warning)]">
+                        <AlertCircle className="w-3 h-3 text-warning" />
+                        <span className="text-warning">
                           Image failed: {result.imageError}
                         </span>
                       </>
                     )}
                     {result.imageStatus === 'pending' && (
                       <>
-                        <ImageIcon className="w-3 h-3 text-[var(--color-text-tertiary)]" />
-                        <span className="text-[var(--color-text-tertiary)]">Image queued</span>
+                        <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-muted-foreground">Image queued</span>
                       </>
                     )}
                   </div>
@@ -225,9 +225,9 @@ export function WizardStepSave({
               suggestions.slice(results.length).map((s) => (
                 <div
                   key={s.id}
-                  className="flex items-center gap-2 py-2 px-3 rounded border border-[var(--color-border)] opacity-50"
+                  className="flex items-center gap-2 py-2 px-3 rounded border border-border opacity-50"
                 >
-                  <Loader2 className="w-4 h-4 animate-spin text-[var(--color-text-tertiary)] shrink-0" />
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
                   <span className="text-sm truncate">{s.title}</span>
                 </div>
               ))}

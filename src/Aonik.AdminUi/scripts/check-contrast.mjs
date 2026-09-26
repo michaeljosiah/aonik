@@ -68,6 +68,8 @@ const pairs = [
   ['success', 'background', NON_TEXT],
   ['warning', 'background', NON_TEXT],
   ['info', 'background', NON_TEXT],
+  // Chart series are graphical objects: 3:1 against the card they sit on.
+  ...Array.from({ length: 10 }, (_, i) => [`chart-${i + 1}`, 'card', NON_TEXT]),
 ];
 
 // Legacy call sites use the solids as text (text-[var(--color-success)],

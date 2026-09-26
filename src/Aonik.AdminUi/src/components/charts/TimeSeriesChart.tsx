@@ -32,7 +32,7 @@ function formatTimestamp(ts: string): string {
 
 export function TimeSeriesChart({
   data,
-  color = 'var(--color-brand-primary)',
+  color = 'var(--primary)',
   height = 200,
   label,
   formatValue,

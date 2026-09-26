@@ -35,20 +35,19 @@ export function Minimap({ nodes }: MinimapProps) {
 
   return (
     <div
-      className="absolute z-[5] rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="absolute rounded-md border border-border bg-card shadow-md"
       style={{
         right: 16,
         bottom: 16,
         width: W + 12,
         height: H + 12,
         padding: 6,
-        boxShadow: '0 4px 14px -4px rgba(0,0,0,0.12)',
       }}
     >
       <svg
         width={W}
         height={H}
-        className="block rounded-[3px] bg-[var(--color-surface-inset)]"
+        className="block rounded-sm bg-muted"
       >
         {nodes.map((n) => (
           <rect

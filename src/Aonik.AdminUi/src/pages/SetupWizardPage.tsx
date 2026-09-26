@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Circle, ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { useAuth, getAuthProvider } from '@/auth';
 import { bootstrapService } from '@/services/bootstrapService';
 import { clearSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
@@ -152,9 +154,9 @@ export function SetupWizardPage() {
     <div className="flex-1 h-full overflow-auto bg-background">
       <div className="w-full max-w-[1400px] mx-auto px-8 py-12 lg:px-12">
         <div className="flex flex-col gap-2 mb-10">
-          <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Initial Setup</p>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Welcome to the Future of Finance</h1>
-          <p className="text-[var(--color-text-secondary)] max-w-[52rem] leading-relaxed">
+          <p className="text-sm font-semibold text-primary">Initial setup</p>
+          <h1 className="text-3xl font-bold text-foreground">Welcome to the Future of Finance</h1>
+          <p className="text-muted-foreground max-w-[52rem] leading-relaxed">
             Step into AI-powered financial operations. This wizard will get your Aonik platform running with intelligent automation, 
             smart insights, and seamless money movement at your fingertips.
           </p>
@@ -163,7 +165,7 @@ export function SetupWizardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Setup Checklist</CardTitle>
+              <CardTitle>Setup checklist</CardTitle>
               <CardDescription>Use the one-time install code to create the first tenant and owner profile.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -194,8 +196,8 @@ export function SetupWizardPage() {
                 }
               >
                 {!tenantExists && (
-                  <div className="w-full max-w-[36rem] space-y-2">
-                    <Label htmlFor="setup-secret">Install code</Label>
+                  <Field className="w-full max-w-[36rem] gap-2">
+                    <FieldLabel htmlFor="setup-secret">Install code</FieldLabel>
                     <Input
                       id="setup-secret"
                       className="h-11 rounded-md"
@@ -210,10 +212,10 @@ export function SetupWizardPage() {
                       }}
                       placeholder="Paste the one-time install code"
                     />
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <FieldDescription className="text-xs">
                       This must match the current `BOOTSTRAP_SETUP_SECRET` configured for the API.
-                    </p>
-                  </div>
+                    </FieldDescription>
+                  </Field>
                 )}
               </SetupStep>
 
@@ -228,8 +230,8 @@ export function SetupWizardPage() {
               >
                 {!tenantExists && (
                   <div className="grid w-full max-w-[44rem] gap-4 md:grid-cols-2">
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="owner-email">Owner email</Label>
+                    <Field className="gap-2 md:col-span-2">
+                      <FieldLabel htmlFor="owner-email">Owner email</FieldLabel>
                       <Input
                         id="owner-email"
                         className="h-11 rounded-md"
@@ -244,9 +246,9 @@ export function SetupWizardPage() {
                         }}
                         placeholder="owner@example.com"
                       />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="owner-display-name">Owner display name</Label>
+                    </Field>
+                    <Field className="gap-2 md:col-span-2">
+                      <FieldLabel htmlFor="owner-display-name">Owner display name</FieldLabel>
                       <Input
                         id="owner-display-name"
                         className="h-11 rounded-md"
@@ -259,7 +261,7 @@ export function SetupWizardPage() {
                         }}
                         placeholder="Optional display name for the owner"
                       />
-                    </div>
+                    </Field>
                   </div>
                 )}
               </SetupStep>
@@ -274,8 +276,8 @@ export function SetupWizardPage() {
                 }
               >
                 {!tenantExists && (
-                  <div className="flex w-full flex-col gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-[var(--color-text-secondary)]">
+                  <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-muted-foreground">
                       When both fields are complete, run bootstrap to create the tenant and continue into guided setup.
                     </div>
                     <Button
@@ -283,14 +285,15 @@ export function SetupWizardPage() {
                       disabled={!canBootstrap || !ownerEmailLooksValid || !setupSecret.trim() || isBootstrapping}
                       className="w-full sm:w-auto"
                     >
-                      {isBootstrapping ? 'Bootstrapping...' : 'Run bootstrap'}
+                      {isBootstrapping && <Spinner />}
+                      Run bootstrap
                     </Button>
                   </div>
                 )}
               </SetupStep>
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ShieldCheck className="w-4 h-4" />
                 Bootstrap creates a pending owner profile first, then links it to {providerName} on the next sign-in.
               </div>
@@ -303,7 +306,7 @@ export function SetupWizardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Setup Status</CardTitle>
+              <CardTitle>Setup status</CardTitle>
               <CardDescription>Live configuration and bootstrap results.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -314,20 +317,20 @@ export function SetupWizardPage() {
               <StatusRow label="Ready to bootstrap" value={state.canBootstrap ? 'Yes' : 'No'} />
 
               {bootstrapResult && (
-                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-sm text-[var(--color-text-secondary)]">
-                  <p className="font-semibold text-[var(--color-text-primary)] mb-2">Bootstrap complete</p>
+                <div className="rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
+                  <p className="font-semibold text-foreground mb-2">Bootstrap complete</p>
                   <p>Tenant: {bootstrapResult.tenantName}</p>
-                  <p>Tenant ID: {bootstrapResult.tenantId}</p>
-                  <p>User ID: {bootstrapResult.userId}</p>
+                  <p>Tenant ID: <span className="font-mono tabular-nums">{bootstrapResult.tenantId}</span></p>
+                  <p>User ID: <span className="font-mono tabular-nums">{bootstrapResult.userId}</span></p>
                   <p>Owner email: {bootstrapResult.ownerEmail}</p>
                 </div>
               )}
 
               {state.error && (
-                <div className="flex gap-2 rounded-md border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-                  <AlertCircle className="w-4 h-4 mt-0.5" />
-                  <span>{state.error}</span>
-                </div>
+                <Alert variant="destructive">
+                  <AlertCircle />
+                  <AlertDescription>{state.error}</AlertDescription>
+                </Alert>
               )}
             </CardContent>
             <CardFooter className="flex flex-col gap-2">
@@ -347,7 +350,7 @@ export function SetupWizardPage() {
                 </Button>
               )}
               <a
-                className="inline-flex items-center justify-center text-sm text-[var(--color-brand-primary)] hover:underline"
+                className="inline-flex items-center justify-center text-sm text-primary hover:underline"
                 href="/setup-guides"
                 target="_blank"
                 rel="noreferrer"
@@ -379,23 +382,23 @@ function SetupStep({
   const statusConfig = {
     complete: {
       icon: CheckCircle2,
-      bg: 'bg-[var(--color-success-light)]',
-      text: 'text-[var(--color-success)]',
+      bg: 'bg-success-subtle',
+      text: 'text-success',
     },
     pending: {
       icon: Circle,
-      bg: 'bg-[var(--color-info-light)]',
-      text: 'text-[var(--color-info)]',
+      bg: 'bg-info-subtle',
+      text: 'text-info',
     },
     warning: {
       icon: AlertCircle,
-      bg: 'bg-[var(--color-warning-light)]',
-      text: 'text-[var(--color-warning)]',
+      bg: 'bg-warning-subtle',
+      text: 'text-warning',
     },
     locked: {
       icon: AlertCircle,
-      bg: 'bg-[var(--color-surface-inset)]',
-      text: 'text-[var(--color-text-tertiary)]',
+      bg: 'bg-muted',
+      text: 'text-muted-foreground',
     },
   } as const;
 
@@ -403,14 +406,14 @@ function SetupStep({
   const Icon = config.icon;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border-light)] p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-border p-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${config.bg}`}>
           <Icon className={`h-4 w-4 ${config.text}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
-          <p className="text-sm text-[var(--color-text-secondary)]">{description}</p>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {inlineAction ? <div className="shrink-0 self-start">{inlineAction}</div> : null}
       </div>
@@ -422,8 +425,8 @@ function SetupStep({
 function StatusRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-[var(--color-text-secondary)]">{label}</span>
-      <span className="font-medium text-[var(--color-text-primary)]">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }

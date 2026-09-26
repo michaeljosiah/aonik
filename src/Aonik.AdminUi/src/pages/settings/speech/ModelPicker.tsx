@@ -123,7 +123,7 @@ export function ModelPicker({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={DEFAULT_SENTINEL}>
-            <span className="text-[var(--color-text-tertiary)]">(use provider default)</span>
+            <span className="text-muted-foreground">(use provider default)</span>
           </SelectItem>
           {value && !matchesKnown && (
             <SelectItem value={value} disabled>

@@ -41,17 +41,17 @@ import type { TenantHealthResult } from '@/services/tenantService';
 import type { Tenant, UpdateTenantRequest, TenantStatus, TenantEnvironment } from '@/types';
 
 const statusConfig: Record<TenantStatus, { icon: React.ElementType; color: string; bgColor: string; label: string }> = {
-  Active: { icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success-light)]', label: 'Active' },
-  Provisioning: { icon: Clock, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning-light)]', label: 'Provisioning' },
-  Deactivated: { icon: XCircle, color: 'text-[var(--color-text-tertiary)]', bgColor: 'bg-[var(--color-surface-inset)]', label: 'Deactivated' },
-  Suspended: { icon: AlertCircle, color: 'text-[var(--color-error)]', bgColor: 'bg-[var(--color-error-light)]', label: 'Suspended' },
+  Active: { icon: CheckCircle, color: 'text-success', bgColor: 'bg-success-subtle', label: 'Active' },
+  Provisioning: { icon: Clock, color: 'text-warning', bgColor: 'bg-warning-subtle', label: 'Provisioning' },
+  Deactivated: { icon: XCircle, color: 'text-muted-foreground', bgColor: 'bg-muted', label: 'Deactivated' },
+  Suspended: { icon: AlertCircle, color: 'text-destructive', bgColor: 'bg-destructive/10', label: 'Suspended' },
 };
 
 const environmentColors: Record<string, string> = {
-  Dev: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
-  Test: 'bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]',
-  Staging: 'bg-[var(--color-pending-light)] text-[var(--color-pending)]',
-  Prod: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
+  Dev: 'bg-info-subtle text-info',
+  Test: 'bg-agent/10 text-agent',
+  Staging: 'bg-warning-subtle text-warning',
+  Prod: 'bg-success-subtle text-success',
 };
 
 const environments: { value: TenantEnvironment; label: string }[] = [
@@ -318,9 +318,9 @@ export function TenantDetailPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--color-error)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Tenant Not Found</h2>
-          <p className="text-[var(--color-text-secondary)] mb-4">The tenant you're looking for doesn't exist or has been deleted.</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Tenant Not Found</h2>
+          <p className="text-muted-foreground mb-4">The tenant you're looking for doesn't exist or has been deleted.</p>
           <Button onClick={() => navigate('/tenants')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Tenants
@@ -331,9 +331,9 @@ export function TenantDetailPage() {
   }
 
   const StatusIcon = statusConfig[tenant.status]?.icon || AlertCircle;
-  const statusColor = statusConfig[tenant.status]?.color || 'text-gray-500';
-  const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-gray-100';
-  const envColor = environmentColors[tenant.environment] || 'bg-gray-100 text-gray-700';
+  const statusColor = statusConfig[tenant.status]?.color || 'text-muted-foreground';
+  const statusBgColor = statusConfig[tenant.status]?.bgColor || 'bg-muted';
+  const envColor = environmentColors[tenant.environment] || 'bg-muted text-foreground';
 
   return (
     <div className="flex-1 overflow-auto">
@@ -349,19 +349,19 @@ export function TenantDetailPage() {
         {/* Tenant Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-              <Building2 className="w-8 h-8 text-[var(--color-brand-primary)]" />
+            <div className="w-16 h-16 rounded-md bg-primary/10 flex items-center justify-center">
+              <Building2 className="w-8 h-8 text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{tenant.name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">{tenant.name}</h1>
                 <Badge className={`${envColor} font-medium`}>{tenant.environment}</Badge>
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusBgColor} ${statusColor}`}>
                   <StatusIcon className="w-3.5 h-3.5" />
                   {tenant.status}
                 </div>
               </div>
-              <p className="text-sm text-[var(--color-text-tertiary)] font-mono">{tenant.tenantId}</p>
+              <p className="text-sm text-muted-foreground font-mono">{tenant.tenantId}</p>
             </div>
           </div>
           
@@ -442,8 +442,8 @@ export function TenantDetailPage() {
 
         {/* Error Alert */}
         {error && (
-          <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+          <Card className="mb-6 border-destructive bg-destructive/10">
+            <CardContent className="p-4 flex items-center gap-3 text-destructive">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1">{error}</span>
               <Button variant="ghost" size="sm" onClick={() => setError(null)}>
@@ -467,7 +467,7 @@ export function TenantDetailPage() {
               <CardContent className="space-y-4">
                 {/* Tenant Name */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Tenant Name
                   </label>
                   {isEditing ? (
@@ -476,22 +476,22 @@ export function TenantDetailPage() {
                         type="text"
                         value={formData.name || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                          errors.name ? 'border-red-300' : 'border-[var(--color-border)]'
+                        className={`w-full px-4 py-2 border rounded-md text-sm bg-muted text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
+                          errors.name ? 'border-destructive' : 'border-border'
                         }`}
                       />
                       {errors.name && (
-                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.name}</p>
+                        <p className="mt-1 text-sm text-destructive">{errors.name}</p>
                       )}
                     </>
                   ) : (
-                    <p className="text-[var(--color-text-primary)]">{tenant.name}</p>
+                    <p className="text-foreground">{tenant.name}</p>
                   )}
                 </div>
 
                 {/* Environment */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Environment
                   </label>
                   {isEditing ? (
@@ -501,7 +501,7 @@ export function TenantDetailPage() {
                     >
                       <SelectTrigger
                         aria-label="Environment"
-                        className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                        className="w-full px-4 py-2 border border-border rounded-md text-sm bg-muted text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       >
                         <SelectValue placeholder="Select environment" />
                       </SelectTrigger>
@@ -529,7 +529,7 @@ export function TenantDetailPage() {
               <CardContent className="space-y-4">
                 {/* Default Currency */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Default Currency
                   </label>
                   {isEditing ? (
@@ -539,7 +539,7 @@ export function TenantDetailPage() {
                     >
                       <SelectTrigger
                         aria-label="Default currency"
-                        className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                        className="w-full px-4 py-2 border border-border rounded-md text-sm bg-muted text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       >
                         <SelectValue placeholder="Select currency" />
                       </SelectTrigger>
@@ -553,21 +553,21 @@ export function TenantDetailPage() {
                     </Select>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                      <span className="text-[var(--color-text-primary)]">{tenant.defaultCurrency}</span>
+                      <DollarSign className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-foreground">{tenant.defaultCurrency}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Supported Countries */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Supported Countries
                   </label>
                   {isEditing ? (
                     <>
-                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
-                        errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
+                      <div className={`border rounded-md p-3 bg-muted ${
+                        errors.supportedCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {tenantCountryOptions.map(country => (
@@ -577,8 +577,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleSupportedCountry(country.code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.supportedCountries?.includes(country.code)
-                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground hover:bg-border'
                               }`}
                             >
                               {formatTenantCountryLabel(country.code)}
@@ -587,7 +587,7 @@ export function TenantDetailPage() {
                         </div>
                       </div>
                       {errors.supportedCountries && (
-                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.supportedCountries}</p>
+                        <p className="mt-1 text-sm text-destructive">{errors.supportedCountries}</p>
                       )}
                     </>
                   ) : (
@@ -602,13 +602,13 @@ export function TenantDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Countries customers can send from
                   </label>
                   {isEditing ? (
                     <>
-                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
-                        errors.allowedOriginCountries ? 'border-red-300' : 'border-[var(--color-border)]'
+                      <div className={`border rounded-md p-3 bg-muted ${
+                        errors.allowedOriginCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {(formData.supportedCountries ?? []).map((code) => (
@@ -618,8 +618,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleScopedCountry('allowedOriginCountries', code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.allowedOriginCountries?.includes(code)
-                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground hover:bg-border'
                               }`}
                             >
                               {formatTenantCountryLabel(code)}
@@ -628,9 +628,9 @@ export function TenantDetailPage() {
                         </div>
                       </div>
                       {errors.allowedOriginCountries && (
-                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.allowedOriginCountries}</p>
+                        <p className="mt-1 text-sm text-destructive">{errors.allowedOriginCountries}</p>
                       )}
-                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Registration and sender-side eligibility are limited to this subset.
                       </p>
                     </>
@@ -646,13 +646,13 @@ export function TenantDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Countries customers can send to
                   </label>
                   {isEditing ? (
                     <>
-                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
-                        errors.allowedDestinationCountries ? 'border-red-300' : 'border-[var(--color-border)]'
+                      <div className={`border rounded-md p-3 bg-muted ${
+                        errors.allowedDestinationCountries ? 'border-destructive' : 'border-border'
                       }`}>
                         <div className="flex flex-wrap gap-2">
                           {(formData.supportedCountries ?? []).map((code) => (
@@ -662,8 +662,8 @@ export function TenantDetailPage() {
                               onClick={() => toggleScopedCountry('allowedDestinationCountries', code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.allowedDestinationCountries?.includes(code)
-                                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                                  : 'bg-muted text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground hover:bg-border'
                               }`}
                             >
                               {formatTenantCountryLabel(code)}
@@ -672,9 +672,9 @@ export function TenantDetailPage() {
                         </div>
                       </div>
                       {errors.allowedDestinationCountries && (
-                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.allowedDestinationCountries}</p>
+                        <p className="mt-1 text-sm text-destructive">{errors.allowedDestinationCountries}</p>
                       )}
-                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Destination corridors and receiver-side availability must stay within this subset.
                       </p>
                     </>
@@ -699,7 +699,7 @@ export function TenantDetailPage() {
                     <Blocks className="w-5 h-5" />
                     Modules
                   </CardTitle>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     {isHostAdmin
                       ? 'Choose which platform modules this organisation can use. Core modules are always on.'
                       : 'Module state is managed by the host administrator. Core modules are always on.'}
@@ -730,13 +730,13 @@ export function TenantDetailPage() {
               <CardContent>
                 {health ? (
                   <div className="space-y-3">
-                    <div className={`flex items-center gap-2 p-3 rounded-md ${health.isHealthy ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'}`}>
+                    <div className={`flex items-center gap-2 p-3 rounded-md ${health.isHealthy ? 'bg-success-subtle' : 'bg-destructive/10'}`}>
                       {health.isHealthy ? (
-                        <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
+                        <CheckCircle className="w-5 h-5 text-success" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-[var(--color-error)]" />
+                        <XCircle className="w-5 h-5 text-destructive" />
                       )}
-                      <span className={`font-medium ${health.isHealthy ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
+                      <span className={`font-medium ${health.isHealthy ? 'text-success' : 'text-destructive'}`}>
                         {health.isHealthy ? 'All Systems Operational' : 'Issues Detected'}
                       </span>
                     </div>
@@ -744,23 +744,23 @@ export function TenantDetailPage() {
                       <div className="space-y-2">
                         {health.checks.map((check, idx) => (
                           <div key={`${check.name}-${idx}`} className="flex items-center justify-between text-sm">
-                            <span className="text-[var(--color-text-secondary)]">{check.name}</span>
+                            <span className="text-muted-foreground">{check.name}</span>
                             {check.status === 'Passed' ? (
-                              <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
+                              <CheckCircle className="w-4 h-4 text-success" />
                             ) : (
-                              <XCircle className="w-4 h-4 text-[var(--color-error)]" />
+                              <XCircle className="w-4 h-4 text-destructive" />
                             )}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[var(--color-text-tertiary)]">
+                      <p className="text-sm text-muted-foreground">
                         No checks reported
                       </p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">
+                  <p className="text-sm text-muted-foreground">
                     Health check not available
                   </p>
                 )}
@@ -778,26 +778,26 @@ export function TenantDetailPage() {
               <CardContent>
                 <dl className="space-y-3">
                   <div>
-                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Created</dt>
-                    <dd className="text-sm text-[var(--color-text-primary)]">{formatDate(tenant.createdAt)}</dd>
+                    <dt className="text-xs text-muted-foreground">Created</dt>
+                    <dd className="text-sm text-foreground">{formatDate(tenant.createdAt)}</dd>
                   </div>
                   {tenant.createdBy && (
                     <div>
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Created By</dt>
-                      <dd className="text-sm text-[var(--color-text-primary)] flex items-center gap-1">
+                      <dt className="text-xs text-muted-foreground">Created by</dt>
+                      <dd className="text-sm text-foreground flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
                         {tenant.createdBy}
                       </dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Last Updated</dt>
-                    <dd className="text-sm text-[var(--color-text-primary)]">{formatDate(tenant.updatedAt)}</dd>
+                    <dt className="text-xs text-muted-foreground">Last updated</dt>
+                    <dd className="text-sm text-foreground">{formatDate(tenant.updatedAt)}</dd>
                   </div>
                   {tenant.updatedBy && (
                     <div>
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Updated By</dt>
-                      <dd className="text-sm text-[var(--color-text-primary)] flex items-center gap-1">
+                      <dt className="text-xs text-muted-foreground">Updated by</dt>
+                      <dd className="text-sm text-foreground flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
                         {tenant.updatedBy}
                       </dd>

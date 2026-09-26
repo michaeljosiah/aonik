@@ -93,7 +93,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
   if (loading && !data) {
     return (
       <div className="h-full overflow-auto p-4">
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Loading performance data...
         </p>
       </div>
@@ -139,7 +139,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
     return (
       <div className="h-full overflow-auto p-4">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <PanelInfoPopover
             title="Performance Monitor"
             description={performanceDescription}
@@ -154,7 +154,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
             getMetrics={() => ({ configured: false })}
           />
         </div>
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+        <p className="text-sm text-muted-foreground py-4 text-center">
           Observability not configured.
         </p>
       </div>
@@ -247,7 +247,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
             <PanelInfoPopover
               title="Performance Monitor"
               description={performanceDescription}
@@ -289,7 +289,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
               })}
             />
           </div>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <p className="text-xs text-muted-foreground">
             {selectedAgent
               ? `Filtered: ${selectedAgent}`
               : 'All agents — select one in Fleet to filter.'}
@@ -314,28 +314,28 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
           <CardContent className="px-4 pb-3">
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
-                <p className="text-[var(--color-text-tertiary)]">Runs</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{agentPerf.runs}</p>
+                <p className="text-muted-foreground">Runs</p>
+                <p className="font-semibold text-foreground">{agentPerf.runs}</p>
               </div>
               <div>
-                <p className="text-[var(--color-text-tertiary)]">Avg Latency</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.avgLatencyMs)}</p>
+                <p className="text-muted-foreground">Avg Latency</p>
+                <p className="font-semibold text-foreground">{fmtMs(agentPerf.avgLatencyMs)}</p>
               </div>
               <div>
-                <p className="text-[var(--color-text-tertiary)]">P95 Latency</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.p95LatencyMs)}</p>
+                <p className="text-muted-foreground">P95 Latency</p>
+                <p className="font-semibold text-foreground">{fmtMs(agentPerf.p95LatencyMs)}</p>
               </div>
               <div>
-                <p className="text-[var(--color-text-tertiary)]">Avg TTFT</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.avgTtftMs)}</p>
+                <p className="text-muted-foreground">Avg TTFT</p>
+                <p className="font-semibold text-foreground">{fmtMs(agentPerf.avgTtftMs)}</p>
               </div>
               <div>
-                <p className="text-[var(--color-text-tertiary)]">Input Tokens</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{fmtTokens(agentPerf.totalInputTokens)}</p>
+                <p className="text-muted-foreground">Input Tokens</p>
+                <p className="font-semibold text-foreground">{fmtTokens(agentPerf.totalInputTokens)}</p>
               </div>
               <div>
-                <p className="text-[var(--color-text-tertiary)]">Output Tokens</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{fmtTokens(agentPerf.totalOutputTokens)}</p>
+                <p className="text-muted-foreground">Output Tokens</p>
+                <p className="font-semibold text-foreground">{fmtTokens(agentPerf.totalOutputTokens)}</p>
               </div>
             </div>
           </CardContent>
@@ -413,7 +413,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                   .map((series, index) => ({
                     key: series.phaseName,
                     label: formatPhaseLabel(series.phaseName),
-                    color: ['#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'][index % 4],
+                    color: ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-4)', 'var(--chart-5)'][index % 4],
                     data: series.points,
                   }))}
                 label="PF Streaming Phases"
@@ -424,35 +424,35 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                  Thread Modes
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Thread modes
                 </p>
                 {pfStreaming.threadModes.map((mode) => (
                   <div
                     key={mode.mode}
-                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-border last:border-0"
                   >
-                    <span className="font-medium text-[var(--color-text-primary)]">{mode.mode}</span>
-                    <span>{mode.runs} runs</span>
-                    <span>{fmtMs(mode.avgRequestToFirstTokenMs)}</span>
-                    <span>{fmtMs(mode.p95RequestToFirstTokenMs)} P95</span>
+                    <span className="font-medium text-foreground">{mode.mode}</span>
+                    <span className="font-mono tabular-nums">{mode.runs} runs</span>
+                    <span className="font-mono tabular-nums">{fmtMs(mode.avgRequestToFirstTokenMs)}</span>
+                    <span className="font-mono tabular-nums">{fmtMs(mode.p95RequestToFirstTokenMs)} P95</span>
                   </div>
                 ))}
               </div>
 
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                  History Sources
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  History sources
                 </p>
                 {pfStreaming.historySources.map((source) => (
                   <div
                     key={source.mode}
-                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-border last:border-0"
                   >
-                    <span className="font-medium text-[var(--color-text-primary)]">{source.mode}</span>
-                    <span>{source.runs} runs</span>
-                    <span>{fmtMs(source.avgRequestToFirstTokenMs)}</span>
-                    <span>{fmtMs(source.p95RequestToFirstTokenMs)} P95</span>
+                    <span className="font-medium text-foreground">{source.mode}</span>
+                    <span className="font-mono tabular-nums">{source.runs} runs</span>
+                    <span className="font-mono tabular-nums">{fmtMs(source.avgRequestToFirstTokenMs)}</span>
+                    <span className="font-mono tabular-nums">{fmtMs(source.p95RequestToFirstTokenMs)} P95</span>
                   </div>
                 ))}
               </div>
@@ -468,13 +468,13 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
             {
               key: 'latency',
               label: 'Latency',
-              color: 'var(--color-brand-primary)',
+              color: 'var(--primary)',
               data: data.latencyTimeSeries,
             },
             {
               key: 'ttft',
               label: 'TTFT',
-              color: '#10b981',
+              color: 'var(--chart-4)',
               data: data.ttftTimeSeries,
             },
           ]}
@@ -520,9 +520,9 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                 .map((agent) => (
                   <div
                     key={agent.agentName}
-                    className="grid grid-cols-5 gap-1 text-[11px] text-[var(--color-text-secondary)] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                    className="grid grid-cols-5 gap-1 text-[11px] text-muted-foreground py-1 border-b border-border last:border-0"
                   >
-                    <span className="font-medium text-[var(--color-text-primary)] truncate col-span-1">
+                    <span className="font-medium text-foreground truncate col-span-1">
                       {agent.agentName}
                     </span>
                     <span>{agent.runs} runs</span>

@@ -25,7 +25,7 @@ interface OrderLineItemsProps {
 export function OrderLineItems({ items, selections, currency }: OrderLineItemsProps) {
   if (items.length === 0) {
     return (
-      <p className="py-4 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+      <p className="py-4 text-center text-[12.5px] text-muted-foreground">
         This order has no items.
       </p>
     );
@@ -38,7 +38,7 @@ export function OrderLineItems({ items, selections, currency }: OrderLineItemsPr
   const orphaned = selections.filter((s) => !attached.has(s.orderItemIndex));
 
   return (
-    <div className="flex flex-col divide-y divide-[var(--color-border-light)]">
+    <div className="flex flex-col divide-y divide-border">
       {items.map((item, index) => (
         <ItemRow
           key={`${item.itemType}-${index}`}
@@ -50,7 +50,7 @@ export function OrderLineItems({ items, selections, currency }: OrderLineItemsPr
 
       {orphaned.length > 0 && (
         <div className="py-2.5">
-          <p className="mb-1.5 text-[11px] text-[var(--color-warning)]">
+          <p className="mb-1.5 text-[11px] text-warning">
             {orphaned.length} preparation {orphaned.length === 1 ? 'line' : 'lines'} could not be
             matched to an order item — shown so nothing the kitchen holds is hidden.
           </p>
@@ -75,38 +75,38 @@ function ItemRow({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[13px] text-[var(--color-text-primary)]">{item.name}</span>
+            <span className="text-[13px] text-foreground">{item.name}</span>
             {item.isAddOn && (
-              <Pill tone="info" size="sm">
+              <Pill tone="info">
                 ADD-ON
               </Pill>
             )}
             {item.isDeliveryFee && (
-              <Pill tone="muted" size="sm">
+              <Pill tone="muted">
                 DELIVERY
               </Pill>
             )}
           </span>
 
           {item.sku && (
-            <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {item.sku}
             </span>
           )}
 
           {item.isAddOn && (
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11px] text-muted-foreground">
               retail — no box space
             </span>
           )}
         </div>
 
         <div className="flex shrink-0 flex-col items-end">
-          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
+          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-foreground">
             {formatCurrency(item.amount, currency)}
           </span>
           {item.quantity != null && item.unitPrice != null && (
-            <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-muted-foreground">
               {item.quantity} × {formatCurrency(item.unitPrice, currency)}
             </span>
           )}
@@ -114,7 +114,7 @@ function ItemRow({
       </div>
 
       {selections.length > 0 && (
-        <div className="mt-2 border-l border-[var(--color-border-light)] pl-3">
+        <div className="mt-2 border-l border-border pl-3">
           <SelectionList selections={selections} />
         </div>
       )}
@@ -127,20 +127,20 @@ function SelectionList({ selections }: { selections: StorefrontOrderSelectionDto
     <ul className="flex flex-col gap-1.5">
       {selections.map((selection, index) => (
         <li key={`${selection.sku}-${index}`} className="flex items-start gap-2">
-          <span className="mt-px font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+          <span className="mt-px font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-muted-foreground">
             {selection.quantity}×
           </span>
           <span className="flex min-w-0 flex-col">
-            <span className="text-[12.5px] text-[var(--color-text-primary)]">
+            <span className="text-[12.5px] text-foreground">
               {/* SKU is the durable identifier — a variant deleted since checkout has no name,
                   and showing the SKU alone is better than an invented placeholder. */}
               {selection.name ?? selection.sku}
             </span>
-            <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
               {selection.sku}
             </span>
             {selection.personalisationSummary && (
-              <span className="text-[11.5px] text-[var(--color-brand-primary)]">
+              <span className="text-[11.5px] text-primary">
                 {selection.personalisationSummary}
               </span>
             )}

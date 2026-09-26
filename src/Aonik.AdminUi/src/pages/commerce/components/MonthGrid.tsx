@@ -23,26 +23,26 @@ interface MonthGridProps {
 function dayCellClasses(kind: MonthGridDay['kind']): string {
   switch (kind) {
     case 'delivery':
-      return 'bg-[var(--color-brand-primary-10)] font-medium text-[var(--color-brand-primary)]';
+      return 'bg-primary/10 font-medium text-primary';
     case 'blackout':
-      return 'text-[var(--color-text-tertiary)] line-through';
+      return 'text-muted-foreground line-through';
     case 'promise':
-      return 'font-semibold text-[var(--color-brand-primary)] ring-2 ring-inset ring-[var(--color-brand-primary)]';
+      return 'font-semibold text-primary ring-2 ring-inset ring-primary';
     default:
-      return 'text-[var(--color-text-secondary)]';
+      return 'text-muted-foreground';
   }
 }
 
 function legendSwatchClasses(kind: MonthGridDay['kind']): string {
   switch (kind) {
     case 'delivery':
-      return 'bg-[var(--color-brand-primary-10)]';
+      return 'bg-primary/10';
     case 'blackout':
-      return 'border border-[var(--color-border)] bg-transparent';
+      return 'border border-border bg-transparent';
     case 'promise':
-      return 'ring-2 ring-inset ring-[var(--color-brand-primary)]';
+      return 'ring-2 ring-inset ring-primary';
     default:
-      return 'bg-[var(--color-surface-inset)]';
+      return 'bg-muted';
   }
 }
 
@@ -51,14 +51,14 @@ export function MonthGrid({ monthLabel, firstWeekday, days, legend }: MonthGridP
 
   return (
     <div>
-      <div className="mb-2 text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+      <div className="mb-2 text-[12.5px] font-semibold text-foreground">
         {monthLabel}
       </div>
       <div className="grid grid-cols-7 gap-1">
         {MONTH_GRID_WEEKDAYS.map((weekday) => (
           <div
             key={weekday}
-            className="pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]"
+            className="pb-1 text-center text-xs font-medium text-muted-foreground"
           >
             {weekday}
           </div>
@@ -84,7 +84,7 @@ export function MonthGrid({ monthLabel, firstWeekday, days, legend }: MonthGridP
           {legend.map((entry) => (
             <span
               key={entry.kind}
-              className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]"
+              className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
             >
               <span className={cn('h-3 w-3 shrink-0 rounded-sm', legendSwatchClasses(entry.kind))} />
               {entry.label}

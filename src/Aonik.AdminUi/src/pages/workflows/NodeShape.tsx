@@ -69,9 +69,9 @@ export function NodeShape({
   const total = meta.outputs ?? 1;
 
   let ringColor = 'transparent';
-  if (traceCurrent) ringColor = '#3ab795';
-  else if (selected) ringColor = 'var(--color-brand-primary)';
-  else if (hasError) ringColor = '#c44536';
+  if (traceCurrent) ringColor = 'var(--success)';
+  else if (selected) ringColor = 'var(--primary)';
+  else if (hasError) ringColor = 'var(--destructive)';
   const ringWidth = traceCurrent || selected || hasError ? 2 : 0;
 
   return (
@@ -100,8 +100,8 @@ export function NodeShape({
         width={NODE_W}
         height={NODE_H}
         rx={7}
-        fill="var(--color-surface)"
-        stroke="var(--color-border-light)"
+        fill="var(--card)"
+        stroke="var(--border)"
         strokeWidth={1}
         filter="drop-shadow(0 1px 2px rgba(0,0,0,0.04))"
         onMouseDown={onMouseDown}
@@ -114,7 +114,8 @@ export function NodeShape({
         width={NODE_W}
         height={HEADER_H}
         rx={7}
-        fill={tint + '14'}
+        fill={tint}
+        fillOpacity={0.08}
         stroke="none"
         onMouseDown={onMouseDown}
       />
@@ -123,7 +124,8 @@ export function NodeShape({
         y={HEADER_H - 7}
         width={NODE_W}
         height={7}
-        fill={tint + '14'}
+        fill={tint}
+        fillOpacity={0.08}
         stroke="none"
         onMouseDown={onMouseDown}
       />
@@ -139,7 +141,8 @@ export function NodeShape({
             height: 18,
             borderRadius: 4,
             background: tint,
-            color: '#fff',
+            // Glyph on the step-kind tint; flips with the theme (see stepKindCatalog).
+            color: 'var(--primary-foreground)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -156,8 +159,7 @@ export function NodeShape({
         fontSize="10"
         fontWeight={600}
         fill={tint}
-        letterSpacing="0.06em"
-        style={{ textTransform: 'uppercase', pointerEvents: 'none' }}
+        style={{ pointerEvents: 'none' }}
       >
         {meta.label}
       </text>
@@ -165,14 +167,14 @@ export function NodeShape({
       {/* error pip */}
       {hasError && (
         <g transform={`translate(${NODE_W - 22}, 6)`} pointerEvents="none">
-          <circle cx={8} cy={8} r={7} fill="#c44536" />
+          <circle cx={8} cy={8} r={7} fill="var(--destructive)" />
           <text
             x={8}
             y={11.5}
             textAnchor="middle"
             fontSize="10"
             fontWeight={700}
-            fill="#fff"
+            fill="var(--destructive-foreground)"
           >
             !
           </text>
@@ -200,7 +202,7 @@ export function NodeShape({
             style={{
               fontSize: 12.5,
               fontWeight: 600,
-              color: 'var(--color-text-primary)',
+              color: 'var(--foreground)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -212,7 +214,7 @@ export function NodeShape({
             <div
               style={{
                 fontSize: 10.5,
-                color: 'var(--color-text-tertiary)',
+                color: 'var(--muted-foreground)',
                 fontFamily: 'var(--font-mono)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -228,8 +230,8 @@ export function NodeShape({
       {/* trace done check */}
       {traceDone && !traceCurrent && (
         <g transform={`translate(${NODE_W - 20}, ${NODE_H - 20})`} pointerEvents="none">
-          <circle cx={8} cy={8} r={8} fill="#3ab795" />
-          <path d="M 4 8 L 7 11 L 12 5" stroke="#fff" strokeWidth={2} fill="none" />
+          <circle cx={8} cy={8} r={8} fill="var(--success)" />
+          <path d="M 4 8 L 7 11 L 12 5" stroke="var(--background)" strokeWidth={2} fill="none" />
         </g>
       )}
 
@@ -241,7 +243,7 @@ export function NodeShape({
             cx={0}
             cy={0}
             r={PORT_R}
-            fill="var(--color-surface)"
+            fill="var(--card)"
             stroke={tint}
             strokeWidth={2}
             pointerEvents="none"
@@ -270,7 +272,7 @@ export function NodeShape({
               cy={0}
               r={PORT_R}
               fill={tint}
-              stroke="var(--color-surface)"
+              stroke="var(--card)"
               strokeWidth={2}
               pointerEvents="none"
             />
@@ -280,7 +282,7 @@ export function NodeShape({
                 y={3}
                 fontSize="9"
                 fontFamily="var(--font-mono)"
-                fill="var(--color-text-tertiary)"
+                fill="var(--muted-foreground)"
                 pointerEvents="none"
               >
                 {node.kind === 'decision'

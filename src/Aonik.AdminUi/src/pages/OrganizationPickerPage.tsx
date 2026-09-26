@@ -4,6 +4,7 @@ import { ArrowRight, Building2 } from 'lucide-react';
 
 import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
+import { Button } from '@/components/ui/button';
 import { setSelectedTenant } from '@/lib/tenantContext';
 import { useTenantBootstrap } from '@/hooks/useTenantBootstrap';
 import { invalidateModuleManifest } from '@/modules/manifestCache';
@@ -75,22 +76,11 @@ export function OrganizationPickerPage() {
   const tenants = state.tenants;
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center px-6 py-10"
-      style={{ background: 'var(--color-background)' }}
-    >
+    <div className="min-h-screen w-full flex items-center justify-center bg-background px-6 py-10">
       <div className="w-full max-w-[28rem]">
         <header className="mb-6 text-center">
-          <h1
-            className="text-2xl font-semibold"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Choose an organization
-          </h1>
-          <p
-            className="mt-2 text-sm"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
+          <h1 className="text-2xl font-semibold text-foreground">Choose an organization</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Your account has access to {tenants.length} organizations. Pick the one you want to work in.
           </p>
         </header>
@@ -101,37 +91,19 @@ export function OrganizationPickerPage() {
               <button
                 type="button"
                 onClick={() => choose(t)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-colors"
-                style={{
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--color-surface-inset)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--color-surface)';
-                }}
+                className="flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                <span
-                  className="shrink-0 rounded-md p-2"
-                  style={{ background: 'var(--color-surface-inset)' }}
-                  aria-hidden
-                >
+                <span className="shrink-0 rounded-md bg-muted p-2" aria-hidden>
                   <Building2 size={18} />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block font-medium truncate">{t.name}</span>
-                  <span
-                    className="block text-xs truncate"
-                    style={{ color: 'var(--color-text-tertiary)' }}
-                  >
+                  <span className="block text-xs truncate text-muted-foreground">
                     {t.environment}
                     {t.subdomain ? ` · ${t.subdomain}` : ''}
                   </span>
                 </span>
-                <ArrowRight size={16} aria-hidden style={{ color: 'var(--color-text-tertiary)' }} />
+                <ArrowRight size={16} aria-hidden className="text-muted-foreground" />
               </button>
             </li>
           ))}
@@ -153,43 +125,14 @@ function PickerMessage({
   onAction?: () => void;
 }) {
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center px-6"
-      style={{ background: 'var(--color-background)' }}
-    >
-      <div
-        className="w-full max-w-[26rem] rounded-md p-6 text-center"
-        style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-        }}
-      >
-        <h1
-          className="text-lg font-semibold mb-2"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          {title}
-        </h1>
-        <p
-          className="text-sm mb-4"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          {body}
-        </p>
+    <div className="min-h-screen w-full flex items-center justify-center bg-background px-6">
+      <div className="w-full max-w-[26rem] rounded-xl border bg-card p-6 text-center">
+        <h1 className="text-lg font-semibold mb-2 text-foreground">{title}</h1>
+        <p className="text-sm mb-4 text-muted-foreground">{body}</p>
         {actionLabel && onAction && (
-          <button
-            type="button"
-            onClick={onAction}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-opacity"
-            style={{
-              background: 'var(--color-brand-primary)',
-              color: 'var(--primary-foreground)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
+          <Button type="button" onClick={onAction}>
             {actionLabel}
-          </button>
+          </Button>
         )}
       </div>
     </div>

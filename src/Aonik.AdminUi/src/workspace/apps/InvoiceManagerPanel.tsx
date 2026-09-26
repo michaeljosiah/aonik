@@ -34,8 +34,8 @@ export function InvoiceManagerPanel({ panelId, title }: WorkspacePanelRenderProp
     <div className="p-4 space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground">
             Monitor invoice health and share context with other workspace panels.
           </p>
         </div>
@@ -46,24 +46,24 @@ export function InvoiceManagerPanel({ panelId, title }: WorkspacePanelRenderProp
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="p-4">
-          <p className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Outstanding</p>
-          <p className="text-xl font-semibold text-[var(--color-text-primary)]">$148,920</p>
-          <p className="text-xs text-[var(--color-text-secondary)]">Across 18 invoices</p>
+          <p className="text-xs text-muted-foreground">Outstanding</p>
+          <p className="text-xl font-semibold font-mono tabular-nums text-foreground">$148,920</p>
+          <p className="text-xs text-muted-foreground">Across 18 invoices</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">At Risk</p>
-          <p className="text-xl font-semibold text-[var(--color-text-primary)]">$32,480</p>
-          <p className="text-xs text-[var(--color-text-secondary)]">3 invoices overdue</p>
+          <p className="text-xs text-muted-foreground">At risk</p>
+          <p className="text-xl font-semibold font-mono tabular-nums text-foreground">$32,480</p>
+          <p className="text-xs text-muted-foreground">3 invoices overdue</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Next Action</p>
-          <p className="text-sm font-medium text-[var(--color-text-primary)]">Dunning run</p>
-          <p className="text-xs text-[var(--color-text-secondary)]">Scheduled for 2:00 PM</p>
+          <p className="text-xs text-muted-foreground">Next action</p>
+          <p className="text-sm font-medium text-foreground">Dunning run</p>
+          <p className="text-xs text-muted-foreground">Scheduled for 2:00 PM</p>
         </Card>
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">Recent invoices</p>
+        <p className="text-xs text-muted-foreground">Recent invoices</p>
         <div className="space-y-2">
           {invoices.map((invoice) => (
             <button
@@ -74,12 +74,12 @@ export function InvoiceManagerPanel({ panelId, title }: WorkspacePanelRenderProp
             >
               <Card className="p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{invoice.id}</p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">{invoice.customer}</p>
+                  <p className="text-sm font-semibold font-mono tabular-nums text-foreground">{invoice.id}</p>
+                  <p className="text-xs text-muted-foreground">{invoice.customer}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{invoice.amount}</p>
-                  <Badge variant={invoice.status === 'Paid' ? 'success' : invoice.status === 'Overdue' ? 'error' : 'pending'}>
+                  <p className="text-sm font-semibold font-mono tabular-nums text-foreground">{invoice.amount}</p>
+                  <Badge variant={invoice.status === 'Paid' ? 'success' : invoice.status === 'Overdue' ? 'destructive' : 'warning'}>
                     {invoice.status}
                   </Badge>
                 </div>

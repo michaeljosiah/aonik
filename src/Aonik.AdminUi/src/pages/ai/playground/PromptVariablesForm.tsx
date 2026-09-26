@@ -69,7 +69,7 @@ function SchemaBasedForm({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-[var(--color-text-tertiary)]">
+      <p className="text-xs text-muted-foreground">
         Fill in the template variables below. These will be substituted into{' '}
         <code className="text-[10px]">{'{{variable}}'}</code> placeholders in the prompt.
       </p>
@@ -82,11 +82,11 @@ function SchemaBasedForm({
           <div key={key} className="space-y-1">
             <Label className="text-xs font-medium">{key}</Label>
             {prop.description && (
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">{prop.description}</p>
+              <p className="text-[10px] text-muted-foreground">{prop.description}</p>
             )}
             {isMultiline ? (
               <textarea
-                className="h-20 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+                className="h-20 w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none"
                 value={variables[key] ?? prop.default ?? ''}
                 placeholder={prop.default ?? `Enter ${key}...`}
                 onChange={(e) => onChange({ ...variables, [key]: e.target.value })}
@@ -94,7 +94,7 @@ function SchemaBasedForm({
             ) : (
               <input
                 type="text"
-                className="h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-xs text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+                className="h-8 w-full rounded-md border border-border bg-card px-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
                 value={variables[key] ?? prop.default ?? ''}
                 placeholder={prop.default ?? `Enter ${key}...`}
                 onChange={(e) => onChange({ ...variables, [key]: e.target.value })}
@@ -104,7 +104,7 @@ function SchemaBasedForm({
         );
       })}
       {keys.length === 0 && (
-        <p className="text-xs italic text-[var(--color-text-tertiary)]">
+        <p className="text-xs italic text-muted-foreground">
           No variables defined in the schema.
         </p>
       )}
@@ -150,26 +150,26 @@ function DynamicKeyValueForm({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-[var(--color-text-tertiary)]">
+      <p className="text-xs text-muted-foreground">
         Add variable values to substitute into{' '}
         <code className="text-[10px]">{'{{variable}}'}</code> placeholders.
       </p>
 
       {entries.map(([key, value]) => (
         <div key={key} className="flex items-center gap-2">
-          <span className="w-28 shrink-0 truncate text-xs font-medium text-[var(--color-text-secondary)]">
+          <span className="w-28 shrink-0 truncate text-xs font-medium text-muted-foreground">
             {key}
           </span>
           <input
             type="text"
-            className="h-7 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+            className="h-7 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground focus:border-primary focus:outline-none"
             value={value}
             placeholder={`Value for ${key}`}
             onChange={(e) => handleValueChange(key, e.target.value)}
           />
           <button
             type="button"
-            className="rounded p-1 text-[var(--color-text-tertiary)] hover:bg-accent hover:text-red-500"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
             onClick={() => handleRemove(key)}
           >
             <Trash2 className="h-3 w-3" />
@@ -180,7 +180,7 @@ function DynamicKeyValueForm({
       <div className="flex items-center gap-2">
         <input
           type="text"
-          className="h-7 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+          className="h-7 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           placeholder="Variable name..."
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}

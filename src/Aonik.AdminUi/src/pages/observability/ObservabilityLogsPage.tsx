@@ -51,13 +51,13 @@ function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
 function severityTone(severity: string) {
   switch (severity.toLowerCase()) {
     case 'debug':
-      return { bg: 'var(--color-surface-inset)', fg: 'var(--color-text-tertiary)' };
+      return { className: 'bg-muted text-muted-foreground' };
     case 'warn':
-      return { bg: '#b4741e22', fg: '#b4741e' };
+      return { className: 'bg-warning-subtle text-warning-foreground' };
     case 'error':
-      return { bg: '#c4453622', fg: '#c44536' };
+      return { className: 'bg-destructive/10 text-destructive' };
     default:
-      return { bg: '#055a6020', fg: '#055a60' };
+      return { className: 'bg-primary/10 text-primary' };
   }
 }
 
@@ -173,10 +173,9 @@ export function ObservabilityLogsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
-            eyebrow="Observability · Structured logs"
             title="Logs"
             subtitle="Live tail across every service using indexed Application Insights trace events."
             actions={(
@@ -189,7 +188,7 @@ export function ObservabilityLogsPage() {
                   <span
                     className={cn(
                       'inline-block h-1.5 w-1.5 rounded-full',
-                      live ? 'bg-white' : 'bg-[var(--color-success)]',
+                      live ? 'bg-primary-foreground' : 'bg-success',
                     )}
                   />
                   {live ? 'Live tail' : 'Paused'}
@@ -210,13 +209,13 @@ export function ObservabilityLogsPage() {
 
       <div className="flex-1 p-6">
         <div className="space-y-4">
-          <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2.5">
+          <div className="rounded-lg border border-border bg-card px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-3">
-              <AonikTemplateIcon name="terminal" size={14} color="var(--color-text-secondary)" />
-              <span className="flex-1 font-mono text-[12px] text-[var(--color-text-primary)]">
-                <span className="text-[var(--color-text-tertiary)]">range:</span>{TIME_RANGE_OPTIONS.find((option) => option.value === timeRange)?.label.toLowerCase() ?? timeRange}
-                <span className="mx-2 text-[var(--color-text-tertiary)]">|</span>
-                <span className="text-[var(--color-text-tertiary)]">sev:</span>
+              <AonikTemplateIcon name="terminal" size={14} color="var(--muted-foreground)" />
+              <span className="flex-1 font-mono text-[12px] text-foreground">
+                <span className="text-muted-foreground">range:</span>{TIME_RANGE_OPTIONS.find((option) => option.value === timeRange)?.label.toLowerCase() ?? timeRange}
+                <span className="mx-2 text-muted-foreground">|</span>
+                <span className="text-muted-foreground">sev:</span>
                 {severityFilter === 'all' ? 'any' : severityFilter}
               </span>
               <div className="flex flex-wrap gap-1">
@@ -233,8 +232,8 @@ export function ObservabilityLogsPage() {
                       className={cn(
                         'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
                         active
-                          ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]'
-                          : 'border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]',
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted',
                       )}
                     >
                       {option.label}
@@ -246,12 +245,12 @@ export function ObservabilityLogsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-center">
+          <div className="grid gap-4 rounded-lg border border-border bg-card px-4 py-3 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-center">
             <div>
-              <div className="text-[11px] text-[var(--color-text-tertiary)]">Volume · selected window</div>
-              <div className="font-mono text-[18px] font-semibold text-[var(--color-text-primary)]">
+              <div className="text-[11px] text-muted-foreground">Volume · selected window</div>
+              <div className="font-mono text-[18px] font-semibold text-foreground">
                 {formatNumber(data?.totalEvents ?? 0)}{' '}
-                <span className="text-[11px] font-normal text-[var(--color-text-tertiary)]">events</span>
+                <span className="text-[11px] font-normal text-muted-foreground">events</span>
               </div>
             </div>
 
@@ -262,13 +261,13 @@ export function ObservabilityLogsPage() {
                 return (
                   <div key={point.timestamp} className="relative flex w-[6px] items-end justify-center">
                     <div
-                      className="w-[4px] rounded-t-sm bg-[var(--color-brand-primary)]/80"
+                      className="w-[4px] rounded-t-sm bg-primary/80"
                       style={{ height }}
                       title={`${formatNumber(point.events)} events`}
                     />
                     {errorHeight > 0 ? (
                       <div
-                        className="absolute bottom-[calc(100%+2px)] w-[4px] rounded-t-sm bg-[#c44536]"
+                        className="absolute bottom-[calc(100%+2px)] w-[4px] rounded-t-sm bg-destructive"
                         style={{ height: Math.max(2, errorHeight / 4) }}
                         title={`${formatNumber(point.errors)} errors`}
                       />
@@ -278,20 +277,20 @@ export function ObservabilityLogsPage() {
               })}
             </div>
 
-            <div className="flex items-center gap-3 text-[10.5px] text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-3 text-[10.5px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 bg-[var(--color-brand-primary)]" />
+                <span className="h-2 w-2 bg-primary" />
                 events
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 bg-[#c44536]" />
+                <span className="h-2 w-2 bg-destructive" />
                 errors
               </span>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-            <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-2 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
               <div>Timestamp</div>
               <div>Sev</div>
               <div>Service</div>
@@ -302,18 +301,18 @@ export function ObservabilityLogsPage() {
 
             <div className="max-h-[720px] overflow-y-auto font-mono text-[11.5px]">
               {loading ? (
-                <div className="flex items-center gap-2 px-4 py-8 text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center gap-2 px-4 py-8 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading logs...
                 </div>
               ) : error ? (
-                <div className="px-4 py-8 text-sm text-[#c44536]">{error}</div>
+                <div className="px-4 py-8 text-sm text-destructive">{error}</div>
               ) : !data?.configured ? (
-                <div className="px-4 py-8 text-sm text-[var(--color-text-secondary)]">
+                <div className="px-4 py-8 text-sm text-muted-foreground">
                   Application Insights is not configured for structured logs.
                 </div>
               ) : filteredEntries.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-[var(--color-text-secondary)]">
+                <div className="px-4 py-8 text-sm text-muted-foreground">
                   No log events matched the current filters.
                 </div>
               ) : (
@@ -327,8 +326,8 @@ export function ObservabilityLogsPage() {
               )}
 
               {live && !loading && !error && data?.configured ? (
-                <div className="flex items-center gap-2 px-4 py-3 text-[11px] text-[var(--color-text-tertiary)]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
+                <div className="flex items-center gap-2 px-4 py-3 text-[11px] text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   awaiting new events…
                 </div>
               ) : null}
@@ -337,7 +336,7 @@ export function ObservabilityLogsPage() {
 
           <div className="flex items-center justify-between gap-3">
             <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger className="w-[180px] bg-[var(--color-surface)]">
+              <SelectTrigger className="w-[180px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -366,30 +365,27 @@ function LogRow({
   fields,
 }: {
   entry: StructuredLogEntry;
-  tone: { bg: string; fg: string };
+  tone: { className: string };
   fields: Array<[string, string]>;
 }) {
   return (
-    <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-light)] px-4 py-2.5 last:border-b-0">
-      <span className="text-[var(--color-text-tertiary)]">{formatTimestamp(entry.timestamp)}</span>
-      <span
-        className="justify-self-start rounded px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.04em]"
-        style={{ background: tone.bg, color: tone.fg }}
-      >
+    <div className="grid grid-cols-[116px_72px_140px_120px_140px_minmax(0,1fr)] gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
+      <span className="text-muted-foreground">{formatTimestamp(entry.timestamp)}</span>
+      <span className={cn('justify-self-start rounded-md px-1.5 py-0.5 text-[10px] font-semibold', tone.className)}>
         {entry.severity}
       </span>
-      <span className="truncate text-[var(--color-text-secondary)]" title={entry.service}>{entry.service}</span>
-      <span className="truncate text-[var(--color-text-secondary)]" title={entry.agent}>{entry.agent}</span>
-      <span className="truncate text-[var(--color-brand-primary)]" title={entry.traceId}>{entry.traceId}</span>
-      <span className="min-w-0 text-[var(--color-text-primary)]">
+      <span className="truncate text-muted-foreground" title={entry.service}>{entry.service}</span>
+      <span className="truncate text-muted-foreground" title={entry.agent}>{entry.agent}</span>
+      <span className="truncate text-primary" title={entry.traceId}>{entry.traceId}</span>
+      <span className="min-w-0 text-foreground">
         {entry.message}
         {fields.length > 0 ? (
-          <span className="ml-1 text-[var(--color-text-tertiary)]">
+          <span className="ml-1 text-muted-foreground">
             {' '}· {fields.map(([key, value], index) => (
               <span key={key} className="mr-2 last:mr-0">
                 {index > 0 ? '' : ''}
                 <span>{compactFieldKey(key)}=</span>
-                <span className="text-[var(--color-text-secondary)]">&quot;{value}&quot;</span>
+                <span className="text-muted-foreground">&quot;{value}&quot;</span>
               </span>
             ))}
           </span>

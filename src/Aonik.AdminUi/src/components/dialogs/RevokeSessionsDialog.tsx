@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { RevokeUserSessionsResponse } from '@/types';
 
 interface RevokeSessionsDialogProps {
@@ -66,8 +69,8 @@ export function RevokeSessionsDialog({
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center flex-shrink-0">
-              <ShieldAlert className="w-5 h-5 text-[var(--color-warning)]" />
+            <div className="w-10 h-10 rounded-full bg-warning-subtle flex items-center justify-center flex-shrink-0">
+              <ShieldAlert className="w-5 h-5 text-warning" />
             </div>
             <div>
               <DialogTitle>Revoke active sessions?</DialogTitle>
@@ -82,28 +85,28 @@ export function RevokeSessionsDialog({
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <label htmlFor="revoke-reason" className="text-sm font-medium text-[var(--color-text-primary)]">
+            <Label htmlFor="revoke-reason">
               Reason
-            </label>
-            <input
+            </Label>
+            <Input
               id="revoke-reason"
               type="text"
               autoComplete="off"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-warning)] focus-visible:ring-offset-2"
               placeholder="e.g., laptop reported stolen"
               disabled={submitting}
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Captured on the audit log entry.
             </p>
           </div>
 
           {error && (
-            <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

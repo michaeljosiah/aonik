@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Plug, RefreshCw } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar, type FilterBarTab, Pill } from '@/components/layout/aonik';
 import type { PartnerDetail, PartnerTransmissionItem } from '@/types/partners';
 import { Chip, EmptyState, InfoNote, Panel, ViewToggle, type HubView } from './components';
@@ -102,7 +103,6 @@ export function ActivityTab({ details, onOpenPartner }: ActivityTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search partner or connector…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 
@@ -141,13 +141,13 @@ export function ActivityTab({ details, onOpenPartner }: ActivityTabProps) {
 function ActivityCard({ row, onOpen }: { row: TxRow; onOpen: () => void }) {
   const { tx, partner } = row;
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <button type="button" onClick={onOpen} className="flex min-w-0 items-center gap-2.5 text-left">
           <AgentAvatar name={partner.name} size={32} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{partner.name}</p>
-            <p className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-text-tertiary)]">
+            <p className="truncate text-sm font-semibold text-foreground">{partner.name}</p>
+            <p className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
               <Plug size={11} />
               {tx.connectorType ?? 'Connector'}
             </p>
@@ -161,17 +161,17 @@ function ActivityCard({ row, onOpen }: { row: TxRow; onOpen: () => void }) {
       <div className="flex items-center gap-2">
         {tx.retryCount > 0 && (
           <Chip icon={RefreshCw} dense>
-            <span className="text-[var(--color-text-tertiary)]">retries</span>
-            <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+            <span className="text-muted-foreground">retries</span>
+            <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
               {tx.retryCount}
             </span>
           </Chip>
         )}
-        <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{formatRelative(tx.createdAt)}</span>
+        <span className="text-[11.5px] text-muted-foreground">{formatRelative(tx.createdAt)}</span>
       </div>
 
       {tx.lastError && (
-        <div className="flex items-start gap-1.5 rounded-lg bg-[var(--color-error-light)] px-3 py-2 text-[11.5px] text-[var(--color-error)]">
+        <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-[11.5px] text-destructive">
           <AlertTriangle size={13} className="mt-px flex-none" />
           <span className="break-words">{tx.lastError}</span>
         </div>
@@ -183,56 +183,56 @@ function ActivityCard({ row, onOpen }: { row: TxRow; onOpen: () => void }) {
 function ActivityTable({ rows, onOpenPartner }: { rows: TxRow[]; onOpenPartner: (partnerId: string) => void }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[13px]">
-        <thead>
-          <tr className="border-b border-[var(--color-border-light)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            <th className="px-5 py-3 font-medium">Partner</th>
-            <th className="px-3 py-3 font-medium">Connector</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="px-3 py-3 text-right font-medium">Retries</th>
-            <th className="px-3 py-3 font-medium">Error</th>
-            <th className="px-5 py-3 font-medium">When</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="border-collapse text-left text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border text-muted-foreground hover:bg-transparent">
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">Partner</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Connector</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Status</TableHead>
+            <TableHead numeric className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Retries</TableHead>
+            <TableHead className="h-auto text-xs px-3 py-3 font-medium text-muted-foreground">Error</TableHead>
+            <TableHead className="h-auto text-xs px-5 py-3 font-medium text-muted-foreground">When</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
-            <tr
+            <TableRow
               key={r.tx.transmissionId}
-              className="border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-surface-inset)]"
+              className="border-b border-border last:border-0 hover:bg-muted"
             >
-              <td className="px-5 py-3">
+              <TableCell className="px-5 py-3">
                 <button
                   type="button"
                   onClick={() => onOpenPartner(r.partner.partnerId)}
                   className="flex items-center gap-2.5 text-left"
                 >
                   <AgentAvatar name={r.partner.name} size={26} />
-                  <span className="font-medium text-[var(--color-text-primary)]">{r.partner.name}</span>
+                  <span className="font-medium text-foreground">{r.partner.name}</span>
                 </button>
-              </td>
-              <td className="px-3 py-3 text-[var(--color-text-secondary)]">{r.tx.connectorType ?? '—'}</td>
-              <td className="px-3 py-3">
+              </TableCell>
+              <TableCell className="px-3 py-3 text-muted-foreground">{r.tx.connectorType ?? '—'}</TableCell>
+              <TableCell className="px-3 py-3">
                 <Pill tone={transmissionTone(r.tx.status)} dot>
                   {r.tx.status}
                 </Pill>
-              </td>
-              <td className="px-3 py-3 text-right font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+              </TableCell>
+              <TableCell numeric className="px-3 py-3 text-muted-foreground">
                 {r.tx.retryCount}
-              </td>
-              <td className="max-w-[260px] px-3 py-3">
+              </TableCell>
+              <TableCell className="max-w-[260px] px-3 py-3">
                 {r.tx.lastError ? (
-                  <span className="block truncate text-[12px] text-[var(--color-error)]" title={r.tx.lastError}>
+                  <span className="block truncate text-[12px] text-destructive" title={r.tx.lastError}>
                     {r.tx.lastError}
                   </span>
                 ) : (
-                  <span className="text-[var(--color-text-tertiary)]">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
-              </td>
-              <td className="px-5 py-3 text-[var(--color-text-tertiary)]">{formatRelative(r.tx.createdAt)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="px-5 py-3 text-muted-foreground">{formatRelative(r.tx.createdAt)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

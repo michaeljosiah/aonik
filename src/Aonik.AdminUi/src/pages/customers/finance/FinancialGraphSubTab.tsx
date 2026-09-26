@@ -14,6 +14,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { RefreshCw, Network, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
@@ -33,29 +34,36 @@ interface NodeTypeConfig {
   icon: string;
 }
 
+// Node colours come from theme tokens (categorical --chart-N, plus status
+// tokens where the node type carries that meaning) so the graph flips with
+// the theme. `tint` builds the pale fill from the same hue.
+const tint = (color: string) => `color-mix(in oklab, ${color} 10%, var(--card))`;
+
+function nodeConfig(label: string, color: string, icon: string): NodeTypeConfig {
+  return { label, color, bg: tint(color), border: color, icon };
+}
+
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
-  UserRoot:              { label: 'User',          color: '#055a60', bg: '#e8f5f6', border: '#055a60', icon: '\u{1F464}' },
-  Household:             { label: 'Household',     color: '#6d28d9', bg: '#f3e8ff', border: '#6d28d9', icon: '\u{1F3E0}' },
-  HouseholdMember:       { label: 'Member',        color: '#7c3aed', bg: '#f3e8ff', border: '#7c3aed', icon: '\u{1F465}' },
-  Party:                 { label: 'Party',         color: '#0369a1', bg: '#e0f2fe', border: '#0369a1', icon: '\u{1F91D}' },
-  PersonalAccount:       { label: 'Account',       color: '#047857', bg: '#ecfdf5', border: '#047857', icon: '\u{1F3E6}' },
-  PersonalLinkedAccount: { label: 'Linked Acct',   color: '#059669', bg: '#ecfdf5', border: '#059669', icon: '\u{1F517}' },
-  PersonalTransaction:   { label: 'Transaction',   color: '#d97706', bg: '#fffbeb', border: '#d97706', icon: '\u{1F4B3}' },
-  Bill:                  { label: 'Bill',          color: '#dc2626', bg: '#fef2f2', border: '#dc2626', icon: '\u{1F4C4}' },
-  Goal:                  { label: 'Goal',          color: '#2563eb', bg: '#eff6ff', border: '#2563eb', icon: '\u{1F3AF}' },
-  Subscription:          { label: 'Subscription',  color: '#9333ea', bg: '#faf5ff', border: '#9333ea', icon: '\u{1F504}' },
-  FxQuote:               { label: 'FX Rate',       color: '#0891b2', bg: '#ecfeff', border: '#0891b2', icon: '\u{1F4B1}' },
-  OrderRef:              { label: 'Order',         color: '#ea580c', bg: '#fff7ed', border: '#ea580c', icon: '\u{1F4E6}' },
-  InvoiceRef:            { label: 'Invoice',       color: '#ca8a04', bg: '#fefce8', border: '#ca8a04', icon: '\u{1F9FE}' },
-  PaymentIntentRef:      { label: 'Payment',       color: '#16a34a', bg: '#f0fdf4', border: '#16a34a', icon: '\u{1F4B8}' },
-  NativeAnnotation:      { label: 'Annotation',    color: '#64748b', bg: '#f8fafc', border: '#64748b', icon: '\u{1F4CC}' },
-  RelationshipAnnotation:{ label: 'Rel. Note',     color: '#64748b', bg: '#f8fafc', border: '#64748b', icon: '\u{1F4CC}' },
-  InferredAnnotation:    { label: 'AI Inferred',   color: '#a855f7', bg: '#faf5ff', border: '#a855f7', icon: '\u{2728}' },
+  UserRoot:               nodeConfig('User',         'var(--primary)',          '\u{1F464}'),
+  Household:              nodeConfig('Household',    'var(--chart-4)',          '\u{1F3E0}'),
+  HouseholdMember:        nodeConfig('Member',       'var(--chart-4)',          '\u{1F465}'),
+  Party:                  nodeConfig('Party',        'var(--info)',             '\u{1F91D}'),
+  PersonalAccount:        nodeConfig('Account',      'var(--success)',          '\u{1F3E6}'),
+  PersonalLinkedAccount:  nodeConfig('Linked Acct',  'var(--success)',          '\u{1F517}'),
+  PersonalTransaction:    nodeConfig('Transaction',  'var(--warning)',          '\u{1F4B3}'),
+  Bill:                   nodeConfig('Bill',         'var(--destructive)',      '\u{1F4C4}'),
+  Goal:                   nodeConfig('Goal',         'var(--chart-2)',          '\u{1F3AF}'),
+  Subscription:           nodeConfig('Subscription', 'var(--chart-4)',          '\u{1F504}'),
+  FxQuote:                nodeConfig('FX Rate',      'var(--chart-2)',          '\u{1F4B1}'),
+  OrderRef:               nodeConfig('Order',        'var(--chart-3)',          '\u{1F4E6}'),
+  InvoiceRef:             nodeConfig('Invoice',      'var(--chart-5)',          '\u{1F9FE}'),
+  PaymentIntentRef:       nodeConfig('Payment',      'var(--chart-1)',          '\u{1F4B8}'),
+  NativeAnnotation:       nodeConfig('Annotation',   'var(--muted-foreground)', '\u{1F4CC}'),
+  RelationshipAnnotation: nodeConfig('Rel. Note',    'var(--muted-foreground)', '\u{1F4CC}'),
+  InferredAnnotation:     nodeConfig('AI Inferred',  'var(--chart-4)',          '\u{2728}'),
 };
 
-const DEFAULT_CONFIG: NodeTypeConfig = {
-  label: 'Node', color: '#6b7280', bg: '#f9fafb', border: '#6b7280', icon: '\u{2B55}',
-};
+const DEFAULT_CONFIG: NodeTypeConfig = nodeConfig('Node', 'var(--muted-foreground)', '\u{2B55}');
 
 function getNodeConfig(nodeType: string): NodeTypeConfig {
   return NODE_TYPE_CONFIG[nodeType] ?? DEFAULT_CONFIG;
@@ -110,20 +118,19 @@ function GraphNodeComponent({ data }: NodeProps) {
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-sm leading-none">{config.icon}</span>
           <span
-            className="text-[10px] font-semibold uppercase tracking-wider"
+            className="text-[10px] font-semibold"
             style={{ color: config.color }}
           >
             {config.label}
           </span>
           {isInferred && (
-            <Sparkles className="w-3 h-3 ml-auto" style={{ color: '#a855f7' }} />
+            <Sparkles className="w-3 h-3 ml-auto text-chart-4" />
           )}
         </div>
 
         {/* Display name */}
         <p
-          className="text-xs font-medium leading-snug truncate"
-          style={{ color: 'var(--color-text-primary, #1e293b)' }}
+          className="text-xs font-medium leading-snug truncate text-foreground"
           title={data.label as string}
         >
           {data.label as string}
@@ -238,19 +245,19 @@ function layoutNodes(
         label: predLabel,
         type: 'default',
         animated: e.predicate === 'HAS_TRANSACTION',
-        style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+        style: { stroke: 'var(--muted-foreground)', strokeWidth: 1.5 },
         labelStyle: {
           fontSize: 9,
           fontWeight: 500,
-          fill: '#64748b',
+          fill: 'var(--muted-foreground)',
         },
         labelBgStyle: {
-          fill: 'var(--color-surface, #ffffff)',
+          fill: 'var(--card)',
           fillOpacity: 0.85,
         },
         labelBgPadding: [4, 2] as [number, number],
         labelBgBorderRadius: 3,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: '#94a3b8' },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: 'var(--muted-foreground)' },
       };
     });
 
@@ -297,14 +304,14 @@ function SummaryBar({ summary, nodeCount, edgeCount, skippedTransactions }: {
     <div className="flex items-center gap-4 flex-wrap">
       {stats.map(s => (
         <div key={s.label} className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-[var(--color-text-primary)]">{s.value}</span>
-          <span className="text-xs text-[var(--color-text-tertiary)]">{s.label}</span>
+          <span className="font-mono text-xs font-semibold tabular-nums text-foreground">{s.value}</span>
+          <span className="text-xs text-muted-foreground">{s.label}</span>
         </div>
       ))}
       {skippedTransactions && (
-        <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded-full">
+        <Badge variant="warning" className="text-[10px]">
           Transactions hidden (50+ nodes)
-        </span>
+        </Badge>
       )}
     </div>
   );
@@ -317,8 +324,8 @@ function Legend({ visibleTypes }: { visibleTypes: Set<string> }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 bg-[var(--color-surface)]/90 backdrop-blur-sm border border-[var(--color-border-light)] rounded-lg px-3 py-2 shadow-sm">
-      <p className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1.5">Legend</p>
+    <div className="absolute bottom-4 left-4 z-10 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Legend</p>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {items.map(([type, config]) => (
           <div key={type} className="flex items-center gap-1.5">
@@ -326,7 +333,7 @@ function Legend({ visibleTypes }: { visibleTypes: Set<string> }) {
               className="w-2.5 h-2.5 rounded-full border"
               style={{ background: config.bg, borderColor: config.border }}
             />
-            <span className="text-[10px] text-[var(--color-text-secondary)]">{config.label}</span>
+            <span className="text-[10px] text-muted-foreground">{config.label}</span>
           </div>
         ))}
       </div>
@@ -392,7 +399,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <p className="text-sm text-[var(--color-error)] mb-3">{error}</p>
+        <p className="text-sm text-destructive mb-3">{error}</p>
         <Button size="sm" variant="outline" onClick={() => void loadGraph()}>
           <RefreshCw className="w-3.5 h-3.5 mr-1" />
           Retry
@@ -404,9 +411,9 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <Network className="w-10 h-10 text-[var(--color-text-tertiary)] mb-3 opacity-40" />
-        <p className="text-sm text-[var(--color-text-tertiary)]">No financial graph data for this customer.</p>
-        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">The graph populates as accounts, transactions, and financial data are added.</p>
+        <Network className="w-10 h-10 text-muted-foreground mb-3 opacity-40" />
+        <p className="text-sm text-muted-foreground">No financial graph data for this customer.</p>
+        <p className="text-xs text-muted-foreground mt-1">The graph populates as accounts, transactions, and financial data are added.</p>
       </div>
     );
   }
@@ -431,7 +438,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
 
       {/* Graph canvas */}
       <div
-        className="rounded-lg border border-[var(--color-border-light)] overflow-hidden relative"
+        className="rounded-lg border border-border overflow-hidden relative"
         style={{ height: 600 }}
       >
         <ReactFlow
@@ -452,11 +459,11 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
           <Background
             gap={20}
             size={1}
-            color="var(--color-border-light, #e2e8f0)"
+            color="var(--border)"
           />
           <Controls
             showInteractive={false}
-            className="!bg-[var(--color-surface)] !border-[var(--color-border-light)] !shadow-sm [&>button]:!bg-[var(--color-surface)] [&>button]:!border-[var(--color-border-light)] [&>button:hover]:!bg-[var(--color-surface-inset)]"
+            className="!bg-card !border-border !shadow-sm [&>button]:!bg-card [&>button]:!border-border [&>button:hover]:!bg-muted"
           />
           <MiniMap
             nodeColor={(node) => {
@@ -464,7 +471,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
               return config.border;
             }}
             maskColor="rgba(0,0,0,0.08)"
-            className="!bg-[var(--color-surface)] !border-[var(--color-border-light)]"
+            className="!bg-card !border-border"
             pannable
             zoomable
           />

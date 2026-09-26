@@ -28,7 +28,16 @@ import {
   type PillTone,
 } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { aiRunService } from '@/services/aiService';
 import type { AiRunSummaryResponse } from '@/services/aiService';
 
@@ -177,7 +186,6 @@ export function AiRunQueuePage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="AI · Run queue"
         title="Run queue"
         subtitle={subtitle}
         actions={
@@ -198,13 +206,13 @@ export function AiRunQueuePage() {
           label="In flight"
           value={stats.pending.toLocaleString()}
           sub={stats.pending === 0 ? 'idle' : 'live'}
-          tone="var(--color-brand-primary)"
+          tone="var(--primary)"
         />
         <StatTile
           label="Awaiting review"
           value="—"
           sub="needs proposal hold tracking"
-          tone="var(--color-warning)"
+          tone="var(--warning)"
         />
         <StatTile
           label="Completed"
@@ -214,13 +222,13 @@ export function AiRunQueuePage() {
               ? 'this page'
               : `${Math.round((stats.success / stats.total) * 100)}% success`
           }
-          tone="var(--color-success)"
+          tone="var(--success)"
         />
         <StatTile
           label="Avg duration"
           value={formatLatency(avgLatency)}
           sub={`${stats.latencyCount} timed`}
-          tone="var(--color-accent-team)"
+          tone="var(--agent-team)"
         />
         <StatTile
           label="Error rate"
@@ -230,19 +238,21 @@ export function AiRunQueuePage() {
               : `${((stats.failed / stats.total) * 100).toFixed(1)}%`
           }
           sub={`${stats.failed} failed`}
-          tone="var(--color-danger)"
+          tone="var(--destructive)"
         />
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadRuns()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadRuns()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar
@@ -252,87 +262,81 @@ export function AiRunQueuePage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by use case, model, run id…"
-        hideFilterButton
       />
 
       <AonikCard padding={0}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
-                <th className="px-4 py-3 w-[160px]">Run</th>
-                <th className="px-4 py-3">Use case</th>
-                <th className="px-4 py-3 w-[160px]">Model</th>
-                <th className="px-4 py-3 w-[120px]">Outcome</th>
-                <th className="px-4 py-3 w-[100px] text-right">Tokens</th>
-                <th className="px-4 py-3 w-[100px] text-right">Latency</th>
-                <th className="px-4 py-3 w-[100px] text-right">Cost</th>
-                <th className="px-4 py-3 w-[110px] text-right">Age</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
-                    <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
-                    <p className="text-sm text-[var(--color-text-secondary)]">Loading runs…</p>
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                      No runs match
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {searchQuery || outcomeFilter
-                        ? 'Try adjusting the active tab or search.'
-                        : 'AI runs will appear here as agents execute prompts.'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((run) => (
-                  <tr
-                    key={run.id}
-                    className="border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]"
-                  >
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
-                      {shortRunId(run.id)}
-                    </td>
-                    <td className="px-4 py-3 text-[12.5px] text-[var(--color-text-primary)]">
-                      {run.useCase || '—'}
-                    </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
-                      {run.modelName ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Pill tone={OUTCOME_TONE[run.outcome] ?? 'default'} dot size="sm">
-                        {run.outcome || 'Pending'}
-                      </Pill>
-                    </td>
-                    <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-primary)]">
-                      {run.tokensUsed.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
-                      {formatLatency(run.latencyMs)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
-                      {formatCost(run.costEstimate)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
-                      {formatRelative(run.createdAt)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted text-xs text-muted-foreground hover:bg-muted">
+              <TableHead className="w-[160px] px-4 text-muted-foreground">Run</TableHead>
+              <TableHead className="px-4 text-muted-foreground">Use case</TableHead>
+              <TableHead className="w-[160px] px-4 text-muted-foreground">Model</TableHead>
+              <TableHead className="w-[120px] px-4 text-muted-foreground">Outcome</TableHead>
+              <TableHead numeric className="w-[100px] px-4 text-muted-foreground">Tokens</TableHead>
+              <TableHead numeric className="w-[100px] px-4 text-muted-foreground">Latency</TableHead>
+              <TableHead numeric className="w-[100px] px-4 text-muted-foreground">Cost</TableHead>
+              <TableHead numeric className="w-[110px] px-4 text-muted-foreground">Age</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && filtered.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="px-4 py-12 text-center">
+                  <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading runs…</p>
+                </TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="px-4 py-12 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    No runs match
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {searchQuery || outcomeFilter
+                      ? 'Try adjusting the active tab or search.'
+                      : 'AI runs will appear here as agents execute prompts.'}
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((run) => (
+                <TableRow key={run.id} className="hover:bg-muted">
+                  <TableCell className="px-4 py-3 font-mono text-[11px] font-medium tabular-nums text-primary">
+                    {shortRunId(run.id)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-[12.5px] text-foreground">
+                    {run.useCase || '—'}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                    {run.modelName ?? '—'}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <Pill tone={OUTCOME_TONE[run.outcome] ?? 'default'} dot>
+                      {run.outcome || 'Pending'}
+                    </Pill>
+                  </TableCell>
+                  <TableCell numeric className="px-4 py-3 text-[11.5px] text-foreground">
+                    {run.tokensUsed.toLocaleString()}
+                  </TableCell>
+                  <TableCell numeric className="px-4 py-3 text-[11.5px] text-muted-foreground">
+                    {formatLatency(run.latencyMs)}
+                  </TableCell>
+                  <TableCell numeric className="px-4 py-3 text-[11.5px] text-muted-foreground">
+                    {formatCost(run.costEstimate)}
+                  </TableCell>
+                  <TableCell numeric className="px-4 py-3 text-[10.5px] text-muted-foreground">
+                    {formatRelative(run.createdAt)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </AonikCard>
 
       {totalCount > pageSize && (
-        <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             Page {page} of {Math.ceil(totalCount / pageSize)} · {totalCount.toLocaleString()} runs
           </span>
@@ -374,15 +378,15 @@ function StatTile({
   tone: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+    <div className="rounded-lg border border-border bg-card p-3.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
         {label}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-[var(--color-text-primary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         {sub}
       </div>
     </div>

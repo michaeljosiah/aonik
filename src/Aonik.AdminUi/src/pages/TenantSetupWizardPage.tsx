@@ -12,9 +12,20 @@ import {
   ArrowLeft,
   Check,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Select,
   SelectContent,
@@ -135,13 +146,13 @@ const featureGroups = [
 const steps = [
   {
     id: 1,
-    title: 'Company Setup',
+    title: 'Company setup',
     description: 'Tell us about your organization. We\'ll use this to customize templates and ensure compliance with your industry regulations.',
     icon: Building2,
   },
   {
     id: 2,
-    title: 'Regional Settings',
+    title: 'Regional settings',
     description: 'Configure your base country, currency, and company details for accurate localization.',
     icon: Globe,
   },
@@ -153,7 +164,7 @@ const steps = [
   },
   {
     id: 4,
-    title: 'Contact Details',
+    title: 'Contact details',
     description: 'Provide contact information and company address for billing and communication.',
     icon: Mail,
   },
@@ -521,24 +532,24 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
   }
 
   return (
-    <div className="fixed inset-0 flex bg-background">
+    <div className="flex h-svh w-full overflow-hidden bg-background">
       {/* Left Panel - Form */}
       <div className="flex-1 overflow-y-auto min-w-0">
         <div className="max-w-[48rem] mx-auto px-10 py-10 w-full">
           {/* Logo */}
           <div className="flex items-center gap-2 mb-12">
-            <div className="w-8 h-8 rounded bg-[var(--color-brand-primary)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">A</span>
             </div>
-            <span className="font-semibold text-[var(--color-text-primary)]">Aonik</span>
+            <span className="font-semibold text-foreground">Aonik</span>
           </div>
 
           {/* Welcome message */}
           <div className="mb-8 max-w-[36rem]">
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
+            <h1 className="text-2xl font-bold text-foreground mb-2">
               Welcome, {userName.split(' ')[0]}
             </h1>
-            <p className="text-[var(--color-text-secondary)] whitespace-normal max-w-none">
+            <p className="text-muted-foreground whitespace-normal max-w-none">
               Let's get your workspace set up in a few simple steps
             </p>
           </div>
@@ -546,15 +557,10 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           {/* Progress */}
           <div className="mb-8">
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-[var(--color-text-secondary)]">Step {currentStep} of 5</span>
-              <span className="text-[var(--color-text-tertiary)]">{progressPercentage}% complete</span>
+              <span className="text-muted-foreground">Step {currentStep} of 5</span>
+              <span className="text-muted-foreground">{progressPercentage}% complete</span>
             </div>
-            <div className="h-1.5 bg-[var(--color-surface-inset)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[var(--color-brand-primary)] rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
+            <Progress value={progressPercentage} aria-label="Setup progress" className="h-1.5" />
           </div>
 
           {/* Form content based on current step */}
@@ -562,43 +568,41 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
             {currentStep === 1 && (
               <>
                 {/* Company Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="companyName" className="text-sm font-medium">
-                    Company Name <span className="text-[var(--color-error)]">*</span>
-                  </Label>
+                <Field data-invalid={Boolean(fieldErrors.companyName)} className="gap-2">
+                  <FieldLabel htmlFor="companyName">
+                    Company name <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Input
                     id="companyName"
                     placeholder="Acme Corporation"
                     value={formData.companyName}
                     onChange={(e) => updateFormData('companyName', e.target.value)}
-                    className={cn(fieldErrors.companyName && 'border-[var(--color-error)]')}
+                    aria-invalid={Boolean(fieldErrors.companyName)}
                   />
-                  {fieldErrors.companyName && (
-                    <p className="text-xs text-[var(--color-error)]">{fieldErrors.companyName}</p>
-                  )}
-                </div>
+                  {fieldErrors.companyName && <FieldError>{fieldErrors.companyName}</FieldError>}
+                </Field>
 
                 {/* Organization Logo */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Organization Logo (Optional)</Label>
-                  <div className="border-2 border-dashed border-[var(--color-border)] rounded-lg p-8 text-center hover:border-[var(--color-brand-primary)] transition-colors cursor-pointer">
-                    <Upload className="h-8 w-8 mx-auto text-[var(--color-text-tertiary)] mb-3" />
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-1">
+                <Field className="gap-2">
+                  <FieldLabel>Organization logo (optional)</FieldLabel>
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-sm text-muted-foreground mb-1">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <p className="text-xs text-muted-foreground">
                       PNG, JPG, SVG (max 5MB)
                     </p>
                   </div>
-                </div>
+                </Field>
 
                 {/* Industry */}
-                <div className="space-y-2">
-                  <Label htmlFor="industry" className="text-sm font-medium">
-                    Industry <span className="text-[var(--color-error)]">*</span>
-                  </Label>
+                <Field data-invalid={Boolean(fieldErrors.industry)} className="gap-2">
+                  <FieldLabel htmlFor="industry">
+                    Industry <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Select value={formData.industry} onValueChange={(value) => updateFormData('industry', value)}>
-                    <SelectTrigger className={cn(fieldErrors.industry && 'border-[var(--color-error)]')}>
+                    <SelectTrigger id="industry" aria-invalid={Boolean(fieldErrors.industry)}>
                       <SelectValue placeholder="Select your industry" />
                     </SelectTrigger>
                     <SelectContent>
@@ -609,22 +613,20 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                       ))}
                     </SelectContent>
                   </Select>
-                  {fieldErrors.industry && (
-                    <p className="text-xs text-[var(--color-error)]">{fieldErrors.industry}</p>
-                  )}
-                </div>
+                  {fieldErrors.industry && <FieldError>{fieldErrors.industry}</FieldError>}
+                </Field>
               </>
             )}
 
             {currentStep === 2 && (
               <>
                 {/* Base Country */}
-                <div className="space-y-2">
-                  <Label htmlFor="baseCountry" className="text-sm font-medium">
-                    Base Country <span className="text-[var(--color-error)]">*</span>
-                  </Label>
+                <Field data-invalid={Boolean(fieldErrors.baseCountry)} className="gap-2">
+                  <FieldLabel htmlFor="baseCountry">
+                    Base country <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Select value={formData.baseCountry} onValueChange={handleBaseCountryChange}>
-                    <SelectTrigger className={cn(fieldErrors.baseCountry && 'border-[var(--color-error)]')}>
+                    <SelectTrigger id="baseCountry" aria-invalid={Boolean(fieldErrors.baseCountry)}>
                       <SelectValue placeholder="Select your base country" />
                     </SelectTrigger>
                     <SelectContent>
@@ -635,18 +637,16 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                       ))}
                     </SelectContent>
                   </Select>
-                  {fieldErrors.baseCountry && (
-                    <p className="text-xs text-[var(--color-error)]">{fieldErrors.baseCountry}</p>
-                  )}
-                </div>
+                  {fieldErrors.baseCountry && <FieldError>{fieldErrors.baseCountry}</FieldError>}
+                </Field>
 
                 {/* Base Currency */}
-                <div className="space-y-2">
-                  <Label htmlFor="baseCurrency" className="text-sm font-medium">
-                    Base Currency <span className="text-[var(--color-error)]">*</span>
-                  </Label>
+                <Field data-invalid={Boolean(fieldErrors.baseCurrency)} className="gap-2">
+                  <FieldLabel htmlFor="baseCurrency">
+                    Base currency <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Select value={formData.baseCurrency} onValueChange={(value) => updateFormData('baseCurrency', value)}>
-                    <SelectTrigger className={cn(fieldErrors.baseCurrency && 'border-[var(--color-error)]')}>
+                    <SelectTrigger id="baseCurrency" aria-invalid={Boolean(fieldErrors.baseCurrency)}>
                       <SelectValue placeholder="Select your base currency" />
                     </SelectTrigger>
                     <SelectContent>
@@ -657,18 +657,14 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                       ))}
                     </SelectContent>
                   </Select>
-                  {fieldErrors.baseCurrency && (
-                    <p className="text-xs text-[var(--color-error)]">{fieldErrors.baseCurrency}</p>
-                  )}
-                </div>
+                  {fieldErrors.baseCurrency && <FieldError>{fieldErrors.baseCurrency}</FieldError>}
+                </Field>
 
                 {/* Company Size */}
-                <div className="space-y-2">
-                  <Label htmlFor="companySize" className="text-sm font-medium">
-                    Company Size
-                  </Label>
+                <Field className="gap-2">
+                  <FieldLabel htmlFor="companySize">Company size</FieldLabel>
                   <Select value={formData.companySize} onValueChange={(value) => updateFormData('companySize', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="companySize">
                       <SelectValue placeholder="Select company size" />
                     </SelectTrigger>
                     <SelectContent>
@@ -679,26 +675,24 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
 
                 {/* Company Website */}
-                <div className="space-y-2">
-                  <Label htmlFor="website" className="text-sm font-medium">
-                    Company Website
-                  </Label>
+                <Field className="gap-2">
+                  <FieldLabel htmlFor="website">Company website</FieldLabel>
                   <Input
                     id="website"
                     placeholder="https://example.com"
                     value={formData.website}
                     onChange={(e) => updateFormData('website', e.target.value)}
                   />
-                </div>
+                </Field>
               </>
             )}
 
             {currentStep === 3 && (
               <>
-                <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                <p className="text-sm text-muted-foreground mb-6">
                   Select the features you want to enable for your organization. You can change these later in settings.
                 </p>
 
@@ -708,56 +702,40 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                     const enabledCount = group.flags.filter((f) => formData.enabledFeatures[f.key]).length;
                     const isAllEnabled = enabledCount === group.flags.length;
                     const isPartialEnabled = enabledCount > 0 && !isAllEnabled;
+                    const checkboxId = `feature-group-${group.id}`;
 
                     return (
-                      <div
+                      <FieldLabel
                         key={group.id}
-                        className={cn(
-                          'rounded-lg border p-4 cursor-pointer transition-all',
-                          isAllEnabled
-                            ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
-                            : isPartialEnabled
-                            ? 'border-[var(--color-brand-primary)]/50'
-                            : 'border-[var(--color-border)] hover:border-[var(--color-border-dark)]'
-                        )}
-                        onClick={() => toggleFeatureGroup(group.id)}
+                        htmlFor={checkboxId}
+                        className="cursor-pointer transition-colors hover:border-input has-data-[state=indeterminate]:border-primary/50"
                       >
-                        <div className="flex items-start gap-4">
+                        <Field orientation="horizontal" className="items-start gap-4">
                           <div
                             className={cn(
                               'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
                               isAllEnabled
-                                ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                                : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-muted-foreground'
                             )}
                           >
                             <Icon className="h-5 w-5" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-semibold text-[var(--color-text-primary)]">{group.label}</h3>
-                              <div
-                                className={cn(
-                                  'w-5 h-5 rounded border-2 flex items-center justify-center',
-                                  isAllEnabled
-                                    ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)]'
-                                    : isPartialEnabled
-                                    ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/20'
-                                    : 'border-[var(--color-border)]'
-                                )}
-                              >
-                                {(isAllEnabled || isPartialEnabled) && (
-                                  <Check className="h-3 w-3 text-primary-foreground" />
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-sm text-[var(--color-text-secondary)] mt-1">{group.description}</p>
-                            <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                          <FieldContent className="min-w-0">
+                            <FieldTitle className="text-base font-semibold">{group.label}</FieldTitle>
+                            <FieldDescription>{group.description}</FieldDescription>
+                            <p className="text-xs text-muted-foreground mt-1">
                               {enabledCount} of {group.flags.length} features enabled
                             </p>
-                          </div>
-                        </div>
-                      </div>
+                          </FieldContent>
+                          <Checkbox
+                            id={checkboxId}
+                            checked={isAllEnabled ? true : isPartialEnabled ? 'indeterminate' : false}
+                            onCheckedChange={() => toggleFeatureGroup(group.id)}
+                            className="size-5"
+                          />
+                        </Field>
+                      </FieldLabel>
                     );
                   })}
                 </div>
@@ -767,28 +745,24 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
             {currentStep === 4 && (
               <>
                 {/* Contact Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="contactEmail" className="text-sm font-medium">
-                    Primary Contact Email <span className="text-[var(--color-error)]">*</span>
-                  </Label>
+                <Field data-invalid={Boolean(fieldErrors.contactEmail)} className="gap-2">
+                  <FieldLabel htmlFor="contactEmail">
+                    Primary contact email <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Input
                     id="contactEmail"
                     type="email"
                     placeholder="contact@company.com"
                     value={formData.contactEmail}
                     onChange={(e) => updateFormData('contactEmail', e.target.value)}
-                    className={cn(fieldErrors.contactEmail && 'border-[var(--color-error)]')}
+                    aria-invalid={Boolean(fieldErrors.contactEmail)}
                   />
-                  {fieldErrors.contactEmail && (
-                    <p className="text-xs text-[var(--color-error)]">{fieldErrors.contactEmail}</p>
-                  )}
-                </div>
+                  {fieldErrors.contactEmail && <FieldError>{fieldErrors.contactEmail}</FieldError>}
+                </Field>
 
                 {/* Contact Mobile */}
-                <div className="space-y-2">
-                  <Label htmlFor="contactMobile" className="text-sm font-medium">
-                    Primary Contact Mobile
-                  </Label>
+                <Field className="gap-2">
+                  <FieldLabel htmlFor="contactMobile">Primary contact mobile</FieldLabel>
                   <Input
                     id="contactMobile"
                     type="tel"
@@ -796,84 +770,72 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                     value={formData.contactMobile}
                     onChange={(e) => updateFormData('contactMobile', e.target.value)}
                   />
-                </div>
+                </Field>
 
                 {/* Address Section */}
                 <div className="pt-4">
-                  <h3 className="font-medium text-[var(--color-text-primary)] mb-4">Company Address</h3>
-                  
+                  <h3 className="font-medium text-foreground mb-4">Company address</h3>
+
                   <div className="space-y-4">
                     {/* Address Line 1 */}
-                    <div className="space-y-2">
-                      <Label htmlFor="addressLine1" className="text-sm font-medium">
-                        Address Line 1
-                      </Label>
+                    <Field className="gap-2">
+                      <FieldLabel htmlFor="addressLine1">Address line 1</FieldLabel>
                       <Input
                         id="addressLine1"
                         placeholder="Street address"
                         value={formData.addressLine1}
                         onChange={(e) => updateFormData('addressLine1', e.target.value)}
                       />
-                    </div>
+                    </Field>
 
                     {/* Address Line 2 */}
-                    <div className="space-y-2">
-                      <Label htmlFor="addressLine2" className="text-sm font-medium">
-                        Address Line 2
-                      </Label>
+                    <Field className="gap-2">
+                      <FieldLabel htmlFor="addressLine2">Address line 2</FieldLabel>
                       <Input
                         id="addressLine2"
                         placeholder="Apartment, suite, unit, etc."
                         value={formData.addressLine2}
                         onChange={(e) => updateFormData('addressLine2', e.target.value)}
                       />
-                    </div>
+                    </Field>
 
                     {/* City & State */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="city" className="text-sm font-medium">
-                          City
-                        </Label>
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="city">City</FieldLabel>
                         <Input
                           id="city"
                           placeholder="City"
                           value={formData.city}
                           onChange={(e) => updateFormData('city', e.target.value)}
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="stateProvince" className="text-sm font-medium">
-                          State / Province
-                        </Label>
+                      </Field>
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="stateProvince">State / province</FieldLabel>
                         <Input
                           id="stateProvince"
                           placeholder="State"
                           value={formData.stateProvince}
                           onChange={(e) => updateFormData('stateProvince', e.target.value)}
                         />
-                      </div>
+                      </Field>
                     </div>
 
                     {/* Postal Code & Country */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="postalCode" className="text-sm font-medium">
-                          Postal Code
-                        </Label>
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="postalCode">Postal code</FieldLabel>
                         <Input
                           id="postalCode"
                           placeholder="12345"
                           value={formData.postalCode}
                           onChange={(e) => updateFormData('postalCode', e.target.value)}
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="country" className="text-sm font-medium">
-                          Country
-                        </Label>
+                      </Field>
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="country">Country</FieldLabel>
                         <Select value={formData.country} onValueChange={(value) => updateFormData('country', value)}>
-                          <SelectTrigger>
+                          <SelectTrigger id="country">
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                           <SelectContent>
@@ -884,7 +846,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </Field>
                     </div>
                   </div>
                 </div>
@@ -893,23 +855,23 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
 
             {currentStep === 5 && (
               <>
-                <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                <p className="text-sm text-muted-foreground mb-6">
                   Please review your setup details before completing.
                 </p>
 
                 {/* Company Setup Summary */}
-                <div className="rounded-lg border border-[var(--color-border)] overflow-hidden mb-4">
-                  <div className="bg-[var(--color-surface-inset)] px-4 py-3 border-b border-[var(--color-border)]">
-                    <h3 className="font-medium text-[var(--color-text-primary)]">Company Setup</h3>
+                <div className="rounded-lg border border-border overflow-hidden mb-4">
+                  <div className="bg-muted px-4 py-3 border-b border-border">
+                    <h3 className="font-medium text-foreground">Company setup</h3>
                   </div>
                   <div className="p-4 space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Company Name</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">{formData.companyName}</span>
+                      <span className="text-muted-foreground">Company name</span>
+                      <span className="font-medium text-foreground">{formData.companyName}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Industry</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">
+                      <span className="text-muted-foreground">Industry</span>
+                      <span className="font-medium text-foreground">
                         {industries.find((i) => i.value === formData.industry)?.label ?? '-'}
                       </span>
                     </div>
@@ -917,47 +879,47 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                 </div>
 
                 {/* Regional Settings Summary */}
-                <div className="rounded-lg border border-[var(--color-border)] overflow-hidden mb-4">
-                  <div className="bg-[var(--color-surface-inset)] px-4 py-3 border-b border-[var(--color-border)]">
-                    <h3 className="font-medium text-[var(--color-text-primary)]">Regional Settings</h3>
+                <div className="rounded-lg border border-border overflow-hidden mb-4">
+                  <div className="bg-muted px-4 py-3 border-b border-border">
+                    <h3 className="font-medium text-foreground">Regional settings</h3>
                   </div>
                   <div className="p-4 space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Base Country</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">
+                      <span className="text-muted-foreground">Base country</span>
+                      <span className="font-medium text-foreground">
                         {countries.find((c) => c.countryCode === formData.baseCountry)?.name ?? '-'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Base Currency</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">{formData.baseCurrency}</span>
+                      <span className="text-muted-foreground">Base currency</span>
+                      <span className="font-medium text-foreground">{formData.baseCurrency}</span>
                     </div>
                     {formData.companySize && (
                       <div className="flex justify-between">
-                        <span className="text-[var(--color-text-secondary)]">Company Size</span>
-                        <span className="font-medium text-[var(--color-text-primary)]">
+                        <span className="text-muted-foreground">Company size</span>
+                        <span className="font-medium text-foreground">
                           {companySizes.find((s) => s.value === formData.companySize)?.label ?? '-'}
                         </span>
                       </div>
                     )}
                     {formData.website && (
                       <div className="flex justify-between">
-                        <span className="text-[var(--color-text-secondary)]">Website</span>
-                        <span className="font-medium text-[var(--color-text-primary)]">{formData.website}</span>
+                        <span className="text-muted-foreground">Website</span>
+                        <span className="font-medium text-foreground">{formData.website}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Features Summary */}
-                <div className="rounded-lg border border-[var(--color-border)] overflow-hidden mb-4">
-                  <div className="bg-[var(--color-surface-inset)] px-4 py-3 border-b border-[var(--color-border)]">
-                    <h3 className="font-medium text-[var(--color-text-primary)]">Features</h3>
+                <div className="rounded-lg border border-border overflow-hidden mb-4">
+                  <div className="bg-muted px-4 py-3 border-b border-border">
+                    <h3 className="font-medium text-foreground">Features</h3>
                   </div>
                   <div className="p-4">
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Enabled Features</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">
+                      <span className="text-muted-foreground">Enabled features</span>
+                      <span className="font-medium text-foreground">
                         {enabledFeaturesCount} of {totalFeaturesCount}
                       </span>
                     </div>
@@ -965,25 +927,25 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                 </div>
 
                 {/* Contact Details Summary */}
-                <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
-                  <div className="bg-[var(--color-surface-inset)] px-4 py-3 border-b border-[var(--color-border)]">
-                    <h3 className="font-medium text-[var(--color-text-primary)]">Contact Details</h3>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="bg-muted px-4 py-3 border-b border-border">
+                    <h3 className="font-medium text-foreground">Contact details</h3>
                   </div>
                   <div className="p-4 space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">Email</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">{formData.contactEmail}</span>
+                      <span className="text-muted-foreground">Email</span>
+                      <span className="font-medium text-foreground">{formData.contactEmail}</span>
                     </div>
                     {formData.contactMobile && (
                       <div className="flex justify-between">
-                        <span className="text-[var(--color-text-secondary)]">Mobile</span>
-                        <span className="font-medium text-[var(--color-text-primary)]">{formData.contactMobile}</span>
+                        <span className="text-muted-foreground">Mobile</span>
+                        <span className="font-medium text-foreground">{formData.contactMobile}</span>
                       </div>
                     )}
                     {(formData.addressLine1 || formData.city) && (
                       <div className="flex justify-between">
-                        <span className="text-[var(--color-text-secondary)]">Address</span>
-                        <span className="font-medium text-[var(--color-text-primary)] text-right">
+                        <span className="text-muted-foreground">Address</span>
+                        <span className="font-medium text-foreground text-right">
                           {[formData.addressLine1, formData.city, formData.stateProvince, formData.postalCode]
                             .filter(Boolean)
                             .join(', ')}
@@ -998,16 +960,16 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
 
           {/* Error message */}
           {error && (
-            <div className="mt-6 rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-4 text-sm text-[var(--color-error)]">
-              {error}
-            </div>
+            <Alert variant="destructive" className="mt-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* Navigation buttons */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-[var(--color-border)]">
+          <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
             <div className="flex items-center gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={handleBack}
                 disabled={currentStep === 1 || saving}
                 className="gap-2"
@@ -1020,79 +982,70 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                   variant="ghost"
                   onClick={handleSkip}
                   disabled={saving}
-                  className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                  className="text-muted-foreground"
                 >
                   Skip for now
                 </Button>
               )}
             </div>
             <Button onClick={handleContinue} disabled={saving} className="gap-2">
-              {saving ? (
+              {saving && <Spinner />}
+              {currentStep === 5 ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : currentStep === 5 ? (
-                <>
-                  Complete Setup
-                  <Check className="h-4 w-4" />
+                  Complete setup
+                  {!saving && <Check className="h-4 w-4" />}
                 </>
               ) : (
                 <>
                   Continue
-                  <ArrowRight className="h-4 w-4" />
+                  {!saving && <ArrowRight className="h-4 w-4" />}
                 </>
               )}
             </Button>
           </div>
 
           {/* Footer note */}
-          <p className="text-center text-xs text-[var(--color-text-tertiary)] mt-6">
+          <p className="text-center text-xs text-muted-foreground mt-6">
             You can always change these settings later
           </p>
         </div>
       </div>
 
       {/* Right Panel - Info */}
-      <div className="hidden lg:flex w-[480px] bg-[var(--color-surface-inset)] flex-col">
+      <div className="hidden lg:flex w-[480px] bg-muted flex-col">
         <div className="flex-1 p-10 flex flex-col">
           {/* Progress indicator */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[var(--color-text-secondary)]">Setup Progress</span>
-              <span className="text-sm font-semibold text-[var(--color-brand-primary)]">{progressPercentage}%</span>
+              <span className="text-sm font-medium text-muted-foreground">Setup progress</span>
+              <span className="text-sm font-semibold text-primary">{progressPercentage}%</span>
             </div>
-            <div className="h-2 bg-[var(--color-border)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[var(--color-brand-primary)] rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
+            <Progress value={progressPercentage} aria-label="Setup progress" />
           </div>
 
           {/* Step badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] text-sm font-medium w-fit mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium w-fit mb-6">
             <CheckCircle2 className="h-4 w-4" />
             Step {currentStep} of 5
           </div>
 
           {/* Current step info */}
-          <h2 className="text-3xl font-bold text-[var(--color-text-primary)] mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             {steps[currentStep - 1].title}
           </h2>
-          <p className="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+          <p className="text-muted-foreground mb-8 leading-relaxed">
             {steps[currentStep - 1].description}
           </p>
 
           {/* Info box */}
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 mb-8">
+          <div className="rounded-lg border border-border bg-card p-4 mb-8">
             <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-[var(--color-brand-primary)] shrink-0 mt-0.5" />
+              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-medium text-[var(--color-text-primary)] mb-1">
+                <h4 className="font-medium text-foreground mb-1">
                   Don't worry about perfection
                 </h4>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-sm text-muted-foreground">
                   You can always update these settings later from your workspace settings
                 </p>
               </div>
@@ -1101,21 +1054,21 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
 
           {/* What you'll get */}
           <div className="mt-auto">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-4">
               What you'll get
             </h3>
             <div className="grid grid-cols-3 gap-6">
               <div>
-                <div className="text-2xl font-bold text-[var(--color-brand-primary)] mb-1">4</div>
-                <div className="text-sm text-[var(--color-text-secondary)]">Countries supported</div>
+                <div className="text-2xl font-bold text-primary mb-1">4</div>
+                <div className="text-sm text-muted-foreground">Countries supported</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-[var(--color-brand-primary)] mb-1">AI</div>
-                <div className="text-sm text-[var(--color-text-secondary)]">Powered drafting</div>
+                <div className="text-2xl font-bold text-primary mb-1">AI</div>
+                <div className="text-sm text-muted-foreground">Powered drafting</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-[var(--color-brand-primary)] mb-1">24/7</div>
-                <div className="text-sm text-[var(--color-text-secondary)]">Platform access</div>
+                <div className="text-2xl font-bold text-primary mb-1">24/7</div>
+                <div className="text-sm text-muted-foreground">Platform access</div>
               </div>
             </div>
           </div>

@@ -60,10 +60,10 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
 
         <SheetBody>
           {loading ? (
-            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
           ) : !order ? (
             <div className="flex flex-col items-center gap-3 py-10">
-              <p className="text-sm text-[var(--color-text-secondary)]">
+              <p className="text-sm text-muted-foreground">
                 {error ?? 'This order could not be loaded.'}
               </p>
               <Button variant="outline" onClick={() => void load()}>
@@ -90,7 +90,7 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
               <AonikCard title="Buyer" padding={12}>
                 <div className="flex items-center justify-between gap-3">
                   <BuyerLabel buyerKind={order.buyerKind} buyerPartyId={order.buyerPartyId} />
-                  <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+                  <span className="text-[11.5px] text-muted-foreground">
                     Placed {formatDate(order.placedAtUtc)}
                   </span>
                 </div>
@@ -127,7 +127,7 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
                     {charge.taxTotal !== 0 && (
                       <ChargeRow label="Tax" amount={charge.taxTotal} currency={currency} />
                     )}
-                    <div className="mt-1 border-t border-[var(--color-border-light)] pt-1.5">
+                    <div className="mt-1 border-t border-border pt-1.5">
                       <ChargeRow
                         label="Total payable"
                         amount={charge.total}
@@ -171,10 +171,10 @@ function ChargeRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="flex items-center gap-1.5 text-[12.5px] text-[var(--color-text-secondary)]">
+      <dt className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
         {label}
         {chip && (
-          <Pill tone="muted" size="sm">
+          <Pill tone="muted">
             {chip}
           </Pill>
         )}
@@ -182,8 +182,8 @@ function ChargeRow({
       <dd
         className={`font-[family-name:var(--font-mono)] tabular-nums ${
           emphasis
-            ? 'text-[13.5px] font-semibold text-[var(--color-text-primary)]'
-            : 'text-[12.5px] text-[var(--color-text-primary)]'
+            ? 'text-[13.5px] font-semibold text-foreground'
+            : 'text-[12.5px] text-foreground'
         }`}
       >
         {formatCurrency(amount, currency)}

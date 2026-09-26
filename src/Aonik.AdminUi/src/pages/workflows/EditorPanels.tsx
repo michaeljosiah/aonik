@@ -15,6 +15,16 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { Pill } from '@/components/layout/aonik';
 import type {
   WorkflowGraph,
@@ -88,40 +98,36 @@ export function TestPanel({ onClose, onStartRun }: TestPanelProps) {
 
   return (
     <div
-      className="flex flex-none overflow-hidden border-t border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="flex flex-none overflow-hidden border-t border-border bg-card"
       style={{ height: 280 }}
     >
       {/* Left: input */}
       <div
-        className="flex flex-none flex-col border-r border-[var(--color-border-light)]"
+        className="flex flex-none flex-col border-r border-border"
         style={{ width: 360, padding: 14 }}
       >
         <div className="mb-2.5 flex items-center gap-2">
-          <Play size={12} className="text-[var(--color-brand-primary)]" />
-          <span className="text-[11.5px] font-semibold text-[var(--color-text-primary)]">
+          <Play size={12} className="text-primary" />
+          <span className="text-[11.5px] font-semibold text-foreground">
             Test input
           </span>
           <div className="flex-1" />
-          <select
-            defaultValue="banking.transaction.received"
-            className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]"
-            style={{ fontSize: 12, padding: '4px 8px' }}
-          >
-            <option>banking.transaction.received</option>
-            <option>invoice.overdue</option>
-            <option>manual</option>
-          </select>
+          <Select defaultValue="banking.transaction.received">
+            <SelectTrigger size="sm" className="h-7 w-auto bg-card px-2 text-xs" aria-label="Trigger event">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="banking.transaction.received">banking.transaction.received</SelectItem>
+              <SelectItem value="invoice.overdue">invoice.overdue</SelectItem>
+              <SelectItem value="manual">manual</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <textarea
+        <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 resize-none rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]"
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11.5,
-            padding: 10,
-            lineHeight: 1.5,
-          }}
+          aria-label="Test input"
+          className="flex-1 resize-none bg-muted p-2.5 font-mono text-[11.5px] leading-normal field-sizing-fixed md:text-[11.5px] dark:bg-muted"
         />
         <Button
           size="sm"
@@ -144,14 +150,14 @@ export function TestPanel({ onClose, onStartRun }: TestPanelProps) {
       {/* Right: log stream */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div
-          className="flex items-center gap-2 border-b border-[var(--color-border-light)]"
+          className="flex items-center gap-2 border-b border-border"
           style={{ padding: '10px 14px' }}
         >
-          <span className="text-[11.5px] font-semibold text-[var(--color-text-primary)]">
+          <span className="text-[11.5px] font-semibold text-foreground">
             Run output
           </span>
           <span
-            className="text-[10.5px] text-[var(--color-text-tertiary)]"
+            className="text-[10.5px] text-muted-foreground"
             style={{ fontFamily: 'var(--font-mono)' }}
           >
             {logs.length} events
@@ -160,15 +166,20 @@ export function TestPanel({ onClose, onStartRun }: TestPanelProps) {
           <Button variant="ghost" size="sm" onClick={() => setLogs([])} className="h-7">
             <Trash2 size={11} /> Clear
           </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7">
-            <X size={11} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" onClick={onClose} className="size-7" aria-label="Close test panel">
+                <X size={11} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Close</TooltipContent>
+          </Tooltip>
         </div>
-        <div className="flex-1 overflow-y-auto bg-[var(--color-surface-inset)]" style={{ padding: 12 }}>
+        <div className="flex-1 overflow-y-auto bg-muted" style={{ padding: 12 }}>
           {logs.map((l, i) => {
-            let color = 'var(--color-text-primary)';
-            if (l.t === 'ok') color = 'var(--color-success, #1f7a5e)';
-            else if (l.t === 'idle') color = 'var(--color-text-tertiary)';
+            let color = 'var(--foreground)';
+            if (l.t === 'ok') color = 'var(--success)';
+            else if (l.t === 'idle') color = 'var(--muted-foreground)';
             return (
               <div
                 key={i}
@@ -180,7 +191,7 @@ export function TestPanel({ onClose, onStartRun }: TestPanelProps) {
                   color,
                 }}
               >
-                <span className="flex-none text-[var(--color-text-tertiary)]">
+                <span className="flex-none text-muted-foreground">
                   {String(i).padStart(2, '0')}
                 </span>
                 <span>{l.msg}</span>
@@ -204,63 +215,61 @@ export interface HistoryPanelProps {
 export function HistoryPanel({ versions, onClose, onRestore }: HistoryPanelProps) {
   return (
     <aside
-      className="flex flex-none flex-col overflow-hidden border-l border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="flex flex-none flex-col overflow-hidden border-l border-border bg-card"
       style={{ width: 280 }}
     >
       <div
-        className="flex items-center gap-2 border-b border-[var(--color-border-light)]"
+        className="flex items-center gap-2 border-b border-border"
         style={{ padding: '12px 14px' }}
       >
-        <Clock size={12} className="text-[var(--color-text-secondary)]" />
-        <span className="text-[11.5px] font-semibold text-[var(--color-text-primary)]">
+        <Clock size={12} className="text-muted-foreground" />
+        <span className="text-[11.5px] font-semibold text-foreground">
           Version history
         </span>
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded p-1 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)]"
-          aria-label="Close history"
-        >
-          <X size={11} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onClose} className="size-6" aria-label="Close history">
+              <X size={11} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close</TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex-1 overflow-y-auto" style={{ padding: 8 }}>
         {versions.map((v, i) => (
           <div
             key={v.id}
-            className="mb-1 cursor-pointer rounded-md"
-            style={{
-              padding: '10px 12px',
-              background: i === 0 ? 'var(--color-brand-primary-10)' : 'transparent',
-              border: '1px solid ' + (i === 0 ? 'var(--color-brand-primary)' : 'transparent'),
-            }}
+            className={cn(
+              'mb-1 cursor-pointer rounded-md border px-3 py-2.5',
+              i === 0 ? 'border-primary bg-primary/10' : 'border-transparent',
+            )}
           >
             <div className="flex items-center gap-1.5">
               <span
                 className="text-[11px] font-semibold"
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  color: i === 0 ? 'var(--color-brand-primary)' : 'var(--color-text-primary)',
+                  color: i === 0 ? 'var(--primary)' : 'var(--foreground)',
                 }}
               >
                 {v.tag}
               </span>
               {i === 0 && (
-                <Pill tone="info" size="sm">
+                <Pill tone="info">
                   current
                 </Pill>
               )}
               <div className="flex-1" />
-              <span className="text-[10.5px] text-[var(--color-text-tertiary)]">{v.when}</span>
+              <span className="text-[10.5px] text-muted-foreground">{v.when}</span>
             </div>
             <div
-              className="mt-1 text-[11.5px] text-[var(--color-text-secondary)]"
+              className="mt-1 text-[11.5px] text-muted-foreground"
               style={{ lineHeight: 1.45 }}
             >
               {v.message}
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-[var(--color-text-tertiary)]">
+            <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
               <span
                 className="inline-flex items-center justify-center rounded-full text-white"
                 style={{
@@ -308,65 +317,53 @@ export function TraceBar({ trace, runs, onPick, onStep, onClose }: TraceBarProps
   const run = runs.find((r) => r.id === trace?.runId) ?? runs[0];
   return (
     <div
-      className="flex flex-none items-center gap-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]"
+      className="flex flex-none items-center gap-3 border-b border-border bg-muted"
       style={{ padding: '8px 14px' }}
     >
-      <div
-        className="inline-flex items-center gap-1.5 rounded-full text-[11px] font-medium"
-        style={{
-          padding: '3px 9px',
-          background: '#3ab79518',
-          color: '#1f7a5e',
-        }}
-      >
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-success-subtle px-[9px] py-[3px] text-[11px] font-medium text-success-foreground">
         <span
-          className="rounded-full"
-          style={{
-            width: 6,
-            height: 6,
-            background: '#3ab795',
-            animation: 'aonik-pulse 1.6s infinite',
-          }}
+          className="size-1.5 rounded-full bg-success"
+          style={{ animation: 'aonik-pulse 1.6s infinite' }}
         />
         Replaying
       </div>
-      <select
-        value={trace?.runId ?? ''}
-        onChange={(e) => onPick(e.target.value)}
-        className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]"
-        style={{ fontSize: 12, padding: '4px 8px' }}
-      >
-        {runs.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.id} · {r.when} · {r.status}
-          </option>
-        ))}
-      </select>
-      <span className="text-[11.5px] text-[var(--color-text-secondary)]">
+      <Select value={trace?.runId ?? ''} onValueChange={onPick}>
+        <SelectTrigger size="sm" className="h-7 w-auto bg-card px-2 text-xs" aria-label="Run to replay">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {runs.map((r) => (
+            <SelectItem key={r.id} value={r.id}>
+              {r.id} · {r.when} · {r.status}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span className="text-[11.5px] text-muted-foreground">
         Step{' '}
         <span style={{ fontFamily: 'var(--font-mono)' }}>
           {(trace?.completed.length ?? 0) + 1}
         </span>{' '}
         of <span style={{ fontFamily: 'var(--font-mono)' }}>{run?.total ?? 0}</span>
       </span>
-      <Button variant="ghost" size="sm" onClick={() => onStep(-1)} className="h-7">
+      <Button variant="ghost" size="sm" onClick={() => onStep(-1)} className="h-7" aria-label="Previous step">
         <ChevronLeft size={11} />
       </Button>
       <Button variant="ghost" size="sm" onClick={() => onStep(1)} className="h-7">
         Next <ChevronRight size={11} />
       </Button>
       <div className="flex-1" />
-      <span className="text-[11px] text-[var(--color-text-tertiary)]">
+      <span className="text-[11px] text-muted-foreground">
         {run?.duration} · started by {run?.by}
       </span>
-      <button
-        type="button"
-        onClick={onClose}
-        className="rounded p-1 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)]"
-        aria-label="Close trace"
-      >
-        <X size={11} />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="size-6" aria-label="Close trace">
+            <X size={11} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Close</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

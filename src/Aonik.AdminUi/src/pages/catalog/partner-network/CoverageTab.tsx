@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import { Globe } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AgentAvatar, FilterBar } from '@/components/layout/aonik';
 import type { PartnerListItem } from '@/types/partners';
 import { Chip, EmptyState, InfoNote, Panel, ViewToggle, type HubView } from './components';
@@ -64,7 +65,6 @@ export function CoverageTab({ data, onOpenPartner }: CoverageTabProps) {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search markets…"
-        hideFilterButton
         extra={<ViewToggle view={view} onChange={setView} />}
       />
 
@@ -95,56 +95,56 @@ function CoverageMatrix({
 }) {
   return (
     <Panel bodyClassName="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="border-b border-[var(--color-border-light)]">
-            <th className="sticky left-0 z-10 bg-[var(--color-surface)] px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+      <Table className="border-collapse text-[13px]">
+        <TableHeader>
+          <TableRow className="border-b border-border hover:bg-transparent">
+            <TableHead className="h-auto text-xs sticky left-0 z-10 bg-card px-5 py-3 text-left font-medium text-muted-foreground">
               Partner
-            </th>
+            </TableHead>
             {countries.map((c) => (
-              <th
+              <TableHead
                 key={c}
-                className="px-3 py-3 text-center font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-secondary)]"
+                className="px-3 py-3 text-center font-[family-name:var(--font-mono)] text-[11px] font-medium text-muted-foreground"
               >
                 {c}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {partners.map((p) => {
             const covers = new Set(p.coverageCountries);
             return (
-              <tr
+              <TableRow
                 key={p.partnerId}
                 onClick={() => onOpenPartner(p.partnerId)}
-                className="cursor-pointer border-b border-[var(--color-border-light)] transition-colors last:border-0 hover:bg-[var(--color-surface-inset)]"
+                className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted"
               >
-                <td className="sticky left-0 z-10 bg-[var(--color-surface)] px-5 py-3">
+                <TableCell className="sticky left-0 z-10 bg-card px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <AgentAvatar name={p.name} size={26} />
-                    <span className="whitespace-nowrap font-medium text-[var(--color-text-primary)]">{p.name}</span>
+                    <span className="whitespace-nowrap font-medium text-foreground">{p.name}</span>
                   </div>
-                </td>
+                </TableCell>
                 {countries.map((c) => (
-                  <td key={c} className="px-3 py-3 text-center">
+                  <TableCell key={c} className="px-3 py-3 text-center">
                     {covers.has(c) ? (
                       <span
-                        className="inline-block h-2 w-2 rounded-full bg-[var(--color-brand-primary)]"
+                        className="inline-block h-2 w-2 rounded-full bg-primary"
                         aria-label="Covered"
                       />
                     ) : (
-                      <span className="text-[var(--color-text-tertiary)]" aria-label="Not covered">
+                      <span className="text-muted-foreground" aria-label="Not covered">
                         ·
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Panel>
   );
 }
@@ -159,14 +159,14 @@ function CoverageList({
   onOpenPartner: (partnerId: string) => void;
 }) {
   return (
-    <Panel bodyClassName="divide-y divide-[var(--color-border-light)]">
+    <Panel bodyClassName="divide-y divide-border">
       {countries.map((c) => {
         const ps = byCountry.get(c) ?? [];
         return (
           <div key={c} className="flex flex-col gap-2.5 px-5 py-4 sm:flex-row sm:items-center">
             <div className="flex w-40 flex-none items-center gap-2">
               <Chip icon={Globe}>{c}</Chip>
-              <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+              <span className="text-[11.5px] text-muted-foreground">
                 {ps.length === 1 ? '1 partner' : `${ps.length} partners`}
               </span>
             </div>
@@ -176,10 +176,10 @@ function CoverageList({
                   key={p.partnerId}
                   type="button"
                   onClick={() => onOpenPartner(p.partnerId)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] py-0.5 pl-0.5 pr-2.5 transition-colors hover:border-[var(--color-border)]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-0.5 pl-0.5 pr-2.5 transition-colors hover:border-border"
                 >
                   <AgentAvatar name={p.name} size={20} />
-                  <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{p.name}</span>
+                  <span className="text-[12px] font-medium text-foreground">{p.name}</span>
                 </button>
               ))}
             </div>

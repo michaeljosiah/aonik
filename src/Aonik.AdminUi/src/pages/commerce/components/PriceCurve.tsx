@@ -58,7 +58,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
             x2={WIDTH - PAD.right}
             y1={scales.y(tick)}
             y2={scales.y(tick)}
-            stroke="var(--color-border-light)"
+            stroke="var(--border)"
             strokeWidth={1}
           />
           <text
@@ -66,7 +66,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
             y={scales.y(tick) + 3.5}
             textAnchor="end"
             fontSize={10}
-            fill="var(--color-text-tertiary)"
+            fill="var(--muted-foreground)"
             fontFamily="var(--font-mono)"
           >
             {formatUnsignedAmount(tick, currency)}
@@ -82,7 +82,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
           y={HEIGHT - PAD.bottom + 16}
           textAnchor="middle"
           fontSize={10}
-          fill={presetSizes.has(tick) ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)'}
+          fill={presetSizes.has(tick) ? 'var(--muted-foreground)' : 'var(--muted-foreground)'}
           fontWeight={presetSizes.has(tick) ? 600 : 400}
           fontFamily="var(--font-mono)"
         >
@@ -94,7 +94,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
       <path
         d={linePath(sizes, scales.x, (s) => scales.y(formula(s)))}
         fill="none"
-        stroke="var(--color-text-tertiary)"
+        stroke="var(--muted-foreground)"
         strokeWidth={1.25}
         strokeDasharray="4 4"
       />
@@ -103,7 +103,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
       <path
         d={linePath(sizes, scales.x, (s) => scales.y(effective(s)))}
         fill="none"
-        stroke="var(--color-brand-primary)"
+        stroke="var(--primary)"
         strokeWidth={2}
       />
 
@@ -118,8 +118,8 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
               cx={cx}
               cy={cy}
               r={4.5}
-              fill="var(--color-surface)"
-              stroke="var(--color-brand-primary)"
+              fill="var(--card)"
+              stroke="var(--primary)"
               strokeWidth={2}
             />
             {preset.saving != null && preset.saving > 0 && (
@@ -129,7 +129,7 @@ export function PriceCurve({ min, max, formula, effective, presets, currency }: 
                 textAnchor="middle"
                 fontSize={10}
                 fontWeight={600}
-                fill="var(--color-success)"
+                fill="var(--success)"
                 fontFamily="var(--font-mono)"
               >
                 −{formatUnsignedAmount(preset.saving, currency)}

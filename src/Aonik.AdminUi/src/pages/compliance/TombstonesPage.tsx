@@ -76,7 +76,7 @@ export function TombstonesPage() {
       accessorFn: (row) => new Date(row.deletedUtc),
       sortable: true,
       cell: (t) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-sm text-muted-foreground">
           {formatDate(t.deletedUtc)}
         </span>
       ),
@@ -88,10 +88,10 @@ export function TombstonesPage() {
       sortable: true,
       cell: (t) => (
         <div>
-          <p className="font-medium text-[var(--color-text-primary)]">
+          <p className="font-medium text-foreground">
             {t.maskedEmail ?? '(deleted)'}
           </p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <p className="text-xs text-muted-foreground">
             user-id: {t.originalUserId.slice(0, 8)}
           </p>
         </div>
@@ -103,7 +103,7 @@ export function TombstonesPage() {
       accessorFn: (row) => row.deletedByEmail ?? '',
       sortable: true,
       cell: (t) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-sm text-muted-foreground">
           {t.deletedByEmail ?? '(system)'}
         </span>
       ),
@@ -114,7 +114,7 @@ export function TombstonesPage() {
       accessorKey: 'reason',
       sortable: false,
       cell: (t) => (
-        <span className="text-sm text-[var(--color-text-primary)] line-clamp-2">
+        <span className="text-sm text-foreground line-clamp-2">
           {t.reason}
         </span>
       ),
@@ -140,8 +140,8 @@ export function TombstonesPage() {
     <div className="h-full overflow-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Deleted users</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Deleted users</h1>
+          <p className="text-muted-foreground">
             Audit log of hard deletions performed under GDPR / right-to-be-forgotten.
             The deleted user's PII has been redacted from audit logs; the tombstone
             below retains only the operator, timestamp, and reason for compliance review.
@@ -150,8 +150,8 @@ export function TombstonesPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={load} className="ml-auto">
@@ -170,7 +170,7 @@ export function TombstonesPage() {
             className="px-0 border-b-0"
           />
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <DataTable
               data={items}
               columns={columns}

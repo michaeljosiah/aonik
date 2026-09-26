@@ -10,7 +10,7 @@ import { fieldClassName } from "./field-styles";
  */
 const NativeSelect = React.forwardRef<
   HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement> & { size?: "sm" | "default" }
+  Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> & { size?: "sm" | "default" }
 >(({ className, size = "default", ...props }, ref) => (
   <div data-slot="native-select-wrapper" className="relative w-full has-[select:disabled]:opacity-50">
     <select

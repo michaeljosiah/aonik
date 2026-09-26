@@ -15,6 +15,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -62,11 +72,11 @@ function toDateInputValue(date: Date): string {
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'ZAR', 'GHS', 'CAD', 'AUD'];
 
-const STATUS_STYLES: Record<string, string> = {
-  Draft: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  Issued: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  Paid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  Cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+const STATUS_VARIANTS: Record<string, 'secondary' | 'info' | 'success' | 'destructive'> = {
+  Draft: 'secondary',
+  Issued: 'info',
+  Paid: 'success',
+  Cancelled: 'destructive',
 };
 
 // ── Component ───────────────────────────────────────────────────────
@@ -300,26 +310,32 @@ export function InvoiceFormPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => navigate('/billing/invoices')}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Back to invoices"
+                onClick={() => navigate('/billing/invoices')}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back to invoices</TooltipContent>
+          </Tooltip>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              <h1 className="text-2xl font-bold text-foreground">
                 {isCreate ? 'New Invoice' : `Invoice #${invoice?.invoiceNumber?.slice(0, 8) ?? ''}`}
               </h1>
               {!isCreate && (
-                <Badge className={STATUS_STYLES[status] ?? STATUS_STYLES.Draft}>
+                <Badge variant={STATUS_VARIANTS[status] ?? 'secondary'}>
                   {status}
                 </Badge>
               )}
             </div>
             {!isCreate && invoice && (
-              <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Created {formatDate(invoice.issuedUtc)}
               </p>
             )}
@@ -340,7 +356,7 @@ export function InvoiceFormPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {!isCreate && (
                   <div>
-                    <Label className="text-xs text-[var(--color-text-tertiary)]">Invoice Number</Label>
+                    <Label className="text-xs text-muted-foreground">Invoice Number</Label>
                     <Input
                       value={invoice?.invoiceNumber ?? ''}
                       disabled
@@ -349,7 +365,7 @@ export function InvoiceFormPage() {
                   </div>
                 )}
                 <div>
-                  <Label className="text-xs text-[var(--color-text-tertiary)]">Currency</Label>
+                  <Label className="text-xs text-muted-foreground">Currency</Label>
                   <Select
                     value={currency}
                     onValueChange={setCurrency}
@@ -368,11 +384,10 @@ export function InvoiceFormPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--color-text-tertiary)]">Due Date</Label>
-                  <Input
-                    type="date"
+                  <Label className="text-xs text-muted-foreground">Due Date</Label>
+                  <DatePicker
                     value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
+                    onChange={setDueDate}
                     disabled={isReadOnly}
                     className="mt-1"
                   />
@@ -388,7 +403,7 @@ export function InvoiceFormPage() {
             </CardHeader>
             <CardContent>
               {isReadOnly ? (
-                <div className="text-sm text-[var(--color-text-primary)]">
+                <div className="text-sm text-foreground">
                   {selectedCustomerName || 'Unknown customer'}
                 </div>
               ) : (
@@ -405,7 +420,7 @@ export function InvoiceFormPage() {
                       <SelectItem key={c.partyId} value={c.partyId}>
                         {c.displayName}
                         {c.primaryEmail && (
-                          <span className="text-[var(--color-text-tertiary)] ml-2">
+                          <span className="text-muted-foreground ml-2">
                             {c.primaryEmail}
                           </span>
                         )}
@@ -432,7 +447,7 @@ export function InvoiceFormPage() {
             </CardHeader>
             <CardContent>
               {/* Column headers */}
-              <div className="grid grid-cols-12 gap-3 mb-2 text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide">
+              <div className="grid grid-cols-12 gap-3 mb-2 text-xs font-medium text-muted-foreground">
                 <div className="col-span-5">Description</div>
                 <div className="col-span-2">Qty</div>
                 <div className="col-span-2">Unit Price</div>
@@ -472,7 +487,7 @@ export function InvoiceFormPage() {
                           min={0.01}
                           step={0.01}
                           disabled={isReadOnly}
-                          className="text-sm"
+                          className="font-mono text-sm tabular-nums"
                         />
                       </div>
                       <div className="col-span-2">
@@ -487,22 +502,28 @@ export function InvoiceFormPage() {
                           min={0}
                           step={0.01}
                           disabled={isReadOnly}
-                          className="text-sm"
+                          className="font-mono text-sm tabular-nums"
                         />
                       </div>
-                      <div className="col-span-2 text-right text-sm font-medium text-[var(--color-text-primary)]">
+                      <div className="col-span-2 text-right font-mono text-sm font-medium tabular-nums text-foreground">
                         {formatMoney(lineTotal, currency)}
                       </div>
                       <div className="col-span-1 flex justify-center">
                         {!isReadOnly && lines.length > 1 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-[var(--color-text-tertiary)] hover:text-red-500"
-                            onClick={() => removeLine(index)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label="Remove line item"
+                                className="size-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => removeLine(index)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Remove line item</TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </div>
@@ -520,15 +541,15 @@ export function InvoiceFormPage() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-text-secondary)]">Subtotal</span>
-                  <span className="text-[var(--color-text-primary)]">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-mono tabular-nums text-foreground">
                     {formatMoney(subtotal, currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-text-secondary)]">Discount</span>
+                  <span className="text-muted-foreground">Discount</span>
                   {isReadOnly ? (
-                    <span className="text-[var(--color-text-primary)]">
+                    <span className="font-mono tabular-nums text-foreground">
                       -{formatMoney(discount, currency)}
                     </span>
                   ) : (
@@ -538,21 +559,21 @@ export function InvoiceFormPage() {
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                       min={0}
                       step={0.01}
-                      className="w-32 text-sm text-right"
+                      className="w-32 font-mono text-sm tabular-nums text-right"
                     />
                   )}
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-text-secondary)]">Tax</span>
-                  <span className="text-[var(--color-text-tertiary)]">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="font-mono tabular-nums text-muted-foreground">
                     {formatMoney(0, currency)}
                   </span>
                 </div>
-                <div className="border-t border-[var(--color-border-light)] pt-3 flex items-center justify-between">
-                  <span className="text-base font-semibold text-[var(--color-text-primary)]">
+                <div className="border-t border-border pt-3 flex items-center justify-between">
+                  <span className="text-base font-semibold text-foreground">
                     Total
                   </span>
-                  <span className="text-xl font-bold text-[var(--color-text-primary)]">
+                  <span className="font-mono text-xl font-bold tabular-nums text-foreground">
                     {formatMoney(isCreate ? total : (invoice?.totalAmount ?? total), currency)}
                   </span>
                 </div>
@@ -581,7 +602,7 @@ export function InvoiceFormPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void handleCancel()}
                   disabled={saving}
                 >
@@ -598,7 +619,7 @@ export function InvoiceFormPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void handleCancel()}
                   disabled={saving}
                 >
@@ -618,14 +639,14 @@ export function InvoiceFormPage() {
                 {/* Preview header */}
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)] mb-1">
+                    <div className="text-xs text-muted-foreground mb-1">
                       Invoice
                     </div>
-                    <div className="text-lg font-bold text-[var(--color-text-primary)]">
+                    <div className="text-lg font-bold text-foreground">
                       {invoice ? `#${invoice.invoiceNumber.slice(0, 8)}` : '#New'}
                     </div>
                   </div>
-                  <Badge className={STATUS_STYLES[status] ?? STATUS_STYLES.Draft}>
+                  <Badge variant={STATUS_VARIANTS[status] ?? 'secondary'}>
                     {status}
                   </Badge>
                 </div>
@@ -633,14 +654,14 @@ export function InvoiceFormPage() {
                 {/* Dates */}
                 <div className="grid grid-cols-2 gap-4 mb-6 text-xs">
                   <div>
-                    <div className="text-[var(--color-text-tertiary)]">Issue Date</div>
-                    <div className="text-[var(--color-text-primary)] mt-0.5">
+                    <div className="text-muted-foreground">Issue Date</div>
+                    <div className="text-foreground mt-0.5">
                       {invoice ? formatDate(invoice.issuedUtc) : formatDate(new Date().toISOString())}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[var(--color-text-tertiary)]">Due Date</div>
-                    <div className="text-[var(--color-text-primary)] mt-0.5">
+                    <div className="text-muted-foreground">Due Date</div>
+                    <div className="text-foreground mt-0.5">
                       {formatDate(new Date(dueDate).toISOString())}
                     </div>
                   </div>
@@ -648,88 +669,85 @@ export function InvoiceFormPage() {
 
                 {/* Customer */}
                 <div className="mb-6">
-                  <div className="text-xs text-[var(--color-text-tertiary)] mb-1">Bill To</div>
-                  <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                  <div className="text-xs text-muted-foreground mb-1">Bill To</div>
+                  <div className="text-sm font-medium text-foreground">
                     {selectedCustomerName || 'No customer selected'}
                   </div>
                 </div>
 
                 {/* Line items table */}
-                <div className="border border-[var(--color-border-light)] rounded-sm overflow-hidden mb-6">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-[var(--color-surface-inset)]">
-                        <th className="text-left p-2 font-medium text-[var(--color-text-tertiary)]">
+                <div className="border border-border rounded-md overflow-hidden mb-6">
+                  <Table className="text-xs">
+                    <TableHeader>
+                      <TableRow className="bg-muted hover:bg-muted">
+                        <TableHead className="h-auto p-2 font-medium text-muted-foreground">
                           Item
-                        </th>
-                        <th className="text-right p-2 font-medium text-[var(--color-text-tertiary)]">
+                        </TableHead>
+                        <TableHead numeric className="h-auto p-2 font-medium text-muted-foreground">
                           Qty
-                        </th>
-                        <th className="text-right p-2 font-medium text-[var(--color-text-tertiary)]">
+                        </TableHead>
+                        <TableHead numeric className="h-auto p-2 font-medium text-muted-foreground">
                           Price
-                        </th>
-                        <th className="text-right p-2 font-medium text-[var(--color-text-tertiary)]">
+                        </TableHead>
+                        <TableHead numeric className="h-auto p-2 font-medium text-muted-foreground">
                           Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {lines
                         .filter((l) => l.description.trim())
                         .map((line, i) => (
-                          <tr
-                            key={i}
-                            className="border-t border-[var(--color-border-light)]"
-                          >
-                            <td className="p-2 text-[var(--color-text-primary)]">
+                          <TableRow key={i} className="hover:bg-transparent">
+                            <TableCell className="whitespace-normal text-foreground">
                               {line.description}
-                            </td>
-                            <td className="p-2 text-right text-[var(--color-text-secondary)]">
+                            </TableCell>
+                            <TableCell numeric className="text-muted-foreground">
                               {line.quantity}
-                            </td>
-                            <td className="p-2 text-right text-[var(--color-text-secondary)]">
+                            </TableCell>
+                            <TableCell numeric className="text-muted-foreground">
                               {formatMoney(line.unitPrice, currency)}
-                            </td>
-                            <td className="p-2 text-right font-medium text-[var(--color-text-primary)]">
+                            </TableCell>
+                            <TableCell numeric className="font-medium text-foreground">
                               {formatMoney(line.quantity * line.unitPrice, currency)}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
                       {lines.every((l) => !l.description.trim()) && (
-                        <tr>
-                          <td
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell
                             colSpan={4}
-                            className="p-4 text-center text-[var(--color-text-tertiary)]"
+                            className="p-4 text-center text-muted-foreground"
                           >
                             No items yet
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
                 {/* Totals */}
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-[var(--color-text-tertiary)]">Subtotal</span>
-                    <span className="text-[var(--color-text-primary)]">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-mono tabular-nums text-foreground">
                       {formatMoney(subtotal, currency)}
                     </span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[var(--color-text-tertiary)]">Discount</span>
-                      <span className="text-red-500">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="font-mono tabular-nums text-destructive">
                         -{formatMoney(discount, currency)}
                       </span>
                     </div>
                   )}
-                  <div className="border-t border-[var(--color-border-light)] pt-2 flex justify-between">
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  <div className="border-t border-border pt-2 flex justify-between">
+                    <span className="text-sm font-semibold text-foreground">
                       Total
                     </span>
-                    <span className="text-sm font-bold text-[var(--color-text-primary)]">
+                    <span className="font-mono text-sm font-bold tabular-nums text-foreground">
                       {formatMoney(isCreate ? total : (invoice?.totalAmount ?? total), currency)}
                     </span>
                   </div>

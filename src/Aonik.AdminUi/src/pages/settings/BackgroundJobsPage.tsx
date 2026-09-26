@@ -47,16 +47,16 @@ function formatDuration(ms: number | null): string {
 function statusBadge(status: string) {
   switch (status.toLowerCase()) {
     case 'active':
-      return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Active</Badge>;
+      return <Badge variant="success">Active</Badge>;
     case 'paused':
-      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Paused</Badge>;
+      return <Badge variant="warning">Paused</Badge>;
     case 'disabled':
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Disabled</Badge>;
+      return <Badge variant="secondary">Disabled</Badge>;
     case 'error':
     case 'blocked':
-      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{status}</Badge>;
+      return <Badge className="border-transparent bg-destructive/10 text-destructive">{status}</Badge>;
     default:
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{status}</Badge>;
+      return <Badge variant="secondary">{status}</Badge>;
   }
 }
 
@@ -66,14 +66,14 @@ function outcomeBadge(outcome: string | null) {
   switch (outcome.toLowerCase()) {
     case 'succeeded':
       return (
-        <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-1">
+        <Badge variant="success">
           <CheckCircle2 className="w-3 h-3" />
           Healthy
         </Badge>
       );
     case 'failed':
       return (
-        <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-1">
+        <Badge className="border-transparent bg-destructive/10 text-destructive">
           <XCircle className="w-3 h-3" />
           Needs attention
         </Badge>
@@ -99,14 +99,14 @@ function getAuditLink(job: ScheduledJobSummary): string | null {
 
 function getJobTone(job: ScheduledJobSummary) {
   if (job.lastOutcome?.toLowerCase() === 'failed') {
-    return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
+    return 'border-destructive/30 bg-destructive/5';
   }
 
   if (job.status.toLowerCase() === 'paused') {
-    return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
+    return 'border-warning/30 bg-warning-subtle/40';
   }
 
-  return 'border-[var(--color-border-light)] bg-[var(--color-surface)]';
+  return 'border-border bg-card';
 }
 
 function summarizeOutcome(job: ScheduledJobSummary): string {
@@ -258,8 +258,8 @@ export function BackgroundJobsPage() {
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Background Jobs</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Background Jobs</h1>
+          <p className="text-muted-foreground">
             Operate Worker-scheduled pipelines with clearer run health, richer output summaries, and direct audit drill-downs.
           </p>
         </div>
@@ -267,7 +267,6 @@ export function BackgroundJobsPage() {
           onClick={() => void handleRefresh()}
           disabled={refreshing}
           variant="secondary"
-          className="rounded-sm"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -278,29 +277,29 @@ export function BackgroundJobsPage() {
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="w-4 h-4 text-[var(--color-brand-primary)]" />
+              <Activity className="w-4 h-4 text-primary" />
               Scheduler Health
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 text-sm md:grid-cols-4">
-              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
-                <div className="text-xs text-[var(--color-text-tertiary)]">Status</div>
-                <div className="mt-1 font-medium text-[var(--color-text-primary)]">
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">Status</div>
+                <div className="mt-1 font-medium text-foreground">
                   {health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}
                 </div>
               </div>
-              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
-                <div className="text-xs text-[var(--color-text-tertiary)]">Registered Jobs</div>
-                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{health.totalJobCount}</div>
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">Registered Jobs</div>
+                <div className="mt-1 font-medium text-foreground">{health.totalJobCount}</div>
               </div>
-              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
-                <div className="text-xs text-[var(--color-text-tertiary)]">Active Executions</div>
-                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{health.activeJobCount}</div>
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">Active Executions</div>
+                <div className="mt-1 font-medium text-foreground">{health.activeJobCount}</div>
               </div>
-              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
-                <div className="text-xs text-[var(--color-text-tertiary)]">Last Snapshot</div>
-                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{formatRelativeTime(health.recordedAtUtc)}</div>
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">Last Snapshot</div>
+                <div className="mt-1 font-medium text-foreground">{formatRelativeTime(health.recordedAtUtc)}</div>
               </div>
             </div>
           </CardContent>
@@ -310,7 +309,7 @@ export function BackgroundJobsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Timer className="w-5 h-5 text-[var(--color-brand-primary)]" />
+            <Timer className="w-5 h-5 text-primary" />
             Scheduled Jobs
           </CardTitle>
           <CardDescription>
@@ -319,9 +318,9 @@ export function BackgroundJobsPage() {
         </CardHeader>
         <CardContent>
           {loading && jobs.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading jobs...</p>
+            <p className="text-sm text-muted-foreground">Loading jobs...</p>
           ) : jobs.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">
+            <p className="text-sm text-muted-foreground">
               No scheduled jobs found. Ensure the Worker service has run at least once to register jobs.
             </p>
           ) : (
@@ -342,7 +341,7 @@ export function BackgroundJobsPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
-                          className="text-sm font-semibold text-[var(--color-brand-primary)] hover:underline text-left truncate max-w-full"
+                          className="text-sm font-semibold text-primary hover:underline text-left truncate max-w-full"
                           onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
                         >
                           {job.displayName ?? job.jobName}
@@ -352,7 +351,7 @@ export function BackgroundJobsPage() {
                       </div>
 
                       {/* Stats */}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-[var(--color-text-secondary)]">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span title={job.cronExpression ?? undefined}>{describeCron(job.cronExpression)}</span>
                         <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
                         <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
@@ -363,15 +362,15 @@ export function BackgroundJobsPage() {
                       </div>
 
                       {/* Output summary */}
-                      <p className="text-xs text-[var(--color-text-secondary)] line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {job.lastOutcome?.toLowerCase() === 'failed' && (
-                          <FileWarning className="inline h-3 w-3 text-red-500 mr-1 -mt-0.5" />
+                          <FileWarning className="inline h-3 w-3 text-destructive mr-1 -mt-0.5" />
                         )}
                         {summarizeOutcome(job)}
                       </p>
 
                       {/* Actions */}
-                      <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-[var(--color-border-light)]">
+                      <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-border">
                         <div className="flex items-center gap-1">
                           {auditLink && (
                             <Button asChild size="sm" variant="outline" className="h-6 px-2 text-[11px]">

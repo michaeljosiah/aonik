@@ -78,9 +78,9 @@ export function CatalogBillerDetailPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--color-error)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Biller Not Found</h2>
-          <p className="text-[var(--color-text-secondary)] mb-4">We could not find that biller in the catalog.</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Biller Not Found</h2>
+          <p className="text-muted-foreground mb-4">We could not find that biller in the catalog.</p>
           <Button onClick={() => navigate('/catalog/billers')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Billers
@@ -94,22 +94,22 @@ export function CatalogBillerDetailPage() {
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-            <Building2 className="w-6 h-6 text-[var(--color-brand-primary)]" />
+          <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-primary" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{biller.name}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{biller.name}</h1>
               {!biller.isActive && (
-                <Badge variant="outline" className="text-[var(--color-text-tertiary)]">
+                <Badge variant="outline" className="text-muted-foreground">
                   Inactive
                 </Badge>
               )}
             </div>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="text-muted-foreground">
               {category?.name ?? 'Uncategorized'} • {country?.name ?? biller.countryCode}
             </p>
-            <p className="text-xs text-[var(--color-text-tertiary)] font-mono mt-1">{biller.billerId}</p>
+            <p className="text-xs text-muted-foreground font-mono mt-1">{biller.billerId}</p>
           </div>
         </div>
 
@@ -129,8 +129,8 @@ export function CatalogBillerDetailPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadData}>
@@ -147,44 +147,44 @@ export function CatalogBillerDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-[var(--color-text-secondary)]">Description</p>
-              <p className="text-[var(--color-text-primary)]">{biller.description || 'No description provided.'}</p>
+              <p className="text-sm text-muted-foreground">Description</p>
+              <p className="text-foreground">{biller.description || 'No description provided.'}</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="p-4 rounded-md bg-muted border border-border">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Globe2 className="w-4 h-4" />
                   Country
                 </div>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <p className="text-lg font-semibold text-foreground">
                   {country?.name ?? biller.countryCode}
                 </p>
               </div>
-              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="p-4 rounded-md bg-muted border border-border">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Layers className="w-4 h-4" />
                   Category
                 </div>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <p className="text-lg font-semibold text-foreground">
                   {category?.name ?? 'Uncategorized'}
                 </p>
               </div>
-              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="p-4 rounded-md bg-muted border border-border">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Link2 className="w-4 h-4" />
                   Correspondent
                 </div>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <p className="text-lg font-semibold text-foreground">
                   {biller.correspondentPartnerId ?? 'Not assigned'}
                 </p>
               </div>
-              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="p-4 rounded-md bg-muted border border-border">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Building2 className="w-4 h-4" />
                   Services
                 </div>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">{biller.serviceCount}</p>
+                <p className="text-lg font-semibold text-foreground">{biller.serviceCount}</p>
               </div>
             </div>
           </CardContent>
@@ -195,16 +195,16 @@ export function CatalogBillerDetailPage() {
             <CardTitle>Support</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Phone className="w-4 h-4" />
               Phone
             </div>
-            <p className="text-[var(--color-text-primary)]">{biller.supportPhone || 'Not available'}</p>
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <p className="text-foreground">{biller.supportPhone || 'Not available'}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="w-4 h-4" />
               Email
             </div>
-            <p className="text-[var(--color-text-primary)]">{biller.supportEmail || 'Not available'}</p>
+            <p className="text-foreground">{biller.supportEmail || 'Not available'}</p>
           </CardContent>
         </Card>
       </div>

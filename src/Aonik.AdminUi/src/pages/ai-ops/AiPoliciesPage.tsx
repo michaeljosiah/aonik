@@ -23,7 +23,9 @@ import {
   type PillTone,
 } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { aiPolicyService, tenantAgentSettingsService } from '@/services/aiService';
 import type {
   AiPolicySummary,
@@ -194,7 +196,6 @@ export function AiPoliciesPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="AI · Governance"
         title="Policies"
         subtitle="Guardrails applied to every agent run · enforced before any tool executes"
         actions={
@@ -221,54 +222,56 @@ export function AiPoliciesPage() {
           label="Active policies"
           value={String(stats.active)}
           sub={`of ${stats.total}`}
-          tone="var(--color-brand-primary)"
+          tone="var(--primary)"
         />
         <StatTile
           label="Blocks · 7d"
           value="—"
           sub="needs run aggregation"
-          tone="var(--color-danger)"
+          tone="var(--destructive)"
         />
         <StatTile
           label="Holds · 7d"
           value="—"
           sub="needs proposal counts"
-          tone="var(--color-warning)"
+          tone="var(--warning)"
         />
         <StatTile
           label="Last updated"
           value={stats.mostRecentUpdate ? formatRelative(stats.mostRecentUpdate.toISOString()) : '—'}
           sub={stats.inactive > 0 ? `${stats.inactive} inactive` : 'all active'}
-          tone="var(--color-success)"
+          tone="var(--success)"
         />
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadPolicies()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex items-center gap-3">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadPolicies()}>
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="flex flex-col gap-2.5">
         {loading && policies.length === 0 ? (
           <AonikCard>
             <div className="flex items-center justify-center py-10">
-              <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
             </div>
           </AonikCard>
         ) : policies.length === 0 ? (
           <AonikCard>
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <ShieldCheck className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
+              <ShieldCheck className="mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm font-medium text-foreground">
                 No policies configured
               </p>
-              <p className="mt-1 max-w-md text-xs text-[var(--color-text-tertiary)]">
+              <p className="mt-1 max-w-md text-xs text-muted-foreground">
                 Policies are seeded as part of tenant provisioning. Reach out
                 to platform engineering to add a guardrail to this tenant.
               </p>
@@ -307,7 +310,7 @@ function PolicyRow({
 
   return (
     <div
-      className="grid items-center gap-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] px-5 py-4"
+      className="grid items-center gap-4 rounded-xl border border-border bg-card px-5 py-4"
       style={{
         gridTemplateColumns: '4px 1fr auto',
         opacity: policy.isActive ? 1 : 0.62,
@@ -317,31 +320,31 @@ function PolicyRow({
         className="h-[52px] rounded"
         style={{
           background: policy.isActive
-            ? 'var(--color-brand-primary)'
-            : 'var(--color-text-tertiary)',
+            ? 'var(--primary)'
+            : 'var(--muted-foreground)',
         }}
       />
 
       <div className="min-w-0">
         <div className="mb-1 flex items-center gap-2">
-          <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+          <div className="text-[14px] font-semibold text-foreground">
             {policy.name}
           </div>
-          <Pill tone={tone} dot size="sm">
+          <Pill tone={tone} dot>
             {policy.isActive ? 'active' : 'inactive'}
           </Pill>
         </div>
 
-        <div className="mb-1.5 flex flex-wrap gap-2 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <div className="mb-1.5 flex flex-wrap gap-2 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {tags.map(([label, value]) => (
             <span key={label} className="inline-flex items-center gap-1">
-              <span className="text-[var(--color-text-tertiary)]">{label}:</span>
+              <span className="text-muted-foreground">{label}:</span>
               <span>{value}</span>
             </span>
           ))}
         </div>
 
-        <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+        <div className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           created {formatDate(policy.createdAt)}
           {policy.updatedAt && <> · updated {formatRelative(policy.updatedAt)}</>}
         </div>
@@ -356,21 +359,11 @@ function PolicyRow({
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={on}
+    <Switch
+      checked={on}
+      onCheckedChange={() => onClick()}
       aria-label={on ? 'Disable policy' : 'Enable policy'}
-      className="relative inline-flex h-4 w-[30px] flex-none cursor-pointer rounded-full transition-colors"
-      style={{
-        background: on ? 'var(--color-brand-primary)' : 'var(--color-surface-inset)',
-      }}
-    >
-      <span
-        className="absolute top-[1px] h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-[left]"
-        style={{ left: on ? 15 : 1 }}
-      />
-    </button>
+    />
   );
 }
 
@@ -387,34 +380,30 @@ function KillSwitchBanner({
 }) {
   return (
     <div
-      className="flex items-center gap-4 rounded-xl border p-3.5"
-      style={{
-        background: engaged ? 'rgba(204, 46, 46, 0.07)' : 'var(--color-surface)',
-        borderColor: engaged ? 'var(--color-danger)' : 'var(--color-border-light)',
-      }}
+      className={
+        'flex items-center gap-4 rounded-xl border p-3.5 ' +
+        (engaged ? 'border-destructive bg-destructive/5' : 'border-border bg-card')
+      }
     >
       <div
-        className="flex h-10 w-10 flex-none items-center justify-center rounded-lg"
-        style={{
-          background: engaged
-            ? 'rgba(204, 46, 46, 0.13)'
-            : 'var(--color-brand-primary-10)',
-          color: engaged ? 'var(--color-danger)' : 'var(--color-brand-primary)',
-        }}
+        className={
+          'flex h-10 w-10 flex-none items-center justify-center rounded-lg ' +
+          (engaged ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary')
+        }
       >
         <ShieldCheck className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">
+        <div className="text-[13.5px] font-semibold text-foreground">
           Global agent kill switch
         </div>
-        <div className="mt-0.5 text-[12px] text-[var(--color-text-secondary)]">
+        <div className="mt-0.5 text-[12px] text-muted-foreground">
           {engaged
             ? 'State persisted for this tenant. Run-pipeline enforcement is not yet wired — track that as a follow-up.'
             : 'Pause every agent for this tenant. Persists across reloads; enforcement on the run pipeline is pending.'}
         </div>
       </div>
-      <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+      <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
         requires 2FA
       </span>
       <Button
@@ -422,14 +411,7 @@ function KillSwitchBanner({
         size="sm"
         onClick={onToggle}
         disabled={saving}
-        style={
-          engaged
-            ? undefined
-            : {
-                borderColor: 'var(--color-danger)',
-                color: 'var(--color-danger)',
-              }
-        }
+        className={engaged ? undefined : 'border-destructive text-destructive'}
       >
         {saving ? 'Saving…' : engaged ? 'Resume agents' : 'Engage kill switch'}
       </Button>
@@ -451,15 +433,15 @@ function StatTile({
   tone: string;
 }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+    <div className="rounded-lg border border-border bg-card p-3.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
         {label}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-[var(--color-text-primary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         {sub}
       </div>
     </div>

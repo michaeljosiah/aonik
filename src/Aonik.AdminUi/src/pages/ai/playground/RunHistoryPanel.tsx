@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { PlaygroundRunRecord } from '@/types/ai';
 
 interface RunHistoryPanelProps {
@@ -15,11 +16,11 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
   if (runs.length === 0) return null;
 
   return (
-    <div className="border-t border-[var(--color-border-light)]">
+    <div className="border-t border-border">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-5 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-accent"
+        className="flex w-full items-center justify-between px-5 py-2 text-xs font-medium text-muted-foreground hover:bg-accent"
       >
         <div className="flex items-center gap-1.5">
           {expanded ? (
@@ -37,7 +38,7 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
               e.stopPropagation();
               onClear();
             }}
-            className="h-6 px-2 text-xs text-[var(--color-error)]"
+            className="h-6 px-2 text-xs text-destructive"
           >
             <Trash2 className="mr-1 h-3 w-3" />
             Clear
@@ -47,54 +48,54 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
 
       {expanded && (
         <div className="max-h-48 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
-                <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Time</th>
-                <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Agent</th>
-                <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Model</th>
-                <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Message</th>
-                <th className="px-5 py-1.5 text-right font-medium text-[var(--color-text-secondary)]">In</th>
-                <th className="px-5 py-1.5 text-right font-medium text-[var(--color-text-secondary)]">Out</th>
-                <th className="px-5 py-1.5 text-right font-medium text-[var(--color-text-secondary)]">Latency</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-muted">
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Time</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Agent</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Model</TableHead>
+                <TableHead className="h-auto px-5 py-1.5 text-muted-foreground">Message</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">In</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">Out</TableHead>
+                <TableHead numeric className="h-auto px-5 py-1.5 text-muted-foreground">Latency</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {runs.map((run) => (
-                <tr
+                <TableRow
                   key={run.id}
-                  className="cursor-pointer border-b border-[var(--color-border-light)] last:border-b-0 hover:bg-accent"
+                  className="cursor-pointer hover:bg-accent"
                   onClick={() => onSelect?.(run)}
                 >
-                  <td className="whitespace-nowrap px-5 py-1.5 text-[var(--color-text-tertiary)]">
+                  <TableCell className="px-5 py-1.5 text-muted-foreground">
                     {run.timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
                     })}
-                  </td>
-                  <td className="px-5 py-1.5 text-[var(--color-text-primary)]">
+                  </TableCell>
+                  <TableCell className="px-5 py-1.5 text-foreground">
                     {run.agentName ?? 'Raw'}
-                  </td>
-                  <td className="max-w-[150px] truncate px-5 py-1.5 text-[var(--color-text-tertiary)]">
+                  </TableCell>
+                  <TableCell className="max-w-[150px] truncate px-5 py-1.5 text-muted-foreground">
                     {run.modelName ?? run.modelId ?? 'Default'}
-                  </td>
-                  <td className="max-w-[200px] truncate px-5 py-1.5 text-[var(--color-text-primary)]">
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate px-5 py-1.5 text-foreground">
                     {run.userMessage}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-[var(--color-text-tertiary)]">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {run.metrics.inputTokens}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-[var(--color-text-tertiary)]">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {run.metrics.outputTokens}
-                  </td>
-                  <td className="px-5 py-1.5 text-right tabular-nums text-[var(--color-text-tertiary)]">
+                  </TableCell>
+                  <TableCell numeric className="px-5 py-1.5 text-muted-foreground">
                     {(run.metrics.latencyMs / 1000).toFixed(1)}s
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

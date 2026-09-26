@@ -16,9 +16,10 @@
 //      (TenantResolutionGate + OrganizationPickerPage).
 //    - returnTo / reason query params are still respected for session
 //      expiry, missing tenant, and post-auth redirects.
-//    - Uses --color-* tokens from src/index.css @theme; the template's
-//      unprefixed --brand-mark-dot / --success names are not defined in
-//      this app and are mapped to --color-brand-mark-dot / --color-success.
+//    - Colours are shadcn tokens from src/index.css. The hero is a primary
+//      surface (primary-foreground text, color-mix shades of --primary), the
+//      chat bubbles are card surfaces, and the operator is categorical
+//      (--chart-5). --color-brand-mark-dot is the brand accent on the mark.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -102,8 +103,9 @@ export function LoginPage() {
         minHeight: 'calc(100vh - var(--app-titlebar-height, 0px))',
         position: 'relative',
         overflow: 'hidden',
-        background: 'linear-gradient(135deg, #044045 0%, #055a60 50%, #066970 100%)',
-        color: '#fff',
+        background:
+          'linear-gradient(135deg, color-mix(in oklab, var(--primary) 80%, black) 0%, var(--primary) 50%, color-mix(in oklab, var(--primary) 88%, var(--chart-2)) 100%)',
+        color: 'var(--primary-foreground)',
         fontFamily: 'var(--font-sans)',
       }}
     >
@@ -114,10 +116,10 @@ export function LoginPage() {
           position: 'absolute',
           inset: 0,
           backgroundImage:
-            'radial-gradient(circle at 22% 28%, rgba(232,168,56,0.14) 0%, transparent 38%),' +
-            'radial-gradient(circle at 78% 72%, rgba(255,255,255,0.06) 0%, transparent 45%),' +
-            'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),' +
-            'linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+            'radial-gradient(circle at 22% 28%, color-mix(in oklab, var(--mark-dot) 14%, transparent) 0%, transparent 38%),' +
+            'radial-gradient(circle at 78% 72%, color-mix(in oklab, var(--primary-foreground) 6%, transparent) 0%, transparent 45%),' +
+            'linear-gradient(color-mix(in oklab, var(--primary-foreground) 2.5%, transparent) 1px, transparent 1px),' +
+            'linear-gradient(90deg, color-mix(in oklab, var(--primary-foreground) 2.5%, transparent) 1px, transparent 1px)',
           backgroundSize: 'auto, auto, 32px 32px, 32px 32px',
           pointerEvents: 'none',
         }}
@@ -154,8 +156,8 @@ export function LoginPage() {
                 width: 44,
                 height: 44,
                 borderRadius: 11,
-                background: '#fff',
-                color: '#055a60',
+                background: 'var(--primary-foreground)',
+                color: 'var(--primary)',
                 fontFamily: 'var(--font-brand)',
                 fontWeight: 700,
                 fontSize: 26,
@@ -173,7 +175,7 @@ export function LoginPage() {
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  background: 'var(--color-brand-mark-dot)',
+                  background: 'var(--mark-dot)',
                 }}
               />
             </span>
@@ -183,7 +185,7 @@ export function LoginPage() {
                 fontWeight: 700,
                 fontSize: 30,
                 letterSpacing: '-0.015em',
-                color: '#fff',
+                color: 'var(--primary-foreground)',
               }}
             >
               aonik
@@ -200,21 +202,21 @@ export function LoginPage() {
               letterSpacing: '-0.025em',
               margin: 0,
               marginBottom: 22,
-              color: '#fff',
+              color: 'var(--primary-foreground)',
             }}
           >
             Agents propose.
             <br />
             Systems apply.
             <br />
-            <span style={{ color: 'var(--color-brand-mark-dot)' }}>Everywhere you work.</span>
+            <span style={{ color: 'var(--mark-dot)' }}>Everywhere you work.</span>
           </h1>
 
           <p
             style={{
               fontSize: 16,
               lineHeight: 1.55,
-              color: 'rgba(255,255,255,0.78)',
+              color: 'color-mix(in oklab, var(--primary-foreground) 78%, transparent)',
               margin: 0,
               marginBottom: 40,
               maxWidth: 480,
@@ -240,8 +242,8 @@ export function LoginPage() {
               height: 56,
               border: 'none',
               borderRadius: 10,
-              background: '#fff',
-              color: '#055a60',
+              background: 'var(--primary-foreground)',
+              color: 'var(--primary)',
               fontFamily: 'var(--font-sans)',
               fontWeight: 600,
               fontSize: 17,
@@ -271,7 +273,7 @@ export function LoginPage() {
             style={{
               fontSize: 13,
               lineHeight: 1.5,
-              color: 'rgba(255,255,255,0.6)',
+              color: 'color-mix(in oklab, var(--primary-foreground) 60%, transparent)',
               margin: 0,
               marginTop: 14,
               maxWidth: 320,
@@ -285,7 +287,7 @@ export function LoginPage() {
             style={{
               marginTop: 88,
               fontSize: 14,
-              color: 'rgba(255,255,255,0.75)',
+              color: 'color-mix(in oklab, var(--primary-foreground) 75%, transparent)',
             }}
           >
             Is your team new to Aonik?{' '}
@@ -293,11 +295,11 @@ export function LoginPage() {
               href="#"
               onClick={(e) => e.preventDefault()}
               style={{
-                color: '#fff',
+                color: 'var(--primary-foreground)',
                 fontWeight: 600,
                 textDecoration: 'underline',
                 textUnderlineOffset: 4,
-                textDecorationColor: 'rgba(255,255,255,0.5)',
+                textDecorationColor: 'color-mix(in oklab, var(--primary-foreground) 50%, transparent)',
               }}
             >
               Create a new workspace
@@ -333,7 +335,7 @@ export function LoginPage() {
           alignItems: 'center',
           gap: 24,
           fontSize: 11,
-          color: 'rgba(255,255,255,0.45)',
+          color: 'color-mix(in oklab, var(--primary-foreground) 45%, transparent)',
           fontFamily: 'var(--font-mono)',
           letterSpacing: '0.05em',
         }}
@@ -344,7 +346,7 @@ export function LoginPage() {
               width: 6,
               height: 6,
               borderRadius: 999,
-              background: 'var(--color-success)',
+              background: 'var(--success)',
             }}
           />
           All systems operational
@@ -388,9 +390,9 @@ function Banners({ error, notice }: BannersProps) {
           marginBottom: 20,
           maxWidth: 480,
           borderRadius: 10,
-          background: 'rgba(210, 74, 44, 0.18)',
-          border: '1px solid rgba(210, 74, 44, 0.55)',
-          color: '#fdcdc0',
+          background: 'color-mix(in oklab, var(--destructive) 18%, transparent)',
+          border: '1px solid color-mix(in oklab, var(--destructive) 55%, transparent)',
+          color: 'color-mix(in oklab, var(--destructive) 30%, var(--primary-foreground))',
           fontSize: 13,
           lineHeight: 1.45,
         }}
@@ -412,9 +414,9 @@ function Banners({ error, notice }: BannersProps) {
         marginBottom: 20,
         maxWidth: 480,
         borderRadius: 10,
-        background: 'rgba(232, 168, 56, 0.15)',
-        border: '1px solid rgba(232, 168, 56, 0.45)',
-        color: '#f6d99a',
+        background: 'color-mix(in oklab, var(--warning) 15%, transparent)',
+        border: '1px solid color-mix(in oklab, var(--warning) 45%, transparent)',
+        color: 'color-mix(in oklab, var(--warning) 40%, var(--primary-foreground))',
         fontSize: 13,
         lineHeight: 1.45,
       }}
@@ -465,7 +467,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: 'bills',
     team: 'Payments',
-    badge: 'HUMAN-IN-LOOP',
+    badge: 'Human in the loop',
     badgeTone: 'neutral',
     hasButtons: true,
     operator: 'J',
@@ -491,7 +493,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: 'collections',
     team: 'Collections',
-    badge: 'CROSS-BORDER',
+    badge: 'Cross-border',
     badgeTone: 'warning',
     hasButtons: false,
     operator: 'J',
@@ -516,7 +518,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: 'pfm',
     team: 'Personal Finance',
-    badge: 'INSIGHT',
+    badge: 'Insight',
     badgeTone: 'insight',
     hasButtons: false,
     operator: 'J',
@@ -554,35 +556,35 @@ const STEP_DURATIONS: Record<'buttons' | 'textOnly', number[]> = {
 
 // Tag chip styles inside agent bubbles
 const TAG_STYLES: Record<TagKey, { color: string; dot: string; label: string }> = {
-  proposal: { color: '#7d5811', dot: '#e8a838', label: 'PROPOSAL' },
-  inbound: { color: '#a85a0e', dot: '#f59f25', label: 'INBOUND WIRE' },
-  insight: { color: '#1f6e7a', dot: '#3a9aa8', label: 'INSIGHT' },
-  alert: { color: '#a85a0e', dot: '#f59f25', label: 'ALERT' },
-  risk: { color: '#a8341a', dot: '#d24a2c', label: 'POLICY RISK' },
-  executed: { color: '#2b7a31', dot: '#6abf6e', label: 'EXECUTED' },
+  proposal: { color: 'var(--warning-foreground)', dot: 'var(--warning)', label: 'Proposal' },
+  inbound: { color: 'var(--warning-foreground)', dot: 'var(--chart-5)', label: 'Inbound wire' },
+  insight: { color: 'var(--primary)', dot: 'var(--chart-2)', label: 'Insight' },
+  alert: { color: 'var(--warning-foreground)', dot: 'var(--chart-5)', label: 'Alert' },
+  risk: { color: 'var(--destructive)', dot: 'var(--destructive)', label: 'Policy risk' },
+  executed: { color: 'var(--success)', dot: 'var(--success)', label: 'Executed' },
 };
 
 // Header badge tone palette
 const BADGE_TONES: Record<BadgeTone, { fill: string; border: string; color: string }> = {
   neutral: {
-    fill: 'rgba(255,255,255,0.04)',
-    border: 'rgba(255,255,255,0.14)',
-    color: 'rgba(255,255,255,0.6)',
+    fill: 'color-mix(in oklab, var(--primary-foreground) 4%, transparent)',
+    border: 'color-mix(in oklab, var(--primary-foreground) 14%, transparent)',
+    color: 'color-mix(in oklab, var(--primary-foreground) 60%, transparent)',
   },
   warning: {
-    fill: 'rgba(232,168,56,0.16)',
-    border: 'rgba(232,168,56,0.45)',
-    color: '#f4cb7a',
+    fill: 'color-mix(in oklab, var(--warning) 16%, transparent)',
+    border: 'color-mix(in oklab, var(--warning) 45%, transparent)',
+    color: 'color-mix(in oklab, var(--warning) 40%, var(--primary-foreground))',
   },
   danger: {
-    fill: 'rgba(210,74,44,0.18)',
-    border: 'rgba(210,74,44,0.50)',
-    color: '#ee8d75',
+    fill: 'color-mix(in oklab, var(--destructive) 18%, transparent)',
+    border: 'color-mix(in oklab, var(--destructive) 50%, transparent)',
+    color: 'color-mix(in oklab, var(--destructive) 40%, var(--primary-foreground))',
   },
   insight: {
-    fill: 'rgba(58,154,168,0.18)',
-    border: 'rgba(58,154,168,0.55)',
-    color: '#7fcfd9',
+    fill: 'color-mix(in oklab, var(--chart-2) 18%, transparent)',
+    border: 'color-mix(in oklab, var(--chart-2) 55%, transparent)',
+    color: 'color-mix(in oklab, var(--chart-2) 40%, var(--primary-foreground))',
   },
 };
 
@@ -645,8 +647,8 @@ function LoginAgentChat() {
           position: 'absolute',
           inset: -36,
           background:
-            'radial-gradient(circle at 28% 28%, rgba(232,168,56,0.18) 0%, transparent 55%),' +
-            'radial-gradient(circle at 78% 82%, rgba(255,255,255,0.06) 0%, transparent 55%)',
+            'radial-gradient(circle at 28% 28%, color-mix(in oklab, var(--mark-dot) 18%, transparent) 0%, transparent 55%),' +
+            'radial-gradient(circle at 78% 82%, color-mix(in oklab, var(--primary-foreground) 6%, transparent) 0%, transparent 55%)',
           filter: 'blur(10px)',
           pointerEvents: 'none',
         }}
@@ -659,10 +661,10 @@ function LoginAgentChat() {
           padding: '20px 22px 16px',
           borderRadius: 22,
           background:
-            'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)',
-          border: '1px solid rgba(255,255,255,0.10)',
+            'linear-gradient(180deg, color-mix(in oklab, var(--primary-foreground) 7%, transparent) 0%, color-mix(in oklab, var(--primary-foreground) 2%, transparent) 100%)',
+          border: '1px solid color-mix(in oklab, var(--primary-foreground) 10%, transparent)',
           boxShadow:
-            '0 40px 80px -30px rgba(0,0,0,0.55), inset 0 1px 0 0 rgba(255,255,255,0.05)',
+            '0 40px 80px -30px rgba(0,0,0,0.55), inset 0 1px 0 0 color-mix(in oklab, var(--primary-foreground) 5%, transparent)',
           backdropFilter: 'blur(10px)',
         }}
       >
@@ -673,7 +675,7 @@ function LoginAgentChat() {
             alignItems: 'center',
             gap: 12,
             padding: '0 0 14px',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid color-mix(in oklab, var(--primary-foreground) 8%, transparent)',
             marginBottom: 18,
           }}
         >
@@ -684,11 +686,11 @@ function LoginAgentChat() {
               width: 38,
               height: 38,
               borderRadius: 11,
-              background: '#fff',
+              background: 'var(--primary-foreground)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#055a60',
+              color: 'var(--primary)',
               fontFamily: 'var(--font-brand)',
               fontWeight: 700,
               fontSize: 22,
@@ -706,7 +708,7 @@ function LoginAgentChat() {
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: '#e8a838',
+                background: 'var(--mark-dot)',
               }}
             />
           </div>
@@ -717,7 +719,7 @@ function LoginAgentChat() {
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: '#fff',
+                color: 'var(--primary-foreground)',
                 letterSpacing: '-0.005em',
                 animation: 'aonikMsgIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
               }}
@@ -726,10 +728,8 @@ function LoginAgentChat() {
             </div>
             <div
               style={{
-                fontSize: 10.5,
-                color: 'rgba(255,255,255,0.6)',
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.05em',
+                fontSize: 12,
+                color: 'color-mix(in oklab, var(--primary-foreground) 60%, transparent)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
@@ -750,7 +750,7 @@ function LoginAgentChat() {
                     position: 'absolute',
                     inset: 0,
                     borderRadius: 999,
-                    background: '#6abf6e',
+                    background: 'var(--success)',
                     animation: 'aonikPulseRing 1.8s ease-out infinite',
                   }}
                 />
@@ -762,11 +762,11 @@ function LoginAgentChat() {
                     width: 6,
                     height: 6,
                     borderRadius: 999,
-                    background: '#6abf6e',
+                    background: 'var(--success)',
                   }}
                 />
               </span>
-              LIVE · POLICY v3
+              Live · policy v3
             </div>
           </div>
 
@@ -774,10 +774,8 @@ function LoginAgentChat() {
           <div
             key={scenario.id + '-badge'}
             style={{
-              fontSize: 10,
+              fontSize: 12,
               color: badgeStyle.color,
-              fontFamily: 'var(--font-mono)',
-              letterSpacing: '0.06em',
               padding: '4px 9px',
               borderRadius: 999,
               border: `1px solid ${badgeStyle.border}`,
@@ -818,7 +816,7 @@ function LoginAgentChat() {
           style={{
             marginTop: 14,
             paddingTop: 14,
-            borderTop: '1px solid rgba(255,255,255,0.08)',
+            borderTop: '1px solid color-mix(in oklab, var(--primary-foreground) 8%, transparent)',
             display: 'flex',
             alignItems: 'center',
             gap: 10,
@@ -832,10 +830,10 @@ function LoginAgentChat() {
               alignItems: 'center',
               padding: '0 14px',
               borderRadius: 10,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'color-mix(in oklab, var(--primary-foreground) 6%, transparent)',
+              border: '1px solid color-mix(in oklab, var(--primary-foreground) 8%, transparent)',
               fontSize: 13,
-              color: 'rgba(255,255,255,0.42)',
+              color: 'color-mix(in oklab, var(--primary-foreground) 42%, transparent)',
               fontFamily: 'var(--font-sans)',
             }}
           >
@@ -854,8 +852,8 @@ function LoginAgentChat() {
               borderRadius: 10,
               border: 'none',
               cursor: 'default',
-              background: '#e8a838',
-              color: '#3a2a05',
+              background: 'var(--chart-5)',
+              color: 'color-mix(in oklab, var(--chart-5) 25%, black)',
               fontSize: 16,
               fontWeight: 700,
               lineHeight: 1,
@@ -912,8 +910,8 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
           fontFamily: 'var(--font-brand)',
           fontWeight: 700,
           fontSize: 11,
-          background: isAgent ? '#fff' : '#e8a838',
-          color: isAgent ? '#055a60' : '#3a2a05',
+          background: isAgent ? 'var(--primary-foreground)' : 'var(--chart-5)',
+          color: isAgent ? 'var(--primary)' : 'color-mix(in oklab, var(--chart-5) 25%, black)',
           boxShadow: '0 2px 8px -2px rgba(0,0,0,0.45)',
         }}
       >
@@ -927,8 +925,8 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: '#e8a838',
-              border: '2px solid #055a60',
+              background: 'var(--mark-dot)',
+              border: '2px solid var(--primary)',
             }}
           />
         )}
@@ -942,13 +940,13 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
           borderRadius: 14,
           ...(isAgent
             ? {
-                background: 'rgba(255,255,255,0.96)',
-                color: '#0c2a2c',
+                background: 'color-mix(in oklab, var(--card) 96%, transparent)',
+                color: 'var(--foreground)',
                 borderBottomLeftRadius: 4,
               }
             : {
-                background: 'rgba(232,168,56,0.96)',
-                color: '#3a2a05',
+                background: 'color-mix(in oklab, var(--chart-5) 96%, transparent)',
+                color: 'color-mix(in oklab, var(--chart-5) 25%, black)',
                 borderBottomRightRadius: 4,
               }),
           fontSize: 13.5,
@@ -960,10 +958,7 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
         {tagStyle && (
           <div
             style={{
-              fontSize: 9.5,
-              fontFamily: 'var(--font-mono)',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
+              fontSize: 12,
               marginBottom: 4,
               fontWeight: 600,
               color: tagStyle.color,
@@ -991,7 +986,7 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
             style={{
               marginTop: 11,
               paddingTop: 10,
-              borderTop: '1px solid rgba(12,42,44,0.08)',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               gap: 8,
             }}
@@ -1005,14 +1000,14 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
                 padding: '8px 12px',
                 borderRadius: 8,
                 border: 'none',
-                background: '#055a60',
-                color: '#fff',
+                background: 'var(--primary)',
+                color: 'var(--primary-foreground)',
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 600,
                 fontSize: 12.5,
                 letterSpacing: '-0.005em',
                 cursor: 'default',
-                boxShadow: '0 2px 6px -2px rgba(5,90,96,0.45)',
+                boxShadow: '0 2px 6px -2px color-mix(in oklab, var(--primary) 45%, transparent)',
               }}
             >
               {actions.approve}
@@ -1025,9 +1020,9 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
                 flex: 1,
                 padding: '8px 12px',
                 borderRadius: 8,
-                border: '1px solid rgba(12,42,44,0.18)',
+                border: '1px solid color-mix(in oklab, var(--foreground) 18%, transparent)',
                 background: 'transparent',
-                color: '#0c2a2c',
+                color: 'var(--foreground)',
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 600,
                 fontSize: 12.5,
@@ -1045,12 +1040,12 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
             style={{
               marginTop: 11,
               paddingTop: 10,
-              borderTop: '1px solid rgba(12,42,44,0.08)',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               fontSize: 11.5,
-              color: '#2b7a31',
+              color: 'var(--success)',
               fontWeight: 600,
               fontFamily: 'var(--font-sans)',
               letterSpacing: '-0.005em',
@@ -1061,11 +1056,11 @@ function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubb
                 width: 18,
                 height: 18,
                 borderRadius: '50%',
-                background: '#6abf6e',
+                background: 'var(--success)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#fff',
+                color: 'var(--card)',
                 fontSize: 11,
                 fontWeight: 800,
                 animation: 'aonikApprovePop 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
@@ -1101,8 +1096,8 @@ function ChatTyping() {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#fff',
-          color: '#055a60',
+          background: 'var(--primary-foreground)',
+          color: 'var(--primary)',
           fontFamily: 'var(--font-brand)',
           fontWeight: 700,
           fontSize: 11,
@@ -1119,8 +1114,8 @@ function ChatTyping() {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: '#e8a838',
-            border: '2px solid #055a60',
+            background: 'var(--mark-dot)',
+            border: '2px solid var(--primary)',
           }}
         />
       </div>
@@ -1129,7 +1124,7 @@ function ChatTyping() {
           padding: '12px 16px',
           borderRadius: 14,
           borderBottomLeftRadius: 4,
-          background: 'rgba(255,255,255,0.92)',
+          background: 'color-mix(in oklab, var(--card) 92%, transparent)',
           display: 'inline-flex',
           alignItems: 'center',
           gap: 5,
@@ -1143,7 +1138,7 @@ function ChatTyping() {
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: '#055a60',
+              background: 'var(--primary)',
               animation: `aonikDot 1.2s ease-in-out ${i * 0.18}s infinite`,
             }}
           />

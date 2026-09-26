@@ -386,7 +386,7 @@ function ChainedSttCard({
           </Button>
         )}
         {recorder.isRecording && (
-          <Badge variant="error" className="animate-pulse">
+          <Badge variant="destructive" className="animate-pulse">
             Recording…
           </Badge>
         )}
@@ -461,7 +461,7 @@ function Card({
 }) {
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-4">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <span className="grid h-5 w-5 place-items-center">{icon}</span>
         {title}
       </div>
@@ -481,17 +481,17 @@ function RecipeProviderHeader({
 }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+      <div className="text-sm font-semibold text-foreground">
         {providerName}
       </div>
-      <div className="text-[11px] text-[var(--color-text-secondary)]">
+      <div className="text-[11px] text-muted-foreground">
         {vendor}
       </div>
       <div className="flex flex-wrap gap-1.5 pt-1">
         {chips.map((c) => (
           <Badge
             key={c.label}
-            variant={c.tone === "destructive" ? "error" : "outline"}
+            variant={c.tone === "destructive" ? "destructive" : "outline"}
             className="font-mono text-[10.5px]"
           >
             {c.label}: {c.value}

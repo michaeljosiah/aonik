@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Sheet,
@@ -13,13 +14,15 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import {
   RefreshCw,
   AlertCircle,
@@ -218,8 +221,8 @@ export function CatalogCategoriesPage() {
     <div className="h-full overflow-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Catalog Categories</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Catalog Categories</h1>
+          <p className="text-muted-foreground">
             Curate category groupings for billers. Filter by market and keep the catalog consistent.
           </p>
         </div>
@@ -236,8 +239,8 @@ export function CatalogCategoriesPage() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadData}>
@@ -252,13 +255,13 @@ export function CatalogCategoriesPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-96 max-w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search for categories"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-border bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
 
@@ -277,19 +280,19 @@ export function CatalogCategoriesPage() {
             <Badge variant="secondary">{filteredCategories.length} categories</Badge>
           </div>
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             {loading ? (
               <div className="p-12 text-center">
-                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                <p className="text-sm text-[var(--color-text-secondary)]">Loading categories...</p>
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading categories...</p>
               </div>
             ) : filteredCategories.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                <div className="mb-3 flex justify-center text-muted-foreground">
                   <Layers className="w-12 h-12" />
                 </div>
-                <p className="text-[var(--color-text-primary)] font-medium mb-1">No categories found</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-foreground font-medium mb-1">No categories found</p>
+                <p className="text-sm text-muted-foreground">
                   Click "New category" above to create your first one.
                 </p>
               </div>
@@ -298,7 +301,7 @@ export function CatalogCategoriesPage() {
                 {filteredCategories.map((category) => (
                   <div
                     key={category.categoryId}
-                    className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)] shadow-sm"
+                    className="border border-border rounded-md p-4 bg-card shadow-sm"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <Badge variant="secondary" className="font-mono">
@@ -319,15 +322,15 @@ export function CatalogCategoriesPage() {
                           onClick={() => setDeleteTarget(category)}
                           aria-label="Delete category"
                         >
-                          <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{category.name}</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+                    <h3 className="text-lg font-semibold text-foreground">{category.name}</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
                       {category.description || 'No description provided.'}
                     </p>
-                    <div className="text-xs text-[var(--color-text-tertiary)]">
+                    <div className="text-xs text-muted-foreground">
                       ID: {category.categoryId.slice(0, 8)}
                     </div>
                   </div>
@@ -351,7 +354,7 @@ export function CatalogCategoriesPage() {
           />
           <SheetBody className="space-y-4">
             {formError && (
-              <div className="p-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)] text-sm">
+              <div className="p-3 rounded-md border border-destructive bg-destructive/10 text-destructive text-sm">
                 {formError}
               </div>
             )}
@@ -408,10 +411,9 @@ export function CatalogCategoriesPage() {
               />
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.isActive}
-                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                onCheckedChange={(v) => setForm({ ...form, isActive: v === true })}
                 disabled={submitting}
               />
               <span>Active (visible to consumers)</span>
@@ -429,31 +431,37 @@ export function CatalogCategoriesPage() {
       </Sheet>
 
       {/* Delete confirmation */}
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open && !deleting) setDeleteTarget(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete category</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete category?</AlertDialogTitle>
+            <AlertDialogDescription>
               {deleteTarget
                 ? `This will delete "${deleteTarget.name}". The category cannot be deleted if any billers still reference it.`
                 : ''}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button onClick={confirmDelete} disabled={deleting}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                // Keep the dialog open until the delete settles (errors surface on the page).
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              disabled={deleting}
+            >
               {deleting ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

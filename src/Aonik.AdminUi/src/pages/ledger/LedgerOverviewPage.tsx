@@ -5,6 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { documentService } from '@/services/documentService';
 import { identityService } from '@/services/identityService';
 import { ledgerService } from '@/services/ledgerService';
@@ -181,23 +191,23 @@ export function LedgerOverviewPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Ledgers</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Ledgers</h1>
+          <p className="text-muted-foreground">
             Maintain the ledger books that anchor your financial truth.
           </p>
         </div>
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={loadLedgers}>
               Retry
             </Button>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -205,36 +215,38 @@ export function LedgerOverviewPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Ledger list</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">All ledgers available to this tenant.</p>
+                <h2 className="text-lg font-semibold text-foreground">Ledger list</h2>
+                <p className="text-sm text-muted-foreground">All ledgers available to this tenant.</p>
               </div>
-              <span className="text-xs text-[var(--color-text-tertiary)]">{ledgerRows.length} total</span>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-mono tabular-nums">{ledgerRows.length}</span> total
+              </span>
             </div>
 
-            <div className="border border-[var(--color-border-light)] rounded-md overflow-hidden">
+            <div className="border border-border rounded-md overflow-hidden">
               {loading ? (
-                <div className="p-6 text-sm text-[var(--color-text-secondary)]">Loading ledgers...</div>
+                <div className="p-6 text-sm text-muted-foreground">Loading ledgers...</div>
               ) : ledgerRows.length === 0 ? (
-                <div className="p-6 text-sm text-[var(--color-text-secondary)]">No ledgers created yet.</div>
+                <div className="p-6 text-sm text-muted-foreground">No ledgers created yet.</div>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-[var(--color-surface-inset)]/60 border-b border-[var(--color-border-light)]">
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Ledger ID</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Base currency</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/60 hover:bg-muted/60">
+                      <TableHead numeric className="px-4 text-xs font-semibold text-muted-foreground">Ledger ID</TableHead>
+                      <TableHead className="px-4 text-xs font-semibold text-muted-foreground">Base currency</TableHead>
+                      <TableHead className="px-4 text-xs font-semibold text-muted-foreground">Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {ledgerRows.map((ledger) => (
-                      <tr key={ledger.id} className="border-b border-[var(--color-border-light)]">
-                        <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)] font-mono">{ledger.id}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">{ledger.baseCurrency}</td>
-                        <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">{ledger.createdLabel}</td>
-                      </tr>
+                      <TableRow key={ledger.id}>
+                        <TableCell numeric className="px-4 py-3 text-sm text-muted-foreground">{ledger.id}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{ledger.baseCurrency}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{ledger.createdLabel}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </div>
           </CardContent>
@@ -243,12 +255,12 @@ export function LedgerOverviewPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-inset)] flex items-center justify-center text-[var(--color-text-secondary)]">
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Create ledger</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Add a new ledger book for this tenant.</p>
+                <h2 className="text-lg font-semibold text-foreground">Create ledger</h2>
+                <p className="text-sm text-muted-foreground">Add a new ledger book for this tenant.</p>
               </div>
             </div>
 
@@ -263,7 +275,7 @@ export function LedgerOverviewPage() {
                   maxLength={3}
                 />
               </div>
-              <Button type="submit" className="w-full rounded-sm" disabled={isSaving}>
+              <Button type="submit" className="w-full" disabled={isSaving}>
                 <Plus className="w-4 h-4 mr-2" />
                 {isSaving ? 'Creating...' : 'Create ledger'}
               </Button>
@@ -277,33 +289,34 @@ export function LedgerOverviewPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Ledger documents</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Files linked to the selected ledger.</p>
+                <h2 className="text-lg font-semibold text-foreground">Ledger documents</h2>
+                <p className="text-sm text-muted-foreground">Files linked to the selected ledger.</p>
               </div>
-              <select
-                value={selectedLedgerId}
-                onChange={(event) => setSelectedLedgerId(event.target.value)}
-                className="h-9 rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-sm"
-              >
-                {ledgerRows.map((ledger) => (
-                  <option key={ledger.id} value={ledger.id}>
-                    {ledger.baseCurrency} · {ledger.id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedLedgerId} onValueChange={setSelectedLedgerId}>
+                <SelectTrigger className="w-auto" aria-label="Ledger">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ledgerRows.map((ledger) => (
+                    <SelectItem key={ledger.id} value={ledger.id}>
+                      {ledger.baseCurrency} · {ledger.id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {documents.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No documents attached.</p>
+              <p className="text-sm text-muted-foreground">No documents attached.</p>
             ) : (
               <div className="space-y-3">
                 {documents.map((doc) => (
-                  <div key={doc.documentId} className="flex items-center justify-between border-b border-[var(--color-border-light)] pb-3 last:border-b-0">
+                  <div key={doc.documentId} className="flex items-center justify-between border-b border-border pb-3 last:border-b-0">
                     <div>
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{doc.documentType}</p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Status: {doc.status}</p>
+                      <p className="text-sm font-medium text-foreground">{doc.documentType}</p>
+                      <p className="text-xs text-muted-foreground">Status: {doc.status}</p>
                     </div>
-                    <div className="text-xs text-[var(--color-text-tertiary)]">
+                    <div className="text-xs text-muted-foreground">
                       {new Date(doc.createdAt).toLocaleDateString('en-US')}
                     </div>
                   </div>
@@ -316,12 +329,12 @@ export function LedgerOverviewPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-inset)] flex items-center justify-center text-[var(--color-text-secondary)]">
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Upload document</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Attach evidence to a ledger.</p>
+                <h2 className="text-lg font-semibold text-foreground">Upload document</h2>
+                <p className="text-sm text-muted-foreground">Attach evidence to a ledger.</p>
               </div>
             </div>
             <div className="space-y-4">
@@ -333,7 +346,7 @@ export function LedgerOverviewPage() {
                   onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
                 />
               </div>
-              <Button onClick={handleUploadDocument} disabled={isUploading} className="w-full rounded-sm">
+              <Button onClick={handleUploadDocument} disabled={isUploading} className="w-full">
                 {isUploading ? 'Uploading...' : 'Upload document'}
               </Button>
             </div>

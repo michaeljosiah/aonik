@@ -5,12 +5,17 @@
 // /parties (partyService.createParty) for inline "Add new party". Replaces
 // the raw UUID input + modal flow of the old form.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Plus, Search, Users } from 'lucide-react';
 import { customerService } from '@/services/customerService';
 import { partyService } from '@/services/partyService';
 import { PartyAvatar } from './PartyAvatar';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CustomerListItem, PartyResponse } from '@/types';
 
 export interface PartyPickerOption {
@@ -66,8 +71,8 @@ function PartyTagPill({ tier, fallback }: { tier: string | null; fallback: strin
       className={cn(
         'inline-flex flex-none items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none',
         isGold
-          ? 'border-transparent bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
-          : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]',
+          ? 'border-transparent bg-primary/10 text-primary'
+          : 'border-border bg-card text-foreground',
       )}
     >
       {label}
@@ -93,26 +98,17 @@ export function PartyPicker({
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState<'Person' | 'Business'>('Person');
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
   const selected = useMemo(() => {
     if (!value) return null;
     if (preloaded && preloaded.partyId === value) return preloaded;
     return results.find((r) => r.partyId === value) ?? null;
   }, [value, preloaded, results]);
 
-  // Close on outside click.
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        setShowCreate(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  // Closing (outside click, Escape, trigger) also leaves the create form.
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) setShowCreate(false);
+  };
 
   // Search customers when the dropdown is open and the query changes.
   useEffect(() => {
@@ -172,29 +168,30 @@ export function PartyPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
-      <div ref={containerRef} className="relative">
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          aria-label={label}
           className={cn(
-            'flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 transition-colors',
-            'bg-[var(--color-surface-inset)]',
+            'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 transition-colors',
+            'bg-muted',
             open
-              ? 'border-[1.5px] border-[var(--color-brand-primary)] shadow-[0_0_0_3px_var(--color-brand-primary-10)]'
-              : 'border-[1.5px] border-[var(--color-border-light)] hover:border-[var(--color-border)]',
+              ? 'border-[1.5px] border-primary ring-[3px] ring-primary/10'
+              : 'border-[1.5px] border-border hover:border-border',
           )}
         >
           {selected ? (
             <>
               <PartyAvatar name={selected.displayName} size={32} />
               <div className="min-w-0 flex-1 text-left">
-                <div className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
+                <div className="truncate text-[13px] font-semibold text-foreground">
                   {selected.displayName}
                 </div>
-                <div className="truncate text-[11px] text-[var(--color-text-secondary)]">
+                <div className="truncate text-[11px] text-muted-foreground">
                   {selected.partyType}
                   {selected.tier ? ` · ${selected.tier}` : ''}
                 </div>
@@ -202,46 +199,51 @@ export function PartyPicker({
             </>
           ) : (
             <>
-              <span className="grid h-8 w-8 flex-none place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]">
-                <Users className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+              <span className="grid h-8 w-8 flex-none place-items-center rounded-md border border-dashed border-border bg-card">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
               </span>
-              <span className="flex-1 text-left text-[13px] text-[var(--color-text-tertiary)]">
+              <span className="flex-1 text-left text-[13px] text-muted-foreground">
                 {placeholder}
               </span>
             </>
           )}
           {open ? (
-            <ChevronUp className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           )}
         </button>
+        </PopoverTrigger>
 
-        {open && (
-          <div className="absolute left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[0_12px_32px_-8px_rgb(0_0_0_/_0.18)]">
+          <PopoverContent
+            align="start"
+            sideOffset={6}
+            className="w-(--radix-popover-trigger-width) overflow-hidden rounded-xl bg-card p-0 shadow-lg"
+          >
             {!showCreate ? (
               <>
-                <div className="border-b border-[var(--color-border-light)] px-3 py-2.5">
+                <div className="border-b border-border px-3 py-2.5">
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-                    <input
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input
                       autoFocus
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search parties…"
-                      className="aonik-input h-[34px] pl-8 text-[12.5px]"
+                      aria-label="Search parties"
+                      className="h-[34px] pl-8 text-[12.5px]"
                     />
                   </div>
                 </div>
                 <div className="max-h-[280px] overflow-auto">
                   {loading && (
-                    <div className="px-3.5 py-5 text-center text-[12.5px] text-[var(--color-text-tertiary)]">
+                    <div className="px-3.5 py-5 text-center text-[12.5px] text-muted-foreground">
                       Searching…
                     </div>
                   )}
                   {!loading && results.length === 0 && (
-                    <div className="px-3.5 py-5 text-center text-[12.5px] text-[var(--color-text-tertiary)]">
+                    <div className="px-3.5 py-5 text-center text-[12.5px] text-muted-foreground">
                       No parties found
                     </div>
                   )}
@@ -252,101 +254,107 @@ export function PartyPicker({
                         type="button"
                         onClick={() => {
                           onChange(party.partyId, party);
-                          setOpen(false);
+                          handleOpenChange(false);
                           setQuery('');
                         }}
                         className={cn(
-                          'flex w-full items-center gap-3 border-b border-[var(--color-border-light)] px-3.5 py-2.5 text-left transition-colors last:border-b-0',
+                          'flex w-full items-center gap-3 border-b border-border px-3.5 py-2.5 text-left transition-colors last:border-b-0',
                           party.partyId === value
-                            ? 'bg-[var(--color-brand-primary-10)]'
-                            : 'hover:bg-[var(--color-surface-inset)]',
+                            ? 'bg-primary/10'
+                            : 'hover:bg-muted',
                         )}
                       >
                         <PartyAvatar name={party.displayName} size={36} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
+                            <span className="truncate text-[13px] font-semibold text-foreground">
                               {party.displayName}
                             </span>
                             <PartyTagPill tier={party.tier ?? null} fallback={party.partyType} />
                           </div>
-                          <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                             {[party.primaryEmail, party.primaryPhone].filter(Boolean).join(' · ')}
                           </div>
                         </div>
                         {party.partyId === value && (
-                          <Check className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
+                          <Check className="h-3.5 w-3.5 text-primary" />
                         )}
                       </button>
                     ))}
                 </div>
-                <div className="border-t border-[var(--color-border-light)] px-3 py-2">
-                  <button
+                <div className="border-t border-border px-3 py-2">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setShowCreate(true);
                       setDraftName(query);
                       setCreateError(null);
                     }}
-                    className="flex h-[30px] w-full items-center justify-center gap-1.5 rounded-md text-[12px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+                    className="h-[30px] w-full text-[12px] text-muted-foreground"
                   >
                     <Plus className="h-3 w-3" />
                     Add new party
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
               <div className="space-y-3 px-3.5 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                <div className="text-xs font-medium text-muted-foreground">
                   New party
                 </div>
                 {createError && (
-                  <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-2.5 py-1.5 text-[11px] text-[var(--color-error)]">
-                    {createError}
-                  </div>
+                  <Alert variant="destructive" className="px-2.5 py-1.5">
+                    <AlertDescription className="text-[11px]">{createError}</AlertDescription>
+                  </Alert>
                 )}
-                <label className="block text-[11px] text-[var(--color-text-secondary)]">
+                <label className="block text-[11px] text-muted-foreground">
                   Display name
-                  <input
+                  <Input
                     type="text"
                     value={draftName}
                     onChange={(e) => setDraftName(e.target.value)}
-                    className="aonik-input mt-1 h-[34px] px-2.5 text-[12.5px]"
+                    className="mt-1 h-[34px] px-2.5 text-[12.5px]"
                   />
                 </label>
-                <label className="block text-[11px] text-[var(--color-text-secondary)]">
+                <label className="block text-[11px] text-muted-foreground">
                   Type
-                  <select
-                    value={draftType}
-                    onChange={(e) => setDraftType(e.target.value as 'Person' | 'Business')}
-                    className="aonik-select mt-1 h-[34px] px-2.5 text-[12.5px]"
-                  >
-                    <option value="Person">Person</option>
-                    <option value="Business">Business</option>
-                  </select>
+                  <div className="mt-1">
+                    <NativeSelect
+                      value={draftType}
+                      onChange={(e) => setDraftType(e.target.value as 'Person' | 'Business')}
+                      className="h-[34px] pl-2.5 text-[12.5px]"
+                    >
+                      <option value="Person">Person</option>
+                      <option value="Business">Business</option>
+                    </NativeSelect>
+                  </div>
                 </label>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setShowCreate(false)}
-                    className="h-[30px] flex-1 rounded-md text-[12px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+                    className="h-[30px] flex-1 text-[12px] text-muted-foreground"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={handleCreate}
                     disabled={creating}
-                    className="h-[30px] flex-1 rounded-md bg-[var(--color-brand-primary)] text-[12px] font-medium text-primary-foreground transition-colors hover:bg-[var(--color-brand-primary-dark)] disabled:opacity-60"
+                    className="h-[30px] flex-1 text-[12px]"
                   >
                     {creating ? 'Creating…' : 'Create'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </div>
+          </PopoverContent>
+      </Popover>
     </div>
   );
 }

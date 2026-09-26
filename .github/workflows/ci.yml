@@ -70,10 +70,53 @@ jobs:
           AONIK_SQLSERVER_TEST_CONNECTION: "Server=localhost,1433;User Id=sa;Password=AonikCiPassw0rd;TrustServerCertificate=True"
         run: dotnet test Aonik.sln --configuration Release --no-build --logger "console;verbosity=normal"
 
+  adminui:
+    name: Admin UI checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # The Admin UI depends on the workspace SDK through a local file: path.
+      - name: Build workspace SDK
+        working-directory: packages/workspace-sdk
+        run: |
+          npm install
+          npm run build
+
+      - name: Install Admin UI dependencies
+        working-directory: src/Aonik.AdminUi
+        run: npm ci
+
+      # Spec 098 §11: shadcn/Radix design-system guardrails (hard-coded
+      # colours, raw palette classes, arbitrary radii/z-index, window.confirm,
+      # raw form/table elements, legacy tokens) and WCAG token contrast.
+      - name: Design guardrails
+        working-directory: src/Aonik.AdminUi
+        run: npm run check:design -- --strict
+
+      - name: Token contrast
+        working-directory: src/Aonik.AdminUi
+        run: npm run check:contrast
+
+      - name: Unit tests
+        working-directory: src/Aonik.AdminUi
+        run: npx vitest run
+
+      - name: Type-check and build
+        working-directory: src/Aonik.AdminUi
+        run: npm run build
+
   publish-images:
     name: Build and push runtime images
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, adminui]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
     env:

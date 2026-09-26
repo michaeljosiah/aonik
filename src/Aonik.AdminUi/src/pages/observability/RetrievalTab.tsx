@@ -1,4 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { MetricCard, TimeSeriesChart } from '@/components/charts';
 import type { RetrievalResponse } from '@/services/observabilityService';
 
@@ -34,40 +42,37 @@ export function RetrievalTab({ data }: { data: RetrievalResponse }) {
           <CardTitle>Latency by instrument</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-border-light)]">
-                <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">Instrument</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Samples</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p50</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p95</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p99</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-4 text-muted-foreground">Instrument</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Samples</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Avg</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">p50</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">p95</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">p99</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.latencies.map((l, idx) => (
-                <tr
-                  key={l.instrument}
-                  className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--color-text-primary)]">{l.instrument}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatNumber(l.samples)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.avgMs)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p50Ms)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p95Ms)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(l.p99Ms)}</td>
-                </tr>
+                <TableRow key={l.instrument} className={idx % 2 === 1 ? 'bg-muted' : ''}>
+                  <TableCell className="px-4 py-3 font-mono text-xs text-foreground">{l.instrument}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatNumber(l.samples)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(l.avgMs)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(l.p50Ms)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(l.p95Ms)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(l.p99Ms)}</TableCell>
+                </TableRow>
               ))}
               {data.latencies.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="whitespace-normal px-4 py-8 text-center text-muted-foreground">
                     No retrieval latency data yet. Ensure the <code>Aonik.VectorStore</code> meter is wired in OTel.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
@@ -77,44 +82,41 @@ export function RetrievalTab({ data }: { data: RetrievalResponse }) {
           <CardTitle>Searches by collection</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-border-light)]">
-                <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">Collection</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Searches</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg Results</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Empty</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">Avg</th>
-                <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">p95</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-4 text-muted-foreground">Collection</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Searches</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Avg Results</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Empty</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">Avg</TableHead>
+                <TableHead numeric className="px-4 text-muted-foreground">p95</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.collections.map((c, idx) => (
-                <tr
-                  key={c.collection}
-                  className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
-                >
-                  <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{c.collection}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatNumber(c.searches)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{c.avgResultCount.toFixed(1)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={c.emptySearches > 0 ? 'text-amber-600 font-medium' : 'text-[var(--color-text-primary)]'}>
+                <TableRow key={c.collection} className={idx % 2 === 1 ? 'bg-muted' : ''}>
+                  <TableCell className="px-4 py-3 font-medium text-foreground">{c.collection}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatNumber(c.searches)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{c.avgResultCount.toFixed(1)}</TableCell>
+                  <TableCell numeric className="px-4 py-3">
+                    <span className={c.emptySearches > 0 ? 'text-warning font-medium' : 'text-foreground'}>
                       {formatNumber(c.emptySearches)}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(c.avgLatencyMs)}</td>
-                  <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">{formatMs(c.p95LatencyMs)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(c.avgLatencyMs)}</TableCell>
+                  <TableCell numeric className="px-4 py-3 text-foreground">{formatMs(c.p95LatencyMs)}</TableCell>
+                </TableRow>
               ))}
               {data.collections.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No per-collection search data yet.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
@@ -128,7 +130,7 @@ export function RetrievalTab({ data }: { data: RetrievalResponse }) {
         <TimeSeriesChart
           data={data.embeddingLatencyTimeSeries}
           label="Embedding p95"
-          color="#8b5cf6"
+          color="var(--chart-4)"
           formatValue={formatMs}
         />
       </div>

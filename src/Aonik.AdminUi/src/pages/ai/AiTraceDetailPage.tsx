@@ -2,32 +2,35 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertCircle, Copy } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { aiTraceService, type AiTraceRunDetailResponse } from '@/services/aiService';
 
-const outcomeClass = (outcome: string) => {
+type BadgeVariant = BadgeProps['variant'];
+
+const outcomeVariant = (outcome: string): BadgeVariant => {
   switch (outcome.toLowerCase()) {
     case 'completed':
     case 'success':
-      return 'bg-green-500/10 text-green-700 border-green-200';
+      return 'success';
     case 'failed':
     case 'error':
-      return 'bg-red-500/10 text-red-700 border-red-200';
+      return 'destructive';
     default:
-      return 'bg-gray-500/10 text-gray-700 border-gray-200';
+      return 'secondary';
   }
 };
 
-const traceStatusClass = (status: string) => {
+const traceStatusVariant = (status: string): BadgeVariant => {
   switch (status) {
     case 'DbAndTelemetry':
-      return 'bg-blue-500/10 text-blue-700 border-blue-200';
+      return 'info';
     default:
-      return 'bg-amber-500/10 text-amber-700 border-amber-200';
+      return 'warning';
   }
 };
 
@@ -92,15 +95,11 @@ export function AiTraceDetailPage() {
   if (error || !trace) {
     return (
       <div className="p-6 space-y-4">
-        <Card className="p-5 border-l-4 border-l-red-500">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="h-5 w-5" />
-            <div>
-              <div className="font-medium">Failed to load AI trace</div>
-              <div className="text-sm">{error ?? 'Trace not found.'}</div>
-            </div>
-          </div>
-        </Card>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Failed to load AI trace</AlertTitle>
+          <AlertDescription>{error ?? 'Trace not found.'}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -112,12 +111,12 @@ export function AiTraceDetailPage() {
       <div className="space-y-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Run Trace</h1>
-            <p className="text-sm text-[var(--color-text-secondary)] font-mono break-all">{run.runId}</p>
+            <h1 className="text-2xl font-semibold text-foreground">Run Trace</h1>
+            <p className="text-sm text-muted-foreground font-mono break-all">{run.runId}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={`text-xs ${outcomeClass(run.outcome)}`}>{run.outcome}</Badge>
-            <Badge className={`text-xs ${traceStatusClass(trace.traceStatus)}`}>
+            <Badge variant={outcomeVariant(run.outcome)} className="text-xs">{run.outcome}</Badge>
+            <Badge variant={traceStatusVariant(trace.traceStatus)} className="text-xs">
               {trace.traceStatus === 'DbAndTelemetry' ? 'DB + Telemetry' : 'DB only'}
             </Badge>
             <Button variant="outline" size="sm" onClick={() => void handleCopyRunId()}>
@@ -171,35 +170,35 @@ export function AiTraceDetailPage() {
               <CardContent>
                 <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Started</dt>
+                    <dt className="text-muted-foreground">Started</dt>
                     <dd>{formatDateTime(run.startedAt)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Completed</dt>
+                    <dt className="text-muted-foreground">Completed</dt>
                     <dd>{formatDateTime(metrics?.completedAt)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Use Case</dt>
+                    <dt className="text-muted-foreground">Use Case</dt>
                     <dd className="font-mono text-xs">{run.useCase}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Configured Model</dt>
+                    <dt className="text-muted-foreground">Configured Model</dt>
                     <dd className="font-mono text-xs">{run.aiModelName ?? run.aiModelId}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Requested Model</dt>
+                    <dt className="text-muted-foreground">Requested Model</dt>
                     <dd className="font-mono text-xs">{metrics?.requestedModel ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Actual Model</dt>
+                    <dt className="text-muted-foreground">Actual Model</dt>
                     <dd className="font-mono text-xs">{metrics?.actualModel ?? run.aiModelName ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Prompt Spec ID</dt>
+                    <dt className="text-muted-foreground">Prompt Spec ID</dt>
                     <dd className="font-mono text-xs break-all">{run.promptSpecId ?? '--'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--color-text-tertiary)]">Policy ID</dt>
+                    <dt className="text-muted-foreground">Policy ID</dt>
                     <dd className="font-mono text-xs break-all">{run.aiPolicyId ?? '--'}</dd>
                   </div>
                 </dl>
@@ -212,12 +211,12 @@ export function AiTraceDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 <div>
-                  <div className="text-[var(--color-text-tertiary)] mb-1">Input References</div>
-                  <pre className="rounded-md bg-[var(--color-surface-inset)] p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-52 overflow-auto">{run.inputRefsJson}</pre>
+                  <div className="text-muted-foreground mb-1">Input References</div>
+                  <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-52 overflow-auto">{run.inputRefsJson}</pre>
                 </div>
                 <div>
-                  <div className="text-[var(--color-text-tertiary)] mb-1">Output Reference</div>
-                  <pre className="rounded-md bg-[var(--color-surface-inset)] p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto">{run.outputRef ?? '--'}</pre>
+                  <div className="text-muted-foreground mb-1">Output Reference</div>
+                  <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto">{run.outputRef ?? '--'}</pre>
                 </div>
               </CardContent>
             </Card>
@@ -232,16 +231,16 @@ export function AiTraceDetailPage() {
             <CardContent>
               <div className="space-y-4">
                 {trace.timeline.map((event, index) => (
-                  <div key={`${event.timestamp}-${event.eventType}-${index}`} className="border-l border-[var(--color-border-light)] pl-4">
+                  <div key={`${event.timestamp}-${event.eventType}-${index}`} className="border-l border-border pl-4">
                     <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                      <div className="font-medium text-[var(--color-text-primary)]">{event.title}</div>
-                      <div className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(event.timestamp)}</div>
+                      <div className="font-medium text-foreground">{event.title}</div>
+                      <div className="text-xs text-muted-foreground">{formatDateTime(event.timestamp)}</div>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{event.eventType}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{event.eventType}</span>
                       {event.status ? <Badge variant="outline" className="text-[10px]">{event.status}</Badge> : null}
                     </div>
-                    {event.description ? <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{event.description}</p> : null}
+                    {event.description ? <p className="mt-2 text-sm text-muted-foreground">{event.description}</p> : null}
                   </div>
                 ))}
               </div>
@@ -256,20 +255,20 @@ export function AiTraceDetailPage() {
             </CardHeader>
             <CardContent>
               {trace.rawTelemetry.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No correlated Application Insights telemetry was found for this run.</p>
+                <p className="text-sm text-muted-foreground">No correlated Application Insights telemetry was found for this run.</p>
               ) : (
                 <div className="space-y-4">
                   {trace.rawTelemetry.map((event, index) => (
-                    <div key={`${event.timestamp}-${index}`} className="rounded-md border border-[var(--color-border-light)] p-4">
+                    <div key={`${event.timestamp}-${index}`} className="rounded-md border border-border p-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="font-medium text-[var(--color-text-primary)]">{event.message}</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(event.timestamp)}</div>
+                        <div className="font-medium text-foreground">{event.message}</div>
+                        <div className="text-xs text-muted-foreground">{formatDateTime(event.timestamp)}</div>
                       </div>
                       <div className="mt-3 grid gap-2 md:grid-cols-2">
                         {Object.entries(event.dimensions).map(([key, value]) => (
-                          <div key={key} className="rounded bg-[var(--color-surface-inset)] px-3 py-2 text-xs">
-                            <div className="text-[var(--color-text-tertiary)]">{key}</div>
-                            <div className="font-mono break-all text-[var(--color-text-primary)]">{value ?? '--'}</div>
+                          <div key={key} className="rounded bg-muted px-3 py-2 text-xs">
+                            <div className="text-muted-foreground">{key}</div>
+                            <div className="font-mono break-all text-foreground">{value ?? '--'}</div>
                           </div>
                         ))}
                       </div>

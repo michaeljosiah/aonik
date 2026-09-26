@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { fxRateService } from '@/services/fxRateService';
 import type { CreateFxQuoteRequest, UpdateFxQuoteRequest, FxQuoteDetailResponse } from '@/types';
 
@@ -76,7 +79,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
       <DialogContent className="max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{isEdit ? 'Edit FX Quote' : 'Create FX Quote'}</DialogTitle>
+            <DialogTitle>{isEdit ? 'Edit FX quote' : 'Create FX quote'}</DialogTitle>
             <DialogDescription>
               {isEdit ? 'Update the exchange rate quote details.' : 'Add a new exchange rate quote to the system.'}
             </DialogDescription>
@@ -84,12 +87,15 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
 
           <div className="grid gap-4 py-4">
             {error && (
-              <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] text-[var(--color-danger)] text-sm">{error}</div>
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="baseCurrency">Base Currency</Label>
+                <Label htmlFor="baseCurrency">Base currency</Label>
                 <Input
                   id="baseCurrency"
                   placeholder="USD"
@@ -102,7 +108,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="targetCurrency">Target Currency</Label>
+                <Label htmlFor="targetCurrency">Target currency</Label>
                 <Input
                   id="targetCurrency"
                   placeholder="NGN"
@@ -116,12 +122,13 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="rate">Exchange Rate</Label>
+              <Label htmlFor="rate">Exchange rate</Label>
               <Input
                 id="rate"
                 type="number"
                 step="0.000001"
                 placeholder="1500.000000"
+                className="font-mono tabular-nums"
                 value={formData.rate}
                 onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
                 required
@@ -129,7 +136,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="expiresAt">Expires At</Label>
+              <Label htmlFor="expiresAt">Expires at</Label>
               <Input
                 id="expiresAt"
                 type="datetime-local"
@@ -140,7 +147,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="provider">Provider (Optional)</Label>
+              <Label htmlFor="provider">Provider (optional)</Label>
               <Input
                 id="provider"
                 placeholder="Provider A"
@@ -150,10 +157,10 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="metadataJson">Metadata JSON (Optional)</Label>
-              <textarea
+              <Label htmlFor="metadataJson">Metadata JSON (optional)</Label>
+              <Textarea
                 id="metadataJson"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-20 font-mono"
                 placeholder='{"source": "manual"}'
                 value={formData.metadataJson}
                 onChange={(e) => setFormData({ ...formData, metadataJson: e.target.value })}
@@ -166,7 +173,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : isEdit ? 'Update Quote' : 'Create Quote'}
+              {loading ? 'Saving...' : isEdit ? 'Update quote' : 'Create quote'}
             </Button>
           </DialogFooter>
         </form>

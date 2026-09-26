@@ -11,6 +11,7 @@
 // canonicalise a selection, and the direction a client re-implementation would drift is the
 // dangerous one: labelling a withholding block "Authored".
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -372,7 +373,6 @@ export function ProductContentPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Product content"
         subtitle="Figures may fall back, captioned. Declarations are exact-authored or withheld — never substituted."
       />
@@ -415,13 +415,15 @@ export function ProductContentPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void loadRows()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void loadRows()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {(reviewQueue.length > 0 || queueFailed || queueScanning) && (
@@ -435,20 +437,20 @@ export function ProductContentPage() {
           padding={0}
         >
           {reviewQueue.length === 0 && (queueFailed || queueScanning) && (
-            <p className="px-4 py-3 text-[12px] text-[var(--color-text-secondary)]">
+            <p className="px-4 py-3 text-[12px] text-muted-foreground">
               {queueScanning
                 ? 'Scanning every product — this list is not complete yet.'
                 : 'The review scan did not finish, so this list is not proof that nothing is flagged.'}
             </p>
           )}
-          <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+          <ul className="flex flex-col divide-y divide-border">
             {reviewQueue.map((row) => (
               <li key={row.productId} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[13px] text-[var(--color-text-primary)]">
+                  <span className="truncate text-[13px] text-foreground">
                     {row.name}
                   </span>
-                  <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                  <span className="text-[11px] text-muted-foreground">
                     {row.requiresReview
                       ? 'The recommended default moved underneath this block'
                       : 'The block describes a combination that is no longer the standard preparation'}
@@ -465,14 +467,14 @@ export function ProductContentPage() {
                   button here published unseen declarations — and the operator had no way to
                   inspect them even if they wanted to. Opening the editor is the review.
                 */}
-                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                <span className="text-[11px] text-muted-foreground">
                   {row.productId === selectedId ? 'edit the block to review it' : 'open it to review'}
                 </span>
               </li>
             ))}
           </ul>
           {(!queueComplete || queueScanning) && (
-            <p className="flex items-center gap-2 border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="flex items-center gap-2 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
               <span className="flex-1">
                 {queueScanning
                   ? 'Still scanning — flagged products may not have been reached yet.'
@@ -492,17 +494,17 @@ export function ProductContentPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
           <AonikCard title="Products" padding={0}>
             {rows.length === 0 ? (
-              <p className="px-4 py-8 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+              <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
                 No products to author content for.
               </p>
             ) : (
-              <ul className="flex max-h-[560px] flex-col divide-y divide-[var(--color-border-light)] overflow-y-auto">
+              <ul className="flex max-h-[560px] flex-col divide-y divide-border overflow-y-auto">
                 {rows.map((row) => {
                   const state = stateOf(row);
                   return (
@@ -510,19 +512,19 @@ export function ProductContentPage() {
                       <button
                         type="button"
                         onClick={() => setSelection(row)}
-                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--color-surface-inset)] ${
-                          row.productId === selectedId ? 'bg-[var(--color-surface-inset)]' : ''
+                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-muted ${
+                          row.productId === selectedId ? 'bg-muted' : ''
                         }`}
                       >
                         <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-[13px] text-[var(--color-text-primary)]">
+                          <span className="truncate text-[13px] text-foreground">
                             {row.name}
                           </span>
-                          <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                          <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                             {row.slug}
                           </span>
                         </span>
-                        <Pill tone={STATE_TONE[state]} size="sm">
+                        <Pill tone={STATE_TONE[state]}>
                           {STATE_LABEL[state]}
                         </Pill>
                       </button>
@@ -532,8 +534,8 @@ export function ProductContentPage() {
               </ul>
             )}
             {rowTotal > STATUS_PAGE_SIZE && (
-              <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border-light)] px-3 py-2">
-                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+              <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">
                   {(rowPage - 1) * STATUS_PAGE_SIZE + 1}–
                   {Math.min(rowPage * STATUS_PAGE_SIZE, rowTotal)} of {rowTotal}
                 </span>
@@ -561,37 +563,39 @@ export function ProductContentPage() {
 
           <div className="flex flex-col gap-4">
             {detailError && (
-              <p className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-                {/*
-                  Retry lives HERE because the shared catch clears every other piece of detail
-                  state, so the resolution, offer and coverage retries are all unmounted when
-                  this fires. Re-clicking the rail row usually hands `setSelection` the same row
-                  object, which React treats as no change — so without this the operator has to
-                  navigate to another product, or reload the page, before the block they were
-                  asked to review can be read at all.
-                */}
-                <span className="flex-1">{detailError}</span>
-                <button
-                  type="button"
-                  onClick={() => void reloadSelected()}
-                  disabled={detailLoading}
-                  className="shrink-0 underline"
-                >
-                  {detailLoading ? 'Retrying…' : 'Retry'}
-                </button>
-              </p>
+              <Alert variant="destructive" className="py-2">
+                <AlertDescription className="flex items-center gap-2 text-xs">
+                  {/*
+                    Retry lives HERE because the shared catch clears every other piece of detail
+                    state, so the resolution, offer and coverage retries are all unmounted when
+                    this fires. Re-clicking the rail row usually hands `setSelection` the same row
+                    object, which React treats as no change — so without this the operator has to
+                    navigate to another product, or reload the page, before the block they were
+                    asked to review can be read at all.
+                  */}
+                  <span className="flex-1">{detailError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void reloadSelected()}
+                    disabled={detailLoading}
+                    className="shrink-0 underline"
+                  >
+                    {detailLoading ? 'Retrying…' : 'Retry'}
+                  </button>
+                </AlertDescription>
+              </Alert>
             )}
 
             {detailLoading ? (
               <AonikCard padding={12}>
-                <p className="py-8 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                <p className="py-8 text-center text-[12.5px] text-muted-foreground">
                   Loading…
                 </p>
               </AonikCard>
             ) : (
               <>
                 {resolvedUnavailable && (
-                  <p className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                  <p className="rounded-md border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
                     This product is not active, so the storefront cannot resolve what it would
                     serve. The panel below is the stored block — once the product is active, an
                     authored combination may serve instead.
@@ -599,19 +603,21 @@ export function ProductContentPage() {
                 )}
 
                 {resolvedError && (
-                  <p className="flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
-                    <span className="flex-1">
-                      What customers currently receive could not be read, so the panel below
-                      shows the stored block — which is not always what is served.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void reloadSelected()}
-                      className="shrink-0 underline"
-                    >
-                      Retry
-                    </button>
-                  </p>
+                  <Alert variant="warning" className="py-2">
+                    <AlertDescription className="flex items-center gap-2 text-xs">
+                      <span className="flex-1">
+                        What customers currently receive could not be read, so the panel below
+                        shows the stored block — which is not always what is served.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void reloadSelected()}
+                        className="shrink-0 underline"
+                      >
+                        Retry
+                      </button>
+                    </AlertDescription>
+                  </Alert>
                 )}
 
                 <ContentWorkbench
@@ -650,38 +656,40 @@ export function ProductContentPage() {
                   }
                 >
                   {selectedId && groups.length > 0 && !content?.block && (
-                    <p className="mx-3 mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                    <p className="mx-3 mt-3 rounded-md border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
                       Author the default block first — it is the baseline every combination is
                       validated against, so one cannot be saved without it.
                     </p>
                   )}
                   {groupsError && (
-                    <p className="mx-3 mt-3 flex items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
-                      <span className="flex-1">
-                        This product’s option offer could not be read, so combinations cannot be
-                        authored right now. Existing ones are still listed.
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void reloadSelected()}
-                        className="shrink-0 underline"
-                      >
-                        Retry
-                      </button>
-                    </p>
+                    <Alert variant="warning" className="mx-3 mt-3 py-2">
+                      <AlertDescription className="flex items-center gap-2 text-xs">
+                        <span className="flex-1">
+                          This product’s option offer could not be read, so combinations cannot be
+                          authored right now. Existing ones are still listed.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void reloadSelected()}
+                          className="shrink-0 underline"
+                        >
+                          Retry
+                        </button>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   {!content || content.variants.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                    <p className="px-4 py-6 text-center text-[12.5px] text-muted-foreground">
                       No combinations authored — every selection resolves to the default block.
                     </p>
                   ) : (
-                    <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+                    <ul className="flex flex-col divide-y divide-border">
                       {content.variants.map((variant) => (
                         <li key={variant.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
+                          <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
                             {variant.selectionJson}
                           </span>
-                          <Pill tone={variant.isActive ? 'success' : 'muted'} size="sm">
+                          <Pill tone={variant.isActive ? 'success' : 'muted'}>
                             {variant.isActive ? 'Active' : 'Retired'}
                           </Pill>
                           {variant.isActive ? (
@@ -689,14 +697,14 @@ export function ProductContentPage() {
                               <button
                                 type="button"
                                 onClick={() => setVariantSheet({ variant, selectionJson: null })}
-                                className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                                className="text-[11.5px] text-primary hover:underline"
                               >
                                 Edit
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void retireVariant(variant.id)}
-                                className="text-[11.5px] text-[var(--color-text-secondary)] hover:underline"
+                                className="text-[11.5px] text-muted-foreground hover:underline"
                               >
                                 Retire
                               </button>
@@ -728,12 +736,12 @@ export function ProductContentPage() {
                                     selectionJson: variant.selectionJson,
                                   })
                                 }
-                                className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                                className="text-[11.5px] text-primary hover:underline"
                               >
                                 Re-author to revive
                               </button>
                             ) : (
-                              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                              <span className="text-[11px] text-muted-foreground">
                                 {variant.selectionJson === content?.currentDefaultsSelectionJson
                                   ? 'now the standard — edit the block'
                                   : 'retired'}
@@ -752,7 +760,7 @@ export function ProductContentPage() {
                   padding={0}
                 >
                   {!coverage ? (
-                    <p className="flex items-center justify-center gap-2 px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                    <p className="flex items-center justify-center gap-2 px-4 py-6 text-center text-[12.5px] text-muted-foreground">
                       <span>
                         {coverageError
                           ? 'Coverage could not be read, so gaps are unknown for this product.'
@@ -771,18 +779,18 @@ export function ProductContentPage() {
                       )}
                     </p>
                   ) : coverage.singleChoiceGaps.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+                    <p className="px-4 py-6 text-center text-[12.5px] text-muted-foreground">
                       No gaps — every single-choice deviation this product offers is described.
                     </p>
                   ) : (
-                    <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+                    <ul className="flex flex-col divide-y divide-border">
                       {coverage.singleChoiceGaps.map((gap) => (
                         <li
                           key={`${gap.groupKey}-${gap.choiceKey}`}
                           className="flex items-center gap-3 px-4 py-2.5"
                         >
-                          <span className="min-w-0 flex-1 text-[12.5px] text-[var(--color-text-primary)]">
-                            <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-tertiary)]">
+                          <span className="min-w-0 flex-1 text-[12.5px] text-foreground">
+                            <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
                               {gap.groupKey}
                             </span>{' '}
                             → {gap.choiceKey}
@@ -796,12 +804,12 @@ export function ProductContentPage() {
                               onClick={() =>
                                 setVariantSheet({ variant: null, selectionJson: gap.selectionJson })
                               }
-                              className="text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+                              className="text-[11.5px] text-primary hover:underline"
                             >
                               Author
                             </button>
                           ) : (
-                            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                            <span className="text-[11px] text-muted-foreground">
                               {content?.block ? 'offer unread' : 'needs a default block'}
                             </span>
                           )}

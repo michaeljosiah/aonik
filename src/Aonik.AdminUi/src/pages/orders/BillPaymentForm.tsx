@@ -4,7 +4,7 @@
 //
 // Six sections, gap-4 between them, matching the template 1:1:
 //   1. Parties (Payer + Beneficiary, 2-col grid)
-//   2. Biller (eyebrow + BillerGrid)
+//   2. Biller (label + BillerGrid)
 //   3. Service + Account (2-col grid; Service select + first required field;
 //      additional required fields stack below)
 //   4. Currency + Amount (80px + 1fr grid)
@@ -27,6 +27,8 @@ import { ArrowRight } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import { pricingService } from '@/services/pricingService';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { PartyPicker, type PartyPickerOption } from './PartyPicker';
 import { BillerGrid } from './BillerGrid';
 import { FxQuote } from './FxQuote';
@@ -346,7 +348,7 @@ export function BillPaymentForm({
 
       {/* 2. Biller */}
       <div>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
           Biller
         </div>
         <BillerGrid
@@ -373,27 +375,29 @@ export function BillPaymentForm({
       {selectedBiller && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="text-[12px] text-[var(--color-text-secondary)]">
+            <label className="text-[12px] text-muted-foreground">
               Service type
-              <select
-                value={state.selectedServiceId}
-                onChange={(e) =>
-                  onChange({ selectedServiceId: e.target.value, pricingQuote: null })
-                }
-                className="aonik-select mt-1.5 text-[13px]"
-              >
-                <option value="">Select service…</option>
-                {services.map((s) => (
-                  <option key={s.serviceId} value={s.serviceId}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1.5">
+                <NativeSelect
+                  value={state.selectedServiceId}
+                  onChange={(e) =>
+                    onChange({ selectedServiceId: e.target.value, pricingQuote: null })
+                  }
+                  className="text-[13px]"
+                >
+                  <option value="">Select service…</option>
+                  {services.map((s) => (
+                    <option key={s.serviceId} value={s.serviceId}>
+                      {s.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
             </label>
             {primaryField ? (
-              <label className="text-[12px] text-[var(--color-text-secondary)]">
+              <label className="text-[12px] text-muted-foreground">
                 {primaryField.label || accountFieldLabel}
-                <input
+                <Input
                   type="text"
                   value={state.serviceFieldValues[primaryField.key] ?? ''}
                   onChange={(e) =>
@@ -407,17 +411,17 @@ export function BillPaymentForm({
                   }
                   onBlur={() => void handleValidateBlur()}
                   placeholder={primaryField.placeholder ?? ''}
-                  className="aonik-input mt-1.5 text-[13px]"
+                  className="mt-1.5 text-[13px]"
                 />
               </label>
             ) : (
-              <label className="text-[12px] text-[var(--color-text-secondary)]">
+              <label className="text-[12px] text-muted-foreground">
                 {accountFieldLabel}
-                <input
+                <Input
                   type="text"
                   disabled
                   placeholder="Select a service first"
-                  className="aonik-input mt-1.5 text-[13px]"
+                  className="mt-1.5 text-[13px]"
                 />
               </label>
             )}
@@ -427,9 +431,9 @@ export function BillPaymentForm({
           {extraFields.length > 0 && (
             <div className="flex flex-col gap-3">
               {extraFields.map((field) => (
-                <label key={field.key} className="text-[12px] text-[var(--color-text-secondary)]">
+                <label key={field.key} className="text-[12px] text-muted-foreground">
                   {field.label}
-                  <input
+                  <Input
                     type="text"
                     value={state.serviceFieldValues[field.key] ?? ''}
                     onChange={(e) =>
@@ -443,7 +447,7 @@ export function BillPaymentForm({
                     }
                     onBlur={() => void handleValidateBlur()}
                     placeholder={field.placeholder ?? ''}
-                    className="aonik-input mt-1.5 text-[13px]"
+                    className="mt-1.5 text-[13px]"
                   />
                 </label>
               ))}
@@ -456,8 +460,8 @@ export function BillPaymentForm({
               className={
                 'text-[11.5px] ' +
                 (state.validationResult.isValid
-                  ? 'text-[var(--color-brand-primary)]'
-                  : 'text-[var(--color-error)]')
+                  ? 'text-primary'
+                  : 'text-destructive')
               }
             >
               {state.validationResult.isValid
@@ -472,36 +476,38 @@ export function BillPaymentForm({
 
       {/* 4. Currency + Amount (80px + 1fr) */}
       <div className="grid grid-cols-[80px_1fr] gap-2.5">
-        <label className="text-[12px] text-[var(--color-text-secondary)]">
+        <label className="text-[12px] text-muted-foreground">
           Currency
-          <select
-            value={state.destinationCurrency || ''}
-            onChange={(e) =>
-              onChange({
-                destinationCurrency: e.target.value.toUpperCase(),
-                pricingQuote: null,
-              })
-            }
-            className="aonik-select mt-1.5 px-2.5 font-[family-name:var(--font-mono)] text-[13px]"
-          >
-            <option value="">—</option>
-            <option value="NGN">NGN</option>
-            <option value="GBP">GBP</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GHS">GHS</option>
-            <option value="KES">KES</option>
-          </select>
+          <div className="mt-1.5">
+            <NativeSelect
+              value={state.destinationCurrency || ''}
+              onChange={(e) =>
+                onChange({
+                  destinationCurrency: e.target.value.toUpperCase(),
+                  pricingQuote: null,
+                })
+              }
+              className="pr-7 pl-2.5 font-mono text-[13px]"
+            >
+              <option value="">—</option>
+              <option value="NGN">NGN</option>
+              <option value="GBP">GBP</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GHS">GHS</option>
+              <option value="KES">KES</option>
+            </NativeSelect>
+          </div>
         </label>
-        <label className="text-[12px] text-[var(--color-text-secondary)]">
+        <label className="text-[12px] text-muted-foreground">
           Amount
-          <input
+          <Input
             type="number"
             min={0}
             value={state.amountValue}
             onChange={(e) => onChange({ amountValue: e.target.value, pricingQuote: null })}
             placeholder="0.00"
-            className="aonik-input mt-1.5 font-[family-name:var(--font-mono)] text-[13px]"
+            className="mt-1.5 font-mono text-[13px] tabular-nums"
           />
         </label>
       </div>

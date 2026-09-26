@@ -62,7 +62,7 @@
 <body>
 <header class="spec-meta">
   <span class="meta-tag">Spec 098</span>
-  <span class="meta-tag status-draft">Status: Rev 4, P0 #336, P1 #337, P2 implemented (stacked PR)</span>
+  <span class="meta-tag status-draft">Status: Rev 6, P0 #336, P1 #337, P2 #338, P3 #339, P4 implemented (stacked PR)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: AdminUi</span>
   <h1>Admin UI design alignment: shadcn/ui on Radix</h1>
@@ -480,8 +480,8 @@
   </td><td>App renders in both themes; overlays animate; contrast report green. <strong>Done (Rev 2)</strong>, see §10.1.</td></tr>
   <tr><td>P1 Core primitives</td><td>Button, Input, Textarea, Label, Field, Select, NativeSelect, Checkbox, RadioGroup, Switch, InputGroup, Badge, Card, Separator, Skeleton, Spinner, Tabs, Tooltip, Popover, HoverCard, Dialog, AlertDialog, Sheet, DropdownMenu, Sonner. Kitchen-sink route <code>/dev/ui</code> (dev builds only) showing every variant and state.</td><td>Kitchen sink matches shadcn docs side by side; axe clean; vitest for Switch/Tabs controlled and uncontrolled behaviour. <strong>Done (Rev 3)</strong>, see §10.2.</td></tr>
   <tr><td>P2 Composites and shell</td><td>Sidebar block, Header, Breadcrumb, Command palette, Notifications Sheet, Table + DataTable, Pagination, FilterBar, PageHeader, KPI tile, Alert, Empty, Progress, Accordion, ScrollArea, Combobox (+ CountrySelect), Chart wrapper, ProposalCard, chat composer, Dockview theme. aonik kit components become wrappers.</td><td>Shell and all list pages render on the new composites; <code>layout/aonik</code> exports are wrappers only. <strong>Done (Rev 4)</strong>, see §10.3.</td></tr>
-  <tr><td>P3 Page sweep</td><td>Per module: Pill to Badge, raw tables to Table, native checkboxes/radios/selects, <code>window.confirm</code> to AlertDialog, bespoke overlays to Dialog/Sheet, coral <code>secondary</code> triage, hex and raw palette classes to tokens, page radii to the scale, mono tabular on figures, copy pass on buttons, empty states and toasts.</td><td>Guardrail counts reach zero per module folder.</td></tr>
-  <tr><td>P4 Cleanup</td><td>Delete alias block, legacy CSS classes, <code>.card</code> utility, <code>layout/aonik</code> wrappers (or keep <code>PageHeader</code>/<code>ProposalCard</code> as genuine compositions), old keyframes; flip guardrails from warn to error.</td><td><code>index.css</code> under ~250 lines; guardrails enforced in CI.</td></tr>
+  <tr><td>P3 Page sweep</td><td>Per module: Pill to Badge, raw tables to Table, native checkboxes/radios/selects, <code>window.confirm</code> to AlertDialog, bespoke overlays to Dialog/Sheet, coral <code>secondary</code> triage, hex and raw palette classes to tokens, page radii to the scale, mono tabular on figures, copy pass on buttons, empty states and toasts.</td><td>Guardrail counts reach zero per module folder. <strong>Done (Rev 5)</strong>, see §10.4.</td></tr>
+  <tr><td>P4 Cleanup</td><td>Delete alias block, legacy CSS classes, <code>.card</code> utility, <code>layout/aonik</code> wrappers (or keep <code>PageHeader</code>/<code>ProposalCard</code> as genuine compositions), old keyframes; flip guardrails from warn to error.</td><td><code>index.css</code> under ~250 lines; guardrails enforced in CI. <strong>Done (Rev 6)</strong> except the line target, see §10.5.</td></tr>
 </table></div>
 
 <h3>10.1 P0 as implemented</h3>
@@ -521,6 +521,91 @@
   <li><strong>Review aid:</strong> a dev-only <code>/dev/shell</code> page renders the real sidebar and top bar around a sample Orders list (PageHeader, KPI tiles, ProposalCard, FilterBar, DataTable with pagination). It is excluded from production bundles like <code>/dev/ui</code>.</li>
 </ul>
 <div class="callout"><strong>Deferred to P3.</strong> The command palette's "jump to an order or customer by ID" (needs a lookup endpoint); moving the 8 native date inputs onto DatePicker; the mobile off-canvas sidebar; the chat composer and message list. Legacy <code>hover-halo</code> and <code>eyebrow</code> classes remain on four pages.</div>
+
+<h3>10.4 P3 as implemented</h3>
+<ul>
+  <li><strong>Guardrail report</strong> (<code>npm run check:design</code>, <code>scripts/check-design-guardrails.mjs</code>): per-folder counts of hex colours, raw palette classes, arbitrary radii and z-indexes, <code>window.confirm</code>, raw <code>&lt;select&gt;</code>/<code>&lt;table&gt;</code>, native checkbox/radio, legacy CSS classes, and legacy <code>var(--color-*)</code> (informational). Options: <code>--strict</code>, <code>--files</code>, <code>--only &lt;folder&gt;</code>. Deliberate exceptions carry <code>guardrail-ignore: &lt;reason&gt;</code>.</li>
+  <li><strong>Token codemod (P3a):</strong> moved 6,524 of 6,560 legacy references to the shadcn tokens across 234 files. This is visually a no-op, because the aliases already resolved to the same values. It also fixed classes pointing at tokens that never existed (<code>border-medium</code>, <code>text-muted</code>, <code>warning-10</code> and others), which had been rendering no colour. Every rewritten utility was checked against the built CSS.</li>
+  <li><strong>Playbook:</strong> <code>components/ui/README.md</code> says which primitive to use for which job, and how colours, radii, z-index and type map.</li>
+  <li><strong>Page sweep (P3b):</strong> run folder by folder, following the playbook. Blocking guardrail matches went from 1,111 to 0 (hex 434, palette 452, radius 135, z-index 10, confirm 9, select 3, table 26, native checkbox/radio 16, legacy classes 26). Highlights:
+    <ul>
+      <li>Every <code>window.confirm</code> is now an AlertDialog. Discard-changes prompts hold the pending tab or template until you confirm.</li>
+      <li>Hand-built <code>fixed inset-0</code> overlays are now Dialog or Sheet: agent edit panel, prompt editor, biller detail, biller import, autonumbering (3), account and transaction forms, and the setup journey. The tenant setup wizard is now a normal full-page layout.</li>
+      <li>Raw tables use the Table parts, with money, count and ID columns right-aligned in mono tabular figures.</li>
+      <li>Native checkbox, radio and select elements are now Checkbox, RadioGroup, Select or NativeSelect. Date inputs are now DatePicker.</li>
+      <li>Status chips are Badges, and inline message boxes are Alerts.</li>
+      <li>Labels are sentence case, and the brand font appears only on the wordmark and auth screens.</li>
+      <li>The chat has an InputGroup composer, unboxed agent messages, and uses coral only for Approve on agent proposals.</li>
+    </ul>
+  </li>
+  <li><strong>D9 done:</strong> the dark-mode inverted gray scale and the legacy gray tokens are removed; nothing references them.</li>
+  <li><strong>Fixed on the way:</strong> <code>bg-opacity-60</code> (not supported in Tailwind v4), so the user photo overlay rendered fully opaque; an invalid <code>var(--x)1f</code> tint that rendered nothing; the <code>NativeSelect</code> <code>size</code> prop clashing with the native attribute.</li>
+  <li><strong>Justified exceptions</strong> (carry <code>guardrail-ignore</code>):
+    <ul>
+      <li>Electron title-bar colours (a native API).</li>
+      <li>Colours in the starter email template (email clients can't read CSS variables).</li>
+      <li>Payment and messaging providers' brand colours.</li>
+      <li>White glyphs on generated agent colours.</li>
+      <li>The ten workflow step-kind hues. There are only five chart tokens, so these wait on the decision in the Open items below.</li>
+    </ul>
+  </li>
+  <li><strong>Lint:</strong> 51 errors, down from 58 on <code>master</code>. All remaining findings predate this work.</li>
+</ul>
+<div class="callout open"><strong>Open items for P4 or follow-up.</strong>
+  <ul>
+    <li>Add <code>--chart-6</code> to <code>--chart-10</code>, or map the workflow step kinds onto five hues.</li>
+    <li><code>pages/ai/playground/frontendTools.ts</code> falls back to <code>window.confirm</code>/<code>window.prompt</code> when no React handler is supplied, which needs a code change.</li>
+    <li>Brand accents (<code>brand-mark-dot</code>, <code>violet</code>, <code>accent-team</code>, <code>accent-ent</code>) should become their own tokens before the legacy alias block is deleted.</li>
+    <li>Delete the <code>accent</code> strings in <code>public/content/setup-guides/guides.json</code>, which nothing reads now.</li>
+    <li>The login hero now follows the theme; in dark mode it is a lighter teal with dark text.</li>
+  </ul>
+</div>
+
+<h3>10.5 P4 as implemented</h3>
+<ul>
+  <li><strong>Legacy alias block deleted.</strong> No <code>var(--color-*)</code> is left in the source or in <code>index.css</code>; the guardrail now blocks it. Dead CSS removed: <code>.card</code>, <code>card-shadow</code>, <code>text-truncate-3</code>, <code>hover-halo</code>, <code>eyebrow</code>, the <code>.chat-*</code>/<code>.theme-*</code> scopes, <code>hover-border</code>, <code>shine-effect</code>, <code>input-focused</code>, <code>aonik-input</code>/<code>aonik-select</code>, <code>chat-file-drop-zone</code>, <code>pulse-speak-active</code>, <code>zoom-responsive</code>, and the unused sidebar-width, navbar and duration tokens. <code>index.css</code> went from 873 to about 565 lines. It misses the ~250 target because the token definitions (light, dark and theme mapping for 40+ tokens) are most of the file. The target was set before the token count was known.</li>
+  <li><strong>New tokens.</strong>
+    <ul>
+      <li><code>--chart-6</code> to <code>--chart-10</code> give ten categorical hues. The ten workflow step kinds each have their own, and their glyphs use <code>--primary-foreground</code>, so they flip with the theme.</li>
+      <li><code>--chart-5</code> was darkened to <code>#b08400</code>, because the old gold was 2.47:1 on white.</li>
+      <li>Every chart hue now clears 3:1 on the card in both themes, and the contrast check enforces it.</li>
+      <li>Brand accents have their own tokens: <code>--mark-dot</code>, <code>--agent-team</code> and <code>--agent-enterprise</code>. <code>violet</code> maps to <code>--chart-4</code>.</li>
+      <li><code>--date-indicator-filter</code> replaces the legacy date-picker glyph variable.</li>
+    </ul>
+  </li>
+  <li><strong>Deprecated APIs removed:</strong>
+    <ul>
+      <li>Badge variants <code>error</code>, <code>pending</code>, <code>team</code> and <code>enterprise</code>. Call sites moved to <code>destructive</code>/<code>warning</code>.</li>
+      <li><code>PageHeader</code>'s <code>eyebrow</code>, <code>FilterBar</code>'s <code>hideFilterButton</code>, and <code>Pill</code>'s <code>size</code>: 70 call sites cleaned. The <code>eyebrow</code> props left in the speech and workflow screens belong to local components that still render them.</li>
+      <li>The <code>accent</code> field and strings in the setup guides.</li>
+    </ul>
+  </li>
+  <li><strong>The composites stay.</strong> <code>layout/aonik</code> Card, Pill, KpiTile, FilterBar, PageHeader and ProposalCard are genuine compositions of <code>ui/*</code>, used on 60+ pages, not shims, so they are kept rather than deleted.</li>
+  <li><strong>Playground tool fallbacks fail closed.</strong> Without an in-app handler, <code>confirmAction</code> returns <code>rejected</code> and the option selector chooses nothing. Neither falls back to <code>window.confirm</code>/<code>window.prompt</code>. Every production caller passes its own handlers. This is covered by <code>frontendTools.test.ts</code>.</li>
+  <li><strong>Reduced motion.</strong> A global <code>prefers-reduced-motion</code> rule collapses animations and transitions to about 0ms, so Radix still unmounts overlays.</li>
+  <li><strong>Guardrails:</strong>
+    <ul>
+      <li><code>check:design</code> now scans <code>.ts</code> as well as <code>.tsx</code>.</li>
+      <li>The biller fallback palette moved to the chart tokens. Provider brand colours and agent identity colours stay as hex with <code>guardrail-ignore</code>, because agent colours have hex alpha appended further down.</li>
+      <li>The dead <code>data/mockData.ts</code> is deleted (nothing imported it).</li>
+    </ul>
+  </li>
+  <li><strong>CI:</strong> a new <code>Admin UI checks</code> job (<code>.github/workflows/ci.yml</code>) runs on every PR. It builds the workspace SDK, then runs <code>npm ci</code>, <code>check:design --strict</code>, <code>check:contrast</code>, <code>vitest</code> and <code>npm run build</code>. <code>publish-images</code> now needs it to pass.</li>
+</ul>
+
+<h3>10.6 Acceptance review (Rev 6)</h3>
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>Criterion</th><th>State</th></tr>
+  <tr><td>1</td><td>Every control in §7 implemented or deferred with a reason</td><td>Met, with deferrals: Slider (O5), Drawer, ContextMenu and Input OTP (not needed); the command palette's jump-to-ID (needs a lookup endpoint); the mobile off-canvas sidebar; a combined date-time picker (<code>datetime-local</code> stays).</td></tr>
+  <tr><td>2</td><td><code>components/ui</code> is the only primitive layer; <code>components.json</code> exists; <code>shadcn diff</code> shows only brand deltas</td><td>Partly met. The only layer is <code>components/ui</code> and <code>components.json</code> exists. The primitives were written by hand to the new-york v4 anatomy rather than pulled with the CLI, so <code>shadcn diff</code> has not been run and will show more than brand deltas (for example the Card padding model and Dialog width).</td></tr>
+  <tr><td>3</td><td>Guardrail counts zero and enforced in CI</td><td>Met: <code>check:design --strict</code> is 0 across <code>.ts</code> and <code>.tsx</code> and runs in CI.</td></tr>
+  <tr><td>4</td><td>AA text contrast and 3:1 non-text, both themes</td><td>Met at the token level (<code>check:contrast</code>, 35+ pairs per theme including all chart hues). Pages have not been audited one by one (no signed-in axe run).</td></tr>
+  <tr><td>5</td><td>Overlays animate; none animate under reduced motion</td><td>Met: tw-animate-css plus the global reduced-motion rule.</td></tr>
+  <tr><td>6</td><td>No <code>window.confirm</code></td><td>Met, including the playground fallback.</td></tr>
+  <tr><td>7</td><td>Money and IDs right-aligned, mono, tabular</td><td>Met on DataTable/Table <code>numeric</code> columns across the sweep. Not audited on every signed-in page.</td></tr>
+  <tr><td>8</td><td>aonik-design skill reflects the new rules</td><td>Met.</td></tr>
+</table></div>
+<div class="callout open"><strong>Remaining verification.</strong> A signed-in click-through (and an axe run) of the swept pages: converted overlays, AlertDialog confirms, date pickers, and the login page in dark mode. Mock auth can't load data or show <code>/login</code>.</div>
 
 <h2 id="guardrails">11. Guardrails</h2>
 <ul>
@@ -567,7 +652,7 @@
 <div class="callout ok"><strong>O5 AI parameter sliders: not now.</strong> Number inputs stay.</div>
 
 <footer>
-  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 4 (P0 to P2 implemented) · 2026-09-25.
+  Spec 098 · Admin UI design alignment: shadcn/ui on Radix · Rev 6 (P0 to P4 implemented) · 2026-09-25.
   Audit taken on master at <code>6c6c3f79</code>. Related: <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> (approval presentation),
   <a href="097.per-tenant-module-enablement.html">Spec 097</a> (module-gated nav feeding the Sidebar and Command palette).
 </footer>

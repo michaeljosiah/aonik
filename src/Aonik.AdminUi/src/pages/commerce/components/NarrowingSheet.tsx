@@ -12,12 +12,15 @@
 // less — sending only touched groups, say — would leave untouched groups intact and quietly
 // widen the product relative to what the operator was looking at.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService, type ProductOptionGroupLine } from '@/services/commerceCatalogService';
 
@@ -311,51 +314,55 @@ export function NarrowingSheet({
 
         <SheetBody>
           {stickyNotice && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{stickyNotice}</span>
-              <button
-                type="button"
-                onClick={() => setStickyNotice(null)}
-                className="shrink-0 underline"
-              >
-                Dismiss
-              </button>
-            </div>
+            <Alert variant="warning" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{stickyNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setStickyNotice(null)}
+                  className="shrink-0 underline"
+                >
+                  Dismiss
+                </button>
+              </AlertDescription>
+            </Alert>
           )}
 
           {error && (
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-              <span className="flex-1">{error}</span>
-              {conflict && (
-                // Re-reads THIS sheet, not only the list behind it. Save stayed enabled while
-                // the refresh was in flight, so a second click resent the stale replace and
-                // overwrote the concurrent winner that caused the conflict.
-                <button
-                  type="button"
-                  onClick={() => {
-                    void load();
-                    onSaved();
-                  }}
-                  className="shrink-0 underline"
-                >
-                  Reload
-                </button>
-              )}
-            </div>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertCircle aria-hidden />
+              <AlertDescription className="flex items-start gap-2 text-xs">
+                <span className="flex-1">{error}</span>
+                {conflict && (
+                  // Re-reads THIS sheet, not only the list behind it. Save stayed enabled while
+                  // the refresh was in flight, so a second click resent the stale replace and
+                  // overwrote the concurrent winner that caused the conflict.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void load();
+                      onSaved();
+                    }}
+                    className="shrink-0 underline"
+                  >
+                    Reload
+                  </button>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
 
           {loading ? (
-            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
           ) : !drafts ? (
-            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               Nothing to edit — this product’s stored options could not be read.
             </p>
           ) : (
             <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
               {groups.length === 0 ? (
-                <p className="text-[12.5px] text-[var(--color-text-secondary)]">
+                <p className="text-[12.5px] text-muted-foreground">
                   There is no option catalogue yet, so there is nothing to offer.
                 </p>
               ) : (
@@ -382,9 +389,9 @@ export function NarrowingSheet({
                   onChange={(e) => setAmount(e.target.value)}
                   inputMode="decimal"
                   placeholder="None"
-                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--color-brand-primary)]"
+                  className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] outline-none focus:border-primary"
                 />
-                <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
                   The one price-like field a product card may show
                   {(storedCurrency ?? storefrontCurrency)
                     ? ` — in ${storedCurrency ?? storefrontCurrency}.`
@@ -396,7 +403,7 @@ export function NarrowingSheet({
         </SheetBody>
 
         <SheetFooter>
-          <span className="mr-auto max-w-[300px] text-[11px] text-[var(--color-text-tertiary)]">
+          <span className="mr-auto max-w-[300px] text-[11px] text-muted-foreground">
             Saving replaces this product’s whole offer with exactly what is shown above.
           </span>
           <Button variant="outline" onClick={onClose} disabled={saving}>
@@ -489,25 +496,24 @@ function GroupSection({
   return (
     <AonikCard padding={12}>
       <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={draft.included}
           disabled={!eligible && !draft.included}
-          onChange={(e) => onChange({ included: e.target.checked })}
+          onCheckedChange={(v) => onChange({ included: v === true })}
         />
-        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
+        <span className="text-[13px] font-medium text-foreground">
           {group.label}
         </span>
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {group.key}
         </span>
         {!group.isActive && (
-          <Pill tone="muted" size="sm">
+          <Pill tone="muted">
             Retired
           </Pill>
         )}
         {!eligible && !draft.included && (
-          <span className="text-[11px] text-[var(--color-text-tertiary)]">
+          <span className="text-[11px] text-muted-foreground">
             {!servable
               ? 'not servable — customers would never see it'
               : storefrontCurrency === null
@@ -520,15 +526,15 @@ function GroupSection({
       {draft.included && (
         <div className="mt-2.5 flex flex-col gap-2">
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={draft.inherit}
-              onChange={(e) =>
+              onCheckedChange={(v) => {
+                const checked = v === true;
                 onChange({
-                  inherit: e.target.checked,
+                  inherit: checked,
                   // Switching inheritance OFF pins what is on screen right now, so the product
                   // keeps offering exactly what it offered a moment ago — just frozen.
-                  pinned: e.target.checked
+                  pinned: checked
                     ? draft.pinned
                     : new Set(activeChoices.map((c) => c.key)),
                   // KEEP a product default that is still valid. Clearing it unconditionally
@@ -537,19 +543,19 @@ function GroupSection({
                   // only asked to stop inheriting FUTURE choices. Only a default that is no
                   // longer active is dropped, because it could not survive the pin anyway.
                   defaultChoiceKey:
-                    e.target.checked ||
+                    checked ||
                     activeChoices.some((c) => c.key === draft.defaultChoiceKey)
                       ? draft.defaultChoiceKey
                       : null,
-                })
-              }
+                });
+              }}
             />
-            <span className="text-[12px] text-[var(--color-text-secondary)]">
+            <span className="text-[12px] text-muted-foreground">
               All active choices (inherited)
             </span>
           </label>
 
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">
+          <p className="text-[11px] text-muted-foreground">
             {draft.inherit
               ? 'Choices added to this group later will be offered here automatically.'
               : 'Pinned: only the choices selected below, now and in future.'}
@@ -571,20 +577,20 @@ function GroupSection({
                   className={[
                     'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px]',
                     offered
-                      ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/10 text-[var(--color-text-primary)]'
-                      : 'border-dashed border-[var(--color-border)] text-[var(--color-text-tertiary)] line-through',
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-dashed border-border text-muted-foreground line-through',
                     draft.inherit ? 'cursor-default' : 'cursor-pointer',
                   ].join(' ')}
                 >
                   {isDefault && (
                     <Star
-                      className="h-3 w-3 fill-[var(--color-warning)] text-[var(--color-warning)]"
+                      className="h-3 w-3 fill-warning text-warning"
                       aria-label="Default"
                     />
                   )}
                   {choice.label}
                   {!choice.isActive && (
-                    <span className="text-[10px] text-[var(--color-warning)]">retired</span>
+                    <span className="text-[10px] text-warning">retired</span>
                   )}
                   {delta !== null && delta !== 0 && (
                     <SignedAmount amount={delta} currency={group.currency} />
@@ -593,34 +599,36 @@ function GroupSection({
               );
             })}
             {activeChoices.length === 0 && (
-              <span className="text-[11.5px] text-[var(--color-warning)]">
+              <span className="text-[11.5px] text-warning">
                 Every choice in this group is retired — offering it shows the customer nothing.
               </span>
             )}
           </div>
 
           <label className="mt-1 flex items-center gap-2">
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">Default for this product</span>
-            <select
-              value={draft.defaultChoiceKey ?? ''}
-              onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
-              className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[12px] outline-none"
-            >
-              {/* The ACTIVE default, via the same rule as the pricing baseline. A retired
-                  choice keeps its isRecommendedDefault flag (uniqueness is enforced only among
-                  active ones), so an unrestricted find could name the old choice here while
-                  the star, the baseline and the backend all use the new one. */}
-              <option value="">
-                Follow the group ({effectiveDefaultChoice(activeChoices)?.label ?? 'none'})
-              </option>
-              {/* OFFERED, not every active choice: a default the product does not offer is a
-                  payload the backend rejects. */}
-              {offered.map((choice) => (
-                <option key={choice.key} value={choice.key}>
-                  {choice.label}
+            <span className="text-[11px] text-muted-foreground">Default for this product</span>
+            <div className="w-60">
+              <NativeSelect
+                value={draft.defaultChoiceKey ?? ''}
+                onChange={(e) => onChange({ defaultChoiceKey: e.target.value || null })}
+                className="h-8 text-[12px]"
+              >
+                {/* The ACTIVE default, via the same rule as the pricing baseline. A retired
+                    choice keeps its isRecommendedDefault flag (uniqueness is enforced only among
+                    active ones), so an unrestricted find could name the old choice here while
+                    the star, the baseline and the backend all use the new one. */}
+                <option value="">
+                  Follow the group ({effectiveDefaultChoice(activeChoices)?.label ?? 'none'})
                 </option>
-              ))}
-            </select>
+                {/* OFFERED, not every active choice: a default the product does not offer is a
+                    payload the backend rejects. */}
+                {offered.map((choice) => (
+                  <option key={choice.key} value={choice.key}>
+                    {choice.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
           </label>
         </div>
       )}

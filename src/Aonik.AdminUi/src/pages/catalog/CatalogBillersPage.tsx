@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Sheet,
@@ -12,13 +16,15 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -314,8 +320,8 @@ export function CatalogBillersPage() {
   return (
     <div className="h-full grid grid-cols-[220px_1fr] overflow-hidden">
       {/* Category rail */}
-      <div className="border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3.5 overflow-auto flex flex-col gap-0.5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)] px-2 pt-1 pb-2">
+      <div className="border-r border-border bg-muted p-3.5 overflow-auto flex flex-col gap-0.5">
+        <div className="text-xs font-medium text-muted-foreground px-2 pt-1 pb-2">
           Categories
         </div>
         <RailButton
@@ -333,10 +339,10 @@ export function CatalogBillersPage() {
             onClick={() => setSelectedCategoryId(c.categoryId)}
           />
         ))}
-        <div className="h-px bg-[var(--color-border-light)] mx-1 my-3" />
+        <div className="h-px bg-border mx-1 my-3" />
         <button
           onClick={() => navigate('/catalog/categories')}
-          className="flex items-center justify-center gap-2 px-2.5 py-2 rounded-md border border-dashed border-[var(--color-border-medium)] text-[12.5px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]"
+          className="flex items-center justify-center gap-2 px-2.5 py-2 rounded-md border border-dashed border-input text-[12.5px] text-muted-foreground hover:bg-card"
         >
           <Plus className="w-3 h-3" /> Manage categories
         </button>
@@ -347,19 +353,19 @@ export function CatalogBillersPage() {
         {/* Header */}
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-[22px] font-bold text-[var(--color-text-primary)] tracking-tight">Billers</h1>
-            <p className="text-[13px] text-[var(--color-text-secondary)] mt-0.5">
+            <h1 className="text-[22px] font-bold text-foreground tracking-tight">Billers</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
               The catalog of providers your operators can pay through. Routing, fees and policy live here — orders consume this.
             </p>
           </div>
           <div className="flex gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search billers"
-                className="w-52 pl-8 pr-3 py-[7px] text-[12.5px] rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
+                className="w-52 pl-8 pr-3 py-[7px] text-[12.5px] rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)} className="rounded-md">
@@ -372,35 +378,33 @@ export function CatalogBillersPage() {
         </div>
 
         {error && (
-          <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
-            <span className="flex-1">{error}</span>
-            <Button variant="outline" size="sm" onClick={loadData}>
-              Retry
-            </Button>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertDescription className="flex items-center gap-3">
+              <span className="flex-1">{error}</span>
+              <Button variant="outline" size="sm" onClick={loadData}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Post-import flash */}
         {flash && (
-          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-r-lg bg-[var(--color-success-light)] border-l-[3px] border-[var(--color-success)]">
-            <span className="w-[22px] h-[22px] rounded-full bg-[var(--color-success)] text-white grid place-items-center flex-none">
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-r-lg bg-success-subtle border-l-[3px] border-success">
+            <span className="w-[22px] h-[22px] rounded-full border border-success text-success grid place-items-center flex-none">
               <Check className="w-3 h-3" />
             </span>
-            <div className="text-[12.5px] text-[var(--color-text-primary)]">
+            <div className="text-[12.5px] text-foreground">
               Imported from <b>{flash.connectorType}</b> —{' '}
               <b className="font-mono">{flash.billersCreated}</b> created ·{' '}
               <b className="font-mono">{flash.billersUpdated}</b> updated ·{' '}
               <b className="font-mono">{flash.deactivated}</b> deactivated.
             </div>
             <div className="flex-1" />
-            <button
-              onClick={() => setFlash(null)}
-              aria-label="Dismiss"
-              className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={() => setFlash(null)} aria-label="Dismiss">
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         )}
 
@@ -414,16 +418,16 @@ export function CatalogBillersPage() {
 
         {/* View toggle */}
         <div className="flex items-center justify-between">
-          <div className="text-[12.5px] text-[var(--color-text-secondary)]">
-            Showing <b className="text-[var(--color-text-primary)]">{filtered.length}</b> billers
+          <div className="text-[12.5px] text-muted-foreground">
+            Showing <b className="text-foreground">{filtered.length}</b> billers
             {selectedCategoryId !== 'all' && (
               <>
-                {' '}in <b className="text-[var(--color-text-primary)]">{categoryMap.get(selectedCategoryId)?.name ?? ''}</b>
+                {' '}in <b className="text-foreground">{categoryMap.get(selectedCategoryId)?.name ?? ''}</b>
               </>
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-[var(--color-text-tertiary)] mr-1">View</span>
+            <span className="text-[11px] text-muted-foreground mr-1">View</span>
             {(['grid', 'list'] as const).map((v) => {
               const on = view === v;
               const Icon = v === 'grid' ? LayoutGrid : ListIcon;
@@ -431,12 +435,11 @@ export function CatalogBillersPage() {
                 <button
                   key={v}
                   onClick={() => setView(v)}
-                  className="flex items-center gap-1 px-2 py-[5px] rounded-md text-[11.5px] font-medium border"
-                  style={{
-                    background: on ? 'var(--color-surface-inset)' : 'transparent',
-                    color: on ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                    borderColor: on ? 'var(--color-border-medium)' : 'var(--color-border-light)',
-                  }}
+                  aria-pressed={on}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-[5px] rounded-md text-[11.5px] font-medium border',
+                    on ? 'bg-muted text-foreground border-input' : 'bg-transparent text-muted-foreground border-border',
+                  )}
                 >
                   <Icon className="w-3 h-3" />
                   {v[0].toUpperCase() + v.slice(1)}
@@ -448,8 +451,8 @@ export function CatalogBillersPage() {
 
         {loading ? (
           <div className="p-12 text-center">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-            <p className="text-sm text-[var(--color-text-secondary)]">Loading billers…</p>
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading billers…</p>
           </div>
         ) : view === 'grid' ? (
           <div className="grid grid-cols-3 gap-3">
@@ -463,7 +466,7 @@ export function CatalogBillersPage() {
             ))}
             <button
               onClick={() => setWizardOpen(true)}
-              className="border-[1.5px] border-dashed border-[var(--color-border-medium)] rounded-lg min-h-[168px] flex flex-col items-center justify-center gap-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)]"
+              className="border-[1.5px] border-dashed border-input rounded-lg min-h-[168px] flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:bg-muted"
             >
               <Download className="w-[18px] h-[18px]" />
               <div className="text-[12.5px] font-medium">Import from a partner</div>
@@ -509,7 +512,7 @@ export function CatalogBillersPage() {
           />
           <SheetBody className="space-y-4">
             {formError && (
-              <div className="p-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)] text-sm">
+              <div className="p-3 rounded-md border border-destructive bg-destructive/10 text-destructive text-sm">
                 {formError}
               </div>
             )}
@@ -624,19 +627,17 @@ export function CatalogBillersPage() {
 
             <div className="flex flex-col gap-2 pt-2">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.isActive}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  onCheckedChange={(v) => setForm({ ...form, isActive: v === true })}
                   disabled={submitting}
                 />
                 <span>Active (visible to consumers)</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.isFeatured}
-                  onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
+                  onCheckedChange={(v) => setForm({ ...form, isFeatured: v === true })}
                   disabled={submitting}
                 />
                 <span>Featured</span>
@@ -649,7 +650,7 @@ export function CatalogBillersPage() {
                 variant="outline"
                 onClick={() => setDeleteTarget(editing)}
                 disabled={submitting}
-                className="mr-auto text-[var(--color-error)] border-[var(--color-error)]"
+                className="mr-auto text-destructive border-destructive"
               >
                 Delete
               </Button>
@@ -665,29 +666,35 @@ export function CatalogBillersPage() {
       </Sheet>
 
       {/* Delete confirmation */}
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open && !deleting) setDeleteTarget(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete biller</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete biller?</AlertDialogTitle>
+            <AlertDialogDescription>
               {deleteTarget ? `This will delete "${deleteTarget.name}" and hide it from consumers.` : ''}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button onClick={confirmDelete} disabled={deleting}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                // Keep the dialog open until the delete settles (errors surface on the page).
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              disabled={deleting}
+            >
               {deleting ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -708,12 +715,10 @@ function RailButton({
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-between px-2.5 py-2 rounded-md text-left text-[12.5px]"
-      style={{
-        background: active ? 'var(--color-brand-primary-10)' : 'transparent',
-        color: active ? 'var(--color-brand-primary)' : 'var(--color-text-secondary)',
-        fontWeight: active ? 600 : 500,
-      }}
+      className={cn(
+        'flex items-center justify-between px-2.5 py-2 rounded-md text-left text-[12.5px]',
+        active ? 'bg-primary/10 text-primary font-semibold' : 'bg-transparent text-muted-foreground font-medium',
+      )}
     >
       <span className="truncate">{label}</span>
       <span className="font-mono text-[11px] opacity-70 ml-2 flex-none">{count}</span>
@@ -723,10 +728,10 @@ function RailButton({
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-light)] rounded-lg px-4 py-3.5">
-      <div className="text-[11px] text-[var(--color-text-tertiary)] uppercase tracking-wide font-semibold">{label}</div>
-      <div className="text-[22px] font-bold text-[var(--color-text-primary)] mt-1">{value}</div>
-      <div className="text-[11.5px] text-[var(--color-text-secondary)] mt-0.5">{sub}</div>
+    <div className="bg-card border border-border rounded-lg px-4 py-3.5">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="text-[22px] font-bold text-foreground mt-1">{value}</div>
+      <div className="text-[11.5px] text-muted-foreground mt-0.5">{sub}</div>
     </div>
   );
 }
@@ -735,7 +740,7 @@ function ProvenanceLine({ biller }: { biller: CatalogBillerSummaryItem }) {
   const imported = (biller.sourceConnectors?.length ?? 0) > 0;
   const sourceLabel = biller.sourceConnectors?.join(', ') ?? '';
   return (
-    <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--color-text-tertiary)] border-t border-[var(--color-border-light)] pt-2 flex-wrap">
+    <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground border-t border-border pt-2 flex-wrap">
       {imported ? (
         <Download className="w-[11px] h-[11px]" style={{ color: connectorColor(sourceLabel) }} />
       ) : (
@@ -777,20 +782,20 @@ function BillerCard({
   return (
     <div
       onClick={onClick}
-      className="bg-[var(--color-surface)] border border-[var(--color-border-light)] rounded-lg p-3.5 flex flex-col gap-2.5 cursor-pointer hover:border-[var(--color-border-medium)] hover:shadow-sm transition"
+      className="bg-card border border-border rounded-lg p-3.5 flex flex-col gap-2.5 cursor-pointer hover:border-input hover:shadow-sm transition"
       style={{ opacity: biller.isActive ? 1 : 0.66 }}
     >
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex gap-2.5 items-center min-w-0">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-none"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xs flex-none"
             style={{ background: tile, filter: biller.isActive ? 'none' : 'grayscale(1)' }}
           >
             {billerInitials(biller.name)}
           </div>
           <div className="min-w-0">
-            <div className="text-[13.5px] font-semibold text-[var(--color-text-primary)] truncate">{biller.name}</div>
-            <div className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-1.5 mt-0.5">
+            <div className="text-[13.5px] font-semibold text-foreground truncate">{biller.name}</div>
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <span className="truncate">{categoryName ?? 'Uncategorized'}</span>
               <span>·</span>
               <span>{biller.countryCode}</span>
@@ -803,11 +808,11 @@ function BillerCard({
       </div>
 
       {/* Metrics — operational, deferred (Spec 040 O7) */}
-      <div className="grid grid-cols-3 gap-1.5 py-2.5 border-y border-dashed border-[var(--color-border-light)]">
+      <div className="grid grid-cols-3 gap-1.5 py-2.5 border-y border-dashed border-border">
         {[['Tx / mo', DASH], ['Success', DASH], ['p50 ETA', DASH]].map(([l, v]) => (
           <div key={l}>
-            <div className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wide font-semibold">{l}</div>
-            <div className="font-mono text-[13px] font-semibold text-[var(--color-text-primary)] mt-0.5">{v}</div>
+            <div className="text-xs font-medium text-muted-foreground">{l}</div>
+            <div className="font-mono text-[13px] font-semibold text-foreground mt-0.5">{v}</div>
           </div>
         ))}
       </div>
@@ -816,18 +821,15 @@ function BillerCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1 flex-wrap">
           {(biller.sourceConnectors ?? []).map((p) => (
-            <span
-              key={p}
-              className="text-[10.5px] px-1.5 py-0.5 bg-[var(--color-surface-inset)] border border-[var(--color-border-light)] rounded text-[var(--color-text-secondary)]"
-            >
+            <Badge key={p} variant="outline" className="bg-muted text-muted-foreground">
               {p}
-            </span>
+            </Badge>
           ))}
           {(biller.sourceConnectors?.length ?? 0) === 0 && (
-            <span className="text-[10.5px] text-[var(--color-text-tertiary)]">No partners</span>
+            <span className="text-[10.5px] text-muted-foreground">No partners</span>
           )}
         </div>
-        <span className="text-[11px] text-[var(--color-text-tertiary)] font-mono">{DASH}</span>
+        <span className="text-[11px] text-muted-foreground font-mono">{DASH}</span>
       </div>
 
       <ProvenanceLine biller={biller} />
@@ -845,8 +847,8 @@ function BillerList({
   onRowClick: (b: CatalogBillerSummaryItem) => void;
 }) {
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-light)] rounded-lg overflow-hidden">
-      <div className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)] text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 bg-muted border-b border-border text-xs font-medium text-muted-foreground">
         <div>Biller</div>
         <div>Category</div>
         <div>Source</div>
@@ -862,25 +864,25 @@ function BillerList({
           <div
             key={b.billerId}
             onClick={() => onRowClick(b)}
-            className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 items-center text-[12.5px] cursor-pointer hover:bg-[var(--color-surface-inset)]"
+            className="grid grid-cols-[1fr_140px_150px_90px_110px_30px] gap-3 px-3.5 py-2.5 items-center text-[12.5px] cursor-pointer hover:bg-muted"
             style={{
-              borderTop: i ? '1px solid var(--color-border-light)' : 'none',
+              borderTop: i ? '1px solid var(--border)' : 'none',
               opacity: b.isActive ? 1 : 0.66,
             }}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className="w-7 h-7 rounded flex items-center justify-center text-white font-bold text-[10px] flex-none"
+                className="w-7 h-7 rounded-md flex items-center justify-center text-primary-foreground font-bold text-[10px] flex-none"
                 style={{ background: tile, filter: b.isActive ? 'none' : 'grayscale(1)' }}
               >
                 {billerInitials(b.name)}
               </div>
               <div className="min-w-0">
-                <div className="text-[var(--color-text-primary)] font-medium truncate">{b.name}</div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)]">{b.countryCode}</div>
+                <div className="text-foreground font-medium truncate">{b.name}</div>
+                <div className="text-[11px] text-muted-foreground">{b.countryCode}</div>
               </div>
             </div>
-            <div className="text-[var(--color-text-secondary)] truncate">
+            <div className="text-muted-foreground truncate">
               {categoryMap.get(b.categoryId)?.name ?? 'Uncategorized'}
             </div>
             <div className="flex items-center gap-1.5 min-w-0">
@@ -891,25 +893,25 @@ function BillerList({
               )}
               <span
                 className="truncate"
-                style={{ color: imported ? connectorColor(sourceLabel) : 'var(--color-text-tertiary)', fontWeight: 500 }}
+                style={{ color: imported ? connectorColor(sourceLabel) : 'var(--muted-foreground)', fontWeight: 500 }}
               >
                 {imported ? sourceLabel : 'Manual'}
               </span>
             </div>
-            <div className="font-mono text-[var(--color-text-secondary)] truncate">{b.providerBillerCode ?? DASH}</div>
+            <div className="font-mono text-muted-foreground truncate">{b.providerBillerCode ?? DASH}</div>
             <div>
               <Pill tone={b.isActive ? 'success' : 'muted'} dot>
                 {b.isActive ? 'Active' : 'Inactive'}
               </Pill>
             </div>
-            <div className="text-[var(--color-text-tertiary)]">
+            <div className="text-muted-foreground">
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
         );
       })}
       {billers.length === 0 && (
-        <div className="p-10 text-center text-sm text-[var(--color-text-secondary)]">No billers match.</div>
+        <div className="p-10 text-center text-sm text-muted-foreground">No billers match.</div>
       )}
     </div>
   );

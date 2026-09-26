@@ -24,12 +24,12 @@ export function MetricCard({ label, value, subtitle, status, className }: Metric
       )}
     >
       <CardContent className="p-5">
-        <p className="text-sm text-[var(--color-text-secondary)]">{label}</p>
-        <p className="text-2xl font-bold text-[var(--color-text-primary)] mt-1">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-bold text-foreground mt-1">
           {value}
         </p>
         {subtitle && (
-          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {subtitle}
           </p>
         )}

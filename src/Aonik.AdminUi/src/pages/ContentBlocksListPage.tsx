@@ -7,6 +7,16 @@ import { DataTableRowActions } from '@/components/ui/data-table';
 import { Plus, Layers, Image, CheckCircle, XCircle, Sparkles } from 'lucide-react';
 import { getContentBlocks, deleteContentBlock, type ContentBlock } from '@/services/contentBlockService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export function ContentBlocksListPage() {
   const navigate = useNavigate();
@@ -14,6 +24,7 @@ export function ContentBlocksListPage() {
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadContentBlocks();
@@ -33,8 +44,6 @@ export function ContentBlocksListPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this content block?')) return;
-    
     try {
       await deleteContentBlock(id);
       await loadContentBlocks();
@@ -83,13 +92,13 @@ export function ContentBlocksListPage() {
         <div className="flex items-center gap-2">
           {row.isEnabled ? (
             <>
-              <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
-              <span className="text-sm text-[var(--color-success)]">Enabled</span>
+              <CheckCircle className="w-4 h-4 text-success" />
+              <span className="text-sm text-success">Enabled</span>
             </>
           ) : (
             <>
-              <XCircle className="w-4 h-4 text-[var(--color-danger)]" />
-              <span className="text-sm text-[var(--color-danger)]">Disabled</span>
+              <XCircle className="w-4 h-4 text-destructive" />
+              <span className="text-sm text-destructive">Disabled</span>
             </>
           )}
         </div>
@@ -108,7 +117,7 @@ export function ContentBlocksListPage() {
       accessorFn: (row) => row.media.length,
       cell: (row) => (
         <div className="flex items-center gap-1">
-          <Image className="w-4 h-4 text-[var(--color-text-secondary)]" />
+          <Image className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm">{row.media.length}</span>
         </div>
       ),
@@ -125,7 +134,7 @@ export function ContentBlocksListPage() {
         },
         {
           label: 'Delete',
-          onClick: () => handleDelete(row.id),
+          onClick: () => setPendingDeleteId(row.id),
           variant: 'danger',
         },
       ]}
@@ -141,8 +150,8 @@ export function ContentBlocksListPage() {
       <div className="p-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Content Blocks</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Content Blocks</h1>
+          <p className="text-muted-foreground">
             Manage dynamic content blocks for your application including banners, heroes, and marketing content.
           </p>
         </div>
@@ -151,12 +160,12 @@ export function ContentBlocksListPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
+              <div className="p-2 rounded-md bg-primary">
                 <Layers className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Content Blocks</CardTitle>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-sm text-muted-foreground">
                   {contentBlocks.length} content block{contentBlocks.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -199,6 +208,35 @@ export function ContentBlocksListPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete content block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this content block?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const id = pendingDeleteId;
+                setPendingDeleteId(null);
+                if (id) void handleDelete(id);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

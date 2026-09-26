@@ -32,7 +32,7 @@ export function ProviderCard({
   const active = provider.status === 'Active';
 
   return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-start gap-4">
         <TypeIcon type={provider.type} active={active} />
 
@@ -40,10 +40,10 @@ export function ProviderCard({
           {/* Title row */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="truncate text-sm font-semibold text-foreground">
                 {provider.displayName}
               </div>
-              <div className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-secondary)]">
+              <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
                 {provider.vendor}
               </div>
             </div>
@@ -67,7 +67,7 @@ export function ProviderCard({
           </div>
 
           {/* Stat row */}
-          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--color-border-light)] pt-2.5">
+          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-2.5">
             <Stat label="Latency" value={stats.latency} />
             <Stat label={provider.type === 'Stt' ? 'Languages' : 'Voices'} value={stats.choices} />
           </div>
@@ -88,7 +88,7 @@ export function ProviderCard({
               </Button>
             )}
             {usageCount > 0 && (
-              <span className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-[var(--color-text-tertiary)]">
+              <span className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
                 <Lock className="h-3 w-3" /> In use
               </span>
             )}
@@ -106,14 +106,14 @@ function TypeIcon({ type, active }: { type: SpeechProviderType; active: boolean 
   return (
     <div
       className={cn(
-        'grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-[var(--color-border-light)]',
-        active ? 'bg-[var(--color-brand-primary-10)]' : 'bg-[var(--color-surface-inset)]',
+        'grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border',
+        active ? 'bg-primary/10' : 'bg-muted',
       )}
     >
       <Icon
         className={cn(
           'h-5 w-5',
-          active ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-tertiary)]',
+          active ? 'text-primary' : 'text-muted-foreground',
         )}
       />
     </div>
@@ -123,10 +123,10 @@ function TypeIcon({ type, active }: { type: SpeechProviderType; active: boolean 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
-      <div className="mt-0.5 font-mono text-[12.5px] text-[var(--color-text-primary)]">{value}</div>
+      <div className="mt-0.5 font-mono text-[12.5px] text-foreground">{value}</div>
     </div>
   );
 }
