@@ -1,56 +1,98 @@
-import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export interface BreadcrumbItem {
-  label: string;
-  href?: string;
-  icon?: React.ReactNode;
+/**
+ * shadcn Breadcrumb. Use `BreadcrumbLink asChild` around a router <Link> so
+ * navigation stays client-side:
+ *
+ *   <Breadcrumb><BreadcrumbList>
+ *     <BreadcrumbItem><BreadcrumbLink asChild><Link to="/orders">Orders</Link></BreadcrumbLink></BreadcrumbItem>
+ *     <BreadcrumbSeparator />
+ *     <BreadcrumbItem><BreadcrumbPage>ORD-10442</BreadcrumbPage></BreadcrumbItem>
+ *   </BreadcrumbList></Breadcrumb>
+ */
+function Breadcrumb(props: React.ComponentProps<"nav">) {
+  return <nav aria-label="Breadcrumb" data-slot="breadcrumb" {...props} />;
 }
 
-interface BreadcrumbProps {
-  items: BreadcrumbItem[];
-  className?: string;
-}
-
-export function Breadcrumb({ items, className }: BreadcrumbProps) {
+function BreadcrumbList({ className, ...props }: React.ComponentProps<"ol">) {
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex items-center', className)}>
-      <ol className="flex items-center gap-1 text-sm">
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1;
-
-          const labelContent = (
-            <span className="inline-flex items-center gap-1.5">
-              {item.icon && <span className="text-[var(--color-text-tertiary)]">{item.icon}</span>}
-              <span>{item.label}</span>
-            </span>
-          );
-          
-          return (
-            <li key={index} className="flex items-center gap-1">
-              {index > 0 && (
-                <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-              )}
-              {isLast ? (
-                <span className="text-[var(--color-text-secondary)]">
-                  {labelContent}
-                </span>
-              ) : item.href ? (
-                <a
-                  href={item.href}
-                  className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-                >
-                  {labelContent}
-                </a>
-              ) : (
-                <span className="text-[var(--color-text-tertiary)]">
-                  {labelContent}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
+    <ol
+      data-slot="breadcrumb-list"
+      className={cn(
+        "flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5",
+        className
+      )}
+      {...props}
+    />
   );
 }
+
+function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
+  return <li data-slot="breadcrumb-item" className={cn("inline-flex items-center gap-1.5", className)} {...props} />;
+}
+
+function BreadcrumbLink({
+  asChild,
+  className,
+  ...props
+}: React.ComponentProps<"a"> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : "a";
+  return (
+    <Comp data-slot="breadcrumb-link" className={cn("transition-colors hover:text-foreground", className)} {...props} />
+  );
+}
+
+function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="breadcrumb-page"
+      role="link"
+      aria-disabled="true"
+      aria-current="page"
+      className={cn("font-normal text-foreground", className)}
+      {...props}
+    />
+  );
+}
+
+function BreadcrumbSeparator({ children, className, ...props }: React.ComponentProps<"li">) {
+  return (
+    <li
+      data-slot="breadcrumb-separator"
+      role="presentation"
+      aria-hidden="true"
+      className={cn("[&>svg]:size-3.5", className)}
+      {...props}
+    >
+      {children ?? <ChevronRightIcon />}
+    </li>
+  );
+}
+
+function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="breadcrumb-ellipsis"
+      role="presentation"
+      aria-hidden="true"
+      className={cn("flex size-9 items-center justify-center", className)}
+      {...props}
+    >
+      <MoreHorizontalIcon className="size-4" />
+      <span className="sr-only">More</span>
+    </span>
+  );
+}
+
+export {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+  BreadcrumbEllipsis,
+};

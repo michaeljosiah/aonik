@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -46,9 +48,6 @@ const createEmptyForm = (): CreateAccountRequest => ({
   last4: null,
   notes: null,
 });
-
-const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
 
 export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAccountDialogProps) {
   const [formData, setFormData] = useState<CreateAccountRequest>(() => createEmptyForm());
@@ -130,21 +129,20 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
 
         <div className="space-y-4">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Name <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Name <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               type="text"
               value={formData.name}
               onChange={(e) => updateField('name', e.target.value)}
-              className={fieldClassName}
               placeholder="e.g., My Savings Account"
             />
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Account Type <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Account Type <span className="text-destructive">*</span>
             </label>
             <Select
               value={formData.accountType}
@@ -165,8 +163,8 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Currency <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Currency <span className="text-destructive">*</span>
               </label>
               <Select
                 value={formData.currency}
@@ -186,7 +184,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Country
               </label>
               <Select
@@ -209,34 +207,33 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Institution Name
             </label>
-            <input
+            <Input
               type="text"
               value={formData.institutionName || ''}
               onChange={(e) => updateField('institutionName', e.target.value || null)}
-              className={fieldClassName}
               placeholder="e.g., Chase, Wells Fargo"
             />
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Last 4 Digits
             </label>
-            <input
+            <Input
               type="text"
               value={formData.last4 || ''}
               onChange={(e) => updateField('last4', e.target.value.replace(/\D/g, '').slice(0, 4) || null)}
-              className={fieldClassName}
+              className="font-mono tabular-nums"
               placeholder="e.g., 1234"
               maxLength={4}
             />
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Notes
             </label>
             <Textarea
@@ -249,9 +246,9 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
         </div>
 
         {error && (
-          <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter>

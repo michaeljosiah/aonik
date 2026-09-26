@@ -6,6 +6,18 @@ import { CreateTransactionDialog } from './CreateTransactionDialog';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ArrowLeft,
   FileUp,
@@ -57,6 +69,7 @@ export function AccountTransactionsPage() {
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetTxIdRef = useRef<string | null>(null);
+  const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     if (!accountId) return;
@@ -133,7 +146,6 @@ export function AccountTransactionsPage() {
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm('Delete this attachment?')) return;
     try {
       await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
@@ -170,7 +182,7 @@ export function AccountTransactionsPage() {
       accessorFn: (row) => new Date(row.occurredAt),
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-primary)]">
+        <span className="text-sm text-foreground">
           {new Date(tx.occurredAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
       ),
@@ -180,10 +192,11 @@ export function AccountTransactionsPage() {
       header: 'Amount',
       accessorKey: 'amount',
       sortable: true,
+      numeric: true,
       cell: (tx) => {
         const isDebit = tx.amount < 0;
         return (
-          <span className={`text-sm font-medium ${isDebit ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}>
+          <span className={`text-sm font-medium ${isDebit ? 'text-destructive' : 'text-success'}`}>
             {isDebit ? '' : '+'}{tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {tx.currency}
           </span>
         );
@@ -195,7 +208,7 @@ export function AccountTransactionsPage() {
       accessorKey: 'counterparty',
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-primary)]">{tx.counterparty || '—'}</span>
+        <span className="text-sm text-foreground">{tx.counterparty || '—'}</span>
       ),
     },
     {
@@ -203,7 +216,7 @@ export function AccountTransactionsPage() {
       header: 'Description',
       accessorKey: 'description',
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{tx.description || '—'}</span>
+        <span className="text-sm text-muted-foreground">{tx.description || '—'}</span>
       ),
     },
     {
@@ -211,7 +224,7 @@ export function AccountTransactionsPage() {
       header: 'Reference',
       accessorKey: 'reference',
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-tertiary)]">{tx.reference || '—'}</span>
+        <span className="text-sm text-muted-foreground">{tx.reference || '—'}</span>
       ),
     },
     {
@@ -219,17 +232,11 @@ export function AccountTransactionsPage() {
       header: 'Recon Status',
       accessorKey: 'reconciliationStatus',
       sortable: true,
-      cell: (tx) => {
-        const matched = tx.reconciliationStatus === 'Matched';
-        const style = matched
-          ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-          : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]';
-        return (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style}`}>
-            {tx.reconciliationStatus}
-          </span>
-        );
-      },
+      cell: (tx) => (
+        <Badge variant={tx.reconciliationStatus === 'Matched' ? 'success' : 'secondary'}>
+          {tx.reconciliationStatus}
+        </Badge>
+      ),
     },
   ];
 
@@ -253,19 +260,29 @@ export function AccountTransactionsPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/accounts')}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Back to accounts"
+                onClick={() => navigate('/accounts')}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back to accounts</TooltipContent>
+          </Tooltip>
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            <h1 className="text-2xl font-bold text-foreground">
               {account?.maskedIdentifier ?? 'Account'} Transactions
             </h1>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="text-muted-foreground">
               {account ? `${account.accountType} — ${account.verificationStatus === 'Verified' ? 'Linked' : 'Manual'}` : ''}
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowCreateTransaction(true)} className="rounded-sm">
+        <Button onClick={() => setShowCreateTransaction(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Add Transaction
         </Button>
@@ -280,7 +297,7 @@ export function AccountTransactionsPage() {
             className="px-0 border-b-0"
           />
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <DataTable
               data={filteredTransactions}
               columns={columns}
@@ -324,40 +341,71 @@ export function AccountTransactionsPage() {
             <DialogTitle>Attachments</DialogTitle>
           </DialogHeader>
           {attachmentsLoading ? (
-            <p className="text-sm text-[var(--color-text-secondary)] py-4">Loading...</p>
+            <p className="text-sm text-muted-foreground py-4">Loading...</p>
           ) : attachments.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-secondary)] py-4">No attachments. Use "Upload File" to add one.</p>
+            <p className="text-sm text-muted-foreground py-4">No attachments. Use "Upload File" to add one.</p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-auto">
               {attachments.map((att) => (
-                <div key={att.attachmentId} className="flex items-center justify-between p-2 rounded border border-[var(--color-border-light)]">
+                <div key={att.attachmentId} className="flex items-center justify-between p-2 rounded-md border border-border">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Paperclip className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" />
+                    <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <a
                       href={att.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-[var(--color-primary)] hover:underline truncate"
+                      className="text-sm text-primary hover:underline truncate"
                     >
                       {att.fileName}
                     </a>
-                    <span className="text-xs text-[var(--color-text-tertiary)] shrink-0">
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {(att.fileSizeBytes / 1024).toFixed(0)} KB
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteAttachment(att.attachmentId)}
-                  >
-                    <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${att.fileName}`}
+                        onClick={() => setPendingDeleteAttachmentId(att.attachmentId)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete attachment</TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!pendingDeleteAttachmentId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteAttachmentId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete attachment?</AlertDialogTitle>
+            <AlertDialogDescription>Delete this attachment?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (pendingDeleteAttachmentId) void handleDeleteAttachment(pendingDeleteAttachmentId);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateTransactionDialog
         open={showCreateTransaction}

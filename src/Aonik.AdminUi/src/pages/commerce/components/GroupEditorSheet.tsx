@@ -9,10 +9,12 @@
 // currency is never sent from this sheet at all. It is not editable here, and an omitted one
 // keeps what the group has; sending a guessed value is how a group gets re-denominated.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Pill } from '@/components/layout/aonik';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
@@ -23,7 +25,7 @@ import type { OptionGroupDto } from '@/types/commerce';
 import { SELECTION_MODES } from './selectionModes';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 const CHOICE_KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -175,28 +177,32 @@ export function GroupEditorSheet({
 
         <SheetBody>
           {error && (
-            <p className="mb-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
-              {error}
-            </p>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertDescription className="text-xs">
+                {error}
+              </AlertDescription>
+            </Alert>
           )}
 
           {!hasDefault && (
-            <p className="mb-3 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-[12px] text-[var(--color-warning)]">
-              This group has no active recommended default, so the storefront shows it to nobody.
-              Add a choice below to make it servable.
-            </p>
+            <Alert variant="warning" className="mb-3 py-2">
+              <AlertDescription className="text-xs">
+                This group has no active recommended default, so the storefront shows it to nobody.
+                Add a choice below to make it servable.
+              </AlertDescription>
+            </Alert>
           )}
 
           <fieldset disabled={busy} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Label
               </span>
               <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Help text
               </span>
               <input
@@ -208,13 +214,13 @@ export function GroupEditorSheet({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Selection
               </span>
-              <select
+              <NativeSelect
+                className="h-8"
                 value={selectionMode}
                 onChange={(e) => setSelectionMode(e.target.value)}
-                className={inputClass}
               >
                 {/* A mode the server holds but this list does not know still renders, so
                     saving can never silently rewrite it. */}
@@ -226,16 +232,16 @@ export function GroupEditorSheet({
                     {mode.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
 
-            <p className="text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="text-[11px] text-muted-foreground">
               Prices in {group.currency}. The currency is not editable here — changing it would
               re-denominate every stored price without converting any of them.
             </p>
 
-            <div className="border-t border-[var(--color-border-light)] pt-3">
-              <p className="mb-2 text-[12px] font-medium text-[var(--color-text-primary)]">
+            <div className="border-t border-border pt-3">
+              <p className="mb-2 text-[12px] font-medium text-foreground">
                 Add a choice
               </p>
               <div className="flex flex-col gap-2">
@@ -263,7 +269,7 @@ export function GroupEditorSheet({
                     {addingChoice ? 'Adding…' : 'Add choice'}
                   </Button>
                   {!hasDefault && (
-                    <Pill tone="info" size="sm">
+                    <Pill tone="info">
                       becomes the default
                     </Pill>
                   )}

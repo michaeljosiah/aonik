@@ -6,6 +6,7 @@
 // as one. Revenue is summed per currency for the same reason a total is never summed across
 // currencies anywhere in this series: there is no rate here, and adding them would invent one.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -108,11 +109,11 @@ export function CommerceOrdersPage() {
       accessorFn: (row) => row.orderId,
       cell: (row) => (
         <span className="flex flex-col">
-          <span className="font-[family-name:var(--font-mono)] text-[12px] text-[var(--color-text-primary)]">
+          <span className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">
             {row.orderId.slice(0, 8)}
           </span>
           {row.boxSize != null && (
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11px] text-muted-foreground">
               Box of {row.boxSize}
             </span>
           )}
@@ -133,7 +134,7 @@ export function CommerceOrdersPage() {
       header: 'Total',
       accessorFn: (row) => row.total,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-primary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-foreground">
           {formatCurrency(row.total, row.currency)}
         </span>
       ),
@@ -161,7 +162,7 @@ export function CommerceOrdersPage() {
       header: 'Placed',
       accessorFn: (row) => row.placedAtUtc,
       cell: (row) => (
-        <span className="text-[12px] text-[var(--color-text-secondary)]">
+        <span className="text-[12px] text-muted-foreground">
           {formatDate(row.placedAtUtc)}
         </span>
       ),
@@ -191,7 +192,6 @@ export function CommerceOrdersPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Orders"
         subtitle="Checked-out storefront orders — what was ordered, what was charged, and what the kitchen prepares"
       />
@@ -232,7 +232,7 @@ export function CommerceOrdersPage() {
       {summary.excludedOrders > 0 && (
         // Wrappable body text, never the KpiTile delta pill: that pill is shrink-0, so a
         // sentence inside it widens the tile past its column and shoves its neighbours.
-        <p className="-mt-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+        <p className="-mt-2 text-[11.5px] text-muted-foreground">
           Money figures cover {summary.moneyCaption.split(' · ').pop()} only —{' '}
           {summary.excludedOrders} captured order{summary.excludedOrders === 1 ? '' : 's'} in other
           currencies {summary.excludedOrders === 1 ? 'is' : 'are'} excluded, because there is no
@@ -241,26 +241,27 @@ export function CommerceOrdersPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void load()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void load()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar
         tabs={PAYMENT_TABS}
         active={paymentStatus}
         onTabChange={setPaymentStatus}
-        hideFilterButton
       />
 
       <AonikCard padding={0}>
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

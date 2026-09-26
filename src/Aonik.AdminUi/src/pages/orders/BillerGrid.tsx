@@ -3,11 +3,12 @@
 //
 // Renders a 4-column grid of biller "logo" cards with category filter chips
 // and search. The catalog DTO does not yet carry brand color / symbol, so we
-// derive a deterministic 2-letter symbol and hashed teal/coral palette from
-// the biller name. Replace with real biller artwork once the DTO is extended.
+// derive a deterministic 2-letter symbol and a hashed categorical colour
+// (--chart-1..5) from the biller name. Replace with real biller artwork once the DTO is extended.
 
 import { Check, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import type { CatalogBillerCategoryItem, CatalogBillerSummaryItem } from '@/types';
 
 export interface BillerGridProps {
@@ -23,14 +24,11 @@ export interface BillerGridProps {
 }
 
 const BRAND_PALETTE = [
-  '#055a60', // teal
-  '#eb5c37', // coral
-  '#1e4d8c', // navy
-  '#1f7a5e', // forest
-  '#7b76b6', // violet
-  '#0097a9', // patrol
-  '#e8a838', // amber
-  '#d97706', // orange
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 function hash(value: string): number {
@@ -59,11 +57,10 @@ function brandColor(name: string): string {
 function BillerLogoMark({ name, size = 38 }: { name: string; size?: number }) {
   return (
     <div
-      className="flex flex-none items-center justify-center font-[family-name:var(--font-brand)] font-extrabold leading-none text-white"
+      className="flex flex-none items-center justify-center rounded-lg font-extrabold leading-none text-white"
       style={{
         width: size,
         height: size,
-        borderRadius: 8,
         background: brandColor(name),
         fontSize: Math.round(size * 0.32),
         letterSpacing: '-0.01em',
@@ -100,8 +97,8 @@ export function BillerGrid({
               className={cn(
                 'rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors',
                 active
-                  ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                  : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground',
               )}
             >
               {cat.name}
@@ -111,24 +108,25 @@ export function BillerGrid({
       </div>
 
       <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-        <input
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+        <Input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search billers…"
-          className="aonik-input h-[34px] pl-8 text-[12.5px]"
+          aria-label="Search billers"
+          className="h-[34px] pl-8 text-[12.5px]"
         />
       </div>
 
       <div className="grid max-h-[220px] grid-cols-2 gap-2 overflow-auto pr-0.5 sm:grid-cols-3 lg:grid-cols-4">
         {loading && (
-          <div className="col-span-full py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="col-span-full py-6 text-center text-[12px] text-muted-foreground">
             Loading billers…
           </div>
         )}
         {!loading && billers.length === 0 && (
-          <div className="col-span-full py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="col-span-full py-6 text-center text-[12px] text-muted-foreground">
             No billers found
           </div>
         )}
@@ -142,20 +140,20 @@ export function BillerGrid({
                 type="button"
                 onClick={() => onSelectBiller(sel ? '' : biller.billerId)}
                 className={cn(
-                  'relative flex flex-col items-center gap-1.5 rounded-[10px] px-2 py-3 transition-colors',
+                  'relative flex flex-col items-center gap-1.5 rounded-lg px-2 py-3 transition-colors',
                   sel
-                    ? 'border-[2px] border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]'
-                    : 'border-[1.5px] border-[var(--color-border-light)] bg-[var(--color-surface)] hover:border-[var(--color-border)]',
+                    ? 'border-[2px] border-primary bg-primary/10'
+                    : 'border-[1.5px] border-border bg-card hover:border-border',
                 )}
               >
                 {sel && (
-                  <Check className="absolute right-1.5 top-1.5 h-3 w-3 text-[var(--color-brand-primary)]" />
+                  <Check className="absolute right-1.5 top-1.5 h-3 w-3 text-primary" />
                 )}
                 <BillerLogoMark name={biller.name} size={38} />
-                <div className="line-clamp-1 text-center text-[11px] font-semibold leading-tight text-[var(--color-text-primary)]">
+                <div className="line-clamp-1 text-center text-[11px] font-semibold leading-tight text-foreground">
                   {biller.name}
                 </div>
-                <div className="text-center text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="text-center text-[10px] text-muted-foreground">
                   {category?.name ?? biller.countryCode}
                 </div>
               </button>

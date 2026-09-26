@@ -16,6 +16,7 @@ import type { AdminProductDetailDto } from '@/types/commerce';
 
 import type { ProductEditorForm } from '../../lib/productForm';
 import { ChipEditor, Field, inputClass } from './DetailsTab';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /** A deep-surface row is loading, unavailable, or has an answer — never silently blank. */
 type SurfaceState =
@@ -156,28 +157,28 @@ export function StorefrontTab({
           placeholder="Add a keyword"
           onChange={(searchKeywords) => onChange({ searchKeywords })}
         />
-        <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
+        <p className="mt-1 text-[11px] text-muted-foreground">
           Matched by storefront search — never serialized publicly; admin-eyes-only by API design.
         </p>
       </Field>
 
       <AonikCard title="Storefront attributes" padding={12}>
         {attributes === null ? (
-          <p className="text-[12px] text-[var(--color-error)]">
+          <p className="text-[12px] text-destructive">
             Attributes JSON is invalid — fix it on the Details tab.
           </p>
         ) : attributes.length === 0 ? (
-          <p className="text-[12px] text-[var(--color-text-secondary)]">
+          <p className="text-[12px] text-muted-foreground">
             No storefront attributes authored — matches no attribute facet.
           </p>
         ) : (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5">
             {attributes.map(([path, value]) => (
               <div key={path} className="flex items-baseline justify-between gap-3">
-                <dt className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                <dt className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                   {path}
                 </dt>
-                <dd className="text-[12px] text-[var(--color-text-primary)]">{value}</dd>
+                <dd className="text-[12px] text-foreground">{value}</dd>
               </div>
             ))}
           </dl>
@@ -186,7 +187,7 @@ export function StorefrontTab({
 
       <AonikCard title="Unit surcharge" padding={12}>
         {currencyKnown === 'failed' && (
-          <p className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-error)]">
+          <p className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-destructive">
             <span>
               The storefront currency could not be read, so a surcharge cannot be authored here.
               An amount saved without a verified currency would fail quoting for this product.
@@ -199,7 +200,7 @@ export function StorefrontTab({
               <button
                 type="button"
                 onClick={() => onSurchargeChange({ amount: '' })}
-                className="rounded-md border border-[var(--color-error)] px-2 py-0.5 text-[11px] text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+                className="rounded-md border border-destructive px-2 py-0.5 text-[11px] text-destructive hover:bg-destructive/10"
               >
                 Remove surcharge
               </button>
@@ -225,25 +226,25 @@ export function StorefrontTab({
                 saves fine and then breaks this product's checkout pricing. With no canonical
                 currency there is nothing to choose from, so the control is empty and closed
                 rather than open and unchecked. */}
-            <select
+            <NativeSelect
               value={surchargeCurrency}
               onChange={(e) => onSurchargeChange({ currency: e.target.value })}
               disabled={currencyKnown !== 'ready'}
-              className={`${inputClass} font-[family-name:var(--font-mono)] disabled:opacity-50`}
+              className="h-8 font-mono"
             >
               {!storefrontCurrency && <option value="">—</option>}
               {storefrontCurrency && <option value={storefrontCurrency}>{storefrontCurrency}</option>}
               {currencyMismatch && <option value={surchargeCurrency}>{surchargeCurrency}</option>}
-            </select>
+            </NativeSelect>
           </Field>
         </div>
         {currencyMismatch && (
-          <p className="mt-1.5 text-[11px] text-[var(--color-error)]">
+          <p className="mt-1.5 text-[11px] text-destructive">
             This surcharge is stored in {surchargeCurrency}, but the storefront quotes in{' '}
             {storefrontCurrency}. Selection quotes for this product fail until it matches.
           </p>
         )}
-        <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
           The one price-like field a product card may show. An amount requires a currency, and
           it must be the storefront's — nothing is converted, so a differently denominated
           surcharge is a hard quoting error rather than a conversion. Clear the amount to
@@ -252,7 +253,7 @@ export function StorefrontTab({
       </AonikCard>
 
       <AonikCard title="Deep surfaces" subtitle="The state of this product on the storefront authoring pages" padding={12}>
-        <div className="flex flex-col divide-y divide-[var(--color-border-light)]">
+        <div className="flex flex-col divide-y divide-border">
           <SurfaceRow
             label="Personalisation"
             state={personalisation}
@@ -280,23 +281,23 @@ function SurfaceRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
-      <span className="text-[12.5px] text-[var(--color-text-primary)]">{label}</span>
+      <span className="text-[12.5px] text-foreground">{label}</span>
       <span className="flex items-center gap-2.5">
         {state.kind === 'loading' && (
-          <span className="text-[11px] text-[var(--color-text-tertiary)]">Checking…</span>
+          <span className="text-[11px] text-muted-foreground">Checking…</span>
         )}
         {state.kind === 'unavailable' && (
-          <span className="text-[11px] text-[var(--color-text-tertiary)]">Unavailable</span>
+          <span className="text-[11px] text-muted-foreground">Unavailable</span>
         )}
         {state.kind === 'ready' && (
-          <Pill tone={state.tone} size="sm">
+          <Pill tone={state.tone}>
             {state.summary}
           </Pill>
         )}
         {frozen ? (
-          <span className="text-[11px] text-[var(--color-text-tertiary)]">Open</span>
+          <span className="text-[11px] text-muted-foreground">Open</span>
         ) : (
-          <Link to={to} className="text-[11px] text-[var(--color-brand-primary)] hover:underline">
+          <Link to={to} className="text-[11px] text-primary hover:underline">
             Open
           </Link>
         )}

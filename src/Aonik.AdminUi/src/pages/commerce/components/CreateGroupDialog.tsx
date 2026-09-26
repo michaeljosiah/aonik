@@ -8,6 +8,7 @@
 // is authored deliberately rather than derived from the label — a slugged label would change
 // under a rename and quietly orphan the lines that point at it.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -20,12 +21,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 
 import { SELECTION_MODES } from './selectionModes';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -103,14 +105,16 @@ export function CreateGroupDialog({
         </DialogHeader>
 
         {error && (
-          <p className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
-            {error}
-          </p>
+          <Alert variant="destructive" className="py-2">
+            <AlertDescription className="text-xs">
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
 
         <fieldset disabled={saving} className="flex min-w-0 flex-col gap-3 border-0 p-0">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-xs font-medium text-muted-foreground">
               Key
             </span>
             <input
@@ -119,13 +123,13 @@ export function CreateGroupDialog({
               placeholder="spice-level"
               className={`${inputClass} font-[family-name:var(--font-mono)]`}
             />
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11px] text-muted-foreground">
               Immutable after create — every product narrowing refers to it.
             </span>
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-xs font-medium text-muted-foreground">
               Label
             </span>
             <input
@@ -137,27 +141,27 @@ export function CreateGroupDialog({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+            <span className="text-xs font-medium text-muted-foreground">
               Selection
             </span>
-            <select
+            <NativeSelect
+              className="h-8"
               value={selectionMode}
               onChange={(e) => setSelectionMode(e.target.value)}
-              className={inputClass}
             >
               {SELECTION_MODES.map((mode) => (
                 <option key={mode.value} value={mode.value}>
                   {mode.label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
 
           <p
             className={`text-[11px] ${
               defaultCurrency
-                ? 'text-[var(--color-text-tertiary)]'
-                : 'text-[var(--color-warning)]'
+                ? 'text-muted-foreground'
+                : 'text-warning'
             }`}
           >
             {defaultCurrency

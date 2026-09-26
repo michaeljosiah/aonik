@@ -98,22 +98,22 @@ export function AgentContextDrawer({
         {/* Agent metadata badges */}
         {agentConfig && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
+            <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
               Domain: {agentConfig.domain}
             </span>
-            <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
+            <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
               Risk: {agentConfig.riskTier}
             </span>
             {agentConfig.modelName && (
-              <span className="rounded bg-muted px-2 py-0.5 text-[var(--color-text-secondary)]">
+              <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
                 Model: {agentConfig.modelName}
               </span>
             )}
             <span
               className={`rounded px-2 py-0.5 ${
                 agentConfig.requiresUserBrief
-                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                  : 'bg-muted text-[var(--color-text-tertiary)]'
+                  ? 'bg-info-subtle text-info-foreground'
+                  : 'bg-muted text-muted-foreground'
               }`}
             >
               <User className="mr-1 inline h-3 w-3" />
@@ -141,7 +141,7 @@ export function AgentContextDrawer({
           {/* Composed preview tab */}
           <TabsContent value="composed" className="flex-1 overflow-y-auto">
             {composedSections.length === 0 ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-[var(--color-text-tertiary)] justify-center">
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground justify-center">
                 <AlertCircle className="h-4 w-4" />
                 Select an agent to see the composed context.
               </div>
@@ -149,19 +149,19 @@ export function AgentContextDrawer({
               <div className="space-y-4">
                 {composedSections.map((section, i) => (
                   <div key={i}>
-                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-text-secondary)]">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                       <FileText className="h-3 w-3" />
                       {section.label}
-                      <span className="ml-auto text-[10px] font-normal text-[var(--color-text-tertiary)]">
+                      <span className="ml-auto text-[10px] font-normal text-muted-foreground">
                         ~{Math.round(section.content.length / 4)} tokens
                       </span>
                     </div>
-                    <pre className="max-h-80 overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    <pre className="max-h-80 overflow-auto rounded border border-border bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                       {section.content}
                     </pre>
                   </div>
                 ))}
-                <div className="border-t border-[var(--color-border-light)] pt-2 text-xs text-[var(--color-text-tertiary)]">
+                <div className="border-t border-border pt-2 text-xs text-muted-foreground">
                   Total estimated: ~
                   {Math.round(
                     composedSections.reduce((sum, s) => sum + s.content.length, 0) / 4,
@@ -176,11 +176,11 @@ export function AgentContextDrawer({
           {/* System prompt tab */}
           <TabsContent value="system" className="flex-1 overflow-y-auto">
             {agentConfig?.instructionsText ? (
-              <pre className="overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
+              <pre className="overflow-auto rounded border border-border bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                 {agentConfig.instructionsText}
               </pre>
             ) : (
-              <div className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 No system prompt available.
               </div>
             )}
@@ -215,7 +215,7 @@ export function AgentContextDrawer({
                     </Button>
                   </div>
                   {error && (
-                    <div className="flex items-center gap-1.5 text-xs text-[var(--color-error)]">
+                    <div className="flex items-center gap-1.5 text-xs text-destructive">
                       <AlertCircle className="h-3 w-3" />
                       {error}
                     </div>
@@ -225,27 +225,27 @@ export function AgentContextDrawer({
                 {/* Display brief */}
                 {displayBrief ? (
                   <div>
-                    <div className="mb-1.5 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="font-semibold">
                         {loadedBrief ? 'Loaded User Brief' : 'Current Playground Brief'}
                       </span>
-                      <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">
+                      <span className="ml-auto text-[10px] text-muted-foreground">
                         ~{Math.round(displayBrief.length / 4)} tokens
                       </span>
                     </div>
-                    <pre className="max-h-96 overflow-auto rounded border border-[var(--color-border-light)] bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    <pre className="max-h-96 overflow-auto rounded border border-border bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap">
                       {displayBrief}
                     </pre>
                   </div>
                 ) : (
-                  <div className="rounded border border-dashed border-[var(--color-border)] p-4 text-center text-xs text-[var(--color-text-tertiary)]">
+                  <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                     No user brief loaded. Enter a user ID above or set one in the
                     Variables popover.
                   </div>
                 )}
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 This agent does not use a User Brief.
                 <p className="mt-1 text-xs">
                   Only user-facing agents (e.g. personal-finance-agent) inject per-user financial context.

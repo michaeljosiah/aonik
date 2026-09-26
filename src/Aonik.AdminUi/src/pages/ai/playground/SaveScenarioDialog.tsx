@@ -83,7 +83,7 @@ export function SaveScenarioDialog({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="scenario-name" className="text-xs">
-              Name <span className="text-red-500">*</span>
+              Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="scenario-name"
@@ -111,7 +111,7 @@ export function SaveScenarioDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="scenario-tags" className="text-xs">
-              Tags <span className="text-[var(--color-text-tertiary)]">(comma separated)</span>
+              Tags <span className="text-muted-foreground">(comma separated)</span>
             </Label>
             <Input
               id="scenario-tags"
@@ -122,8 +122,8 @@ export function SaveScenarioDialog({
             />
           </div>
 
-          <div className="rounded-md border border-[var(--color-border-light)] bg-muted p-3">
-            <p className="text-xs text-[var(--color-text-secondary)]">
+          <div className="rounded-md border border-border bg-muted p-3">
+            <p className="text-xs text-muted-foreground">
               This will save the current conversation ({scenarioData.turns.length} turn
               {scenarioData.turns.length !== 1 ? 's' : ''}), system prompt, and configuration
               as a reusable scenario.

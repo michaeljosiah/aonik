@@ -150,12 +150,12 @@ export function SettingsSpeechPage() {
   return (
     <div className="flex h-full min-h-0">
       {/* Inner left rail */}
-      <aside className="flex w-[240px] shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+      <aside className="flex w-[240px] shrink-0 flex-col border-r border-border bg-muted p-5">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">
           Settings · AI
         </p>
-        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Speech &amp; Voice</h2>
-        <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+        <h2 className="text-base font-semibold text-foreground">Speech &amp; Voice</h2>
+        <p className="mt-1 mb-4 text-xs leading-relaxed text-muted-foreground">
           Configure the providers, recipes, and live experiences that power voice in this workspace.
         </p>
 
@@ -170,14 +170,14 @@ export function SettingsSpeechPage() {
                 className={cn(
                   'flex items-start gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors',
                   active
-                    ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
-                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]',
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-foreground hover:bg-card',
                 )}
               >
                 <tab.icon
                   className={cn(
                     'mt-0.5 h-3.5 w-3.5 shrink-0',
-                    active ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]',
+                    active ? 'text-primary' : 'text-muted-foreground',
                   )}
                 />
                 <div className="min-w-0 flex-1">
@@ -188,8 +188,8 @@ export function SettingsSpeechPage() {
                     className={cn(
                       'mt-0.5 text-[11px]',
                       active
-                        ? 'text-[var(--color-brand-primary)]/85'
-                        : 'text-[var(--color-text-tertiary)]',
+                        ? 'text-primary/85'
+                        : 'text-muted-foreground',
                     )}
                   >
                     {tab.description}
@@ -201,8 +201,8 @@ export function SettingsSpeechPage() {
         </nav>
 
         {/* "Now active" footer — pulled live from VoiceModeSettings + ChatSpeechSettings. */}
-        <div className="mt-auto border-t border-[var(--color-border-light)] pt-4">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+        <div className="mt-auto border-t border-border pt-4">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
             Now active
           </p>
           <ActiveFooterRow
@@ -248,9 +248,9 @@ function ActiveFooterRow({
   const dotOn = status.enabled && status.name !== null;
   let trailing: React.ReactNode;
   if (!status.enabled) {
-    trailing = <span className="text-[var(--color-text-tertiary)]">off</span>;
+    trailing = <span className="text-muted-foreground">off</span>;
   } else if (status.name === null) {
-    trailing = <span className="italic text-[var(--color-text-tertiary)]">{emptyLabel}</span>;
+    trailing = <span className="italic text-muted-foreground">{emptyLabel}</span>;
   } else {
     trailing = <span className="font-semibold">{status.name}</span>;
   }
@@ -259,10 +259,10 @@ function ActiveFooterRow({
       <span
         className={cn(
           'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
-          dotOn ? 'bg-[var(--color-brand-primary)]' : 'bg-[var(--color-text-tertiary)]',
+          dotOn ? 'bg-primary' : 'bg-muted-foreground',
         )}
       />
-      <span className="min-w-0 text-[var(--color-text-primary)]">
+      <span className="min-w-0 text-foreground">
         {label} · {trailing}
       </span>
     </div>

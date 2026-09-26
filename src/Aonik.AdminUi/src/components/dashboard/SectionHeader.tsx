@@ -13,13 +13,13 @@ export function SectionHeader({ icon, title, description, actions }: SectionHead
     <div className="flex items-center justify-between mb-1">
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="w-12 h-12 rounded-lg bg-[var(--color-brand-primary)] flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
             {icon}
           </div>
         )}
         <div>
-          <h2 className="font-bold text-xl lg:text-[24px] text-[var(--color-text-heading)]">{title}</h2>
-          <p className="text-sm text-[var(--color-text-secondary)]">{description}</p>
+          <h2 className="font-bold text-xl lg:text-[24px] text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -31,7 +31,7 @@ export function MyAppsHeader() {
   return (
     <SectionHeader
       icon={
-        <Grid2x2Plus className="w-6 h-6 text-white" />
+        <Grid2x2Plus className="w-6 h-6 text-primary-foreground" />
       }
       title="My apps"
       description="Your apps, tailored to your activity and preferences."
@@ -55,7 +55,7 @@ export function MyAgentsHeader() {
   return (
     <SectionHeader
       icon={
-        <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="8" r="5" />
           <path d="M20 21a8 8 0 00-16 0" />
         </svg>

@@ -89,10 +89,10 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-md border border-[var(--color-border-light)] px-4 py-3">
+    <div className="flex items-start justify-between gap-4 rounded-md border border-border px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">{title}</p>
-        <p className="text-xs text-[var(--color-text-tertiary)]">{description}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
@@ -235,8 +235,8 @@ export function SettingsGeneralPage() {
     <div className="h-full overflow-auto p-6">
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">General Settings</h1>
-        <p className="text-[var(--color-text-secondary)]">
+        <h1 className="text-2xl font-bold text-foreground">General Settings</h1>
+        <p className="text-muted-foreground">
           Configure workspace identity, localization defaults, and operational controls.
         </p>
       </div>
@@ -275,18 +275,18 @@ export function SettingsGeneralPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {tenantSettingsLoading ? (
-              <p className="text-sm text-[var(--color-text-secondary)]">Loading tenant country settings...</p>
+              <p className="text-sm text-muted-foreground">Loading tenant country settings...</p>
             ) : (
               <>
                 {tenantSettingsError && (
-                  <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+                  <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     {tenantSettingsError}
                   </div>
                 )}
 
                 <div className="space-y-2">
                   <Label>Supported countries</Label>
-                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                  <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                     {tenantCountryOptions.map((country) => (
                       <button
                         key={country.code}
@@ -294,8 +294,8 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleSupportedCountry(country.code)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.supportedCountries.includes(country.code)
-                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-border'
                         }`}
                       >
                         {formatTenantCountryLabel(country.code)}
@@ -306,7 +306,7 @@ export function SettingsGeneralPage() {
 
                 <div className="space-y-2">
                   <Label>Countries customers can send from</Label>
-                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                  <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                     {tenantMarketSettings.supportedCountries.map((countryCode) => (
                       <button
                         key={`origin-${countryCode}`}
@@ -314,8 +314,8 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleScopedCountry('allowedOriginCountries', countryCode)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.allowedOriginCountries.includes(countryCode)
-                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-border'
                         }`}
                       >
                         {formatTenantCountryLabel(countryCode)}
@@ -326,7 +326,7 @@ export function SettingsGeneralPage() {
 
                 <div className="space-y-2">
                   <Label>Countries customers can send to</Label>
-                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                  <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
                     {tenantMarketSettings.supportedCountries.map((countryCode) => (
                       <button
                         key={`destination-${countryCode}`}
@@ -334,8 +334,8 @@ export function SettingsGeneralPage() {
                         onClick={() => toggleScopedCountry('allowedDestinationCountries', countryCode)}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                           tenantMarketSettings.allowedDestinationCountries.includes(countryCode)
-                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-border'
                         }`}
                       >
                         {formatTenantCountryLabel(countryCode)}
@@ -412,7 +412,7 @@ export function SettingsGeneralPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--color-brand-primary)]" />
+              <ShieldCheck className="h-4 w-4 text-primary" />
               Approval Controls
             </CardTitle>
             <CardDescription>Guardrails for risky operations and production-impacting changes.</CardDescription>

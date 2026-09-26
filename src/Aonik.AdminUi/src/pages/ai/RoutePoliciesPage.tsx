@@ -2,7 +2,17 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
@@ -61,13 +71,13 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 const riskTierOptions = ['Low', 'Standard', 'Medium', 'High'];
 const dataSensitivityOptions = ['Public', 'Internal', 'Confidential', 'Restricted'];
 
-const riskTierColor = (tier: string) => {
+const riskTierVariant = (tier: string): BadgeProps['variant'] => {
   switch (tier.toLowerCase()) {
-    case 'low': return 'bg-green-500/10 text-green-700 border-green-200';
-    case 'standard': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'medium': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
-    case 'high': return 'bg-red-500/10 text-red-700 border-red-200';
-    default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+    case 'low': return 'success';
+    case 'standard': return 'info';
+    case 'medium': return 'warning';
+    case 'high': return 'destructive';
+    default: return 'secondary';
   }
 };
 
@@ -272,14 +282,14 @@ export function RoutePoliciesPage() {
       sortable: true,
       cell: (policy) => (
         <div>
-          <p className="font-medium font-mono text-sm text-[var(--color-text-primary)]">{policy.useCase}</p>
+          <p className="font-medium font-mono text-sm text-foreground">{policy.useCase}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
             {policy.isOverride ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-blue-600">
+              <span className="inline-flex items-center gap-1 text-[11px] text-info">
                 <Building2 className="w-3 h-3" /> Tenant override
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Globe className="w-3 h-3" /> Global default
               </span>
             )}
@@ -296,7 +306,7 @@ export function RoutePoliciesPage() {
         policy.primaryModelName ? (
           <Badge variant="outline" className="text-xs font-mono">{policy.primaryModelName}</Badge>
         ) : (
-          <span className="text-xs text-[var(--color-text-tertiary)] italic">Not set</span>
+          <span className="text-xs text-muted-foreground italic">Not set</span>
         )
       ),
     },
@@ -306,7 +316,7 @@ export function RoutePoliciesPage() {
       accessorKey: 'riskTier',
       sortable: true,
       cell: (policy) => (
-        <Badge className={`text-xs ${riskTierColor(policy.riskTier)}`}>{policy.riskTier}</Badge>
+        <Badge variant={riskTierVariant(policy.riskTier)} className="text-xs">{policy.riskTier}</Badge>
       ),
     },
     {
@@ -315,7 +325,7 @@ export function RoutePoliciesPage() {
       accessorKey: 'dataSensitivity',
       sortable: true,
       cell: (policy) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{policy.dataSensitivity}</span>
+        <span className="text-sm text-muted-foreground">{policy.dataSensitivity}</span>
       ),
     },
     {
@@ -325,7 +335,7 @@ export function RoutePoliciesPage() {
       sortable: true,
       cell: (policy) => (
         policy.isActive ? (
-          <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
+          <Badge variant="success" className="text-xs">Active</Badge>
         ) : (
           <Badge variant="secondary" className="text-xs">Inactive</Badge>
         )
@@ -356,12 +366,12 @@ export function RoutePoliciesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Route Policies</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Route Policies</h1>
+          <p className="text-muted-foreground">
             Configure which AI model is used for each use case. Tenant overrides take precedence over global defaults.
           </p>
         </div>
-        <Button onClick={openCreate} className="rounded-sm">
+        <Button onClick={openCreate}>
           <Plus className="w-4 h-4 mr-2" />
           New Policy
         </Button>
@@ -369,59 +379,59 @@ export function RoutePoliciesPage() {
 
       {/* Stat cards */}
       <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Route className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total policies</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalPolicies}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Matches current filters</p>
+              <p className="text-xs text-muted-foreground">Total policies</p>
+              <p className="text-2xl font-semibold text-foreground">{totalPolicies}</p>
+              <p className="text-xs text-muted-foreground">Matches current filters</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activePolicies}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
+              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-2xl font-semibold text-foreground">{activePolicies}</p>
+              <p className="text-xs text-muted-foreground">On this page</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Global defaults</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{globalPolicies}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Apply to all tenants</p>
+              <p className="text-xs text-muted-foreground">Global defaults</p>
+              <p className="text-2xl font-semibold text-foreground">{globalPolicies}</p>
+              <p className="text-xs text-muted-foreground">Apply to all tenants</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-600">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-info-subtle text-info">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Tenant overrides</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{overridePolicies}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Tenant-specific</p>
+              <p className="text-xs text-muted-foreground">Tenant overrides</p>
+              <p className="text-2xl font-semibold text-foreground">{overridePolicies}</p>
+              <p className="text-xs text-muted-foreground">Tenant-specific</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadData} className="ml-auto">Retry</Button>
@@ -447,7 +457,7 @@ export function RoutePoliciesPage() {
             className="px-0 border-b-0"
           />
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+          <div className="mt-3 rounded-md border border-border overflow-hidden">
             <DataTable
               data={paginatedPolicies}
               columns={columns}
@@ -494,26 +504,26 @@ export function RoutePoliciesPage() {
               <div className="space-y-3 py-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Model</p>
+                    <p className="text-xs text-muted-foreground mb-1">Model</p>
                     <p className="text-sm font-medium font-mono">{detailPolicy.primaryModelName ?? 'Not set'}</p>
                   </div>
                   <div className="rounded-lg border p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Risk Tier</p>
-                    <Badge className={`text-xs ${riskTierColor(detailPolicy.riskTier)}`}>{detailPolicy.riskTier}</Badge>
+                    <p className="text-xs text-muted-foreground mb-1">Risk Tier</p>
+                    <Badge variant={riskTierVariant(detailPolicy.riskTier)} className="text-xs">{detailPolicy.riskTier}</Badge>
                   </div>
                   <div className="rounded-lg border p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Data Sensitivity</p>
+                    <p className="text-xs text-muted-foreground mb-1">Data Sensitivity</p>
                     <p className="text-sm font-medium">{detailPolicy.dataSensitivity}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {detailPolicy.isActive ? (
-                    <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
+                    <Badge variant="success" className="text-xs">Active</Badge>
                   ) : (
                     <Badge variant="secondary" className="text-xs">Inactive</Badge>
                   )}
                   {detailPolicy.isOverride ? (
-                    <Badge className="text-xs bg-blue-500/10 text-blue-700 border-blue-200">
+                    <Badge variant="info" className="text-xs">
                       <Building2 className="w-3 h-3 mr-1" />Tenant override
                     </Badge>
                   ) : (
@@ -557,7 +567,7 @@ export function RoutePoliciesPage() {
                 disabled={!!editingPolicy}
                 className="font-mono"
               />
-              <p className="text-xs text-[var(--color-text-tertiary)]">
+              <p className="text-xs text-muted-foreground">
                 Must match the agent name or task use case exactly.
               </p>
             </div>
@@ -572,7 +582,7 @@ export function RoutePoliciesPage() {
                   <SelectItem value="__none__">No model assigned</SelectItem>
                   {Object.entries(groupedModels).map(([provider, providerModels]) => (
                     <div key={provider}>
-                      <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                         {provider}
                       </div>
                       {providerModels.map((m) => (
@@ -615,10 +625,10 @@ export function RoutePoliciesPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+            <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Active</p>
-                <p className="text-xs text-[var(--color-text-tertiary)]">Inactive policies are ignored at runtime.</p>
+                <p className="text-xs text-muted-foreground">Inactive policies are ignored at runtime.</p>
               </div>
               <Switch id="active" checked={formIsActive} onCheckedChange={setFormIsActive} />
             </div>
@@ -634,26 +644,34 @@ export function RoutePoliciesPage() {
       </Dialog>
 
       {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>Delete Route Policy</DialogTitle>
-            <DialogDescription>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="max-w-[450px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete route policy?</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to delete the policy for <strong className="font-mono">{deleteTarget?.useCase}</strong>? This action cannot be undone.
               {deleteTarget?.isOverride && (
-                <span className="block mt-1 text-blue-600">This is a tenant override — deleting it will revert to the global default.</span>
+                <span className="block mt-1 text-info">This is a tenant override — deleting it will revert to the global default.</span>
               )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                // Keep the dialog open while the delete is in flight; handleDelete closes it.
+                e.preventDefault();
+                void handleDelete();
+              }}
+              disabled={deleting}
+            >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

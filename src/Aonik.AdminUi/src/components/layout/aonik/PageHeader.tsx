@@ -1,33 +1,25 @@
 import type { ReactNode } from 'react';
 
 export interface PageHeaderProps {
-  eyebrow?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  /** Optional breadcrumb rendered above the title. */
+  breadcrumb?: ReactNode;
 }
 
-/**
- * Page header — eyebrow / H1 / subtitle on the left, optional action row on
- * the right. Uses the brand font for the title and the `.eyebrow` utility
- * for the small uppercase label, matching the template's layout.
- */
-export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProps) {
+/** Page title block: optional breadcrumb, H1, description, actions on the right. */
+export function PageHeader({ title, subtitle, actions, breadcrumb }: PageHeaderProps) {
   return (
-    <div className="flex items-end justify-between gap-6">
-      <div className="min-w-0">
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1
-          className="font-[family-name:var(--font-brand)] text-2xl font-bold tracking-[-0.01em] text-[var(--color-text-primary)]"
-          style={{ marginTop: eyebrow ? 6 : 0 }}
-        >
-          {title}
-        </h1>
-        {subtitle && (
-          <div className="mt-1 text-[13px] text-[var(--color-text-secondary)]">{subtitle}</div>
-        )}
+    <div className="flex flex-col gap-3">
+      {breadcrumb}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex flex-none flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
     </div>
   );
 }

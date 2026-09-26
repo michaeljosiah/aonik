@@ -32,24 +32,24 @@ export function BuyerLabel({
     <span className={`flex items-center gap-1.5 ${className ?? ''}`}>
       <Icon
         className={`h-3.5 w-3.5 shrink-0 ${
-          isParty ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-tertiary)]'
+          isParty ? 'text-primary' : 'text-muted-foreground'
         }`}
         aria-hidden
       />
       {isParty && linkless ? (
-        <span className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
+        <span className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
           {buyerPartyId!.slice(0, 8)}
         </span>
       ) : isParty ? (
         <Link
           to={`/customers/${buyerPartyId}`}
           onClick={(e) => e.stopPropagation()}
-          className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-brand-primary)] hover:underline"
+          className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-primary hover:underline"
         >
           {buyerPartyId!.slice(0, 8)}
         </Link>
       ) : (
-        <span className="text-[12px] text-[var(--color-text-secondary)]">Guest</span>
+        <span className="text-[12px] text-muted-foreground">Guest</span>
       )}
     </span>
   );

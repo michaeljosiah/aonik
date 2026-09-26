@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -56,9 +59,6 @@ const createEmptyForm = (preselectedAccountId?: string): TransactionFormData => 
   category: '',
   notes: '',
 });
-
-const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
 
 export function CreateTransactionDialog({
   open,
@@ -168,11 +168,11 @@ export function CreateTransactionDialog({
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Account <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Account <span className="text-destructive">*</span>
             </label>
             {accountsLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading accounts...</p>
+              <p className="text-sm text-muted-foreground">Loading accounts...</p>
             ) : (
               <Select
                 value={formData.accountId}
@@ -194,26 +194,24 @@ export function CreateTransactionDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Date <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Date <span className="text-destructive">*</span>
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={formData.occurredAt}
-                onChange={(e) => updateField('occurredAt', e.target.value)}
-                className={fieldClassName}
+                onChange={(value) => updateField('occurredAt', value)}
               />
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                Currency <span className="text-[var(--color-error)]">*</span>
+              <label className="text-sm font-medium text-foreground">
+                Currency <span className="text-destructive">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.currency}
                 onChange={(e) => updateField('currency', e.target.value.toUpperCase().slice(0, 3))}
-                className={fieldClassName}
+                className="font-mono"
                 placeholder="e.g., USD"
                 maxLength={3}
               />
@@ -221,78 +219,74 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
-              Amount <span className="text-[var(--color-error)]">*</span>
+            <label className="text-sm font-medium text-foreground">
+              Amount <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               type="number"
               step="0.01"
               value={formData.amount}
               onChange={(e) => updateField('amount', e.target.value)}
-              className={fieldClassName}
+              className="font-mono tabular-nums"
               placeholder="Negative = debit, Positive = credit"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Negative values represent debits (money out), positive values represent credits (money in).
             </p>
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Counterparty
             </label>
-            <input
+            <Input
               type="text"
               value={formData.counterparty}
               onChange={(e) => updateField('counterparty', e.target.value)}
-              className={fieldClassName}
               placeholder="Merchant or payer name"
             />
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Description
             </label>
-            <input
+            <Input
               type="text"
               value={formData.description}
               onChange={(e) => updateField('description', e.target.value)}
-              className={fieldClassName}
               placeholder="Transaction description"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Reference
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.reference}
                 onChange={(e) => updateField('reference', e.target.value)}
-                className={fieldClassName}
                 placeholder="Payment reference"
               />
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="text-sm font-medium text-foreground">
                 Category
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.category}
                 onChange={(e) => updateField('category', e.target.value)}
-                className={fieldClassName}
                 placeholder="e.g., Groceries"
               />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+            <label className="text-sm font-medium text-foreground">
               Notes
             </label>
             <Textarea
@@ -305,9 +299,9 @@ export function CreateTransactionDialog({
         </div>
 
         {error && (
-          <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter>

@@ -6,6 +6,7 @@
 // the row). The surcharge shows as a MARKER only: the summary has the amount but not its
 // currency, and an amount without its denomination is not a fact worth printing.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { NativeSelect } from '@/components/ui/native-select';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import type { PagedResult } from '@/types';
 import type { ProductCategoryDto, ProductSummaryDto } from '@/types/commerce';
@@ -161,13 +163,13 @@ export function CommerceProductsPage() {
               }}
             />
           ) : (
-            <span className="h-8 w-8 rounded bg-[var(--color-surface-inset)]" />
+            <span className="h-8 w-8 rounded bg-muted" />
           )}
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+            <span className="truncate text-[13px] font-medium text-foreground">
               {row.name}
             </span>
-            <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {row.slug}
             </span>
           </span>
@@ -180,7 +182,7 @@ export function CommerceProductsPage() {
       id: 'kind',
       header: 'Kind',
       accessorKey: 'kind',
-      cell: (row) => <span className="text-xs text-[var(--color-text-secondary)]">{row.kind}</span>,
+      cell: (row) => <span className="text-xs text-muted-foreground">{row.kind}</span>,
       className: 'w-[110px]',
     },
     {
@@ -195,7 +197,7 @@ export function CommerceProductsPage() {
       header: 'Variants',
       accessorFn: (row) => row.variantCount,
       cell: (row) => (
-        <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-[var(--color-text-secondary)]">
+        <span className="block text-right font-[family-name:var(--font-mono)] text-xs tabular-nums text-muted-foreground">
           {row.variantCount}
         </span>
       ),
@@ -208,16 +210,16 @@ export function CommerceProductsPage() {
       accessorFn: (row) => row.tags.join(','),
       cell: (row) =>
         row.tags.length === 0 ? (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
+          <span className="text-muted-foreground">—</span>
         ) : (
           <span className="flex flex-wrap gap-1">
             {row.tags.slice(0, 3).map((tag) => (
-              <Pill key={tag} tone="muted" size="sm">
+              <Pill key={tag} tone="muted">
                 {tag}
               </Pill>
             ))}
             {row.tags.length > 3 && (
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="text-[11px] text-muted-foreground">
                 +{row.tags.length - 3}
               </span>
             )}
@@ -233,11 +235,11 @@ export function CommerceProductsPage() {
       // read as a price in whatever currency the operator assumed.
       cell: (row) =>
         row.unitSurcharge != null ? (
-          <Pill tone="info" size="sm" dot>
+          <Pill tone="info" dot>
             Set
           </Pill>
         ) : (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
+          <span className="text-muted-foreground">—</span>
         ),
       className: 'w-[110px]',
     },
@@ -270,7 +272,6 @@ export function CommerceProductsPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Products"
         subtitle="The retail catalogue behind the storefront — products, media and storefront placement"
       />
@@ -283,13 +284,15 @@ export function CommerceProductsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-          <button type="button" onClick={() => void load()} className="ml-auto underline">
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex items-center gap-2 text-xs">
+            {error}
+            <button type="button" onClick={() => void load()} className="ml-auto underline">
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <FilterBar
@@ -303,27 +306,28 @@ export function CommerceProductsPage() {
         // loaded page. The bar's default trailing "Filters" button is hidden because there is
         // nothing behind it — an inert control reads as a feature that is broken.
         extra={
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Status"
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[12.5px] text-[var(--color-text-primary)] outline-none"
-          >
-            <option value="">Any status</option>
-            {STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+          <div className="w-40">
+            <NativeSelect
+              className="h-8"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              aria-label="Status"
+            >
+              <option value="">Any status</option>
+              {STATUSES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         }
-        hideFilterButton
       />
 
       <AonikCard padding={0}>
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

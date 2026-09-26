@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ListChecks, Plus, RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { taskService, type TaskItem } from '@/services/taskService';
@@ -21,15 +21,15 @@ function formatDateTime(value: string | null): string {
 }
 
 function statusBadge(status: string) {
-  const styles: Record<string, string> = {
-    Scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    InProgress: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    Completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    Paused: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
-    Cancelled: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
-    Failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  const variants: Record<string, BadgeProps['variant']> = {
+    Scheduled: 'info',
+    InProgress: 'warning',
+    Completed: 'success',
+    Paused: 'secondary',
+    Cancelled: 'secondary',
+    Failed: 'destructive',
   };
-  return <Badge className={styles[status] ?? 'bg-blue-100 text-blue-700'}>{status}</Badge>;
+  return <Badge variant={variants[status] ?? 'info'}>{status}</Badge>;
 }
 
 export function TasksPage() {
@@ -83,19 +83,19 @@ export function TasksPage() {
     <div className="h-full overflow-auto p-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Tasks</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+          <p className="text-muted-foreground">
             Scheduled units of future work — reminders, scheduled actions, and agent jobs — fired by the
             once-a-minute dispatcher.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button className="rounded-sm" onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Task
           </Button>
-          <Button variant="secondary" className="rounded-sm" onClick={() => void loadTasks()} disabled={loading}>
+          <Button variant="secondary" onClick={() => void loadTasks()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -107,7 +107,7 @@ export function TasksPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ListChecks className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <ListChecks className="h-5 w-5 text-primary" />
             Scheduled Tasks
           </CardTitle>
           <CardDescription>
@@ -116,9 +116,9 @@ export function TasksPage() {
         </CardHeader>
         <CardContent>
           {loading && tasks.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading tasks...</p>
+            <p className="text-sm text-muted-foreground">Loading tasks...</p>
           ) : tasks.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No tasks have been scheduled yet.</p>
+            <p className="text-sm text-muted-foreground">No tasks have been scheduled yet.</p>
           ) : (
             <div className="space-y-3">
               {tasks.map((task) => {
@@ -127,16 +127,16 @@ export function TasksPage() {
                 return (
                   <div
                     key={task.id}
-                    className="w-full rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 shadow-sm"
+                    className="w-full rounded-md border border-border bg-card p-4 shadow-sm"
                   >
                     <div className="mb-2 flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{task.title}</h2>
+                          <h2 className="text-sm font-semibold text-foreground">{task.title}</h2>
                           {statusBadge(task.status)}
                           <Badge variant="outline" className="text-xs">{task.kind}</Badge>
                         </div>
-                        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {task.actionType} · {task.scheduleType}
                           {task.recurrenceCron ? ` (${task.recurrenceCron})` : ''} · next run {formatDateTime(task.nextRunAtUtc)} · runs {task.runCount}
                           {task.maxRuns != null ? `/${task.maxRuns}` : ''}
@@ -147,7 +147,7 @@ export function TasksPage() {
                         {task.status === 'Scheduled' && (
                           <Button
                             variant="secondary"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.pause)}
                           >
@@ -157,7 +157,7 @@ export function TasksPage() {
                         {task.status === 'Paused' && (
                           <Button
                             variant="secondary"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.resume)}
                           >
@@ -167,7 +167,7 @@ export function TasksPage() {
                         {!isTerminal && (
                           <Button
                             variant="destructive"
-                            className="rounded-sm"
+                           
                             disabled={isBusy}
                             onClick={() => void runAction(task.id, taskService.cancel)}
                           >
@@ -178,11 +178,11 @@ export function TasksPage() {
                     </div>
 
                     {task.description && (
-                      <p className="text-sm text-[var(--color-text-secondary)]">{task.description}</p>
+                      <p className="text-sm text-muted-foreground">{task.description}</p>
                     )}
 
                     {task.lastError && (
-                      <p className="mt-2 text-xs text-red-600 dark:text-red-400">Last error: {task.lastError}</p>
+                      <p className="mt-2 text-xs text-destructive">Last error: {task.lastError}</p>
                     )}
 
                     <div className="mt-2 flex flex-wrap gap-2">

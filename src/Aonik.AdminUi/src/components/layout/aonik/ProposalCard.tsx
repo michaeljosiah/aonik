@@ -1,16 +1,13 @@
-// ProposalCard — the signature "agents propose, systems apply" primitive.
-// 1:1 port of templates/aonik-admin-starterkit/kit/shell-aonik.jsx ProposalCard:
-//   • coral 3px left border on a surface card
-//   • agent avatar (brand-primary tint) + "{agent} Agent" + confidence (mono)
-//   • optional summary paragraph
-//   • optional diff block (mono, surface-inset bg, color-coded add/rm/ctx)
-//   • optional reasoning paragraph
-//   • Apply (coral) / Review (outline) / Dismiss (ghost) actions
-//
-// Used inside the agent rail and inline on data tables to surface agent
-// proposals before a human applies them.
+// ProposalCard: the signature "agents propose, systems apply" primitive.
+// A Card with the coral agent rule on the left, the agent's name and
+// confidence, an optional diff and reasoning, and Apply (agent) / Review
+// (outline) / Dismiss (ghost). Used in the agent rail and inline on pages to
+// surface proposals before a human applies them.
 
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 export type ProposalDiffLine = {
   type: 'add' | 'rm' | 'ctx';
@@ -19,13 +16,13 @@ export type ProposalDiffLine = {
 
 export interface ProposalCardProps {
   agent: string;
-  /** 0..1 confidence — rendered as `conf · 0.94`. */
+  /** 0..1 confidence. */
   confidence: number;
   summary?: string;
   diff?: ProposalDiffLine[];
   reason?: string;
   compact?: boolean;
-  /** When provided, shows the Apply CTA. */
+  /** When provided, shows the Apply action. */
   onApply?: () => void;
   /** When provided, shows the Review action. */
   onReview?: () => void;
@@ -44,10 +41,10 @@ function agentInitials(agent: string): string {
     .toUpperCase();
 }
 
-const diffLineColor: Record<ProposalDiffLine['type'], string> = {
-  add: 'var(--color-success)',
-  rm: 'var(--color-error)',
-  ctx: 'var(--color-text-secondary)',
+const diffLineClass: Record<ProposalDiffLine['type'], string> = {
+  add: 'text-success-foreground',
+  rm: 'text-destructive',
+  ctx: 'text-muted-foreground',
 };
 
 const diffLinePrefix: Record<ProposalDiffLine['type'], string> = {
@@ -71,41 +68,29 @@ export function ProposalCard({
   const showActions = !!(onApply || onReview || onDismiss);
 
   return (
-    <div
+    <Card
       className={cn(
-        'flex flex-col gap-2.5 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]',
-        compact ? 'px-3.5 py-3' : 'px-4 py-3.5',
+        'flex flex-col gap-3 border-l-[3px] border-l-agent',
+        compact ? 'p-3.5' : 'p-4',
         className,
       )}
-      style={{ borderLeft: '3px solid var(--color-brand-secondary)' }}
     >
       <div className="flex items-center gap-2">
-        <span
-          className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[10px] font-bold"
-          style={{
-            background: 'var(--color-brand-primary-10)',
-            color: 'var(--color-brand-primary)',
-            fontFamily: 'var(--font-brand)',
-          }}
-        >
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-semibold text-primary">
           {agentInitials(agent)}
         </span>
-        <span className="text-[12px] font-semibold text-[var(--color-text-primary)]">
-          {agent} Agent
-        </span>
-        <span className="ml-auto font-mono text-[10px] text-[var(--color-text-secondary)]">
-          conf · {confidence.toFixed(2)}
-        </span>
+        <span className="text-sm font-medium">{agent} agent</span>
+        <Badge variant="outline" className="ml-auto font-mono tabular-nums" title="Agent confidence">
+          {Math.round(confidence * 100)}% confident
+        </Badge>
       </div>
 
-      {summary && (
-        <div className="text-[13px] leading-[1.5] text-[var(--color-text-primary)]">{summary}</div>
-      )}
+      {summary && <p className="text-sm leading-relaxed">{summary}</p>}
 
       {diff && diff.length > 0 && (
-        <div className="rounded-md bg-[var(--color-surface-inset)] px-2.5 py-2 font-mono text-[11px] leading-[1.6]">
+        <div className="rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed">
           {diff.map((line, i) => (
-            <div key={i} style={{ color: diffLineColor[line.type] }}>
+            <div key={i} className={cn('whitespace-pre-wrap', diffLineClass[line.type])}>
               {diffLinePrefix[line.type]}
               {line.text}
             </div>
@@ -113,43 +98,27 @@ export function ProposalCard({
         </div>
       )}
 
-      {reason && (
-        <div className="text-[11px] italic leading-[1.5] text-[var(--color-text-secondary)]">
-          {reason}
-        </div>
-      )}
+      {reason && <p className="text-xs leading-relaxed text-muted-foreground">{reason}</p>}
 
       {showActions && (
-        <div className="mt-0.5 flex gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {onApply && (
-            <button
-              type="button"
-              onClick={onApply}
-              className="inline-flex h-[30px] items-center justify-center rounded-md bg-[var(--color-brand-secondary)] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[var(--color-brand-secondary-dark)]"
-            >
+            <Button variant="agent" size="sm" onClick={onApply}>
               Apply
-            </button>
+            </Button>
           )}
           {onReview && (
-            <button
-              type="button"
-              onClick={onReview}
-              className="inline-flex h-[30px] items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-inset)]"
-            >
+            <Button variant="outline" size="sm" onClick={onReview}>
               Review
-            </button>
+            </Button>
           )}
           {onDismiss && (
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="inline-flex h-[30px] items-center justify-center rounded-md bg-transparent px-3 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-inset)]"
-            >
+            <Button variant="ghost" size="sm" onClick={onDismiss}>
               Dismiss
-            </button>
+            </Button>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

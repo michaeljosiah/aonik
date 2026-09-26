@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 import {
   Dialog,
@@ -8,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,7 +110,7 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Add Partner</DialogTitle>
+          <DialogTitle>Add partner</DialogTitle>
           <DialogDescription>
             Register a bill pay partner so operators can map billers and corridors.
           </DialogDescription>
@@ -149,7 +151,7 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
               onChange={(event) => setCapabilities(event.target.value)}
               placeholder="BillPay, Collections"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Enter comma-separated values used by routing and operations teams.
             </p>
           </div>
@@ -166,9 +168,10 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
           </div>
 
           {error && (
-            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

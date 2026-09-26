@@ -25,7 +25,23 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/layout/aonik';
 import { cn } from '@/lib/utils';
 import { agentConfigService, aiModelService } from '@/services/aiService';
@@ -79,6 +95,7 @@ export function AgentEditPanel({
 
   const [models, setModels] = useState<AiModelResponse[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     void aiModelService.list().then(setModels).catch(() => setModels([]));
@@ -114,14 +131,15 @@ export function AgentEditPanel({
     }
   };
 
-  const handleDelete = async () => {
+  const requestDelete = () => {
     if (!agent.isOverride) {
       toast.info('Only tenant overrides can be deleted.');
       return;
     }
-    if (!window.confirm(`Delete the override for "${agent.name}"? This restores the system default.`)) {
-      return;
-    }
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
     try {
       await agentConfigService.delete(agent.name);
       toast.success('Override removed');
@@ -137,46 +155,39 @@ export function AgentEditPanel({
   };
 
   return (
-    <>
-      {/* Scrim */}
-      <div
-        onClick={onClose}
-        className="absolute inset-0 z-40 bg-[rgba(20,25,30,0.28)]"
-      />
-
-      {/* Panel */}
-      <div
-        className="absolute inset-y-0 right-0 z-50 flex w-[540px] max-w-full flex-col border-l border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[-12px_0_32px_-8px_rgb(0_0_0/_0.18)]"
-      >
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent size="md" className="bg-card" aria-describedby={undefined}>
         {/* Header */}
-        <div className="flex flex-none items-center gap-3.5 border-b border-[var(--color-border-light)] px-5 py-4">
+        <div className="flex flex-none items-center gap-3.5 border-b border-border px-5 py-4">
           <AgentPortrait name={name} color={color} glyph={glyph} size={52} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-[var(--color-text-primary)]">{name}</span>
-              <Pill tone="info" size="sm">
+              <SheetTitle className="text-[15px]">{name}</SheetTitle>
+              <Pill tone="info">
                 {deriveKindLabel(agent.agentType)}
               </Pill>
             </div>
             <div className="mt-1 flex items-center gap-2.5">
               <StateDot state={state} />
-              <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                 · {agent.id.slice(0, 8)}
               </span>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+            className="text-muted-foreground"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-none items-center gap-1 border-b border-[var(--color-border-light)] px-5">
+        <div className="flex flex-none items-center gap-1 border-b border-border px-5">
           {TABS.map((t) => {
             const active = t === tab;
             return (
@@ -187,8 +198,8 @@ export function AgentEditPanel({
                 className={cn(
                   '-mb-px border-b-2 px-3 py-2.5 text-[12px] transition-colors',
                   active
-                    ? 'border-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)]'
-                    : 'border-transparent font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                    ? 'border-primary font-semibold text-foreground'
+                    : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t}
@@ -230,14 +241,14 @@ export function AgentEditPanel({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-none items-center justify-between border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-3">
+        <div className="flex flex-none items-center justify-between border-t border-border bg-muted px-5 py-3">
           {agent.isOverride ? (
-            <Button variant="ghost" size="sm" onClick={handleDelete}>
+            <Button variant="ghost" size="sm" onClick={requestDelete}>
               <Trash2 className="h-3 w-3" />
-              <span className="text-[var(--color-error)]">Remove override</span>
+              <span className="text-destructive">Remove override</span>
             </Button>
           ) : (
-            <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
               {countTools(JSON.stringify(toolNames))} tools · {agent.requiresUserBrief ? 'user-brief on' : 'no brief'}
             </span>
           )}
@@ -251,8 +262,25 @@ export function AgentEditPanel({
             </Button>
           </div>
         </div>
-      </div>
-    </>
+
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove override?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Delete the override for "{agent.name}"? This restores the system default.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -280,13 +308,13 @@ function IdentityTab({
       {/* Profile editor */}
       <div>
         <FieldLabel hint="Generated · keyed on agent name">Profile image</FieldLabel>
-        <div className="flex items-center gap-3.5 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3.5">
+        <div className="flex items-center gap-3.5 rounded-lg border border-border bg-muted p-3.5">
           <AgentPortrait name={name} color={color} glyph={glyph} size={72} />
           <div className="flex flex-1 flex-col gap-1">
-            <span className="text-[12px] font-medium text-[var(--color-text-primary)]">
-              Style · <span className="capitalize text-[var(--color-brand-primary)]">{glyph}</span>
+            <span className="text-[12px] font-medium text-foreground">
+              Style · <span className="capitalize text-primary">{glyph}</span>
             </span>
-            <span className="text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
+            <span className="text-[11px] leading-relaxed text-muted-foreground">
               Each agent gets a deterministic glyph portrait. Pick a glyph and hue from below, or upload a
               custom mark (coming soon).
             </span>
@@ -314,8 +342,8 @@ function IdentityTab({
               className={cn(
                 'rounded-md p-0.5 transition-colors',
                 g === glyph
-                  ? 'border-[1.5px] border-[var(--color-brand-primary)]'
-                  : 'border-[1.5px] border-transparent hover:border-[var(--color-border)]',
+                  ? 'border-[1.5px] border-primary'
+                  : 'border-[1.5px] border-transparent hover:border-border',
               )}
             >
               <AgentPortrait name={name} color={color} glyph={g} size={42} ring={false} />
@@ -325,7 +353,7 @@ function IdentityTab({
 
         {/* Hue swatches */}
         <div className="mt-3 flex items-center gap-2">
-          <span className="mr-1 text-[11.5px] text-[var(--color-text-secondary)]">Hue</span>
+          <span className="mr-1 text-[11.5px] text-muted-foreground">Hue</span>
           {AGENT_PALETTE.map((c) => (
             <button
               key={c}
@@ -337,12 +365,12 @@ function IdentityTab({
                 width: 22,
                 height: 22,
                 background: c,
-                boxShadow: c === color ? '0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-brand-primary)' : 'none',
+                boxShadow: c === color ? '0 0 0 2px var(--card), 0 0 0 4px var(--primary)' : 'none',
               }}
             />
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
+        <p className="mt-2 text-[11px] text-muted-foreground">
           Note: glyph and hue aren't persisted yet — they're derived from the agent name. A future schema
           change will store them server-side.
         </p>
@@ -427,20 +455,20 @@ function PromptTab({
         <FieldLabel required hint={`${instructionsText.length} chars`}>
           System prompt
         </FieldLabel>
-        <div className="rounded-md border border-[var(--color-border)] border-b-2 border-b-[var(--color-border)] bg-[var(--color-surface)] p-3 transition-colors focus-within:border-b-[var(--color-brand-primary)] focus-within:shadow-[var(--shadow-focus)]">
+        <div className="rounded-md border border-border border-b-2 border-b-border bg-card p-3 transition-colors focus-within:border-b-primary focus-within:shadow-[var(--shadow-focus)]">
           <textarea
             rows={11}
             value={instructionsText}
             onChange={(e) => setInstructionsText(e.target.value)}
             spellCheck={false}
-            className="w-full resize-y border-none bg-transparent p-0 font-[family-name:var(--font-mono)] text-[12px] leading-[1.55] text-[var(--color-text-primary)] outline-none"
+            className="w-full resize-y border-none bg-transparent p-0 font-[family-name:var(--font-mono)] text-[12px] leading-[1.55] text-foreground outline-none"
           />
         </div>
       </div>
 
-      <div className="flex items-start gap-2.5 rounded-md bg-[var(--color-brand-primary-10)] p-3">
-        <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-none text-[var(--color-brand-primary)]" />
-        <div className="flex-1 text-[12px] leading-relaxed text-[var(--color-text-primary)]">
+      <div className="flex items-start gap-2.5 rounded-md bg-primary/10 p-3">
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-none text-primary" />
+        <div className="flex-1 text-[12px] leading-relaxed text-foreground">
           Test in <b>Playground</b> before saving — agents propose, but humans approve every change.
         </div>
         <Button variant="outline" size="sm">
@@ -480,7 +508,7 @@ function ToolsTab({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] text-[var(--color-text-secondary)]">
+        <span className="text-[12px] text-muted-foreground">
           {toolNames.length} tool{toolNames.length === 1 ? '' : 's'} enabled
         </span>
         <Button variant="outline" size="sm" onClick={handleAdd} disabled={!draft.trim()}>
@@ -491,29 +519,29 @@ function ToolsTab({
 
       <div className="flex flex-col gap-1.5">
         {toolNames.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] bg-[var(--color-surface-inset)] px-4 py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">
+          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-6 text-center text-[12px] text-muted-foreground">
             No tools enabled yet. Add a tool id below.
           </div>
         )}
         {toolNames.map((name) => (
           <div
             key={name}
-            className="grid items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2.5"
+            className="grid items-center gap-3 rounded-lg border border-border bg-muted px-3 py-2.5"
             style={{ gridTemplateColumns: '8px 1fr auto' }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: toolCategoryColor(name) }} />
             <div className="min-w-0">
-              <div className="truncate font-[family-name:var(--font-mono)] text-[12px] font-semibold text-[var(--color-text-primary)]">
+              <div className="truncate font-[family-name:var(--font-mono)] text-[12px] font-semibold text-foreground">
                 {name}
               </div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
                 {toolDescription(name)}
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleRemove(name)}
-              className="grid h-6 w-6 place-items-center rounded-md text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-error)]"
+              className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-card hover:text-destructive"
               aria-label={`Disable ${name}`}
             >
               <X className="h-3 w-3" />
@@ -522,15 +550,15 @@ function ToolsTab({
         ))}
       </div>
 
-      <div className="flex items-end gap-2 border-t border-[var(--color-border-light)] pt-3">
-        <label className="flex-1 text-[12px] text-[var(--color-text-secondary)]">
+      <div className="flex items-end gap-2 border-t border-border pt-3">
+        <label className="flex-1 text-[12px] text-muted-foreground">
           Add tool id
-          <input
+          <Input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="e.g. search_invoices"
-            className="aonik-input mt-1.5 font-[family-name:var(--font-mono)] text-[13px]"
+            className="mt-1.5 font-[family-name:var(--font-mono)] text-[13px]"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -546,9 +574,9 @@ function ToolsTab({
 
 function toolCategoryColor(name: string): string {
   const lower = name.toLowerCase();
-  if (lower.includes('create') || lower.includes('issue') || lower.includes('cancel') || lower.includes('capture') || lower.includes('apply') || lower.includes('send')) return 'var(--color-brand-secondary)';
-  if (lower.includes('display') || lower.includes('confirm') || lower.includes('render')) return 'var(--color-violet)';
-  return 'var(--color-brand-primary)';
+  if (lower.includes('create') || lower.includes('issue') || lower.includes('cancel') || lower.includes('capture') || lower.includes('apply') || lower.includes('send')) return 'var(--warning)';
+  if (lower.includes('display') || lower.includes('confirm') || lower.includes('render')) return 'var(--chart-4)';
+  return 'var(--primary)';
 }
 
 function toolDescription(name: string): string {
@@ -563,13 +591,13 @@ function toolDescription(name: string): string {
 function PoliciesTab() {
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3.5 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3.5">
+      <div className="flex flex-col gap-3.5 rounded-lg border border-border bg-muted p-3.5">
         <ToggleField
           label="Auto-apply when confidence ≥ threshold"
           description="Skip the proposal step only for low-risk operations below the amount ceiling."
           on={false}
         />
-        <div className="border-t border-[var(--color-border-light)]" />
+        <div className="border-t border-border" />
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Confidence threshold" mono value="0.95" disabled helper="0–1" />
           <TextField label="Amount ceiling" mono value="£50,000" disabled helper="Requires approval above this." />
@@ -586,15 +614,15 @@ function PoliciesTab() {
           ].map((policy) => (
             <div
               key={policy.title}
-              className="grid items-center gap-2.5 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2.5"
+              className="grid items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5"
               style={{ gridTemplateColumns: '14px 1fr auto' }}
             >
-              <ShieldCheck className="h-3 w-3 text-[var(--color-text-secondary)]" />
+              <ShieldCheck className="h-3 w-3 text-muted-foreground" />
               <div>
-                <div className="text-[12px] font-medium text-[var(--color-text-primary)]">{policy.title}</div>
-                <div className="mt-px text-[11px] text-[var(--color-text-secondary)]">{policy.description}</div>
+                <div className="text-[12px] font-medium text-foreground">{policy.title}</div>
+                <div className="mt-px text-[11px] text-muted-foreground">{policy.description}</div>
               </div>
-              <Pill tone="info" size="sm">enforced</Pill>
+              <Pill tone="info">enforced</Pill>
             </div>
           ))}
         </div>
@@ -608,8 +636,8 @@ function ToggleField({ label, description, on }: { label: string; description: s
     <div className="flex items-start gap-3">
       <SwitchToggle on={on} />
       <div>
-        <div className="text-[12.5px] font-medium text-[var(--color-text-primary)]">{label}</div>
-        <div className="mt-0.5 text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">{description}</div>
+        <div className="text-[12.5px] font-medium text-foreground">{label}</div>
+        <div className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{description}</div>
       </div>
     </div>
   );
@@ -619,10 +647,10 @@ function SwitchToggle({ on }: { on: boolean }) {
   return (
     <span
       className="inline-flex h-4 w-7 flex-none items-center rounded-full p-0.5"
-      style={{ background: on ? 'var(--color-brand-primary)' : 'var(--color-gray-300)' }}
+      style={{ background: on ? 'var(--primary)' : 'var(--border)' }}
     >
       <span
-        className="h-3 w-3 rounded-full bg-white transition-transform"
+        className="h-3 w-3 rounded-full bg-background transition-transform"
         style={{ transform: on ? 'translateX(12px)' : 'translateX(0)' }}
       />
     </span>
@@ -650,7 +678,7 @@ function TriggersTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-[var(--color-text-secondary)]">
+        <span className="text-[12px] text-muted-foreground">
           {triggers.filter((t) => t.enabled).length} of {triggers.length} active
         </span>
         <div className="flex-1" />
@@ -689,30 +717,30 @@ function TriggerListRow({ trigger }: { trigger: TriggerRow }) {
   const Icon = icon;
   return (
     <div
-      className="grid items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3"
+      className="grid items-center gap-3 rounded-lg border border-border bg-muted p-3"
       style={{ gridTemplateColumns: '34px 1fr auto auto', opacity: trigger.enabled ? 1 : 0.55 }}
     >
-      <div className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]">
+      <div className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-primary/10 text-primary">
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-[12.5px] font-medium text-[var(--color-text-primary)]">{trigger.label}</span>
-          <span className="rounded bg-[var(--color-surface)] px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+          <span className="text-[12.5px] font-medium text-foreground">{trigger.label}</span>
+          <Badge variant="outline" className="bg-card px-1.5 py-px text-[10px] text-muted-foreground">
             {trigger.kind}
-          </span>
+          </Badge>
         </div>
-        <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+        <div className="mt-0.5 truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           {trigger.source}
         </div>
-        <div className="mt-0.5 text-[10.5px] text-[var(--color-text-tertiary)]">
-          → runs <span className="font-[family-name:var(--font-mono)] text-[var(--color-brand-primary)]">{trigger.workflow}</span>
+        <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+          → runs <span className="font-[family-name:var(--font-mono)] text-primary">{trigger.workflow}</span>
         </div>
       </div>
-      <Pill tone={trigger.enabled ? 'success' : 'muted'} dot={trigger.enabled} size="sm">
+      <Pill tone={trigger.enabled ? 'success' : 'muted'} dot={trigger.enabled}>
         {trigger.enabled ? 'on' : 'off'}
       </Pill>
-      <MoreHorizontal className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+      <MoreHorizontal className="h-3 w-3 text-muted-foreground" />
     </div>
   );
 }
@@ -734,20 +762,22 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-[60] bg-[rgba(20,25,30,0.4)]" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-[61] flex w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[14px] bg-[var(--color-surface)] shadow-[0_24px_60px_-8px_rgba(0,0,0,0.32)]">
-        <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-4">
-          <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-w-[720px] flex-col gap-0 overflow-hidden bg-card p-0 sm:max-w-[720px]"
+      >
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
             <Zap className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <div className="text-[15px] font-semibold text-[var(--color-text-primary)]">Add trigger</div>
-            <div className="mt-0.5 text-[11.5px] text-[var(--color-text-secondary)]">Define when this agent should run.</div>
+            <DialogTitle className="text-[15px] leading-normal">Add trigger</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[11.5px]">Define when this agent should run.</DialogDescription>
           </div>
-          <button type="button" className="hover-halo" onClick={onClose} aria-label="Close">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-2.5 p-5">
           {options.map((option) => {
@@ -758,28 +788,30 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
                 key={option.kind}
                 type="button"
                 onClick={() => setKind(option.kind)}
-                className="flex items-start gap-3 rounded-[10px] border p-3.5 text-left"
-                style={{
-                  background: active ? 'var(--color-brand-primary-10)' : 'var(--color-surface-inset)',
-                  borderColor: active ? 'var(--color-brand-primary)' : 'var(--color-border-light)',
-                }}
+                aria-pressed={active}
+                className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3.5 text-left',
+                  active ? 'border-primary bg-primary/10' : 'border-border bg-muted',
+                )}
               >
                 <div
-                  className="grid h-9 w-9 place-items-center rounded-lg"
-                  style={{ background: active ? 'var(--color-brand-primary)' : 'var(--color-surface)', color: active ? '#fff' : 'var(--color-brand-primary)' }}
+                  className={cn(
+                    'grid h-9 w-9 place-items-center rounded-lg',
+                    active ? 'bg-primary text-primary-foreground' : 'bg-card text-primary',
+                  )}
                 >
                   <OptionIcon className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">{option.label}</div>
-                  <div className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">{option.description}</div>
+                  <div className="text-[13px] font-semibold text-foreground">{option.label}</div>
+                  <div className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{option.description}</div>
                 </div>
               </button>
             );
           })}
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-3">
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+        <div className="flex items-center justify-between border-t border-border bg-muted px-5 py-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Info className="h-3 w-3" />
             Triggers can be enabled or paused after saving.
           </div>
@@ -791,8 +823,8 @@ function AddTriggerDialog({ onClose, onSave }: { onClose: () => void; onSave: (t
             </Button>
           </div>
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -809,12 +841,12 @@ function FieldLabel({
 }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <span className="text-xs font-medium text-muted-foreground">
         {children}
-        {required && <span className="ml-0.5 text-[var(--color-error)]">*</span>}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
       </span>
       {hint && (
-        <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
           {hint}
         </span>
       )}
@@ -840,20 +872,19 @@ function TextField({
   helper?: string;
 }) {
   return (
-    <label className="block text-[12px] text-[var(--color-text-secondary)]">
+    <label className="block text-[12px] text-muted-foreground">
       <FieldLabel required={required}>{label}</FieldLabel>
-      <input
+      <Input
         type="text"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange?.(e.target.value)}
         className={cn(
-          'aonik-input',
           mono && 'font-[family-name:var(--font-mono)]',
           'text-[13px]',
         )}
       />
-      {helper && <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{helper}</p>}
+      {helper && <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>}
     </label>
   );
 }
@@ -872,15 +903,15 @@ function TextArea({
   helper?: string;
 }) {
   return (
-    <label className="block text-[12px] text-[var(--color-text-secondary)]">
+    <label className="block text-[12px] text-muted-foreground">
       <FieldLabel>{label}</FieldLabel>
-      <textarea
+      <Textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="aonik-input min-h-[80px] py-2.5 text-[13px]"
+        className="min-h-[80px] py-2.5 text-[13px]"
       />
-      {helper && <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{helper}</p>}
+      {helper && <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>}
     </label>
   );
 }
@@ -901,21 +932,21 @@ function SelectField({
   hint?: string;
 }) {
   return (
-    <label className="block text-[12px] text-[var(--color-text-secondary)]">
+    <label className="block text-[12px] text-muted-foreground">
       <FieldLabel required={required} hint={hint}>
         {label}
       </FieldLabel>
-      <select
+      <NativeSelect
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="aonik-select text-[13px]"
+        className="text-[13px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </NativeSelect>
     </label>
   );
 }

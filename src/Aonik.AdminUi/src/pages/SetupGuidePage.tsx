@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ExternalLink, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest, getSetupGuideMarkdown } from '@/services/setupGuideService';
@@ -14,6 +16,21 @@ interface GuideState {
   markdown: string;
   loading: boolean;
   error: string | null;
+}
+
+// Categorical tint for a guide without a cover image, keyed by its order so a
+// guide keeps the same colour on every setup page.
+const guideAccents = [
+  'from-(--chart-1)/20 to-(--chart-1)/5',
+  'from-(--chart-2)/20 to-(--chart-2)/5',
+  'from-(--chart-3)/20 to-(--chart-3)/5',
+  'from-(--chart-4)/20 to-(--chart-4)/5',
+  'from-(--chart-5)/20 to-(--chart-5)/5',
+];
+
+function guideAccentClass(guide: SetupGuideDefinition) {
+  const n = guideAccents.length;
+  return guideAccents[((Math.trunc(guide.order) % n) + n) % n];
 }
 
 const initialState: GuideState = {
@@ -73,32 +90,32 @@ export function SetupGuidePage() {
 
   const markdownComponents: Components = useMemo(() => ({
     h1: (props) => (
-      <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] mt-8 first:mt-0">
+      <h1 className="text-2xl font-semibold text-foreground mt-8 first:mt-0">
         {props.children}
       </h1>
     ),
     h2: (props) => (
-      <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mt-6">
+      <h2 className="text-xl font-semibold text-foreground mt-6">
         {props.children}
       </h2>
     ),
     h3: (props) => (
-      <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mt-5">
+      <h3 className="text-lg font-semibold text-foreground mt-5">
         {props.children}
       </h3>
     ),
     p: (props) => (
-      <p className="text-sm leading-relaxed text-[var(--color-text-secondary)] mt-3">
+      <p className="text-sm leading-relaxed text-muted-foreground mt-3">
         {props.children}
       </p>
     ),
     ul: (props) => (
-      <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)] list-disc pl-5">
+      <ul className="mt-3 space-y-2 text-sm text-muted-foreground list-disc pl-5">
         {props.children}
       </ul>
     ),
     ol: (props) => (
-      <ol className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)] list-decimal pl-5">
+      <ol className="mt-3 space-y-2 text-sm text-muted-foreground list-decimal pl-5">
         {props.children}
       </ol>
     ),
@@ -107,7 +124,7 @@ export function SetupGuidePage() {
       <a
         {...props}
         href={resolveAssetUrl(props.href)}
-        className="text-[var(--color-brand-primary)] underline underline-offset-4"
+        className="text-primary underline underline-offset-4"
         target={props.href?.startsWith('http') ? '_blank' : undefined}
         rel={props.href?.startsWith('http') ? 'noreferrer' : undefined}
       >
@@ -119,21 +136,21 @@ export function SetupGuidePage() {
         {...props}
         src={resolveAssetUrl(props.src)}
         alt={props.alt ?? ''}
-        className="mt-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+        className="mt-4 rounded-xl border border-border bg-card"
       />
     ),
     blockquote: (props) => (
-      <blockquote className="mt-4 border-l-4 border-[var(--color-border)] pl-4 text-sm text-[var(--color-text-secondary)]">
+      <blockquote className="mt-4 border-l-4 border-border pl-4 text-sm text-muted-foreground">
         {props.children}
       </blockquote>
     ),
     code: (props) => (
-      <code className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 text-xs text-[var(--color-text-primary)]">
+      <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
         {props.children}
       </code>
     ),
     pre: (props) => (
-      <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-xs text-[var(--color-text-primary)]">
+      <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-muted p-4 text-xs text-foreground">
         {props.children}
       </pre>
     ),
@@ -159,7 +176,7 @@ export function SetupGuidePage() {
   }, [state.manifest]);
 
   const guideCover = state.guide?.cover;
-  const guideAccent = state.guide?.accent ?? 'from-slate-200/70 to-slate-100';
+  const guideAccent = state.guide ? `bg-gradient-to-br ${guideAccentClass(state.guide)}` : '';
   const guideCoverUrl = guideCover
     ? guideCover.startsWith('http') || guideCover.startsWith('/')
       ? guideCover
@@ -171,12 +188,12 @@ export function SetupGuidePage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
+    <div className="flex-1 overflow-auto bg-muted">
       <div className="mx-auto w-full max-w-[1240px] px-8 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Guide</p>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{guideTitle}</h1>
+            <p className="text-sm font-medium text-muted-foreground">Guide</p>
+            <h1 className="text-2xl font-semibold text-foreground">{guideTitle}</h1>
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate('/setup-guides')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -186,22 +203,20 @@ export function SetupGuidePage() {
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
               <div
-                className={guideCoverUrl ? 'h-64 bg-cover bg-center' : `h-64 bg-gradient-to-br ${guideAccent}`}
+                className={guideCoverUrl ? 'h-64 bg-cover bg-center' : `h-64 bg-muted ${guideAccent}`}
                 style={guideCoverUrl ? { backgroundImage: `url(${guideCoverUrl})` } : undefined}
               />
-              <div className="px-6 py-5 border-b border-[var(--color-border-light)]">
+              <div className="px-6 py-5 border-b border-border">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-text-tertiary)]">
-                      <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-1 font-semibold uppercase tracking-[0.2em]">
-                        {state.guide?.category ?? 'Guide'}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <Badge variant="secondary">{state.guide?.category ?? 'Guide'}</Badge>
                       <span>{state.guide?.title ? '5 mins read' : 'Guide'}</span>
                     </div>
                     {guideDescription && (
-                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-[42rem]">{guideDescription}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed max-w-[42rem]">{guideDescription}</p>
                     )}
                   </div>
                   {slug && (
@@ -209,7 +224,7 @@ export function SetupGuidePage() {
                       href={`/content/setup-guides/${slug}/index.md`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center text-xs font-semibold text-[var(--color-brand-primary)] hover:underline"
+                      className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
                     >
                       View raw markdown
                       <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
@@ -219,12 +234,12 @@ export function SetupGuidePage() {
               </div>
               <div className="px-6 py-6">
                 {state.loading ? (
-                  <div className="flex items-center gap-3 text-sm text-[var(--color-text-secondary)]">
-                    <div className="h-5 w-5 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <Spinner className="size-5 text-primary" />
                     Loading guide...
                   </div>
                 ) : state.error ? (
-                  <p className="text-sm text-[var(--color-error)]">{state.error}</p>
+                  <p className="text-sm text-destructive">{state.error}</p>
                 ) : (
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                     {state.markdown}
@@ -235,28 +250,28 @@ export function SetupGuidePage() {
           </div>
 
           <aside className="space-y-6">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Search guides</p>
-              <div className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-sm text-[var(--color-text-tertiary)]">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <p className="text-sm font-semibold text-foreground">Search guides</p>
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <Search className="h-4 w-4" />
                 <span>Search</span>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Categories</p>
-              <div className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <p className="text-sm font-semibold text-foreground">Categories</p>
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 {categoryCounts.map((category) => (
                   <div key={category.name} className="flex items-center justify-between">
                     <span>{category.name}</span>
-                    <span className="text-[var(--color-text-tertiary)]">{category.count}</span>
+                    <span className="text-muted-foreground">{category.count}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Recent guides</p>
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <p className="text-sm font-semibold text-foreground">Recent guides</p>
               <div className="mt-4 space-y-3">
                 {recentGuides.map((guide) => (
                   <button
@@ -269,7 +284,7 @@ export function SetupGuidePage() {
                       className={
                         guide.cover
                           ? 'h-12 w-12 rounded-lg bg-cover bg-center'
-                          : `h-12 w-12 rounded-lg bg-gradient-to-br ${guide.accent ?? 'from-slate-200/70 to-slate-100'}`
+                          : `h-12 w-12 rounded-lg bg-muted bg-gradient-to-br ${guideAccentClass(guide)}`
                       }
                       style={
                         guide.cover
@@ -282,8 +297,8 @@ export function SetupGuidePage() {
                       }
                     />
                     <div>
-                      <p className="text-xs font-semibold text-[var(--color-text-primary)] leading-snug">{guide.title}</p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">{guide.category}</p>
+                      <p className="text-xs font-semibold text-foreground leading-snug">{guide.title}</p>
+                      <p className="text-xs text-muted-foreground">{guide.category}</p>
                     </div>
                   </button>
                 ))}

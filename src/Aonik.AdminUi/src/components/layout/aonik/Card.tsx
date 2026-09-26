@@ -1,53 +1,52 @@
-// Card — generic surface primitive matching the template's `Card` from
-// templates/aonik-admin-starterkit/kit/components.jsx. Twelve-pixel radius,
-// 1px light border, optional header row with title + subtitle + action slot,
-// configurable padding. Used across MySpace and other dashboard screens.
-
 import type { ReactNode, CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  Card as UiCard,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 export interface CardProps {
   title?: ReactNode;
   subtitle?: ReactNode;
   action?: ReactNode;
-  /** Padding in px, applied to header and body. Default 20. */
+  /** Body padding in px. Omit for the standard card padding (24px). */
   padding?: number;
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
 }
 
-export function Card({ title, subtitle, action, padding = 20, className, style, children }: CardProps) {
+/**
+ * Props-driven convenience over ui/card (Spec 098 D7): title, subtitle and
+ * action map onto CardHeader / CardTitle / CardDescription / CardAction.
+ * New code can compose the ui/card parts directly.
+ */
+export function Card({ title, subtitle, action, padding, className, style, children }: CardProps) {
   const showHeader = title != null || action != null;
+  const custom = padding !== undefined;
+
   return (
-    <div
-      className={cn(
-        'rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]',
-        className,
-      )}
-      style={style}
-    >
+    <UiCard className={className} style={style}>
       {showHeader && (
-        <div
-          className="flex items-start justify-between gap-4"
-          style={{ padding: `${padding}px ${padding}px 0` }}
+        <CardHeader
+          className={cn(custom && 'gap-1 pb-0')}
+          style={custom ? { padding: `${Math.max(padding, 12)}px ${Math.max(padding, 12)}px 0` } : undefined}
         >
-          <div className="min-w-0">
-            {title != null && (
-              <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">
-                {title}
-              </div>
-            )}
-            {subtitle != null && (
-              <div className="mt-0.5 text-[12px] text-[var(--color-text-secondary)]">
-                {subtitle}
-              </div>
-            )}
-          </div>
-          {action != null && <div className="shrink-0">{action}</div>}
-        </div>
+          {title != null && <CardTitle className="text-sm">{title}</CardTitle>}
+          {subtitle != null && <CardDescription className="text-xs">{subtitle}</CardDescription>}
+          {action != null && <CardAction>{action}</CardAction>}
+        </CardHeader>
       )}
-      <div style={{ padding }}>{children}</div>
-    </div>
+      <CardContent
+        className={cn(!showHeader && !custom && 'pt-6', showHeader && !custom && 'pt-4')}
+        style={custom ? { padding } : undefined}
+      >
+        {children}
+      </CardContent>
+    </UiCard>
   );
 }

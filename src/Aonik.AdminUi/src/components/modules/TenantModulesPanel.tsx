@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Lock, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -174,7 +175,7 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-6 text-sm text-[var(--color-text-secondary)]">
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
         <RefreshCw className="h-4 w-4 animate-spin" />
         Loading modules
       </div>
@@ -184,10 +185,10 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
   if (error && modules.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="h-4 w-4" />
           Try again
@@ -199,7 +200,7 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-muted-foreground">
           {enabledCount} of {modules.length} modules enabled
           {readOnly ? '. Module state is managed by the host administrator.' : '.'}
         </p>
@@ -210,10 +211,10 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="space-y-2">
@@ -223,12 +224,12 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
           return (
             <div
               key={item.moduleId}
-              className="rounded-md border border-[var(--color-border-light)] px-4 py-3"
+              className="rounded-md border border-border px-4 py-3"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--color-text-primary)]">{item.name}</span>
+                    <span className="text-sm font-medium text-foreground">{item.name}</span>
                     {item.isCore && (
                       <Badge variant="secondary" className="gap-1">
                         <Lock className="h-3 w-3" />
@@ -238,20 +239,20 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
                     <Badge variant={enabled ? 'success' : 'secondary'}>{enabled ? 'Enabled' : 'Disabled'}</Badge>
                     {changed && <Badge variant="warning">Unsaved</Badge>}
                   </div>
-                  <p className="text-xs text-[var(--color-text-secondary)]">{item.description}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
                   {item.dependsOn.length > 0 && (
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <p className="text-xs text-muted-foreground">
                       Needs: {item.dependsOn.map(nameOf).join(', ')}
                     </p>
                   )}
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                  <p className="text-xs text-muted-foreground">
                     {item.isCore
                       ? 'Always enabled and cannot be switched off.'
                       : sourceLabels[item.source] ?? item.source}
                     {!item.isCore && item.updatedAt ? `, last changed ${formatDateTime(item.updatedAt)}` : ''}
                   </p>
                   {!item.isCore && item.reason && (
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Reason: {item.reason}</p>
+                    <p className="text-xs text-muted-foreground">Reason: {item.reason}</p>
                   )}
                 </div>
                 {!readOnly && !item.isCore && (
@@ -272,9 +273,9 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
       </div>
 
       {!readOnly && cascade && (
-        <div className="space-y-3 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-4 py-3">
-          <div className="flex items-start gap-2 text-sm text-[var(--color-text-primary)]">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" />
+        <Alert variant="warning">
+          <AlertTriangle />
+          <AlertDescription className="gap-3">
             <div className="space-y-1">
               {cascade.conflict.code === 'module.dependency_missing' ? (
                 <>
@@ -292,22 +293,22 @@ export function TenantModulesPanel({ tenantId, readOnly }: TenantModulesPanelPro
                 </>
               )}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={resubmitWithCascade} disabled={saving}>
-              {cascade.conflict.code === 'module.dependency_missing'
-                ? `Enable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))} too`
-                : `Also disable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))}`}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCascade(null)} disabled={saving}>
-              Keep as is
-            </Button>
-          </div>
-        </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={resubmitWithCascade} disabled={saving}>
+                {cascade.conflict.code === 'module.dependency_missing'
+                  ? `Enable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))} too`
+                  : `Also disable ${joinNames(cascade.conflict.relatedModuleIds.map(nameOf))}`}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCascade(null)} disabled={saving}>
+                Keep as is
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {!readOnly && pendingToggles.length > 0 && (
-        <div className="space-y-3 border-t border-[var(--color-border-light)] pt-4">
+        <div className="space-y-3 border-t border-border pt-4">
           <div className="space-y-2">
             <Label htmlFor={`module-reason-${tenantId}`}>Reason (optional)</Label>
             <Textarea

@@ -61,7 +61,7 @@ export function ModelSelector({
 
         {Object.entries(grouped).map(([provider, providerModels]) => (
           <SelectGroup key={provider}>
-            <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
               {provider}
             </div>
             {providerModels.map((m) => (
@@ -74,7 +74,7 @@ export function ModelSelector({
                 <span className="flex items-center gap-1.5">
                   {m.modelName}
                   {!m.isActive && (
-                    <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">
+                    <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium text-muted-foreground">
                       inactive
                     </span>
                   )}
@@ -86,7 +86,7 @@ export function ModelSelector({
 
         {/* Toggle for inactive models */}
         {inactiveCount > 0 && (
-          <div className="border-t border-[var(--color-border-light)] px-2 py-1.5">
+          <div className="border-t border-border px-2 py-1.5">
             <button
               type="button"
               onClick={(e) => {
@@ -94,7 +94,7 @@ export function ModelSelector({
                 e.stopPropagation();
                 setShowInactive((prev) => !prev);
               }}
-              className="w-full text-left text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              className="w-full text-left text-[11px] text-muted-foreground hover:text-foreground"
             >
               {showInactive
                 ? 'Hide inactive models'

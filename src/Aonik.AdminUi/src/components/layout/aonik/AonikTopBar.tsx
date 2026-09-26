@@ -1,30 +1,70 @@
-// AonikTopBar — production topbar shell, 1:1 visual port of
-// templates/aonik-admin-starterkit/kit/shell-aonik.jsx (AonikTopBar).
+// AonikTopBar: the app shell's header (Spec 098 §7.5), shadcn style.
 //
-// Preserves the live admin behaviours that the template doesn't model:
-//   - workspace tabs (visible only when on /workspace) with create/rename/close
-//   - notifications panel with unread badge
-//   - fullscreen toggle (with state callback)
-//   - leftSlot for the AI agent selector on /ai/chat
-//   - Ask Aonik button + ⌘/ shortcut → opens the AI chat panel
+//   - left: sidebar toggle, then workspace tabs (on /workspace), a leftSlot
+//     (the agent selector on /ai/chat), or the breadcrumb
+//   - right: search (opens the Ctrl/Cmd+K command palette), Ask Aonik
+//     (Ctrl/Cmd+/), guides, fullscreen, notifications, settings
 
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ChevronRight, HelpCircle, Maximize2, Minimize2, Bell, Settings,
-  Sparkles, Plus, X, Home,
+  BellIcon,
+  CircleHelpIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+  PanelLeftIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+  SparklesIcon,
+  XIcon,
 } from 'lucide-react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationsPanel } from '@/components/layout/NotificationsPanel';
 import { useNotifications } from '@/hooks/useNotifications';
 import { isElectron } from '@/lib/electron';
 import { loadWorkspaceState } from '@/workspace/storage';
-import { cn } from '@/lib/utils';
+
+import { CommandPalette } from './CommandPalette';
+
+const MOD_KEY =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+
+function IconAction({ label, children }: { label: string; children: React.ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 interface WorkspaceTab {
   id: string;
@@ -43,6 +83,7 @@ export type TopBarBreadcrumbItem = string | { label: string; href: string };
 
 interface AonikTopBarProps {
   breadcrumb?: TopBarBreadcrumbItem[];
+  onToggleSidebar?: () => void;
   leftSlot?: React.ReactNode;
   isWorkspace?: boolean;
   onWorkspaceReset?: () => void;
@@ -52,6 +93,7 @@ interface AonikTopBarProps {
 
 export function AonikTopBar({
   breadcrumb = ['My Space'],
+  onToggleSidebar,
   leftSlot,
   isWorkspace,
   onWorkspaceReset,
@@ -69,6 +111,7 @@ export function AonikTopBar({
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const { notifications, unreadCount, loading, markRead, dismiss, markAllRead } = useNotifications();
 
@@ -138,6 +181,18 @@ export function AonikTopBar({
     return () => document.removeEventListener('keydown', handler);
   }, [onAskAonik]);
 
+  // Ctrl/Cmd+K opens the command palette.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
@@ -192,42 +247,47 @@ export function AonikTopBar({
   return (
     <>
       <header
-        className="sticky top-0 z-10 flex h-[56px] shrink-0 items-center justify-between gap-4 border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-5"
+        className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3"
         style={electronDragStyle}
       >
-        {/* Left: workspace tabs OR leftSlot OR breadcrumbs */}
-        <nav
-          className="flex min-w-0 items-center gap-2.5 text-sm"
-          style={electronNoDragStyle}
-        >
+        {onToggleSidebar && (
+          <>
+            <IconAction label={`Toggle sidebar (${MOD_KEY}+B)`}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onToggleSidebar}
+                aria-label="Toggle sidebar"
+                style={electronNoDragStyle}
+              >
+                <PanelLeftIcon />
+              </Button>
+            </IconAction>
+            <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+          </>
+        )}
+
+        <div className="flex min-w-0 items-center gap-2" style={electronNoDragStyle}>
           {isWorkspace ? (
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div
+                role="tablist"
+                aria-label="Workspaces"
+                className="inline-flex h-9 min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg bg-muted p-[3px]"
+              >
                 {workspaceTabs.map((ws) => {
                   const isActive = ws.id === activeWorkspaceId;
                   const isEditing = ws.id === editingWorkspaceId;
                   return (
-                    <button
+                    <div
                       key={ws.id}
-                      type="button"
-                      className={cn(
-                        'flex items-center gap-2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm transition-colors',
-                        isActive
-                          ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
-                          : 'border-[var(--color-border-light)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                      )}
-                      onClick={() => {
-                        if (isEditing) return;
-                        dispatchWorkspaceLoad(ws.id);
-                      }}
-                      onDoubleClick={() => {
-                        setEditingWorkspaceId(ws.id);
-                        setEditingName(ws.name);
-                      }}
+                      data-state={isActive ? 'active' : 'inactive'}
+                      className="flex h-full items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                     >
                       {isEditing ? (
                         <input
                           ref={editingInputRef}
+                          aria-label="Workspace name"
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
                           onBlur={() => handleRenameCommit(ws.id, editingName)}
@@ -235,53 +295,45 @@ export function AonikTopBar({
                             if (e.key === 'Enter') handleRenameCommit(ws.id, editingName);
                             if (e.key === 'Escape') setEditingWorkspaceId(null);
                           }}
-                          className="w-36 border-none bg-transparent text-sm outline-none"
+                          className="h-full w-36 rounded-md bg-transparent px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         />
                       ) : (
-                        <>
-                          <span className="max-w-[12rem] truncate">{ws.name}</span>
-                          {!ws.isDefault && (
-                            <button
-                              type="button"
-                              className={cn(
-                                'ml-1 rounded-full p-0.5 transition-colors',
-                                isActive
-                                  ? 'text-white/70 hover:text-white'
-                                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]',
-                              )}
-                              aria-label={`Close ${ws.name}`}
-                              title="Close workspace"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveRequest(ws.id, ws.name);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          title="Double-click to rename"
+                          className="h-full max-w-[12rem] truncate rounded-md px-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                          onClick={() => dispatchWorkspaceLoad(ws.id)}
+                          onDoubleClick={() => {
+                            setEditingWorkspaceId(ws.id);
+                            setEditingName(ws.name);
+                          }}
+                        >
+                          {ws.name}
+                        </button>
                       )}
-                    </button>
+                      {!ws.isDefault && !isEditing && (
+                        <button
+                          type="button"
+                          aria-label={`Close ${ws.name}`}
+                          className="mr-1 rounded-sm p-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                          onClick={() => handleRemoveRequest(ws.id, ws.name)}
+                        >
+                          <XIcon className="size-3" />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-[var(--color-text-secondary)]"
-                onClick={() => setIsCreateOpen(true)}
-                aria-label="Create workspace"
-                title="Create workspace"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <IconAction label="Create workspace">
+                <Button variant="ghost" size="icon-sm" onClick={() => setIsCreateOpen(true)} aria-label="Create workspace">
+                  <PlusIcon />
+                </Button>
+              </IconAction>
               {onWorkspaceReset && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-1 text-[var(--color-text-secondary)]"
-                  onClick={onWorkspaceReset}
-                >
+                <Button variant="ghost" size="sm" onClick={onWorkspaceReset}>
                   Reset layout
                 </Button>
               )}
@@ -289,101 +341,105 @@ export function AonikTopBar({
           ) : leftSlot ? (
             leftSlot
           ) : (
-            <>
-              <Home className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
-              {breadcrumb.map((item, idx) => {
-                const isLast = idx === breadcrumb.length - 1;
-                const label = typeof item === 'string' ? item : item.label;
-                const href = typeof item === 'string' ? null : item.href;
-                const labelClass = cn(
-                  'text-[13px]',
-                  isLast
-                    ? 'font-semibold text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-secondary)]',
-                );
-                return (
-                  <span key={`${label}-${idx}`} className="flex items-center gap-2.5">
-                    {idx > 0 && (
-                      <ChevronRight className="h-3 w-3 text-[var(--color-text-tertiary)]" />
-                    )}
-                    {href && !isLast ? (
-                      <Link
-                        to={href}
-                        className={cn(
-                          labelClass,
-                          'hover:text-[var(--color-text-primary)] hover:underline transition-colors',
+            <Breadcrumb>
+              <BreadcrumbList>
+                {breadcrumb.map((item, idx) => {
+                  const isLast = idx === breadcrumb.length - 1;
+                  const label = typeof item === 'string' ? item : item.label;
+                  const href = typeof item === 'string' ? null : item.href;
+                  return (
+                    <span key={`${label}-${idx}`} className="contents">
+                      {idx > 0 && <BreadcrumbSeparator />}
+                      <BreadcrumbItem>
+                        {isLast ? (
+                          <BreadcrumbPage>{label}</BreadcrumbPage>
+                        ) : href ? (
+                          <BreadcrumbLink asChild>
+                            <Link to={href}>{label}</Link>
+                          </BreadcrumbLink>
+                        ) : (
+                          <span>{label}</span>
                         )}
-                      >
-                        {label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{label}</span>
-                    )}
-                  </span>
-                );
-              })}
-            </>
+                      </BreadcrumbItem>
+                    </span>
+                  );
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
           )}
-        </nav>
+        </div>
 
-        {/* Right: actions */}
-        <div className="flex items-center gap-1" style={electronNoDragStyle}>
+        <div className="ml-auto flex items-center gap-1" style={electronNoDragStyle}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPaletteOpen(true)}
+            className="hidden w-56 justify-start font-normal text-muted-foreground md:inline-flex"
+          >
+            <SearchIcon />
+            Search
+            <KbdGroup className="ml-auto">
+              <Kbd>{MOD_KEY}</Kbd>
+              <Kbd>K</Kbd>
+            </KbdGroup>
+          </Button>
+          <IconAction label="Search">
+            <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setPaletteOpen(true)} aria-label="Search">
+              <SearchIcon />
+            </Button>
+          </IconAction>
           {onAskAonik && (
-            <button
-              type="button"
-              onClick={onAskAonik}
-              className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[13px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-inset)]"
-              title="Ask Aonik (⌘/)"
-            >
-              <Sparkles className="h-3 w-3 text-[var(--color-brand-primary)]" />
+            <Button variant="outline" size="sm" onClick={onAskAonik} title={`Ask Aonik (${MOD_KEY}+/)`}>
+              <SparklesIcon className="text-primary" />
               Ask Aonik
-              <span className="ml-1 rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-1.5 py-px font-mono text-[10px] text-[var(--color-text-tertiary)]">
-                ⌘/
-              </span>
-            </button>
+              <Kbd className="hidden lg:inline-flex">{MOD_KEY}/</Kbd>
+            </Button>
           )}
-          <span className="mx-1.5 h-5 w-px bg-[var(--color-border-light)]" aria-hidden />
-          <Link
-            to="/setup-guides"
-            className="hover-halo"
-            title="Guides"
-            aria-label="Open setup guides"
-          >
-            <HelpCircle className="h-4 w-4" />
-          </Link>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="hover-halo"
-            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            aria-label="Toggle fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            className="hover-halo relative"
-            onClick={() => setShowNotifications(true)}
-            title="Notifications"
-            aria-label="Open notifications"
-          >
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border-[1.5px] border-[var(--color-surface)] bg-[var(--color-error)] px-1 font-mono text-[9px] font-bold text-white">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-          <Link
-            to="/settings"
-            className="hover-halo"
-            title="Settings"
-            aria-label="Open settings"
-          >
-            <Settings className="h-4 w-4" />
-          </Link>
+          <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
+          <IconAction label="Guides">
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/setup-guides" aria-label="Guides">
+                <CircleHelpIcon />
+              </Link>
+            </Button>
+          </IconAction>
+          <IconAction label={isFullscreen ? 'Exit full screen' : 'Full screen'}>
+            <Button variant="ghost" size="icon-sm" onClick={toggleFullscreen} aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}>
+              {isFullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
+            </Button>
+          </IconAction>
+          <IconAction label="Notifications">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="relative"
+              onClick={() => setShowNotifications(true)}
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+            >
+              <BellIcon />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-mono text-[10px] font-semibold tabular-nums text-destructive-foreground ring-2 ring-background">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Button>
+          </IconAction>
+          <IconAction label="Settings">
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/settings" aria-label="Settings">
+                <SettingsIcon />
+              </Link>
+            </Button>
+          </IconAction>
         </div>
       </header>
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onAskAonik={onAskAonik}
+        shortcutLabel={MOD_KEY === '⌘' ? '⌘' : 'Ctrl+'}
+      />
 
       <NotificationsPanel
         open={showNotifications}
@@ -402,10 +458,8 @@ export function AonikTopBar({
             <DialogTitle>Create workspace</DialogTitle>
             <DialogDescription>Save the current layout as a named workspace.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2">
-            <label htmlFor="workspaceName" className="text-sm font-medium text-[var(--color-text-primary)]">
-              Workspace name
-            </label>
+          <Field>
+            <FieldLabel htmlFor="workspaceName">Workspace name</FieldLabel>
             <Input
               id="workspaceName"
               value={newWorkspaceName}
@@ -416,9 +470,9 @@ export function AonikTopBar({
                 if (e.key === 'Enter') handleCreateSubmit();
               }}
             />
-          </div>
+          </Field>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateSubmit}>Create workspace</Button>
@@ -426,7 +480,7 @@ export function AonikTopBar({
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <AlertDialog
         open={Boolean(confirmId)}
         onOpenChange={(open) => {
           if (open) return;
@@ -434,27 +488,21 @@ export function AonikTopBar({
           setConfirmName('');
         }}
       >
-        <DialogContent className="max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Close workspace</DialogTitle>
-            <DialogDescription>
-              This will remove the saved layout for &quot;{confirmName}&quot;.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setConfirmId(null);
-                setConfirmName('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleRemoveConfirm}>Close workspace</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <AlertDialogContent className="max-w-[420px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The saved layout for &quot;{confirmName}&quot; will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleRemoveConfirm}>
+              Close workspace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

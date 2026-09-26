@@ -14,6 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { personalFinanceService } from '@/services/personalFinanceService';
 import type {
   CreateManualPersonalTransactionRequest,
@@ -109,26 +113,20 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
     }
   };
 
+  // Mounted only while open (the parent toggles it), so each open starts
+  // from a fresh form; closing via overlay, Escape or X calls onClose.
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-[22rem] bg-[var(--color-surface)] shadow-2xl flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-5 py-4">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Add Transaction
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent size="sm" aria-describedby={undefined}>
+        <SheetHeader title="Add Transaction" />
 
         {/* Form */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <SheetBody>
           {/* Amount + currency row */}
           <div className="space-y-1.5">
             <Label>Amount</Label>
@@ -139,7 +137,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
                 value={form.amount || ''}
                 onChange={(e) => set('amount', Number(e.target.value))}
                 placeholder="0.00"
-                className="flex-1"
+                className="flex-1 font-mono tabular-nums"
               />
               <Select value={form.currency} onValueChange={(v) => set('currency', v)}>
                 <SelectTrigger className="w-24">
@@ -154,24 +152,23 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               Use a negative value for debits (money out).
             </p>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-date">Date</Label>
-            <Input
+            <DatePicker
               id="txn-date"
-              type="date"
               value={form.occurredAt.slice(0, 10)}
-              onChange={(e) => set('occurredAt', e.target.value)}
+              onChange={(value) => set('occurredAt', value)}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-merchant">
-              Merchant <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Merchant <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Input
               id="txn-merchant"
@@ -183,7 +180,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-description">
-              Description <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Description <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Input
               id="txn-description"
@@ -195,7 +192,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-category">
-              Category <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Category <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Select
               value={form.category ?? ''}
@@ -218,7 +215,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
           {accounts.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor="txn-account">
-                Account <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+                Account <span className="text-muted-foreground font-normal">— optional</span>
               </Label>
               <Select
                 value={form.personalAccountId ?? ''}
@@ -244,7 +241,7 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
 
           <div className="space-y-1.5">
             <Label htmlFor="txn-notes">
-              Notes <span className="text-[var(--color-text-tertiary)] font-normal">— optional</span>
+              Notes <span className="text-muted-foreground font-normal">— optional</span>
             </Label>
             <Textarea
               id="txn-notes"
@@ -254,19 +251,19 @@ function AddTransactionPanel({ accounts, categories, onClose, onCreated }: AddPa
               rows={3}
             />
           </div>
-        </div>
+        </SheetBody>
 
         {/* Footer */}
-        <div className="border-t border-[var(--color-border-light)] px-5 py-4 flex items-center gap-3">
+        <SheetFooter className="gap-3">
           <Button onClick={handleSave} disabled={saving} className="flex-1">
             {saving ? 'Saving...' : 'Add Transaction'}
           </Button>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-        </div>
-      </div>
-    </>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -285,13 +282,13 @@ function TransactionRow({
   const account = accounts.find((a) => a.personalAccountId === txn.personalAccountId);
 
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] py-3 last:border-b-0">
+    <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0">
       {/* Direction icon */}
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
           isDebit
-            ? 'bg-[var(--color-error-light)] text-[var(--color-error)]'
-            : 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+            ? 'bg-destructive/10 text-destructive'
+            : 'bg-success-subtle text-success'
         }`}
       >
         {isDebit ? (
@@ -303,20 +300,20 @@ function TransactionRow({
 
       {/* Details */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+        <p className="truncate text-sm font-medium text-foreground">
           {txn.merchant || txn.description || 'Manual transaction'}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-[var(--color-text-tertiary)]">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {formatDate(txn.occurredAt)}
           </span>
           {txn.category && (
-            <Badge variant="secondary" className="rounded-full text-[10px] px-1.5 py-0">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {txn.category}
             </Badge>
           )}
           {account && (
-            <span className="text-xs text-[var(--color-text-tertiary)]">
+            <span className="text-xs text-muted-foreground">
               {account.name}
               {account.last4 ? ` ·· ${account.last4}` : ''}
             </span>
@@ -326,8 +323,8 @@ function TransactionRow({
 
       {/* Amount */}
       <p
-        className={`shrink-0 text-sm font-semibold tabular-nums ${
-          isDebit ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'
+        className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${
+          isDebit ? 'text-destructive' : 'text-success'
         }`}
       >
         {isDebit ? '-' : '+'}{formatAmount(txn.amount, txn.currency)}
@@ -408,13 +405,31 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">
-          {loading ? 'Loading...' : `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+        <p className="text-sm font-medium text-foreground">
+          {loading ? (
+            'Loading...'
+          ) : (
+            <>
+              <span className="font-mono tabular-nums">{transactions.length}</span> transaction
+              {transactions.length !== 1 ? 's' : ''}
+            </>
+          )}
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={load} disabled={loading} title="Refresh">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={load}
+                disabled={loading}
+                aria-label="Refresh transactions"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
           <Button size="sm" onClick={() => setShowAdd(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add Transaction
@@ -425,11 +440,12 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-52">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search merchant, description..."
+            aria-label="Search transactions"
             className="pl-8 h-8 text-xs"
           />
         </div>
@@ -472,55 +488,55 @@ export function TransactionsSubTab({ userId }: { userId: string }) {
           </Select>
         )}
 
-        <Input
-          type="date"
+        <DatePicker
           value={fromFilter}
-          onChange={(e) => setFromFilter(e.target.value)}
+          onChange={setFromFilter}
+          placeholder="From date"
           className="h-8 w-36 text-xs"
-          title="From date"
         />
-        <Input
-          type="date"
+        <DatePicker
           value={toFilter}
-          onChange={(e) => setToFilter(e.target.value)}
+          onChange={setToFilter}
+          placeholder="To date"
           className="h-8 w-36 text-xs"
-          title="To date"
         />
 
         {hasFilters && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={clearFilters}
-            className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-1"
+            className="h-8 gap-1 px-2 text-xs text-muted-foreground"
           >
             <X className="h-3 w-3" />
             Clear
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface-inset)]">
-            <ArrowUpRight className="h-7 w-7 text-[var(--color-text-tertiary)]" />
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <ArrowUpRight className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="mb-0.5 text-sm font-medium text-[var(--color-text-secondary)]">
+          <p className="mb-0.5 text-sm font-medium text-muted-foreground">
             {hasFilters ? 'No transactions match your filters' : 'No transactions yet'}
           </p>
           {!hasFilters && (
-            <p className="mb-4 text-xs text-[var(--color-text-tertiary)]">
+            <p className="mb-4 text-xs text-muted-foreground">
               Add a manual transaction or import a bank statement.
             </p>
           )}

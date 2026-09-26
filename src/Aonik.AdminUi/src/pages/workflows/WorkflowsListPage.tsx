@@ -13,6 +13,13 @@ import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
 // `Plus` is still used by the page header's "New workflow" action; the
 // empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { cn } from '@/lib/utils';
@@ -33,9 +40,10 @@ const FILTER_TO_STATE: Record<Filter, WorkflowState | null> = {
   Draft: 'Draft',
 };
 
-const SPARK_TEAL = '#055a60';
-const SPARK_JADE = '#1f7a5e';
-const SPARK_MINT = '#3ab795';
+// Categorical sparkline series.
+const SPARK_TEAL = 'var(--chart-1)';
+const SPARK_JADE = 'var(--chart-2)';
+const SPARK_MINT = 'var(--chart-4)';
 
 export function WorkflowsListPage() {
   const navigate = useNavigate();
@@ -115,15 +123,14 @@ export function WorkflowsListPage() {
         style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
       >
         <PageHeader
-          eyebrow="AI · Workflows"
           title="Agent Workflows"
           subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         />
-        <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-8 text-center">
-          <div className="mb-2 text-[14px] font-semibold text-[var(--color-text-primary)]">
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <div className="mb-2 text-[14px] font-semibold text-foreground">
             Couldn't load workflows
           </div>
-          <div className="mb-4 text-[12px] text-[var(--color-text-secondary)]">{error}</div>
+          <div className="mb-4 text-[12px] text-muted-foreground">{error}</div>
           <Button size="sm" variant="outline" onClick={refresh}>
             <RefreshCw className="h-3 w-3" />
             Retry
@@ -140,7 +147,6 @@ export function WorkflowsListPage() {
         style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
       >
         <PageHeader
-          eyebrow="AI · Workflows"
           title="Agent Workflows"
           subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         />
@@ -155,7 +161,6 @@ export function WorkflowsListPage() {
       style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
     >
       <PageHeader
-        eyebrow="AI · Workflows"
         title="Agent Workflows"
         subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         actions={
@@ -213,7 +218,7 @@ export function WorkflowsListPage() {
       </div>
 
       {/* Filter + sort bar */}
-      <div className="flex items-center gap-1.5 border-b border-[var(--color-border-light)] pb-3">
+      <div className="flex items-center gap-1.5 border-b border-border pb-3">
         {FILTER_LABELS.map((f) => {
           const active = filter === f;
           return (
@@ -224,8 +229,8 @@ export function WorkflowsListPage() {
               className={cn(
                 'rounded-full px-3 py-1 text-xs cursor-pointer transition-colors',
                 active
-                  ? 'border border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
-                  : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]',
+                  ? 'border border-primary bg-primary/10 font-semibold text-primary'
+                  : 'border border-border bg-card text-foreground hover:bg-muted',
               )}
             >
               {f}{' '}
@@ -239,16 +244,17 @@ export function WorkflowsListPage() {
           );
         })}
         <div className="flex-1" />
-        <span className="text-[11.5px] text-[var(--color-text-tertiary)]">Sort by</span>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-          className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-2 py-1 text-xs"
-        >
-          <option>Most run</option>
-          <option>Recent</option>
-          <option>Success</option>
-        </select>
+        <span className="text-[11.5px] text-muted-foreground">Sort by</span>
+        <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
+          <SelectTrigger size="sm" className="h-7 w-auto bg-card px-2 text-xs" aria-label="Sort by">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Most run">Most run</SelectItem>
+            <SelectItem value="Recent">Recent</SelectItem>
+            <SelectItem value="Success">Success</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="ghost" size="sm" className="ml-1">
           <Search className="h-3 w-3" />
           Filter…
@@ -275,7 +281,7 @@ export function WorkflowsListPage() {
               ))}
               {list.length === 0 && (
                 <div
-                  className="rounded-[10px] border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-center text-[12.5px] text-[var(--color-text-tertiary)]"
+                  className="rounded-lg border border-dashed border-border bg-muted text-center text-[12.5px] text-muted-foreground"
                   style={{ padding: 40 }}
                 >
                   No workflows in this state yet.
@@ -305,7 +311,7 @@ function LoadingPlaceholder() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+          className="animate-pulse rounded-lg border border-border bg-card"
           style={{ height: 132, padding: 18 }}
         />
       ))}
@@ -316,7 +322,7 @@ function LoadingPlaceholder() {
 function EmptyState() {
   return (
     <div
-      className="flex flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+      className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card text-center"
       style={{
         // Inline width: Tailwind's `w-full` wasn't sticking on dev — likely a
         // build cache or specificity issue with the parent flex container.
@@ -327,16 +333,16 @@ function EmptyState() {
       }}
     >
       <span
-        className="mb-4 inline-flex items-center justify-center rounded-full bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]"
+        className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary"
         style={{ width: 48, height: 48 }}
       >
         <Workflow className="h-6 w-6" />
       </span>
-      <div className="mb-1.5 text-[15px] font-semibold text-[var(--color-text-primary)]">
+      <div className="mb-1.5 text-[15px] font-semibold text-foreground">
         No workflows yet
       </div>
       <div
-        className="text-[12.5px] text-[var(--color-text-secondary)]"
+        className="text-[12.5px] text-muted-foreground"
         style={{ lineHeight: 1.5, maxWidth: 480 }}
       >
         Workflows are reusable procedures agents run when a trigger fires.

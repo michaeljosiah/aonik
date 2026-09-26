@@ -135,7 +135,7 @@ function TtsTestPanel({
 
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         Test this voice
       </div>
       <div className="grid gap-3 md:grid-cols-2">
@@ -244,7 +244,7 @@ function SttTestPanel({ providerId }: { providerId: string }) {
 
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         Test this transcription engine
       </div>
 
@@ -274,7 +274,7 @@ function SttTestPanel({ providerId }: { providerId: string }) {
           </Button>
         )}
         {recorder.isRecording && (
-          <Badge variant="error" className="animate-pulse">
+          <Badge variant="destructive" className="animate-pulse">
             Recording…
           </Badge>
         )}

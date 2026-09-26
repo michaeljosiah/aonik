@@ -19,19 +19,21 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Copy, Terminal, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 
+// Categorical: span kinds map onto the chart series palette.
 const KIND_COLOR: Record<string, string> = {
-  llm: '#3f41a0',
-  tool: '#0097a9',
-  http: '#7b76b6',
-  db: '#5facbd',
-  rpc: '#055a60',
-  request: '#055a60',
-  generation: '#3f41a0',
-  span: 'var(--color-text-secondary)',
-  default: 'var(--color-text-secondary)',
+  llm: 'var(--chart-1)',
+  tool: 'var(--chart-3)',
+  http: 'var(--chart-4)',
+  db: 'var(--chart-5)',
+  rpc: 'var(--chart-2)',
+  request: 'var(--chart-2)',
+  generation: 'var(--chart-1)',
+  span: 'var(--muted-foreground)',
+  default: 'var(--muted-foreground)',
 };
 
 function getSpanKind(type: string): string {
@@ -122,36 +124,36 @@ export function SpanDetailSlideOut({
 
   return (
     <div
-      className="absolute inset-y-0 right-0 z-30 flex w-[540px] max-w-full flex-col border-l border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[-12px_0_32px_-8px_rgb(0_0_0/_0.10)]"
+      className="absolute inset-y-0 right-0 z-30 flex w-[540px] max-w-full flex-col border-l border-border bg-card shadow-[-12px_0_32px_-8px_rgb(0_0_0/_0.10)]"
     >
       {/* Header */}
-      <div className="flex flex-none items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-3.5">
+      <div className="flex flex-none items-center gap-3 border-b border-border px-5 py-3.5">
         <div
-          className="grid h-[34px] w-[34px] flex-none place-items-center rounded-md font-[family-name:var(--font-mono)] text-[9px] font-bold uppercase tracking-[0.04em]"
-          style={{ background: `${color}20`, color }}
+          className="grid h-[34px] w-[34px] flex-none place-items-center rounded-md font-[family-name:var(--font-mono)] text-[9px] font-bold"
+          style={{ background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}
         >
           {kind}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-[family-name:var(--font-mono)] text-[13.5px] font-semibold text-[var(--color-text-primary)]">
+          <div className="truncate font-[family-name:var(--font-mono)] text-[13.5px] font-semibold text-foreground">
             {span.name?.trim() || '—'}
           </div>
-          <div className="mt-px font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--color-text-tertiary)]">
+          <div className="mt-px font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
             span_{spanIdShort} · {span.traceId.slice(0, 12)}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-none items-center gap-1 border-b border-[var(--color-border-light)] px-5">
+      <div className="flex flex-none items-center gap-1 border-b border-border px-5">
         {TABS.map((t) => {
           const active = t === tab;
           const count = t === 'Attributes' ? attrRowCount(span) : t === 'Events' ? 2 : undefined;
@@ -163,13 +165,13 @@ export function SpanDetailSlideOut({
               className={cn(
                 '-mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-[12px] transition-colors',
                 active
-                  ? 'border-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)]'
-                  : 'border-transparent font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                  ? 'border-primary font-semibold text-foreground'
+                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
               )}
             >
               {t}
               {count != null && (
-                <span className="rounded-full bg-[var(--color-surface-inset)] px-1.5 py-px font-[family-name:var(--font-mono)] text-[9.5px] font-semibold text-[var(--color-text-tertiary)]">
+                <span className="rounded-full bg-muted px-1.5 py-px font-[family-name:var(--font-mono)] text-[9.5px] font-semibold text-muted-foreground">
                   {count}
                 </span>
               )}
@@ -219,7 +221,7 @@ export function SpanDetailSlideOut({
       </div>
 
       {/* Footer */}
-      <div className="flex flex-none items-center justify-between gap-2.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-3">
+      <div className="flex flex-none items-center justify-between gap-2.5 border-t border-border bg-muted px-5 py-3">
         <div className="flex gap-1.5">
           <Button variant="ghost" size="sm" disabled>
             <Terminal className="h-3 w-3" />
@@ -269,24 +271,24 @@ function TimingSection({
   return (
     <div>
       <SectionLabel>Timing</SectionLabel>
-      <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3.5 py-3">
+      <div className="rounded-md border border-border bg-muted px-3.5 py-3">
         <div className="mb-2.5 flex justify-between gap-3">
           <Stat label="Duration" value={fmtMs(durationMs)} accent={accent} />
           <Stat label="Start offset" value={`+${fmtMs(startOffset)}`} />
           <Stat label="End offset" value={`+${fmtMs(endOffset)}`} />
           <Stat label="% of trace" value={`${traceShare.toFixed(1)}%`} />
         </div>
-        <div className="relative h-3.5 rounded-[3px] border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <div className="relative h-3.5 rounded-sm border border-border bg-card">
           {[0.25, 0.5, 0.75].map((p) => (
             <span
               key={p}
               aria-hidden
-              className="absolute inset-y-0 w-px bg-[var(--color-border-light)]"
+              className="absolute inset-y-0 w-px bg-border"
               style={{ left: `${p * 100}%` }}
             />
           ))}
           <div
-            className="absolute rounded-[2px]"
+            className="absolute rounded-xs"
             style={{
               left: `${startPct}%`,
               width: `${widthPct}%`,
@@ -296,7 +298,7 @@ function TimingSection({
             }}
           />
         </div>
-        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[9.5px] text-[var(--color-text-tertiary)]">
+        <div className="mt-1 flex justify-between font-[family-name:var(--font-mono)] text-[9.5px] text-muted-foreground">
           <span>0ms</span>
           <span>{fmtMs(totalMs)}</span>
         </div>
@@ -371,10 +373,10 @@ function ChatSection({ span }: { span: AiTraceObservationResponse }) {
 function EmptyHint({ label, hint }: { label: string; hint: string }) {
   return (
     <div className="mt-2.5">
-      <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+      <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] text-muted-foreground">
         {label}
       </div>
-      <div className="rounded-md border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+      <div className="rounded-md border border-dashed border-border bg-muted px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
         {hint}
       </div>
     </div>
@@ -471,30 +473,30 @@ function RpcSection({ span }: { span: AiTraceObservationResponse }) {
 
 function EventsSection({ durationMs }: { durationMs: number }) {
   const events: Array<{ t: string; name: string; color: string }> = [
-    { t: '+0ms', name: 'span.started', color: 'var(--color-text-tertiary)' },
-    { t: `+${fmtMs(durationMs)}`, name: 'span.ended', color: 'var(--color-success)' },
+    { t: '+0ms', name: 'span.started', color: 'var(--muted-foreground)' },
+    { t: `+${fmtMs(durationMs)}`, name: 'span.ended', color: 'var(--success)' },
   ];
   return (
     <div>
       <SectionLabel>
-        Events <span className="font-normal text-[var(--color-text-tertiary)]">· {events.length}</span>
+        Events <span className="font-normal text-muted-foreground">· {events.length}</span>
       </SectionLabel>
-      <div className="overflow-hidden rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="overflow-hidden rounded-md border border-border bg-card">
         {events.map((e, i, arr) => (
           <div
             key={i}
             className={cn(
               'grid items-center gap-2.5 px-3 py-2 text-[11.5px]',
-              i < arr.length - 1 && 'border-b border-[var(--color-border-light)]',
+              i < arr.length - 1 && 'border-b border-border',
             )}
             style={{ gridTemplateColumns: '70px 12px 1fr' }}
           >
-            <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-tertiary)]">{e.t}</span>
+            <span className="font-[family-name:var(--font-mono)] text-muted-foreground">{e.t}</span>
             <span
               className="justify-self-center rounded-full"
               style={{ width: 8, height: 8, background: e.color }}
             />
-            <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-primary)]">{e.name}</span>
+            <span className="font-[family-name:var(--font-mono)] text-foreground">{e.name}</span>
           </div>
         ))}
       </div>
@@ -513,10 +515,10 @@ function RawTab({ span }: { span: AiTraceObservationResponse }) {
 
 function EmptyTab({ title, description }: { title: string; description: string }) {
   return (
-    <div className="grid place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-surface-inset)] px-5 py-12 text-center">
+    <div className="grid place-items-center rounded-md border border-dashed border-border bg-muted px-5 py-12 text-center">
       <div>
-        <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">{title}</div>
-        <div className="mt-1 max-w-[24rem] text-[11.5px] text-[var(--color-text-secondary)]">{description}</div>
+        <div className="text-[13px] font-semibold text-foreground">{title}</div>
+        <div className="mt-1 max-w-[24rem] text-[11.5px] text-muted-foreground">{description}</div>
       </div>
     </div>
   );
@@ -526,7 +528,7 @@ function EmptyTab({ title, description }: { title: string; description: string }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+    <div className="mb-2 text-xs font-medium text-muted-foreground">
       {children}
     </div>
   );
@@ -535,12 +537,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div>
-      <div className="mb-px text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+      <div className="mb-px text-[11px] font-medium text-muted-foreground">
         {label}
       </div>
       <div
         className="font-[family-name:var(--font-mono)] text-[14px] font-semibold"
-        style={{ color: accent ?? 'var(--color-text-primary)' }}
+        style={{ color: accent ?? 'var(--foreground)' }}
       >
         {value}
       </div>
@@ -550,18 +552,18 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 function Attrs({ rows }: { rows: Array<[string, string]> }) {
   return (
-    <div className="overflow-hidden rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+    <div className="overflow-hidden rounded-md border border-border bg-card">
       {rows.map(([k, v], i, arr) => (
         <div
           key={k}
           className={cn(
             'grid gap-3 px-3 py-1.5 font-[family-name:var(--font-mono)] text-[11px]',
-            i < arr.length - 1 && 'border-b border-[var(--color-border-light)]',
+            i < arr.length - 1 && 'border-b border-border',
           )}
           style={{ gridTemplateColumns: '180px 1fr' }}
         >
-          <span className="text-[var(--color-text-tertiary)]">{k}</span>
-          <span className="truncate text-[var(--color-text-primary)]" title={v}>
+          <span className="text-muted-foreground">{k}</span>
+          <span className="truncate text-foreground" title={v}>
             {v}
           </span>
         </div>
@@ -574,11 +576,11 @@ function CodeBlock({ label, content }: { label?: string; content: string }) {
   return (
     <div className="mt-2.5">
       {label && (
-        <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">
           {label}
         </div>
       )}
-      <pre className="m-0 max-h-[200px] overflow-auto whitespace-pre-wrap rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2.5 font-[family-name:var(--font-mono)] text-[11px] leading-[1.5] text-[var(--color-text-primary)]">
+      <pre className="m-0 max-h-[200px] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted px-3 py-2.5 font-[family-name:var(--font-mono)] text-[11px] leading-[1.5] text-foreground">
         {content}
       </pre>
     </div>

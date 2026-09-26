@@ -125,7 +125,7 @@ export function ProvidersTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center p-12 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading speech library…
       </div>
@@ -134,7 +134,7 @@ export function ProvidersTab() {
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">{error}</CardContent>
+        <CardContent className="p-6 text-destructive">{error}</CardContent>
       </Card>
     );
   }
@@ -202,15 +202,15 @@ export function ProvidersTab() {
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
                       active
-                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
-                        : 'border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]',
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card text-foreground hover:border-primary',
                     )}
                   >
                     {f.label}
                     <span
                       className={cn(
                         'font-mono text-[11px]',
-                        active ? 'text-white/85' : 'text-[var(--color-text-tertiary)]',
+                        active ? 'text-white/85' : 'text-muted-foreground',
                       )}
                     >
                       {count}
@@ -226,7 +226,7 @@ export function ProvidersTab() {
                 checked={includeDisabled}
                 onCheckedChange={setIncludeDisabled}
               />
-              <label htmlFor="include-disabled" className="text-xs text-[var(--color-text-secondary)]">
+              <label htmlFor="include-disabled" className="text-xs text-muted-foreground">
                 Show disabled
               </label>
             </div>
@@ -279,14 +279,14 @@ export function ProvidersTab() {
  */
 function FirstProviderHero({ onAdd }: { onAdd: (type: SpeechProviderType) => void }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-12 text-center">
-      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand-primary-10)]">
-        <Plug className="h-6 w-6 text-[var(--color-brand-primary)]" />
+    <div className="rounded-2xl border border-border bg-card p-12 text-center">
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-primary/10">
+        <Plug className="h-6 w-6 text-primary" />
       </div>
-      <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+      <h2 className="text-lg font-semibold text-foreground">
         Add your first provider
       </h2>
-      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
+      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-muted-foreground">
         Providers are vendor instances (an OpenAI Whisper config, an ElevenLabs voice, an Azure
         Voice Live region…). Compose them into recipes that drive Voice mode and Chat speech.
       </p>
@@ -330,13 +330,13 @@ function HeroChoice({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col items-center gap-2 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5 text-center transition-colors hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary-10)]"
+      className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-muted p-5 text-center transition-colors hover:border-primary hover:bg-primary/10"
     >
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--color-surface)] text-[var(--color-brand-primary)] transition-colors group-hover:bg-[var(--color-brand-primary)] group-hover:text-white">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-card text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
         {icon}
       </span>
-      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</span>
-      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{description}</span>
+      <span className="text-sm font-semibold text-foreground">{title}</span>
+      <span className="text-[11.5px] text-muted-foreground">{description}</span>
     </button>
   );
 }
@@ -346,7 +346,7 @@ function FilterEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-3 p-12 text-center">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-muted-foreground">
           No providers in this category yet.
         </p>
         <Button onClick={onAdd}>

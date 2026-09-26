@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Image, Search, ExternalLink } from 'lucide-react';
@@ -73,8 +74,8 @@ export function MediaLibraryPage() {
       <div className="p-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Media Library</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">Media Library</h1>
+          <p className="text-muted-foreground">
             Browse and manage all media assets used across content blocks.
           </p>
         </div>
@@ -82,7 +83,7 @@ export function MediaLibraryPage() {
         {/* Search */}
         <div className="mb-6">
           <div className="relative max-w-[28rem]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -96,12 +97,12 @@ export function MediaLibraryPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
+              <div className="p-2 rounded-md bg-primary">
                 <Image className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold">Media Assets</CardTitle>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <p className="text-sm text-muted-foreground">
                   {filteredMedia.length} item{filteredMedia.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -110,13 +111,13 @@ export function MediaLibraryPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-brand-primary)]" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : filteredMedia.length === 0 ? (
               <div className="text-center py-12">
-                <Image className="w-12 h-12 mx-auto mb-4 text-[var(--color-text-tertiary)]" />
-                <p className="text-[var(--color-text-primary)] font-medium mb-1">No media found</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">
+                <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-foreground font-medium mb-1">No media found</p>
+                <p className="text-sm text-muted-foreground">
                   {searchQuery
                     ? 'Try adjusting your search query'
                     : 'Media will appear here when added to content blocks'}
@@ -127,10 +128,10 @@ export function MediaLibraryPage() {
                 {filteredMedia.map((item) => (
                   <div
                     key={item.id}
-                    className="group relative rounded-lg border border-[var(--color-border-light)] overflow-hidden hover:shadow-md transition-shadow"
+                    className="group relative rounded-lg border border-border overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {/* Image Preview */}
-                    <div className="aspect-video bg-gray-100 relative">
+                    <div className="aspect-video bg-muted relative">
                       {item.url ? (
                         <img
                           src={item.url}
@@ -139,8 +140,8 @@ export function MediaLibraryPage() {
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                             (e.target as HTMLImageElement).parentElement!.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center bg-gray-200">
-                                <svg class="w-8 h-8 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <div class="w-full h-full flex items-center justify-center bg-accent">
+                                <svg class="w-8 h-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                                   <circle cx="8.5" cy="8.5" r="1.5"/>
                                   <polyline points="21 15 16 10 5 21"/>
@@ -150,8 +151,8 @@ export function MediaLibraryPage() {
                           }}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                          <Image className="w-8 h-8 text-gray-400" />
+                        <div className="w-full h-full flex items-center justify-center bg-accent">
+                          <Image className="w-8 h-8 text-muted-foreground" />
                         </div>
                       )}
                       
@@ -161,6 +162,7 @@ export function MediaLibraryPage() {
                           variant="secondary"
                           size="icon-sm"
                           className="w-8 h-8"
+                          aria-label="Open media in new tab"
                           onClick={() => window.open(item.url, '_blank')}
                         >
                           <ExternalLink className="w-4 h-4" />
@@ -170,21 +172,21 @@ export function MediaLibraryPage() {
 
                     {/* Info */}
                     <div className="p-3 space-y-1">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {item.contentBlockTitle}
                       </p>
-                      <p className="text-xs text-[var(--color-text-secondary)] truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {item.contentBlockKey}
                       </p>
                       {item.alt && (
-                        <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {item.alt}
                         </p>
                       )}
                       <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+                        <Badge variant="secondary">
                           {item.mimeType || 'Image'}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   </div>

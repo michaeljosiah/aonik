@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Ban, BookOpen, Check, Eye, FlaskConical, Lock, Pencil, Play,
   Plug, Plus, RefreshCw, Search, Server, Terminal, Upload, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { WorkspacePanelRenderProps } from '../types';
 import {
   agentExtensionsService as svc,
@@ -22,26 +26,29 @@ import {
   type TenantSkill,
 } from '@/services/agentExtensionsService';
 
-// ─── Design tokens (from the Spec 033 starter-kit template) ────────────────
+// ─── Design tokens (Spec 098 semantic tokens; they flip with the theme) ────
+/** A translucent tint of a token colour (replaces the old `hex + 'NN'` alpha suffixes). */
+const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`;
+
 const TYPE_META: Record<ExtType, { label: string; color: string; addLabel: string; Icon: typeof BookOpen }> = {
-  skill: { label: 'Skill', color: '#055a60', addLabel: 'Upload skill', Icon: BookOpen },
-  mcp: { label: 'MCP server', color: '#7b76b6', addLabel: 'Connect server', Icon: Server },
-  http: { label: 'HTTP tool', color: '#b4741e', addLabel: 'Declare tool', Icon: Plug },
+  skill: { label: 'Skill', color: 'var(--chart-1)', addLabel: 'Upload skill', Icon: BookOpen },
+  mcp: { label: 'MCP server', color: 'var(--chart-4)', addLabel: 'Connect server', Icon: Server },
+  http: { label: 'HTTP tool', color: 'var(--chart-5)', addLabel: 'Declare tool', Icon: Plug },
 };
 const STATE_META: Record<ExtState, { label: string; color: string }> = {
-  draft: { label: 'Draft', color: '#8a97a3' },
-  review: { label: 'In review', color: '#b4741e' },
-  approved: { label: 'Approved', color: '#055a60' },
-  active: { label: 'Active', color: '#1f7a5e' },
-  rejected: { label: 'Rejected', color: '#c44536' },
+  draft: { label: 'Draft', color: 'var(--muted-foreground)' },
+  review: { label: 'In review', color: 'var(--warning)' },
+  approved: { label: 'Approved', color: 'var(--primary)' },
+  active: { label: 'Active', color: 'var(--success)' },
+  rejected: { label: 'Rejected', color: 'var(--destructive)' },
 };
 const TIER_META: Record<string, { label: string; color: string; bg: string }> = {
-  readonly: { label: 'Read only', color: '#5a6a76', bg: '#eef0f2' },
-  low: { label: 'Low', color: '#1f6b3a', bg: '#ecf6ee' },
-  medium: { label: 'Medium', color: '#7a5a10', bg: '#fff5d9' },
-  high: { label: 'High', color: '#b3261e', bg: '#fbe2dd' },
-  mixed: { label: 'Mixed', color: '#5a6a76', bg: '#eef0f2' },
-  na: { label: '', color: '#5a6a76', bg: '#eef0f2' },
+  readonly: { label: 'Read only', color: 'var(--muted-foreground)', bg: 'var(--accent)' },
+  low: { label: 'Low', color: 'var(--success-foreground)', bg: 'var(--success-subtle)' },
+  medium: { label: 'Medium', color: 'var(--warning-foreground)', bg: 'var(--warning-subtle)' },
+  high: { label: 'High', color: 'var(--destructive)', bg: tint('var(--destructive)', 12) },
+  mixed: { label: 'Mixed', color: 'var(--muted-foreground)', bg: 'var(--accent)' },
+  na: { label: '', color: 'var(--muted-foreground)', bg: 'var(--accent)' },
 };
 
 // ─── Atoms ─────────────────────────────────────────────────────────────────
@@ -50,7 +57,7 @@ function TypeTile({ type, size = 40 }: { type: ExtType; size?: number }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: Math.round(size * 0.24),
-      background: t.color + '18', color: t.color, flex: 'none',
+      background: tint(t.color, 10), color: t.color, flex: 'none',
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <t.Icon size={Math.round(size * 0.5)} />
@@ -63,7 +70,7 @@ function TypeChip({ type }: { type: ExtType }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 999,
-      background: t.color + '14', color: t.color, fontSize: 11, fontWeight: 600,
+      background: tint(t.color, 8), color: t.color, fontSize: 11, fontWeight: 600,
     }}>
       <t.Icon size={10} />{t.label}
     </span>
@@ -75,7 +82,7 @@ function StateBadge({ state }: { state: ExtState }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999,
-      background: s.color + '18', color: s.color, fontSize: 11, fontWeight: 600,
+      background: tint(s.color, 10), color: s.color, fontSize: 11, fontWeight: 600,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: 999, background: s.color }} />{s.label}
     </span>
@@ -87,18 +94,18 @@ function TierPill({ tier }: { tier?: string }) {
   const t = TIER_META[tier] ?? TIER_META.readonly;
   return (
     <span style={{
-      fontFamily: 'var(--font-mono, monospace)', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-      textTransform: 'uppercase', padding: '2px 7px', borderRadius: 4, background: t.bg, color: t.color,
+      fontFamily: 'var(--font-mono, monospace)', fontSize: 10, fontWeight: 700,
+      padding: '2px 7px', borderRadius: 4, background: t.bg, color: t.color,
     }}>{t.label}</span>
   );
 }
 
-const TXT1 = 'var(--color-text-primary)';
-const TXT2 = 'var(--color-text-secondary)';
-const TXT3 = 'var(--color-text-tertiary)';
-const SURFACE = 'var(--color-surface)';
-const INSET = 'var(--color-surface-inset)';
-const BORDER = 'var(--color-border-light)';
+const TXT1 = 'var(--foreground)';
+const TXT2 = 'var(--muted-foreground)';
+const TXT3 = 'var(--muted-foreground)';
+const SURFACE = 'var(--card)';
+const INSET = 'var(--muted)';
+const BORDER = 'var(--border)';
 const MONO = 'var(--font-mono, ui-monospace, monospace)';
 
 function factLine(e: Extension): string {
@@ -189,7 +196,7 @@ export function AgentExtensionsPanel({ title }: WorkspacePanelRenderProps) {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: TXT3, fontWeight: 600 }}>AI · Agents</div>
+              <div style={{ fontSize: 11, color: TXT3, fontWeight: 600 }}>AI / Agents</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: TXT1, letterSpacing: '-0.01em' }}>{title || 'Agent Extensions'}</div>
               <div style={{ fontSize: 12.5, color: TXT2, marginTop: 2 }}>
                 {extensions.length} extensions · {activeCount} active · {reviewCount} in review
@@ -199,13 +206,18 @@ export function AgentExtensionsPanel({ title }: WorkspacePanelRenderProps) {
               <RoleLens lens={lens} setLens={(l) => { setLens(l); setDrawer(null); }} reviewCount={reviewCount} />
               <Button variant="outline" size="sm" onClick={() => setDrawer('harness')}><FlaskConical className="w-3.5 h-3.5" /> Test harness</Button>
               <Button size="sm" onClick={() => { setDrawer('add'); }}><Plus className="w-3.5 h-3.5" /> Add extension</Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => void load()} title="Refresh"><RefreshCw className="w-4 h-4" /></Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" onClick={() => void load()} aria-label="Refresh"><RefreshCw className="w-4 h-4" /></Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
             </div>
           </div>
 
           {isPlatform && (
-            <div style={{ padding: '12px 14px', background: 'rgba(180,116,30,0.07)', border: '1px solid rgba(180,116,30,0.25)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: TXT1 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#f3e7fb', color: '#6a2c8a' }}>PLATFORM ADMIN</span>
+            <div style={{ padding: '12px 14px', background: 'var(--warning-subtle)', border: `1px solid ${tint('var(--warning)', 30)}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: TXT1 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: tint('var(--chart-4)', 15), color: 'var(--chart-4)' }}>Platform admin</span>
               <span><b>{reviewCount}</b> extension{reviewCount === 1 ? '' : 's'} awaiting review — code execution, money tools, and new network destinations cross the tenant trust boundary.</span>
             </div>
           )}
@@ -229,7 +241,7 @@ export function AgentExtensionsPanel({ title }: WorkspacePanelRenderProps) {
               ))}
               {items.length === 0 && (
                 <div style={{ gridColumn: '1 / -1', padding: '40px 10px', textAlign: 'center', color: TXT3 }}>
-                  <Check size={22} color="var(--color-success)" />
+                  <Check size={22} color="var(--success)" />
                   <div style={{ fontSize: 13, fontWeight: 500, color: TXT2, marginTop: 8 }}>
                     {isPlatform ? 'Nothing in the review queue' : 'No extensions yet'}
                   </div>
@@ -266,7 +278,7 @@ function RoleLens({ lens, setLens, reviewCount }: { lens: 'tenant' | 'platform';
           }}>
             {l.label}
             {l.id === 'platform' && reviewCount > 0 && (
-              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, minWidth: 15, textAlign: 'center', padding: '0 4px', borderRadius: 999, background: 'var(--color-warning)', color: '#fff' }}>{reviewCount}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, minWidth: 15, textAlign: 'center', padding: '0 4px', borderRadius: 999, background: 'var(--warning)', color: 'var(--primary-foreground)', fontVariantNumeric: 'tabular-nums' }}>{reviewCount}</span>
             )}
           </button>
         );
@@ -285,12 +297,12 @@ function TypeFilter({ value, onChange, counts }: { value: 'all' | ExtType; onCha
         const on = value === o.id;
         return (
           <button key={o.id} onClick={() => onChange(o.id)} style={{
-            background: on ? 'rgba(5,90,96,0.1)' : 'transparent', color: on ? '#055a60' : TXT2,
+            background: on ? tint('var(--primary)', 10) : 'transparent', color: on ? 'var(--primary)' : TXT2,
             border: 'none', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontSize: 12, fontWeight: on ? 600 : 500,
             display: 'inline-flex', alignItems: 'center', gap: 6,
           }}>
             {o.label}
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '0 5px', borderRadius: 4, background: on ? SURFACE : INSET, color: on ? '#055a60' : TXT3 }}>{counts[o.id]}</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '0 5px', borderRadius: 4, background: on ? SURFACE : INSET, color: on ? 'var(--primary)' : TXT3, fontVariantNumeric: 'tabular-nums' }}>{counts[o.id]}</span>
           </button>
         );
       })}
@@ -315,7 +327,7 @@ function LibCard({ e, platform, selected, onClick }: { e: Extension; platform: b
       </div>
       <div style={{ fontSize: 12, color: TXT2, lineHeight: 1.5, minHeight: 36 }}>{e.description}</div>
       {platform && e.reviewNotes && (
-        <div style={{ fontSize: 11, color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 11, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertTriangle size={11} /> {e.reviewNotes}
         </div>
       )}
@@ -344,7 +356,7 @@ function DrawerShell({ width = 540, onClose, children }: { width?: number; onClo
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, color: TXT3 }}>{title}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: TXT3 }}>{title}</div>
       {hint && <div style={{ fontSize: 11.5, color: TXT2, marginTop: 3, marginBottom: 8 }}>{hint}</div>}
       <div style={{ marginTop: hint ? 0 : 8 }}>{children}</div>
     </div>
@@ -377,7 +389,7 @@ function DetailDrawer({ e, review, busy, runAction, onClose, onActed }: {
             <div style={{ fontSize: 16, fontWeight: 700, color: TXT1 }}>{e.name}</div>
             <div style={{ fontFamily: MONO, fontSize: 11, color: TXT3, marginTop: 2, wordBreak: 'break-all' }}>{e.slug}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TXT2, padding: 4 }}><X size={16} /></button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
           <TypeChip type={e.type} /><StateBadge state={e.state} /><TierPill tier={e.tier} />
@@ -417,7 +429,7 @@ function DetailDrawer({ e, review, busy, runAction, onClose, onActed }: {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: TXT3, flex: 1 }}>Approving makes it eligible — the tenant still activates.</span>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, false, notes), 'Rejected.')} style={{ color: 'var(--color-error)' }}>Reject</Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, false, notes), 'Rejected.')} className="text-destructive hover:text-destructive">Reject</Button>
             <Button size="sm" disabled={busy} onClick={() => transition(() => reviewFor(e, true, notes), 'Approved.')}><Check className="w-3.5 h-3.5" /> Approve</Button>
           </div>
         </div>
@@ -438,9 +450,9 @@ function SkillDetail({ e }: { e: Extension }) {
       </div>
       {s.scriptsPresent && (
         <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10,
-          background: s.scriptsEnabled ? 'rgba(31,122,94,0.06)' : 'rgba(180,116,30,0.06)',
-          border: `1px solid ${s.scriptsEnabled ? 'rgba(31,122,94,0.2)' : 'rgba(180,116,30,0.2)'}` }}>
-          <Terminal size={14} color={s.scriptsEnabled ? '#1f7a5e' : '#b4741e'} />
+          background: s.scriptsEnabled ? tint('var(--success)', 6) : tint('var(--warning)', 6),
+          border: `1px solid ${s.scriptsEnabled ? tint('var(--success)', 20) : tint('var(--warning)', 20)}` }}>
+          <Terminal size={14} color={s.scriptsEnabled ? 'var(--success)' : 'var(--warning)'} />
           <span style={{ fontSize: 11.5, color: TXT2 }}>
             {s.scriptsEnabled ? 'Scripts enabled by platform admin — runs under ScriptApproval.' : 'Scripts present but off — a platform admin must review and enable.'}
           </span>
@@ -469,7 +481,7 @@ function HttpDetail({ e }: { e: Extension }) {
     <Section title="Request">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-          background: isGet ? 'rgba(31,122,94,0.12)' : 'rgba(196,69,54,0.12)', color: isGet ? '#1f7a5e' : '#c44536' }}>{s.method}</span>
+          background: isGet ? tint('var(--success)', 12) : tint('var(--destructive)', 12), color: isGet ? 'var(--success)' : 'var(--destructive)' }}>{s.method}</span>
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: TXT2, wordBreak: 'break-all' }}>{s.urlTemplate}</span>
       </div>
       <div style={{ fontSize: 11.5, color: TXT3, marginTop: 6 }}>Declared parameter schema — the model can't smuggle extra fields.</div>
@@ -487,18 +499,18 @@ function Timeline({ e }: { e: Extension }) {
       {order.map((st, i) => {
         const done = i <= curIdx && !(rejected && i > 0);
         const isRejectStop = rejected && i === 1;
-        const dotColor = isRejectStop ? 'var(--color-error)' : done ? '#055a60' : INSET;
+        const dotColor = isRejectStop ? 'var(--destructive)' : done ? 'var(--primary)' : INSET;
         return (
           <div key={st} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 999, background: dotColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: done || isRejectStop ? 'none' : `1px solid var(--color-border)` }}>
+              <div style={{ width: 20, height: 20, borderRadius: 999, background: dotColor, color: 'var(--primary-foreground)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: done || isRejectStop ? 'none' : `1px solid var(--border)` }}>
                 {isRejectStop ? <X size={11} /> : done ? <Check size={11} /> : null}
               </div>
-              {i < order.length - 1 && <div style={{ width: 2, height: 20, background: done && i < curIdx ? '#055a60' : BORDER }} />}
+              {i < order.length - 1 && <div style={{ width: 2, height: 20, background: done && i < curIdx ? 'var(--primary)' : BORDER }} />}
             </div>
             <div style={{ paddingBottom: 12 }}>
               <div style={{ fontSize: 12.5, fontWeight: done || isRejectStop ? 600 : 500, color: done || isRejectStop ? TXT1 : TXT3 }}>{isRejectStop ? 'Rejected' : labels[st]}</div>
-              {isRejectStop && e.reviewNotes && <div style={{ fontSize: 11, color: 'var(--color-error)', marginTop: 2 }}>{e.reviewNotes}</div>}
+              {isRejectStop && e.reviewNotes && <div style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 2 }}>{e.reviewNotes}</div>}
             </div>
           </div>
         );
@@ -508,15 +520,10 @@ function Timeline({ e }: { e: Extension }) {
 }
 
 // ─── Add drawer ────────────────────────────────────────────────────────────
-const fieldStyle: CSSProperties = {
-  width: '100%', padding: '9px 11px', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13,
-  background: SURFACE, color: TXT1, outline: 'none',
-};
-
 function FormField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600, color: TXT3, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: TXT3, marginBottom: 6 }}>{label}</div>
       {children}
       {hint && <div style={{ fontSize: 10.5, color: TXT3, marginTop: 5 }}>{hint}</div>}
     </div>
@@ -556,12 +563,12 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
   return (
     <DrawerShell onClose={onClose}>
       <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(5,90,96,0.1)', color: '#055a60', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={18} /></div>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: tint('var(--primary)', 10), color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={18} /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: TXT1 }}>Add extension</div>
           <div style={{ fontSize: 12, color: TXT2 }}>Pick a surface — it saves as a draft you submit for review.</div>
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TXT2, padding: 4 }}><X size={16} /></button>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -571,13 +578,13 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
             const on = surface === s;
             const blurb = { skill: 'A SKILL.md package — procedural knowledge for the agent.', mcp: 'A remote MCP server whose tools become callable.', http: 'One declared REST call exposed as a single tool.' }[s];
             return (
-              <div key={s} onClick={() => setSurface(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: on ? t.color + '0c' : SURFACE, border: `1px solid ${on ? t.color : BORDER}`, boxShadow: on ? `0 0 0 1px ${t.color}` : 'none' }}>
+              <div key={s} onClick={() => setSurface(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: on ? tint(t.color, 5) : SURFACE, border: `1px solid ${on ? t.color : BORDER}`, boxShadow: on ? `0 0 0 1px ${t.color}` : 'none' }}>
                 <TypeTile type={s} size={36} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: TXT1 }}>{t.label}</div>
                   <div style={{ fontSize: 11.5, color: TXT2 }}>{blurb}</div>
                 </div>
-                <div style={{ width: 18, height: 18, borderRadius: 999, border: `2px solid ${on ? t.color : 'var(--color-border)'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 18, height: 18, borderRadius: 999, border: `2px solid ${on ? t.color : 'var(--border)'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                   {on && <span style={{ width: 8, height: 8, borderRadius: 999, background: t.color }} />}
                 </div>
               </div>
@@ -590,17 +597,21 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
         {surface === 'skill' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <FormField label="SKILL.md" hint="Frontmatter is validated and allowed-tools intersected with the agent's tools on upload.">
-              <textarea value={markdown} onChange={(e) => setMarkdown(e.target.value)} rows={12} style={{ ...fieldStyle, fontFamily: MONO, fontSize: 12, resize: 'vertical' }} />
+              <Textarea value={markdown} onChange={(e) => setMarkdown(e.target.value)} rows={12} className="field-sizing-fixed resize-y font-mono text-xs md:text-xs" />
             </FormField>
             {validation && !validation.isValid && (
-              <div style={{ padding: '10px 12px', background: 'rgba(196,69,54,0.05)', border: '1px solid rgba(196,69,54,0.16)', borderRadius: 8, fontSize: 11.5, color: TXT2 }}>
-                {validation.errors.map((er, i) => <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><AlertTriangle size={12} color="var(--color-error)" style={{ marginTop: 2 }} /><span>{er}</span></div>)}
-              </div>
+              <Alert variant="destructive">
+                <AlertTriangle />
+                <AlertDescription className="text-xs">
+                  {validation.errors.map((er, i) => <div key={i}>{er}</div>)}
+                </AlertDescription>
+              </Alert>
             )}
             {validation?.isValid && (
-              <div style={{ padding: '10px 12px', background: 'rgba(31,122,94,0.06)', border: '1px solid rgba(31,122,94,0.2)', borderRadius: 8, fontSize: 11.5, color: TXT2, display: 'flex', gap: 6 }}>
-                <Check size={13} color="var(--color-success)" /><span>Valid — “{validation.name}”, {validation.allowedTools.length} allowed tools{validation.scriptsPresent ? ', has scripts' : ''}.</span>
-              </div>
+              <Alert variant="success">
+                <Check />
+                <AlertDescription className="block text-xs">Valid — “{validation.name}”, {validation.allowedTools.length} allowed tools{validation.scriptsPresent ? ', has scripts' : ''}.</AlertDescription>
+              </Alert>
             )}
           </div>
         )}
@@ -612,7 +623,13 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
               <Input value={mcp.endpoint} onChange={(e) => setMcp({ ...mcp, endpoint: e.target.value })} placeholder="https://mcp.example.com/sse" style={{ fontFamily: MONO, fontSize: 12 }} />
             </FormField>
             <FormField label="Transport">
-              <select value={mcp.transportType} onChange={(e) => setMcp({ ...mcp, transportType: e.target.value })} style={fieldStyle}><option>Http</option><option>Sse</option></select>
+              <Select value={mcp.transportType} onValueChange={(v) => setMcp({ ...mcp, transportType: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Http">Http</SelectItem>
+                  <SelectItem value="Sse">Sse</SelectItem>
+                </SelectContent>
+              </Select>
             </FormField>
             <AuthFields kind={mcp.authKind} secret={mcp.authSecret} username={mcp.authUsername} header={mcp.authHeaderName}
               onChange={(p) => setMcp({ ...mcp, authKind: p.kind, authSecret: p.secret, authUsername: p.username, authHeaderName: p.header })} />
@@ -625,22 +642,25 @@ function AddDrawer({ busy, runAction, onClose }: { busy: boolean; runAction: (a:
             <FormField label="Description"><Input value={http.description} onChange={(e) => setHttp({ ...http, description: e.target.value })} placeholder="What the tool does" /></FormField>
             <FormField label="Request">
               <div style={{ display: 'flex', gap: 8 }}>
-                <select value={http.method} onChange={(e) => setHttp({ ...http, method: e.target.value })} style={{ ...fieldStyle, width: 110, fontFamily: MONO, fontSize: 12 }}>
-                  {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => <option key={m}>{m}</option>)}
-                </select>
+                <Select value={http.method} onValueChange={(v) => setHttp({ ...http, method: v })}>
+                  <SelectTrigger className="w-[110px] shrink-0 font-mono text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => <SelectItem key={m} value={m} className="font-mono text-xs">{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Input value={http.urlTemplate} onChange={(e) => setHttp({ ...http, urlTemplate: e.target.value })} placeholder="https://api.example.com/v2/{id}" style={{ flex: 1, fontFamily: MONO, fontSize: 12 }} />
               </div>
             </FormField>
             <FormField label="Parameter schema" hint="The fixed surface the model sees — it can't add fields.">
-              <textarea value={http.parameterSchemaJson} onChange={(e) => setHttp({ ...http, parameterSchemaJson: e.target.value })} rows={5} style={{ ...fieldStyle, fontFamily: MONO, fontSize: 12, resize: 'vertical' }} />
+              <Textarea value={http.parameterSchemaJson} onChange={(e) => setHttp({ ...http, parameterSchemaJson: e.target.value })} rows={5} className="field-sizing-fixed resize-y font-mono text-xs md:text-xs" />
             </FormField>
             <AuthFields kind={http.authKind} secret={http.authSecret} username={http.authUsername} header={http.authHeaderName}
               onChange={(p) => setHttp({ ...http, authKind: p.kind, authSecret: p.secret, authUsername: p.username, authHeaderName: p.header })} />
             {http.method.toUpperCase() !== 'GET' && (
-              <div style={{ padding: '10px 12px', background: 'rgba(196,69,54,0.05)', border: '1px solid rgba(196,69,54,0.16)', borderRadius: 8, fontSize: 11.5, color: TXT2, display: 'flex', gap: 8 }}>
-                <AlertTriangle size={13} color="var(--color-error)" />
-                <span>A non-GET call writes to an external system, so it defaults to <b style={{ color: '#b3261e' }}>HIGH</b> — a durable proposal that never runs in-band.</span>
-              </div>
+              <Alert variant="destructive">
+                <AlertTriangle />
+                <AlertDescription className="block text-xs">A non-GET call writes to an external system, so it defaults to <b className="text-destructive">HIGH</b> — a durable proposal that never runs in-band.</AlertDescription>
+              </Alert>
             )}
           </div>
         )}
@@ -662,12 +682,15 @@ function AuthFields({ kind, secret, username, header, onChange }: {
   return (
     <FormField label="Auth" hint="Stored encrypted — write-only, never shown again.">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <select value={kind} onChange={(e) => onChange({ kind: e.target.value, secret, username, header })} style={fieldStyle}>
-          <option value="None">None</option>
-          <option value="BearerToken">Bearer token</option>
-          <option value="ApiKeyHeader">API key header</option>
-          <option value="Basic">Basic</option>
-        </select>
+        <Select value={kind} onValueChange={(v) => onChange({ kind: v, secret, username, header })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="None">None</SelectItem>
+            <SelectItem value="BearerToken">Bearer token</SelectItem>
+            <SelectItem value="ApiKeyHeader">API key header</SelectItem>
+            <SelectItem value="Basic">Basic</SelectItem>
+          </SelectContent>
+        </Select>
         {kind === 'ApiKeyHeader' && (
           <Input value={header} onChange={(e) => onChange({ kind, secret, username, header: e.target.value })} placeholder="Header name (e.g. X-Api-Key)" />
         )}
@@ -718,12 +741,12 @@ function HarnessDrawer({ extensions, initial, onClose }: { extensions: Extension
   return (
     <DrawerShell width={560} onClose={onClose}>
       <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(5,90,96,0.1)', color: '#055a60', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><FlaskConical size={18} /></div>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: tint('var(--primary)', 10), color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><FlaskConical size={18} /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: TXT1 }}>Test harness</div>
           <div style={{ fontSize: 12, color: TXT2 }}>Server-truthful — the same code paths production runs.</div>
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TXT2, padding: 4 }}><X size={16} /></button>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -738,7 +761,7 @@ function HarnessDrawer({ extensions, initial, onClose }: { extensions: Extension
                 return (
                   <button key={x.id} onClick={() => { setSelId(x.id); setResult(null); setDryRun(null); setPreview(null); }} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, cursor: 'pointer',
-                    border: `1px solid ${on ? c.color : BORDER}`, background: on ? c.color + '12' : SURFACE, color: on ? c.color : TXT2, fontSize: 11.5, fontWeight: on ? 600 : 500,
+                    border: `1px solid ${on ? c.color : BORDER}`, background: on ? tint(c.color, 7) : SURFACE, color: on ? c.color : TXT2, fontSize: 11.5, fontWeight: on ? 600 : 500,
                   }}><c.Icon size={11} />{x.name}</button>
                 );
               })}
@@ -751,7 +774,7 @@ function HarnessDrawer({ extensions, initial, onClose }: { extensions: Extension
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {harnessSteps(e).map((s) => (
                 <div key={s.key} style={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: s.run ? 'rgba(5,90,96,0.1)' : 'rgba(31,122,94,0.12)', color: s.run ? '#055a60' : '#1f7a5e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: s.run ? tint('var(--primary)', 10) : tint('var(--success)', 12), color: s.run ? 'var(--primary)' : 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <s.Icon size={14} />
                   </div>
                   <div>
@@ -784,9 +807,9 @@ function HarnessDrawer({ extensions, initial, onClose }: { extensions: Extension
                 )}
                 {preview && (
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: TXT3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Injected catalogue</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: TXT3, marginBottom: 6 }}>Injected catalogue</div>
                     <pre style={{ margin: 0, padding: '10px 12px', background: INSET, border: `1px solid ${BORDER}`, borderRadius: 8, fontFamily: MONO, fontSize: 11, color: TXT1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{preview.catalogueText}</pre>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: TXT3, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '10px 0 6px' }}>SKILL.md (loaded on demand)</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: TXT3, margin: '10px 0 6px' }}>SKILL.md (loaded on demand)</div>
                     <pre style={{ margin: 0, padding: '10px 12px', background: INSET, border: `1px solid ${BORDER}`, borderRadius: 8, fontFamily: MONO, fontSize: 11, color: TXT2, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 220, overflow: 'auto' }}>{preview.markdown || '(empty)'}</pre>
                   </div>
                 )}

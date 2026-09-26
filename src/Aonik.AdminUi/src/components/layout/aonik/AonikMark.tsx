@@ -11,8 +11,8 @@ interface AonikMarkProps {
 
 export function AonikMark({
   size = 22,
-  color = 'var(--color-brand-primary)',
-  letterColor = '#fff',
+  color = 'var(--primary)',
+  letterColor = 'var(--primary-foreground)',
 }: AonikMarkProps) {
   const radius = Math.round(size * 0.25);
   const dotSize = Math.max(5, Math.round(size * 0.22));
@@ -47,7 +47,7 @@ export function AonikMark({
           width: dotSize,
           height: dotSize,
           borderRadius: '50%',
-          background: 'var(--color-brand-mark-dot)',
+          background: 'var(--mark-dot)',
           zIndex: 2,
         }}
       />
@@ -70,7 +70,7 @@ export function AonikWordmark({ size = 19 }: AonikWordmarkProps) {
         fontWeight: 700,
         fontSize: size,
         letterSpacing: '-0.01em',
-        color: 'var(--color-text-primary)',
+        color: 'var(--foreground)',
       }}
     >
       <AonikMark size={Math.round(size * 1.1)} />

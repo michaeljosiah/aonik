@@ -462,19 +462,19 @@ function CenteredMessage({ title, body, action }: CenteredMessageProps) {
   return (
     <div className="flex h-full w-full items-center justify-center p-12">
       <div
-        className="flex max-w-md flex-col items-center rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+        className="flex max-w-md flex-col items-center rounded-xl border border-border bg-card text-center"
         style={{ padding: '40px 32px' }}
       >
         <span
-          className="mb-4 inline-flex items-center justify-center rounded-full bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]"
+          className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary"
           style={{ width: 40, height: 40 }}
         >
           <WorkflowIcon className="h-5 w-5" />
         </span>
-        <div className="mb-1.5 text-[14px] font-semibold text-[var(--color-text-primary)]">
+        <div className="mb-1.5 text-[14px] font-semibold text-foreground">
           {title}
         </div>
-        <div className="mb-4 text-[12.5px] text-[var(--color-text-secondary)]" style={{ lineHeight: 1.5 }}>
+        <div className="mb-4 text-[12.5px] text-muted-foreground" style={{ lineHeight: 1.5 }}>
           {body}
         </div>
         {action}

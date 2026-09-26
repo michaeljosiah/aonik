@@ -3,6 +3,8 @@ import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkle
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -418,14 +420,14 @@ function getTraceTotalMs(items: AiTraceObservationResponse[]): number {
   return Math.max(1, Math.max(...ends) - Math.min(...starts));
 }
 
-function statusPill(status: 'ok' | 'held' | 'error') {
+function statusBadgeVariant(status: 'ok' | 'held' | 'error'): 'destructive' | 'warning' | 'success' {
   if (status === 'error') {
-    return 'bg-red-500/10 text-red-600';
+    return 'destructive';
   }
   if (status === 'held') {
-    return 'bg-amber-500/10 text-amber-600';
+    return 'warning';
   }
-  return 'bg-emerald-500/10 text-emerald-600';
+  return 'success';
 }
 
 function getSpanKind(item: AiTraceObservationResponse): string {
@@ -817,10 +819,9 @@ export function ObservabilityTracesPage() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
-      <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="border-b border-border bg-card">
         <div className="px-6 pt-5 pb-4">
           <PageHeader
-            eyebrow="Observability · Distributed tracing"
             title="Traces"
             subtitle="Every agent run captured as a span tree using live AI observation data."
             actions={(
@@ -847,7 +848,7 @@ export function ObservabilityTracesPage() {
                       <Filter className="mr-2 h-3.5 w-3.5" />
                       Filters
                       {activeFilterCount > 0 ? (
-                        <span className="ml-2 rounded-full bg-[var(--color-brand-primary)]/10 px-1.5 text-[10px] font-medium text-[var(--color-brand-primary)]">
+                        <span className="ml-2 rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
                           {activeFilterCount}
                         </span>
                       ) : null}
@@ -856,13 +857,13 @@ export function ObservabilityTracesPage() {
                   <PopoverContent align="end" className="w-80">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                        <span className="text-xs font-medium text-muted-foreground">
                           Filter traces
                         </span>
                         {activeFilterCount > 0 ? (
                           <button
                             type="button"
-                            className="text-[10.5px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                            className="text-[10.5px] text-muted-foreground hover:text-foreground"
                             onClick={() => {
                               setFilterTraceName('');
                               setFilterType('all');
@@ -877,7 +878,7 @@ export function ObservabilityTracesPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                        <label className="text-[11px] font-medium text-muted-foreground">
                           Trace name
                         </label>
                         <Input
@@ -888,13 +889,13 @@ export function ObservabilityTracesPage() {
                           }
                           className="h-8 text-xs"
                         />
-                        <p className="text-[10px] text-[var(--color-text-tertiary)]">
+                        <p className="text-[10px] text-muted-foreground">
                           Substring match against the root span name (case-insensitive).
                         </p>
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                        <label className="text-[11px] font-medium text-muted-foreground">
                           Trace type
                         </label>
                         <Select
@@ -917,7 +918,7 @@ export function ObservabilityTracesPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                        <label className="text-[11px] font-medium text-muted-foreground">
                           Agent name
                         </label>
                         <Input
@@ -972,7 +973,7 @@ export function ObservabilityTracesPage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] bg-[var(--color-surface)]">
+            <SelectTrigger className="w-[180px] bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -984,7 +985,7 @@ export function ObservabilityTracesPage() {
           </Select>
 
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px] bg-[var(--color-surface)]">
+            <SelectTrigger className="w-[180px] bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1007,7 +1008,7 @@ export function ObservabilityTracesPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading traces...
             </div>
@@ -1015,27 +1016,27 @@ export function ObservabilityTracesPage() {
         </div>
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         ) : null}
 
         {!error ? (
           <div className="grid min-h-[640px] grid-cols-1 gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-            <div className="overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-              <div className="flex items-center gap-2 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-3">
-                <Filter className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
-                <span className="text-xs text-[var(--color-text-tertiary)]">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-3">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
                   {statusFilter === 'all' ? 'status:any' : `status:${statusFilter}`}
                 </span>
-                <span className="ml-auto font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
                   {filteredTraceItems.length} traces
                 </span>
               </div>
 
               <div className="max-h-[720px] overflow-y-auto">
                 {filteredTraceItems.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-sm text-[var(--color-text-secondary)]">
+                  <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No traces found for the current filters.
                   </div>
                 ) : (
@@ -1048,24 +1049,24 @@ export function ObservabilityTracesPage() {
                         type="button"
                         onClick={() => setSelectedTraceId(trace.traceId)}
                         className={cn(
-                          'block w-full border-b border-[var(--color-border-light)] px-4 py-3 text-left transition-colors last:border-b-0',
+                          'block w-full border-b border-border px-4 py-3 text-left transition-colors last:border-b-0',
                           active
-                            ? 'border-l-4 border-l-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/10'
-                            : 'hover:bg-[var(--color-surface-inset)]',
+                            ? 'border-l-4 border-l-primary bg-primary/10'
+                            : 'hover:bg-muted',
                         )}
                       >
                         <div className="mb-1 flex items-center justify-between gap-3">
-                          <span className="truncate font-mono text-xs font-semibold text-[var(--color-text-primary)]">
+                          <span className="truncate font-mono text-xs font-semibold text-foreground">
                             {(trace.traceName ?? trace.name) || trace.traceId}
                           </span>
-                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-mono uppercase', statusPill(status))}>
+                          <Badge variant={statusBadgeVariant(status)} className="font-mono">
                             {status}
-                          </span>
+                          </Badge>
                         </div>
-                        <div className="mb-2 truncate font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                        <div className="mb-2 truncate font-mono text-[10px] text-muted-foreground">
                           {trace.traceId}
                         </div>
-                        <div className="flex items-center justify-between gap-3 text-[10.5px] text-[var(--color-text-secondary)]">
+                        <div className="flex items-center justify-between gap-3 text-[10.5px] text-muted-foreground">
                           <span>{trace.agentName ?? trace.agentId ?? trace.serviceName ?? trace.source}</span>
                           <span className="font-mono">{formatDurationMs(getDurationMs(trace))} · {formatAgo(trace.startTime)}</span>
                         </div>
@@ -1076,29 +1077,29 @@ export function ObservabilityTracesPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
               {selectedTrace ? (
                 <>
-                  <div className="border-b border-[var(--color-border-light)] px-5 py-4">
+                  <div className="border-b border-border px-5 py-4">
                     <div className="mb-2 flex flex-wrap items-center gap-3">
-                      <span className="font-mono text-sm font-semibold text-[var(--color-text-primary)]">
+                      <span className="font-mono text-sm font-semibold text-foreground">
                         {(selectedTrace.traceName ?? selectedTrace.name) || selectedTrace.traceId}
                       </span>
-                      <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{selectedTrace.traceId}</span>
-                      <span className={cn('rounded px-2 py-0.5 text-[10px] font-mono uppercase', statusPill(selectedStatus))}>
+                      <span className="font-mono text-[10px] text-muted-foreground">{selectedTrace.traceId}</span>
+                      <Badge variant={statusBadgeVariant(selectedStatus)} className="font-mono">
                         {selectedStatus}
-                      </span>
+                      </Badge>
                     </div>
-                    <div className="flex flex-wrap gap-4 font-mono text-[11px] text-[var(--color-text-secondary)]">
-                      <span>duration <b className="text-[var(--color-text-primary)]">{formatDurationMs(selectedDurationMs)}</b></span>
-                      <span>spans <b className="text-[var(--color-text-primary)]">{selectedSpans}</b></span>
-                      <span>tokens <b className="text-[var(--color-text-primary)]">{formatTokens(selectedTrace.totalTokens)}</b></span>
-                      <span>tools <b className="text-[var(--color-text-primary)]">{selectedTools}</b></span>
-                      <span>agent <b className="text-[var(--color-text-primary)]">{selectedAgentLabel}</b></span>
-                      <span>tail <b className="text-[var(--color-text-primary)]">{filteredTraceItems.length}</b></span>
+                    <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted-foreground">
+                      <span>duration <b className="text-foreground">{formatDurationMs(selectedDurationMs)}</b></span>
+                      <span>spans <b className="text-foreground">{selectedSpans}</b></span>
+                      <span>tokens <b className="text-foreground">{formatTokens(selectedTrace.totalTokens)}</b></span>
+                      <span>tools <b className="text-foreground">{selectedTools}</b></span>
+                      <span>agent <b className="text-foreground">{selectedAgentLabel}</b></span>
+                      <span>tail <b className="text-foreground">{filteredTraceItems.length}</b></span>
                     </div>
                     {selectedAgents.length > 1 ? (
-                      <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
+                      <div className="mt-2 text-[11px] text-muted-foreground">
                         Agents in trace: {selectedAgents.join(', ')}
                       </div>
                     ) : null}
@@ -1110,20 +1111,20 @@ export function ObservabilityTracesPage() {
                         number of distinct LLM calls in that bucket. */}
                     {modelCallSummary.length > 0 ? (
                       <div className="mt-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                        <div className="text-xs font-medium text-muted-foreground">
                           LLM calls
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {modelCallSummary.map((bucket) => (
                             <span
                               key={`${bucket.agent}::${bucket.model}`}
-                              className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10.5px] text-[var(--color-text-secondary)]"
+                              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[10.5px] text-muted-foreground"
                               title={`${bucket.agent} → ${bucket.model} (${bucket.calls} call${bucket.calls === 1 ? '' : 's'}, ${formatDurationMs(bucket.latencyMs)} total, ${formatTokens(bucket.tokens || null)} tokens)`}
                             >
-                              <span className="font-medium text-[var(--color-text-primary)]">{bucket.agent}</span>
-                              <span className="text-[var(--color-text-tertiary)]">→</span>
+                              <span className="font-medium text-foreground">{bucket.agent}</span>
+                              <span className="text-muted-foreground">→</span>
                               <span className="font-mono">{bucket.model}</span>
-                              <span className="ml-0.5 rounded-full bg-[var(--color-brand-primary)]/10 px-1.5 font-mono text-[9.5px] font-medium text-[var(--color-brand-primary)]">
+                              <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 font-mono text-[9.5px] font-medium text-primary">
                                 {bucket.calls}
                               </span>
                             </span>
@@ -1149,22 +1150,22 @@ export function ObservabilityTracesPage() {
                         {traceAnalysisLoading ? 'Analysing...' : 'Interpret with AI'}
                       </Button>
                       {traceAnalysisError ? (
-                        <span className="text-[11px] text-red-500">
+                        <span className="text-[11px] text-destructive">
                           {traceAnalysisError}
                         </span>
                       ) : null}
                     </div>
 
                     {traceAnalysis && traceAnalysisFor === selectedTraceId ? (
-                      <div className="mt-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-[12.5px] leading-relaxed text-[var(--color-text-primary)]">
+                      <div className="mt-3 rounded-lg border border-border bg-muted p-4 text-[12.5px] leading-relaxed text-foreground">
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                             <Sparkles className="h-3 w-3" />
                             AI trace analysis
                           </div>
                           <div className="flex items-center gap-2">
                             {voiceError ? (
-                              <span className="text-[10.5px] text-red-500">
+                              <span className="text-[10.5px] text-destructive">
                                 {voiceError}
                               </span>
                             ) : null}
@@ -1192,10 +1193,10 @@ export function ObservabilityTracesPage() {
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-5 py-3 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                  <div className="grid grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-border bg-muted px-5 py-3 text-xs font-medium text-muted-foreground">
                     <div>Span</div>
                     <div className="text-right">Duration</div>
-                    <div className="grid grid-cols-5 font-mono normal-case tracking-normal text-[var(--color-text-tertiary)]">
+                    <div className="grid grid-cols-5 font-mono text-[10px] font-normal text-muted-foreground">
                       {[0, 25, 50, 75, 100].map((tick) => (
                         <span key={tick} className={cn(tick === 100 ? 'text-right' : tick === 0 ? 'text-left' : 'text-center')}>
                           {Math.round((traceTotalMs * tick) / 100)}ms
@@ -1206,12 +1207,12 @@ export function ObservabilityTracesPage() {
 
                   <div className="max-h-[720px] overflow-y-auto">
                     {traceLoading ? (
-                      <div className="flex items-center gap-2 px-5 py-8 text-sm text-[var(--color-text-secondary)]">
+                      <div className="flex items-center gap-2 px-5 py-8 text-sm text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading trace spans...
                       </div>
                     ) : waterfallItems.length === 0 ? (
-                      <div className="px-5 py-8 text-sm text-[var(--color-text-secondary)]">
+                      <div className="px-5 py-8 text-sm text-muted-foreground">
                         No correlated spans found for this trace.
                       </div>
                     ) : (
@@ -1225,10 +1226,10 @@ export function ObservabilityTracesPage() {
                           type="button"
                           onClick={() => setOpenSpanId(item.id)}
                           className={cn(
-                            'grid w-full cursor-pointer grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-l-[3px] border-[var(--color-border-light)] py-2.5 pr-5 text-left transition-colors last:border-b-0',
+                            'grid w-full cursor-pointer grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-l-[3px] border-border py-2.5 pr-5 text-left transition-colors last:border-b-0',
                             isOpen
-                              ? 'border-l-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)] pl-[17px]'
-                              : 'border-l-transparent pl-5 hover:bg-[var(--color-surface-inset)]',
+                              ? 'border-l-primary bg-primary/10 pl-[17px]'
+                              : 'border-l-transparent pl-5 hover:bg-muted',
                           )}
                         >
                           <div className="min-w-0" style={{ paddingLeft: `${item.depth * 14}px` }}>
@@ -1254,7 +1255,7 @@ export function ObservabilityTracesPage() {
                                       toggleSpanExpansion(item.id);
                                     }
                                   }}
-                                  className="mt-px inline-flex h-3.5 w-3.5 flex-none items-center justify-center rounded text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+                                  className="mt-px inline-flex h-3.5 w-3.5 flex-none items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                 >
                                   {isExpanded
                                     ? <ChevronDown className="h-3 w-3" />
@@ -1266,16 +1267,16 @@ export function ObservabilityTracesPage() {
                                 <span aria-hidden className="mt-px inline-block h-3.5 w-3.5 flex-none" />
                               )}
                               <div className="min-w-0">
-                                <div className="truncate font-mono text-[11.5px] text-[var(--color-text-primary)]" title={item.name}>
+                                <div className="truncate font-mono text-[11.5px] text-foreground" title={item.name}>
                                   {item.name || '--'}
                                   {hasChildren && !isExpanded ? (
-                                    <span className="ml-1.5 rounded bg-[var(--color-surface-inset)] px-1 py-px font-mono text-[9px] font-medium text-[var(--color-text-tertiary)]">
+                                    <span className="ml-1.5 rounded bg-muted px-1 py-px font-mono text-[9px] font-medium text-muted-foreground">
                                       {item.children.length}
                                     </span>
                                   ) : null}
                                 </div>
-                                <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
-                                  <span className="rounded bg-[var(--color-brand-primary)]/10 px-1.5 py-0.5 font-medium text-[var(--color-brand-primary)]">
+                                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                                  <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
                                     {getSpanKind(item)}
                                   </span>
                                   <span>{getSpanActor(item)}</span>
@@ -1284,28 +1285,28 @@ export function ObservabilityTracesPage() {
                             </div>
                           </div>
 
-                          <div className="text-right font-mono text-[11px] text-[var(--color-text-secondary)]">
+                          <div className="text-right font-mono text-[11px] text-muted-foreground">
                             {item.durationLabel}
                           </div>
 
-                          <div className="relative h-5 rounded bg-[var(--color-surface-inset)]">
-                            <div className="absolute inset-y-0 left-1/4 w-px bg-[var(--color-border-light)]" />
-                            <div className="absolute inset-y-0 left-2/4 w-px bg-[var(--color-border-light)]" />
-                            <div className="absolute inset-y-0 left-3/4 w-px bg-[var(--color-border-light)]" />
+                          <div className="relative h-5 rounded bg-muted">
+                            <div className="absolute inset-y-0 left-1/4 w-px bg-border" />
+                            <div className="absolute inset-y-0 left-2/4 w-px bg-border" />
+                            <div className="absolute inset-y-0 left-3/4 w-px bg-border" />
                             <div
                               className={cn(
                                 'absolute inset-y-1 rounded-sm',
                                 item.level.toLowerCase() === 'error'
-                                  ? 'bg-red-500'
+                                  ? 'bg-destructive'
                                 : item.level.toLowerCase() === 'warning'
-                                  ? 'bg-amber-500'
+                                  ? 'bg-warning'
                                 : item.type.toLowerCase() === 'generation'
-                                  ? 'bg-[var(--color-brand-primary)]'
+                                  ? 'bg-chart-1'
                                   : item.type.toLowerCase() === 'db'
-                                    ? 'bg-teal-500'
+                                    ? 'bg-chart-5'
                                     : item.type.toLowerCase() === 'http'
-                                      ? 'bg-violet-500'
-                                      : 'bg-sky-500',
+                                      ? 'bg-chart-4'
+                                      : 'bg-chart-2',
                               )}
                               style={{
                                 left: `${item.offsetPct}%`,
@@ -1320,7 +1321,7 @@ export function ObservabilityTracesPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex h-full min-h-[320px] items-center justify-center px-6 text-sm text-[var(--color-text-secondary)]">
+                <div className="flex h-full min-h-[320px] items-center justify-center px-6 text-sm text-muted-foreground">
                   No trace selected.
                 </div>
               )}
@@ -1351,13 +1352,13 @@ export function ObservabilityTracesPage() {
 // that one filter (the popover's "Clear all" wipes the lot).
 function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-2.5 py-1 text-[11px] text-[var(--color-brand-primary)]">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] text-primary">
       <span className="font-mono">{label}</span>
       <button
         type="button"
         onClick={onClear}
         aria-label={`Clear filter ${label}`}
-        className="text-[var(--color-brand-primary)]/70 hover:text-[var(--color-brand-primary)]"
+        className="text-primary/70 hover:text-primary"
       >
         <X className="h-3 w-3" />
       </button>

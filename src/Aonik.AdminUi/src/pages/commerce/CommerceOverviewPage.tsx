@@ -219,14 +219,13 @@ export function CommerceOverviewPage() {
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
       <PageHeader
-        eyebrow="Commerce"
         title="Overview"
         subtitle="The storefront's pulse — what sold, and what needs a human"
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {orders.kind === 'unavailable' ? (
-          <div className="col-span-2 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5 text-[12.5px] text-[var(--color-text-secondary)] lg:col-span-4">
+          <div className="col-span-2 rounded-xl border border-border bg-card p-5 text-[12.5px] text-muted-foreground lg:col-span-4">
             Order figures could not be read.{' '}
             <button type="button" onClick={retry} className="underline">
               Retry
@@ -267,7 +266,7 @@ export function CommerceOverviewPage() {
       {summary.excludedOrders > 0 && (
         // Wrappable body text, never the KpiTile delta pill: that pill is shrink-0, so a
         // sentence inside it widens the tile past its column and shoves its neighbours.
-        <p className="-mt-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+        <p className="-mt-2 text-[11.5px] text-muted-foreground">
           Money figures cover {summary.moneyCaption.split(' · ').pop()} only —{' '}
           {summary.excludedOrders} captured order{summary.excludedOrders === 1 ? '' : 's'} in other
           currencies {summary.excludedOrders === 1 ? 'is' : 'are'} excluded, because there is no
@@ -283,38 +282,38 @@ export function CommerceOverviewPage() {
         >
           {orders.kind === 'loading' ? (
             <div className="flex items-center justify-center py-10">
-              <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
             </div>
           ) : orders.kind === 'unavailable' ? (
-            <p className="px-4 py-8 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+            <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
               Orders could not be read.
             </p>
           ) : orderRows.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+            <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
               No storefront orders yet.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+            <ul className="flex flex-col divide-y divide-border">
               {shownRows.map((order) => (
                 <li key={order.orderId}>
                   <button
                     type="button"
                     onClick={() => navigate(`/commerce/orders/${order.orderId}`)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--color-surface-inset)]"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted"
                   >
-                    <span className="w-[70px] shrink-0 font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-primary)]">
+                    <span className="w-[70px] shrink-0 font-[family-name:var(--font-mono)] text-[11.5px] text-foreground">
                       {order.orderId.slice(0, 8)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <BuyerLabel buyerKind={order.buyerKind} buyerPartyId={order.buyerPartyId} linkless />
                     </span>
-                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-[var(--color-text-primary)]">
+                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[12px] tabular-nums text-foreground">
                       {formatCurrency(order.total, order.currency)}
                     </span>
-                    <Pill tone={paymentTone(order.paymentStatus)} size="sm">
+                    <Pill tone={paymentTone(order.paymentStatus)}>
                       {order.paymentStatus}
                     </Pill>
-                    <span className="w-[80px] shrink-0 text-right text-[11px] text-[var(--color-text-tertiary)]">
+                    <span className="w-[80px] shrink-0 text-right text-[11px] text-muted-foreground">
                       {formatDate(order.placedAtUtc)}
                     </span>
                   </button>
@@ -326,11 +325,11 @@ export function CommerceOverviewPage() {
 
         <AonikCard title="Needs attention" padding={0}>
           {rows.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+            <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
               {settled ? 'All quiet on the storefront.' : 'Checking the storefront…'}
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-[var(--color-border-light)]">
+            <ul className="flex flex-col divide-y divide-border">
               {rows.map((row) => (
                 <AttentionRow key={row.key} row={row} onOpen={() => navigate(row.href)} />
               ))}
@@ -349,9 +348,9 @@ const TONE_ICON = {
 };
 
 const TONE_CLASS = {
-  warn: 'text-[var(--color-warning)]',
-  info: 'text-[var(--color-brand-primary)]',
-  muted: 'text-[var(--color-text-tertiary)]',
+  warn: 'text-warning',
+  info: 'text-primary',
+  muted: 'text-muted-foreground',
 };
 
 function AttentionRow({ row, onOpen }: { row: AttentionRowModel; onOpen: () => void }) {
@@ -361,15 +360,15 @@ function AttentionRow({ row, onOpen }: { row: AttentionRowModel; onOpen: () => v
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-[var(--color-surface-inset)]"
+        className="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-muted"
       >
         <Icon className={`mt-px h-4 w-4 shrink-0 ${TONE_CLASS[row.tone]}`} aria-hidden />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-[13px] text-[var(--color-text-primary)]">{row.statement}</span>
-          <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{row.subline}</span>
+          <span className="text-[13px] text-foreground">{row.statement}</span>
+          <span className="text-[11.5px] text-muted-foreground">{row.subline}</span>
         </span>
         <ChevronRight
-          className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
+          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
           aria-hidden
         />
       </button>

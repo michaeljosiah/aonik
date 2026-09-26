@@ -7,9 +7,9 @@
 import type { AgentDisplayState } from './agentMeta';
 
 const STATE_META: Record<AgentDisplayState, { color: string; label: string }> = {
-  running: { color: 'var(--color-success)', label: 'Running' },
-  idle: { color: 'var(--color-gray-400)', label: 'Idle' },
-  paused: { color: 'var(--color-warning)', label: 'Paused' },
+  running: { color: 'var(--success)', label: 'Running' },
+  idle: { color: 'var(--muted-foreground)', label: 'Idle' },
+  paused: { color: 'var(--warning)', label: 'Paused' },
 };
 
 export interface StateDotProps {
@@ -34,7 +34,7 @@ export function StateDot({ state, iconOnly, label }: StateDotProps) {
         }}
       />
       {!iconOnly && (
-        <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+        <span className="text-[11px] font-medium text-muted-foreground">
           {label ?? meta.label}
         </span>
       )}

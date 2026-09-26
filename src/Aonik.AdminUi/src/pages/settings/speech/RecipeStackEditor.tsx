@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -680,24 +681,20 @@ function AgentRoutingControls({
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">Agent routing</Label>
-      <div className="space-y-1">
+      <RadioGroup
+        value={mode}
+        onValueChange={(v) => setMode(v as 'use-client' | 'pin')}
+        className="gap-1"
+      >
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            checked={mode === 'use-client'}
-            onChange={() => setMode('use-client')}
-          />
+          <RadioGroupItem value="use-client" />
           Use the client's requested agent (default)
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            checked={mode === 'pin'}
-            onChange={() => setMode('pin')}
-          />
+          <RadioGroupItem value="pin" />
           Pin to a specific agent
         </label>
-      </div>
+      </RadioGroup>
       {mode === 'pin' && (
         <Input
           value={pinnedAgentId}

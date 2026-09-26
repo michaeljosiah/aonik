@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -475,8 +477,8 @@ export function AiModelsPage() {
       className: 'pl-4',
       cell: (model) => (
         <div>
-          <p className="font-medium text-[var(--color-text-primary)]">{model.modelName}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{model.providerName ?? 'No provider assigned'}</p>
+          <p className="font-medium text-foreground">{model.modelName}</p>
+          <p className="text-xs text-muted-foreground">{model.providerName ?? 'No provider assigned'}</p>
         </div>
       ),
     },
@@ -486,7 +488,7 @@ export function AiModelsPage() {
       accessorFn: (row) => row.providerName ?? '',
       sortable: true,
       cell: (model) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{model.providerName ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">{model.providerName ?? '—'}</span>
       ),
     },
     {
@@ -497,7 +499,7 @@ export function AiModelsPage() {
       headerClassName: 'justify-end text-right',
       className: 'text-right',
       cell: (model) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-sm text-muted-foreground">
           {model.contextWindow > 0 ? `${(model.contextWindow / 1000).toFixed(0)}k` : '—'}
         </span>
       ),
@@ -509,11 +511,11 @@ export function AiModelsPage() {
       sortable: true,
       cell: (model) => (
         model.isActive ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-success-subtle text-success">
             <Check className="w-3 h-3" /> Active
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
             <X className="w-3 h-3" /> Inactive
           </span>
         )
@@ -525,7 +527,7 @@ export function AiModelsPage() {
       accessorFn: (row) => row.createdAt ? new Date(row.createdAt) : null,
       sortable: true,
       cell: (model) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(model.createdAt)}</span>
+        <span className="text-sm text-muted-foreground">{formatDate(model.createdAt)}</span>
       ),
     },
   ];
@@ -535,21 +537,21 @@ export function AiModelsPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">AI Models</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">AI Models</h1>
+          <p className="text-muted-foreground">
             Manage AI providers and their models used across the platform.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={openImportDialog} className="rounded-sm">
+          <Button variant="outline" onClick={openImportDialog}>
             <Download className="w-4 h-4 mr-2" />
             Import model provider
           </Button>
-          <Button variant="outline" onClick={openNewProvider} className="rounded-sm">
+          <Button variant="outline" onClick={openNewProvider}>
             <Plus className="w-4 h-4 mr-2" />
             New provider
           </Button>
-          <Button onClick={openNewModel} className="rounded-sm" disabled={providers.length === 0}>
+          <Button onClick={openNewModel} disabled={providers.length === 0}>
             <Plus className="w-4 h-4 mr-2" />
             New model
           </Button>
@@ -557,59 +559,59 @@ export function AiModelsPage() {
       </div>
 
       <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <BrainCircuit className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Model providers</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalProviders}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Configured in this tenant</p>
+              <p className="text-xs text-muted-foreground">Model providers</p>
+              <p className="text-2xl font-semibold text-foreground">{totalProviders}</p>
+              <p className="text-xs text-muted-foreground">Configured in this tenant</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <Power className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active providers</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeProviders}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Available for routing policies</p>
+              <p className="text-xs text-muted-foreground">Active providers</p>
+              <p className="text-2xl font-semibold text-foreground">{activeProviders}</p>
+              <p className="text-xs text-muted-foreground">Available for routing policies</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Catalog models</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalModels}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Local model records</p>
+              <p className="text-xs text-muted-foreground">Catalog models</p>
+              <p className="text-2xl font-semibold text-foreground">{totalModels}</p>
+              <p className="text-xs text-muted-foreground">Local model records</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success-subtle text-success">
               <Check className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active models</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeModels}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Enabled for runtime use</p>
+              <p className="text-xs text-muted-foreground">Active models</p>
+              <p className="text-2xl font-semibold text-foreground">{activeModels}</p>
+              <p className="text-xs text-muted-foreground">Enabled for runtime use</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+        <Card className="mb-6 border-destructive bg-destructive/10">
+          <CardContent className="p-4 flex items-center gap-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
             <Button variant="outline" size="sm" onClick={loadData} className="ml-auto">
@@ -623,8 +625,8 @@ export function AiModelsPage() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4 pb-4">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Model Providers</h2>
-              <p className="text-sm text-[var(--color-text-secondary)]">
+              <h2 className="text-lg font-semibold text-foreground">Model Providers</h2>
+              <p className="text-sm text-muted-foreground">
                 Configure provider access first, then review and curate the models they expose.
               </p>
             </div>
@@ -634,14 +636,14 @@ export function AiModelsPage() {
           </div>
 
           {loading && providers.length === 0 ? (
-            <div className="rounded-md border border-[var(--color-border-light)] px-4 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+            <div className="rounded-md border border-border px-4 py-10 text-center text-sm text-muted-foreground">
               Loading providers...
             </div>
           ) : providers.length === 0 ? (
-            <div className="rounded-md border border-[var(--color-border-light)] px-4 py-10 text-center">
-              <BrainCircuit className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">No model providers configured</p>
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+            <div className="rounded-md border border-border px-4 py-10 text-center">
+              <BrainCircuit className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm font-medium text-foreground">No model providers configured</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Import a model provider from the external catalog or add one manually.
               </p>
             </div>
@@ -650,23 +652,23 @@ export function AiModelsPage() {
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className="rounded-none border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4"
+                  className="rounded-lg border border-border bg-card p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-[var(--color-text-primary)]">{provider.name}</span>
+                        <span className="font-medium text-foreground">{provider.name}</span>
                       {provider.isActive ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-success-subtle text-success">
                           <Power className="w-3 h-3" /> Active
                         </span>
                       ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                           <PowerOff className="w-3 h-3" /> Inactive
                         </span>
                       )}
                       </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-xs text-muted-foreground">
                         {provider.models.length} model{provider.models.length !== 1 ? 's' : ''}
                         {provider.authConfigRef ? ` | Auth: ${provider.authConfigRef}` : ''}
                       </p>
@@ -678,7 +680,7 @@ export function AiModelsPage() {
             </div>
           )}
 
-          <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
+          <div className="mt-6 pt-6 border-t border-border">
             <DataTableHeader
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
@@ -696,7 +698,7 @@ export function AiModelsPage() {
               className="px-0 border-b-0"
             />
 
-            <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <div className="mt-3 rounded-md border border-border overflow-hidden">
               <DataTable
                 data={filteredModels}
                 columns={modelColumns}
@@ -741,18 +743,18 @@ export function AiModelsPage() {
                 />
               </div>
 
-              <div className="max-h-[420px] overflow-y-auto rounded-md border border-[var(--color-border-light)]">
+              <div className="max-h-[420px] overflow-y-auto rounded-md border border-border">
                 {catalogLoading ? (
-                  <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-[var(--color-text-tertiary)]">
+                  <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-muted-foreground">
                     <LoaderCircle className="h-4 w-4 animate-spin" />
                     Loading model providers...
                   </div>
                 ) : filteredCatalogModelProviders.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+                  <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No model providers match your search.
                   </div>
                 ) : (
-                  <div className="divide-y divide-[var(--color-border-light)]">
+                  <div className="divide-y divide-border">
                     {filteredCatalogModelProviders.map((modelProvider) => {
                       const isSelected = modelProvider.modelProviderKey === selectedCatalogModelProviderKey;
 
@@ -763,13 +765,13 @@ export function AiModelsPage() {
                           onClick={() => setSelectedCatalogModelProviderKey(modelProvider.modelProviderKey)}
                           className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors ${
                             isSelected
-                              ? 'bg-[var(--color-surface-inset)]'
-                              : 'hover:bg-[var(--color-surface-inset)]/60'
+                              ? 'bg-muted'
+                              : 'hover:bg-muted/60'
                           }`}
                         >
-                          <span className="font-medium text-[var(--color-text-primary)]">{modelProvider.name}</span>
-                          <span className="text-xs text-[var(--color-text-secondary)]">{modelProvider.modelProviderKey}</span>
-                          <span className="text-xs text-[var(--color-text-tertiary)]">
+                          <span className="font-medium text-foreground">{modelProvider.name}</span>
+                          <span className="text-xs text-muted-foreground">{modelProvider.modelProviderKey}</span>
+                          <span className="text-xs text-muted-foreground">
                             {modelProvider.modelCount} model{modelProvider.modelCount !== 1 ? 's' : ''}
                           </span>
                         </button>
@@ -780,9 +782,9 @@ export function AiModelsPage() {
               </div>
             </div>
 
-            <div className="min-h-[420px] rounded-md border border-[var(--color-border-light)] p-4">
+            <div className="min-h-[420px] rounded-md border border-border p-4">
               {!selectedCatalogModelProvider ? (
-                <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   Select a model provider to preview its metadata and models.
                 </div>
               ) : (
@@ -790,20 +792,20 @@ export function AiModelsPage() {
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        <h3 className="text-lg font-semibold text-foreground">
                           {selectedCatalogModelProvider.name}
                         </h3>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
+                        <p className="text-sm text-muted-foreground">
                           {selectedCatalogModelProvider.modelProviderKey}
                         </p>
                       </div>
-                      <span className="inline-flex items-center rounded-full bg-[var(--color-surface-inset)] px-2 py-1 text-xs font-medium text-[var(--color-text-secondary)]">
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                         {selectedCatalogModelProvider.modelCount} model{selectedCatalogModelProvider.modelCount !== 1 ? 's' : ''}
                       </span>
                     </div>
 
                     {(selectedCatalogModelProvider.documentationUrl || selectedCatalogModelProvider.sdkPackage) && (
-                      <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                      <div className="space-y-1 text-sm text-muted-foreground">
                         {selectedCatalogModelProvider.sdkPackage && (
                           <p>SDK package: {selectedCatalogModelProvider.sdkPackage}</p>
                         )}
@@ -818,14 +820,14 @@ export function AiModelsPage() {
 
                     {selectedCatalogModelProvider.environmentVariables.length > 0 && (
                       <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
                           Environment variables
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {selectedCatalogModelProvider.environmentVariables.map((environmentVariable) => (
                             <span
                               key={environmentVariable}
-                              className="rounded-full bg-[var(--color-surface-inset)] px-2 py-1 text-xs text-[var(--color-text-secondary)]"
+                              className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"
                             >
                               {environmentVariable}
                             </span>
@@ -837,53 +839,50 @@ export function AiModelsPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Models to import</p>
-                      <span className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-sm font-medium text-foreground">Models to import</p>
+                      <span className="text-xs text-muted-foreground">
                         Imported models will be inactive by default
                       </span>
                     </div>
 
                     {catalogLoadingModels ? (
-                      <div className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] px-4 py-8 text-sm text-[var(--color-text-tertiary)]">
+                      <div className="flex items-center gap-2 rounded-md border border-border px-4 py-8 text-sm text-muted-foreground">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                         Loading models...
                       </div>
                     ) : catalogModels.length === 0 ? (
-                      <div className="rounded-md border border-[var(--color-border-light)] px-4 py-8 text-sm text-[var(--color-text-tertiary)]">
+                      <div className="rounded-md border border-border px-4 py-8 text-sm text-muted-foreground">
                         No models were returned for this model provider.
                       </div>
                     ) : (
-                      <div className="max-h-[240px] overflow-y-auto rounded-md border border-[var(--color-border-light)]">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
-                              <th className="p-3 text-left font-medium text-[var(--color-text-secondary)]">Model</th>
-                              <th className="p-3 text-left font-medium text-[var(--color-text-secondary)]">Family</th>
-                              <th className="p-3 text-right font-medium text-[var(--color-text-secondary)]">Context</th>
-                              <th className="p-3 text-right font-medium text-[var(--color-text-secondary)]">Output</th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                      <div className="max-h-[240px] overflow-y-auto rounded-md border border-border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted hover:bg-muted">
+                              <TableHead className="px-3 text-muted-foreground">Model</TableHead>
+                              <TableHead className="px-3 text-muted-foreground">Family</TableHead>
+                              <TableHead numeric className="px-3 text-muted-foreground">Context</TableHead>
+                              <TableHead numeric className="px-3 text-muted-foreground">Output</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
                             {catalogModels.map((catalogModel) => (
-                              <tr
-                                key={catalogModel.modelKey}
-                                className="border-b border-[var(--color-border-light)] last:border-b-0"
-                              >
-                                <td className="p-3 align-top">
-                                  <p className="font-medium text-[var(--color-text-primary)]">{catalogModel.name}</p>
-                                  <p className="text-xs text-[var(--color-text-tertiary)]">{catalogModel.modelKey}</p>
-                                </td>
-                                <td className="p-3 text-[var(--color-text-secondary)]">{catalogModel.family ?? '—'}</td>
-                                <td className="p-3 text-right text-[var(--color-text-secondary)]">
+                              <TableRow key={catalogModel.modelKey}>
+                                <TableCell className="p-3 align-top">
+                                  <p className="font-medium text-foreground">{catalogModel.name}</p>
+                                  <p className="text-xs text-muted-foreground">{catalogModel.modelKey}</p>
+                                </TableCell>
+                                <TableCell className="p-3 text-muted-foreground">{catalogModel.family ?? '—'}</TableCell>
+                                <TableCell numeric className="p-3 text-muted-foreground">
                                   {catalogModel.contextWindow > 0 ? `${(catalogModel.contextWindow / 1000).toFixed(0)}k` : '—'}
-                                </td>
-                                <td className="p-3 text-right text-[var(--color-text-secondary)]">
+                                </TableCell>
+                                <TableCell numeric className="p-3 text-muted-foreground">
                                   {catalogModel.outputTokenLimit > 0 ? `${(catalogModel.outputTokenLimit / 1000).toFixed(0)}k` : '—'}
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                             ))}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                     )}
                   </div>
@@ -937,12 +936,10 @@ export function AiModelsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="provider-active"
                 checked={providerActive}
-                onChange={(e) => setProviderActive(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setProviderActive(checked === true)}
               />
               <Label htmlFor="provider-active">Active</Label>
             </div>
@@ -1009,12 +1006,10 @@ export function AiModelsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="model-active"
                 checked={modelActive}
-                onChange={(e) => setModelActive(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setModelActive(checked === true)}
               />
               <Label htmlFor="model-active">Active</Label>
             </div>

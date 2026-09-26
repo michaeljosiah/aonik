@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ChevronDown, Globe } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Globe } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogCountryItem } from '@/types';
 
@@ -35,9 +36,6 @@ export function CountrySelect({
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState('');
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const loadCountries = useCallback(async () => {
     try {
@@ -62,155 +60,49 @@ export function CountrySelect({
     loadCountries();
   }, [loadCountries]);
 
-  const selectedCountry = useMemo(
-    () => countries.find((country) => country.countryCode === value),
-    [countries, value]
+  const options = useMemo<ComboboxOption[]>(
+    () =>
+      countries.map((country) => ({
+        value: country.countryCode,
+        label: country.name,
+        keywords: [country.countryCode],
+        icon: (
+          <img
+            src={getFlagUrl(country.countryCode)}
+            alt=""
+            className="size-5 shrink-0 rounded-full object-cover"
+          />
+        ),
+      })),
+    [countries]
   );
-
-  useEffect(() => {
-    if (!open) {
-      setInputValue(selectedCountry?.name ?? '');
-    }
-  }, [open, selectedCountry]);
-
-  useEffect(() => {
-    if (!open && !value) {
-      setInputValue('');
-    }
-  }, [open, value]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [open]);
-
-  const filteredCountries = useMemo(() => {
-    const query = inputValue.trim().toLowerCase();
-    if (!query) return countries;
-
-    return countries.filter((country) =>
-      country.name.toLowerCase().includes(query) ||
-      country.countryCode.toLowerCase().includes(query)
-    );
-  }, [countries, inputValue]);
-
-  const handleSelect = (countryCode: string) => {
-    onChange(countryCode);
-    const selected = countries.find((country) => country.countryCode === countryCode);
-    setInputValue(selected?.name ?? '');
-    setOpen(false);
-  };
-
-  const handleClear = () => {
-    onChange('');
-    setInputValue('');
-    setOpen(false);
-  };
 
   if (error) {
     return (
       <div
         className={cn(
-          'flex h-10 w-full items-center rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 text-sm text-[var(--color-form-field-text)]',
+          'flex h-9 w-full items-center gap-2 rounded-md border border-input px-3 text-sm text-muted-foreground',
           className
         )}
       >
-        <Globe className="w-4 h-4 mr-2 text-[var(--color-text-tertiary)]" />
-        <span>Error loading countries</span>
+        <Globe className="size-4" />
+        <span>Couldn't load countries. Reload the page to try again.</span>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      <div
-        className={cn(
-          'flex h-10 w-full items-center gap-2 rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm text-[var(--color-form-field-text)] focus-within:outline-none focus-within:ring-0 focus-within:border-[var(--color-form-field-border-focus)]',
-          disabled && 'cursor-not-allowed opacity-50'
-        )}
-        onClick={() => !disabled && setOpen(true)}
-        role="combobox"
-        aria-expanded={open}
-        aria-haspopup="listbox"
-      >
-        {selectedCountry ? (
-          <img
-            src={getFlagUrl(selectedCountry.countryCode)}
-            alt={selectedCountry.name}
-            className="w-5 h-5 rounded-full object-cover"
-          />
-        ) : (
-          <Globe className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-        )}
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(event) => {
-            setInputValue(event.target.value);
-            if (!open) setOpen(true);
-          }}
-          onFocus={() => !disabled && setOpen(true)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              setOpen(false);
-            }
-          }}
-          className="flex-1 bg-transparent text-[var(--color-form-field-text)] outline-none placeholder:text-[var(--color-form-field-placeholder)]"
-          placeholder={placeholder}
-          disabled={disabled}
-        />
-        <ChevronDown className={cn('h-4 w-4 text-[var(--color-text-tertiary)] transition-transform', open && 'rotate-180')} />
-      </div>
-
-      {open && (
-        <div className="absolute z-[200] mt-1 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] shadow-md">
-          <div className="max-h-64 overflow-auto p-1">
-            {includeEmpty && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-primary-light)] hover:text-[var(--color-brand-primary)]"
-              >
-                <Globe className="w-4 h-4" />
-                <span>{emptyLabel}</span>
-              </button>
-            )}
-
-            {loading ? (
-              <div className="px-2 py-2 text-sm text-[var(--color-text-tertiary)]">Loading countries...</div>
-            ) : filteredCountries.length === 0 ? (
-              <div className="px-2 py-2 text-sm text-[var(--color-text-tertiary)]">No countries found</div>
-            ) : (
-              filteredCountries.map((country) => (
-                <button
-                  key={country.countryCode}
-                  type="button"
-                  onClick={() => handleSelect(country.countryCode)}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-[var(--color-brand-primary-light)] hover:text-[var(--color-brand-primary)]"
-                >
-                  <img
-                    src={getFlagUrl(country.countryCode)}
-                    alt={country.name}
-                    className="w-5 h-5 rounded-full object-cover"
-                  />
-                  <span>{country.name}</span>
-                  <span className="ml-auto text-xs text-[var(--color-text-tertiary)]">
-                    {country.countryCode}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <Combobox
+      options={options}
+      value={value}
+      onValueChange={onChange}
+      placeholder={placeholder}
+      searchPlaceholder="Search countries"
+      emptyText="No countries match."
+      disabled={disabled}
+      loading={loading}
+      clearLabel={includeEmpty ? emptyLabel : undefined}
+      className={className}
+    />
   );
 }

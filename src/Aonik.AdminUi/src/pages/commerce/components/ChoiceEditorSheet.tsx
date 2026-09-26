@@ -8,6 +8,7 @@
 // The price field is the ABSOLUTE per-unit amount (Spec 066 §8), captioned as such — an
 // operator who reads it as "the extra" would author a catalogue whose every delta is wrong.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -22,7 +23,7 @@ import { choiceDelta, effectiveDefaultChoice } from '../lib/optionPricing';
 import { SignedAmount } from './SignedAmount';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 
 export function ChoiceEditorSheet({
   group,
@@ -123,21 +124,23 @@ export function ChoiceEditorSheet({
 
         <SheetBody>
           {error && (
-            <p className="mb-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12px] text-[var(--color-error)]">
-              {error}
-            </p>
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertDescription className="text-xs">
+                {error}
+              </AlertDescription>
+            </Alert>
           )}
 
           <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Label
               </span>
               <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Note
               </span>
               <input
@@ -149,7 +152,7 @@ export function ChoiceEditorSheet({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-medium text-muted-foreground">
                 Price ({group.currency})
               </span>
               <input
@@ -158,7 +161,7 @@ export function ChoiceEditorSheet({
                 inputMode="decimal"
                 className={`${inputClass} font-[family-name:var(--font-mono)]`}
               />
-              <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 This is the ABSOLUTE per-unit price, not the extra (Spec 066 §8).
                 {editingTheDefault ? (
                   <>This choice IS the default, so it is its own baseline and always reads 0.</>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Check,
   Loader2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -72,27 +73,8 @@ export function PlaygroundMessageBlock({
   const [fullscreen, setFullscreen] = useState(false);
   const fullscreenTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Lock body scroll when fullscreen
-  useEffect(() => {
-    if (fullscreen) {
-      document.body.style.overflow = 'hidden';
-      // Focus the fullscreen textarea
-      setTimeout(() => fullscreenTextareaRef.current?.focus(), 50);
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [fullscreen]);
+  // Scroll lock, Escape-to-close and focus trap come from the Sheet below.
 
-  // Close fullscreen on Escape
-  useEffect(() => {
-    if (!fullscreen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [fullscreen]);
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -154,11 +136,11 @@ export function PlaygroundMessageBlock({
 
   return (
     <>
-      <div className="flex gap-3 border-b border-[var(--color-border-light)] px-6 py-4">
+      <div className="flex gap-3 border-b border-border px-6 py-4">
         {/* Role selector / label */}
         <div className="w-24 shrink-0 pt-2">
           {roleFixed ? (
-            <span className="text-xs font-medium capitalize text-[var(--color-text-secondary)]">
+            <span className="text-xs font-medium capitalize text-muted-foreground">
               {role}
             </span>
           ) : (
@@ -174,7 +156,7 @@ export function PlaygroundMessageBlock({
             </Select>
           )}
           {index !== undefined && (
-            <span className="mt-0.5 block text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
               #{index}
             </span>
           )}
@@ -189,7 +171,7 @@ export function PlaygroundMessageBlock({
                 variant="ghost"
                 size="sm"
                 onClick={openWizard}
-                className="gap-1.5 text-xs h-7 text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]"
+                className="gap-1.5 text-xs h-7 text-primary hover:text-primary"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Regenerate with AI
@@ -199,7 +181,7 @@ export function PlaygroundMessageBlock({
                 size="sm"
                 onClick={() => setFullscreen(true)}
                 title="Edit in fullscreen"
-                className="h-7 w-7 p-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
               </Button>
@@ -217,14 +199,14 @@ export function PlaygroundMessageBlock({
 
           {/* Inline AI wizard */}
           {isSystem && wizardOpen && (
-            <div className="space-y-2 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3">
+            <div className="space-y-2 rounded-md border border-border bg-muted p-3">
               <Textarea
                 value={wizardIntent}
                 onChange={(e) => setWizardIntent(e.target.value)}
                 placeholder="Describe how you'd like the prompt changed (e.g. 'Make it more concise and add risk assessment focus')..."
                 rows={2}
                 disabled={wizardImproving}
-                className="text-sm bg-[var(--color-surface)]"
+                className="text-sm bg-card"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
@@ -234,7 +216,7 @@ export function PlaygroundMessageBlock({
               />
 
               {wizardPreview && (
-                <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface)] rounded-md p-3 overflow-auto max-h-48 whitespace-pre-wrap font-mono border border-[var(--color-border-light)]">
+                <pre className="text-xs text-muted-foreground bg-card rounded-md p-3 overflow-auto max-h-48 whitespace-pre-wrap font-mono border border-border">
                   {wizardPreview}
                 </pre>
               )}
@@ -247,15 +229,15 @@ export function PlaygroundMessageBlock({
                     <><Sparkles className="w-3.5 h-3.5" /> Generate prompt</>
                   )}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={closeWizard} className="gap-1 text-[var(--color-text-tertiary)]">
+                <Button variant="ghost" size="sm" onClick={closeWizard} className="gap-1 text-muted-foreground">
                   <X className="w-3.5 h-3.5" /> Discard
                 </Button>
                 {wizardPreview && (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => setWizardPreview(null)} className="gap-1 text-[var(--color-text-tertiary)]">
+                    <Button variant="ghost" size="sm" onClick={() => setWizardPreview(null)} className="gap-1 text-muted-foreground">
                       <RefreshCw className="w-3.5 h-3.5" /> Regenerate
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={acceptWizard} className="gap-1 text-[var(--color-success)]">
+                    <Button variant="ghost" size="sm" onClick={acceptWizard} className="gap-1 text-success">
                       <Check className="w-3.5 h-3.5" /> Accept
                     </Button>
                   </>
@@ -267,7 +249,7 @@ export function PlaygroundMessageBlock({
 
         {/* Actions column */}
         <div className="flex shrink-0 flex-col items-end gap-1.5 pt-1">
-          <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--color-text-tertiary)]">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
             {tokenEstimate}
           </span>
 
@@ -279,7 +261,7 @@ export function PlaygroundMessageBlock({
                 size="sm"
                 onClick={handleReset}
                 title="Reset to agent default"
-                className="h-6 w-6 p-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
               >
                 <RotateCcw className="h-3 w-3" />
               </Button>
@@ -289,7 +271,7 @@ export function PlaygroundMessageBlock({
                 onClick={handleSave}
                 disabled={saving}
                 title="Save prompt to agent config"
-                className="h-6 w-6 p-0 text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]"
+                className="h-6 w-6 p-0 text-primary hover:text-primary"
               >
                 <Save className="h-3 w-3" />
               </Button>
@@ -301,7 +283,7 @@ export function PlaygroundMessageBlock({
               variant="ghost"
               size="sm"
               onClick={onDelete}
-              className="h-6 w-6 p-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -310,13 +292,22 @@ export function PlaygroundMessageBlock({
       </div>
 
       {/* ── Fullscreen overlay ── */}
-      {fullscreen && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-background">
+      <Sheet open={fullscreen} onOpenChange={setFullscreen}>
+        <SheetContent
+          side="bottom"
+          className="h-full gap-0 border-t-0"
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => {
+            // Focus the fullscreen textarea instead of the first toolbar button.
+            e.preventDefault();
+            fullscreenTextareaRef.current?.focus();
+          }}
+        >
           {/* Toolbar */}
-          <div className="flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-6 py-3">
+          <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-[var(--color-text-primary)]">System Prompt</span>
-              <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--color-text-tertiary)]">
+              <SheetTitle className="text-sm">System Prompt</SheetTitle>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                 ~{tokenEstimate} tokens
               </span>
             </div>
@@ -325,7 +316,7 @@ export function PlaygroundMessageBlock({
                 variant="ghost"
                 size="sm"
                 onClick={openWizard}
-                className="gap-1.5 text-xs h-8 text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]"
+                className="gap-1.5 text-xs h-8 text-primary hover:text-primary"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Regenerate with AI
@@ -335,7 +326,7 @@ export function PlaygroundMessageBlock({
                 size="sm"
                 onClick={() => setFullscreen(false)}
                 title="Exit fullscreen (Esc)"
-                className="h-8 w-8 p-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
               >
                 <Minimize2 className="w-4 h-4" />
               </Button>
@@ -350,20 +341,20 @@ export function PlaygroundMessageBlock({
                 value={content}
                 onChange={(e) => onContentChange(e.target.value)}
                 placeholder="Enter system prompt..."
-                className="w-full min-h-[calc(100vh-200px)] resize-none rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5 font-mono text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
+                className="w-full min-h-[calc(100vh-200px)] resize-none rounded-md border border-border bg-card p-5 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 readOnly={readOnly}
               />
 
               {/* Inline AI wizard in fullscreen */}
               {wizardOpen && (
-                <div className="space-y-3 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                <div className="space-y-3 rounded-md border border-border bg-muted p-4">
                   <Textarea
                     value={wizardIntent}
                     onChange={(e) => setWizardIntent(e.target.value)}
                     placeholder="Describe how you'd like the prompt changed..."
                     rows={2}
                     disabled={wizardImproving}
-                    className="text-sm bg-[var(--color-surface)]"
+                    className="text-sm bg-card"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                         e.preventDefault();
@@ -373,7 +364,7 @@ export function PlaygroundMessageBlock({
                   />
 
                   {wizardPreview && (
-                    <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface)] rounded-md p-4 overflow-auto max-h-64 whitespace-pre-wrap font-mono border border-[var(--color-border-light)]">
+                    <pre className="text-xs text-muted-foreground bg-card rounded-md p-4 overflow-auto max-h-64 whitespace-pre-wrap font-mono border border-border">
                       {wizardPreview}
                     </pre>
                   )}
@@ -386,15 +377,15 @@ export function PlaygroundMessageBlock({
                         <><Sparkles className="w-3.5 h-3.5" /> Generate prompt</>
                       )}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={closeWizard} className="gap-1 text-[var(--color-text-tertiary)]">
+                    <Button variant="ghost" size="sm" onClick={closeWizard} className="gap-1 text-muted-foreground">
                       <X className="w-3.5 h-3.5" /> Discard
                     </Button>
                     {wizardPreview && (
                       <>
-                        <Button variant="ghost" size="sm" onClick={() => setWizardPreview(null)} className="gap-1 text-[var(--color-text-tertiary)]">
+                        <Button variant="ghost" size="sm" onClick={() => setWizardPreview(null)} className="gap-1 text-muted-foreground">
                           <RefreshCw className="w-3.5 h-3.5" /> Regenerate
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={acceptWizard} className="gap-1 text-[var(--color-success)]">
+                        <Button variant="ghost" size="sm" onClick={acceptWizard} className="gap-1 text-success">
                           <Check className="w-3.5 h-3.5" /> Accept
                         </Button>
                       </>
@@ -404,8 +395,8 @@ export function PlaygroundMessageBlock({
               )}
             </div>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

@@ -9,6 +9,8 @@ import {
   Legend,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartLegendContent, ChartTooltipContent } from '@/components/ui/chart';
+import { chartAxisProps, chartGridProps } from '@/components/ui/chart-config';
 
 interface Series {
   key: string;
@@ -62,39 +64,33 @@ export function MultiLineChart({
   const content = (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-light)" />
+        <CartesianGrid {...chartGridProps} />
         <XAxis
+          {...chartAxisProps}
           dataKey="displayTime"
-          tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-          tickLine={false}
-          axisLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-          tickLine={false}
-          axisLine={false}
+          {...chartAxisProps}
           tickFormatter={formatValue}
           width={45}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border-light)',
-            borderRadius: 4,
-            fontSize: 12,
-          }}
-          labelStyle={{ color: 'var(--color-text-secondary)', fontSize: 11 }}
-          formatter={(value, name) => {
-            const s = series.find((x) => x.key === name);
-            return [formatValue ? formatValue(Number(value)) : value, s?.label ?? String(name)];
-          }}
+          cursor={false}
+          content={(props) => (
+            <ChartTooltipContent
+              {...props}
+              formatValue={formatValue}
+              nameFor={(key) => series.find((x) => x.key === key)?.label ?? key}
+            />
+          )}
         />
         <Legend
-          wrapperStyle={{ fontSize: 12, color: 'var(--color-text-secondary)' }}
-          formatter={(value: string) => {
-            const s = series.find((x) => x.key === value);
-            return s?.label ?? value;
-          }}
+          content={(props) => (
+            <ChartLegendContent
+              payload={props.payload}
+              nameFor={(key) => series.find((x) => x.key === key)?.label ?? key}
+            />
+          )}
         />
         {series.map((s) => (
           <Line
@@ -113,10 +109,10 @@ export function MultiLineChart({
   if (label) {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{label}</CardTitle>
+        <CardHeader>
+          <CardTitle className="text-sm">{label}</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">{content}</CardContent>
+        <CardContent>{content}</CardContent>
       </Card>
     );
   }

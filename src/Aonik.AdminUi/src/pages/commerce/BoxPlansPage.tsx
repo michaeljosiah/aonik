@@ -24,7 +24,17 @@ import { AlertCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card as AonikCard, KpiTile, PageHeader, Pill } from '@/components/layout/aonik';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
@@ -47,7 +57,7 @@ import {
 } from './lib/planCurve';
 
 const inputClass =
-  'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-primary)]';
+  'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
 const numberClass = `${inputClass} font-[family-name:var(--font-mono)]`;
 
 export function BoxPlansPage() {
@@ -145,25 +155,26 @@ export function BoxPlansPage() {
   return (
     <div className="flex flex-col gap-5 p-6">
       <PageHeader
-        eyebrow="Commerce"
         title="Box plans"
         subtitle="Presets win at their size; every other size prices as base + (size − base) × per-space. Growing a box charges the difference between the two box prices, never per-space × spaces."
         actions={
           <div className="flex items-center gap-2">
-            <select
-              value={selectedId ?? ''}
-              onChange={(e) => setSelectedId(e.target.value || null)}
-              className={`${inputClass} w-[240px]`}
-              aria-label="Bundle"
-            >
-              {bundles.length === 0 && <option value="">No bundles</option>}
-              {bundles.map((bundle) => (
-                <option key={bundle.id} value={bundle.id}>
-                  {bundle.name}
-                  {bundle.status === 'Active' ? '' : ` (${bundle.status})`}
-                </option>
-              ))}
-            </select>
+            <div className="w-[240px]">
+              <NativeSelect
+                className="h-8"
+                value={selectedId ?? ''}
+                onChange={(e) => setSelectedId(e.target.value || null)}
+                aria-label="Bundle"
+              >
+                {bundles.length === 0 && <option value="">No bundles</option>}
+                {bundles.map((bundle) => (
+                  <option key={bundle.id} value={bundle.id}>
+                    {bundle.name}
+                    {bundle.status === 'Active' ? '' : ` (${bundle.status})`}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -189,7 +200,7 @@ export function BoxPlansPage() {
 
       {bundles.length === 0 && !bundlesError && (
         <AonikCard>
-          <p className="py-6 text-center text-[13px] text-[var(--color-text-secondary)]">
+          <p className="py-6 text-center text-[13px] text-muted-foreground">
             No bundle products exist yet. A box plan prices a bundle, so create one in Products
             first.
           </p>
@@ -212,16 +223,16 @@ export function BoxPlansPage() {
       {error && <Banner>{error}</Banner>}
 
       {invalid && draft && (
-        <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-          <AlertCircle className="mt-px h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
-          <span>{invalid}</span>
-        </div>
+        <Alert variant="warning" className="py-2">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="text-xs">{invalid}</AlertDescription>
+        </Alert>
       )}
 
       {unauthored && selectedBundle && (
         <AonikCard className="border-dashed">
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <p className="text-[13px] text-[var(--color-text-secondary)]">
+            <p className="text-[13px] text-muted-foreground">
               No size plan authored for this bundle — the storefront shows no box section until
               one exists.
             </p>
@@ -231,7 +242,7 @@ export function BoxPlansPage() {
               Author a size plan
             </Button>
             {!tenantCurrency && (
-              <p className="text-[11px] text-[var(--color-text-tertiary)]">
+              <p className="text-[11px] text-muted-foreground">
                 The storefront currency could not be read, so the form starts at GBP — check it
                 before saving.
               </p>
@@ -287,32 +298,32 @@ export function BoxPlansPage() {
                   {jumps.map((jump) => (
                     <div
                       key={`${jump.from}-${jump.to}`}
-                      className="rounded-md border border-[var(--color-border-light)] px-3 py-2"
+                      className="rounded-md border border-border px-3 py-2"
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                      <p className="text-xs font-medium text-muted-foreground">
                         Grow {jump.from} → {jump.to}
                       </p>
-                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[15px] text-[var(--color-text-primary)]">
+                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[15px] text-foreground">
                         {money(jump.delta)}
                       </p>
                       {/* The subtraction, shown. The rule is only believable if the arithmetic
                           is visible — asserting it in prose is what lets per-space × spaces
                           survive in someone's head. */}
-                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                      <p className="mt-0.5 font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
                         {money(jump.toPrice)} − {money(jump.fromPrice)}
                       </p>
-                      <p className="text-[11px] text-[var(--color-text-tertiary)]">{jump.note}</p>
+                      <p className="text-[11px] text-muted-foreground">{jump.note}</p>
                     </div>
                   ))}
                   {jumps.length === 0 && (
-                    <p className="text-[12px] text-[var(--color-text-secondary)]">
+                    <p className="text-[12px] text-muted-foreground">
                       This plan sells one size, so there is no growing to price.
                     </p>
                   )}
                 </div>
               </>
             ) : (
-              <p className="py-6 text-center text-[12.5px] text-[var(--color-text-secondary)]">
+              <p className="py-6 text-center text-[12.5px] text-muted-foreground">
                 Set a size range to see the price curve.
               </p>
             )}
@@ -349,7 +360,7 @@ export function BoxPlansPage() {
                 onChange={(v) => setDraft({ ...draft, perSpacePrice: v })}
               />
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                <span className="text-xs font-medium text-muted-foreground">
                   Currency
                 </span>
                 <input
@@ -361,7 +372,7 @@ export function BoxPlansPage() {
                 />
               </label>
             </div>
-            <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="mt-2 text-[11px] text-muted-foreground">
               Saving is a full replace of the formula and every preset. Changing the currency is
               refused while open box sessions reference this plan — the server counts them.
             </p>
@@ -378,31 +389,31 @@ export function BoxPlansPage() {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-[12.5px]">
-                <thead>
-                  <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+              <Table className="min-w-[820px] text-[12.5px]">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
                     <Th>Size</Th>
                     <Th>Price</Th>
-                    <Th>Formula at size</Th>
+                    <Th numeric>Formula at size</Th>
                     <Th>Saving (authored)</Th>
                     <Th>Badge</Th>
                     <Th>Blurb</Th>
                     <Th> </Th>
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {draft.presets.length === 0 && (
-                    <tr>
-                      <td
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell
                         colSpan={7}
-                        className="px-4 py-6 text-center text-[var(--color-text-secondary)]"
+                        className="px-4 py-6 text-center text-muted-foreground"
                       >
                         No presets — every size prices from the formula.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                   {draft.presets.map((preset, index) => (
-                    <tr key={index} className="border-b border-[var(--color-border-light)]">
+                    <TableRow key={index} className="hover:bg-transparent">
                       <Td>
                         <input
                           type="number"
@@ -423,7 +434,7 @@ export function BoxPlansPage() {
                         />
                       </Td>
                       {/* COMPARISON ONLY. Never written into the payload — see the footer. */}
-                      <Td className="font-[family-name:var(--font-mono)] text-[var(--color-text-tertiary)]">
+                      <Td numeric className="text-muted-foreground">
                         {money(formulaPrice(draft, preset.size))}
                       </Td>
                       <Td>
@@ -438,7 +449,7 @@ export function BoxPlansPage() {
                             })
                           }
                           className={`${numberClass} w-[100px] ${
-                            preset.savingAmount != null ? 'text-[var(--color-success)]' : ''
+                            preset.savingAmount != null ? 'text-success' : ''
                           }`}
                           aria-label="Authored saving"
                         />
@@ -462,8 +473,10 @@ export function BoxPlansPage() {
                         />
                       </Td>
                       <Td>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           aria-label={`Remove the ${preset.size}-space preset`}
                           onClick={() =>
                             setDraft({
@@ -471,24 +484,24 @@ export function BoxPlansPage() {
                               presets: draft.presets.filter((_, i) => i !== index),
                             })
                           }
-                          className="rounded p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
+                          className="text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       </Td>
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-            <p className="border-t border-[var(--color-border-light)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
               Savings are display values authored here — the storefront never computes one. The
               formula column is for comparison and is not sent.
             </p>
           </AonikCard>
 
           {selectedBundle && selectedBundle.status !== 'Active' && (
-            <p className="flex items-center gap-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+            <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
               <Pill tone="muted">{selectedBundle.status}</Pill>
               This bundle is not live, so the storefront serves none of this yet. The plan is
               still authored and saved normally.
@@ -577,7 +590,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <input
@@ -593,19 +606,35 @@ function NumberField({
 
 function Banner({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-      <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
-      {children}
-    </div>
+    <Alert variant="destructive" className="py-2">
+      <AlertCircle aria-hidden />
+      <AlertDescription className="flex items-center gap-2 text-xs">{children}</AlertDescription>
+    </Alert>
   );
 }
 
-function Th({ children }: { children: ReactNode }) {
-  return <th className="px-4 py-2 font-semibold">{children}</th>;
+function Th({ children, numeric = false }: { children: ReactNode; numeric?: boolean }) {
+  return (
+    <TableHead numeric={numeric} className="h-auto px-4 py-2 text-xs text-muted-foreground">
+      {children}
+    </TableHead>
+  );
 }
 
-function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-4 py-1.5 ${className}`}>{children}</td>;
+function Td({
+  children,
+  className = '',
+  numeric = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  numeric?: boolean;
+}) {
+  return (
+    <TableCell numeric={numeric} className={`px-4 py-1.5 ${className}`}>
+      {children}
+    </TableCell>
+  );
 }
 
 /** An empty box is 0, not NaN — NaN would propagate through the curve and blank the chart. */

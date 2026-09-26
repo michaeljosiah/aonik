@@ -62,11 +62,11 @@ function buildFormState(provider: PaymentGatewayProviderResponse): GatewayFormSt
 
 function SettingsSection({ title, description, children, action }: { title: string; description?: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <section className="mb-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-      <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] px-5 py-4">
+    <section className="mb-4 rounded-xl border border-border bg-card">
+      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-text-secondary)]">{description}</p> : null}
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p> : null}
         </div>
         {action ? <div className="flex-none">{action}</div> : null}
       </div>
@@ -79,9 +79,9 @@ function Field({ label, code, help, children }: { label: string; code?: string; 
   return (
     <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
       <div>
-        <p className="text-[13px] font-medium text-[var(--color-text-primary)]">{label}</p>
-        {code ? <p className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{code}</p> : null}
-        {help ? <p className="mt-1.5 text-[11.5px] leading-5 text-[var(--color-text-tertiary)]">{help}</p> : null}
+        <p className="text-[13px] font-medium text-foreground">{label}</p>
+        {code ? <p className="mt-1 font-mono text-[10.5px] text-muted-foreground">{code}</p> : null}
+        {help ? <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">{help}</p> : null}
       </div>
       <div>{children}</div>
     </div>
@@ -186,25 +186,26 @@ export function SettingsPaymentGatewaysPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="w-80 flex-none overflow-auto border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-[18px]">
-        <h1 className="text-[17px] font-semibold text-[var(--color-text-primary)]">Payment gateways</h1>
-        <p className="mt-1 mb-4 text-[12.5px] leading-5 text-[var(--color-text-secondary)]">
+      <aside className="w-80 flex-none overflow-auto border-r border-border bg-muted p-[18px]">
+        <h1 className="text-[17px] font-semibold text-foreground">Payment gateways</h1>
+        <p className="mt-1 mb-4 text-[12.5px] leading-5 text-muted-foreground">
           Configure provider credentials and runtime connection settings.
         </p>
         <div className="flex flex-col gap-1.5">
           <button
             type="button"
-            className="flex items-center gap-2.5 rounded-[10px] border border-[var(--color-brand-primary)] bg-[var(--color-surface)] p-3 text-left"
+            className="flex items-center gap-2.5 rounded-lg border border-primary bg-card p-3 text-left"
           >
+            {/* guardrail-ignore: Flutterwave partner brand colour */}
             <span className="grid h-8 w-8 flex-none place-items-center rounded-md bg-[#f5a623] text-[13px] font-bold text-white">F</span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-1.5">
-                <span className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">Flutterwave</span>
+                <span className="truncate text-[13px] font-semibold text-foreground">Flutterwave</span>
                 <Badge variant={formState?.enabled ? 'success' : 'outline'} className="gap-1 text-[10px]">
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />{formState?.enabled ? 'Enabled' : 'Disabled'}
                 </Badge>
               </span>
-              <span className="mt-0.5 block truncate text-[11px] text-[var(--color-text-secondary)]">Transfers · recipients · webhooks</span>
+              <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">Transfers · recipients · webhooks</span>
             </span>
           </button>
         </div>
@@ -213,9 +214,9 @@ export function SettingsPaymentGatewaysPage() {
       <main className="min-w-0 flex-1 overflow-auto px-8 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · Gateways · Flutterwave</p>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Flutterwave</h2>
-            <p className="text-[var(--color-text-secondary)]">Runtime-configured v4 payout connector for African corridors.</p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Settings · Gateways · Flutterwave</p>
+            <h2 className="text-2xl font-bold text-foreground">Flutterwave</h2>
+            <p className="text-muted-foreground">Runtime-configured v4 payout connector for African corridors.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void loadSettings()} disabled={loading || saving}>
@@ -231,7 +232,7 @@ export function SettingsPaymentGatewaysPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 flex items-start gap-2 rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 p-3 text-sm text-[var(--color-danger)]">
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4" />
             <span>{error}</span>
           </div>
@@ -250,10 +251,10 @@ export function SettingsPaymentGatewaysPage() {
                   onClick={() => updateField('enabled', !formState.enabled)}
                   className={cn(
                     'inline-flex rounded-lg p-1 text-xs font-medium',
-                    formState.enabled ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]' : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]',
+                    formState.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  <span className="rounded-md bg-[var(--color-surface)] px-4 py-1.5 shadow-sm">{formState.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <span className="rounded-md bg-card px-4 py-1.5 shadow-sm">{formState.enabled ? 'Enabled' : 'Disabled'}</span>
                 </button>
               </Field>
               <Field label="Base URL" code="Finance.Partners.Flutterwave.BaseUrl"><Input value={formState.baseUrl} onChange={(event) => updateField('baseUrl', event.target.value)} /></Field>

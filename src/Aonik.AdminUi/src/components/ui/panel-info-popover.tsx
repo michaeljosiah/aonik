@@ -9,6 +9,7 @@ import {
   Volume2,
 } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -168,38 +169,30 @@ export function PanelInfoPopover({
     >
       <PopoverTrigger asChild>
         {triggerLabel ? (
-          <button
-            type="button"
-            aria-label={triggerLabel}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-light)] px-3 text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] dark:hover:bg-white/5"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" aria-label={triggerLabel}>
+            <Sparkles />
             {triggerLabel}
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label={`About ${title}`}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="size-6 rounded-full text-muted-foreground hover:text-foreground"
           >
-            <Info className="w-3.5 h-3.5" />
-          </button>
+            <Info className="size-3.5" />
+          </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[28rem] max-h-[36rem] overflow-y-auto"
-      >
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
-          <div className="text-xs leading-relaxed text-[var(--color-text-secondary)] space-y-2 [&_strong]:text-[var(--color-text-primary)] [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1">
+      <PopoverContent align="start" className="max-h-[36rem] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto">
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <div className="space-y-2 text-xs leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-4">
             {description}
           </div>
           {callouts && callouts.length > 0 && (
-            <div className="pt-2 border-t border-[var(--color-border-light)] space-y-1.5">
-              <p className="text-[10px] uppercase tracking-wide font-medium text-[var(--color-text-tertiary)]">
-                What your data shows
-              </p>
+            <div className="flex flex-col gap-1.5 border-t pt-3">
+              <p className="text-xs font-medium">What your data shows</p>
               {callouts.map((c, i) => (
                 <Callout key={i} level={c.level}>
                   {c.message}
@@ -208,94 +201,60 @@ export function PanelInfoPopover({
             </div>
           )}
           {canExplain && (
-            <div className="pt-2 border-t border-[var(--color-border-light)] space-y-2">
+            <div className="flex flex-col gap-2 border-t pt-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-wide font-medium text-[var(--color-text-tertiary)]">
-                  Explain my data
-                </p>
+                <p className="text-xs font-medium">Explain my data</p>
                 <div className="flex items-center gap-2">
                   {voiceModeStorageKey ? (
-                    <div className="inline-flex items-center gap-2 rounded-sm border border-[var(--color-border-light)] px-2 py-1">
-                      <Volume2 className="h-3 w-3 text-[var(--color-text-tertiary)]" />
-                      <span className="text-[11px] text-[var(--color-text-secondary)]">Voice mode</span>
+                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <Volume2 className="size-3.5" />
+                      Voice mode
                       <Switch
                         checked={voiceModeEnabled}
                         onCheckedChange={(checked) => {
                           setVoiceModeEnabled(checked);
                           if (!checked) stopAudio();
                         }}
-                        aria-label="Toggle voice mode"
+                        aria-label="Voice mode"
                       />
-                    </div>
+                    </label>
                   ) : null}
                   {!summary && (
-                    <button
-                      type="button"
-                      onClick={() => void explain()}
-                      disabled={loadingSummary}
-                      className="inline-flex items-center gap-1 rounded-sm border border-[var(--color-border-light)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 transition-colors"
-                    >
-                      {loadingSummary ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          Thinking...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3 h-3" />
-                          Ask AI
-                        </>
-                      )}
-                    </button>
+                    <Button variant="outline" size="sm" onClick={() => void explain()} disabled={loadingSummary}>
+                      {loadingSummary ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      Ask AI
+                    </Button>
                   )}
                 </div>
               </div>
               {summary && (
-                <div className="space-y-2">
-                  <p className="text-xs leading-relaxed text-[var(--color-text-secondary)]">
-                    {summary}
-                  </p>
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs leading-relaxed text-muted-foreground">{summary}</p>
                   <div className="flex items-center gap-2">
                     {playback === 'playing' ? (
-                      <button
-                        type="button"
-                        onClick={stopAudio}
-                        aria-label="Stop spoken summary"
-                        className="inline-flex h-6 items-center gap-1 rounded-sm border border-[var(--color-border-light)] px-2 text-[11px] font-medium text-[var(--color-text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                      >
-                        <Square className="w-3 h-3 fill-current" />
+                      <Button variant="outline" size="sm" onClick={stopAudio} aria-label="Stop spoken summary">
+                        <Square className="fill-current" />
                         Stop
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => void speak()}
                         disabled={playback === 'loading'}
                         aria-label="Play spoken summary"
-                        className="inline-flex h-6 items-center gap-1 rounded-sm border border-[var(--color-border-light)] px-2 text-[11px] font-medium text-[var(--color-text-primary)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 transition-colors"
                       >
-                        {playback === 'loading' ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Volume2 className="w-3 h-3" />
-                        )}
+                        {playback === 'loading' ? <Loader2 className="animate-spin" /> : <Volume2 />}
                         Listen
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => void explain()}
-                      disabled={loadingSummary}
-                      className="text-[11px] text-[var(--color-text-tertiary)] underline underline-offset-2 hover:text-[var(--color-text-primary)] disabled:opacity-60"
-                    >
+                    <Button variant="link" size="sm" onClick={() => void explain()} disabled={loadingSummary} className="px-1 text-muted-foreground">
                       Regenerate
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
-              {error && (
-                <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>
-              )}
+              {error && <p className="text-xs text-destructive">{error}</p>}
             </div>
           )}
         </div>
@@ -317,15 +276,15 @@ function Callout({ level, children }: { level: PanelCalloutLevel; children: Reac
   const Icon = level === 'good' ? CheckCircle2 : level === 'info' ? Info : AlertTriangle;
   const iconColor =
     level === 'good'
-      ? 'text-emerald-500'
+      ? 'text-success'
       : level === 'critical'
-        ? 'text-red-500'
+        ? 'text-destructive'
         : level === 'warning'
-          ? 'text-amber-500'
-          : 'text-[var(--color-brand-primary)]';
+          ? 'text-warning'
+          : 'text-info';
   return (
-    <div className="flex items-start gap-1.5 text-[11px] text-[var(--color-text-secondary)] [&_strong]:text-[var(--color-text-primary)] [&_strong]:font-semibold">
-      <Icon className={cn('w-3 h-3 mt-0.5 shrink-0', iconColor)} />
+    <div className="flex items-start gap-2 text-xs text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">
+      <Icon className={cn('mt-0.5 size-3.5 shrink-0', iconColor)} />
       <span>{children}</span>
     </div>
   );

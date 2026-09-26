@@ -4,6 +4,8 @@
 
 import { Maximize2, Minus, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CanvasView } from './Minimap';
 
 interface ButtonProps {
@@ -14,15 +16,20 @@ interface ButtonProps {
 
 function Btn({ children, onClick, title }: ButtonProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="inline-flex items-center justify-center rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]"
-      style={{ width: 28, height: 28, padding: 0, cursor: 'pointer' }}
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={onClick}
+          aria-label={title}
+          className="size-7 bg-card text-muted-foreground"
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -46,12 +53,11 @@ export function ZoomControls({ view, setView, computeFitView }: ZoomControlsProp
 
   return (
     <div
-      className="absolute z-[5] flex items-center gap-1.5 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+      className="absolute flex items-center gap-1.5 rounded-lg border border-border bg-card shadow-md"
       style={{
         left: 16,
         bottom: 16,
         padding: 4,
-        boxShadow: '0 4px 14px -4px rgba(0,0,0,0.12)',
       }}
     >
       <Btn
@@ -61,7 +67,7 @@ export function ZoomControls({ view, setView, computeFitView }: ZoomControlsProp
         <Minus size={12} />
       </Btn>
       <span
-        className="text-center text-[11px] text-[var(--color-text-secondary)]"
+        className="text-center text-[11px] text-muted-foreground"
         style={{ fontFamily: 'var(--font-mono)', minWidth: 38 }}
       >
         {Math.round(view.scale * 100)}%
@@ -72,7 +78,7 @@ export function ZoomControls({ view, setView, computeFitView }: ZoomControlsProp
       >
         <Plus size={12} />
       </Btn>
-      <span className="h-4 w-px bg-[var(--color-border-light)]" />
+      <span className="h-4 w-px bg-border" />
       <Btn title="Fit view" onClick={handleFit}>
         <Maximize2 size={12} />
       </Btn>

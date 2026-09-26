@@ -23,29 +23,29 @@ import {
 
 const statusStyles: Record<string, { text: string; bg: string; iconColor: string }> = {
   Active: { 
-    text: 'text-[var(--color-success)]', 
-    bg: 'bg-[var(--color-success-light)]',
-    iconColor: 'text-[var(--color-brand-primary)]'
+    text: 'text-success', 
+    bg: 'bg-success-subtle',
+    iconColor: 'text-primary'
   },
   Invited: { 
-    text: 'text-[var(--color-warning)]', 
-    bg: 'bg-[var(--color-warning-light)]',
-    iconColor: 'text-[var(--color-warning)]'
+    text: 'text-warning', 
+    bg: 'bg-warning-subtle',
+    iconColor: 'text-warning'
   },
   Pending: { 
-    text: 'text-[var(--color-warning)]', 
-    bg: 'bg-[var(--color-warning-light)]',
-    iconColor: 'text-[var(--color-warning)]'
+    text: 'text-warning', 
+    bg: 'bg-warning-subtle',
+    iconColor: 'text-warning'
   },
   Deactivated: { 
-    text: 'text-[var(--color-text-tertiary)]', 
-    bg: 'bg-[var(--color-surface-inset)]',
-    iconColor: 'text-[var(--color-text-tertiary)]'
+    text: 'text-muted-foreground', 
+    bg: 'bg-muted',
+    iconColor: 'text-muted-foreground'
   },
   Suspended: { 
-    text: 'text-[var(--color-error)]', 
-    bg: 'bg-[var(--color-error-light)]',
-    iconColor: 'text-[var(--color-error)]'
+    text: 'text-destructive', 
+    bg: 'bg-destructive/10',
+    iconColor: 'text-destructive'
   },
 };
 
@@ -232,7 +232,7 @@ export function AccessUsersPage() {
 
   // Render user avatar based on photo or initials
   const renderUserIcon = (user: AccessUserSummary) => {
-    const style = statusStyles[user.status] ?? { iconColor: 'text-[var(--color-text-tertiary)]' };
+    const style = statusStyles[user.status] ?? { iconColor: 'text-muted-foreground' };
     const photoUrl = getPhotoUrl(user, 'tiny');
     const initials = getUserInitials(user);
     const hasError = imageErrors.has(user.userId);
@@ -250,13 +250,13 @@ export function AccessUsersPage() {
               className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
             />
             {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
-                <div className="w-3 h-3 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="w-3 h-3 border-2 border-border border-t-primary rounded-full animate-spin" />
               </div>
             )}
           </>
         ) : null}
-        <AvatarFallback className={`text-xs ${style.iconColor} bg-[var(--color-surface-inset)]`}>
+        <AvatarFallback className={`text-xs ${style.iconColor} bg-muted`}>
           {initials}
         </AvatarFallback>
       </Avatar>
@@ -271,10 +271,10 @@ export function AccessUsersPage() {
       sortable: true,
       cell: (user) => (
         <div>
-          <p className="font-medium text-[var(--color-text-primary)]">
+          <p className="font-medium text-foreground">
             {user.displayName || user.email}
           </p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{user.email}</p>
+          <p className="text-xs text-muted-foreground">{user.email}</p>
         </div>
       ),
     },
@@ -285,7 +285,7 @@ export function AccessUsersPage() {
       sortable: true,
       cell: (user) => (
         <div className="space-y-1">
-          <p className="text-sm text-[var(--color-text-primary)]">
+          <p className="text-sm text-foreground">
             {user.partyDisplayName ?? 'Not linked'}
           </p>
           {user.partyType && (
@@ -303,8 +303,8 @@ export function AccessUsersPage() {
       sortable: true,
       cell: (user) => {
         const style = statusStyles[user.status] ?? {
-          text: 'text-[var(--color-text-secondary)]',
-          bg: 'bg-[var(--color-surface-inset)]',
+          text: 'text-muted-foreground',
+          bg: 'bg-muted',
         };
         return (
           <span
@@ -321,7 +321,7 @@ export function AccessUsersPage() {
       accessorKey: 'roleCount',
       sortable: true,
       cell: (user) => (
-        <Badge variant="team" className="text-xs">
+        <Badge variant="default" className="text-xs">
           {user.roleCount} role{user.roleCount === 1 ? '' : 's'}
         </Badge>
       ),
@@ -332,7 +332,7 @@ export function AccessUsersPage() {
       accessorFn: (row) => row.lastLoginAt ? new Date(row.lastLoginAt) : null,
       sortable: true,
       cell: (user) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-sm text-muted-foreground">
           {formatDate(user.lastLoginAt)}
         </span>
       ),
@@ -341,9 +341,9 @@ export function AccessUsersPage() {
 
   const renderUserCard = (user: AccessUserSummary) => {
     const style = statusStyles[user.status] ?? {
-      text: 'text-[var(--color-text-secondary)]',
-      bg: 'bg-[var(--color-surface-inset)]',
-      iconColor: 'text-[var(--color-text-tertiary)]',
+      text: 'text-muted-foreground',
+      bg: 'bg-muted',
+      iconColor: 'text-muted-foreground',
     };
     const photoUrl = getPhotoUrl(user, 'small');
     const initials = getUserInitials(user);
@@ -365,21 +365,21 @@ export function AccessUsersPage() {
                     className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
                   />
                   {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
-                      <div className="w-4 h-4 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                      <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin" />
                     </div>
                   )}
                 </>
               ) : null}
-              <AvatarFallback className={`text-sm ${style.iconColor} bg-[var(--color-surface-inset)]`}>
+              <AvatarFallback className={`text-sm ${style.iconColor} bg-muted`}>
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium text-[var(--color-text-primary)]">
+              <p className="font-medium text-foreground">
                 {user.displayName || user.email}
               </p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">{user.email}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </div>
           <DataTableRowActions actions={getRowActions(user)} />
@@ -390,14 +390,14 @@ export function AccessUsersPage() {
           >
             {user.status}
           </span>
-          <Badge variant="team" className="text-xs">
+          <Badge variant="default" className="text-xs">
             {user.roleCount} role{user.roleCount === 1 ? '' : 's'}
           </Badge>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Party</p>
-            <p className="text-sm text-[var(--color-text-primary)]">
+            <p className="text-xs text-muted-foreground">Party</p>
+            <p className="text-sm text-foreground">
               {user.partyDisplayName ?? 'Not linked'}
             </p>
           </div>
@@ -407,7 +407,7 @@ export function AccessUsersPage() {
             </Badge>
           )}
         </div>
-        <p className="text-xs text-[var(--color-text-secondary)]">
+        <p className="text-xs text-muted-foreground">
           Last login: {formatDate(user.lastLoginAt)}
         </p>
       </div>
@@ -430,8 +430,8 @@ export function AccessUsersPage() {
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Users</h1>
-            <p className="text-[var(--color-text-secondary)]">
+            <h1 className="text-2xl font-bold text-foreground">Users</h1>
+            <p className="text-muted-foreground">
               Manage tenant users, invitations, and access status.
             </p>
           </div>
@@ -449,8 +449,8 @@ export function AccessUsersPage() {
 
         {/* Error State */}
         {error && (
-          <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+          <Card className="mb-6 border-destructive bg-destructive/10">
+            <CardContent className="p-4 flex items-center gap-3 text-destructive">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
               <Button variant="outline" size="sm" onClick={loadUsers} className="ml-auto">
@@ -479,7 +479,7 @@ export function AccessUsersPage() {
             />
 
             {/* Table or Grid View */}
-            <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <div className="mt-3 rounded-md border border-border overflow-hidden">
               {viewMode === 'list' ? (
                 <DataTable
                   data={users}

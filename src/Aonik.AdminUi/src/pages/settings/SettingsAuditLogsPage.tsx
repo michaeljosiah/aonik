@@ -24,8 +24,8 @@ function formatDateTime(isoDate: string) {
   return new Date(isoDate).toLocaleString();
 }
 
-function resultVariant(action: string): 'success' | 'warning' | 'error' | 'outline' {
-  if (action.endsWith('Failed')) return 'error';
+function resultVariant(action: string): 'success' | 'warning' | 'destructive' | 'outline' {
+  if (action.endsWith('Failed')) return 'destructive';
   if (action.endsWith('Queued')) return 'warning';
   if (action.endsWith('Succeeded')) return 'success';
   return 'outline';
@@ -158,8 +158,8 @@ export function SettingsAuditLogsPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{title}</h1>
-          <p className="text-[var(--color-text-secondary)]">
+          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+          <p className="text-muted-foreground">
             Review real control-plane audit records, including scheduled job queueing, execution, and failures.
           </p>
         </div>
@@ -253,9 +253,9 @@ export function SettingsAuditLogsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <p className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">Loading audit events...</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading audit events...</p>
             ) : !entries || entries.items.length === 0 ? (
-              <p className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">No audit events matched your filters.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No audit events matched your filters.</p>
             ) : (
               entries.items.map((entry) => {
                 const details = parseDetails(entry.detailsJson);
@@ -265,42 +265,42 @@ export function SettingsAuditLogsPage() {
                 return (
                   <div
                     key={entry.id}
-                    className="rounded-md border border-[var(--color-border-light)] px-4 py-3"
+                    className="rounded-md border border-border px-4 py-3"
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-2 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-[var(--color-text-primary)]">{summarize(entry)}</p>
+                          <p className="text-sm font-medium text-foreground">{summarize(entry)}</p>
                           <Badge variant={resultVariant(entry.action)}>{entry.action}</Badge>
                         </div>
 
-                        <p className="text-xs text-[var(--color-text-tertiary)] break-all">
+                        <p className="text-xs text-muted-foreground break-all">
                           {metadataLine(entry)}
                         </p>
 
                         {entry.correlationId && (
-                          <p className="font-mono text-xs text-[var(--color-text-tertiary)] break-all">
+                          <p className="font-mono text-xs text-muted-foreground break-all">
                             Correlation: {entry.correlationId}
                           </p>
                         )}
 
                         {(errorMessage || resultSummary) && (
-                          <div className="rounded-sm bg-[var(--color-surface-inset)] p-3 text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
+                          <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
                             {errorMessage ?? resultSummary}
                           </div>
                         )}
 
                         {entry.detailsJson.trim() && (
-                          <details className="text-xs text-[var(--color-text-tertiary)]">
+                          <details className="text-xs text-muted-foreground">
                             <summary className="cursor-pointer select-none">Raw details</summary>
-                            <pre className="mt-2 overflow-auto rounded-sm bg-[var(--color-surface-inset)] p-3 whitespace-pre-wrap break-words">
+                            <pre className="mt-2 overflow-auto rounded-md bg-muted p-3 whitespace-pre-wrap break-words">
                               {entry.detailsJson}
                             </pre>
                           </details>
                         )}
                       </div>
 
-                      <div className="text-xs text-[var(--color-text-tertiary)] whitespace-nowrap">
+                      <div className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatDateTime(entry.timestamp)}
                       </div>
                     </div>
@@ -311,7 +311,7 @@ export function SettingsAuditLogsPage() {
 
             {entries && entries.totalPages > 1 && (
               <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-[var(--color-text-tertiary)]">
+                <span className="text-xs text-muted-foreground">
                   Page {entries.pageNumber} of {entries.totalPages} ({entries.totalCount} total)
                 </span>
                 <div className="flex gap-2">

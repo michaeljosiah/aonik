@@ -13,8 +13,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import * as Checkbox from '@radix-ui/react-checkbox';
-import { Loader2, AlertCircle, AlertTriangle, Check, Link2 } from 'lucide-react';
+import { Loader2, AlertCircle, AlertTriangle, Link2 } from 'lucide-react';
 
 import {
   Dialog,
@@ -25,6 +24,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { userService } from '@/services/userService';
 import { roleService } from '@/services/roleService';
 import { messagingService } from '@/services/messagingService';
@@ -45,9 +47,6 @@ interface InviteUserDialogProps {
   /** Human-readable label shown in the "Linking to" row. */
   prefilledPartyLabel?: string | null;
 }
-
-const fieldClassName =
-  'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
 
 // Cheap client-side check before we bother the API. The server does
 // its own validation (the FastEndpoints validator + helper assert
@@ -204,27 +203,25 @@ export function InviteUserDialog({
               submit because the placeholder + invite token are still
               useful (admin can Resend invite once delivery is fixed). */}
           {emailHealthChecked && emailHealth && !emailHealth.configured && (
-            <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning)]">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <div className="space-y-1">
-                <div className="font-medium">Email delivery is not configured.</div>
-                <div>
+            <Alert variant="warning" className="text-xs">
+              <AlertTriangle />
+              <AlertTitle className="line-clamp-none">Email delivery is not configured.</AlertTitle>
+              <AlertDescription className="block text-xs">
                   {emailHealth.reason ?? 'No email provider is wired up.'} The invite
                   will be created and a one-time link generated, but no email will be
                   sent. Configure an email provider (e.g. Azure Communication Services
                   or SendGrid) and use <span className="font-medium">Resend invite</span>{' '}
                   to deliver it once ready.
-                </div>
-              </div>
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Linking-to badge — only when invoked with a prefilled party */}
           {linkingToExistingParty && (
-            <div className="flex items-center gap-2 rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs">
-              <Link2 className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
-              <span className="text-[var(--color-text-tertiary)]">Linking to</span>
-              <span className="font-medium text-[var(--color-text-primary)] truncate">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">Linking to</span>
+              <span className="font-medium text-foreground truncate">
                 {prefilledPartyLabel ?? prefilledPartyId}
               </span>
             </div>
@@ -232,16 +229,15 @@ export function InviteUserDialog({
 
           {/* Email — required */}
           <div className="space-y-1.5">
-            <label htmlFor="invite-email" className="text-xs font-medium text-[var(--color-text-primary)]">
-              Email address <span className="text-[var(--color-danger)]">*</span>
+            <label htmlFor="invite-email" className="text-xs font-medium text-foreground">
+              Email address <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               id="invite-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="teammate@example.com"
-              className={fieldClassName}
               disabled={submitting}
               autoFocus
             />
@@ -249,65 +245,60 @@ export function InviteUserDialog({
 
           {/* Display name — optional */}
           <div className="space-y-1.5">
-            <label htmlFor="invite-display-name" className="text-xs font-medium text-[var(--color-text-primary)]">
-              Display name <span className="text-[var(--color-text-tertiary)]">(optional)</span>
+            <label htmlFor="invite-display-name" className="text-xs font-medium text-foreground">
+              Display name <span className="text-muted-foreground">(optional)</span>
             </label>
-            <input
+            <Input
               id="invite-display-name"
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Jane Doe"
-              className={fieldClassName}
               disabled={submitting}
             />
-            <p className="text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               If blank, the email's local part is used in the invitation copy.
             </p>
           </div>
 
           {/* Roles — optional, multi-select */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--color-text-primary)]">
-              Roles <span className="text-[var(--color-text-tertiary)]">(optional)</span>
+            <label className="text-xs font-medium text-foreground">
+              Roles <span className="text-muted-foreground">(optional)</span>
             </label>
             {rolesLoading ? (
-              <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Loading roles…
               </div>
             ) : rolesError ? (
-              <div className="flex items-center gap-2 text-xs text-[var(--color-danger)]">
+              <div className="flex items-center gap-2 text-xs text-destructive">
                 <AlertCircle className="h-3.5 w-3.5" />
                 {rolesError}
               </div>
             ) : roles.length === 0 ? (
-              <p className="text-xs text-[var(--color-text-tertiary)]">
+              <p className="text-xs text-muted-foreground">
                 No roles defined in this tenant yet. The user can still be invited and roles assigned later.
               </p>
             ) : (
-              <div className="max-h-[180px] overflow-y-auto rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-2 space-y-1">
+              <div className="max-h-[180px] overflow-y-auto rounded-md border border-border bg-muted p-2 space-y-1">
                 {roles.map((role) => {
                   const checked = selectedRoleIds.has(role.roleId);
                   return (
                     <label
                       key={role.roleId}
-                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface)]"
+                      className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-card"
                     >
-                      <Checkbox.Root
+                      <Checkbox
                         checked={checked}
                         onCheckedChange={() => toggleRole(role.roleId)}
                         disabled={submitting}
-                        className="mt-0.5 w-4 h-4 rounded border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center data-[state=checked]:bg-[var(--color-brand-primary)] data-[state=checked]:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:ring-offset-1 shrink-0"
-                      >
-                        <Checkbox.Indicator>
-                          <Check className="w-3 h-3 text-primary-foreground" />
-                        </Checkbox.Indicator>
-                      </Checkbox.Root>
+                        className="mt-0.5 bg-card"
+                      />
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm text-[var(--color-text-primary)]">{role.name}</div>
+                        <div className="text-sm text-foreground">{role.name}</div>
                         {role.description && (
-                          <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                          <div className="text-xs text-muted-foreground">
                             {role.description}
                           </div>
                         )}
@@ -320,10 +311,10 @@ export function InviteUserDialog({
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded border border-[var(--color-danger)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-danger)]">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{error}</span>
-            </div>
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

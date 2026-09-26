@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useId, useMemo } from 'react';
 import { Clock, Pencil, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   describeCron,
   parseCron,
@@ -72,8 +74,8 @@ export function CronScheduleDisplay({ cron, onSave, compact }: CronScheduleDispl
 
   if (compact) {
     return (
-      <span className="text-xs text-[var(--color-text-secondary)]" title={cron ?? undefined}>
-        <Clock className="inline w-3 h-3 mr-1 -mt-0.5 text-[var(--color-text-tertiary)]" />
+      <span className="text-xs text-muted-foreground" title={cron ?? undefined}>
+        <Clock className="inline w-3 h-3 mr-1 -mt-0.5 text-muted-foreground" />
         {description}
       </span>
     );
@@ -82,18 +84,23 @@ export function CronScheduleDisplay({ cron, onSave, compact }: CronScheduleDispl
   return (
     <div className="flex items-center gap-2">
       <div>
-        <div className="text-sm text-[var(--color-text-primary)]">{description}</div>
-        <div className="font-mono text-xs text-[var(--color-text-tertiary)] mt-0.5">{cron ?? '--'}</div>
+        <div className="text-sm text-foreground">{description}</div>
+        <div className="font-mono text-xs text-muted-foreground mt-0.5">{cron ?? '--'}</div>
       </div>
       {onSave && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2"
-          onClick={() => setEditing(true)}
-        >
-          <Pencil className="w-3 h-3" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Edit schedule"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Edit schedule</TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
@@ -107,10 +114,13 @@ interface CronScheduleEditorProps {
   onCancel: () => void;
 }
 
+const fieldLabelClass = 'text-xs text-muted-foreground';
+
 function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEditorProps) {
   const [preset, setPreset] = useState<CronPreset>(() => parseCron(initialCron));
   const generatedCron = useMemo(() => buildCron(preset), [preset]);
   const previewDescription = useMemo(() => describeCron(generatedCron), [generatedCron]);
+  const id = useId();
 
   // Keep raw in sync when switching to custom
   useEffect(() => {
@@ -124,34 +134,44 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
   };
 
   return (
-    <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 space-y-4">
+    <div className="rounded-lg border bg-card p-4 space-y-4">
       {/* Frequency selector */}
-      <div className="space-y-1.5">
-        <Label className="text-xs text-[var(--color-text-tertiary)]">Frequency</Label>
-        <Select
+      <Field className="gap-1.5">
+        <FieldLabel id={`${id}-frequency`} className={fieldLabelClass}>Frequency</FieldLabel>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          aria-labelledby={`${id}-frequency`}
           value={preset.frequency}
-          onValueChange={(v) => updatePreset({ frequency: v as CronFrequency })}
+          // Radix emits an empty value when the active item is clicked again;
+          // keep the current frequency in that case.
+          onValueChange={(v) => {
+            if (v) updatePreset({ frequency: v as CronFrequency });
+          }}
+          className="flex-wrap gap-1 shadow-none"
         >
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(FREQUENCY_LABELS).map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          {Object.entries(FREQUENCY_LABELS).map(([key, label]) => (
+            <ToggleGroupItem
+              key={key}
+              value={key}
+              className="flex-none rounded-md px-2.5 text-xs data-[variant=outline]:border-l"
+            >
+              {label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </Field>
 
       {/* Interval (every N minutes) */}
       {preset.frequency === 'every-n-minutes' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Every (minutes)</Label>
+        <Field className="gap-1.5 sm:max-w-40">
+          <FieldLabel htmlFor={`${id}-interval`} className={fieldLabelClass}>Every (minutes)</FieldLabel>
           <Select
             value={String(preset.interval ?? 5)}
             onValueChange={(v) => updatePreset({ interval: parseInt(v, 10) })}
           >
-            <SelectTrigger className="h-9 w-32">
+            <SelectTrigger id={`${id}-interval`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -160,18 +180,18 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       )}
 
       {/* Minute (for hourly) */}
       {preset.frequency === 'hourly' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">At minute</Label>
+        <Field className="gap-1.5 sm:max-w-40">
+          <FieldLabel htmlFor={`${id}-at-minute`} className={fieldLabelClass}>At minute</FieldLabel>
           <Select
             value={String(preset.minute ?? 0)}
             onValueChange={(v) => updatePreset({ minute: parseInt(v, 10) })}
           >
-            <SelectTrigger className="h-9 w-32">
+            <SelectTrigger id={`${id}-at-minute`} className="font-mono tabular-nums">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -180,19 +200,19 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       )}
 
       {/* Time (for daily, weekly, monthly) */}
       {(preset.frequency === 'daily' || preset.frequency === 'weekly' || preset.frequency === 'monthly') && (
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-[var(--color-text-tertiary)]">Hour</Label>
+        <div className="grid grid-cols-2 gap-3 sm:max-w-64">
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={`${id}-hour`} className={fieldLabelClass}>Hour</FieldLabel>
             <Select
               value={String(preset.hour ?? 0)}
               onValueChange={(v) => updatePreset({ hour: parseInt(v, 10) })}
             >
-              <SelectTrigger className="h-9 w-24">
+              <SelectTrigger id={`${id}-hour`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -203,14 +223,14 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-[var(--color-text-tertiary)]">Minute</Label>
+          </Field>
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={`${id}-minute`} className={fieldLabelClass}>Minute</FieldLabel>
             <Select
               value={String(preset.minute ?? 0)}
               onValueChange={(v) => updatePreset({ minute: parseInt(v, 10) })}
             >
-              <SelectTrigger className="h-9 w-24">
+              <SelectTrigger id={`${id}-minute`} className="font-mono tabular-nums">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -219,19 +239,19 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         </div>
       )}
 
       {/* Day of week (for weekly) */}
       {preset.frequency === 'weekly' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Day of week</Label>
+        <Field className="gap-1.5 sm:max-w-48">
+          <FieldLabel htmlFor={`${id}-dow`} className={fieldLabelClass}>Day of week</FieldLabel>
           <Select
             value={String(preset.dayOfWeek ?? 1)}
             onValueChange={(v) => updatePreset({ dayOfWeek: parseInt(v, 10) })}
           >
-            <SelectTrigger className="h-9 w-40">
+            <SelectTrigger id={`${id}-dow`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -240,18 +260,18 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       )}
 
       {/* Day of month (for monthly) */}
       {preset.frequency === 'monthly' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Day of month</Label>
+        <Field className="gap-1.5 sm:max-w-32">
+          <FieldLabel htmlFor={`${id}-dom`} className={fieldLabelClass}>Day of month</FieldLabel>
           <Select
             value={String(preset.dayOfMonth ?? 1)}
             onValueChange={(v) => updatePreset({ dayOfMonth: parseInt(v, 10) })}
           >
-            <SelectTrigger className="h-9 w-24">
+            <SelectTrigger id={`${id}-dom`} className="font-mono tabular-nums">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -260,37 +280,38 @@ function CronScheduleEditor({ initialCron, onSave, onCancel }: CronScheduleEdito
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       )}
 
       {/* Raw input (for custom) */}
       {preset.frequency === 'custom' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-[var(--color-text-tertiary)]">Cron expression (Quartz 6-field)</Label>
+        <Field className="gap-1.5">
+          <FieldLabel htmlFor={`${id}-raw`} className={fieldLabelClass}>Cron expression (Quartz 6-field)</FieldLabel>
           <Input
+            id={`${id}-raw`}
             value={preset.raw ?? ''}
             onChange={(e) => updatePreset({ raw: e.target.value })}
             placeholder="0 0/30 * * * ?"
-            className="h-9 font-mono text-sm"
+            className="font-mono"
           />
-        </div>
+        </Field>
       )}
 
       {/* Preview */}
-      <div className="rounded-sm bg-[var(--color-surface-inset)] px-3 py-2">
-        <div className="text-xs text-[var(--color-text-tertiary)] mb-0.5">Preview</div>
-        <div className="text-sm text-[var(--color-text-primary)]">{previewDescription}</div>
-        <div className="font-mono text-[11px] text-[var(--color-text-tertiary)] mt-0.5">{generatedCron}</div>
+      <div className="rounded-md bg-muted px-3 py-2">
+        <div className="text-xs text-muted-foreground mb-0.5">Preview</div>
+        <div className="text-sm text-foreground">{previewDescription}</div>
+        <div className="font-mono text-[11px] text-muted-foreground mt-0.5">{generatedCron}</div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={() => onSave(generatedCron)} className="h-8">
-          <Check className="w-3.5 h-3.5 mr-1" />
+        <Button size="sm" onClick={() => onSave(generatedCron)}>
+          <Check />
           Apply
         </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel} className="h-8">
-          <X className="w-3.5 h-3.5 mr-1" />
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          <X />
           Cancel
         </Button>
       </div>

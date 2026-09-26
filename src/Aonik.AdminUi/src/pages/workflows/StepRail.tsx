@@ -55,9 +55,9 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
               className="inline-flex items-center gap-1.5 flex-none whitespace-nowrap rounded-md"
               style={{
                 padding: dense ? '4px 8px' : '6px 10px',
-                background: meta.tint + '14',
+                background: `color-mix(in oklab, ${meta.tint} 8%, transparent)`,
                 color: meta.tint,
-                border: '1px solid ' + meta.tint + '30',
+                border: `1px solid color-mix(in oklab, ${meta.tint} 19%, transparent)`,
               }}
             >
               <Icon size={dense ? 10 : 11} />
@@ -65,7 +65,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                 className="font-medium"
                 style={{
                   fontSize: dense ? 10.5 : 11.5,
-                  color: 'var(--color-text-primary)',
+                  color: 'var(--foreground)',
                   fontFamily: s.kind === 'tool' ? 'var(--font-mono)' : 'inherit',
                 }}
               >
@@ -78,7 +78,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                 style={{
                   width: dense ? 12 : 16,
                   height: 1,
-                  background: 'var(--color-border)',
+                  background: 'var(--border)',
                 }}
               >
                 <span
@@ -88,7 +88,7 @@ export function StepRail({ steps, dense = false }: StepRailProps) {
                     top: -2,
                     width: 0,
                     height: 0,
-                    borderLeft: '4px solid var(--color-border)',
+                    borderLeft: '4px solid var(--border)',
                     borderTop: '3px solid transparent',
                     borderBottom: '3px solid transparent',
                   }}

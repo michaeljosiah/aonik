@@ -189,7 +189,6 @@ export function AgentConfigPage() {
     <div className="relative h-full overflow-hidden">
       <div className="flex h-full flex-col gap-5 overflow-auto p-6 md:px-8">
         <PageHeader
-          eyebrow="AI · Agents"
           title="Agents"
           subtitle={subtitle}
           actions={
@@ -211,7 +210,7 @@ export function AgentConfigPage() {
         />
 
         {/* Tabs + layout switch */}
-        <div className="flex flex-wrap items-center gap-3.5 border-b border-[var(--color-border-light)] pb-3">
+        <div className="flex flex-wrap items-center gap-3.5 border-b border-border pb-3">
           <div className="flex items-center gap-1">
             {FILTERS.map((f) => {
               const active = filter === f;
@@ -223,15 +222,15 @@ export function AgentConfigPage() {
                   className={cn(
                     'inline-flex h-[28px] items-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors',
                     active
-                      ? 'bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                      ? 'bg-primary/10 font-semibold text-primary'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {f}
                   <span
                     className={cn(
                       'font-[family-name:var(--font-mono)] text-[10px] font-semibold',
-                      active ? 'text-[var(--color-brand-secondary)]' : 'text-[var(--color-text-tertiary)]',
+                      active ? 'text-agent' : 'text-muted-foreground',
                     )}
                   >
                     {counts[f]}
@@ -244,7 +243,7 @@ export function AgentConfigPage() {
           <div className="flex-1" />
 
           {/* Layout switch */}
-          <div className="inline-flex h-[28px] overflow-hidden rounded-md border border-[var(--color-border-light)]">
+          <div className="inline-flex h-[28px] overflow-hidden rounded-md border border-border">
             {([
               { value: 'card' as const, icon: LayoutGrid, label: 'Cards' },
               { value: 'list' as const, icon: ListIcon, label: 'List' },
@@ -258,8 +257,8 @@ export function AgentConfigPage() {
                   className={cn(
                     'inline-flex items-center gap-1.5 px-3 text-[11.5px] transition-colors',
                     active
-                      ? 'bg-[var(--color-brand-primary)] font-semibold text-primary-foreground'
-                      : 'bg-transparent font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                      ? 'bg-primary font-semibold text-primary-foreground'
+                      : 'bg-transparent font-medium text-muted-foreground hover:text-foreground',
                   )}
                 >
                   <opt.icon className="h-3 w-3" />
@@ -271,7 +270,7 @@ export function AgentConfigPage() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-[12.5px] text-[var(--color-error)]">
+          <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">
             <AlertCircle className="h-3.5 w-3.5 flex-none" />
             <span className="flex-1">{error}</span>
             <Button variant="outline" size="sm" onClick={() => void loadAgents()}>
@@ -282,15 +281,15 @@ export function AgentConfigPage() {
 
         {/* List */}
         {loading && visible.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--color-text-secondary)]">
+          <div className="flex flex-1 items-center justify-center text-[13px] text-muted-foreground">
             Loading agents…
           </div>
         ) : visible.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[12px] border border-dashed border-[var(--color-border)] bg-[var(--color-surface-inset)] py-16 text-center">
-            <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted py-16 text-center">
+            <div className="text-[14px] font-semibold text-foreground">
               No agents match this filter
             </div>
-            <div className="w-full max-w-[24rem] text-[12.5px] text-[var(--color-text-secondary)]">
+            <div className="w-full max-w-[24rem] text-[12.5px] text-muted-foreground">
               Adjust the active tab or search query, or create a new agent to get started.
             </div>
           </div>
@@ -350,11 +349,11 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
   const tools = countTools(agent.toolsetIdsJson);
 
   return (
-    <div className="relative flex flex-col gap-3.5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-sm)]">
+    <div className="relative flex flex-col gap-3.5 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
       {pinned && (
         <span
           className="absolute bottom-4 left-[-1px] top-4 w-[3px] rounded-full"
-          style={{ background: 'var(--color-brand-secondary)' }}
+          style={{ background: 'var(--agent)' }}
         />
       )}
 
@@ -365,20 +364,20 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
             <button
               type="button"
               onClick={onOpen}
-              className="text-left text-[15px] font-semibold tracking-[-0.005em] text-[var(--color-text-primary)] hover:text-[var(--color-brand-primary)]"
+              className="text-left text-[15px] font-semibold tracking-[-0.005em] text-foreground hover:text-primary"
             >
               {agent.name}
             </button>
-            <Pill tone="info" size="sm">
+            <Pill tone="info">
               {deriveKindLabel(agent.agentType)}
             </Pill>
             {agent.isOverride && (
-              <Pill tone="pending" size="sm">
+              <Pill tone="pending">
                 Override
               </Pill>
             )}
           </div>
-          <div className="mt-0.5 line-clamp-1 text-[12px] text-[var(--color-text-secondary)]">
+          <div className="mt-0.5 line-clamp-1 text-[12px] text-muted-foreground">
             {tagline || agent.domain}
           </div>
           <div className="mt-2">
@@ -389,17 +388,17 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
           type="button"
           onClick={onEdit}
           aria-label="Edit agent"
-          className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-brand-primary-10)] hover:text-[var(--color-brand-primary)]"
+          className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
         >
           <Edit3 className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <p className="m-0 text-[12px] leading-[1.55] text-[var(--color-text-secondary)] [text-wrap:pretty]">
+      <p className="m-0 text-[12px] leading-[1.55] text-muted-foreground [text-wrap:pretty]">
         {agent.description || 'No description.'}
       </p>
 
-      <div className="grid grid-cols-4 gap-3 border-t border-[var(--color-border-light)] pt-3">
+      <div className="grid grid-cols-4 gap-3 border-t border-border pt-3">
         <CardMetaItem label="Model" value={agent.modelName ?? '—'} mono />
         <CardMetaItem label="Tools" value={tools.toString()} mono />
         <CardMetaItem
@@ -412,15 +411,15 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
 
       <div className="flex items-center gap-2 pt-1">
         {autoApply ? (
-          <Pill tone="success" dot size="sm">
+          <Pill tone="success" dot>
             Auto-apply
           </Pill>
         ) : (
-          <Pill tone="info" size="sm">
+          <Pill tone="info">
             Propose only
           </Pill>
         )}
-        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
           last run {formatRelativeTime(stats?.lastRunAt)}
         </span>
         <div className="flex-1" />
@@ -436,12 +435,12 @@ function AgentCard({ agent, stats, onEdit, onOpen }: AgentCardProps) {
 function CardMetaItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-text-tertiary)]">
+      <span className="text-xs text-muted-foreground">
         {label}
       </span>
       <span
         className={cn(
-          'truncate text-[12.5px] font-medium text-[var(--color-text-primary)]',
+          'truncate text-[12.5px] font-medium text-foreground',
           mono && 'font-[family-name:var(--font-mono)] tabular-nums',
         )}
       >
@@ -467,7 +466,7 @@ function AgentListView({
   return (
     <div className="flex flex-col gap-1.5">
       <div
-        className="grid gap-3.5 px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]"
+        className="grid gap-3.5 px-3.5 text-xs font-medium text-muted-foreground"
         style={{ gridTemplateColumns: '44px 1fr 130px 80px 80px 90px 28px' }}
       >
         <span />
@@ -487,7 +486,7 @@ function AgentListView({
             key={agent.id}
             type="button"
             onClick={() => onEdit(agent)}
-            className="grid cursor-pointer items-center gap-3.5 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3.5 py-2.5 text-left transition-colors hover:border-[var(--color-text-secondary)]"
+            className="grid cursor-pointer items-center gap-3.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left transition-colors hover:border-muted-foreground"
             style={{ gridTemplateColumns: '44px 1fr 130px 80px 80px 90px 28px' }}
           >
             <AgentPortrait name={agent.name} color={color} glyph={glyph} size={36} />
@@ -498,29 +497,29 @@ function AgentListView({
                     event.stopPropagation();
                     onOpen(agent);
                   }}
-                  className="truncate text-[13px] font-semibold text-[var(--color-text-primary)] hover:text-[var(--color-brand-primary)]"
+                  className="truncate text-[13px] font-semibold text-foreground hover:text-primary"
                 >
                   {agent.name}
                 </span>
-                <Pill tone="info" size="sm">
+                <Pill tone="info">
                   {deriveKindLabel(agent.agentType)}
                 </Pill>
               </div>
-              <div className="mt-px truncate text-[11px] text-[var(--color-text-secondary)]">
+              <div className="mt-px truncate text-[11px] text-muted-foreground">
                 {deriveAgentTagline(agent.description) || agent.domain}
               </div>
             </div>
-            <span className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--color-text-secondary)]">
+            <span className="truncate font-[family-name:var(--font-mono)] text-[11.5px] text-muted-foreground">
               {agent.modelName ?? '—'}
             </span>
-            <span className="text-right font-[family-name:var(--font-mono)] text-[11.5px] tabular-nums text-[var(--color-text-primary)]">
+            <span className="text-right font-[family-name:var(--font-mono)] text-[11.5px] tabular-nums text-foreground">
               {stats[agent.id]?.totalRuns?.toLocaleString() ?? '—'}
             </span>
-            <span className="text-right font-[family-name:var(--font-mono)] text-[11.5px] tabular-nums text-[var(--color-text-secondary)]">
+            <span className="text-right font-[family-name:var(--font-mono)] text-[11.5px] tabular-nums text-muted-foreground">
               —
             </span>
             <StateDot state={state} />
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         );
       })}

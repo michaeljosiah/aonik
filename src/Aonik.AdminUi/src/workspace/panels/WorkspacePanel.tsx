@@ -44,7 +44,7 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
   if (!config) {
     return (
       <div className="p-4">
-        <Card className="p-4 text-sm text-[var(--color-text-secondary)]">
+        <Card className="p-4 text-sm text-muted-foreground">
           This workspace panel is no longer available.
         </Card>
       </div>
@@ -54,7 +54,7 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
   if (config.type === 'external' && !config.url) {
     return (
       <div className="p-4">
-        <Card className="p-4 text-sm text-[var(--color-text-secondary)]">
+        <Card className="p-4 text-sm text-muted-foreground">
           This external panel is missing a URL.
         </Card>
       </div>
@@ -83,7 +83,7 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
   if (!PanelComponent) {
     return (
       <div className="p-4">
-        <Card className="p-4 text-sm text-[var(--color-text-secondary)]">
+        <Card className="p-4 text-sm text-muted-foreground">
           This panel is still being provisioned.
         </Card>
       </div>

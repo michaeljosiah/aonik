@@ -6,6 +6,12 @@
 
 import type { StepKind, EditorNodeKind } from './workflowTypes';
 
+// Each of the ten kinds has its own categorical token (--chart-1..10), so
+// kinds stay distinct and the tints flip with the theme. Consumers derive
+// fills with color-mix()/fill-opacity; glyphs on a tint use
+// --primary-foreground (white on the darker light-mode hues, dark on the
+// lighter dark-mode hues).
+
 export interface StepKindMeta {
   /** lucide-react icon name. */
   icon: string;
@@ -26,16 +32,16 @@ export interface StepKindMeta {
 // template's legacy 'start' / 'ledger' aliases became 'trigger' / 'tool'
 // after the de-mock).
 export const STEP_KIND: Record<StepKind, StepKindMeta> = {
-  trigger: { icon: 'Zap', label: 'Trigger', tint: '#055a60' },
-  tool: { icon: 'Wrench', label: 'Tool call', tint: '#0097a9' },
-  agent: { icon: 'Sparkles', label: 'Sub-agent', tint: '#7b76b6' },
-  decision: { icon: 'GitFork', label: 'Decision', tint: '#b4741e' },
-  human: { icon: 'Users', label: 'Human approval', tint: '#c44536' },
-  wait: { icon: 'Clock', label: 'Wait', tint: '#5facbd' },
-  end: { icon: 'Check', label: 'End', tint: '#1f7a5e' },
-  notify: { icon: 'Send', label: 'Notify', tint: '#3ab795' },
-  emit: { icon: 'Zap', label: 'Emit event', tint: '#d4a843' },
-  loop: { icon: 'RefreshCw', label: 'Loop', tint: '#a35dac' },
+  trigger: { icon: 'Zap', label: 'Trigger', tint: 'var(--chart-1)' },
+  tool: { icon: 'Wrench', label: 'Tool call', tint: 'var(--chart-6)' },
+  agent: { icon: 'Sparkles', label: 'Sub-agent', tint: 'var(--chart-4)' },
+  decision: { icon: 'GitFork', label: 'Decision', tint: 'var(--chart-7)' },
+  human: { icon: 'Users', label: 'Human approval', tint: 'var(--chart-10)' },
+  wait: { icon: 'Clock', label: 'Wait', tint: 'var(--chart-2)' },
+  end: { icon: 'Check', label: 'End', tint: 'var(--chart-8)' },
+  notify: { icon: 'Send', label: 'Notify', tint: 'var(--chart-3)' },
+  emit: { icon: 'Zap', label: 'Emit event', tint: 'var(--chart-5)' },
+  loop: { icon: 'RefreshCw', label: 'Loop', tint: 'var(--chart-9)' },
 };
 
 // Editor node kinds (read from workflow-editor.jsx NODE_KINDS) — superset
@@ -43,7 +49,7 @@ export const STEP_KIND: Record<StepKind, StepKindMeta> = {
 export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   trigger: {
     label: 'Trigger',
-    tint: '#055a60',
+    tint: 'var(--chart-1)',
     icon: 'Zap',
     desc: 'Where the workflow starts',
     inputs: 0,
@@ -52,7 +58,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   tool: {
     label: 'Tool call',
-    tint: '#0097a9',
+    tint: 'var(--chart-6)',
     icon: 'Wrench',
     desc: 'Invoke a registered tool',
     inputs: 1,
@@ -61,7 +67,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   agent: {
     label: 'Sub-agent',
-    tint: '#7b76b6',
+    tint: 'var(--chart-4)',
     icon: 'Sparkles',
     desc: 'Hand off to another agent',
     inputs: 1,
@@ -70,7 +76,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   decision: {
     label: 'Decision',
-    tint: '#b4741e',
+    tint: 'var(--chart-7)',
     icon: 'GitFork',
     desc: 'Branch on a condition',
     inputs: 1,
@@ -79,7 +85,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   human: {
     label: 'Human approval',
-    tint: '#c44536',
+    tint: 'var(--chart-10)',
     icon: 'Users',
     desc: 'Pause for a person to decide',
     inputs: 1,
@@ -88,7 +94,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   wait: {
     label: 'Wait',
-    tint: '#5facbd',
+    tint: 'var(--chart-2)',
     icon: 'Clock',
     desc: 'Delay for a fixed duration',
     inputs: 1,
@@ -97,7 +103,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   notify: {
     label: 'Notify',
-    tint: '#3ab795',
+    tint: 'var(--chart-3)',
     icon: 'Send',
     desc: 'Email, SMS, or Slack message',
     inputs: 1,
@@ -106,7 +112,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   emit: {
     label: 'Emit event',
-    tint: '#d4a843',
+    tint: 'var(--chart-5)',
     icon: 'Zap',
     desc: 'Fire an event back into the bus',
     inputs: 1,
@@ -115,7 +121,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   loop: {
     label: 'Loop',
-    tint: '#a35dac',
+    tint: 'var(--chart-9)',
     icon: 'RefreshCw',
     desc: 'Iterate over a collection',
     inputs: 1,
@@ -124,7 +130,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
   },
   end: {
     label: 'End',
-    tint: '#1f7a5e',
+    tint: 'var(--chart-8)',
     icon: 'Check',
     desc: 'Workflow completes',
     inputs: 1,

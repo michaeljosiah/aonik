@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export type PillTone =
   | 'default'
@@ -12,56 +13,40 @@ export type PillTone =
 
 export interface PillProps {
   tone?: PillTone;
+  /** Leading status dot. Signifies state, so it stays (no decorative dots). */
   dot?: boolean;
-  size?: 'sm' | 'md';
   className?: string;
   children: ReactNode;
 }
 
-const toneClasses: Record<PillTone, string> = {
-  default:
-    'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] border-[var(--color-border-light)]',
-  muted:
-    'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)] border-[var(--color-border-light)]',
-  success:
-    'bg-[var(--color-success-light)] text-[var(--color-success)] border-transparent',
-  warning:
-    'bg-[var(--color-warning-light)] text-[var(--color-warning)] border-transparent',
-  danger:
-    'bg-[var(--color-danger-10)] text-[var(--color-danger)] border-transparent',
-  info:
-    'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)] border-transparent',
-  pending:
-    'bg-[var(--color-brand-secondary-10)] text-[var(--color-brand-secondary)] border-transparent',
-};
+const toneVariant = {
+  default: 'secondary',
+  muted: 'outline',
+  success: 'success',
+  warning: 'warning',
+  danger: 'destructive-subtle',
+  info: 'info',
+  pending: 'warning',
+} as const;
 
 /**
- * Status pill with semantic tones. Use `dot` to render a small circle in the
- * pill colour before the label — the template uses this for KYC and order
- * status cells to make the row scannable at a glance.
+ * Status pill, now a Badge (Spec 098 D7). `danger` uses a subtle destructive
+ * tint rather than the solid badge so status pills read at one weight.
  */
-export function Pill({ tone = 'default', dot = false, size = 'sm', className, children }: PillProps) {
+export function Pill({ tone = 'default', dot = false, className, children }: PillProps) {
+  const variant = toneVariant[tone];
   return (
-    <span
+    <Badge
+      variant={variant === 'destructive-subtle' ? 'outline' : variant}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border font-medium',
-        size === 'sm' ? 'h-5 px-2 text-[10px]' : 'h-6 px-2.5 text-[11px]',
-        toneClasses[tone],
+        variant === 'destructive-subtle' &&
+          'border-transparent bg-destructive/10 text-destructive dark:bg-destructive/20',
+        tone === 'muted' && 'text-muted-foreground',
         className,
       )}
     >
-      {dot && (
-        <span
-          className="rounded-full"
-          style={{
-            width: size === 'sm' ? 5 : 6,
-            height: size === 'sm' ? 5 : 6,
-            background: 'currentColor',
-            flex: 'none',
-          }}
-        />
-      )}
+      {dot && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />}
       {children}
-    </span>
+    </Badge>
   );
 }

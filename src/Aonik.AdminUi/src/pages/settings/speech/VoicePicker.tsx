@@ -295,15 +295,15 @@ function RemoteVoiceSelect({
         </SelectContent>
       </Select>
       {error && (
-        <p className="text-xs text-[var(--color-error)]">
+        <p className="text-xs text-destructive">
           {error}{' '}
-          <span className="text-[var(--color-text-tertiary)]">
+          <span className="text-muted-foreground">
             Set the {provider} API key on the provider in the Providers tab.
           </span>
         </p>
       )}
       {!error && !loading && options.length === 0 && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">
+        <p className="text-xs text-muted-foreground">
           No voices loaded yet. Save a {provider} API key on the provider, then click Refresh.
         </p>
       )}
@@ -343,7 +343,7 @@ function FreeTextVoice({
         disabled={disabled}
         placeholder={placeholder}
       />
-      <p className="text-xs text-[var(--color-text-tertiary)]">{hint}</p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   );
 }

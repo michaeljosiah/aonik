@@ -3,6 +3,7 @@
 // "Checkout blocked" carrying the reason whenever the box is drifted or under-filled — the
 // same verdict, from the same pure function, that drives the list column and the banner.
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
@@ -58,10 +59,10 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
 
         <SheetBody>
           {loading ? (
-            <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
           ) : !cart ? (
             <div className="flex flex-col items-center gap-3 py-10">
-              <p className="text-sm text-[var(--color-text-secondary)]">
+              <p className="text-sm text-muted-foreground">
                 {error ?? 'This cart could not be loaded.'}
               </p>
               <Button variant="outline" onClick={() => void load()}>
@@ -73,20 +74,22 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
               {action.kind === 'view-order' && action.note && (
                 // Why the cart cannot be resumed even though it looks complete. Without this
                 // the disappearance of the resume action would read as a bug.
-                <p className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+                <p className="rounded-md border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
                   {action.note}
                 </p>
               )}
 
               {verdict.blocked && (
-                <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2">
-                  <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-[var(--color-warning)]" />
-                  <p className="text-[12px] text-[var(--color-warning)]">
-                    <span className="font-semibold">Checkout blocked.</span> {verdict.reason} The
-                    customer resolves this on their next visit — a full box with every line
-                    available is what checkout requires.
-                  </p>
-                </div>
+                <Alert variant="warning" className="py-2">
+                  <AlertTriangle aria-hidden />
+                  <AlertDescription className="text-xs">
+                    <p>
+                      <span className="font-semibold">Checkout blocked.</span> {verdict.reason} The
+                      customer resolves this on their next visit — a full box with every line
+                      available is what checkout requires.
+                    </p>
+                  </AlertDescription>
+                </Alert>
               )}
 
               <AonikCard padding={12}>
@@ -94,11 +97,11 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
                   <BuyerLabel buyerKind={cart.buyerKind} buyerPartyId={cart.buyerPartyId} />
                   <Pill tone={cartStatusTone(cart.status)}>{cart.status}</Pill>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-[var(--color-text-tertiary)]">
+                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-muted-foreground">
                   {cart.boxMeta && (
                     <span>
                       Box{' '}
-                      <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-secondary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-muted-foreground">
                         {cart.boxMeta.filled}/{cart.boxMeta.size}
                       </span>
                     </span>
@@ -106,7 +109,7 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
                   <span>Last activity {formatDateTime(cart.updatedAtUtc)}</span>
                   <span>
                     Total{' '}
-                    <span className="font-[family-name:var(--font-mono)] text-[var(--color-text-primary)]">
+                    <span className="font-[family-name:var(--font-mono)] text-foreground">
                       {formatCurrency(cart.total, cart.currency)}
                     </span>
                   </span>
@@ -119,11 +122,11 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
                 padding={12}
               >
                 {cart.lines.length === 0 ? (
-                  <p className="py-2 text-[12.5px] text-[var(--color-text-secondary)]">
+                  <p className="py-2 text-[12.5px] text-muted-foreground">
                     This cart is empty.
                   </p>
                 ) : (
-                  <div className="flex flex-col divide-y divide-[var(--color-border-light)]">
+                  <div className="flex flex-col divide-y divide-border">
                     {cart.lines.map((line) => (
                       <CartLineRow key={line.lineId} line={line} currency={cart.currency} />
                     ))}
@@ -187,35 +190,35 @@ function CartLineRow({ line, currency }: { line: AdminCartLineDto; currency: str
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[13px] text-[var(--color-text-primary)]">{line.name}</span>
+            <span className="text-[13px] text-foreground">{line.name}</span>
             {line.kind === 'AddOn' && (
-              <Pill tone="info" size="sm">
+              <Pill tone="info">
                 ADD-ON
               </Pill>
             )}
             {line.isUnavailable && (
-              <Pill tone="warning" size="sm">
+              <Pill tone="warning">
                 Unavailable
               </Pill>
             )}
             {line.priceChanged && (
-              <Pill tone="warning" size="sm">
+              <Pill tone="warning">
                 Repriced
               </Pill>
             )}
           </span>
-          <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+          <span className="font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
             {line.sku}
           </span>
           {line.personalisationSummary && (
-            <span className="text-[11.5px] text-[var(--color-brand-primary)]">
+            <span className="text-[11.5px] text-primary">
               {line.personalisationSummary}
             </span>
           )}
           {line.selectionDrift.length > 0 && (
             <ul className="mt-0.5 flex flex-col gap-0.5">
               {line.selectionDrift.map((drift, index) => (
-                <li key={`${drift.groupKey}-${index}`} className="text-[11px] text-[var(--color-warning)]">
+                <li key={`${drift.groupKey}-${index}`} className="text-[11px] text-warning">
                   {drift.groupKey}: {drift.reason}
                 </li>
               ))}
@@ -230,30 +233,30 @@ function CartLineRow({ line, currency }: { line: AdminCartLineDto; currency: str
             is priced as a container), so even the basis is meaningless there. The cart's own
             total, which IS authoritative, is shown on the card above. */}
         <div className="flex shrink-0 flex-col items-end">
-          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-[var(--color-text-secondary)]">
+          <span className="font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-muted-foreground">
             ×{line.quantity}
           </span>
           {line.kind === 'AddOn' && (
-            <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-muted-foreground">
               {formatCurrency(line.unitPriceSnapshot, currency)} base
             </span>
           )}
           {line.kind === 'BoxDish' && (
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">priced by the box</span>
+            <span className="text-[11px] text-muted-foreground">priced by the box</span>
           )}
         </div>
       </div>
 
       {line.components.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-1 border-l border-[var(--color-border-light)] pl-3">
+        <ul className="mt-2 flex flex-col gap-1 border-l border-border pl-3">
           {line.components.map((component, index) => (
             <li key={`${component.sku}-${index}`} className="flex items-center gap-2">
-              <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+              <span className="font-[family-name:var(--font-mono)] text-[11px] tabular-nums text-muted-foreground">
                 {component.quantity}×
               </span>
-              <span className="text-[12px] text-[var(--color-text-primary)]">{component.name}</span>
+              <span className="text-[12px] text-foreground">{component.name}</span>
               {component.isUnavailable && (
-                <Pill tone="warning" size="sm">
+                <Pill tone="warning">
                   Unavailable
                 </Pill>
               )}

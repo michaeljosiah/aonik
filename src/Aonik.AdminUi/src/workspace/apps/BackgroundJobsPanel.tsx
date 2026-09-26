@@ -49,14 +49,14 @@ function formatDuration(ms: number | null): string {
 function statusBadge(status: string) {
   switch (status.toLowerCase()) {
     case 'active':
-      return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] px-1.5 py-0">Active</Badge>;
+      return <Badge variant="success" className="text-[10px] px-1.5 py-0">Active</Badge>;
     case 'paused':
-      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] px-1.5 py-0">Paused</Badge>;
+      return <Badge variant="warning" className="text-[10px] px-1.5 py-0">Paused</Badge>;
     case 'error':
     case 'blocked':
-      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] px-1.5 py-0">{status}</Badge>;
+      return <Badge variant="outline" className="border-transparent bg-destructive/10 text-destructive text-[10px] px-1.5 py-0">{status}</Badge>;
     default:
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] px-1.5 py-0">{status}</Badge>;
+      return <Badge variant="secondary" className="text-muted-foreground text-[10px] px-1.5 py-0">{status}</Badge>;
   }
 }
 
@@ -64,9 +64,9 @@ function outcomeBadge(outcome: string | null) {
   if (!outcome) return <Badge variant="outline" className="text-[10px] px-1.5 py-0">No runs</Badge>;
   switch (outcome.toLowerCase()) {
     case 'succeeded':
-      return <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-0.5 text-[10px] px-1.5 py-0"><CheckCircle2 className="w-2.5 h-2.5" />OK</Badge>;
+      return <Badge variant="success" className="gap-0.5 text-[10px] px-1.5 py-0"><CheckCircle2 className="w-2.5 h-2.5" />OK</Badge>;
     case 'failed':
-      return <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-0.5 text-[10px] px-1.5 py-0"><XCircle className="w-2.5 h-2.5" />Failed</Badge>;
+      return <Badge variant="outline" className="border-transparent bg-destructive/10 text-destructive gap-0.5 text-[10px] px-1.5 py-0"><XCircle className="w-2.5 h-2.5" />Failed</Badge>;
     default:
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{outcome}</Badge>;
   }
@@ -74,10 +74,10 @@ function outcomeBadge(outcome: string | null) {
 
 function getJobTone(job: ScheduledJobSummary) {
   if (job.lastOutcome?.toLowerCase() === 'failed')
-    return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
+    return 'border-destructive/30 bg-destructive/5';
   if (job.status.toLowerCase() === 'paused')
-    return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
-  return 'border-[var(--color-border-light)] bg-[var(--color-surface)]';
+    return 'border-warning/30 bg-warning-subtle/40';
+  return 'border-border bg-card';
 }
 
 function summarizeOutcome(job: ScheduledJobSummary): string {
@@ -248,8 +248,8 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <p className="text-xs text-muted-foreground">
             Select a job to view its audit trail in the companion panel.
           </p>
         </div>
@@ -268,22 +268,22 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
         <div className="grid grid-cols-3 gap-2">
           <Card className="p-3">
             <div className="flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[var(--color-brand-primary)]" />
-              <span className="text-xs text-[var(--color-text-tertiary)]">Scheduler</span>
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs text-muted-foreground">Scheduler</span>
             </div>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)] mt-0.5">
+            <p className="text-sm font-semibold text-foreground mt-0.5">
               {health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}
             </p>
           </Card>
           <Card className="p-3">
-            <p className="text-xs text-[var(--color-text-tertiary)]">Active</p>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)] mt-0.5">
+            <p className="text-xs text-muted-foreground">Active</p>
+            <p className="text-sm font-semibold text-foreground mt-0.5">
               {activeCount} / {jobs.length}
             </p>
           </Card>
           <Card className="p-3">
-            <p className="text-xs text-[var(--color-text-tertiary)]">Failed</p>
-            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-[var(--color-text-primary)]'}`}>
+            <p className="text-xs text-muted-foreground">Failed</p>
+            <p className={`text-sm font-semibold mt-0.5 ${failedCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
               {failedCount}
             </p>
           </Card>
@@ -292,9 +292,9 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
 
       {/* Job list */}
       {loading && jobs.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">Loading jobs...</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">Loading jobs...</p>
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">No scheduled jobs found.</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">No scheduled jobs found.</p>
       ) : (
         <div className="space-y-2">
           {jobs.map((job) => {
@@ -311,14 +311,14 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                 onClick={() => selectJob(job)}
                 className={`w-full text-left rounded-md border px-3 py-2.5 transition-all ${getJobTone(job)} ${
                   isSelected
-                    ? 'ring-2 ring-[var(--color-brand-primary)] ring-offset-1'
+                    ? 'ring-2 ring-primary ring-offset-1'
                     : 'hover:shadow-sm'
                 }`}
               >
                 <div className="flex flex-col gap-2">
                   {/* Name + badges */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                    <span className="text-sm font-semibold text-foreground truncate">
                       {job.displayName ?? job.jobName}
                     </span>
                     {statusBadge(job.status)}
@@ -326,7 +326,7 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                     <span title={job.cronExpression ?? undefined}>{describeCron(job.cronExpression)}</span>
                     <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
                     <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
@@ -337,14 +337,14 @@ export function BackgroundJobsPanel({ panelId, title }: WorkspacePanelRenderProp
                   </div>
 
                   {/* Summary */}
-                  <p className="text-[11px] text-[var(--color-text-secondary)] line-clamp-1">
-                    {hasFailed && <FileWarning className="inline h-3 w-3 text-red-500 mr-0.5 -mt-0.5" />}
+                  <p className="text-[11px] text-muted-foreground line-clamp-1">
+                    {hasFailed && <FileWarning className="inline h-3 w-3 text-destructive mr-0.5 -mt-0.5" />}
                     {summarizeOutcome(job)}
                   </p>
 
                   {/* Action bar */}
                   <div
-                    className="flex items-center justify-between gap-1 pt-1 border-t border-[var(--color-border-light)]"
+                    className="flex items-center justify-between gap-1 pt-1 border-t border-border"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center gap-1">

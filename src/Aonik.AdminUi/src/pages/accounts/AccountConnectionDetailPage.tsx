@@ -5,6 +5,18 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog,
@@ -43,34 +55,18 @@ import {
 } from '@/components/ui/data-table';
 import { CreateTransactionDialog } from './CreateTransactionDialog';
 
-const statusStyles: Record<string, { text: string; bg: string }> = {
-  Connected: {
-    text: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
-  },
-  ActionRequired: {
-    text: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
-  },
-  Disconnected: {
-    text: 'text-[var(--color-text-tertiary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
-  },
+type StatusBadgeVariant = 'success' | 'warning' | 'secondary';
+
+const statusVariants: Record<string, StatusBadgeVariant> = {
+  Connected: 'success',
+  ActionRequired: 'warning',
+  Disconnected: 'secondary',
 };
 
-const reconciliationStyles: Record<string, { text: string; bg: string }> = {
-  Matched: {
-    text: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
-  },
-  Unmatched: {
-    text: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
-  },
-  Excluded: {
-    text: 'text-[var(--color-text-tertiary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
-  },
+const reconciliationVariants: Record<string, StatusBadgeVariant> = {
+  Matched: 'success',
+  Unmatched: 'warning',
+  Excluded: 'secondary',
 };
 
 function formatDate(dateString?: string | null): string {
@@ -120,6 +116,8 @@ export function AccountConnectionDetailPage() {
   const [attachmentsDialogTxId, setAttachmentsDialogTxId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AccountTransactionAttachmentResponse[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
+  const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
 
   const loadConnection = useCallback(async () => {
     if (!connectionId) return;
@@ -208,7 +206,6 @@ export function AccountConnectionDetailPage() {
 
   const handleDisconnect = useCallback(async () => {
     if (!connectionId || !connection) return;
-    if (!window.confirm(`Are you sure you want to disconnect ${connection.institutionName}?`)) return;
     setActionLoading(true);
     try {
       await accountService.disconnectConnection(connectionId);
@@ -273,7 +270,6 @@ export function AccountConnectionDetailPage() {
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm('Are you sure you want to delete this attachment?')) return;
     try {
       await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
@@ -304,7 +300,7 @@ export function AccountConnectionDetailPage() {
       accessorFn: (row) => (row.occurredAt ? new Date(row.occurredAt) : null),
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(tx.occurredAt)}</span>
+        <span className="text-sm text-muted-foreground">{formatDate(tx.occurredAt)}</span>
       ),
     },
     {
@@ -312,9 +308,10 @@ export function AccountConnectionDetailPage() {
       header: 'Amount',
       accessorKey: 'amount',
       sortable: true,
+      numeric: true,
       cell: (tx) => (
         <span
-          className={`text-sm font-medium ${tx.amount < 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}
+          className={`text-sm font-medium ${tx.amount < 0 ? 'text-destructive' : 'text-success'}`}
         >
           {formatCurrency(tx.amount, tx.currency)}
         </span>
@@ -337,7 +334,7 @@ export function AccountConnectionDetailPage() {
       accessorKey: 'counterparty',
       sortable: true,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-primary)]">{tx.counterparty || '—'}</span>
+        <span className="text-sm text-foreground">{tx.counterparty || '—'}</span>
       ),
     },
     {
@@ -346,7 +343,7 @@ export function AccountConnectionDetailPage() {
       accessorKey: 'description',
       sortable: false,
       cell: (tx) => (
-        <span className="text-sm text-[var(--color-text-secondary)] truncate max-w-[200px] block">
+        <span className="text-sm text-muted-foreground truncate max-w-[200px] block">
           {tx.description || '—'}
         </span>
       ),
@@ -356,19 +353,11 @@ export function AccountConnectionDetailPage() {
       header: 'Reconciliation',
       accessorKey: 'reconciliationStatus',
       sortable: true,
-      cell: (tx) => {
-        const style = reconciliationStyles[tx.reconciliationStatus] ?? {
-          text: 'text-[var(--color-text-secondary)]',
-          bg: 'bg-[var(--color-surface-inset)]',
-        };
-        return (
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
-          >
-            {tx.reconciliationStatus}
-          </span>
-        );
-      },
+      cell: (tx) => (
+        <Badge variant={reconciliationVariants[tx.reconciliationStatus] ?? 'secondary'}>
+          {tx.reconciliationStatus}
+        </Badge>
+      ),
     },
   ];
   if (loading) {
@@ -378,23 +367,18 @@ export function AccountConnectionDetailPage() {
   if (error || !connection) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription className="flex w-full items-center gap-3">
             <span>{error || 'Connection not found.'}</span>
             <Button variant="outline" size="sm" onClick={() => navigate('/accounts')} className="ml-auto">
               Back to Accounts
             </Button>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
-
-  const statusStyle = statusStyles[connection.status] ?? {
-    text: 'text-[var(--color-text-secondary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
-  };
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -408,16 +392,14 @@ export function AccountConnectionDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              <h1 className="text-2xl font-bold text-foreground">
                 {connection.institutionName}
               </h1>
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}
-              >
+              <Badge variant={statusVariants[connection.status] ?? 'secondary'}>
                 {connection.status}
-              </span>
+              </Badge>
             </div>
-            <p className="text-[var(--color-text-secondary)]">
+            <p className="text-muted-foreground">
               {connection.providerDisplayName} &middot; Connected {formatDate(connection.createdAt)}
             </p>
           </div>
@@ -443,9 +425,9 @@ export function AccountConnectionDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleDisconnect}
+            onClick={() => setConfirmDisconnectOpen(true)}
             disabled={actionLoading || connection.status === 'Disconnected'}
-            className="text-[var(--color-error)] border-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+            className="text-destructive border-destructive hover:bg-destructive/10"
           >
             <Link2Off className="w-4 h-4 mr-1" />
             Disconnect
@@ -455,22 +437,20 @@ export function AccountConnectionDetailPage() {
 
       {/* Connection info */}
       {connection.lastError && (
-        <Card className="mb-6 border-[var(--color-warning)] bg-[var(--color-warning-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-warning)]">
-            <AlertCircle className="w-5 h-5" />
-            <span className="text-sm">{connection.lastError}</span>
-          </CardContent>
-        </Card>
+        <Alert variant="warning" className="mb-6">
+          <AlertCircle />
+          <AlertDescription>{connection.lastError}</AlertDescription>
+        </Alert>
       )}
 
       {/* Linked Accounts */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">
+        <h2 className="text-lg font-semibold text-foreground mb-3">
           Linked Accounts ({connection.linkedAccounts.length})
         </h2>
         {connection.linkedAccounts.length === 0 ? (
-          <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-            <CardContent className="p-6 text-center text-[var(--color-text-tertiary)]">
+          <Card className="border-border bg-card">
+            <CardContent className="p-6 text-center text-muted-foreground">
               No linked accounts found for this connection.
             </CardContent>
           </Card>
@@ -479,39 +459,39 @@ export function AccountConnectionDetailPage() {
             {connection.linkedAccounts.map((account) => (
               <Card
                 key={account.linkedAccountId}
-                className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]"
+                className="border-border bg-card"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                      <p className="font-medium text-[var(--color-text-primary)]">{account.name}</p>
+                      <CreditCard className="w-4 h-4 text-muted-foreground" />
+                      <p className="font-medium text-foreground">{account.name}</p>
                     </div>
                     <Badge variant="outline" className="text-xs">
                       {account.status}
                     </Badge>
                   </div>
-                  <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Type:</span>{' '}
+                      <span className="text-muted-foreground">Type:</span>{' '}
                       {account.accountType}
                       {account.accountSubtype ? ` / ${account.accountSubtype}` : ''}
                     </p>
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Currency:</span> {account.currency}
+                      <span className="text-muted-foreground">Currency:</span> {account.currency}
                     </p>
                     {account.last4 && (
                       <p>
-                        <span className="text-[var(--color-text-tertiary)]">Last 4:</span> ****{account.last4}
+                        <span className="text-muted-foreground">Last 4:</span> ****{account.last4}
                       </p>
                     )}
                     <p>
-                      <span className="text-[var(--color-text-tertiary)]">Last synced:</span>{' '}
+                      <span className="text-muted-foreground">Last synced:</span>{' '}
                       {formatDateTime(account.lastSyncedAt)}
                     </p>
                   </div>
                   {account.lastError && (
-                    <p className="mt-2 text-xs text-[var(--color-error)]">{account.lastError}</p>
+                    <p className="mt-2 text-xs text-destructive">{account.lastError}</p>
                   )}
                 </CardContent>
               </Card>
@@ -522,10 +502,10 @@ export function AccountConnectionDetailPage() {
 
       {/* Transactions */}
       <div>
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">Transactions</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Transactions</h2>
         <Card>
           <CardContent className="p-4">
-            <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <div className="rounded-md border border-border overflow-hidden">
               <DataTable
                 data={transactions}
                 columns={txColumns}
@@ -588,11 +568,11 @@ export function AccountConnectionDetailPage() {
           </DialogHeader>
           {attachmentsLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-[var(--color-text-tertiary)]" />
-              <span className="ml-2 text-sm text-[var(--color-text-secondary)]">Loading...</span>
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
             </div>
           ) : attachments.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+            <p className="text-sm text-muted-foreground py-4 text-center">
               No attachments found for this transaction.
             </p>
           ) : (
@@ -600,25 +580,31 @@ export function AccountConnectionDetailPage() {
               {attachments.map((att) => (
                 <div
                   key={att.attachmentId}
-                  className="flex items-center justify-between p-3 border border-[var(--color-border-light)] rounded-sm"
+                  className="flex items-center justify-between p-3 border border-border rounded-md"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {att.fileName}
                     </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                    <p className="text-xs text-muted-foreground">
                       {att.contentType} &middot; {(att.fileSizeBytes / 1024).toFixed(1)} KB
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAttachment(att.attachmentId)}
-                      className="text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${att.fileName}`}
+                          onClick={() => setPendingDeleteAttachmentId(att.attachmentId)}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete attachment</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
@@ -626,6 +612,52 @@ export function AccountConnectionDetailPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Disconnect confirmation */}
+      <AlertDialog open={confirmDisconnectOpen} onOpenChange={setConfirmDisconnectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect {connection.institutionName}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDisconnect()}>
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete attachment confirmation */}
+      <AlertDialog
+        open={!!pendingDeleteAttachmentId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteAttachmentId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this attachment?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (pendingDeleteAttachmentId) void handleDeleteAttachment(pendingDeleteAttachmentId);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

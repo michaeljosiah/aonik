@@ -2,18 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, AlertCircle, Braces, ChevronDown, ChevronRight, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PanelInfoPopover } from '@/components/ui/panel-info-popover';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -26,27 +27,27 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table/data-table
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 import { aiTraceService } from '@/services/aiService';
-const typeClass = (type: string) => {
+type BadgeVariant = BadgeProps['variant'];
+
+const typeVariant = (type: string): BadgeVariant => {
   switch (type.toLowerCase()) {
     case 'generation':
-      return 'bg-violet-500/10 text-violet-700 border-violet-200';
+      return 'info';
     case 'span':
-      return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'event':
-      return 'bg-sky-500/10 text-sky-700 border-sky-200';
+      return 'secondary';
     default:
-      return 'bg-gray-500/10 text-gray-700 border-gray-200';
+      return 'outline';
   }
 };
 
-const levelClass = (level: string) => {
+const levelVariant = (level: string): BadgeVariant => {
   switch (level.toLowerCase()) {
     case 'error':
-      return 'bg-red-500/10 text-red-700 border-red-200';
+      return 'destructive';
     case 'warning':
-      return 'bg-amber-500/10 text-amber-700 border-amber-200';
+      return 'warning';
     default:
-      return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+      return 'success';
   }
 };
 
@@ -130,7 +131,7 @@ function flattenMetadata(value: string | null): Array<{ path: string; value: str
 
 function PayloadCell({ label, value, onOpen }: { label: string; value: string | null; onOpen: () => void }) {
   if (!value) {
-    return <span className="text-xs text-[var(--color-text-tertiary)]">--</span>;
+    return <span className="text-xs text-muted-foreground">--</span>;
   }
 
   return (
@@ -140,11 +141,11 @@ function PayloadCell({ label, value, onOpen }: { label: string; value: string | 
         event.stopPropagation();
         onOpen();
       }}
-      className="group flex max-w-[240px] items-start gap-2 rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-1.5 text-left hover:border-[var(--color-brand-primary)]"
+      className="group flex max-w-[240px] items-start gap-2 rounded border border-border bg-muted px-2 py-1.5 text-left hover:border-primary"
       title={`Open ${label}`}
     >
-      <Braces className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)]" />
-      <span className="line-clamp-3 font-mono text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
+      <Braces className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+      <span className="line-clamp-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
         {compactPayload(value)}
       </span>
     </button>
@@ -153,9 +154,9 @@ function PayloadCell({ label, value, onOpen }: { label: string; value: string | 
 
 function DetailMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-[var(--color-surface-inset)] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{label}</div>
-      <div className="mt-1 font-mono text-xs text-[var(--color-text-primary)]">{value}</div>
+    <div className="rounded-md bg-muted px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-xs text-foreground">{value}</div>
     </div>
   );
 }
@@ -166,7 +167,7 @@ function PayloadBlock({ title, value }: { title: string; value: string | null })
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         <Button
           type="button"
           variant="ghost"
@@ -178,7 +179,7 @@ function PayloadBlock({ title, value }: { title: string; value: string | null })
           Copy
         </Button>
       </div>
-      <pre className="max-h-56 overflow-auto rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 text-xs leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+      <pre className="max-h-56 overflow-auto rounded-md border border-border bg-muted p-3 text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words">
         {formatted}
       </pre>
     </section>
@@ -191,8 +192,8 @@ function MetadataTable({ value }: { value: string | null }) {
   if (rows.length === 0) {
     return (
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Metadata</h3>
-        <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 text-sm text-[var(--color-text-tertiary)]">--</div>
+        <h3 className="text-sm font-semibold text-foreground">Metadata</h3>
+        <div className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">--</div>
       </section>
     );
   }
@@ -200,7 +201,7 @@ function MetadataTable({ value }: { value: string | null }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Metadata</h3>
+        <h3 className="text-sm font-semibold text-foreground">Metadata</h3>
         <Button
           type="button"
           variant="ghost"
@@ -212,23 +213,23 @@ function MetadataTable({ value }: { value: string | null }) {
           Copy
         </Button>
       </div>
-      <div className="max-h-72 overflow-auto rounded-md border border-[var(--color-border-light)]">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-[var(--color-surface-inset)] text-left text-[var(--color-text-tertiary)]">
-            <tr>
-              <th className="w-2/5 px-3 py-2 font-medium">Path</th>
-              <th className="px-3 py-2 font-medium">Value</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="max-h-72 overflow-auto rounded-md border border-border">
+        <Table className="text-xs">
+          <TableHeader className="sticky top-0 bg-muted">
+            <TableRow className="hover:bg-muted">
+              <TableHead className="h-auto w-2/5 px-3 py-2 text-muted-foreground">Path</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-muted-foreground">Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((row) => (
-              <tr key={row.path} className="border-t border-[var(--color-border-light)]">
-                <td className="px-3 py-2 font-mono text-[var(--color-text-secondary)]">{row.path}</td>
-                <td className="px-3 py-2 font-mono text-[var(--color-text-primary)] break-all">{row.value}</td>
-              </tr>
+              <TableRow key={row.path}>
+                <TableCell className="whitespace-normal px-3 py-2 font-mono text-muted-foreground">{row.path}</TableCell>
+                <TableCell className="whitespace-normal px-3 py-2 font-mono text-foreground break-all">{row.value}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );
@@ -559,7 +560,7 @@ function TraceWaterfall({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Trace Waterfall</h3>
+        <h3 className="text-sm font-semibold text-foreground">Trace Waterfall</h3>
         <div className="flex items-center gap-2">
           {!loading && items.length > 0 ? (
             <>
@@ -577,14 +578,14 @@ function TraceWaterfall({
               </Button>
             </>
           ) : null}
-          <span className="text-xs text-[var(--color-text-tertiary)]">
+          <span className="text-xs text-muted-foreground">
             {loading ? 'Loading spans...' : `${items.length} spans`}
           </span>
         </div>
       </div>
-      <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+      <div className="rounded-md border border-border bg-card">
         {items.length === 0 ? (
-          <div className="p-3 text-sm text-[var(--color-text-tertiary)]">
+          <div className="p-3 text-sm text-muted-foreground">
             {loading ? 'Loading trace spans...' : 'No correlated spans found for this trace.'}
           </div>
         ) : (
@@ -595,7 +596,7 @@ function TraceWaterfall({
               const collapsed = collapsedIds.has(item.id);
 
               return (
-                <div key={`${item.source}-${item.id}`} className="border-b border-[var(--color-border-light)] last:border-b-0">
+                <div key={`${item.source}-${item.id}`} className="border-b border-border last:border-b-0">
                   <div className="grid grid-cols-[minmax(220px,34%)_1fr_156px] gap-3 px-3 py-2">
                     <div style={{ paddingLeft: `${item.depth * 14}px` }} className="min-w-0">
                       <div className="flex items-start gap-2">
@@ -603,7 +604,7 @@ function TraceWaterfall({
                           <button
                             type="button"
                             onClick={() => toggleCollapsed(item.id)}
-                            className="mt-0.5 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                            className="mt-0.5 rounded text-muted-foreground hover:text-foreground"
                             aria-label={collapsed ? 'Expand span subtree' : 'Collapse span subtree'}
                           >
                             {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -616,21 +617,21 @@ function TraceWaterfall({
                           onClick={() => toggleDetail(item.id)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={item.name}>{item.name || '--'}</div>
-                          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+                          <div className="truncate text-xs font-medium text-foreground" title={item.name}>{item.name || '--'}</div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                             <span>{item.type}</span>
-                            <span className={`rounded px-1.5 py-0.5 font-medium ${hasChildren ? 'bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]' : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-tertiary)]'}`}>
+                            <span className={`rounded px-1.5 py-0.5 font-medium ${hasChildren ? 'bg-primary/10 text-primary' : 'border border-border bg-card text-muted-foreground'}`}>
                               {hasChildren ? `${item.children.length} child${item.children.length === 1 ? '' : 'ren'}` : 'Leaf'}
                             </span>
                             <span className="truncate font-mono">{item.agentName ?? item.agentId ?? item.source}</span>
-                            {item.sqlText ? <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 font-medium">SQL</span> : null}
+                            {item.sqlText ? <span className="rounded bg-muted px-1.5 py-0.5 font-medium">SQL</span> : null}
                           </div>
                         </button>
                       </div>
                     </div>
-                    <div className="relative h-7 rounded bg-[var(--color-surface-inset)]">
+                    <div className="relative h-7 rounded bg-muted">
                       <div
-                        className="absolute top-1.5 h-4 rounded bg-[var(--color-brand-primary)]/70"
+                        className="absolute top-1.5 h-4 rounded bg-primary/70"
                         style={{ left: `${item.offsetPct}%`, width: `${Math.min(item.widthPct, 100 - item.offsetPct)}%` }}
                       />
                     </div>
@@ -655,12 +656,12 @@ function TraceWaterfall({
                           Errors
                         </Button>
                       ) : null}
-                      <span className="font-mono text-xs text-[var(--color-text-secondary)]">{item.durationLabel}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{item.durationLabel}</span>
                     </div>
                   </div>
 
                   {expanded ? (
-                    <div className="border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-4">
+                    <div className="border-t border-border bg-muted px-4 py-4">
                       <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         <DetailMetric label="Started" value={formatDateTime(item.startTime)} />
                         <DetailMetric label="Span" value={item.spanId ?? item.observationId} />
@@ -672,13 +673,13 @@ function TraceWaterfall({
                         {item.sqlText ? (
                           <section className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">SQL</h4>
+                              <h4 className="text-sm font-semibold text-foreground">SQL</h4>
                               <Button type="button" variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(item.sqlText!)}>
                                 <Copy className="mr-2 h-3.5 w-3.5" />
                                 Copy
                               </Button>
                             </div>
-                            <pre className="max-h-56 overflow-auto rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 font-mono text-xs leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+                            <pre className="max-h-56 overflow-auto rounded-md border border-border bg-card p-3 font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words">
                               {item.sqlText}
                             </pre>
                           </section>
@@ -821,8 +822,8 @@ export function AiTracesPage() {
       sortable: true,
       cell: (row) => (
         <div className="min-w-[150px]">
-          <div className="text-sm text-[var(--color-text-primary)]">{formatDateTime(row.startTime)}</div>
-          <div className="mt-1 font-mono text-[10px] text-[var(--color-text-tertiary)]">{row.source}</div>
+          <div className="text-sm text-foreground">{formatDateTime(row.startTime)}</div>
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground">{row.source}</div>
         </div>
       ),
     },
@@ -831,7 +832,7 @@ export function AiTracesPage() {
       header: 'Type',
       accessorKey: 'type',
       sortable: true,
-      cell: (row) => <Badge className={`text-xs ${typeClass(row.type)}`}>{row.type}</Badge>,
+      cell: (row) => <Badge variant={typeVariant(row.type)} className="text-xs">{row.type}</Badge>,
     },
     {
       id: 'name',
@@ -840,8 +841,8 @@ export function AiTracesPage() {
       sortable: true,
       cell: (row) => (
         <div className="min-w-[220px] max-w-[280px]">
-          <div className="truncate font-medium text-[var(--color-text-primary)]" title={row.name}>{row.name || '--'}</div>
-          <div className="mt-1 truncate font-mono text-[10px] text-[var(--color-text-tertiary)]" title={row.traceName ?? row.traceId}>
+          <div className="truncate font-medium text-foreground" title={row.name}>{row.name || '--'}</div>
+          <div className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={row.traceName ?? row.traceId}>
             {row.traceName ?? row.traceId}
           </div>
         </div>
@@ -870,14 +871,14 @@ export function AiTracesPage() {
       header: 'Level',
       accessorKey: 'level',
       sortable: true,
-      cell: (row) => <Badge className={`text-xs ${levelClass(row.level)}`}>{row.level}</Badge>,
+      cell: (row) => <Badge variant={levelVariant(row.level)} className="text-xs">{row.level}</Badge>,
     },
     {
       id: 'agentName',
       header: 'Agent',
       accessorFn: (row) => row.agentName ?? row.agentId ?? '',
       cell: (row) => (
-        <span className="font-mono text-xs text-[var(--color-text-secondary)]">
+        <span className="font-mono text-xs text-muted-foreground">
           {row.agentName ?? row.agentId ?? '--'}
         </span>
       ),
@@ -915,10 +916,10 @@ export function AiTracesPage() {
       accessorFn: (row) => row.providedModel ?? '',
       cell: (row) => (
         <div className="min-w-[160px]">
-          <div className="truncate font-mono text-xs text-[var(--color-text-secondary)]" title={row.providedModel ?? undefined}>
+          <div className="truncate font-mono text-xs text-muted-foreground" title={row.providedModel ?? undefined}>
             {row.providedModel ?? '--'}
           </div>
-          <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="mt-1 text-[10px] text-muted-foreground">
             {formatTokens(row.totalTokens)} tokens
           </div>
         </div>
@@ -937,19 +938,19 @@ export function AiTracesPage() {
       <div className="space-y-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">AI Traces</h1>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <h1 className="text-2xl font-semibold text-foreground">AI Traces</h1>
+            <p className="text-sm text-muted-foreground">
               Inspect normalized AI observations from Langfuse or Application Insights.
             </p>
           </div>
-          <Badge className="w-fit bg-blue-500/10 text-blue-700 border-blue-200">Provider: {provider}</Badge>
+          <Badge variant="info">Provider: {provider}</Badge>
         </div>
       </div>
 
       <Card className="p-4 space-y-4">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <div className="relative md:col-span-1 xl:col-span-2">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={name} onChange={(event) => { setPage(1); setName(event.target.value); }} placeholder="Filter by name" className="pl-9" />
           </div>
           <Input value={traceName} onChange={(event) => { setPage(1); setTraceName(event.target.value); }} placeholder="Trace name or trace ID" />
@@ -999,7 +1000,7 @@ export function AiTracesPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-[var(--color-text-tertiary)]">{totalCount.toLocaleString()} observations</p>
+          <p className="text-sm text-muted-foreground">{totalCount.toLocaleString()} observations</p>
           <Button variant="outline" onClick={() => { setPage(1); void load(); }} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Refresh
@@ -1008,15 +1009,11 @@ export function AiTracesPage() {
       </Card>
 
       {error ? (
-        <Card className="p-5 border-l-4 border-l-red-500">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="h-5 w-5" />
-            <div>
-              <div className="font-medium">Failed to load AI observations</div>
-              <div className="text-sm">{error}</div>
-            </div>
-          </div>
-        </Card>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Failed to load AI observations</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       <Card className="p-4">
@@ -1027,14 +1024,14 @@ export function AiTracesPage() {
           showCheckboxes={false}
           loading={loading}
           loadingMessage="Loading AI observations..."
-          emptyIcon={<Activity className="h-10 w-10 text-[var(--color-text-tertiary)]" />}
+          emptyIcon={<Activity className="h-10 w-10 text-muted-foreground" />}
           emptyTitle="No AI observations found"
           emptyDescription="Adjust your filters or expand the time range."
           onRowClick={openObservation}
         />
 
-        <div className="mt-4 flex items-center justify-between border-t border-[var(--color-border-light)] pt-4">
-          <span className="text-xs text-[var(--color-text-tertiary)]">Page {page} of {totalPages}</span>
+        <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+          <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage((current) => current - 1)}>
               Previous
@@ -1046,23 +1043,23 @@ export function AiTracesPage() {
         </div>
       </Card>
 
-      <Dialog open={selectedObservation !== null} onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}>
-        <DialogContent showCloseButton={false} className="left-auto right-0 top-0 flex h-screen max-h-screen w-[min(760px,100vw)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
+      <Sheet open={selectedObservation !== null} onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}>
+        <SheetContent size="lg" className="gap-0 overflow-hidden sm:max-w-[760px]">
           {selectedObservation ? (
             <div className="flex min-h-0 h-full flex-1 flex-col">
-              <div className="border-b border-[var(--color-border-light)] px-5 py-4">
+              <div className="border-b border-border px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
-                  <DialogHeader className="space-y-2 text-left">
+                  <div className="flex flex-col gap-2 text-left">
                     <div className="flex items-center gap-2">
-                      <Badge className={`text-xs ${typeClass(selectedObservation.type)}`}>{selectedObservation.type}</Badge>
-                      <Badge className={`text-xs ${levelClass(selectedObservation.level)}`}>{selectedObservation.level}</Badge>
-                      <Badge className="bg-blue-500/10 text-blue-700 border-blue-200 text-xs">{selectedObservation.source}</Badge>
+                      <Badge variant={typeVariant(selectedObservation.type)} className="text-xs">{selectedObservation.type}</Badge>
+                      <Badge variant={levelVariant(selectedObservation.level)} className="text-xs">{selectedObservation.level}</Badge>
+                      <Badge variant="info" className="text-xs">{selectedObservation.source}</Badge>
                     </div>
-                    <DialogTitle className="break-words text-xl">{selectedObservation.name || 'Observation'}</DialogTitle>
-                    <DialogDescription className="font-mono text-xs break-all">
+                    <SheetTitle className="break-words text-xl">{selectedObservation.name || 'Observation'}</SheetTitle>
+                    <SheetDescription className="font-mono text-xs break-all">
                       Observation ID: {selectedObservation.observationId}
-                    </DialogDescription>
-                  </DialogHeader>
+                    </SheetDescription>
+                  </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {traceInsightMetrics ? (
                       <PanelInfoPopover
@@ -1106,11 +1103,11 @@ export function AiTracesPage() {
                         View errors
                       </Button>
                     ) : null}
-                    <DialogClose asChild>
-                      <Button type="button" variant="ghost" size="sm" aria-label="Close details">
+                    <SheetClose asChild>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Close details">
                         <X className="h-4 w-4" />
                       </Button>
-                    </DialogClose>
+                    </SheetClose>
                   </div>
                 </div>
               </div>
@@ -1128,30 +1125,30 @@ export function AiTracesPage() {
                   <DetailMetric label="Total Tokens" value={formatTokens(selectedObservation.totalTokens)} />
                 </div>
 
-                <div className="mb-5 grid gap-3 rounded-md border border-[var(--color-border-light)] p-3 text-sm md:grid-cols-2">
+                <div className="mb-5 grid gap-3 rounded-md border border-border p-3 text-sm md:grid-cols-2">
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Trace</div>
-                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.traceName ?? selectedObservation.traceId}</div>
+                    <div className="text-xs text-muted-foreground">Trace</div>
+                    <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.traceName ?? selectedObservation.traceId}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Parent Observation</div>
-                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.parentObservationId ?? '--'}</div>
+                    <div className="text-xs text-muted-foreground">Parent Observation</div>
+                    <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.parentObservationId ?? '--'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">AI Run</div>
-                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.aiRunId ?? '--'}</div>
+                    <div className="text-xs text-muted-foreground">AI Run</div>
+                    <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.aiRunId ?? '--'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Root Observation</div>
-                    <div className="mt-1 text-xs text-[var(--color-text-primary)]">{selectedObservation.isRootObservation ? 'Yes' : 'No'}</div>
+                    <div className="text-xs text-muted-foreground">Root Observation</div>
+                    <div className="mt-1 text-xs text-foreground">{selectedObservation.isRootObservation ? 'Yes' : 'No'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Span</div>
-                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.spanId ?? selectedObservation.observationId}</div>
+                    <div className="text-xs text-muted-foreground">Span</div>
+                    <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.spanId ?? selectedObservation.observationId}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Operation</div>
-                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.operationId ?? selectedObservation.traceId}</div>
+                    <div className="text-xs text-muted-foreground">Operation</div>
+                    <div className="mt-1 font-mono text-xs break-all text-foreground">{selectedObservation.operationId ?? selectedObservation.traceId}</div>
                   </div>
                 </div>
 
@@ -1164,8 +1161,8 @@ export function AiTracesPage() {
               </div>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

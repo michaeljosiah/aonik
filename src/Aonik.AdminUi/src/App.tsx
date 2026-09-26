@@ -14,13 +14,17 @@ import { isElectron, setTitleBarColor } from '@/lib/electron';
  * so the bar tracks the active theme (light/dark) and any future palette
  * tweaks without a code change.
  */
+// guardrail-ignore: Electron's native title-bar API needs concrete colours, not CSS tokens
 const LOGIN_TITLE_BAR_COLOR = '#044045';
+// guardrail-ignore: Electron's native title-bar API needs concrete colours, not CSS tokens
 const LOGIN_TITLE_BAR_SYMBOL = '#ffffff';
 
 function readPostAuthTitleBarColors(): { color: string; symbolColor: string } {
   const root = document.documentElement;
   const styles = getComputedStyle(root);
+  // guardrail-ignore: fallback for Electron's native title-bar API when the token is unresolved
   const color = styles.getPropertyValue('--color-background').trim() || '#f9fafb';
+  // guardrail-ignore: fallback for Electron's native title-bar API when the token is unresolved
   const symbolColor = styles.getPropertyValue('--color-text-primary').trim() || '#2f2f2f';
   return { color, symbolColor };
 }
@@ -263,6 +267,7 @@ function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AonikTopBar
           breadcrumb={getBreadcrumb(window.location.pathname)}
+          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           isWorkspace={isWorkspace}
           onAskAonik={handleAiChatToggle}
           leftSlot={
@@ -283,7 +288,7 @@ function AppLayout() {
         />
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <main
-            className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0 transition-[width] duration-400 ease-in-out'}
+            className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-background min-w-0 transition-[width] duration-400 ease-in-out'}
           >
             <Routes>
               {/* My Space — default authenticated home */}
@@ -351,8 +356,8 @@ function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">{title}</h1>
-        <p className="text-[var(--color-text-secondary)]">This page is under construction.</p>
+        <h1 className="text-2xl font-bold text-foreground mb-2">{title}</h1>
+        <p className="text-muted-foreground">This page is under construction.</p>
       </div>
     </div>
   );
@@ -380,22 +385,22 @@ function AiChatRoute({
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {
   return (
     <div className="flex items-center justify-center min-h-screen w-screen overflow-auto bg-background px-6">
-      <div className="max-w-[32rem] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Setup Status Unavailable</p>
-        <h1 className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">We could not determine first-run status</h1>
-        <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">{message}</p>
+      <div className="max-w-[32rem] rounded-xl border border-border bg-card p-8 shadow-sm">
+        <p className="text-sm font-semibold text-primary">Setup Status Unavailable</p>
+        <h1 className="mt-2 text-2xl font-bold text-foreground">We could not determine first-run status</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{message}</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             Retry
           </button>
           <button
             type="button"
             onClick={() => window.location.assign('/setup')}
-            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Open setup page
           </button>
@@ -569,9 +574,11 @@ function AuthenticatedApp() {
 // Dev-only kitchen sink for the Spec 098 primitives. `import.meta.env.DEV` is
 // false in production builds, so the page and its import are dropped there.
 const DevUiPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevUiPage')) : null;
+const DevShellPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevShellPage')) : null;
 
 function App() {
-  const showDevUi = DevUiPage !== null && window.location.pathname.startsWith('/dev/ui');
+  const devPath = import.meta.env.DEV ? window.location.pathname : '';
+  const DevPage = devPath.startsWith('/dev/ui') ? DevUiPage : devPath.startsWith('/dev/shell') ? DevShellPage : null;
   return (
     <Router>
       <ThemeProvider>
@@ -586,9 +593,9 @@ function App() {
             {isElectron && <div className="app-titlebar" aria-hidden="true" />}
             <TitleBarColorSync />
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-              {showDevUi && DevUiPage ? (
+              {DevPage ? (
                 <Suspense fallback={null}>
-                  <DevUiPage />
+                  <DevPage />
                 </Suspense>
               ) : (
                 <AuthenticatedApp />

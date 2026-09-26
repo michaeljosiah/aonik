@@ -3,8 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { Handle, Position, ReactFlow, Background, type Node, type Edge, type ReactFlowInstance } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { CheckCircle2, Circle, PauseCircle, PlayCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -120,7 +135,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Learn how to connect and manage your payment correspondents for seamless cross-border transactions.',
     category: 'Partners',
     order: 2,
-    accent: 'from-blue-500/20 to-cyan-500/20',
   },
   {
     id: 'email-provider',
@@ -129,7 +143,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Set up transactional email delivery for notifications, receipts, and customer communications.',
     category: 'Notifications',
     order: 3,
-    accent: 'from-purple-500/20 to-pink-500/20',
   },
   {
     id: 'compliance-rules',
@@ -138,7 +151,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Configure KYC/KYB workflows, transaction limits, and automated screening policies.',
     category: 'Compliance',
     order: 5,
-    accent: 'from-amber-500/20 to-orange-500/20',
   },
   {
     id: 'webhook-integration',
@@ -147,7 +159,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Receive real-time event notifications for payments, settlements, and status changes.',
     category: 'Integration',
     order: 6,
-    accent: 'from-emerald-500/20 to-teal-500/20',
   },
   {
     id: 'fx-rates',
@@ -156,7 +167,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Configure currency exchange rates, margins, and automatic rate refresh schedules.',
     category: 'Pricing',
     order: 7,
-    accent: 'from-rose-500/20 to-red-500/20',
   },
   {
     id: 'api-keys',
@@ -165,7 +175,6 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'Create and manage API credentials for secure programmatic access to the platform.',
     category: 'Security',
     order: 4,
-    accent: 'from-indigo-500/20 to-violet-500/20',
   },
   {
     id: 'getting-started',
@@ -174,9 +183,23 @@ const fallbackGuides: SetupGuideDefinition[] = [
     description: 'A tour of the setup journey, policies, and core capabilities to launch with confidence.',
     category: 'Foundations',
     order: 1,
-    accent: 'from-slate-500/20 to-slate-300/30',
   },
 ];
+
+// Categorical tint for a guide without a cover image, keyed by its order so a
+// guide keeps the same colour on every setup page.
+const guideAccents = [
+  'from-(--chart-1)/20 to-(--chart-1)/5',
+  'from-(--chart-2)/20 to-(--chart-2)/5',
+  'from-(--chart-3)/20 to-(--chart-3)/5',
+  'from-(--chart-4)/20 to-(--chart-4)/5',
+  'from-(--chart-5)/20 to-(--chart-5)/5',
+];
+
+function guideAccentClass(guide: SetupGuideDefinition) {
+  const n = guideAccents.length;
+  return guideAccents[((Math.trunc(guide.order) % n) + n) % n];
+}
 
 const setupNodes = baseSteps.map((step, index) => ({
   id: step.id,
@@ -287,11 +310,11 @@ function getStoredList(key: string) {
 
 function SetupNode({ data }: { data: SetupNodeData }) {
   const statusStyles: Record<StepStatus, string> = {
-    todo: 'border-[var(--color-border)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]',
-    'in-progress': 'border-[var(--color-info)] text-[var(--color-info)] bg-[var(--color-info-light)]',
-    blocked: 'border-[var(--color-warning)] text-[var(--color-warning)] bg-[var(--color-warning-light)]',
-    complete: 'border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]',
-    skipped: 'border-[var(--color-border)] text-[var(--color-text-tertiary)] bg-[var(--color-surface-inset)]',
+    todo: 'border-border text-muted-foreground bg-card',
+    'in-progress': 'border-info text-info bg-info-subtle',
+    blocked: 'border-warning text-warning bg-warning-subtle',
+    complete: 'border-success text-success bg-success-subtle',
+    skipped: 'border-border text-muted-foreground bg-muted',
   };
 
   const iconMap: Record<StepStatus, typeof Circle> = {
@@ -306,7 +329,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
 
   return (
     <div className={cn('w-[280px] rounded-2xl border shadow-sm overflow-hidden', statusStyles[data.status])}>
-      <Handle type="target" position={Position.Left} className="!bg-[var(--color-border)]" />
+      <Handle type="target" position={Position.Left} className="!bg-border" />
       <div
         className="h-20 bg-cover bg-center"
         style={{
@@ -316,11 +339,11 @@ function SetupNode({ data }: { data: SetupNodeData }) {
       <div className="px-4 py-4 space-y-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{data.category}</span>
+          <span className="text-xs font-medium text-muted-foreground">{data.category}</span>
         </div>
         <div className="space-y-2">
-          <p className="text-base font-semibold text-[var(--color-text-primary)]">{data.title}</p>
-          <p className="text-sm text-[var(--color-text-secondary)]">{data.description}</p>
+          <p className="text-base font-semibold text-foreground">{data.title}</p>
+          <p className="text-sm text-muted-foreground">{data.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -335,7 +358,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
           </Button>
         </div>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-[var(--color-border)]" />
+      <Handle type="source" position={Position.Right} className="!bg-border" />
     </div>
   );
 }
@@ -518,8 +541,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       type: 'straight',
       animated: true,
       style: isComplete
-        ? { stroke: 'var(--color-brand-primary)', strokeWidth: 2 }
-        : { stroke: 'var(--color-border)', strokeDasharray: '6 6', strokeWidth: 2 },
+        ? { stroke: 'var(--primary)', strokeWidth: 2 }
+        : { stroke: 'var(--border)', strokeDasharray: '6 6', strokeWidth: 2 },
     } as Edge;
   });
 
@@ -745,13 +768,13 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
+    <div className="flex-1 overflow-auto bg-muted">
       <div className="px-6 py-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2 flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-brand-primary)]">Tenant Setup Journey</p>
-            <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Launch your finance stack</h1>
-            <p className="w-full max-w-none text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm font-medium text-primary">Tenant setup journey</p>
+            <h1 className="text-3xl font-bold text-foreground">Launch your finance stack</h1>
+            <p className="w-full max-w-none text-sm text-muted-foreground">
               Each node represents a platform capability. Complete the required path to go live, or skip optional upgrades and return later.
             </p>
           </div>
@@ -766,13 +789,13 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
 
         <div className={cn('mt-6 grid grid-cols-1 gap-6', isMobile ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_320px]')}>
           <Card className="overflow-hidden">
-            <CardContent className="h-[360px] p-0 bg-[radial-gradient(circle_at_top,_rgba(0,0,0,0.04),_transparent_55%)]">
+            <CardContent className="h-[360px] p-0 bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--foreground)_4%,transparent),transparent_55%)]">
               {isMobile ? (
                 <div className="space-y-4">
                   {stepsWithStatus.map((step) => (
                     <div
                       key={step.id}
-                      className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] overflow-hidden cursor-pointer"
+                      className="rounded-2xl border border-border bg-card overflow-hidden cursor-pointer"
                       onClick={() => setSelectedStepId(step.id)}
                     >
                       <div
@@ -782,10 +805,10 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       <div className="px-4 py-4 space-y-2">
                         <div className="flex items-center gap-2">
                           <StatusPill status={step.status} />
-                          <span className="text-xs text-[var(--color-text-tertiary)]">{step.category}</span>
+                          <span className="text-xs text-muted-foreground">{step.category}</span>
                         </div>
-                        <p className="text-base font-semibold text-[var(--color-text-primary)]">{step.title}</p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">{step.description}</p>
+                        <p className="text-base font-semibold text-foreground">{step.title}</p>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
                         <div className="flex items-center gap-2">
                           <Button 
                             size="sm" 
@@ -826,7 +849,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       zoomOnDoubleClick={false}
                       preventScrolling={false}
                     >
-                      <Background color="var(--color-border-light)" gap={28} />
+                      <Background color="var(--border)" gap={28} />
                     </ReactFlow>
                   </div>
                 </div>
@@ -844,14 +867,14 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <StatusPill status={selectedStep.status} />
-                    <span className="text-xs text-[var(--color-text-tertiary)]">
+                    <span className="text-xs text-muted-foreground">
                       {selectedStep.required ? 'Required' : 'Optional'}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{selectedStep.title}</h3>
-                  <p className="text-sm text-[var(--color-text-secondary)]">{selectedStep.description}</p>
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 text-xs text-[var(--color-text-secondary)]">
-                    <p className="font-semibold text-[var(--color-text-primary)]">Dependencies</p>
+                  <h3 className="text-lg font-semibold text-foreground">{selectedStep.title}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedStep.description}</p>
+                  <div className="rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground">Dependencies</p>
                     <ul className="mt-2 space-y-1">
                       {(selectedStep.dependsOn ?? []).length === 0 ? (
                         <li>None</li>
@@ -861,9 +884,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           return (
                             <li key={dep} className="flex items-center gap-2">
                               {match?.status === 'complete' ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" />
+                                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                               ) : (
-                                <Circle className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+                                <Circle className="h-3.5 w-3.5 text-muted-foreground" />
                               )}
                               <span>{match?.title ?? dep}</span>
                             </li>
@@ -887,17 +910,17 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
         {/* Guide Articles Section */}
         <div className="mt-10">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Helpful guides</h2>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            <h2 className="text-xl font-bold text-foreground">Helpful guides</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
               Explore detailed documentation to help you get the most out of the platform.
             </p>
             {guideError && (
-              <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{guideError}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{guideError}</p>
             )}
           </div>
           {guideLoading && !resolvedManifest ? (
-            <div className="flex items-center gap-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="h-4 w-4 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Spinner className="text-primary" />
               Loading guides...
             </div>
           ) : (
@@ -906,9 +929,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 <div key={section.id} className="space-y-3">
                   {section.id !== 'all' && (
                     <div>
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{section.title}</h3>
+                      <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
                       {section.description && (
-                        <p className="text-sm text-[var(--color-text-secondary)]">{section.description}</p>
+                        <p className="text-sm text-muted-foreground">{section.description}</p>
                       )}
                     </div>
                   )}
@@ -918,24 +941,22 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                       return (
                         <Card key={guide.id} className="overflow-hidden transition-shadow hover:shadow-md">
                           <div
-                            className={cn('h-24 bg-cover bg-center', !coverUrl && 'bg-gradient-to-br', guide.accent ?? 'from-slate-200/60 to-slate-100')}
+                            className={cn('h-24 bg-cover bg-center', !coverUrl && ['bg-muted bg-gradient-to-br', guideAccentClass(guide)])}
                             style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
                           />
                           <CardContent className="p-4">
                             <div className="space-y-3">
-                              <span className="inline-block rounded-full bg-[var(--color-surface-inset)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                                {guide.category}
-                              </span>
-                              <h3 className="text-sm font-semibold text-[var(--color-text-primary)] line-clamp-2">
+                              <Badge variant="secondary">{guide.category}</Badge>
+                              <h3 className="text-sm font-semibold text-foreground line-clamp-2">
                                 {guide.title}
                               </h3>
-                              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed line-clamp-3">
+                              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
                                 {guide.description}
                               </p>
                               <Button
-                                variant="ghost"
+                                variant="link"
                                 size="sm"
-                                className="h-8 px-0 text-xs font-semibold text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] hover:bg-transparent"
+                                className="h-8 px-0 text-xs font-semibold"
                                 onClick={() => navigate(`/setup-guides/${guide.slug}`)}
                               >
                                 Read article
@@ -953,90 +974,96 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
           )}
         </div>
       </div>
-      {wizardOpen && selectedStep && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full min-w-[320px] max-w-[720px] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+      <Dialog open={wizardOpen && Boolean(selectedStep)} onOpenChange={setWizardOpen}>
+        {selectedStep && (
+          <DialogContent
+            showCloseButton={false}
+            aria-describedby={undefined}
+            className="max-h-[calc(100svh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-[720px]"
+          >
             <div
-              className="h-32 rounded-t-2xl bg-cover bg-center"
+              className="h-32 bg-muted bg-cover bg-center"
               style={{
                 backgroundImage: selectedStep.bannerUrl ? `url(${selectedStep.bannerUrl})` : undefined,
               }}
             />
-            <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Setup wizard</p>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{selectedStep.title}</h3>
+                <p className="text-xs font-medium text-muted-foreground">Setup wizard</p>
+                <DialogTitle className="mt-1 text-lg font-semibold text-foreground">{selectedStep.title}</DialogTitle>
               </div>
-              <button
-                type="button"
-                onClick={() => setWizardOpen(false)}
-                className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
                 Close
-              </button>
+              </Button>
             </div>
             <div className="px-6 py-6">
               {isTenantProfileWizard ? (
                 <div className="space-y-6">
-                  <div className="flex flex-wrap gap-2">
+                  <ol className="flex flex-wrap gap-2">
                     {tenantWizardSteps.map((label, index) => (
-                      <span
+                      <li
                         key={label}
+                        aria-current={wizardStepIndex === index ? 'step' : undefined}
                         className={cn(
-                          'rounded-full px-3 py-1 text-xs font-semibold',
+                          'rounded-md px-3 py-1 text-xs font-medium',
                           wizardStepIndex === index
-                            ? 'bg-[var(--color-brand-primary)] text-primary-foreground'
-                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
                         )}
                       >
                         {index + 1}. {label}
-                      </span>
+                      </li>
                     ))}
-                  </div>
+                  </ol>
 
                   {tenantProfileLoading ? (
-                    <div className="text-sm text-[var(--color-text-secondary)]">Loading tenant data...</div>
-                  ) : tenantProfileError ? (
-                    <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-4 text-sm text-[var(--color-error)]">
-                      {tenantProfileError}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner />
+                      Loading tenant data...
                     </div>
+                  ) : tenantProfileError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{tenantProfileError}</AlertDescription>
+                    </Alert>
                   ) : wizardStepIndex === 0 ? (
                     <div className="space-y-4">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Confirm your tenant profile so the platform can tailor policies, pricing, and compliance defaults.
                       </p>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Tenant display name</label>
-                          <input
+                        <Field data-invalid={Boolean(tenantProfileErrors.name)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-display-name">Tenant display name</FieldLabel>
+                          <Input
+                            id="tenant-display-name"
                             type="text"
                             value={tenantProfile.name}
+                            aria-invalid={Boolean(tenantProfileErrors.name)}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, name: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
                           />
-                          {tenantProfileErrors.name && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.name}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Legal name</label>
-                          <input
+                          {tenantProfileErrors.name && <FieldError>{tenantProfileErrors.name}</FieldError>}
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.legalName)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-legal-name">Legal name</FieldLabel>
+                          <Input
+                            id="tenant-legal-name"
                             type="text"
                             value={tenantProfile.legalName}
+                            aria-invalid={Boolean(tenantProfileErrors.legalName)}
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, legalName: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
                           />
-                          {tenantProfileErrors.legalName && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.legalName}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Base currency</label>
+                          {tenantProfileErrors.legalName && <FieldError>{tenantProfileErrors.legalName}</FieldError>}
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.defaultCurrency)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-base-currency">Base currency</FieldLabel>
                           <Select
                             value={tenantProfile.defaultCurrency}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger
+                              id="tenant-base-currency"
+                              className="w-full"
+                              aria-invalid={Boolean(tenantProfileErrors.defaultCurrency)}
+                            >
                               <SelectValue placeholder="Select currency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1048,30 +1075,34 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             </SelectContent>
                           </Select>
                           {tenantProfileErrors.defaultCurrency && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.defaultCurrency}</p>
+                            <FieldError>{tenantProfileErrors.defaultCurrency}</FieldError>
                           )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Primary country</label>
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.primaryCountry)} className="gap-2">
+                          <FieldLabel>Primary country</FieldLabel>
                           <CountrySelect
                             value={tenantProfile.primaryCountry}
                             onChange={handlePrimaryCountryChange}
                             placeholder="Select a country"
                             includeEmpty={true}
                             emptyLabel="Clear selection"
-                            className="mt-2 w-full"
+                            className="w-full"
                           />
                           {tenantProfileErrors.primaryCountry && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.primaryCountry}</p>
+                            <FieldError>{tenantProfileErrors.primaryCountry}</FieldError>
                           )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Time zone</label>
+                        </Field>
+                        <Field data-invalid={Boolean(tenantProfileErrors.timeZone)} className="gap-2">
+                          <FieldLabel htmlFor="tenant-time-zone">Time zone</FieldLabel>
                           <Select
                             value={tenantProfile.timeZone}
                             onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, timeZone: value }))}
                           >
-                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                            <SelectTrigger
+                              id="tenant-time-zone"
+                              className="w-full"
+                              aria-invalid={Boolean(tenantProfileErrors.timeZone)}
+                            >
                               <SelectValue placeholder="Select a time zone" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1082,58 +1113,54 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               ))}
                             </SelectContent>
                           </Select>
-                          {tenantProfileErrors.timeZone && (
-                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.timeZone}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Admin contact</label>
-                          <input
+                          {tenantProfileErrors.timeZone && <FieldError>{tenantProfileErrors.timeZone}</FieldError>}
+                        </Field>
+                        <Field className="gap-2">
+                          <FieldLabel htmlFor="tenant-admin-contact">Admin contact</FieldLabel>
+                          <Input
+                            id="tenant-admin-contact"
                             type="email"
                             value={tenantProfile.adminEmail}
                             readOnly
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]"
+                            className="bg-muted text-muted-foreground"
                           />
-                        </div>
+                        </Field>
                       </div>
                       {currentTenant && (
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                        <p className="text-xs text-muted-foreground">
                           Tenant environment: {currentTenant.environment}.
                         </p>
                       )}
                     </div>
                   ) : wizardStepIndex === 1 ? (
                     <div className="space-y-5">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Decide which modules are available for this tenant. You can adjust these later.
                       </p>
                       <div className="space-y-4">
                         <div className="flex flex-wrap gap-2">
                           {featureGroups.map((group) => (
-                            <button
+                            <Button
                               key={group.id}
                               type="button"
+                              size="sm"
+                              variant={activeFeatureGroupId === group.id ? 'default' : 'outline'}
+                              aria-pressed={activeFeatureGroupId === group.id}
                               onClick={() => setActiveFeatureGroupId(group.id)}
-                              className={cn(
-                                'rounded-full border px-4 py-1.5 text-xs font-semibold',
-                                activeFeatureGroupId === group.id
-                                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-primary-foreground'
-                                  : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
-                              )}
                             >
                               {group.label}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                         {(() => {
                           const activeGroup = featureGroups.find((group) => group.id === activeFeatureGroupId) ?? featureGroups[0];
                           const groupSelected = activeGroup.flags.every((flag) => featureSelections[flag.key]);
                           return (
-                            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                            <div className="rounded-lg border border-border bg-muted p-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div>
-                                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{activeGroup.label}</p>
-                                  <p className="text-xs text-[var(--color-text-secondary)]">{activeGroup.description}</p>
+                                  <p className="text-sm font-semibold text-foreground">{activeGroup.label}</p>
+                                  <p className="text-xs text-muted-foreground">{activeGroup.description}</p>
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={() => handleToggleGroup(activeGroup.id)}>
                                   {groupSelected ? 'Disable all' : 'Enable all'}
@@ -1141,99 +1168,94 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                               </div>
                               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {activeGroup.flags.map((flag) => (
-                                  <label key={flag.key} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                                    <input
-                                      type="checkbox"
+                                  <Field key={flag.key} orientation="horizontal" className="gap-2">
+                                    <Checkbox
+                                      id={`feature-${flag.key}`}
                                       checked={Boolean(featureSelections[flag.key])}
-                                      onChange={() => handleFeatureToggle(flag.key)}
-                                      className="h-4 w-4 rounded border-[var(--color-border)]"
+                                      onCheckedChange={() => handleFeatureToggle(flag.key)}
                                     />
-                                    <span>{flag.label}</span>
-                                  </label>
+                                    <FieldLabel htmlFor={`feature-${flag.key}`} className="font-normal text-muted-foreground">
+                                      {flag.label}
+                                    </FieldLabel>
+                                  </Field>
                                 ))}
                               </div>
                             </div>
                           );
                         })()}
                         {featureError && (
-                          <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
-                            {featureError}
-                          </div>
+                          <Alert variant="destructive">
+                            <AlertDescription>{featureError}</AlertDescription>
+                          </Alert>
                         )}
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <p className="text-sm text-[var(--color-text-secondary)]">
+                      <p className="text-sm text-muted-foreground">
                         Seed a guided demo dataset to explore workflows like orders, payments, and ledger activity.
                       </p>
-                      <div className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
-                        <input
-                          type="checkbox"
-                          checked={demoSeedEnabled}
-                          onChange={(event) => setDemoSeedEnabled(event.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-[var(--color-border)]"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Seed demo data</p>
-                          <p className="text-xs text-[var(--color-text-secondary)]">
-                            Demo data is isolated to this tenant and can be cleared later.
-                          </p>
-                        </div>
-                      </div>
+                      <FieldLabel htmlFor="seed-demo-data">
+                        <Field orientation="horizontal">
+                          <Checkbox
+                            id="seed-demo-data"
+                            checked={demoSeedEnabled}
+                            onCheckedChange={(value) => setDemoSeedEnabled(value === true)}
+                          />
+                          <FieldContent>
+                            <FieldTitle>Seed demo data</FieldTitle>
+                            <FieldDescription className="text-xs">
+                              Demo data is isolated to this tenant and can be cleared later.
+                            </FieldDescription>
+                          </FieldContent>
+                        </Field>
+                      </FieldLabel>
                       {demoSeedError && (
-                        <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
-                          {demoSeedError}
-                        </div>
+                        <Alert variant="destructive">
+                          <AlertDescription>{demoSeedError}</AlertDescription>
+                        </Alert>
                       )}
                     </div>
                   )}
                 </div>
               ) : wizardStepIndex === 0 ? (
                 <div className="space-y-5">
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     {selectedStep.description}
                   </p>
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Owner</label>
-                    <input
-                      type="text"
-                      placeholder="Assign a team lead"
-                      className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Notes</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Add any context for this step"
-                      className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
-                    />
-                  </div>
+                  <Field className="gap-2">
+                    <FieldLabel htmlFor="setup-step-owner">Owner</FieldLabel>
+                    <Input id="setup-step-owner" type="text" placeholder="Assign a team lead" />
+                  </Field>
+                  <Field className="gap-2">
+                    <FieldLabel htmlFor="setup-step-notes">Notes</FieldLabel>
+                    <Textarea id="setup-step-notes" rows={4} placeholder="Add any context for this step" />
+                  </Field>
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <p className="text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-sm text-muted-foreground">
                     Review the setup details and confirm completion for this step.
                   </p>
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5 text-sm">
-                    <p className="font-semibold text-[var(--color-text-primary)]">Ready to mark complete?</p>
-                    <p className="mt-2 text-[var(--color-text-secondary)]">
+                  <div className="rounded-lg border border-border bg-muted p-5 text-sm">
+                    <p className="font-semibold text-foreground">Ready to mark complete?</p>
+                    <p className="mt-2 text-muted-foreground">
                       This will unlock the next step in your launch path.
                     </p>
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-[var(--color-border-light)] px-6 py-4">
-              <button
+            <div className="flex items-center justify-between border-t border-border px-6 py-4">
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setWizardStepIndex((prev) => Math.max(prev - 1, 0))}
-                className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                 disabled={wizardStepIndex === 0 || tenantProfileLoading}
               >
                 Back
-              </button>
+              </Button>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
                   Cancel
@@ -1241,15 +1263,18 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 {isTenantProfileWizard ? (
                   wizardStepIndex === 0 ? (
                     <Button size="sm" onClick={handleTenantProfileContinue} disabled={tenantProfileSaving}>
-                      {tenantProfileSaving ? 'Saving...' : 'Continue'}
+                      {tenantProfileSaving && <Spinner />}
+                      Continue
                     </Button>
                   ) : wizardStepIndex === 1 ? (
                     <Button size="sm" onClick={handleFeatureContinue} disabled={featureSaving}>
-                      {featureSaving ? 'Saving...' : 'Continue'}
+                      {featureSaving && <Spinner />}
+                      Continue
                     </Button>
                   ) : (
                     <Button size="sm" onClick={handleFinishTenantWizard} disabled={demoSeedSaving}>
-                      {demoSeedSaving ? 'Finishing...' : 'Finish setup'}
+                      {demoSeedSaving && <Spinner />}
+                      Finish setup
                     </Button>
                   )
                 ) : wizardStepIndex === 0 ? (
@@ -1269,22 +1294,22 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: StepStatus }) {
-  const mapping: Record<StepStatus, { label: string; className: string }> = {
-    todo: { label: 'Not started', className: 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]' },
-    'in-progress': { label: 'In progress', className: 'bg-[var(--color-info-light)] text-[var(--color-info)]' },
-    blocked: { label: 'Blocked', className: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]' },
-    complete: { label: 'Complete', className: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-    skipped: { label: 'Skipped', className: 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]' },
-  };
+const statusBadges: Record<StepStatus, { label: string; variant: 'secondary' | 'info' | 'warning' | 'success' | 'outline' }> = {
+  todo: { label: 'Not started', variant: 'secondary' },
+  'in-progress': { label: 'In progress', variant: 'info' },
+  blocked: { label: 'Blocked', variant: 'warning' },
+  complete: { label: 'Complete', variant: 'success' },
+  skipped: { label: 'Skipped', variant: 'outline' },
+};
 
-  const { label, className } = mapping[status];
-  return <span className={cn('rounded-full px-2 py-1 text-[11px] font-semibold uppercase', className)}>{label}</span>;
+function StatusPill({ status }: { status: StepStatus }) {
+  const { label, variant } = statusBadges[status];
+  return <Badge variant={variant}>{label}</Badge>;
 }
