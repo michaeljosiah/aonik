@@ -30,7 +30,7 @@
       test-support library, so coupling to the test framework is intentional and
       lets the container live as a per-collection fixture in consuming projects.
     -->
-    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit" Version="2.9.3" />
   </ItemGroup>
 
   <!--
