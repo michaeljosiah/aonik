@@ -40,7 +40,7 @@ export const agentExtensionsModule: AdminModule = {
   requires: ['agents'],
   navigation,
   routes: [
-    { path: '/ai/agent-extensions', element: AgentExtensionsPage },
+    { screen: { id: "ai.extensions", label: "Agent Extensions", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "sparkles" }, path: '/ai/agent-extensions', element: AgentExtensionsPage },
   ],
   panels,
   panelComponents,

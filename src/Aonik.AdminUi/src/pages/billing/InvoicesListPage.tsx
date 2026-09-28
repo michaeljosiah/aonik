@@ -1,3 +1,4 @@
+import { useModules } from '@/modules';
 // Invoices list — visual port of ScreenInvoices in
 // templates/aonik-admin-starterkit/screens/invoices-accounts.jsx, wired to
 // the existing /billing/invoices endpoint.
@@ -111,6 +112,9 @@ function isOverdue(invoice: InvoiceResponse): boolean {
 
 export function InvoicesListPage() {
   const navigate = useNavigate();
+  const { isPathVisible, hasPermission, allowsPolicy } = useModules();
+  const canIssue = allowsPolicy('AdminUserWritePolicy') && hasPermission('Invoice.Issue');
+  const canUpdate = allowsPolicy('AdminUserWritePolicy') && hasPermission('Invoice.Update');
 
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,13 +240,13 @@ export function InvoicesListPage() {
         onClick: () => navigate(`/billing/invoices/${invoice.id}`),
       },
     ];
-    if (invoice.status === 'Draft') {
+    if (invoice.status === 'Draft' && canIssue) {
       actions.push({ label: 'Issue', onClick: () => void issue(invoice.id) });
     }
-    if (invoice.status === 'Issued') {
+    if (invoice.status === 'Issued' && canUpdate) {
       actions.push({ label: 'Mark paid', onClick: () => void markPaid(invoice.id) });
     }
-    if (invoice.status === 'Draft' || invoice.status === 'Issued') {
+    if (canUpdate && (invoice.status === 'Draft' || invoice.status === 'Issued')) {
       actions.push({
         label: 'Cancel',
         variant: 'danger',
@@ -371,10 +375,10 @@ export function InvoicesListPage() {
               <RefreshCw className={'h-3 w-3 ' + (loading ? 'animate-spin' : '')} />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate('/billing/invoices/new')}>
+            {isPathVisible('/billing/invoices/new') && <Button size="sm" onClick={() => navigate('/billing/invoices/new')}>
               <Plus className="h-3 w-3" />
               New invoice
-            </Button>
+            </Button>}
           </>
         }
       />

@@ -19,7 +19,7 @@ const InitialState: NotificationState = {
   loading: true,
 };
 
-export function useNotifications() {
+export function useNotifications(enabled = true) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const [state, setState] = useState<NotificationState>(InitialState);
 
@@ -45,7 +45,7 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !enabled) {
       setState(InitialState);
       return;
     }
@@ -84,7 +84,7 @@ export function useNotifications() {
       active = false;
       abortController.abort();
     };
-  }, [getAccessToken, isAuthenticated, loadNotifications]);
+  }, [getAccessToken, isAuthenticated, loadNotifications, enabled]);
 
   const markRead = useCallback(async (notificationId: string) => {
     const notification = await notificationService.markRead(notificationId);

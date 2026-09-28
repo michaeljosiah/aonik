@@ -2,10 +2,27 @@ import type { ComponentType } from 'react';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig, WorkspacePanelRenderProps, WorkspaceTemplate } from '@/workspace/types';
 
+export type ScreenPermissionRule =
+  | { authenticatedAdmin: true }
+  | { allOf: string[]; anyOf?: string[] }
+  | { anyOf: string[]; allOf?: string[] };
+
+export interface AdminScreenDefinition {
+  id: string;
+  label: string;
+  icon?: string;
+  permissions: ScreenPermissionRule;
+  /** Existing server policy, evaluated by /admin/manifest (in addition to service permissions). */
+  policy?: string;
+  audience?: 'host' | 'tenant' | 'all';
+}
+
 /**
  * Route configuration contributed by a module.
  */
 export interface ModuleRouteConfig {
+  /** Spec 099: required for a route to participate in an admin profile. */
+  screen?: AdminScreenDefinition;
   /** Route path (e.g. "/ledger/accounts") */
   path: string;
   /** The React component to render */
@@ -18,8 +35,7 @@ export interface ModuleRouteConfig {
    * /settings/speech (Voice endpoints) and the document pages (Documents endpoints), and the finance
    * module registers /accounts (PersonalFinance endpoints). Without this the route stays registered
    * for a tenant with that module off, so the page mounts, every request answers 403 module.disabled,
-   * and the interceptor cannot recognise it as belonging to the disabled module. Absent manifest =
-   * rendered, matching the fail-open rule everywhere else.
+   * and the interceptor cannot recognise it as belonging to the disabled module.
    */
   requires?: string[];
 }
@@ -98,6 +114,10 @@ export interface ManifestModule {
  * Controls which modules/features are visible per tenant/user/feature-flag.
  */
 export interface RuntimeModuleManifest {
+  /** Spec 099 fields; optional only during the server-first rollout. Profile resolution requires both. */
+  businessType?: string;
+  permissions?: string[];
+  allowedPolicies?: string[];
   /** Backend module IDs that are enabled for the current tenant (sorted) */
   enabledModules: string[];
   /** Every known backend module with its enablement state for the tenant */

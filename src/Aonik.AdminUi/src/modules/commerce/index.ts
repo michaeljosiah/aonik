@@ -1,4 +1,4 @@
-import type { AdminModule } from '../types';
+import type { AdminModule, ModuleRouteConfig } from '../types';
 import type { NavigationSection } from '@/types';
 import {
   BoxPlansPage,
@@ -17,9 +17,7 @@ import {
 // Commerce module (Spec 073) — the product-agnostic storefront engine's admin
 // surface: catalogue, personalisation, content, box plans, delivery,
 // merchandising, storefront config, and the orders/carts projections.
-// The rendered sidebar reads SIDEBAR_NAV (layout/aonik/sidebarNav.ts); this
-// module-level navigation array exists for aggregation parity with the other
-// modules and is not currently rendered.
+// Admin navigation is composed from the selected JSON profile (Spec 098).
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
@@ -39,22 +37,24 @@ const navigation: NavigationSection[] = [
 // ---------------------------------------------------------------------------
 // Routes — the full table from Spec 073 §2; each page spec (074–084) replaces
 // its placeholder component in place, so the paths are stable from day one.
+// Spec 098 screen metadata mirrors the Commerce read endpoints' AdminUserPolicy.
+// Write operations retain their separate server policies; this does not grant write access.
 // ---------------------------------------------------------------------------
-const routes = [
-  { path: '/commerce', element: CommerceOverviewPage },
-  { path: '/commerce/products', element: CommerceProductsPage },
-  { path: '/commerce/products/:productId', element: CommerceProductsPage, isDynamic: true },
-  { path: '/commerce/personalisation', element: PersonalisationPage },
-  { path: '/commerce/content', element: ProductContentPage },
-  { path: '/commerce/box-plans', element: BoxPlansPage },
-  { path: '/commerce/delivery', element: DeliveryCalendarPage },
-  { path: '/commerce/merchandising', element: MerchandisingPage },
-  { path: '/commerce/storefront-config', element: StorefrontConfigPage },
-  { path: '/commerce/orders', element: CommerceOrdersPage },
+const routes: ModuleRouteConfig[] = [
+  { screen: { id: 'commerce.overview', label: 'Commerce', permissions: { authenticatedAdmin: true } }, path: '/commerce', element: CommerceOverviewPage },
+  { screen: { id: 'commerce.products', label: 'Products', permissions: { authenticatedAdmin: true } }, path: '/commerce/products', element: CommerceProductsPage },
+  { screen: { id: 'commerce.product-detail', label: 'Product', permissions: { authenticatedAdmin: true } }, path: '/commerce/products/:productId', element: CommerceProductsPage, isDynamic: true },
+  { screen: { id: 'commerce.personalisation', label: 'Personalisation', permissions: { authenticatedAdmin: true } }, path: '/commerce/personalisation', element: PersonalisationPage },
+  { screen: { id: 'commerce.content', label: 'Product content', permissions: { authenticatedAdmin: true } }, path: '/commerce/content', element: ProductContentPage },
+  { screen: { id: 'commerce.box-plans', label: 'Box plans', permissions: { authenticatedAdmin: true } }, path: '/commerce/box-plans', element: BoxPlansPage },
+  { screen: { id: 'commerce.delivery', label: 'Delivery', permissions: { authenticatedAdmin: true } }, path: '/commerce/delivery', element: DeliveryCalendarPage },
+  { screen: { id: 'commerce.merchandising', label: 'Merchandising', permissions: { authenticatedAdmin: true } }, path: '/commerce/merchandising', element: MerchandisingPage },
+  { screen: { id: 'commerce.storefront-config', label: 'Storefront config', permissions: { authenticatedAdmin: true } }, path: '/commerce/storefront-config', element: StorefrontConfigPage },
+  { screen: { id: 'commerce.orders', label: 'Orders', permissions: { authenticatedAdmin: true } }, path: '/commerce/orders', element: CommerceOrdersPage },
   // Route-addressable order drawer (Spec 083 §2) — deep links, including Spec 084's
   // recent-orders rows, open it directly.
-  { path: '/commerce/orders/:orderId', element: CommerceOrdersPage, isDynamic: true },
-  { path: '/commerce/carts', element: CommerceCartsPage },
+  { screen: { id: 'commerce.order-detail', label: 'Order', permissions: { authenticatedAdmin: true } }, path: '/commerce/orders/:orderId', element: CommerceOrdersPage, isDynamic: true },
+  { screen: { id: 'commerce.carts', label: 'Carts', permissions: { authenticatedAdmin: true } }, path: '/commerce/carts', element: CommerceCartsPage },
 ];
 
 // ---------------------------------------------------------------------------

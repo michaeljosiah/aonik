@@ -1,4 +1,4 @@
-import type { AdminModule } from '../types';
+import type { AdminModule, ModuleRouteConfig } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
 import {
@@ -160,59 +160,59 @@ const navigation: NavigationSection[] = [
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-const routes = [
+const routes: ModuleRouteConfig[] = [
   // Platform-owned registry and compliance surfaces (Spec 097 §10.1): never module-gated.
-  { path: '/customers', element: CustomersListPage },
-  { path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
+  { screen: { id: "customers", label: "Customers", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "users" }, path: '/customers', element: CustomersListPage },
+  { screen: { id: "customer-detail", label: "Customer", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "users" }, path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
   // /compliance had a single Documents tile — collapse straight to the list, and follow Documents
   // for the same reason the list itself does: the redirect leads nowhere else.
-  { path: '/compliance', element: redirectTo('/compliance/documents'), requires: ['documents'] },
+  { screen: { id: "compliance", label: "Compliance", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "file" }, path: '/compliance', element: redirectTo('/compliance/documents'), requires: ['documents'] },
   // The document pages are Platform-registered but every request they make hits the Documents
   // module, so they follow it rather than their host (Spec 097 §10.2).
-  { path: '/compliance/documents', element: DocumentsListPage, requires: ['documents'] },
-  { path: '/compliance/documents/new', element: DocumentCreatePage, requires: ['documents'] },
-  { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true, requires: ['documents'] },
-  { path: '/access/users', element: AccessUsersPage },
-  { path: '/access/users/:userId', element: UserDetailPage, isDynamic: true },
-  { path: '/access/roles', element: AccessRolesPage },
-  { path: '/access/permissions', element: AccessPermissionsPage },
-  { path: '/compliance/tombstones', element: TombstonesPage },
-  { path: '/tenants', element: TenantsListPage },
-  { path: '/tenants/new', element: CreateTenantPage },
-  { path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },
-  { path: '/admin/alerts', element: AlertsPage },
-  { path: '/admin/alerts/:id', element: AlertDetailPage, isDynamic: true },
-  { path: '/tasks', element: TasksPage },
-  { path: '/settings', element: SettingsLandingPage },
-  { path: '/settings/general', element: GlobalSettingsPage },
-  { path: '/settings/global', element: GlobalSettingsPage },
-  { path: '/settings/authentication', element: SettingsAuthenticationPage },
-  { path: '/settings/communication', element: SettingsCommunicationPage },
-  { path: '/settings/payment-gateways', element: SettingsPaymentGatewaysPage },
-  { path: '/settings/credential-bundles', element: SettingsCredentialBundlesPage },
-  { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
+  { screen: { id: "documents", label: "Documents", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "file" }, path: '/compliance/documents', element: DocumentsListPage, requires: ['documents'] },
+  { screen: { id: "document-new", label: "New document", permissions: {"authenticatedAdmin": true}, policy: "AdminUserWritePolicy", icon: "file" }, path: '/compliance/documents/new', element: DocumentCreatePage, requires: ['documents'] },
+  { screen: { id: "document-detail", label: "Document", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "file" }, path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true, requires: ['documents'] },
+  { screen: { id: "access.users", label: "Users", permissions: {"allOf": ["Users.Read"]}, policy: "AdminPolicy", icon: "users" }, path: '/access/users', element: AccessUsersPage },
+  { screen: { id: "access.user-detail", label: "User", permissions: {"allOf": ["Users.Read"]}, policy: "AdminPolicy", icon: "users" }, path: '/access/users/:userId', element: UserDetailPage, isDynamic: true },
+  { screen: { id: "access.roles", label: "Roles", permissions: {"allOf": ["Roles.Read"]}, policy: "AdminPolicy", icon: "users" }, path: '/access/roles', element: AccessRolesPage },
+  { screen: { id: "access.permissions", label: "Permissions", permissions: {"allOf": ["Permissions.Read"]}, policy: "AdminPolicy", icon: "users" }, path: '/access/permissions', element: AccessPermissionsPage },
+  { screen: { id: "tombstones", label: "Deleted users", permissions: {"allOf": ["Users.Read"]}, policy: "AdminPolicy", icon: "users" }, path: '/compliance/tombstones', element: TombstonesPage },
+  { screen: { id: "tenants", label: "Tenants", permissions: {"allOf": ["Tenants.Read"]}, policy: "PlatformAdmin", icon: "building", audience: "host" }, path: '/tenants', element: TenantsListPage },
+  { screen: { id: "tenant-new", label: "New tenant", permissions: {"allOf": ["Tenants.Write"]}, policy: "PlatformAdmin", icon: "building", audience: "host" }, path: '/tenants/new', element: CreateTenantPage },
+  { screen: { id: "tenant-detail", label: "Tenant", permissions: {"allOf": ["Tenants.Read"]}, policy: "PlatformAdmin", icon: "building", audience: "host" }, path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },
+  { screen: { id: "alerts", label: "Platform alerts", permissions: {"authenticatedAdmin": true}, policy: "PlatformAdmin", icon: "building", audience: "host" }, path: '/admin/alerts', element: AlertsPage },
+  { screen: { id: "alert-detail", label: "Platform alert", permissions: {"authenticatedAdmin": true}, policy: "PlatformAdmin", icon: "building", audience: "host" }, path: '/admin/alerts/:id', element: AlertDetailPage, isDynamic: true },
+  { screen: { id: "tasks", label: "Tasks", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "settings" }, path: '/tasks', element: TasksPage },
+  { screen: { id: "settings", label: "Settings", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "settings" }, path: '/settings', element: SettingsLandingPage },
+  { screen: { id: "settings.general", label: "Settings", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/general', element: GlobalSettingsPage },
+  { screen: { id: "settings.global", label: "Platform settings", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/global', element: GlobalSettingsPage },
+  { screen: { id: "settings.authentication", label: "Authentication", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/authentication', element: SettingsAuthenticationPage },
+  { screen: { id: "settings.communication", label: "Communication", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/communication', element: SettingsCommunicationPage },
+  { screen: { id: "settings.payment-gateways", label: "Payment gateways", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/payment-gateways', element: SettingsPaymentGatewaysPage, requires: ['finance'] },
+  { screen: { id: "settings.credential-bundles", label: "Credential bundles", permissions: {"allOf": ["Settings.Write"]}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/credential-bundles', element: SettingsCredentialBundlesPage, requires: ['finance'] },
+  { screen: { id: "settings.audit-logs", label: "Audit logs", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   // Spec 024 — consolidated speech library + recipes + voice mode + chat speech. The
   // legacy /settings/voice and /settings/text-to-speech routes were retired in Phase D
   // (host-default credential management is now done via the API direct or the unified
   // ProviderEditPanel API key field).
   // Speech settings read and write the Voice module's endpoints exclusively.
-  { path: '/settings/speech', element: SettingsSpeechPage, requires: ['voice'] },
-  { path: '/settings/background-jobs', element: BackgroundJobsPage },
-  { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
-  { path: '/settings/system-tools', element: SystemToolsPage },
-  { path: '/settings/notification-templates', element: NotificationTemplatesPage },
+  { screen: { id: "settings.speech", label: "Speech & Voice", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/speech', element: SettingsSpeechPage, requires: ['voice'] },
+  { screen: { id: "settings.background-jobs", label: "Background jobs", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/background-jobs', element: BackgroundJobsPage },
+  { screen: { id: "settings.background-jobs-detail", label: "Background job", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
+  { screen: { id: "settings.system-tools", label: "System tools", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/system-tools', element: SystemToolsPage },
+  { screen: { id: "settings.notification-templates", label: "Notification templates", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/notification-templates', element: NotificationTemplatesPage },
   // Spec 097 — read-only view of the tenant's module enablement.
-  { path: '/settings/modules', element: SettingsModulesPage },
-  { path: '/cms/content-blocks', element: ContentBlocksListPage },
-  { path: '/cms/content-blocks/new', element: ContentBlockEditPage },
-  { path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
-  { path: '/cms/content-wizard', element: ContentWizardPage },
-  { path: '/cms/media', element: MediaLibraryPage },
-  { path: '/admin/observability', element: ObservabilityPage },
-  { path: '/admin/observability/topology', element: ObservabilityTopologyPage },
-  { path: '/admin/observability/traces', element: ObservabilityTracesPage },
-  { path: '/admin/observability/logs', element: ObservabilityLogsPage },
-  { path: '/admin/observability/audit', element: ObservabilityAuditLogPage },
+  { screen: { id: "settings.modules", label: "Modules", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "settings" }, path: '/settings/modules', element: SettingsModulesPage },
+  { screen: { id: "cms.content-blocks", label: "Content Blocks", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks', element: ContentBlocksListPage },
+  { screen: { id: "cms.content-new", label: "New content block", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks/new', element: ContentBlockEditPage },
+  { screen: { id: "cms.content-detail", label: "Content block", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
+  { screen: { id: "cms.content-wizard", label: "Content Wizard", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-wizard', element: ContentWizardPage },
+  { screen: { id: "cms.media", label: "Media Library", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/media', element: MediaLibraryPage },
+  { screen: { id: "observability.overview", label: "Observability", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "chart", audience: "host" }, path: '/admin/observability', element: ObservabilityPage },
+  { screen: { id: "observability.topology", label: "Topology", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "chart", audience: "host" }, path: '/admin/observability/topology', element: ObservabilityTopologyPage },
+  { screen: { id: "observability.traces", label: "Traces", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "chart", audience: "host" }, path: '/admin/observability/traces', element: ObservabilityTracesPage },
+  { screen: { id: "observability.logs", label: "Logs", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "chart", audience: "host" }, path: '/admin/observability/logs', element: ObservabilityLogsPage },
+  { screen: { id: "observability.audit", label: "Audit Log", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "chart", audience: "host" }, path: '/admin/observability/audit', element: ObservabilityAuditLogPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -245,8 +245,8 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'cms-media', title: 'Media Library', type: 'internal', category: 'page', componentKey: 'media-library', route: '/cms/media' },
   { id: 'observability', title: 'Observability', type: 'internal', category: 'page', componentKey: 'observability', route: '/admin/observability' },
   // Micro-app panels — workspace-native, cross-panel communication
-  { id: 'job-monitor', title: 'Job Monitor', description: 'Monitor background jobs and trigger actions.', type: 'internal', category: 'micro-app', componentKey: 'job-monitor', appCardId: '10', defaultWidth: 480 },
-  { id: 'audit-trail', title: 'Audit Trail', description: 'Cross-referenced audit logs for job runs and commands.', type: 'internal', category: 'micro-app', componentKey: 'audit-trail', appCardId: '11', defaultWidth: 520 },
+  { id: 'job-monitor', screenId: 'settings.background-jobs', title: 'Job Monitor', description: 'Monitor background jobs and trigger actions.', type: 'internal', category: 'micro-app', componentKey: 'job-monitor', appCardId: '10', defaultWidth: 480 },
+  { id: 'audit-trail', screenId: 'settings.audit-logs', title: 'Audit Trail', description: 'Cross-referenced audit logs for job runs and commands.', type: 'internal', category: 'micro-app', componentKey: 'audit-trail', appCardId: '11', defaultWidth: 520 },
 ];
 
 const panelComponents = {

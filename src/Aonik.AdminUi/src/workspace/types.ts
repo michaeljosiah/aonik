@@ -35,6 +35,9 @@ export interface WorkspacePanelRenderProps {
 }
 
 export interface WorkspacePanelConfig {
+  /** For micro-apps without a route, the screen whose visibility also governs this panel. */
+  screenId?: string;
+  requiredPolicies?: string[];
   id: string;
   title: string;
   description?: string;

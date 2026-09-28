@@ -11,6 +11,7 @@ using Aonik.SharedKernel.Modules;
 using FluentAssertions;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Api.Tests;
 
@@ -108,6 +109,89 @@ public class AdminManifestEndpointTests : IClassFixture<CustomWebApplicationFact
         var response = await client.GetAsync("/admin/manifest");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, "AdminUserPolicy admits every signed-in role");
+    }
+
+    [Fact]
+    public async Task AdminManifest_Should_ReturnBusinessTypeForResolvedTenant()
+    {
+        // Arrange
+        var foodTenant = Guid.NewGuid();
+        var arkeTenant = Guid.NewGuid();
+        var foodClient = await CreateTenantAdminClientAsync(foodTenant);
+        var arkeClient = await CreateTenantAdminClientAsync(arkeTenant);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            (await dbContext.Tenants.SingleAsync(tenant => tenant.Id == foodTenant)).BusinessType = "food-commerce";
+            (await dbContext.Tenants.SingleAsync(tenant => tenant.Id == arkeTenant)).BusinessType = "arke-kids";
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        var food = await foodClient.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+        var arke = await arkeClient.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+
+        // Assert
+        food!.BusinessType.Should().Be("food-commerce");
+        arke!.BusinessType.Should().Be("arke-kids");
+        food.EnabledModules.Should().Contain(ModuleIds.Finance, "presentation must not disable dependencies");
+    }
+
+    [Fact]
+    public async Task AdminManifest_Should_UseStoredPermissionsForEachUser_NotPermissionClaims()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var reader = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create()
+            .WithTenant(tenantId).WithRoles("TenantAdmin").WithPermissions("Invoice.Read")
+            .WithClaims(new Claim("permission", "Tenants.Write")));
+        var writer = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create()
+            .WithTenant(tenantId).WithRoles("TenantAdmin").WithPermissions("Invoice.Update", "Invoice.Read"));
+
+        // Act
+        var readResponse = await reader.GetAsync("/admin/manifest");
+        var readManifest = await readResponse.Content.ReadFromJsonAsync<AdminManifestResponse>();
+        var writeManifest = await writer.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+
+        // Assert
+        readManifest!.Permissions.Should().Equal("Invoice.Read");
+        writeManifest!.Permissions.Should().Equal("Invoice.Read", "Invoice.Update");
+        readResponse.Headers.CacheControl!.Private.Should().BeTrue();
+        readResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AdminManifest_Should_NotGrantPermissionsFromRoleNameAlone()
+    {
+        // Arrange
+        var client = await CreateTenantAdminClientAsync(Guid.NewGuid());
+
+        // Act
+        var manifest = await client.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+
+        // Assert
+        manifest!.BusinessType.Should().Be("base");
+        manifest.Permissions.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("TenantAdmin", true, true)]
+    [InlineData("Operations", false, true)]
+    [InlineData("ReadOnly", false, false)]
+    public async Task AdminManifest_Should_ReportEvaluatedPolicies(string role, bool admin, bool write)
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create()
+            .WithTenant(Guid.NewGuid()).WithRoles(role));
+
+        // Act
+        var manifest = await client.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+
+        // Assert
+        manifest!.AllowedPolicies.Should().Contain("AdminUserPolicy");
+        manifest.AllowedPolicies.Contains("AdminPolicy").Should().Be(admin);
+        manifest.AllowedPolicies.Contains("AdminUserWritePolicy").Should().Be(write);
+        manifest.AllowedPolicies.Should().NotContain("PlatformAdmin");
     }
 
     private async Task<HttpClient> CreateTenantAdminClientAsync(Guid tenantId)

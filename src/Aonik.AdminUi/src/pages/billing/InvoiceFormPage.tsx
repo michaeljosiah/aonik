@@ -1,3 +1,4 @@
+import { useModules } from '@/modules';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -85,6 +86,9 @@ export function InvoiceFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isCreate = !id;
+  const { hasPermission, allowsPolicy } = useModules();
+  const canIssue = allowsPolicy('AdminUserWritePolicy') && hasPermission('Invoice.Issue');
+  const canUpdate = allowsPolicy('AdminUserWritePolicy') && hasPermission('Invoice.Update');
 
   // Existing invoice (edit/view mode)
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
@@ -588,19 +592,19 @@ export function InvoiceFormPage() {
                 <Button variant="outline" onClick={() => void handleSaveDraft()} disabled={saving}>
                   {saving ? 'Saving...' : 'Save as Draft'}
                 </Button>
-                <Button onClick={() => void handleSaveAndIssue()} disabled={saving}>
+                {canIssue && <Button onClick={() => void handleSaveAndIssue()} disabled={saving}>
                   <Send className="w-4 h-4 mr-2" />
                   Save & Issue
-                </Button>
+                </Button>}
               </>
             )}
             {!isCreate && isDraft && (
               <>
-                <Button onClick={() => void handleIssue()} disabled={saving}>
+                {canIssue && <Button onClick={() => void handleIssue()} disabled={saving}>
                   <Send className="w-4 h-4 mr-2" />
                   Issue Invoice
-                </Button>
-                <Button
+                </Button>}
+                {canUpdate && <Button
                   variant="outline"
                   className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void handleCancel()}
@@ -608,16 +612,16 @@ export function InvoiceFormPage() {
                 >
                   <XCircle className="w-4 h-4 mr-2" />
                   Cancel Invoice
-                </Button>
+                </Button>}
               </>
             )}
             {!isCreate && status === 'Issued' && (
               <>
-                <Button onClick={() => void handleMarkPaid()} disabled={saving}>
+                {canUpdate && <Button onClick={() => void handleMarkPaid()} disabled={saving}>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Mark as Paid
-                </Button>
-                <Button
+                </Button>}
+                {canUpdate && <Button
                   variant="outline"
                   className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void handleCancel()}
@@ -625,7 +629,7 @@ export function InvoiceFormPage() {
                 >
                   <XCircle className="w-4 h-4 mr-2" />
                   Cancel Invoice
-                </Button>
+                </Button>}
               </>
             )}
           </div>

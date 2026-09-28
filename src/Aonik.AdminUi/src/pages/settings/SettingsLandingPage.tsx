@@ -148,11 +148,11 @@ function SettingsTileGrid({ title, tiles }: { title: string; tiles: SettingsTile
 }
 
 export function SettingsLandingPage() {
-  const { isModuleEnabled } = useModules();
+  const { isPathVisible, labelForPath } = useModules();
 
   // Module-gated tiles disappear when their backend module is off for the
   // tenant; a section with nothing left to show is not rendered at all.
-  const visibleTiles = settingsTiles.filter((tile) => !tile.moduleId || isModuleEnabled(tile.moduleId));
+  const visibleTiles = settingsTiles.filter((tile) => isPathVisible(tile.href)).map((tile) => ({ ...tile, title: labelForPath(tile.href, tile.title) }));
   const sections = settingsSections
     .map((section) => ({ section, tiles: visibleTiles.filter((tile) => tile.section === section) }))
     .filter((entry) => entry.tiles.length > 0);

@@ -1,3 +1,4 @@
+import { useModules } from '@/modules/useModules';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { WorkspaceContext } from './context';
@@ -19,6 +20,7 @@ function generateLayoutId() {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const { contextKey } = useModules();
   const [api, setApi] = useState<DockviewApi | null>(null);
   const [layouts, setLayouts] = useState<WorkspaceLayoutRecord[]>([]);
   const [activeLayoutId, setActiveLayoutId] = useState('');
@@ -52,9 +54,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       saveWorkspaceState({
         activeLayoutId: nextActiveLayoutId,
         layouts: nextLayouts,
-      });
+      }, contextKey);
     },
-    []
+    [contextKey]
   );
 
   const addPanelToDock = useCallback(
@@ -414,11 +416,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const stored = loadWorkspaceState();
+    const stored = loadWorkspaceState(contextKey);
     setLayouts(stored.layouts ?? []);
     setActiveLayoutId(stored.activeLayoutId ?? '');
     setStorageLoaded(true);
-  }, []);
+  }, [contextKey]);
 
   useEffect(() => {
     if (!api || !storageLoaded) return;

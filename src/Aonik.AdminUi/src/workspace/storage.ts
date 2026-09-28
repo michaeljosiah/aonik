@@ -1,14 +1,15 @@
+import { getManifestContextKey } from '@/modules/manifestCache';
 import type { WorkspaceLayoutRecord } from './types';
 
-const storageKey = 'aonik:workspace:layouts';
+function storageKey(contextKey: string) { return `aonik:workspace:layouts:${contextKey}`; }
 
 export interface WorkspaceStorageState {
   activeLayoutId?: string;
   layouts: WorkspaceLayoutRecord[];
 }
 
-export function loadWorkspaceState(): WorkspaceStorageState {
-  const raw = localStorage.getItem(storageKey);
+export function loadWorkspaceState(contextKey = getManifestContextKey()): WorkspaceStorageState {
+  const raw = localStorage.getItem(storageKey(contextKey));
   if (!raw) {
     return { layouts: [] };
   }
@@ -24,6 +25,6 @@ export function loadWorkspaceState(): WorkspaceStorageState {
   }
 }
 
-export function saveWorkspaceState(state: WorkspaceStorageState) {
-  localStorage.setItem(storageKey, JSON.stringify(state));
+export function saveWorkspaceState(state: WorkspaceStorageState, contextKey: string) {
+  localStorage.setItem(storageKey(contextKey), JSON.stringify(state));
 }

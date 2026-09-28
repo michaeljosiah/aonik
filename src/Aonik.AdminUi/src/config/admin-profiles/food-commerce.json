@@ -1,0 +1,137 @@
+{
+  "id": "food-commerce",
+  "landingPage": "commerce.orders",
+  "screens": {
+    "commerce.overview": {
+      "label": "Business Overview"
+    },
+    "commerce.orders": {
+      "label": "Food Orders"
+    },
+    "commerce.order-detail": {
+      "label": "Food Order"
+    },
+    "commerce.products": {
+      "label": "Menu"
+    },
+    "commerce.product-detail": {
+      "label": "Menu Item"
+    },
+    "commerce.personalisation": {},
+    "commerce.content": {
+      "label": "Menu Content"
+    },
+    "commerce.box-plans": {},
+    "commerce.delivery": {},
+    "commerce.merchandising": {},
+    "commerce.storefront-config": {},
+    "commerce.carts": {},
+    "workspace": {},
+    "customers": {},
+    "customer-detail": {},
+    "access.users": {},
+    "access.user-detail": {},
+    "access.roles": {},
+    "access.permissions": {},
+    "settings": {},
+    "settings.modules": {},
+    "settings.speech": {},
+    "ai.chat": {},
+    "ai.chat-agent": {},
+    "ai.agents": {},
+    "ai.agent-detail": {},
+    "ai.tasks": {},
+    "ai.usage": {},
+    "approvals": {},
+    "finance.invoices": {},
+    "finance.invoice-new": {},
+    "finance.invoice-detail": {},
+    "finance.ledger": {},
+    "finance.ledger-accounts": {},
+    "finance.journal-entries": {},
+    "settings.payment-gateways": {}
+  },
+  "navigation": [
+    {
+      "id": "food-operations",
+      "label": "Kitchen & Orders",
+      "items": [
+        {
+          "screen": "commerce.overview"
+        },
+        {
+          "screen": "commerce.orders"
+        },
+        {
+          "screen": "commerce.products"
+        },
+        {
+          "screen": "commerce.delivery"
+        },
+        {
+          "screen": "commerce.carts"
+        }
+      ]
+    },
+    {
+      "id": "food-storefront",
+      "label": "Storefront",
+      "items": [
+        {
+          "screen": "commerce.personalisation"
+        },
+        {
+          "screen": "commerce.content"
+        },
+        {
+          "screen": "commerce.box-plans"
+        },
+        {
+          "screen": "commerce.merchandising"
+        },
+        {
+          "screen": "commerce.storefront-config"
+        }
+      ]
+    },
+    {
+      "id": "food-finances",
+      "label": "Finances",
+      "items": [
+        {
+          "screen": "finance.invoices"
+        },
+        {
+          "screen": "finance.ledger"
+        }
+      ]
+    },
+    {
+      "id": "food-administration",
+      "label": "Administration",
+      "items": [
+        {
+          "screen": "customers"
+        },
+        {
+          "id": "team",
+          "label": "Team",
+          "items": [
+            {
+              "screen": "access.users"
+            },
+            {
+              "screen": "access.roles"
+            },
+            {
+              "screen": "access.permissions"
+            }
+          ]
+        },
+        {
+          "screen": "settings"
+        }
+      ]
+    }
+  ]
+}

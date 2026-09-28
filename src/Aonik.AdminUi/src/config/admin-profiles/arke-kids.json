@@ -1,0 +1,76 @@
+{
+  "id": "arke-kids",
+  "landingPage": "customers",
+  "screens": {
+    "workspace": {},
+    "customers": {},
+    "customer-detail": {},
+    "access.users": {},
+    "access.user-detail": {},
+    "access.roles": {},
+    "access.permissions": {},
+    "settings": {},
+    "settings.modules": {},
+    "settings.speech": {},
+    "ai.chat": {},
+    "ai.chat-agent": {},
+    "ai.agents": {},
+    "ai.agent-detail": {},
+    "ai.tasks": {},
+    "ai.usage": {},
+    "approvals": {}
+  },
+  "navigation": [
+    {
+      "id": "arke-operations",
+      "label": "Operations",
+      "items": [
+        {
+          "screen": "customers"
+        },
+        {
+          "screen": "ai.usage"
+        },
+        {
+          "screen": "approvals"
+        }
+      ]
+    },
+    {
+      "id": "arke-administration",
+      "label": "Administration",
+      "items": [
+        {
+          "id": "team",
+          "label": "Team",
+          "items": [
+            {
+              "screen": "access.users"
+            },
+            {
+              "screen": "access.roles"
+            },
+            {
+              "screen": "access.permissions"
+            }
+          ]
+        },
+        {
+          "id": "ai-agents",
+          "label": "AI & Agents",
+          "items": [
+            {
+              "screen": "ai.agents"
+            },
+            {
+              "screen": "ai.tasks"
+            }
+          ]
+        },
+        {
+          "screen": "settings"
+        }
+      ]
+    }
+  ]
+}

@@ -48,7 +48,7 @@ export function LoginPage() {
   const reason = query.get('reason');
   const returnTo = query.get('returnTo');
   const from =
-    (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('/login') ? returnTo : null) ??
+    (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\') && !returnTo.startsWith('/login') ? returnTo : null) ??
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
     '/';
 
@@ -65,7 +65,7 @@ export function LoginPage() {
     // missing tenant context — that causes a redirect loop.
     if (reason === 'session-expired' || reason === 'tenant-missing') return;
     if (isAuthenticated && !isLoading) {
-      navigate(from, { replace: true });
+      navigate(from, { replace: true, state: { adminEntry: true } });
     }
   }, [isAuthenticated, isLoading, navigate, from, reason]);
 
@@ -77,7 +77,7 @@ export function LoginPage() {
       if (isAuthenticated && reason === 'tenant-missing') {
         // Already authenticated; just bounce back into the app and let
         // TenantResolutionGate re-resolve the tenant.
-        navigate(from, { replace: true });
+        navigate(from, { replace: true, state: { adminEntry: true } });
         return;
       }
 

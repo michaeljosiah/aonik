@@ -65,6 +65,7 @@ export function getSelectedTenant(): SelectedTenant | null {
 }
 
 export function setSelectedTenant(tenant: SelectedTenant): void {
+  const changed = getSelectedTenant()?.tenantId !== tenant.tenantId;
   const raw = JSON.stringify(tenant);
   setInStorage(localStorage, SelectedTenantIdKey, tenant.tenantId);
   setInStorage(localStorage, SelectedTenantKey, raw);
@@ -72,6 +73,7 @@ export function setSelectedTenant(tenant: SelectedTenant): void {
   // Keep sessionStorage in sync for same-tab flows.
   setInStorage(sessionStorage, SelectedTenantIdKey, tenant.tenantId);
   setInStorage(sessionStorage, SelectedTenantKey, raw);
+  if (changed && typeof window !== 'undefined') window.dispatchEvent(new Event('aonik:tenant-changed'));
 }
 
 export function clearSelectedTenant(): void {
@@ -79,4 +81,5 @@ export function clearSelectedTenant(): void {
   removeFromStorage(localStorage, SelectedTenantKey);
   removeFromStorage(sessionStorage, SelectedTenantIdKey);
   removeFromStorage(sessionStorage, SelectedTenantKey);
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('aonik:tenant-changed'));
 }
