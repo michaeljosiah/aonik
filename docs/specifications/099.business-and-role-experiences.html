@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 099 — Business-specific Admin UI</title>
+  <style>
+    :root { color-scheme: light; --ink: #1c2730; --muted: #5a6a76; --line: #d9dde2; --accent: #055a60; }
+    * { box-sizing: border-box; }
+    body { max-width: 1040px; margin: auto; padding: 40px 24px 80px; color: var(--ink); background: #fafbfc; font: 16px/1.6 system-ui, sans-serif; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+    .meta { color: var(--muted); font-size: 13px; }
+    h1 { font-size: 32px; line-height: 1.2; }
+    h2 { margin-top: 42px; border-bottom: 1px solid var(--line); padding-bottom: 6px; font-size: 23px; }
+    h3 { margin-top: 26px; font-size: 18px; color: var(--accent); }
+    a { color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); }
+    th { background: #edf2f4; }
+    code { font-size: .88em; background: #edf2f4; padding: 2px 4px; border-radius: 3px; }
+    pre { overflow-x: auto; padding: 16px; background: #edf2f4; line-height: 1.45; }
+    pre code { padding: 0; }
+    .note { padding: 14px 18px; border-left: 4px solid #b88828; background: #fff5db; }
+    nav { padding: 16px 24px; background: #edf2f4; margin-top: 24px; }
+    nav ol { columns: 2; }
+    li { margin: 5px 0; }
+    @media (max-width: 720px) { body { padding: 24px 16px; } nav ol { columns: 1; } table { display: block; overflow-x: auto; } }
+  </style>
+</head>
+<body>
+<header>
+  <p class="meta">Spec 099 · Status: In progress — foundation implemented; runtime UI integration pending · Revision 2 · 28 September 2026<br />Scope: Aonik Admin UI, with a small extension to its existing manifest</p>
+  <h1>Business-specific Admin UI</h1>
+  <p>The Aonik Admin UI should show each business the screens relevant to its operations, using domain-appropriate labels. Existing permissions then narrow what each administrator sees. Abby’s Table can call its product catalogue “Menu”; Arke Kids can omit commerce and unrelated financial administration while retaining the backend modules its business needs.</p>
+  <p>This specification extends <a href="097.per-tenant-module-enablement.html">Spec 097: Per-tenant module enablement</a> with source-controlled JSON admin profiles. It requires no new tables or database migrations.</p>
+</header>
+<nav aria-label="Contents"><strong>Contents</strong><ol>
+  <li><a href="#scope">Scope and decisions</a></li><li><a href="#existing">Reuse existing infrastructure</a></li>
+  <li><a href="#profiles">JSON profile format</a></li><li><a href="#registry">Screen registry and permissions</a></li>
+  <li><a href="#selection">Profile selection and manifest</a></li><li><a href="#rendering">Shared rendering rules</a></li>
+  <li><a href="#examples">Reference admin profiles</a></li><li><a href="#failure">Loading, caching and errors</a></li>
+  <li><a href="#delivery">Implementation steps</a></li><li><a href="#acceptance">Acceptance criteria</a></li>
+</ol></nav>
+
+<h2 id="scope">1. Scope and decisions</h2>
+<p>Only the Aonik Admin UI is in scope: navigation, registered pages, labels, landing pages, settings, dashboard widgets and workspace panels. The existing admin API supplies the tenant context and permissions needed to render that UI.</p>
+<ul>
+  <li>Profiles are JSON files shipped with AdminUi and selected from the tenant’s existing <code>BusinessType</code>.</li>
+  <li>A profile specifies relevant screens, menu structure, labels and a preferred landing screen.</li>
+  <li>The screen registry owns routes, components, required backend modules and permission rules. Profiles reference that registry rather than duplicating those rules.</li>
+  <li>One shared visibility function combines the profile, enabled modules and current user permissions.</li>
+  <li>Existing API authorization and module enforcement remain authoritative. UI configuration grants no access and does not enable or disable backend modules.</li>
+  <li>No new tables, migrations, profile CRUD endpoints, configuration editor, assignment model, pinned profile versions or new capability framework.</li>
+  <li>No changes to other applications or domain execution systems. This specification does not design or integrate customer, storefront, parent or child experiences.</li>
+</ul>
+<p>Normal source control and deployment version the JSON together with its registered screens. New business functionality remains separate work; adding a menu label does not implement a screen.</p>
+
+<h2 id="existing">2. Reuse existing infrastructure</h2>
+<table><thead><tr><th>Existing component</th><th>Use in this change</th></tr></thead><tbody>
+  <tr><td><a href="../../src/Aonik.Platform/Entities/Identity/Tenant.cs">Tenant.BusinessType</a></td><td>Select a reusable admin profile without comparing business names or adding an assignment table.</td></tr>
+  <tr><td><a href="../../src/Aonik.Platform/Endpoints/Admin/Manifest/GetAdminManifestEndpoint.cs">GET /admin/manifest</a></td><td>Retain current module state and add business type and the authenticated user’s effective permission keys.</td></tr>
+  <tr><td><a href="../../src/Aonik.AdminUi/src/modules/types.ts">AdminUi module/route definitions</a></td><td>Extend existing definitions with stable screen IDs, default labels and explicit permission metadata; continue using the current components and routes.</td></tr>
+  <tr><td><a href="../../src/Aonik.AdminUi/src/modules/useModules.ts">useModules</a> and <a href="../../src/Aonik.AdminUi/src/modules/enablement.ts">enablement helpers</a></td><td>Compose one effective set of screens and navigation, shared by the router and the sidebar and command palette.</td></tr>
+  <tr><td><a href="../../src/Aonik.AdminUi/src/modules/manifestCache.ts">Manifest cache</a></td><td>Reuse its 30-second refresh and invalidation mechanism, adding user/session isolation where needed.</td></tr>
+  <tr><td>Existing permission service and API policies</td><td>Use real effective permission keys for presentation. Do not infer access from role-name substrings.</td></tr>
+</tbody></table>
+<p>Backend modules are deliberately broader than menus. For example, Arke’s workspace/subscription dependencies include Finance. Hiding financial admin screens must leave those dependencies operational. A core module being always enabled does not make all of its screens relevant to every business.</p>
+
+<h2 id="profiles">3. JSON profile format</h2>
+<p>Place profiles under <code>src/Aonik.AdminUi/src/config/admin-profiles/</code>. The first release contains a general profile, a food-commerce profile and an Arke Kids profile. These files contain data only.</p>
+<pre><code>{
+  "id": "food-commerce",
+  "landingPage": "commerce.orders",
+  "screens": {
+    "commerce.orders": { "label": "Food Orders" },
+    "commerce.order-detail": {},
+    "commerce.products": { "label": "Menu" },
+    "commerce.product-detail": {},
+    "commerce.delivery": { "label": "Delivery" }
+  },
+  "navigation": [
+    {
+      "id": "operations",
+      "label": "Kitchen &amp; Orders",
+      "items": [
+        { "screen": "commerce.orders" },
+        { "screen": "commerce.products" },
+        { "screen": "commerce.delivery" }
+      ]
+    }
+  ]
+}</code></pre>
+<p><strong>The example is a shortened profile using registered screen IDs.</strong> Implementation must map profile entries to real registered screens; unavailable screens must not be included in shipped profiles.</p>
+<table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+  <tr><td><code>id</code></td><td>Stable profile identifier. No tenant-specific identity or display-name matching.</td></tr>
+  <tr><td><code>landingPage</code></td><td>Preferred registered screen ID. It must be included in <code>screens</code> and be navigable without resource parameters.</td></tr>
+  <tr><td><code>screens</code></td><td>Positive allowlist of relevant registered screens, including detail/edit pages that should not appear in the menu. An empty object uses registry defaults.</td></tr>
+  <tr><td><code>screens[id].label</code></td><td>Optional screen name override, used consistently in its menu entry, breadcrumb and ordinary page title. Specific detail-page labels may be supplied on their own screen IDs.</td></tr>
+  <tr><td><code>navigation</code></td><td>Ordered sections containing screen references. Support a labelled group with screen-reference children where the existing sidebar needs a submenu; no separate policy on a group.</td></tr>
+</tbody></table>
+<p>The explicit screen list keeps detail pages reachable without requiring them to be menu items. It also prevents an unlisted route from becoming available merely because its parent section is displayed.</p>
+<p>Profiles do not contain module enablement, permission grants, component names, executable code, arbitrary URLs or backend entity definitions. Required modules and permissions belong to the screen definition once, so all profiles use the same rules.</p>
+<p>Labels must accurately describe the implemented screen. Calling products “Menu” is appropriate for food commerce; calling general stock “Ingredients” is appropriate only if the screen actually manages ingredients. Label overrides do not automatically rewrite form fields, API names, resource titles or domain behaviour. Missing overrides use registry defaults.</p>
+
+<h2 id="registry">4. Screen registry and permissions</h2>
+<p>Extend the current module-owned route definitions instead of introducing a parallel registry service. Each logical screen has a stable ID, route pattern, component, default label, required modules and permission requirements. Reuse existing module/route <code>requires</code> metadata: screen availability must satisfy both the owning UI module’s requirements and any additional route requirements.</p>
+<ul>
+  <li>Use existing permission keys and the effective user permissions returned by the server. Where a route’s existing policy permits alternatives, preserve that meaning with explicit all-of/any-of metadata rather than inventing a stricter or looser rule.</li>
+  <li>Every included screen must declare its permission rule, including an explicit authenticated-admin-only classification where that matches its existing server policy. Missing metadata is a validation error, not unrestricted access.</li>
+  <li>Detail and edit pages have their own screen IDs and permission rules. Allowing a list does not automatically allow editing.</li>
+  <li>Navigation to create/edit screens uses the target screen’s visibility. Inline write actions use existing operation permission checks; adding a JSON profile must not bypass them.</li>
+  <li>Existing host/tenant audience restrictions continue to apply. The host administrator’s existing navigation remains separate; a tenant profile cannot introduce host-only screens.</li>
+</ul>
+<p>For UI elements outside the router, reference the corresponding screen ID rather than duplicating business-type logic. A dashboard widget or panel making additional API calls must also satisfy those calls’ existing module and permission requirements.</p>
+<p>Server endpoint and resource authorization remain unchanged. Removing a screen from a profile restricts presentation; it does not revoke an otherwise-authorised API permission. Grant or revoke permissions through the existing access-management system.</p>
+
+<h2 id="selection">5. Profile selection and existing manifest</h2>
+<p>Extend <code>GET /admin/manifest</code> with <code>businessType</code> and <code>permissions</code>. Resolve both from the authenticated, tenant-validated server context. Reuse the existing permission service, not browser claims or caller-supplied role names. Keep the current <code>enabledModules</code> and other fields for compatibility.</p>
+<pre><code>{
+  "businessType": "food-commerce",
+  "permissions": ["...existing effective permission keys..."],
+  "allowedPolicies": ["AdminUserPolicy", "AdminPolicy", "AdminUserWritePolicy"],
+  "enabledModules": ["platform", "ordering", "ai", "agents", "finance", "commerce"]
+}</code></pre>
+<p>This is an excerpt, not the complete response. The server evaluates its existing policies; the UI does not derive them from role names. Screen metadata may require both a policy and stored service permissions. The manifest remains an admin endpoint under its existing access policy.</p>
+<p>A small explicit map in AdminUi selects the JSON profile:</p>
+<pre><code>base, simi    → general
+food-commerce → food-commerce
+arke-kids     → arke-kids</code></pre>
+<p>The Arke business-type key is proposed and must be reconciled with the actual tenant configuration during implementation. Add explicit mappings for other existing business types after inventory. Do not match on “Abby”, “Arke”, a tenant name or an email address.</p>
+<p>For compatibility, a previously unmapped business type uses the explicit general profile, still filtered by module and permission checks. This is a known-data fallback only: a failed manifest request, missing required response fields, or an invalid profile is an error and must not select the general profile. A named profile missing from the bundle fails build validation.</p>
+<p>The general profile preserves the reviewed existing admin screen inventory. It is not a wildcard that automatically includes every future registered screen.</p>
+<p><strong>No persisted profile selection is needed.</strong> If a real need later arises for two tenants of the same business type to use different profiles, a tenant-scoped <code>AdminUi.Profile</code> setting can use the existing settings infrastructure. That override and its editor are not part of this implementation.</p>
+
+<h2 id="rendering">6. Shared rendering rules</h2>
+<pre><code>screen visible = profile includes screen
+                 AND required modules are enabled
+                 AND current user satisfies screen permissions
+                 AND required existing server policy allows it
+                 AND existing host/tenant audience rule allows it</code></pre>
+<p>Implement this rule once as a pure helper consumed by <code>useModules</code> and related registry helpers. A profile may narrow the available screens but cannot override module, permission or audience restrictions.</p>
+<ul>
+  <li><strong>Menus:</strong> use profile order and labels; remove unavailable entries and empty groups/sections. The sidebar and command palette consume the same result.</li>
+  <li><strong>Routes:</strong> guard before mounting a page or fetching its data. An unavailable direct link shows a neutral unavailable page and a permitted destination.</li>
+  <li><strong>Landing:</strong> use the preferred screen if visible. Otherwise choose the first visible navigable screen in menu order. If none exists, show a neutral no-access page with account/sign-out controls.</li>
+  <li><strong>Deep links after login:</strong> honour only a registered local route whose screen is visible. Otherwise use the resolved landing page.</li>
+  <li><strong>Settings and widgets:</strong> apply the same visibility to links, tiles and registered screen content. Extra operation-specific restrictions still apply.</li>
+  <li><strong>Search and quick navigation:</strong> omit unavailable screen destinations from command-palette and navigation-search results. Guard notification links at their destination. This does not redesign backend search or notification delivery.</li>
+  <li><strong>Workspace panels/templates:</strong> filter against allowed screens before mounting. Suppress inaccessible saved panels without deleting the saved layout. Hide templates with no available content.</li>
+  <li><strong>Labels:</strong> resolve from the profile then screen defaults. Use one label resolver for menus, breadcrumbs and page headings; do not scatter business-type conditionals through components.</li>
+</ul>
+<p>Login, logout, account recovery, loading, unavailable and error pages are explicit shell routes outside the business screen list. Existing account controls remain available independently of the chosen business profile.</p>
+
+<h2 id="examples">7. Reference admin profiles</h2>
+<table><thead><tr><th>Profile</th><th>Relevant admin presentation</th><th>Important constraint</th></tr></thead><tbody>
+  <tr><td>General</td><td>The reviewed current admin navigation, filtered by modules and permissions.</td><td>Preserve existing business-type mappings and host/tenant separation.</td></tr>
+  <tr><td>Food commerce / Abby’s Table</td><td>Existing food-order, product/menu, stock, fulfilment, customer and appropriate financial administration screens.</td><td>Include only implemented screens with accurate labels. User permissions determine who sees financial and team administration.</td></tr>
+  <tr><td>Arke Kids administration</td><td>Existing relevant business administration, such as customers, subscriptions or usage where a registered admin screen exists.</td><td>Omit unrelated commerce and financial-operation screens. Do not disable required backend dependencies or invent new screens to fill a menu.</td></tr>
+</tbody></table>
+<p>The shipped screen lists are explicit inventories of the existing AdminUi registry. Missing Arke-specific administration screens should be documented as separate work rather than simulated through misleading labels. These profiles concern business administrators only.</p>
+
+<h2 id="failure">8. Loading, caching and errors</h2>
+<p>Reuse the existing manifest cache and refresh interval. Because the response now includes permissions, isolate cached and in-flight results by authenticated user/session and selected tenant. Clear effective navigation and mounted business content on identity/tenant changes, and discard responses belonging to the previous context.</p>
+<ul>
+  <li>Initial loading shows a neutral shell; a manifest error shows retry and account/sign-out controls. Never display every module because the manifest is absent.</li>
+  <li>Reuse the existing 30-second refresh and visibility-change behaviour to pick up external permission/module changes. Invalidate immediately after successful local access/module edits, logout or tenant switching.</li>
+  <li>A failed refresh must not expand visibility. An expired unusable manifest produces an unavailable shell rather than a permissive fallback.</li>
+  <li>Permission-filtered manifests must not be shared across users through an HTTP/shared cache. API authorization continues to check each request independently of the UI refresh interval.</li>
+</ul>
+<p>No new revision graph, event infrastructure or profile cache service is required. JSON profiles are local static imports deployed with the UI.</p>
+
+<h2 id="delivery">9. Implementation steps</h2>
+<p class="note"><strong>Implemented in the isolated worktree, 28 September 2026:</strong> All 96 registered routes carry screen metadata. General, food-commerce and Arke Kids JSON profiles now drive the sidebar and command palette, route guards, landing destinations, ordinary page labels, settings tiles and workspace panels/templates. The manifest includes server-resolved business type, stored permissions and evaluated existing policy results. User/tenant-scoped caching discards stale requests, refreshes before the 30-second expiry and fails closed on errors. No tables or migrations were added.</p>
+<p>The Arke profile currently exposes existing customer, team, usage, approval and AI administration screens. There are no registered world-builder, story-writing or subscription-management screens to include; implementing those remains separate work. Repository business-type values <code>base</code> and <code>simi</code> use general; <code>food-commerce</code> uses food-commerce. The <code>arke-kids</code> mapping is ready but has not been verified against a live tenant. Host administrators retain the reviewed general inventory with host-only screens gated by the server's PlatformAdmin policy.</p>
+<p>Workspace layouts are now stored under the authenticated identity and tenant. Existing unscoped local layouts remain untouched and are not automatically imported because their owner is unknown. Unavailable panels in a scoped saved layout render a neutral placeholder without mounting their content.</p>
+<ol>
+  <li><strong>Inventory:</strong> map existing routes, the sidebar and command palette, panels and settings to stable screen IDs and actual permission rules. Record existing tenant business-type values and which reference screens exist.</li>
+  <li><strong>Profiles and registry:</strong> extend existing route metadata; add JSON files and the business-type map; implement the shared visibility and label helpers.</li>
+  <li><strong>Manifest:</strong> add server-resolved business type and effective permissions to the existing admin endpoint. Deploy compatible server fields before the UI that requires them.</li>
+  <li><strong>Admin integration:</strong> use the shared result across menus, route guards, landing pages and secondary entry points; update cache identity and loading/error behaviour.</li>
+  <li><strong>Verify:</strong> exercise general, food-commerce and Arke profiles with different permissions and module sets. Confirm actual business types before relying on tailored navigation for the target tenants.</li>
+</ol>
+<p>Validate JSON at build/test time: unique profile/screen IDs, known screen references, allowed schema fields, navigation references included in the profile, valid landing screens and complete screen metadata. A new route must be intentionally included in a profile before it appears there. No JSON runtime editor or server-side profile management is needed.</p>
+<p>This change requires no schema migration or assignment backfill. Tenant business-type corrections, if needed, use existing tenant management and are not inferred from tenant names. Updating a JSON profile follows the normal application review and deployment process.</p>
+
+<h2 id="acceptance">10. Acceptance criteria</h2>
+<ul>
+  <li>Abby’s Table and Arke Kids administrators receive their mapped profiles through the existing admin login flow.</li>
+  <li>Two administrators in the same business with different permissions see correspondingly different screens and actions.</li>
+  <li>A profile’s screen inclusion cannot override a disabled module, missing permission or host-only restriction.</li>
+  <li>Arke’s required backend Finance module remains enabled even when its financial admin screens are omitted.</li>
+  <li>Menu labels, breadcrumbs and ordinary page titles consistently use profile overrides, falling back to registered defaults.</li>
+  <li>Detail/edit routes included in the screen list work without appearing as menu entries; unlisted or unauthorised routes are guarded before data fetching.</li>
+  <li>The sidebar and command palette, settings, registered widgets, workspace panels and navigation search apply the same visibility rules.</li>
+  <li>An unavailable preferred landing page selects the first permitted menu destination; zero available screens produces a useful neutral page.</li>
+  <li>Tenant/user switches and in-flight requests do not display the previous context’s navigation or business content.</li>
+  <li>Manifest loading/errors do not reveal all screens. Successful refreshes apply permission/module changes using the existing refresh cadence.</li>
+  <li>Existing API authorization remains unchanged and continues to reject prohibited direct requests.</li>
+  <li>No new tables, migrations, profile endpoints or runtime profile editor are introduced.</li>
+</ul>
+<p>Verification should include pure helper tests for profile/module/permission intersections and labels, manifest API tests for tenant-specific business type and user-specific permissions, configuration validation, and focused AdminUi tests for deep links, context switches and failure states. Validation includes the full AdminUi test suite, the production UI build and focused manifest API integration tests. Live tenant configuration and end-to-end identity-provider sign-in remain deployment checks.</p>
+<p class="note">Design summary: JSON defines which admin screens fit a business and how they are presented. The existing screen definitions, module state and permissions determine whether those screens can be shown. Existing server policies determine what the user may do.</p>
+</body>
+</html>

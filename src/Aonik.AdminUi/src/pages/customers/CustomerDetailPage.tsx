@@ -12,7 +12,7 @@
 //   • Template's "Orders" tab is omitted because the orders endpoint can't
 //     filter by party today.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -144,15 +144,15 @@ function deriveInitials(name?: string | null): string {
 
 export function CustomerDetailPage() {
   const navigate = useNavigate();
-  const { manifest } = useModules();
+  const { manifest, isScreenVisible } = useModules();
 
-  // Module gating (Spec 097 §10.1): a manifest that omits a module hides the
-  // tabs that module serves entirely (no dead tab that 403s on click); an
-  // absent manifest fails OPEN, matching useModules' own degradation.
-  const { tabs: visibleTabs, financeSubTabs: visibleFinanceSubs } = useMemo(
-    () => resolveCustomerTabs(manifest),
-    [manifest],
-  );
+  const showFinancialSummary = isScreenVisible('finance.orders') || isScreenVisible('commerce.orders');
+  const resolvedTabs = resolveCustomerTabs(manifest);
+  const tabScreens: Partial<Record<TabKey, string>> = {
+    insights: 'finance.accounts', finance: 'finance.accounts', orders: 'finance.orders', commerce: 'commerce.orders', documents: 'documents',
+  };
+  const visibleTabs = resolvedTabs.tabs.filter((tab) => !tabScreens[tab.value] || isScreenVisible(tabScreens[tab.value]!));
+  const visibleFinanceSubs = isScreenVisible('finance.accounts') ? resolvedTabs.financeSubTabs : [];
   const { partyId } = useParams<{ partyId: string }>();
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -208,7 +208,7 @@ export function CustomerDetailPage() {
   }, [partyId]);
 
   const loadStats = useCallback(async () => {
-    if (!partyId) return;
+    if (!partyId || !showFinancialSummary) return;
     setStatsLoading(true);
     try {
       const data = await customerService.getStats(partyId);
@@ -218,7 +218,7 @@ export function CustomerDetailPage() {
     } finally {
       setStatsLoading(false);
     }
-  }, [partyId]);
+  }, [partyId, showFinancialSummary]);
 
   const loadDocuments = useCallback(async () => {
     if (!partyId) return;
@@ -457,14 +457,14 @@ export function CustomerDetailPage() {
             <UserPlus className="h-3 w-3" />
             Invite as user
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setActiveTab('insights')}>
+          {isScreenVisible('finance.accounts') && <Button variant="outline" size="sm" onClick={() => setActiveTab('insights')}>
             <Sparkles className="h-3 w-3" />
             Generate insight
-          </Button>
-          <Button size="sm" disabled>
+          </Button>}
+          {showFinancialSummary && <Button size="sm" disabled>
             <Plus className="h-3 w-3" />
             New order
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -479,6 +479,7 @@ export function CustomerDetailPage() {
       />
 
       {/* KPI strip — backend-grounded mappings, no faked metrics */}
+      {showFinancialSummary && <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <KpiCell
           label="T12M revenue"
@@ -525,6 +526,8 @@ export function CustomerDetailPage() {
           sub={lastActivityAt ? formatDate(lastActivityAt) : 'no activity yet'}
         />
       </div>
+
+      </>}
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-border px-0.5">

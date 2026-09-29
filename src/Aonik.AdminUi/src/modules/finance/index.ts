@@ -1,4 +1,4 @@
-import type { AdminModule } from '../types';
+import type { AdminModule, ModuleRouteConfig } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
 import {
@@ -105,35 +105,35 @@ const navigation: NavigationSection[] = [
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-const routes = [
+const routes: ModuleRouteConfig[] = [
   // Customer accounts are served by the PersonalFinance module (/admin/accounts/*), not Finance,
   // so they follow personal-finance independently of their host module (Spec 097 §10.2).
-  { path: '/accounts', element: AccountsListPage, requires: ['personal-finance'] },
-  { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true, requires: ['personal-finance'] },
-  { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true, requires: ['personal-finance'] },
+  { screen: { id: "finance.accounts", label: "Customer accounts", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "bank" }, path: '/accounts', element: AccountsListPage, requires: ['personal-finance'] },
+  { screen: { id: "finance.account-transactions", label: "Transactions", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "bank" }, path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true, requires: ['personal-finance'] },
+  { screen: { id: "finance.account-connection", label: "Account connection", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "bank" }, path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true, requires: ['personal-finance'] },
   // /orders is a vestigial landing page (two tiles). Collapse it to the
   // activity list — the "Create" path is reachable from there.
-  { path: '/orders', element: redirectTo('/orders/activity') },
-  { path: '/orders/activity', element: OrdersListPage },
-  { path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
-  { path: '/orders/bill-payments/:orderId', element: BillPaymentOrderFormPage, isDynamic: true },
-  { path: '/billing/invoices', element: InvoicesListPage },
-  { path: '/billing/invoices/new', element: InvoiceFormPage },
-  { path: '/billing/invoices/:id', element: InvoiceFormPage, isDynamic: true },
-  { path: '/ledger', element: LedgerOverviewPage },
-  { path: '/ledger/accounts', element: LedgerAccountsPage },
-  { path: '/ledger/journal-entries', element: LedgerJournalEntriesPage },
-  { path: '/catalog', element: CatalogLandingPage },
-  { path: '/catalog/countries', element: CatalogCountriesPage },
-  { path: '/catalog/categories', element: CatalogCategoriesPage },
-  { path: '/catalog/billers', element: CatalogBillersPage },
-  { path: '/catalog/billers/:billerId', element: CatalogBillerDetailPage, isDynamic: true },
-  { path: '/catalog/billers/:billerId/services', element: CatalogBillerServicesPage, isDynamic: true },
-  { path: '/catalog/billers/:billerId/services/:serviceId', element: CatalogBillerServiceDetailPage, isDynamic: true },
-  { path: '/catalog/partners', element: CatalogPartnersPage },
-  { path: '/catalog/partners/:partnerId', element: CatalogPartnerDetailPage, isDynamic: true },
-  { path: '/settings/autonumbering', element: AutonumberingPage },
-  { path: '/settings/fx-rates', element: FxRatesPage },
+  { screen: { id: "finance.orders-root", label: "Orders", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "receipt" }, path: '/orders', element: redirectTo('/orders/activity') },
+  { screen: { id: "finance.orders", label: "All orders", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "receipt" }, path: '/orders/activity', element: OrdersListPage },
+  { screen: { id: "finance.order-new", label: "New order", permissions: {"authenticatedAdmin": true}, policy: "AdminUserWritePolicy", icon: "receipt" }, path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
+  { screen: { id: "finance.order-edit", label: "Order", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "receipt" }, path: '/orders/bill-payments/:orderId', element: BillPaymentOrderFormPage, isDynamic: true },
+  { screen: { id: "finance.invoices", label: "Invoices", permissions: {"allOf": ["Invoice.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/billing/invoices', element: InvoicesListPage },
+  { screen: { id: "finance.invoice-new", label: "New invoice", permissions: {"allOf": ["Invoice.Create"]}, policy: "AdminUserWritePolicy", icon: "book" }, path: '/billing/invoices/new', element: InvoiceFormPage },
+  { screen: { id: "finance.invoice-detail", label: "Invoice", permissions: {"allOf": ["Invoice.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/billing/invoices/:id', element: InvoiceFormPage, isDynamic: true },
+  { screen: { id: "finance.ledger", label: "Ledgers", permissions: {"allOf": ["Ledger.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/ledger', element: LedgerOverviewPage },
+  { screen: { id: "finance.ledger-accounts", label: "Chart of accounts", permissions: {"allOf": ["Ledger.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/ledger/accounts', element: LedgerAccountsPage },
+  { screen: { id: "finance.journal-entries", label: "Journal entries", permissions: {"allOf": ["Ledger.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/ledger/journal-entries', element: LedgerJournalEntriesPage },
+  { screen: { id: "finance.catalog", label: "Catalog", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog', element: CatalogLandingPage },
+  { screen: { id: "finance.countries", label: "Corridors", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/countries', element: CatalogCountriesPage },
+  { screen: { id: "finance.categories", label: "Categories", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/categories', element: CatalogCategoriesPage },
+  { screen: { id: "finance.billers", label: "Billers", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/billers', element: CatalogBillersPage },
+  { screen: { id: "finance.biller-detail", label: "Biller", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/billers/:billerId', element: CatalogBillerDetailPage, isDynamic: true },
+  { screen: { id: "finance.biller-services", label: "Services", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/billers/:billerId/services', element: CatalogBillerServicesPage, isDynamic: true },
+  { screen: { id: "finance.biller-service", label: "Service", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "globe2" }, path: '/catalog/billers/:billerId/services/:serviceId', element: CatalogBillerServiceDetailPage, isDynamic: true },
+  { screen: { id: "finance.partners", label: "Partners", permissions: {"allOf": ["Catalog.Read"]}, policy: "AdminPolicy", icon: "globe2" }, path: '/catalog/partners', element: CatalogPartnersPage },
+  { screen: { id: "finance.partner-detail", label: "Partner", permissions: {"allOf": ["Catalog.Read"]}, policy: "AdminPolicy", icon: "globe2" }, path: '/catalog/partners/:partnerId', element: CatalogPartnerDetailPage, isDynamic: true },
+  { screen: { id: "settings.autonumbering", label: "Autonumbering", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/autonumbering', element: AutonumberingPage },
+  { screen: { id: "settings.fx-rates", label: "FX & Rates", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "arrows" }, path: '/settings/fx-rates', element: FxRatesPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -154,8 +154,8 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-autonumbering', title: 'Autonumbering', type: 'internal', category: 'page', componentKey: 'autonumbering', route: '/settings/autonumbering' },
   { id: 'settings-fx-rates', title: 'FX Rates', type: 'internal', category: 'page', componentKey: 'fx-rates', route: '/settings/fx-rates' },
   // Micro-app panels — workspace-native, cross-panel communication
-  { id: 'invoice-manager', title: 'Invoice Manager', description: 'Create, manage, and track invoices with AI-assisted insights.', type: 'internal', category: 'micro-app', componentKey: 'invoice-manager', appCardId: '1', defaultWidth: 520 },
-  { id: 'reconciliation-hub', title: 'Reconciliation Hub', description: 'AI-powered matching and discrepancy detection.', type: 'internal', category: 'micro-app', componentKey: 'reconciliation-hub', appCardId: '2', defaultWidth: 520 },
+  { id: 'invoice-manager', screenId: 'finance.invoices', title: 'Invoice Manager', description: 'Create, manage, and track invoices with AI-assisted insights.', type: 'internal', category: 'micro-app', componentKey: 'invoice-manager', appCardId: '1', defaultWidth: 520 },
+  { id: 'reconciliation-hub', screenId: 'finance.invoices', title: 'Reconciliation Hub', description: 'AI-powered matching and discrepancy detection.', type: 'internal', category: 'micro-app', componentKey: 'reconciliation-hub', appCardId: '2', defaultWidth: 520 },
 ];
 
 const panelComponents = {

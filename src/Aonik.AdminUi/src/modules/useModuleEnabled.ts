@@ -2,8 +2,7 @@ import { useModules } from './useModules';
 
 /**
  * Whether a backend module (e.g. "finance", "voice") is enabled for the
- * selected tenant. Fail-open: with no manifest every module reads as
- * enabled, matching the sidebar and the router.
+ * selected tenant. Without a current manifest modules are unavailable.
  */
 export function useModuleEnabled(moduleId: string): boolean {
   const { isModuleEnabled } = useModules();

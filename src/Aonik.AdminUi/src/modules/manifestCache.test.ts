@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RuntimeModuleManifest } from './types';
 
@@ -19,6 +19,9 @@ vi.mock('@/lib/tenantContext', () => ({
 
 import {
   fetchManifestOnce,
+  getCachedManifest,
+  getManifestStatus,
+  setManifestIdentity,
   getManifestTenantKey,
   getManifestVersion,
   invalidateModuleManifest,
@@ -43,7 +46,7 @@ function deferred<T>(): Deferred<T> {
 }
 
 function manifest(enabled: string[]): RuntimeModuleManifest {
-  return { enabledModules: enabled, modules: [], featureFlags: {} };
+  return { businessType: 'base', permissions: [], allowedPolicies: ['AdminUserPolicy'], enabledModules: enabled, modules: [], featureFlags: {} };
 }
 
 /** Queue one manual response for the next `api.get` call. */
@@ -65,11 +68,15 @@ const AFTER_TOGGLE = manifest(['platform']);
 
 describe('manifestCache', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     mocks.get.mockReset();
+    setManifestIdentity('user-a');
     mocks.tenant.current = 'tenant-a';
     // Reset shared module state between tests.
     invalidateModuleManifest();
   });
+
+  afterEach(() => { invalidateModuleManifest(); vi.useRealTimers(); });
 
   it('caches a response that completes with no intervening invalidation', async () => {
     const first = nextResponse();
@@ -117,11 +124,11 @@ describe('manifestCache', () => {
     // the newer data is what every subsequent read sees.
     await expect(fetchManifestOnce()).resolves.toEqual(AFTER_TOGGLE);
     expect(mocks.get).toHaveBeenCalledTimes(2);
-    // Whoever awaited the older request is handed the newest data too.
-    await expect(olderRead).resolves.toEqual(AFTER_TOGGLE);
+    // Awaiters of an invalidated context never receive another context’s data.
+    await expect(olderRead).resolves.toBeNull();
   });
 
-  it("hands an older awaiter the newer request's result when the older one completes first", async () => {
+  it("discards an older response when the replacement is still pending", async () => {
     const older = nextResponse();
     const olderRead = fetchManifestOnce();
 
@@ -141,22 +148,22 @@ describe('manifestCache', () => {
     newer.resolve(AFTER_TOGGLE);
     await expect(newerRead).resolves.toEqual(AFTER_TOGGLE);
     await expect(joined).resolves.toEqual(AFTER_TOGGLE);
-    await expect(olderRead).resolves.toEqual(AFTER_TOGGLE);
+    await expect(olderRead).resolves.toBeNull();
     await expect(fetchManifestOnce()).resolves.toEqual(AFTER_TOGGLE);
     expect(mocks.get).toHaveBeenCalledTimes(2);
   });
 
-  it('serves a stale response fail-open (uncached) when nothing newer exists', async () => {
+  it('discards a stale response even when no replacement exists', async () => {
     const older = nextResponse();
     const olderRead = fetchManifestOnce();
 
     invalidateModuleManifest();
     older.resolve(BEFORE_TOGGLE);
 
-    // No replacement request was started: the awaiter still gets data ...
-    await expect(olderRead).resolves.toEqual(BEFORE_TOGGLE);
+    // No replacement exists: fail closed for the invalidated request.
+    await expect(olderRead).resolves.toBeNull();
 
-    // ... but it was never cached, so the next read hits the API.
+    // The next read must fetch current data.
     const fresh = nextResponse();
     const freshRead = fetchManifestOnce();
     expect(mocks.get).toHaveBeenCalledTimes(2);
@@ -183,7 +190,7 @@ describe('manifestCache', () => {
 
     await expect(fetchManifestOnce()).resolves.toEqual(AFTER_TOGGLE);
     expect(mocks.get).toHaveBeenCalledTimes(2);
-    await expect(readA).resolves.toEqual(AFTER_TOGGLE);
+    await expect(readA).resolves.toBeNull();
   });
 
   it('resolves null on transport failure without caching', async () => {
@@ -212,5 +219,55 @@ describe('manifestCache', () => {
     invalidateModuleManifest();
     expect(getManifestVersion()).toBe(before + 2);
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('permission-aware manifest lifecycle', () => {
+  beforeEach(() => { vi.useFakeTimers(); mocks.get.mockReset(); mocks.tenant.current = 'tenant-a'; setManifestIdentity('user-a'); invalidateModuleManifest(); });
+  afterEach(() => { invalidateModuleManifest(); vi.useRealTimers(); });
+
+  it('discards responses from another user in the same tenant', async () => {
+    const old = nextResponse();
+    const pending = fetchManifestOnce();
+    setManifestIdentity('user-b');
+    expect(getCachedManifest()).toBeNull();
+    old.resolve(BEFORE_TOGGLE);
+    await expect(pending).resolves.toBeNull();
+    expect(getCachedManifest()).toBeNull();
+  });
+
+  it('keeps a valid manifest during background refresh then expires it if the request stalls', async () => {
+    mocks.get.mockResolvedValueOnce(BEFORE_TOGGLE);
+    await fetchManifestOnce();
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(getManifestStatus()).toBe('idle');
+    expect(getCachedManifest()).toEqual(BEFORE_TOGGLE);
+    const slow = nextResponse();
+    const pending = fetchManifestOnce();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(getCachedManifest()).toBeNull();
+    slow.resolve(AFTER_TOGGLE);
+    await pending;
+    expect(getCachedManifest()).toEqual(AFTER_TOGGLE);
+  });
+
+  it('clears the old decision when a refresh fails', async () => {
+    mocks.get.mockResolvedValueOnce(BEFORE_TOGGLE);
+    await fetchManifestOnce();
+    await vi.advanceTimersByTimeAsync(25_000);
+    mocks.get.mockRejectedValueOnce(new Error('offline'));
+    await fetchManifestOnce();
+    expect(getManifestStatus()).toBe('error');
+    expect(getCachedManifest()).toBeNull();
+  });
+
+  it('rejects an old-server or malformed contract instead of selecting a general profile', async () => {
+    for (const invalid of [null, { enabledModules: [] }, { ...BEFORE_TOGGLE, businessType: '' }, { ...BEFORE_TOGGLE, permissions: [true] }]) {
+      invalidateModuleManifest();
+      mocks.get.mockResolvedValueOnce(invalid);
+      await expect(fetchManifestOnce()).resolves.toBeNull();
+      expect(getCachedManifest()).toBeNull();
+    }
   });
 });

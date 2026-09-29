@@ -1,4 +1,7 @@
-import type { AdminModule } from '../types';
+import { MySpacePage } from '@/pages/MySpacePage';
+import { WorkspacePage } from '@/workspace/WorkspacePage';
+import { AiChatPage } from '@/pages/ai/AiChatPage';
+import type { AdminModule, ModuleRouteConfig } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig } from '@/workspace/types';
 import { AiModelsPage } from '@/pages/ai/AiModelsPage';
@@ -45,15 +48,19 @@ const navigation: NavigationSection[] = [
 // These routes are NOT domain-specific and belong to the core shell.
 // Setup/auth routes are handled separately in AuthenticatedApp, not here.
 // ---------------------------------------------------------------------------
-const routes = [
-  { path: '/ai/models', element: AiModelsPage },
-  { path: '/ai/agents', element: AgentConfigPage },
-  { path: '/ai/agents/:agentName', element: AgentDetailPage },
-  { path: '/ai/tasks', element: AiTasksPage },
-  { path: '/ai/traces', element: AiTracesPage },
-  { path: '/ai/traces/:runId', element: AiTraceDetailPage },
-  { path: '/ai/routing', element: RoutePoliciesPage },
-  { path: '/ai/playground', element: AiPlaygroundPage },
+const routes: ModuleRouteConfig[] = [
+  { screen: { id: "home", label: "My Space", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "home" }, path: '/', element: MySpacePage },
+  { screen: { id: "workspace", label: "Workspace", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "stack" }, path: '/workspace', element: WorkspacePage },
+  { screen: { id: "ai.chat", label: "AI Chat", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/chat', element: AiChatPage },
+  { screen: { id: "ai.chat-agent", label: "AI Chat", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/chat/:agentId', element: AiChatPage, isDynamic: true },
+  { screen: { id: "ai.models", label: "AI Models", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/models', element: AiModelsPage },
+  { screen: { id: "ai.agents", label: "Agents", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/agents', element: AgentConfigPage },
+  { screen: { id: "ai.agent-detail", label: "Agent", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/agents/:agentName', element: AgentDetailPage },
+  { screen: { id: "ai.tasks", label: "Tasks", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/tasks', element: AiTasksPage },
+  { screen: { id: "ai.traces", label: "AI Traces", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/traces', element: AiTracesPage },
+  { screen: { id: "ai.trace-detail", label: "AI Trace", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/traces/:runId', element: AiTraceDetailPage },
+  { screen: { id: "ai.routing", label: "Route Policies", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "sparkles" }, path: '/ai/routing', element: RoutePoliciesPage },
+  { screen: { id: "ai.playground", label: "Playground", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/playground', element: AiPlaygroundPage },
 ];
 
 // ---------------------------------------------------------------------------

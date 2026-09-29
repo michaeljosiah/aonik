@@ -1,3 +1,4 @@
+import { invalidateModuleManifest } from '@/modules/manifestCache';
 import { api } from '@/lib/api';
 import type {
   AccessUserDetail,
@@ -46,7 +47,8 @@ export const userService = {
     return api.post<ResendInviteResponse>(`/admin/users/${userId}/resend-invite`);
   },
   updateRoles: async (userId: string, request: UpdateUserRolesRequest): Promise<void> => {
-    return api.put(`/admin/users/${userId}/roles`, request);
+    await api.put(`/admin/users/${userId}/roles`, request);
+    invalidateModuleManifest();
   },
   updateProfile: async (userId: string, request: UpdateUserProfileRequest): Promise<void> => {
     return api.put(`/admin/users/${userId}/profile`, request);

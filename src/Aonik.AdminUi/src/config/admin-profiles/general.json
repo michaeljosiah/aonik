@@ -1,0 +1,320 @@
+{
+  "id": "general",
+  "landingPage": "home",
+  "screens": {
+    "approvals": {},
+    "ai.runs": {},
+    "ai.policies": {},
+    "ai.usage": {},
+    "ai.workflows": {},
+    "ai.workflow-detail": {},
+    "ai.extensions": {},
+    "commerce.overview": {},
+    "commerce.products": {},
+    "commerce.product-detail": {},
+    "commerce.personalisation": {},
+    "commerce.content": {},
+    "commerce.box-plans": {},
+    "commerce.delivery": {},
+    "commerce.merchandising": {},
+    "commerce.storefront-config": {},
+    "commerce.orders": {},
+    "commerce.order-detail": {},
+    "commerce.carts": {},
+    "home": {},
+    "workspace": {},
+    "ai.chat": {},
+    "ai.chat-agent": {},
+    "ai.models": {},
+    "ai.agents": {},
+    "ai.agent-detail": {},
+    "ai.tasks": {},
+    "ai.traces": {},
+    "ai.trace-detail": {},
+    "ai.routing": {},
+    "ai.playground": {},
+    "finance.accounts": {},
+    "finance.account-transactions": {},
+    "finance.account-connection": {},
+    "finance.orders-root": {},
+    "finance.orders": {},
+    "finance.order-new": {},
+    "finance.order-edit": {},
+    "finance.invoices": {},
+    "finance.invoice-new": {},
+    "finance.invoice-detail": {},
+    "finance.ledger": {},
+    "finance.ledger-accounts": {},
+    "finance.journal-entries": {},
+    "finance.catalog": {},
+    "finance.countries": {},
+    "finance.categories": {},
+    "finance.billers": {},
+    "finance.biller-detail": {},
+    "finance.biller-services": {},
+    "finance.biller-service": {},
+    "finance.partners": {},
+    "finance.partner-detail": {},
+    "settings.autonumbering": {},
+    "settings.fx-rates": {},
+    "customers": {},
+    "customer-detail": {},
+    "compliance": {},
+    "documents": {},
+    "document-new": {},
+    "document-detail": {},
+    "access.users": {},
+    "access.user-detail": {},
+    "access.roles": {},
+    "access.permissions": {},
+    "tombstones": {},
+    "tenants": {},
+    "tenant-new": {},
+    "tenant-detail": {},
+    "alerts": {},
+    "alert-detail": {},
+    "tasks": {},
+    "settings": {},
+    "settings.general": {},
+    "settings.global": {},
+    "settings.authentication": {},
+    "settings.communication": {},
+    "settings.payment-gateways": {},
+    "settings.credential-bundles": {},
+    "settings.audit-logs": {},
+    "settings.speech": {},
+    "settings.background-jobs": {},
+    "settings.background-jobs-detail": {},
+    "settings.system-tools": {},
+    "settings.notification-templates": {},
+    "settings.modules": {},
+    "cms.content-blocks": {},
+    "cms.content-new": {},
+    "cms.content-detail": {},
+    "cms.content-wizard": {},
+    "cms.media": {},
+    "observability.overview": {},
+    "observability.topology": {},
+    "observability.traces": {},
+    "observability.logs": {},
+    "observability.audit": {}
+  },
+  "navigation": [
+    {
+      "id": "home-section",
+      "label": "Home",
+      "items": [
+        {
+          "screen": "home"
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "label": "Transact",
+      "items": [
+        {
+          "screen": "finance.orders"
+        },
+        {
+          "screen": "customers"
+        },
+        {
+          "screen": "approvals"
+        }
+      ]
+    },
+    {
+      "id": "products",
+      "label": "Products",
+      "items": [
+        {
+          "id": "bill-payments",
+          "label": "Bill Payments",
+          "items": [
+            {
+              "screen": "finance.billers"
+            },
+            {
+              "screen": "finance.categories"
+            }
+          ]
+        },
+        {
+          "id": "remittances",
+          "label": "Remittances",
+          "items": [
+            {
+              "screen": "finance.countries"
+            },
+            {
+              "screen": "finance.partners"
+            },
+            {
+              "screen": "settings.fx-rates"
+            }
+          ]
+        },
+        {
+          "id": "billing",
+          "label": "Billing",
+          "items": [
+            {
+              "screen": "finance.invoices"
+            },
+            {
+              "screen": "finance.accounts"
+            },
+            {
+              "screen": "finance.ledger"
+            },
+            {
+              "screen": "finance.ledger-accounts"
+            },
+            {
+              "screen": "finance.journal-entries"
+            }
+          ]
+        },
+        {
+          "id": "commerce",
+          "label": "Commerce",
+          "items": [
+            {
+              "screen": "commerce.overview"
+            },
+            {
+              "screen": "commerce.products"
+            },
+            {
+              "screen": "commerce.personalisation"
+            },
+            {
+              "screen": "commerce.content"
+            },
+            {
+              "screen": "commerce.box-plans"
+            },
+            {
+              "screen": "commerce.delivery"
+            },
+            {
+              "screen": "commerce.merchandising"
+            },
+            {
+              "screen": "commerce.storefront-config"
+            },
+            {
+              "screen": "commerce.orders"
+            },
+            {
+              "screen": "commerce.carts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "label": "Platform",
+      "items": [
+        {
+          "id": "team",
+          "label": "Team",
+          "items": [
+            {
+              "screen": "access.users"
+            },
+            {
+              "screen": "access.roles"
+            },
+            {
+              "screen": "access.permissions"
+            }
+          ]
+        },
+        {
+          "id": "content",
+          "label": "Content",
+          "items": [
+            {
+              "screen": "cms.content-blocks"
+            },
+            {
+              "screen": "cms.content-wizard"
+            },
+            {
+              "screen": "cms.media"
+            }
+          ]
+        },
+        {
+          "screen": "compliance"
+        },
+        {
+          "id": "ai-agents",
+          "label": "AI & Agents",
+          "items": [
+            {
+              "screen": "ai.playground"
+            },
+            {
+              "screen": "ai.agents"
+            },
+            {
+              "screen": "ai.tasks"
+            },
+            {
+              "screen": "ai.policies"
+            },
+            {
+              "screen": "ai.usage"
+            }
+          ]
+        },
+        {
+          "screen": "settings"
+        }
+      ]
+    },
+    {
+      "id": "host",
+      "label": "Host",
+      "items": [
+        {
+          "screen": "tenants"
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "items": [
+            {
+              "screen": "observability.overview"
+            },
+            {
+              "screen": "observability.traces"
+            },
+            {
+              "screen": "observability.logs"
+            },
+            {
+              "screen": "observability.audit"
+            }
+          ]
+        },
+        {
+          "id": "host-settings",
+          "label": "Settings",
+          "items": [
+            {
+              "screen": "settings.communication"
+            },
+            {
+              "screen": "settings.notification-templates"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

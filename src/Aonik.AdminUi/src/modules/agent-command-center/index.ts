@@ -70,7 +70,7 @@ const navigation: NavigationSection[] = [
 
 const panels: WorkspacePanelConfig[] = [
   {
-    id: 'agent-fleet',
+    id: 'agent-fleet', screenId: 'ai.agents', requiredPolicies: ['AdminPolicy'],
     title: 'Agent Fleet',
     description: 'Overview of all AI agents — activity, latency, and token usage.',
     type: 'internal',
@@ -79,7 +79,7 @@ const panels: WorkspacePanelConfig[] = [
     appCardId: '30',
   },
   {
-    id: 'agent-performance',
+    id: 'agent-performance', screenId: 'ai.usage', requiredPolicies: ['AdminPolicy'],
     title: 'Performance Monitor',
     description: 'Latency percentiles, TTFT, and client vs server timing.',
     type: 'internal',
@@ -88,7 +88,7 @@ const panels: WorkspacePanelConfig[] = [
     appCardId: '31',
   },
   {
-    id: 'agent-cost',
+    id: 'agent-cost', screenId: 'ai.usage', requiredPolicies: ['AdminPolicy'],
     title: 'Cost & Tokens',
     description: 'Token consumption and cost breakdown by agent.',
     type: 'internal',
@@ -97,7 +97,7 @@ const panels: WorkspacePanelConfig[] = [
     appCardId: '32',
   },
   {
-    id: 'agent-errors',
+    id: 'agent-errors', screenId: 'ai.usage', requiredPolicies: ['AdminPolicy'],
     title: 'Errors & Failures',
     description: 'Error rates, failure analysis, and top error groups.',
     type: 'internal',
@@ -137,12 +137,12 @@ export const agentCommandCenterModule: AdminModule = {
   requires: ['agents'],
   navigation,
   routes: [
-    { path: '/approvals', element: ApprovalsPage },
-    { path: '/ai/runs', element: AiRunQueuePage },
-    { path: '/ai/policies', element: AiPoliciesPage },
-    { path: '/ai/usage', element: AiUsagePage },
-    { path: '/ai/workflows', element: WorkflowsListPage },
-    { path: '/ai/workflows/:workflowId', element: WorkflowEditorPage },
+    { screen: { id: "approvals", label: "Approvals", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "clipcheck" }, path: '/approvals', element: ApprovalsPage },
+    { screen: { id: "ai.runs", label: "Run queue", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/runs', element: AiRunQueuePage },
+    { screen: { id: "ai.policies", label: "Policies", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "sparkles" }, path: '/ai/policies', element: AiPoliciesPage },
+    { screen: { id: "ai.usage", label: "Usage", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/usage', element: AiUsagePage },
+    { screen: { id: "ai.workflows", label: "Workflows", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/workflows', element: WorkflowsListPage },
+    { screen: { id: "ai.workflow-detail", label: "Workflow", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/workflows/:workflowId', element: WorkflowEditorPage },
   ],
   panels,
   panelComponents,

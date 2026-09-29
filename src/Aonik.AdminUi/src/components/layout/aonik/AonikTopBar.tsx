@@ -1,3 +1,4 @@
+import { useModules } from '@/modules';
 // AonikTopBar: the app shell's header (Spec 098 §7.5), shadcn style.
 //
 //   - left: sidebar toggle, then workspace tabs (on /workspace), a leftSlot
@@ -100,6 +101,7 @@ export function AonikTopBar({
   onFullscreenChange,
   onAskAonik,
 }: AonikTopBarProps) {
+  const { isPathVisible, allowsPolicy } = useModules();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [workspaceTabs, setWorkspaceTabs] = useState<WorkspaceTab[]>([]);
@@ -113,7 +115,7 @@ export function AonikTopBar({
   const [confirmName, setConfirmName] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  const { notifications, unreadCount, loading, markRead, dismiss, markAllRead } = useNotifications();
+  const { notifications, unreadCount, loading, markRead, dismiss, markAllRead } = useNotifications(allowsPolicy('AdminPolicy'));
 
   // Hydrate workspace tabs and listen for state-change events from WorkspacePage
   useEffect(() => {
@@ -408,7 +410,7 @@ export function AonikTopBar({
               {isFullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
             </Button>
           </IconAction>
-          <IconAction label="Notifications">
+          {allowsPolicy('AdminPolicy') && <IconAction label="Notifications">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -423,14 +425,14 @@ export function AonikTopBar({
                 </span>
               )}
             </Button>
-          </IconAction>
-          <IconAction label="Settings">
+          </IconAction>}
+          {isPathVisible('/settings') && <IconAction label="Settings">
             <Button variant="ghost" size="icon-sm" asChild>
               <Link to="/settings" aria-label="Settings">
                 <SettingsIcon />
               </Link>
             </Button>
-          </IconAction>
+          </IconAction>}
         </div>
       </header>
 
@@ -442,7 +444,7 @@ export function AonikTopBar({
       />
 
       <NotificationsPanel
-        open={showNotifications}
+        open={showNotifications && allowsPolicy('AdminPolicy')}
         onClose={() => setShowNotifications(false)}
         notifications={notifications}
         unreadCount={unreadCount}

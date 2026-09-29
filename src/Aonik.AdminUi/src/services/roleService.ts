@@ -1,3 +1,4 @@
+import { invalidateModuleManifest } from '@/modules/manifestCache';
 import { api } from '@/lib/api';
 import type {
   AccessRoleDetail,
@@ -33,9 +34,11 @@ export const roleService = {
     return api.put<AccessRoleDetail>(`/admin/roles/${roleId}`, request);
   },
   delete: async (roleId: string): Promise<void> => {
-    return api.delete(`/admin/roles/${roleId}`);
+    await api.delete(`/admin/roles/${roleId}`);
+    invalidateModuleManifest();
   },
   updatePermissions: async (roleId: string, permissionKeys: string[]): Promise<void> => {
-    return api.put(`/admin/roles/${roleId}/permissions`, { permissionKeys });
+    await api.put(`/admin/roles/${roleId}/permissions`, { permissionKeys });
+    invalidateModuleManifest();
   },
 };

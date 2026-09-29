@@ -1,9 +1,12 @@
+using FastEndpoints;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+
+using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Modules;
-
-using FastEndpoints;
-
-using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Manifest;
 
@@ -13,12 +16,18 @@ namespace Aonik.Platform.Endpoints.Admin.Manifest;
 /// </summary>
 /// <param name="EnabledModules">Canonical backend module ids that resolved enabled for the tenant, sorted.</param>
 /// <param name="Modules">The whole catalogue projected with state, so the UI can explain a disabled route without a second call.</param>
+/// <param name="BusinessType">The resolved tenant's business type; selects a source-controlled admin profile.</param>
+/// <param name="Permissions">Effective stored permission keys for the current user, never inferred from role names.</param>
+/// <param name="AllowedPolicies">Existing server policies satisfied by the caller, evaluated on the server.</param>
 public record AdminManifestResponse(
     string[] EnabledModules,
     IReadOnlyList<ManifestModuleResponse> Modules,
     Dictionary<string, bool> FeatureFlags,
     string[] DisabledRoutes,
-    string[] DisabledNavItems);
+    string[] DisabledNavItems,
+    string BusinessType,
+    string[] Permissions,
+    string[] AllowedPolicies);
 
 /// <summary>One catalogue module as the manifest reports it.</summary>
 public record ManifestModuleResponse(
@@ -41,11 +50,25 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
 {
     private readonly IModuleEnablementReader _moduleEnablementReader;
     private readonly ITenantProvider _tenantProvider;
+    private readonly PlatformDbContext _dbContext;
+    private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IPermissionService _permissionService;
+    private readonly IAuthorizationService _authorizationService;
 
-    public GetAdminManifestEndpoint(IModuleEnablementReader moduleEnablementReader, ITenantProvider tenantProvider)
+    public GetAdminManifestEndpoint(
+        IModuleEnablementReader moduleEnablementReader,
+        ITenantProvider tenantProvider,
+        PlatformDbContext dbContext,
+        ICurrentUserProvider currentUserProvider,
+        IPermissionService permissionService,
+        IAuthorizationService authorizationService)
     {
         _moduleEnablementReader = moduleEnablementReader;
         _tenantProvider = tenantProvider;
+        _dbContext = dbContext;
+        _currentUserProvider = currentUserProvider;
+        _permissionService = permissionService;
+        _authorizationService = authorizationService;
     }
 
     public override void Configure()
@@ -65,6 +88,15 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        // The manifest now includes user-specific permissions; intermediaries must not share it.
+        HttpContext.Response.Headers.CacheControl = "private, no-store";
+
+        if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
+        {
+            await Send.UnauthorizedAsync(ct);
+            return;
+        }
+
         if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -74,6 +106,25 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
             return;
         }
 
+        var businessType = await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(tenant => tenant.Id == tenantId)
+            .Select(tenant => tenant.BusinessType)
+            .SingleOrDefaultAsync(ct);
+
+        if (businessType is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        var permissions = await _permissionService.GetUserPermissionsAsync(userId, ct);
+        var allowedPolicies = new List<string>();
+        foreach (var policy in new[] { "AdminUserPolicy", "AdminPolicy", "AdminWritePolicy", "AdminUserWritePolicy", "PlatformAdmin" })
+        {
+            if ((await _authorizationService.AuthorizeAsync(User, policy)).Succeeded)
+                allowedPolicies.Add(policy);
+        }
         var enablement = await _moduleEnablementReader.GetAsync(tenantId, ct);
 
         var modules = ModuleCatalog.All
@@ -107,7 +158,10 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
                 ["agent-command-center:usage"] = true,
             },
             DisabledRoutes: [],
-            DisabledNavItems: []);
+            DisabledNavItems: [],
+            BusinessType: businessType,
+            Permissions: permissions.Distinct(StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal).ToArray(),
+            AllowedPolicies: allowedPolicies.ToArray());
 
         await Send.OkAsync(response, ct);
     }

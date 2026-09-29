@@ -31,7 +31,7 @@ export function OrganizationPickerPage() {
   // cached choice, bounce back out of the picker.
   useEffect(() => {
     if (state.kind === 'ready') {
-      navigate(from, { replace: true });
+      navigate(from, { replace: true, state: { adminEntry: true } });
     }
   }, [state, navigate, from]);
 
@@ -44,7 +44,7 @@ export function OrganizationPickerPage() {
     });
     // The module manifest is tenant-scoped; drop anything cached before.
     invalidateModuleManifest();
-    navigate(from, { replace: true });
+    navigate(from, { replace: true, state: { adminEntry: true } });
   };
 
   if (!isAuthenticated || authLoading) {

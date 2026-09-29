@@ -1,3 +1,4 @@
+import { useModules } from '@/modules/useModules';
 // Orders list — visual port of the ScreenOrders half of
 // templates/aonik-admin-starterkit/screens/customers-orders.jsx, wired to
 // the existing /orders endpoint.
@@ -107,6 +108,7 @@ const STAT_BUCKETS: OrderStatBucket[] = [
 
 export function OrdersListPage() {
   const navigate = useNavigate();
+  const { isPathVisible } = useModules();
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,10 +341,10 @@ export function OrdersListPage() {
               <RefreshCw className={'h-3 w-3 ' + (statsLoading ? 'animate-spin' : '')} />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate('/orders/bill-payments/new')}>
+            {isPathVisible('/orders/bill-payments/new') && <Button size="sm" onClick={() => navigate('/orders/bill-payments/new')}>
               <Plus className="h-3 w-3" />
               New bill payment
-            </Button>
+            </Button>}
           </>
         }
       />

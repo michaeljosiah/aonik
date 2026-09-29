@@ -1,152 +1,79 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, createElement, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { useAuth } from '@/auth';
-import type { RuntimeModuleManifest } from './types';
-import {
-  getModules,
-  getAggregatedNavigation,
-  getAggregatedRoutes,
-  getAggregatedPanels,
-  getAggregatedPanelComponents,
-  getDefaultWorkspacePanels,
-  resolveBreadcrumb,
-} from './registry';
-import type { NavigationSection } from '@/types';
-import { isBackendModuleEnabled, resolveEnabledUiModules, filterRoutesByBackendModules} from './enablement';
-import {
-  fetchManifestOnce,
-  getManifestTenantKey,
-  getManifestVersion,
-  subscribeManifest,
-} from './manifestCache';
+import { getModules, getAggregatedPanelComponents, getDefaultWorkspacePanels, resolveBreadcrumb } from './registry';
+import { resolveEnabledUiModules } from './enablement';
+import { resolveCurrentAdminProfile, isProfilePathVisible, profilePathLabel, findScreenRoute } from './profileCatalog';
+import { resolveProfilePanels } from './profilePanels';
+import { fetchManifestOnce, getCachedManifest, getManifestContextKey, getManifestStatus, getManifestVersion, getManifestTenantKey, setManifestIdentity, subscribeManifest } from './manifestCache';
+import type { ModuleBreadcrumbItem } from './types';
 
 export { invalidateModuleManifest } from './manifestCache';
 
-/**
- * Hook that merges build-time module definitions with the runtime manifest
- * fetched from the API. The manifest controls which modules and features
- * are enabled per tenant/user/feature-flag.
- *
- * The manifest is fetched through the shared API client (bearer token and
- * X-Tenant-Id) and cached per selected tenant; `invalidateModuleManifest()`
- * forces every mounted instance to re-fetch.
- *
- * On fetch failure (including 401/403 from the manifest itself), falls back
- * to all modules enabled (graceful degradation).
- *
- * The manifest is never requested while the user is signed out: the endpoint
- * requires an admin user, and the 401 would bounce a first-run visitor on a
- * public route (the setup guides) to /login. Public routes render fail-open.
- */
-export function useModules() {
-  const { isAuthenticated } = useAuth();
-  const [fetchedManifest, setFetchedManifest] = useState<RuntimeModuleManifest | null>(null);
-  const [fetchSettled, setFetchSettled] = useState(false);
-  const [version, setVersion] = useState(() => getManifestVersion());
+function useResolvedModules() {
+  const { isAuthenticated, user, provider } = useAuth();
+  const version = useSyncExternalStore(subscribeManifest, getManifestVersion);
+  const identity = isAuthenticated && user ? `${provider}:${user.id}` : '';
   const tenantKey = getManifestTenantKey();
-
-  // Re-fetch whenever the cache is invalidated (tenant switch, logout,
-  // successful module toggle).
-  useEffect(() => subscribeManifest(() => setVersion(getManifestVersion())), []);
+  const contextKey = JSON.stringify([identity, tenantKey]);
+  const contextMatches = contextKey === getManifestContextKey();
 
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    setManifestIdentity(identity);
+    if (identity && tenantKey && getManifestStatus() === 'idle') void fetchManifestOnce();
+  }, [identity, tenantKey, version]);
 
-    let cancelled = false;
-
-    // The first fetch settles `loading`; a re-fetch after invalidation keeps
-    // serving the current manifest (fail-open) rather than flashing a
-    // loading state.
-    fetchManifestOnce()
-      .then((data) => {
-        if (cancelled) return;
-        // null = unreachable or unauthorised → fail-open (all modules on).
-        // Always assign so a manifest from a previous tenant never lingers.
-        setFetchedManifest(data);
-      })
-      .catch(() => {
-        if (!cancelled) setFetchedManifest(null);
-      })
-      .finally(() => {
-        if (!cancelled) setFetchSettled(true);
-      });
-
-    return () => { cancelled = true; };
-  }, [tenantKey, version, isAuthenticated]);
-
-  // Signed out: no manifest (fail-open) and nothing to wait for.
-  const manifest = isAuthenticated ? fetchedManifest : null;
-  const loading = isAuthenticated && !fetchSettled;
-
-  const enabledModules = manifest?.enabledModules;
-
-  // UI module ids enabled for this tenant (undefined = all enabled). A UI
-  // module is on when every backend id in its `requires` is enabled.
-  const enabledModuleIds = useMemo(
-    () => resolveEnabledUiModules(getModules(), enabledModules),
-    [enabledModules],
-  );
-
-  const isModuleEnabled = useCallback(
-    (moduleId: string) => isBackendModuleEnabled(manifest, moduleId),
-    [manifest],
-  );
-
-  const navigation = useMemo((): NavigationSection[] => {
-    const sections = getAggregatedNavigation(enabledModuleIds);
-
-    // Apply runtime overrides: remove disabled nav items
-    if (manifest?.disabledNavItems?.length) {
-      const disabled = new Set(manifest.disabledNavItems);
-      return sections.map((section) => ({
-        ...section,
-        items: section.items.filter((item) => !disabled.has(item.id)),
-      })).filter((section) => section.items.length > 0);
-    }
-
-    return sections;
-  }, [enabledModuleIds, manifest]);
-
-  const routes = useMemo(() => {
-    // Two filters, in order: the owning UI module's `requires`, then each route's own — a route can
-    // draw its data from a module its owner does not require (speech, documents, accounts).
-    const allRoutes = filterRoutesByBackendModules(
-      getAggregatedRoutes(enabledModuleIds),
-      manifest?.enabledModules,
-    );
-
-    // Apply runtime overrides: remove disabled routes
-    if (manifest?.disabledRoutes?.length) {
-      const disabled = new Set(manifest.disabledRoutes);
-      return allRoutes.filter((r) => !disabled.has(r.path));
-    }
-
-    return allRoutes;
-  }, [enabledModuleIds, manifest]);
-
-  const panels = useMemo(() => getAggregatedPanels(enabledModuleIds), [enabledModuleIds]);
-  const panelComponents = useMemo(() => getAggregatedPanelComponents(enabledModuleIds), [enabledModuleIds]);
-  const defaultWorkspacePanels = useMemo(() => getDefaultWorkspacePanels(enabledModuleIds), [enabledModuleIds]);
-
-  const getBreadcrumb = useMemo(() => {
-    return (path: string) => resolveBreadcrumb(path);
-  }, []);
+  const manifest = isAuthenticated && contextMatches ? getCachedManifest() : null;
+  const status = contextMatches ? getManifestStatus() : 'idle';
+  const loading = isAuthenticated && !manifest && (status === 'idle' || status === 'loading');
+  const modules = getModules();
+  const profile = useMemo(() => resolveCurrentAdminProfile(modules, manifest), [modules, manifest]);
+  const enabledModules = manifest?.enabledModules ?? [];
+  const enabledUiModuleIds = resolveEnabledUiModules(modules, enabledModules) ?? [];
+  const panels = useMemo(() => resolveProfilePanels(modules, profile, manifest), [modules, profile, manifest]);
+  const panelIds = new Set(panels.map((panel) => panel.id));
+  const components = getAggregatedPanelComponents(enabledUiModuleIds);
+  const panelComponents = Object.fromEntries(Object.entries(components).filter(([key]) => panels.some((panel) => panel.componentKey === key)));
 
   return {
-    modules: getModules(),
-    manifest,
-    loading,
-    navigation,
-    routes,
-    panels,
-    panelComponents,
-    defaultWorkspacePanels,
-    getBreadcrumb,
+    modules, manifest, loading, contextKey, profile,
+    unavailable: isAuthenticated && !loading && !profile,
+    navigation: profile?.navigation ?? [],
+    routes: profile?.routes ?? [],
+    panels, panelComponents,
+    defaultWorkspacePanels: getDefaultWorkspacePanels(enabledUiModuleIds).filter((id) => panelIds.has(id)),
     featureFlags: manifest?.featureFlags ?? {},
-    /** Backend module ids enabled for the tenant; undefined = no manifest (fail-open) */
-    enabledModules,
-    /** UI module ids resolved from `enabledModules`; undefined = all enabled */
-    enabledUiModuleIds: enabledModuleIds,
-    /** Whether a backend module id is enabled (fail-open without a manifest) */
-    isModuleEnabled,
+    enabledModules, enabledUiModuleIds,
+    landingPath: profile?.landingPath ?? null,
+    isModuleEnabled: (id: string) => enabledModules.includes(id),
+    isScreenVisible: (id: string) => !!profile?.routes.some((route) => route.screen?.id === id),
+    isPathVisible: (path: string) => isProfilePathVisible(modules, profile, path),
+    labelForPath: (path: string, fallback: string) => profilePathLabel(modules, profile, path, fallback),
+    hasPermission: (permission: string) => manifest?.permissions?.includes(permission) ?? false,
+    allowsPolicy: (policy: string) => manifest?.allowedPolicies?.includes(policy) ?? false,
+    getBreadcrumb: (path: string): ModuleBreadcrumbItem[] => {
+      const trail = resolveBreadcrumb(path).map((item) => {
+        if (typeof item === 'string') return item;
+        const label = profilePathLabel(modules, profile, item.href, item.label);
+        return isProfilePathVisible(modules, profile, item.href) ? { ...item, label } : label;
+      });
+      if (findScreenRoute(modules, path)) {
+        const label = profilePathLabel(modules, profile, path, '');
+        if (label) return [...trail.slice(0, -1), label];
+      }
+      return trail;
+    },
   };
+}
+
+const ModulesContext = createContext<ReturnType<typeof useResolvedModules> | null>(null);
+
+export function AdminModulesProvider({ children }: { children: ReactNode }) {
+  const value = useResolvedModules();
+  return createElement(ModulesContext.Provider, { value }, children);
+}
+
+export function useModules() {
+  const context = useContext(ModulesContext);
+  if (!context) throw new Error('useModules requires AdminModulesProvider');
+  return context;
 }

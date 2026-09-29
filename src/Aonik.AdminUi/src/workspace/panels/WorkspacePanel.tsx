@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
-import { getWorkspacePanelConfig } from '../registry';
-import { workspacePanelComponents } from '../panelComponents';
+import { useModules } from '@/modules';
+import { ScreenLabelContext } from '@/modules/ScreenLabelContext';
 import { useWorkspace } from '../useWorkspace';
 
 interface DockviewPanelProps {
@@ -12,10 +12,8 @@ interface DockviewPanelProps {
 
 export function WorkspacePanel({ params }: DockviewPanelProps) {
   const panelId = params?.panelId;
-  const config = useMemo(
-    () => (panelId ? getWorkspacePanelConfig(panelId) : undefined),
-    [panelId]
-  );
+  const { panels, panelComponents } = useModules();
+  const config = panels.find((panel) => panel.id === panelId);
   const { iframeBridge } = useWorkspace();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -79,7 +77,7 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
     );
   }
 
-  const PanelComponent = config.componentKey ? workspacePanelComponents[config.componentKey] : undefined;
+  const PanelComponent = config.componentKey ? panelComponents[config.componentKey] : undefined;
   if (!PanelComponent) {
     return (
       <div className="p-4">
@@ -90,5 +88,5 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
     );
   }
 
-  return <PanelComponent panelId={config.id} title={config.title} />;
+  return <ScreenLabelContext.Provider value={config.category === 'page' ? config.title : undefined}><PanelComponent panelId={config.id} title={config.title} /></ScreenLabelContext.Provider>;
 }

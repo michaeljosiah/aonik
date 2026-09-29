@@ -81,7 +81,6 @@ import { AonikTopBar } from '@/components/layout/aonik/AonikTopBar';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
-  MySpacePage,
   LoginPage,
   OrganizationPickerPage,
   SetupWizardPage,
@@ -91,9 +90,9 @@ import {
   TenantSetupWizardPage,
   AiChatPage,
 } from '@/pages';
-import { WorkspacePage } from '@/workspace/WorkspacePage';
-import { useModules, getModules, resolveDisabledModuleForPath, pathRequiresBackendModule } from '@/modules';
-import type { RuntimeModuleManifest } from '@/modules';
+import { useModules, getModules, pathRequiresBackendModule } from '@/modules';
+import { AdminModulesProvider } from '@/modules/useModules';
+import { AdminScreenGate, AdminUnavailablePage } from '@/modules/AdminScreenGate';
 import { ModuleDisabledPage } from '@/pages/ModuleDisabledPage';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
@@ -144,6 +143,15 @@ function ApiAuthSetup() {
 //     side without the client needing to pre-select.
 
 function AppLayout() {
+  return <AdminModulesProvider><ContextAppLayout /></AdminModulesProvider>;
+}
+
+function ContextAppLayout() {
+  const { contextKey } = useModules();
+  return <AppLayoutContent key={contextKey} />;
+}
+
+function AppLayoutContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -163,12 +171,12 @@ function AppLayout() {
   const preChatSidebarState = useRef<boolean | null>(null);
 
   // Module system: aggregated routes and breadcrumbs
-  const { routes, getBreadcrumb, manifest } = useModules();
+  const { modules, getBreadcrumb, manifest, loading, unavailable, landingPath, isPathVisible } = useModules();
 
   const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry]);
 
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    if (!isAuthenticated || !manifest || !isPathVisible('/ai/chat')) return undefined;
     let cancelled = false;
     agentConfigService
       .list()
@@ -258,6 +266,18 @@ function AppLayout() {
     navigate(nextAgentId ? `/ai/chat/${nextAgentId}` : '/ai/chat');
   }, [isAiChat, navigate]);
 
+  const isPublicGuide = location.pathname === '/setup-guides' || location.pathname.startsWith('/setup-guides/');
+  if (isAuthenticated && !isPublicGuide && (loading || unavailable)) {
+    return <AdminUnavailablePage loading={loading} unavailable={unavailable} />;
+  }
+
+  if ((location.state as { adminEntry?: boolean } | null)?.adminEntry && manifest) {
+    const destination = isPathVisible(location.pathname)
+      ? `${location.pathname}${location.search}${location.hash}`
+      : landingPath ?? '/';
+    return <Navigate to={destination} replace state={null} />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <AonikSidebar
@@ -266,12 +286,12 @@ function AppLayout() {
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AonikTopBar
-          breadcrumb={getBreadcrumb(window.location.pathname)}
+          breadcrumb={getBreadcrumb(location.pathname)}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           isWorkspace={isWorkspace}
-          onAskAonik={handleAiChatToggle}
+          onAskAonik={isPathVisible('/ai/chat') ? handleAiChatToggle : undefined}
           leftSlot={
-            isAiChat ? (
+            isAiChat && isPathVisible(location.pathname) ? (
               <AiAgentSelector
                 agents={agents}
                 selectedAgentId={activeChatAgentId}
@@ -291,22 +311,16 @@ function AppLayout() {
             className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-background min-w-0 transition-[width] duration-400 ease-in-out'}
           >
             <Routes>
-              {/* My Space — default authenticated home */}
-              <Route path="/" element={<MySpacePage />} />
-              {/* Workspace — always present */}
-              <Route path="/workspace" element={<WorkspacePage />} />
-              <Route path="/observability" element={<LegacyObservabilityRedirect />} />
-              {/* AI Chat — wired to AG-UI streaming endpoint */}
-              <Route path="/ai/chat" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
-              <Route path="/ai/chat/:agentId" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
-              {/* Module-contributed routes */}
-              {routes.map((route) => (
-                <Route
-                  key={route.path}
-                  path={route.path}
-                  element={createElement(route.element)}
-                />
+              {modules.flatMap((module) => module.routes).map((route) => (
+                <Route key={route.path} path={route.path} element={
+                  route.path === '/' && landingPath !== '/'
+                    ? landingPath ? <Navigate to={landingPath} replace /> : <AdminUnavailablePage />
+                    : <AdminScreenGate>{route.path.startsWith('/ai/chat')
+                      ? <AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />
+                      : createElement(route.element)}</AdminScreenGate>
+                } />
               ))}
+              <Route path="/observability" element={<LegacyObservabilityRedirect />} />
               {/* Setup routes */}
               <Route path="/setup/journey" element={<SetupJourneyPage />} />
               <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
@@ -315,10 +329,10 @@ function AppLayout() {
               {/* Module gate landing (Spec 097) — the API client redirects here on 403 module.disabled */}
               <Route path="/module-disabled/:moduleId" element={<ModuleDisabledPage />} />
               {/* Fallback — a route owned by a disabled module explains itself instead of 404ing */}
-              <Route path="*" element={<RouteFallback manifest={manifest} />} />
+              <Route path="*" element={<AdminUnavailablePage />} />
             </Routes>
           </main>
-          {showAiChat && (
+          {showAiChat && isPathVisible('/ai/chat') && (
             <AiChatPanel
               onClose={handleAiChatToggle}
               onExpand={() => {
@@ -333,31 +347,6 @@ function AppLayout() {
             />
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Catch-all element. When the unmatched path belongs to a UI module the
- * manifest has disabled, render the module-disabled explanation; otherwise
- * the plain not-found placeholder.
- */
-function RouteFallback({ manifest }: { manifest: RuntimeModuleManifest | null }) {
-  const location = useLocation();
-  const disabled = resolveDisabledModuleForPath(getModules(), manifest, location.pathname);
-  if (disabled) {
-    return <ModuleDisabledPage moduleId={disabled.backendModuleId} />;
-  }
-  return <PlaceholderPage title="Page Not Found" />;
-}
-
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-foreground mb-2">{title}</h1>
-        <p className="text-muted-foreground">This page is under construction.</p>
       </div>
     </div>
   );
@@ -595,7 +584,7 @@ function App() {
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
               {DevPage ? (
                 <Suspense fallback={null}>
-                  <DevPage />
+                  <AdminModulesProvider><DevPage /></AdminModulesProvider>
                 </Suspense>
               ) : (
                 <AuthenticatedApp />
