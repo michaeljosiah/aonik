@@ -18,6 +18,7 @@ import { getWorkspacePanelForRoute } from '@/workspace/registry';
 
 import { AonikTemplateIcon } from './AonikTemplateIcon';
 import { useVisibleNav } from './useVisibleNav';
+import { useModules } from '@/modules/useModules';
 
 interface PaletteEntry {
   id: string;
@@ -55,6 +56,7 @@ export interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange, onAskAonik, shortcutLabel }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { sections } = useVisibleNav();
+  const { isPathVisible } = useModules();
   const { resolvedTheme, setTheme } = useTheme();
 
   const groups = useMemo(
@@ -114,10 +116,10 @@ export function CommandPalette({ open, onOpenChange, onAskAonik, shortcutLabel }
             {resolvedTheme === 'dark' ? <SunIcon /> : <MoonIcon />}
             Switch to {resolvedTheme === 'dark' ? 'light' : 'dark'} theme
           </CommandItem>
-          <CommandItem value="action-settings" keywords={['settings', 'preferences']} onSelect={() => run(() => navigate('/settings'))}>
+          {isPathVisible('/settings') && <CommandItem value="action-settings" keywords={['settings', 'preferences']} onSelect={() => run(() => navigate('/settings'))}>
             <SettingsIcon />
             Open settings
-          </CommandItem>
+          </CommandItem>}
           <CommandItem value="action-guides" keywords={['help', 'guides', 'docs']} onSelect={() => run(() => navigate('/setup-guides'))}>
             <BookOpenIcon />
             Open guides
