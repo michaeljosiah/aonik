@@ -584,7 +584,7 @@ function App() {
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
               {DevPage ? (
                 <Suspense fallback={null}>
-                  <DevPage />
+                  <AdminModulesProvider><DevPage /></AdminModulesProvider>
                 </Suspense>
               ) : (
                 <AuthenticatedApp />

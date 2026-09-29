@@ -27,5 +27,5 @@ export function AdminScreenGate({ children }: { children: ReactNode }) {
   if (!isPathVisible(pathname)) return <AdminUnavailablePage />;
   const definition = findScreenRoute(modules, pathname)?.screen;
   const label = definition && profile?.labels.get(definition.id);
-  return <ScreenLabelContext.Provider value={label !== definition?.label ? label : undefined}>{children}</ScreenLabelContext.Provider>;
+  return <ScreenLabelContext.Provider value={label}>{children}</ScreenLabelContext.Provider>;
 }

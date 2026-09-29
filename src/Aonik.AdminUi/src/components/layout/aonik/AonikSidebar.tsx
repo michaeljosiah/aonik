@@ -327,7 +327,7 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
   const location = useLocation();
   const navigate = useNavigate();
   const { layouts, activeLayoutId } = useWorkspaceLayouts();
-  const [templates] = useState(() => getWorkspaceTemplates());
+  const templates = getWorkspaceTemplates();
   const isActive = location.pathname === '/workspace';
   const hasContent = layouts.length > 0 || templates.length > 0;
 

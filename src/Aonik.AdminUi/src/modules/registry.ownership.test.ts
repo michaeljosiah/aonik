@@ -143,6 +143,23 @@ describe('registry route ownership', () => {
     const manifest = { ...manifestWithout(), permissions: ['Users.Read'], allowedPolicies: ['AdminUserPolicy'] };
     expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, manifest), '/access/users')).toBe(false);
   });
+  it('keeps order details readable while denying order creation to read-only callers', () => {
+    const manifest = { ...manifestWithout(), allowedPolicies: ['AdminUserPolicy'] };
+    const result = resolveCurrentAdminProfile(registry, manifest);
+    expect(isProfilePathVisible(registry, result, '/orders/activity')).toBe(true);
+    expect(isProfilePathVisible(registry, result, '/orders/bill-payments/existing')).toBe(true);
+    expect(isProfilePathVisible(registry, result, '/orders/bill-payments/new')).toBe(false);
+  });
+
+  it('retains communication and notification settings in host navigation only', () => {
+    const manifest = manifestWithout();
+    const tenant = resolveCurrentAdminProfile(registry, manifest)!;
+    expect(JSON.stringify(tenant.navigation)).not.toContain('/settings/communication');
+    const host = resolveCurrentAdminProfile(registry, { ...manifest, allowedPolicies: [...manifest.allowedPolicies!, 'PlatformAdmin'] })!;
+    expect(JSON.stringify(host.navigation)).toContain('/settings/communication');
+    expect(JSON.stringify(host.navigation)).toContain('/settings/notification-templates');
+  });
+
   it('keeps Customers and Compliance reachable when Finance is off', () => {
     const manifest = manifestWithout('finance', 'commerce', 'subscriptions', 'workspaces');
     expect(resolveDisabledModuleForPath(registry, manifest, '/customers')).toBeNull();

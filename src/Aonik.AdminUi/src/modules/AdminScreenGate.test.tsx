@@ -13,14 +13,14 @@ vi.mock('@/auth', () => ({ useAuth: () => ({ logout: vi.fn() }) }));
 vi.mock('./manifestCache', () => ({ invalidateModuleManifest: vi.fn() }));
 
 const mounted = vi.fn();
-function Page() { mounted(); return <PageHeader title="Products" />; }
+function Page() { mounted(); return <PageHeader title="Product catalog" />; }
 const modules: AdminModule[] = [{
   id: 'commerce', name: 'Commerce', requires: ['commerce'], navigation: [], panels: [], panelComponents: {}, breadcrumbs: [],
   routes: [{ path: '/products', element: Page, screen: { id: 'products', label: 'Products', permissions: { allOf: ['Products.Read'] } } }],
 }];
-function select(permissions: string[], enabledModules = ['commerce']) {
+function select(permissions: string[], enabledModules = ['commerce'], label: string | undefined = 'Menu') {
   const manifest: RuntimeModuleManifest = { businessType: 'food-commerce', enabledModules, modules: [], permissions, featureFlags: {} };
-  const profile = resolveAdminProfile({ id: 'food', landingPage: 'products', screens: { products: { label: 'Menu' } },
+  const profile = resolveAdminProfile({ id: 'food', landingPage: 'products', screens: { products: label ? { label } : {} },
     navigation: [{ id: 'operations', label: 'Operations', items: [{ screen: 'products' }] }] }, modules, manifest, 'tenant');
   state.value = { modules, profile, landingPath: profile?.landingPath, isPathVisible: (path: string) => isProfilePathVisible(modules, profile, path) };
 }
@@ -43,6 +43,10 @@ describe('admin screen rendering', () => {
     expect(html).toContain('Menu</h1>');
     expect(html).not.toContain('Products</h1>');
     expect(mounted).toHaveBeenCalledOnce();
+  });
+  it('uses the registered default heading when the profile has no override', () => {
+    select(['Products.Read'], ['commerce'], '');
+    expect(renderPage()).toContain('Products</h1>');
   });
   it('offers retry and sign out on a manifest failure without mounting business content', () => {
     select([]);

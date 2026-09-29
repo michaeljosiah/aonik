@@ -301,6 +301,18 @@
               "screen": "observability.audit"
             }
           ]
+        },
+        {
+          "id": "host-settings",
+          "label": "Settings",
+          "items": [
+            {
+              "screen": "settings.communication"
+            },
+            {
+              "screen": "settings.notification-templates"
+            }
+          ]
         }
       ]
     }

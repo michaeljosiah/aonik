@@ -1,3 +1,4 @@
+import { useModules } from '@/modules/useModules';
 // New-order builder — visual port of `ScreenCreateOrder` from
 // templates/aonik-admin-starterkit/screens/orders.jsx.
 //
@@ -73,6 +74,7 @@ function buildItemUpdate(state: BillPaymentFormState): UpdateBillPaymentItemRequ
 export function BillPaymentOrderFormPage() {
   const navigate = useNavigate();
   const { orderId } = useParams();
+  const { allowsPolicy } = useModules();
 
   const [order, setOrder] = useState<BillPaymentOrderResponse | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -272,7 +274,7 @@ export function BillPaymentOrderFormPage() {
     }
   };
 
-  const isEditable = !order || order.status === 'Draft';
+  const isEditable = allowsPolicy('AdminUserWritePolicy') && (!order || order.status === 'Draft');
   const hasExpiredItems = (order?.items ?? []).some((item) => item.isQuoteExpired);
   const canSubmit = !!order && (order.items.length ?? 0) > 0 && !hasExpiredItems && isEditable;
 
