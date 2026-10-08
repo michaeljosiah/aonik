@@ -163,7 +163,7 @@ export function ContentWorkbench({
 
 function FigureGrid({ nutrition }: { nutrition: ProductContentDto['nutrition'] }) {
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4 lg:grid-cols-7">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
       {FIGURE_FIELDS.map((field) => {
         const value = nutrition[field.key as FigureKey];
         return (

@@ -20,6 +20,7 @@ internal sealed partial class CollectionService : ICollectionService
     private readonly ILogger<CollectionService> _logger;
     private readonly ITenantCurrencyProvider _tenantCurrency;
     private readonly IProductPricingService _pricing;
+    private readonly IProductContentService _content;
 
     private readonly IExtrasCatalogService _extras;
 
@@ -29,7 +30,8 @@ internal sealed partial class CollectionService : ICollectionService
         ILogger<CollectionService> logger,
         IExtrasCatalogService extras,
         ITenantCurrencyProvider tenantCurrency,
-        IProductPricingService pricing)
+        IProductPricingService pricing,
+        IProductContentService content)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -37,6 +39,7 @@ internal sealed partial class CollectionService : ICollectionService
         _extras = extras;
         _tenantCurrency = tenantCurrency;
         _pricing = pricing;
+        _content = content;
     }
 
     // ─── Public reads ────────────────────────────────────────────────────────
@@ -428,6 +431,11 @@ internal sealed partial class CollectionService : ICollectionService
             .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id) && p.Status == ProductStatuses.Active)
             .ToListAsync(cancellationToken);
         var productById = products.ToDictionary(p => p.Id);
+        var content = await _content.ResolveDefaultsAsync(products.Select(p => p.Id).ToList(), cancellationToken);
+        var categoryIds = products.Where(p => p.CategoryId.HasValue).Select(p => p.CategoryId!.Value).Distinct().ToList();
+        var categories = await _dbContext.ProductCategories.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.IsActive && categoryIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
 
         return items
             .GroupBy(i => i.CollectionId)
@@ -435,7 +443,9 @@ internal sealed partial class CollectionService : ICollectionService
                 g => g.Key,
                 g => g.OrderBy(i => i.Rank)
                     .Where(i => productById.ContainsKey(i.ProductId))
-                    .Select(i => ProductSummaryMapper.Map(productById[i.ProductId], _logger))
+                    .Select(i => ProductSummaryMapper.Map(productById[i.ProductId], _logger,
+                        content.GetValueOrDefault(i.ProductId),
+                        productById[i.ProductId].CategoryId is { } id ? categories.GetValueOrDefault(id) : null))
                     .ToList());
     }
 

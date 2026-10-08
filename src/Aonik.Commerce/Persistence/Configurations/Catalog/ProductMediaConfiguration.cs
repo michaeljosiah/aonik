@@ -11,6 +11,7 @@ public class ProductMediaConfiguration : IEntityTypeConfiguration<ProductMedia>
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Url).IsRequired().HasMaxLength(1024);
+        builder.Property(x => x.AltText).HasMaxLength(500);
         builder.Property(x => x.Kind).IsRequired().HasMaxLength(32);
 
         builder.HasIndex(x => x.ProductId);

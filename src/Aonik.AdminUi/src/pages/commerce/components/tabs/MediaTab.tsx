@@ -4,24 +4,30 @@
 // silently persist a different order than the screen shows.
 
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { heroImageIndex, MEDIA_URL_MAX, moveItem } from '../../lib/productForm';
+import { heroImageIndex, MEDIA_ALT_MAX, MEDIA_URL_MAX, moveItem, validateImageUpload } from '../../lib/productForm';
 import { Field, inputClass } from './DetailsTab';
 import { Badge } from '@/components/ui/badge';
 
 export interface MediaDraft {
   url: string;
   kind?: string | null;
+  altText?: string | null;
 }
 
 interface MediaTabProps {
   items: MediaDraft[];
   onChange: (next: MediaDraft[]) => void;
+  onUpload: (file: File, altText: string) => Promise<void>;
+  uploading: boolean;
 }
 
-export function MediaTab({ items, onChange }: MediaTabProps) {
+export function MediaTab({ items, onChange, onUpload, uploading }: MediaTabProps) {
   const [newUrl, setNewUrl] = useState('');
+  const [newAltText, setNewAltText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [addError, setAddError] = useState<string | null>(null);
   // The first IMAGE, not the first row — a leading document is not the hero.
   const heroIndex = heroImageIndex(items);
@@ -36,8 +42,25 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
       return;
     }
     setAddError(null);
-    onChange([...items, { url, kind: 'image' }]);
+    onChange([...items, { url, kind: 'image', altText: newAltText.trim() || null }]);
     setNewUrl('');
+    setNewAltText('');
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    const error = validateImageUpload(file, newAltText);
+    if (error) { setAddError(error); return; }
+    setAddError(null);
+    try {
+      await onUpload(file, newAltText.trim());
+      setFile(null);
+      setNewAltText('');
+      if (fileInput.current) fileInput.current.value = '';
+    } catch (error: unknown) {
+      setAddError(error && typeof error === 'object' && 'userMessage' in error
+        ? String(error.userMessage) : 'The image could not be uploaded. Your gallery changes are preserved.');
+    }
   };
 
   return (
@@ -60,7 +83,7 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
             >
               <img
                 src={item.url}
-                alt=""
+                alt={item.altText ?? ''}
                 className="h-10 w-10 rounded object-cover"
                 // A broken or unreachable URL must not leave a broken-image glyph in the
                 // editor; the row still shows its URL so it can be fixed or removed.
@@ -68,9 +91,14 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
                   e.currentTarget.style.visibility = 'hidden';
                 }}
               />
-              <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">
-                {item.url}
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-[family-name:var(--font-mono)] text-[11px] text-muted-foreground">{item.url}</p>
+                <Field label="Alt text">
+                  <input value={item.altText ?? ''} maxLength={MEDIA_ALT_MAX} className={inputClass}
+                    onChange={(event) => onChange(items.map((row, rowIndex) => rowIndex === index
+                      ? { ...row, altText: event.target.value } : row))} />
+                </Field>
+              </div>
               {index === heroIndex && (
                 <Badge variant="secondary">Hero</Badge>
               )}
@@ -104,6 +132,22 @@ export function MediaTab({ items, onChange }: MediaTabProps) {
           ))}
         </ul>
       )}
+
+      <Field label="New image alt text">
+        <input value={newAltText} maxLength={MEDIA_ALT_MAX} className={inputClass}
+          onChange={(event) => setNewAltText(event.target.value)} />
+        <span className="text-[11px] text-muted-foreground">Describe the dish shown. Required for uploads.</span>
+      </Field>
+
+      <Field label="Upload product image">
+        <input ref={fileInput} type="file" accept="image/jpeg,image/png" className={inputClass}
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+        <button type="button" disabled={!file || uploading} onClick={() => void upload()}
+          className="rounded-md border border-border px-3 py-1.5 text-[13px] hover:bg-muted disabled:opacity-50">
+          {uploading ? 'Uploading…' : 'Upload image'}
+        </button>
+        <span className="text-[11px] text-muted-foreground">JPEG or PNG, up to 10 MiB. Save the product to publish the updated gallery.</span>
+      </Field>
 
       <Field label="Add image by URL">
         <div className="flex gap-2">

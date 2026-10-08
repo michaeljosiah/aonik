@@ -21,6 +21,7 @@ const block = {
     fibreGrams: null,
     sugarsGrams: null,
     saltGrams: null,
+    saturatesGrams: null,
   },
   ingredients: 'Rice, tomato',
   allergens: null,
@@ -129,13 +130,24 @@ describe('wireFromDraft', () => {
     expect(wire.ingredients).toBe('Rice');
   });
 
-  it('carries every one of the seven figures', () => {
+  it('preserves saturates independently for each authored portion, including zero and withheld', () => {
+    const standard = { ...block, nutrition: { ...block.nutrition, saturatesGrams: 1.25 } };
+    expect(wireFromDraft(draftFromBlock(standard)).saturatesGrams).toBe(1.25);
+    for (const saturatesGrams of [null, 0, 2.5]) {
+      const variant = { ...standard, id: 'variant', selectionJson: '{"portion":"full"}', isActive: true,
+        nutrition: { ...standard.nutrition, saturatesGrams } };
+      expect(wireFromDraft(draftFromVariant(variant)).saturatesGrams).toBe(saturatesGrams);
+    }
+  });
+
+  it('carries every one of the eight figures', () => {
     const wire = wireFromDraft({ ...emptyDraft(), servingLabel: 'x' });
     for (const key of [
       'kcal',
       'proteinGrams',
       'carbsGrams',
       'fatGrams',
+      'saturatesGrams',
       'fibreGrams',
       'sugarsGrams',
       'saltGrams',

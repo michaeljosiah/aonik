@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AdminProductDetailDto } from '@/types/commerce';
+import type { AdminProductDetailDto, FacetGroupDto } from '@/types/commerce';
 
 import {
   buildMediaReplacement,
   buildProductPatch,
+  configuredTagOptions,
   formFromProduct,
   heroImageIndex,
   isEmptyPatch,
@@ -13,6 +14,8 @@ import {
   surchargePayload,
   validateSurchargeAmount,
   validateAttributesJson,
+  validateDishFields,
+  validateImageUpload,
   type ProductEditorForm,
 } from './productForm';
 
@@ -25,11 +28,34 @@ function baseForm(overrides: Partial<ProductEditorForm> = {}): ProductEditorForm
     tags: ['vegan'],
     attributesJson: '{"spice":"medium"}',
     searchKeywords: ['party', 'naija'],
+    heat: null,
+    componentsLine: '',
+    lowSugar: null,
+    freezable: null,
+    shelfLife: '',
+    relatedCollectionId: null,
+    isPlaceholder: true,
     ...overrides,
   };
 }
 
 describe('buildProductPatch', () => {
+  it('preserves authored zero and false values without treating them as omitted', () => {
+    expect(buildProductPatch(baseForm(), baseForm({ heat: 0, lowSugar: false, freezable: false, isPlaceholder: false })))
+      .toEqual({ heat: 0, lowSugar: false, freezable: false, isPlaceholder: false });
+  });
+
+  it('uses explicit scalar clears and sends empty text when an author withdraws facts', () => {
+    const before = baseForm({ heat: 2, lowSugar: true, freezable: false, relatedCollectionId: 'collection',
+      componentsLine: 'Rice and stew', shelfLife: 'Two days after delivery, refrigerated' });
+    expect(buildProductPatch(before, baseForm())).toEqual({ clearHeat: true, clearLowSugar: true,
+      clearFreezable: true, clearRelatedCollection: true, componentsLine: '', shelfLife: '' });
+  });
+
+  it('never changes placeholder approval when editing another field', () => {
+    const before = baseForm({ isPlaceholder: false });
+    expect(buildProductPatch(before, { ...before, name: 'Updated' })).toEqual({ name: 'Updated' });
+  });
   it('sends nothing when nothing changed', () => {
     const patch = buildProductPatch(baseForm(), baseForm());
     expect(patch).toEqual({});
@@ -87,6 +113,12 @@ describe('buildProductPatch', () => {
 });
 
 describe('formFromProduct', () => {
+  it('keeps unauthored flags unknown and unapproved legacy products marked placeholder', () => {
+    const form = formFromProduct({ name: 'Dish' } as AdminProductDetailDto);
+    expect(form).toMatchObject({ heat: null, lowSugar: null, freezable: null, isPlaceholder: true });
+    const authored = formFromProduct({ heat: 0, lowSugar: false, freezable: false, isPlaceholder: false } as AdminProductDetailDto);
+    expect(authored).toMatchObject({ heat: 0, lowSugar: false, freezable: false, isPlaceholder: false });
+  });
   it('parses tags and keeps keywords as the array the admin read exposes', () => {
     const product = {
       id: 'p1',
@@ -128,8 +160,8 @@ describe('buildMediaReplacement', () => {
       { url: 'https://cdn/b.jpg', kind: 'image' },
     ]);
     expect(lines).toEqual([
-      { url: 'https://cdn/a.jpg', kind: null },
-      { url: 'https://cdn/b.jpg', kind: 'image' },
+      { url: 'https://cdn/a.jpg', kind: null, altText: null },
+      { url: 'https://cdn/b.jpg', kind: 'image', altText: null },
     ]);
     for (const line of lines) {
       expect(line).not.toHaveProperty('sortOrder');
@@ -142,6 +174,14 @@ describe('buildMediaReplacement', () => {
 });
 
 describe('moveItem', () => {
+  it('keeps authored alt text with its asset through a reordered full replacement', () => {
+    const media = [{ url: '/one.jpg', kind: 'image', altText: 'Rice with stew' },
+      { url: '/two.jpg', kind: 'image', altText: '  Roasted chicken  ' }];
+    expect(buildMediaReplacement(moveItem(media, 1, 0))).toEqual([
+      { url: '/two.jpg', kind: 'image', altText: 'Roasted chicken' },
+      { url: '/one.jpg', kind: 'image', altText: 'Rice with stew' },
+    ]);
+  });
   it('reorders, which is what actually changes the saved order', () => {
     expect(moveItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
     expect(moveItem(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c']);
@@ -151,6 +191,37 @@ describe('moveItem', () => {
     expect(moveItem(['a', 'b'], 0, 0)).toEqual(['a', 'b']);
     expect(moveItem(['a', 'b'], -1, 1)).toEqual(['a', 'b']);
     expect(moveItem(['a', 'b'], 0, 9)).toEqual(['a', 'b']);
+  });
+});
+
+describe('dish authoring guards', () => {
+  it('offers only the configured active tag vocabulary without rewriting old tags', () => {
+    const group = (matchKind: string, isActive: boolean, value: string): FacetGroupDto => ({
+      id: value, key: value, label: value, matchKind, isActive, sourcePath: null, sortOrder: 0,
+      options: [{ value, label: `Label ${value}`, min: null, max: null }],
+    });
+    expect(configuredTagOptions([group('Tag', true, 'approved'), group('Tag', true, 'approved'),
+      group('Tag', false, 'retired'), group('Attribute', true, 'heat')]))
+      .toEqual([{ value: 'approved', label: 'Label approved', min: null, max: null }]);
+    const before = baseForm({ tags: ['legacy'] });
+    expect(buildProductPatch(before, { ...before, name: 'Renamed' })).toEqual({ name: 'Renamed' });
+    expect(buildProductPatch(before, { ...before, tags: [] })).toEqual({ tagsJson: '[]' });
+  });
+
+  it('rejects facts that cannot be stored before a partial product save begins', () => {
+    expect(validateDishFields(baseForm({ heat: 0 }))).toBeNull();
+    expect(validateDishFields(baseForm({ heat: 4 }))).toMatch(/Heat/);
+    expect(validateDishFields(baseForm({ heat: 1.5 }))).toMatch(/Heat/);
+    expect(validateDishFields(baseForm({ componentsLine: 'x'.repeat(501) }))).toMatch(/500/);
+    expect(validateDishFields(baseForm({ shelfLife: 'x'.repeat(1001) }))).toMatch(/1,000/);
+  });
+
+  it('requires upload alt text, a supported raster type and the configured byte limit', () => {
+    expect(validateImageUpload({ size: 10 * 1024 * 1024, type: 'image/jpeg' }, 'Rice')).toBeNull();
+    expect(validateImageUpload({ size: 20, type: 'image/png' }, ' ')).toMatch(/1–500/);
+    expect(validateImageUpload({ size: 20, type: 'image/png' }, 'x'.repeat(501))).toMatch(/1–500/);
+    expect(validateImageUpload({ size: 20, type: 'image/svg+xml' }, 'Rice')).toMatch(/JPEG or PNG/);
+    expect(validateImageUpload({ size: 10 * 1024 * 1024 + 1, type: 'image/jpeg' }, 'Rice')).toMatch(/10 MiB/);
   });
 });
 

@@ -31,6 +31,7 @@ public class ProductContentVariant : AuditableEntity, ITenantScoped
     public decimal? FibreGrams { get; set; }
     public decimal? SugarsGrams { get; set; }
     public decimal? SaltGrams { get; set; }
+    public decimal? SaturatesGrams { get; set; }
 
     /// <summary>Explicit or withheld — NEVER dynamically inherited. Null = withheld for this
     /// combination (the storefront shows its "not yet published" state); non-null = the authored

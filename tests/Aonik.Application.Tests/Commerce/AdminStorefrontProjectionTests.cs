@@ -364,7 +364,8 @@ public class AdminStorefrontProjectionTests
         var collections = new CollectionService(
             ctx, new TestTenantProvider(h.TenantId),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<CollectionService>.Instance,
-            extrasCatalog, new GbpTenantCurrencyProvider(), h.Pricing());
+            extrasCatalog, new GbpTenantCurrencyProvider(), h.Pricing(),
+            CommerceTestHarness.NewContentService(ctx, h.TenantId));
 
         var extrasCollectionId = (await ctx.Collections.AsNoTracking().FirstAsync(c => c.Slug == "extras")).Id;
         var adminDetail = await collections.GetAdminAsync(extrasCollectionId);

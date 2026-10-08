@@ -1,4 +1,4 @@
-namespace Aonik.Platform.Contracts.Services.Storage;
+namespace Aonik.SharedKernel.Abstractions.Storage;
 
 /// <summary>
 /// Service for processing images (resizing, thumbnailing, etc.)
@@ -13,6 +13,7 @@ public interface IImageProcessingService
     /// <param name="maxWidth">Maximum width in pixels</param>
     /// <param name="maxHeight">Maximum height in pixels</param>
     /// <param name="quality">JPEG quality (1-100), default 85</param>
+    /// <param name="stripMetadata">Orient the image and omit embedded metadata from the public JPEG.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task ResizeImageAsync(
         Stream sourceStream,
@@ -20,7 +21,12 @@ public interface IImageProcessingService
         int maxWidth,
         int maxHeight,
         int quality = 85,
+        bool stripMetadata = false,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Detects the format from its header without decoding pixels. The caller resets
+    /// the stream before another operation; an unrecognized header returns null.</summary>
+    Task<string?> DetectContentTypeAsync(Stream stream, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Create a thumbnail version of an image.

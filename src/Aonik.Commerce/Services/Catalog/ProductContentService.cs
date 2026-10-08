@@ -51,7 +51,7 @@ internal sealed class ProductContentService : IProductContentService
         // Step 1 — no default block: a defined state, never an empty panel presented as fact.
         var content = await _dbContext.ProductContents
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.ProductId == productId, ct);
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.ProductId == productId && !c.IsDeleted, ct);
         if (content is null)
         {
             return null;
@@ -68,9 +68,55 @@ internal sealed class ProductContentService : IProductContentService
         var variant = await _dbContext.ProductContentVariants
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                v => v.TenantId == tenantId && v.ProductId == productId && v.SelectionHash == hash && v.IsActive, ct);
+                v => v.TenantId == tenantId && v.ProductId == productId && v.SelectionHash == hash
+                    && v.IsActive && !v.IsDeleted, ct);
 
-        if (variant is not null && string.Equals(variant.SelectionJson, canonical, StringComparison.Ordinal))
+        variant = ExactVariant(variant, canonical);
+        var allDefaults = variant is not null || selection is null
+            ? canonical
+            : (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
+        return ResolveContent(content, variant, canonical, allDefaults);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ResolvedContentDto>> ResolveDefaultsAsync(
+        IReadOnlyCollection<Guid> productIds, CancellationToken ct = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var ids = productIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, ResolvedContentDto>();
+
+        var blocks = await _dbContext.ProductContents.AsNoTracking()
+            .Where(content => content.TenantId == tenantId && ids.Contains(content.ProductId) && !content.IsDeleted)
+            .ToListAsync(ct);
+        if (blocks.Count == 0) return new Dictionary<Guid, ResolvedContentDto>();
+
+        var contentIds = blocks.Select(content => content.ProductId).ToList();
+        var options = await _options.GetEffectiveOptionsBatchAsync(contentIds, ct);
+        var variants = await _dbContext.ProductContentVariants.AsNoTracking()
+            .Where(variant => variant.TenantId == tenantId && contentIds.Contains(variant.ProductId)
+                && variant.IsActive && !variant.IsDeleted)
+            .ToDictionaryAsync(variant => new { variant.ProductId, variant.SelectionHash }, ct);
+
+        var resolved = new Dictionary<Guid, ResolvedContentDto>(blocks.Count);
+        foreach (var block in blocks)
+        {
+            var canonical = CanonicalSelection.SerializeAllDefaults(options[block.ProductId]);
+            variants.TryGetValue(new { block.ProductId, SelectionHash = HashSelection(canonical) }, out var candidate);
+            resolved[block.ProductId] = ResolveContent(block, ExactVariant(candidate, canonical), canonical, canonical);
+        }
+        return resolved;
+    }
+
+    private static ProductContentVariant? ExactVariant(ProductContentVariant? variant, string canonical)
+        => variant is not null && string.Equals(variant.SelectionJson, canonical, StringComparison.Ordinal)
+            ? variant : null;
+
+    /// <summary>One projection for detail and batched standard-preparation reads. The caller
+    /// supplies only an exact active variant; figures, declarations and heating never merge.</summary>
+    private static ResolvedContentDto ResolveContent(ProductContent content, ProductContentVariant? variant,
+        string canonical, string allDefaults)
+    {
+        if (variant is not null)
         {
             var heating = ParseHeatingLenient(variant.HeatingJson);
             var allergens = ParseAllergens(variant.AllergensPresentJson);
@@ -97,7 +143,6 @@ internal sealed class ProductContentService : IProductContentService
         // Steps 4–6 — no variant: diff against the CURRENT all-defaults selection. Canonical
         // forms make the key-based diff a string comparison — prices never participate, so two
         // £0 proteins are still a diff (a diff is exactly what can change an allergen list).
-        var allDefaults = (await _selections.NormalizeAsync(productId, null, ct)).CanonicalSelectionJson;
         var isStandardPreparation = !string.Equals(canonical, allDefaults, StringComparison.Ordinal);
 
         // Belt and braces (§6): the block records which all-defaults combination it describes; a
@@ -216,6 +261,7 @@ internal sealed class ProductContentService : IProductContentService
             content.FibreGrams = AtColumnScale(command.FibreGrams);
             content.SugarsGrams = AtColumnScale(command.SugarsGrams);
             content.SaltGrams = AtColumnScale(command.SaltGrams);
+            content.SaturatesGrams = AtColumnScale(command.SaturatesGrams);
             content.Ingredients = ingredients;
             content.Allergens = allergens;
             content.AllergensPresentJson = allergensPresentJson;
@@ -679,22 +725,22 @@ internal sealed class ProductContentService : IProductContentService
         => figures.Where(f => f.Value is not null).Select(f => f.Name).ToList();
 
     private static List<(string, decimal?)> FiguresOf(ProductContent c) =>
-        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams)];
+        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams), ("saturatesGrams", c.SaturatesGrams)];
 
     private static List<(string, decimal?)> FiguresOf(ProductContentVariant v) =>
-        [("kcal", v.Kcal), ("proteinGrams", v.ProteinGrams), ("carbsGrams", v.CarbsGrams), ("fatGrams", v.FatGrams), ("fibreGrams", v.FibreGrams), ("sugarsGrams", v.SugarsGrams), ("saltGrams", v.SaltGrams)];
+        [("kcal", v.Kcal), ("proteinGrams", v.ProteinGrams), ("carbsGrams", v.CarbsGrams), ("fatGrams", v.FatGrams), ("fibreGrams", v.FibreGrams), ("sugarsGrams", v.SugarsGrams), ("saltGrams", v.SaltGrams), ("saturatesGrams", v.SaturatesGrams)];
 
     private static List<(string, decimal?)> FiguresOf(UpsertProductContentCommand c) =>
-        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams)];
+        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams), ("saturatesGrams", c.SaturatesGrams)];
 
     private static List<(string, decimal?)> FiguresOf(UpsertContentVariantCommand c) =>
-        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams)];
+        [("kcal", c.Kcal), ("proteinGrams", c.ProteinGrams), ("carbsGrams", c.CarbsGrams), ("fatGrams", c.FatGrams), ("fibreGrams", c.FibreGrams), ("sugarsGrams", c.SugarsGrams), ("saltGrams", c.SaltGrams), ("saturatesGrams", c.SaturatesGrams)];
 
     private static NutritionDto NutritionOf(ProductContent c) => new(
-        c.Kcal, c.ProteinGrams, c.CarbsGrams, c.FatGrams, c.FibreGrams, c.SugarsGrams, c.SaltGrams);
+        c.Kcal, c.ProteinGrams, c.CarbsGrams, c.FatGrams, c.FibreGrams, c.SugarsGrams, c.SaltGrams, c.SaturatesGrams);
 
     private static NutritionDto NutritionOf(ProductContentVariant v) => new(
-        v.Kcal, v.ProteinGrams, v.CarbsGrams, v.FatGrams, v.FibreGrams, v.SugarsGrams, v.SaltGrams);
+        v.Kcal, v.ProteinGrams, v.CarbsGrams, v.FatGrams, v.FibreGrams, v.SugarsGrams, v.SaltGrams, v.SaturatesGrams);
 
     private static void Apply(
         ProductContentVariant variant, UpsertContentVariantCommand command, string? heatingJson,
@@ -708,6 +754,7 @@ internal sealed class ProductContentService : IProductContentService
         variant.FibreGrams = AtColumnScale(command.FibreGrams);
         variant.SugarsGrams = AtColumnScale(command.SugarsGrams);
         variant.SaltGrams = AtColumnScale(command.SaltGrams);
+        variant.SaturatesGrams = AtColumnScale(command.SaturatesGrams);
         variant.Ingredients = NormalizeDeclaration(command.Ingredients);
         variant.Allergens = NormalizeDeclaration(command.Allergens);
         variant.AllergensPresentJson = allergensPresentJson;
@@ -922,7 +969,7 @@ internal sealed class ProductContentService : IProductContentService
                 hasBlock && (block!.Kcal is not null || block.ProteinGrams is not null
                     || block.CarbsGrams is not null || block.FatGrams is not null
                     || block.FibreGrams is not null || block.SugarsGrams is not null
-                    || block.SaltGrams is not null),
+                    || block.SaltGrams is not null || block.SaturatesGrams is not null),
                 hasBlock && (!string.IsNullOrWhiteSpace(block!.Ingredients)
                     || ParseAllergens(block.AllergensPresentJson) is not null)));
         }
@@ -958,7 +1005,7 @@ internal sealed class ProductContentService : IProductContentService
     {
         c.ServingLabel,
         Figure(c.Kcal), Figure(c.ProteinGrams), Figure(c.CarbsGrams), Figure(c.FatGrams),
-        Figure(c.FibreGrams), Figure(c.SugarsGrams), Figure(c.SaltGrams),
+        Figure(c.FibreGrams), Figure(c.SugarsGrams), Figure(c.SaltGrams), Figure(c.SaturatesGrams),
         c.Ingredients,
         c.Allergens,
         c.AllergensPresentJson,

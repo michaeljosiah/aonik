@@ -2,10 +2,11 @@
 // stable handle collections, content bindings and storefront links resolve against.
 
 import { Pill } from '@/components/layout/aonik';
-import type { ProductCategoryDto } from '@/types/commerce';
+import type { AdminCollectionSummaryDto, FacetOptionDto, ProductCategoryDto } from '@/types/commerce';
 
 import { validateAttributesJson, type ProductEditorForm } from '../../lib/productForm';
 import { NativeSelect } from '@/components/ui/native-select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const STATUSES = ['Active', 'Draft', 'Archived'];
 
@@ -14,10 +15,12 @@ interface DetailsTabProps {
   kind: string;
   form: ProductEditorForm;
   categories: ProductCategoryDto[];
+  tagOptions: FacetOptionDto[] | null;
+  collections: AdminCollectionSummaryDto[] | null;
   onChange: (patch: Partial<ProductEditorForm>) => void;
 }
 
-export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTabProps) {
+export function DetailsTab({ slug, kind, form, categories, tagOptions, collections, onChange }: DetailsTabProps) {
   const attributesError = validateAttributesJson(form.attributesJson);
 
   return (
@@ -95,12 +98,80 @@ export function DetailsTab({ slug, kind, form, categories, onChange }: DetailsTa
       </div>
 
       <Field label="Tags">
-        <ChipEditor
-          values={form.tags}
-          placeholder="Add a tag"
-          onChange={(tags) => onChange({ tags })}
-        />
+        <div className="flex flex-wrap gap-2">
+          {form.tags.map((tag) => (
+            <span key={tag} className="rounded-md bg-muted px-2 py-1 text-xs">
+              {tagOptions?.find((option) => option.value === tag)?.label ?? tag}
+              {tagOptions && !tagOptions.some((option) => option.value === tag) && ' (retired or legacy)'}
+              <button type="button" aria-label={`Remove ${tag}`} className="ml-2 text-muted-foreground hover:text-destructive"
+                onClick={() => onChange({ tags: form.tags.filter((value) => value !== tag) })}>×</button>
+            </span>
+          ))}
+        </div>
+        <NativeSelect value="" disabled={tagOptions === null}
+          onChange={(event) => { if (event.target.value) onChange({ tags: [...form.tags, event.target.value] }); }}>
+          <option value="">Add a configured tag</option>
+          {tagOptions?.filter((option) => !form.tags.includes(option.value)).map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </NativeSelect>
+        <span className="text-[11px] text-muted-foreground">
+          {tagOptions === null ? 'Tag choices are unavailable. Existing tags are preserved.' : 'Choices come from the active tag facets. Under 500 kcal is calculated from nutrition.'}
+        </span>
       </Field>
+
+      <Field label="Components line">
+        <input value={form.componentsLine} maxLength={500} className={inputClass}
+          onChange={(event) => onChange({ componentsLine: event.target.value })} />
+      </Field>
+
+      <Field label="Heat">
+        <NativeSelect value={form.heat ?? ''} onChange={(event) => onChange({ heat: event.target.value === '' ? null : Number(event.target.value) })}>
+          <option value="">Not authored</option>
+          {['None', 'Mild', 'Medium', 'Hot'].map((label, value) => <option key={value} value={value}>{label}</option>)}
+        </NativeSelect>
+      </Field>
+
+      <div className="flex gap-3">
+        <Field label="Low sugar" className="flex-1">
+          <NativeSelect value={form.lowSugar === null ? '' : String(form.lowSugar)}
+            onChange={(event) => onChange({ lowSugar: event.target.value === '' ? null : event.target.value === 'true' })}>
+            <option value="">Not authored</option><option value="true">Yes</option><option value="false">No</option>
+          </NativeSelect>
+        </Field>
+        <Field label="Freezable" className="flex-1">
+          <NativeSelect value={form.freezable === null ? '' : String(form.freezable)}
+            onChange={(event) => onChange({ freezable: event.target.value === '' ? null : event.target.value === 'true' })}>
+            <option value="">Not authored</option><option value="true">Yes</option><option value="false">No</option>
+          </NativeSelect>
+        </Field>
+      </div>
+
+      <Field label="Shelf life and storage conditions">
+        <textarea value={form.shelfLife} maxLength={1000} rows={3} className={inputClass}
+          onChange={(event) => onChange({ shelfLife: event.target.value })} />
+        <span className="text-[11px] text-muted-foreground">Include the storage conditions and when the stated shelf life begins.</span>
+      </Field>
+
+      <Field label="Related dishes collection">
+        <NativeSelect value={form.relatedCollectionId ?? ''} disabled={collections === null}
+          onChange={(event) => onChange({ relatedCollectionId: event.target.value || null })}>
+          <option value="">None</option>
+          {form.relatedCollectionId && !collections?.some((collection) => collection.id === form.relatedCollectionId) &&
+            <option value={form.relatedCollectionId}>{form.relatedCollectionId}</option>}
+          {collections?.map((collection) => <option key={collection.id} value={collection.id}>
+            {collection.title}{collection.isActive ? '' : ' (retired)'}
+          </option>)}
+        </NativeSelect>
+        <span className="text-[11px] text-muted-foreground">The collection’s existing order controls the related dishes. Only active collections are published.</span>
+      </Field>
+
+      <label className="flex items-start gap-2 rounded-md border border-border p-3 text-sm">
+        <Checkbox checked={!form.isPlaceholder} onCheckedChange={(checked) => onChange({ isPlaceholder: checked !== true })} />
+        <span>Product content and photography are approved
+          <span className="mt-1 block text-[11px] text-muted-foreground">Leave unchecked while any product information or imagery is placeholder content. Uploading an image does not approve the product.</span>
+        </span>
+      </label>
 
       <Field label="Attributes JSON">
         <textarea

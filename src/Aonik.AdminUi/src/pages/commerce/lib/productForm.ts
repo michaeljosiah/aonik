@@ -9,7 +9,7 @@
 //     client-side sortOrder would be silently ignored and persist the wrong order.
 
 import type { PatchProductRequest, ProductMediaLine } from '@/services/commerceCatalogService';
-import type { AdminProductDetailDto } from '@/types/commerce';
+import type { AdminProductDetailDto, FacetGroupDto, FacetOptionDto } from '@/types/commerce';
 
 /** The editable shape the Details/Storefront tabs bind to. */
 export interface ProductEditorForm {
@@ -20,6 +20,13 @@ export interface ProductEditorForm {
   tags: string[];
   attributesJson: string;
   searchKeywords: string[];
+  heat: number | null;
+  componentsLine: string;
+  lowSugar: boolean | null;
+  freezable: boolean | null;
+  shelfLife: string;
+  relatedCollectionId: string | null;
+  isPlaceholder: boolean;
 }
 
 /** The form as the server currently has it — the baseline every diff is taken against. */
@@ -32,6 +39,13 @@ export function formFromProduct(product: AdminProductDetailDto): ProductEditorFo
     tags: parseJsonArray(product.tagsJson),
     attributesJson: product.attributesJson ?? '{}',
     searchKeywords: product.searchKeywords ?? [],
+    heat: product.heat ?? null,
+    componentsLine: product.componentsLine ?? '',
+    lowSugar: product.lowSugar ?? null,
+    freezable: product.freezable ?? null,
+    shelfLife: product.shelfLife ?? '',
+    relatedCollectionId: product.relatedCollectionId ?? null,
+    isPlaceholder: product.isPlaceholder ?? true,
   };
 }
 
@@ -49,6 +63,25 @@ export function buildProductPatch(
   if (edited.name !== original.name) patch.name = edited.name;
   if (edited.description !== original.description) patch.description = edited.description;
   if (edited.status !== original.status) patch.status = edited.status;
+  if (edited.componentsLine !== original.componentsLine) patch.componentsLine = edited.componentsLine;
+  if (edited.shelfLife !== original.shelfLife) patch.shelfLife = edited.shelfLife;
+  if (edited.isPlaceholder !== original.isPlaceholder) patch.isPlaceholder = edited.isPlaceholder;
+  if (edited.heat !== original.heat) {
+    if (edited.heat === null) patch.clearHeat = true;
+    else patch.heat = edited.heat;
+  }
+  if (edited.lowSugar !== original.lowSugar) {
+    if (edited.lowSugar === null) patch.clearLowSugar = true;
+    else patch.lowSugar = edited.lowSugar;
+  }
+  if (edited.freezable !== original.freezable) {
+    if (edited.freezable === null) patch.clearFreezable = true;
+    else patch.freezable = edited.freezable;
+  }
+  if (edited.relatedCollectionId !== original.relatedCollectionId) {
+    if (edited.relatedCollectionId === null) patch.clearRelatedCollection = true;
+    else patch.relatedCollectionId = edited.relatedCollectionId;
+  }
 
   // A cleared textarea reads as "no attributes", but the server rejects blank outright and
   // requires "{}" to clear — so an edit that looks supported would fail at save time.
@@ -91,11 +124,29 @@ export function isEmptyPatch(patch: PatchProductRequest): boolean {
  * reader into thinking order was being sent explicitly.
  */
 export function buildMediaReplacement(
-  items: readonly { url: string; kind?: string | null }[],
+  items: readonly ProductMediaLine[],
 ): ProductMediaLine[] {
   return items
     .filter((item) => item.url.trim().length > 0)
-    .map((item) => ({ url: item.url.trim(), kind: item.kind ?? null }));
+    .map((item) => ({ url: item.url.trim(), kind: item.kind ?? null, altText: item.altText?.trim() || null }));
+}
+
+/** Tenant-owned vocabulary; existing retired tags stay in the form until explicitly removed. */
+export function configuredTagOptions(groups: readonly FacetGroupDto[]): FacetOptionDto[] {
+  const choices = new Map<string, FacetOptionDto>();
+  for (const group of groups.filter((group) => group.isActive && group.matchKind === 'Tag')) {
+    for (const option of group.options) {
+      if (!choices.has(option.value)) choices.set(option.value, option);
+    }
+  }
+  return [...choices.values()];
+}
+
+export function validateDishFields(form: ProductEditorForm): string | null {
+  if (form.heat !== null && (!Number.isInteger(form.heat) || form.heat < 0 || form.heat > 3)) return 'Heat must be between 0 and 3.';
+  if (form.componentsLine.trim().length > 500) return 'The components line must be no longer than 500 characters.';
+  if (form.shelfLife.trim().length > 1000) return 'Shelf life must be no longer than 1,000 characters.';
+  return null;
 }
 
 /**
@@ -146,6 +197,15 @@ export function surchargePayload(amount: string, currency: string): SurchargePay
 
 /** The mapped column bound for a media URL — `ProductMediaConfiguration`, enforced server-side. */
 export const MEDIA_URL_MAX = 1024;
+export const MEDIA_ALT_MAX = 500;
+export const PRODUCT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
+export function validateImageUpload(file: Pick<File, 'size' | 'type'>, altText: string): string | null {
+  if (!['image/jpeg', 'image/png'].includes(file.type)) return 'Choose a JPEG or PNG image.';
+  if (file.size === 0 || file.size > PRODUCT_IMAGE_MAX_BYTES) return 'Choose an image up to 10 MiB.';
+  if (!altText.trim() || altText.trim().length > MEDIA_ALT_MAX) return 'Describe the image in 1–500 characters before uploading.';
+  return null;
+}
 
 /** Plain fixed-point only. Deliberately excludes `1e-5`, `0x10`, `Infinity` and whitespace. */
 const FIXED_POINT = /^-?\d+(\.\d+)?$/;

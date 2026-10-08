@@ -121,9 +121,8 @@ internal sealed partial class FacetGroupService : IFacetGroupService
 
     // ─── Internals ───────────────────────────────────────────────────────────
 
-    /// <summary>SourcePath is required for Attribute/Range (it names the AttributesJson property
-    /// read) and forbidden otherwise — a Category/Tag group carrying one is a confused definition
-    /// that should fail at authoring, not surprise at matching (§11).</summary>
+    /// <summary>SourcePath is required for Attribute/Range. Reserved paths read typed product or
+    /// resolved nutrition facts; other paths read AttributesJson. Forbidden on Category/Tag.</summary>
     private static string? ValidateSourcePath(string matchKind, string? sourcePath)
     {
         var trimmed = string.IsNullOrWhiteSpace(sourcePath) ? null : sourcePath.Trim();
@@ -138,6 +137,16 @@ internal sealed partial class FacetGroupService : IFacetGroupService
             if (trimmed.Length > 128)
             {
                 throw new StorefrontValidationException("A sourcePath is at most 128 characters.");
+            }
+            if ((trimmed is "nutrition.kcal" or "nutrition.proteinGrams" or "nutrition.fibreGrams")
+                && matchKind != FacetMatchKinds.Range)
+            {
+                throw new StorefrontValidationException(
+                    "Nutrition facets use Range with nutrition.kcal, nutrition.proteinGrams or nutrition.fibreGrams.");
+            }
+            if (trimmed == "lowSugar" && matchKind != FacetMatchKinds.Attribute)
+            {
+                throw new StorefrontValidationException("lowSugar uses an Attribute facet with true/false values.");
             }
             return trimmed;
         }

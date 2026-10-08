@@ -36,7 +36,8 @@ public record NutritionDto(
     decimal? FatGrams,
     decimal? FibreGrams,
     decimal? SugarsGrams,
-    decimal? SaltGrams);
+    decimal? SaltGrams,
+    decimal? SaturatesGrams = null);
 
 public record HeatingStepDto(string Method, string Body);
 
@@ -92,7 +93,8 @@ public record UpsertProductContentCommand(
     string? Allergens = null,
     string? HeatingJson = null,
     IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
-    string? PrecautionaryStatement = null);
+    string? PrecautionaryStatement = null,
+    decimal? SaturatesGrams = null);
 
 /// <summary>Variant authoring. <see cref="SelectionJson"/> may be partial — it is normalised
 /// through Spec 066 (omitted groups filled with the then-current defaults) and stored complete.
@@ -111,7 +113,8 @@ public record UpsertContentVariantCommand(
     string? Allergens = null,
     string? HeatingJson = null,
     IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
-    string? PrecautionaryStatement = null);
+    string? PrecautionaryStatement = null,
+    decimal? SaturatesGrams = null);
 
 // ─── Coverage (Spec 067 §8) ─────────────────────────────────────────────────
 

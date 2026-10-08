@@ -23,6 +23,7 @@ public class ProductContent : AuditableEntity, ITenantScoped
     public decimal? FibreGrams { get; set; }
     public decimal? SugarsGrams { get; set; }
     public decimal? SaltGrams { get; set; }
+    public decimal? SaturatesGrams { get; set; }
 
     /// <summary>Full ingredients declaration text; null = not published.</summary>
     public string? Ingredients { get; set; }

@@ -32,6 +32,7 @@ export interface UpsertProductContentRequest {
   fibreGrams?: number | null;
   sugarsGrams?: number | null;
   saltGrams?: number | null;
+  saturatesGrams?: number | null;
   ingredients?: string | null;
   allergens?: string | null;
   allergensPresent: RegulatedAllergen[] | null;
@@ -70,6 +71,7 @@ export interface UpsertContentVariantRequest {
   fibreGrams?: number | null;
   sugarsGrams?: number | null;
   saltGrams?: number | null;
+  saturatesGrams?: number | null;
   ingredients?: string | null;
   allergens?: string | null;
   allergensPresent: RegulatedAllergen[] | null;

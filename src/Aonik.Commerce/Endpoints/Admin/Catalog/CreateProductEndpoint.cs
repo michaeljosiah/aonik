@@ -35,7 +35,9 @@ public class CreateProductEndpoint : Endpoint<CreateProductRequest, ProductDto>
             req.BundleFixedAmount,
             req.BundlePremium,
             req.BundleCurrency,
-            req.SearchKeywordsJson);
+            req.SearchKeywordsJson,
+            req.Heat, req.ComponentsLine, req.LowSugar, req.Freezable, req.ShelfLife,
+            req.RelatedCollectionId, req.IsPlaceholder);
 
         var result = await _products.CreateProductAsync(command, ct);
         await Send.OkAsync(result, ct);

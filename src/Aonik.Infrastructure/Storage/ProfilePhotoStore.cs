@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Storage;
 using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
 using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.SharedKernel.Abstractions.Storage;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
@@ -67,7 +68,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
             maxWidth: 1920,
             maxHeight: 1920,
             quality: 90,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         originalStream.Position = 0;
         await WriteBlobAsync(blobPath, originalStream, cancellationToken);

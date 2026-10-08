@@ -21,6 +21,15 @@ public class Product : AuditableEntity, ITenantScoped
     public Guid? CategoryId { get; set; }
     public string TagsJson { get; set; } = "[]";
     public string AttributesJson { get; set; } = "{}";
+    public int? Heat { get; set; }
+    public string? ComponentsLine { get; set; }
+    public bool? LowSugar { get; set; }
+    public bool? Freezable { get; set; }
+    public string? ShelfLife { get; set; }
+    public Guid? RelatedCollectionId { get; set; }
+
+    /// <summary>Unverified content stays marked until an operator explicitly approves it.</summary>
+    public bool IsPlaceholder { get; set; } = true;
 
     // Spec 042 §12 — bundle (build-your-own-box) pricing. Null for non-bundle products.
     public string? BundlePricingMode { get; set; }

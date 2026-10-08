@@ -7,7 +7,7 @@
 // their own section changed.
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -20,18 +20,21 @@ import {
 import { Button } from '@/components/ui/button';
 import { commerceCatalogService } from '@/services/commerceCatalogService';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
-import type { AdminProductDetailDto, ProductCategoryDto } from '@/types/commerce';
+import type { AdminCollectionSummaryDto, AdminProductDetailDto, FacetOptionDto, ProductCategoryDto } from '@/types/commerce';
 
 import { UnderlineTabs } from '../components/UnderlineTabs';
 import {
   buildMediaReplacement,
   buildProductPatch,
+  configuredTagOptions,
   formFromProduct,
   isEmptyPatch,
   isSurchargeDirty,
   MEDIA_URL_MAX,
+  MEDIA_ALT_MAX,
   surchargePayload,
   validateAttributesJson,
+  validateDishFields,
   validateSurchargeAmount,
   type ProductEditorForm,
 } from '../lib/productForm';
@@ -71,6 +74,11 @@ export function ProductEditorSheet({
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [tagOptions, setTagOptions] = useState<FacetOptionDto[] | null>(null);
+  const [collections, setCollections] = useState<AdminCollectionSummaryDto[] | null>(null);
+  const currentProductId = useRef(productId);
+  currentProductId.current = productId;
   const [error, setError] = useState<string | null>(null);
 
   // Every field is re-seeded from the opened product, so switching products can never leave
@@ -81,7 +89,7 @@ export function ProductEditorSheet({
     try {
       const detail = await commerceCatalogService.getProduct(productId);
       const seeded = formFromProduct(detail);
-      const mediaDraft = detail.media.map((m) => ({ url: m.url, kind: m.kind }));
+      const mediaDraft = detail.media.map((m) => ({ url: m.url, kind: m.kind, altText: m.altText }));
       setProduct(detail);
       setOriginal(seeded);
       setForm(seeded);
@@ -103,6 +111,28 @@ export function ProductEditorSheet({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([commerceStorefrontService.listFacetGroups(), commerceStorefrontService.listCollections()])
+      .then(([facets, lists]) => {
+        if (cancelled) return;
+        setTagOptions(facets.status === 'fulfilled' ? configuredTagOptions(facets.value) : null);
+        setCollections(lists.status === 'fulfilled' ? lists.value : null);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const uploadImage = async (file: File, altText: string) => {
+    setUploading(true);
+    try {
+      const image = await commerceCatalogService.uploadProductImage(productId, file, altText);
+      if (currentProductId.current !== productId) return;
+      setMedia((current) => [...current, { ...image, kind: 'image' }]);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // The storefront's canonical currency does two jobs: it is the default for a FIRST-TIME
   // surcharge (the server rejects an amount with a blank currency, so an operator must not
@@ -142,11 +172,11 @@ export function ProductEditorSheet({
   // rather than prevented — each section commits independently and advances its baseline, so
   // what landed is knowable on reopen instead of half-applied.
   useEffect(() => {
-    if (!saving) return;
+    if (!saving && !uploading) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [saving]);
+  }, [saving, uploading]);
 
   // ONE expression for what the operator sees and what gets saved. Seeding the state instead
   // races the product read: whichever request lands second wins, so the config could seed the
@@ -168,6 +198,9 @@ export function ProductEditorSheet({
         return;
       }
     }
+
+    const dishError = validateDishFields(form);
+    if (dishError) { setError(dishError); setActiveTab('details'); return; }
 
     const draft = { amount: surchargeAmount, currency: effectiveSurchargeCurrency };
     const surchargeTouched = isSurchargeDirty(originalSurcharge, draft);
@@ -223,6 +256,11 @@ export function ProductEditorSheet({
     const oversized = media.find((item) => item.url.trim().length > MEDIA_URL_MAX);
     if (oversized) {
       setError(`A media URL is longer than ${MEDIA_URL_MAX} characters and cannot be saved.`);
+      setActiveTab('media');
+      return;
+    }
+    if (media.some((item) => (item.altText?.trim().length ?? 0) > MEDIA_ALT_MAX)) {
+      setError('Image alt text must be no longer than 500 characters.');
       setActiveTab('media');
       return;
     }
@@ -284,7 +322,7 @@ export function ProductEditorSheet({
       // Every dismissal path — Escape, the overlay, the header close button — routes through
       // here, so a save in flight must block them all. Closing mid-save would look like an
       // abandoned action while the writes carried on off-screen.
-      onOpenChange={(open) => !open && !saving && onClose()}
+      onOpenChange={(open) => !open && !saving && !uploading && onClose()}
     >
       <SheetContent size="lg">
         <SheetHeader
@@ -316,7 +354,7 @@ export function ProductEditorSheet({
             // Frozen while saving: the payloads were built from the state at click time, so
             // a keystroke or reorder made during a slow save would be silently discarded by
             // the success path that closes the sheet and reports the product saved.
-            <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+            <fieldset disabled={saving || uploading} className="flex min-w-0 flex-col gap-4 border-0 p-0">
               <UnderlineTabs
                 tabs={[
                   { key: 'details', label: 'Details' },
@@ -333,11 +371,13 @@ export function ProductEditorSheet({
                   kind={product.kind}
                   form={form}
                   categories={categories}
+                  tagOptions={tagOptions}
+                  collections={collections}
                   onChange={(patch) => setForm({ ...form, ...patch })}
                 />
               )}
 
-              {activeTab === 'media' && <MediaTab items={media} onChange={setMedia} />}
+              {activeTab === 'media' && <MediaTab items={media} onChange={setMedia} onUpload={uploadImage} uploading={uploading} />}
 
               {activeTab === 'storefront' && (
                 <StorefrontTab
@@ -345,7 +385,7 @@ export function ProductEditorSheet({
                   product={product}
                   // A fieldset disables controls, not anchors — the deep-surface links need
                   // to be told separately, or they would navigate away mid-save.
-                  frozen={saving}
+                  frozen={saving || uploading}
                   form={form}
                   onChange={(patch) => setForm({ ...form, ...patch })}
                   surchargeAmount={surchargeAmount}
@@ -363,12 +403,12 @@ export function ProductEditorSheet({
         </SheetBody>
 
         <SheetFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+          <Button variant="outline" onClick={onClose} disabled={saving || uploading}>
             Cancel
           </Button>
           {/* Save stays disabled when nothing loaded — handleSave would return immediately,
               so an enabled button would promise an action it cannot perform. */}
-          <Button onClick={() => void handleSave()} disabled={saving || loading || unloaded}>
+          <Button onClick={() => void handleSave()} disabled={saving || uploading || loading || unloaded}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </SheetFooter>

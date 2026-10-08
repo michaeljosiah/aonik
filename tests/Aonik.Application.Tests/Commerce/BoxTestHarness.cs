@@ -52,7 +52,8 @@ internal sealed class BoxTestHarness
     public ProductService Products()
     {
         var ctx = Commerce();
-        return new(ctx, _tenant, CommerceTestHarness.NewOptionService(ctx, _tenantId), NullLogger<ProductService>.Instance);
+        return new(ctx, _tenant, CommerceTestHarness.NewOptionService(ctx, _tenantId), NullLogger<ProductService>.Instance,
+            CommerceTestHarness.NewContentService(ctx, _tenantId));
     }
 
     public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);

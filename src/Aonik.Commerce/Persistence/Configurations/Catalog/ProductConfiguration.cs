@@ -17,6 +17,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.Kind).IsRequired().HasMaxLength(32);
         builder.Property(x => x.TagsJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.AttributesJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.ComponentsLine).HasMaxLength(500);
+        builder.Property(x => x.ShelfLife).HasMaxLength(1000);
+        builder.Property(x => x.IsPlaceholder).HasDefaultValue(true).HasSentinel(true);
 
         builder.Property(x => x.BundlePricingMode).HasMaxLength(32);
         builder.Property(x => x.BundleCurrency).HasMaxLength(3);
