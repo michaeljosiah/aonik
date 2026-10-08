@@ -11,6 +11,9 @@ public static class SettingDefinitions
     private static readonly IReadOnlyDictionary<string, SettingDefinition> Definitions =
         new ConcurrentDictionary<string, SettingDefinition>(new Dictionary<string, SettingDefinition>
         {
+            // Only the typed, opt-in public profile endpoint may expose this document.
+            [BusinessProfileSettingNames.Profile] = new SettingDefinition(BusinessProfileSettingNames.Profile),
+
             // ── Auth ──────────────────────────────────────────────────────
             [AuthSettingNames.Provider] = new SettingDefinition(AuthSettingNames.Provider, "AzureAd", IsVisibleToClients: true),
 
