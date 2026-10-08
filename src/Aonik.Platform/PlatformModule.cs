@@ -28,6 +28,8 @@ using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Services.Seeding.Phases;
 using Aonik.Platform.Services.Settings;
+using Aonik.Platform.Contracts.Services.SignupLists;
+using Aonik.Platform.Services.SignupLists;
 using Aonik.Platform.Services.UserBrief;
 using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Abstractions.UserBrief;
@@ -101,6 +103,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IPaymentGatewaySettingsService, PaymentGatewaySettingsService>();
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
         services.AddScoped<IPublicBusinessProfileService, PublicBusinessProfileService>();
+        services.AddScoped<ISignupListService, SignupListService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantTextToSpeechSettingsService, TenantTextToSpeechSettingsService>();
         // Voice provider settings — same JSON-payload-on-existing-Settings-table pattern as TTS.
         // See docs/specifications/022.aonik-voice-realtime.md Phase 2.

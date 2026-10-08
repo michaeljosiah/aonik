@@ -10,6 +10,7 @@ using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Tasks;
 using Aonik.Platform.Entities.Settings;
+using Aonik.Platform.Entities.SignupLists;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
@@ -61,6 +62,8 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
     public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
     public DbSet<MarketingPreference> MarketingPreferences { get; set; } = null!;
+
+    public DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
 
     // Compliance
     public DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
@@ -194,6 +197,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<PartyRelationship>(modelBuilder, "PartyRelationships");
         MapTable<NotificationPreference>(modelBuilder, "NotificationPreferences");
         MapTable<MarketingPreference>(modelBuilder, "MarketingPreferences");
+        MapTable<SignupSubscription>(modelBuilder, "SignupSubscriptions");
 
         MapTable<ScreeningCheck>(modelBuilder, "ScreeningChecks");
         MapTable<ComplianceCase>(modelBuilder, "ComplianceCases");
