@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Persistence;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Platform.Contracts.Services.Messaging;
@@ -109,7 +110,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 services.AddDbContext<AonikDbContext>(options =>
                 {
                     options.UseInMemoryDatabase(_databaseName);
+                    options.AddInterceptors(new CartVersionTestInterceptor());
                 });
+                services.ConfigureDbContext<CommerceDbContext>(options => options.AddInterceptors(new CartVersionTestInterceptor()));
 
                 // Register IAonikDbContext
                 services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());

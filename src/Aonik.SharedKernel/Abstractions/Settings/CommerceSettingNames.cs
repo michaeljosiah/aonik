@@ -6,6 +6,12 @@
 /// </summary>
 public static class CommerceSettingNames
 {
+    /// <summary>Global housekeeping window for box drafts containing dishes; default 7 days.</summary>
+    public const string CartsAbandonAfterDays = "Commerce.Carts.AbandonAfterDays";
+
+    /// <summary>Global housekeeping window for box drafts without dishes; default 24 hours.</summary>
+    public const string CartsEmptyAbandonAfterHours = "Commerce.Carts.EmptyAbandonAfterHours";
+
     /// <summary>
     /// Spec 066 §15 — the label a storefront renders beside a group's recommended default.
     /// Product identity is configuration, not platform code (ADR-013): the platform models a

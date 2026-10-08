@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
@@ -12,7 +12,7 @@ namespace Aonik.Application.Tests.Commerce;
 /// <summary>Spec 072 — guest→account adoption (Y4, Z2–Z4) and party-scoped order reads (Y5, Z5).</summary>
 public class StorefrontIdentityTests
 {
-    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken);
+    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken, dto.CartVersion);
 
     private static async Task<(BoxTestHarness H, BoxTestHarness.BoxFixture F, BoxCartDto Box)> GuestBoxAsync()
     {
@@ -34,7 +34,7 @@ public class StorefrontIdentityTests
         // Z3 — the leaked pre-adoption token is dead; the party principal now authorizes.
         var viaToken = () => h.BoxCarts().GetAsync(box.Box.CartId, Token(box));
         await viaToken.Should().ThrowAsync<NotFoundException>();
-        var viaParty = await h.BoxCarts().GetAsync(box.Box.CartId, CartAccessContext.ForParty(party));
+        var viaParty = await h.BoxCarts().GetAsync(box.Box.CartId, CartAccessContext.ForParty(party, ""));
         viaParty.Box.CartId.Should().Be(box.Box.CartId);
 
         // Idempotent for the owning party.
@@ -106,7 +106,7 @@ public class StorefrontIdentityTests
         {
             var carts = h.BoxCarts();
             var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6, BuyerPartyId: party));
-            var access = CartAccessContext.ForParty(party);
+            var access = CartAccessContext.ForParty(party, "");
             await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
             var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
             return result.OrderId;

@@ -349,8 +349,10 @@ stating the scope now is what keeps them from diverging silently later.</p>
   seven units into a six-box. Every capacity-affecting write therefore runs in a transaction that
   also touches the <code>Cart</code> row under its rowversion concurrency token
   (<code>AonikDbContextBase.ConfigureRowVersions</code> already stamps it): concurrent writers
-  conflict, the loser revalidates against fresh state and retries once, then 409s. Two adds racing
-  into one remaining space can never both commit (A17).</p>
+  conflict. Since issue #347, new customer edits require the observed <code>X-Cart-Version</code>
+  and a stale edit returns 409 for the customer to reload and review; only read-time catalogue
+  repairs may retry once. Two adds racing into one remaining space can never both commit (A17).
+  See <a href="../features/checkout-drafts.md">checkout drafts</a> for the shared form and activity policy.</p>
 </div>
 
 <!-- ============================================================ -->

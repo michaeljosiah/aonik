@@ -94,13 +94,13 @@ public class CheckoutServiceTests
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
-        public CartService Carts() => new(Commerce(), _tenant, Pricing());
+        public CartService Carts() => new(Commerce(), _tenant, Pricing(), _clock);
         public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
         public BoxCartService BoxCarts()
         {
             var ctx = Commerce();
             return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, _clock));
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, _clock), _clock);
         }
 
         public CheckoutService Checkout() => new(
@@ -381,7 +381,7 @@ public class CheckoutServiceTests
 
         // Cart is still Open (payment pending) but OrderId is stamped — further edits must be rejected.
         var addAfter = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
-        await addAfter.Should().ThrowAsync<InvalidOperationException>();
+        await addAfter.Should().ThrowAsync<CartWriteConflictException>();
     }
 
     [Fact]

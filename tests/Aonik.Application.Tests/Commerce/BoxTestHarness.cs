@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Fulfilment;
@@ -17,6 +17,7 @@ using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.DataProtection;
 
@@ -39,6 +40,7 @@ internal sealed class BoxTestHarness
     public BoxTestHarness() => _tenant = new TestTenantProvider(_tenantId);
 
     public Guid TenantId => _tenantId;
+    public CommerceTestHarness.TestClock Clock => _clock;
 
     public FakeBoxPaymentInitiator Payments { get; } = new();
     public GuestOrderAccess GuestOrderAccess { get; } = new(new EphemeralDataProtectionProvider());
@@ -51,8 +53,9 @@ internal sealed class BoxTestHarness
     /// <summary>Tenant-scoped delivery settings for quote/checkout tests; empty = defaults (0/0).</summary>
     public Dictionary<string, string> Settings { get; } = new(StringComparer.Ordinal);
 
-    public CommerceDbContext Commerce() => CommerceTestHarness.CreateContext(
-        new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(_commerceDb).Options, _tenantId);
+    public CommerceDbContext Commerce(params IInterceptor[] interceptors) => CommerceTestHarness.CreateContext(
+        new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(_commerceDb)
+            .AddInterceptors(interceptors).Options, _tenantId, _clock);
 
     public OrderingDbContext Ordering() => new(
         new DbContextOptionsBuilder<OrderingDbContext>().UseInMemoryDatabase(_orderingDb).Options, _tenant, _user);
@@ -66,16 +69,16 @@ internal sealed class BoxTestHarness
 
     public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
     public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, _clock);
-    public CartService Carts() => new(Commerce(), _tenant, Pricing());
+    public CartService Carts() => new(Commerce(), _tenant, Pricing(), _clock);
     public BundleSizePlanService Plans() => new(Commerce(), _tenant);
     public StorefrontOrderService StorefrontOrders() => new(
         Commerce(), _tenant, new CoreOrderService(Ordering(), _tenant, _clock, _user), GuestOrderAccess);
 
-    public BoxCartService BoxCarts()
+    public BoxCartService BoxCarts(CommerceDbContext? context = null)
     {
-        var ctx = Commerce();
+        var ctx = context ?? Commerce();
         return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock);
     }
 
     /// <summary>CheckoutService and its IBoxCheckoutSupport share ONE context, exactly as the
@@ -87,7 +90,7 @@ internal sealed class BoxTestHarness
         var inventory = new InventoryService(ctx, _tenant, new TenantContext { TenantId = _tenantId }, _clock);
         var boxCarts = new BoxCartService(ctx, _tenant,
             CommerceTestHarness.NewSelectionService(ctx, _tenantId), inventory,
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing());
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock);
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),

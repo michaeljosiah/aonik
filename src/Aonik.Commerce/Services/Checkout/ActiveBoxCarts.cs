@@ -15,7 +15,7 @@ internal static class ActiveBoxCarts
 
     public static ActiveBoxSnapshotDto Snapshot(Entities.Cart.Cart cart)
         => new(cart.Id, Convert.ToBase64String(cart.RowVersion), cart.BoxSize,
-            cart.Items.Count(item => !item.IsDeleted), cart.UpdatedAt ?? cart.CreatedAt);
+            cart.Items.Count(item => !item.IsDeleted), CartActivity.LastActivity(cart));
 
     public static ActiveBoxConflictException Conflict(string code, Entities.Cart.Cart? guest,
         IReadOnlyList<Entities.Cart.Cart> candidates)
@@ -25,7 +25,7 @@ internal static class ActiveBoxCarts
 
     public static bool MatchesVersion(Entities.Cart.Cart cart, string? version)
     {
-        if (version is null || version.Length > 64) return false;
+        if (version is null || version.Length > 64 || version.Length > 0 && string.IsNullOrWhiteSpace(version)) return false;
         try { return cart.RowVersion.AsSpan().SequenceEqual(Convert.FromBase64String(version)); }
         catch (FormatException) { return false; }
     }

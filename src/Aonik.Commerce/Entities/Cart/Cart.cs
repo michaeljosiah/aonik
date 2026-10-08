@@ -26,6 +26,9 @@ public class Cart : AuditableEntity, ITenantScoped
     /// <summary>Spec 068 — the chosen box size; the capacity ceiling for BoxDish units.</summary>
     public int? BoxSize { get; set; }
 
+    public string? CheckoutDraftJson { get; set; }
+    public DateTime? LastActivityAtUtc { get; set; }
+
     public List<CartItem> Items { get; set; } = new();
 }
 

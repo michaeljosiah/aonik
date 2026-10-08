@@ -18,7 +18,7 @@ public class BoxCartAdoptionTests
         var before = await SnapshotAsync(fixture.Harness);
 
         var act = () => fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId,
-            fixture.PartyId, CartAccessContext.ForGuest(fixture.Guest.CartToken));
+            fixture.PartyId, CartAccessContext.ForGuest(fixture.Guest.CartToken, fixture.Guest.CartVersion));
 
         var conflict = (await act.Should().ThrowAsync<ActiveBoxConflictException>()).Which;
         conflict.Code.Should().Be(ActiveBoxConflictException.ChoiceRequired);
@@ -50,7 +50,7 @@ public class BoxCartAdoptionTests
         after.SelectMany(x => x.Items).Should().BeEquivalentTo(before.SelectMany(x => x.Items), options =>
             options.ComparingByMembers<CartItem>().ComparingByMembers<CartItemSelection>());
         var tokenRead = await fixture.Harness.Carts().GetCartAsync(fixture.Guest.Box.CartId,
-            CartAccessContext.ForGuest(fixture.Guest.CartToken));
+            CartAccessContext.ForGuest(fixture.Guest.CartToken, fixture.Guest.CartVersion));
         tokenRead.Should().BeNull();
     }
 
@@ -65,7 +65,7 @@ public class BoxCartAdoptionTests
         var beforeReplay = await SnapshotAsync(fixture.Harness);
 
         var second = await fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId,
-            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId), choice);
+            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId, ""), choice);
 
         second.Id.Should().Be(first.Id);
         await AssertUnchangedAsync(fixture.Harness, beforeReplay);
@@ -81,7 +81,7 @@ public class BoxCartAdoptionTests
         var before = await SnapshotAsync(fixture.Harness);
 
         var act = () => fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId, fixture.PartyId,
-            CartAccessContext.ForParty(fixture.PartyId), Choice(fixture, second));
+            CartAccessContext.ForParty(fixture.PartyId, ""), Choice(fixture, second));
 
         await act.Should().ThrowAsync<ActiveBoxConflictException>();
         await AssertUnchangedAsync(fixture.Harness, before);
@@ -203,7 +203,7 @@ public class BoxCartAdoptionTests
         var before = await SnapshotAsync(fixture.Harness);
 
         var replay = await fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId,
-            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId), choice);
+            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId, ""), choice);
 
         replay.Id.Should().Be(fixture.Saved.Box.CartId);
         replay.Items.Single().Quantity.Should().Be(3);
@@ -228,7 +228,7 @@ public class BoxCartAdoptionTests
         var before = await SnapshotAsync(fixture.Harness);
 
         var act = () => fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId,
-            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId), choice);
+            fixture.PartyId, CartAccessContext.ForParty(fixture.PartyId, ""), choice);
 
         await act.Should().ThrowAsync<ActiveBoxConflictException>();
         next.Box.CartId.Should().NotBe(choice.ExpectedSavedCartId);
@@ -256,7 +256,7 @@ public class BoxCartAdoptionTests
         var party = Guid.NewGuid();
 
         var adopted = await harness.Carts().AdoptAsync(generic.Id, party,
-            CartAccessContext.ForGuest(generic.AnonymousToken), CancellationToken.None);
+            CartAccessContext.ForGuest(generic.AnonymousToken, generic.CartVersion), CancellationToken.None);
 
         adopted.Id.Should().Be(generic.Id);
         adopted.BuyerPartyId.Should().Be(party);
@@ -280,7 +280,7 @@ public class BoxCartAdoptionTests
 
     private static Task<CartDto> AdoptAsync(Fixture fixture, AdoptCartChoice choice) =>
         fixture.Harness.Carts().AdoptAsync(fixture.Guest.Box.CartId, fixture.PartyId,
-            CartAccessContext.ForGuest(fixture.Guest.CartToken), choice);
+            CartAccessContext.ForGuest(fixture.Guest.CartToken, fixture.Guest.CartVersion), choice);
 
     private static async Task<List<Cart>> SnapshotAsync(BoxTestHarness harness)
     {

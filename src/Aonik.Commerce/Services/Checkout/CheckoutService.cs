@@ -71,6 +71,7 @@ internal sealed class CheckoutService : ICheckoutService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        CartTracking.Detach(_dbContext, tenantId, command.CartId);
         var cart = await _dbContext.Carts
             .Include(c => c.Items).ThenInclude(i => i.Selections)
             .FirstOrDefaultAsync(c => c.Id == command.CartId && c.TenantId == tenantId, cancellationToken)
@@ -100,10 +101,12 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
-        if (cart.Status != CartStatuses.Open)
-        {
-            throw new InvalidOperationException($"Cart '{cart.Id}' is {cart.Status}, not Open.");
-        }
+        CartWriteGuard.RequireCurrent(cart, access);
+        var draft = CartDraftData.Read(cart);
+        if (draft?.Gift is { GiftIntent: true })
+            throw new StorefrontValidationException("Gift fulfilment is not yet available for checkout.");
+        var requestedDelivery = command.Delivery ?? CartDraftData.Delivery(draft);
+
         if (cart.Items.Count == 0)
         {
             throw new InvalidOperationException("Cannot check out an empty cart.");
@@ -119,10 +122,10 @@ internal sealed class CheckoutService : ICheckoutService
 
         // Dedicated boxes ship; generic Commerce clients can still sell nonshipping goods.
         // Replay above deliberately preserves the original snapshot even after calendar edits.
-        if (command.Delivery is null && cart.BoxBundleProductId is not null)
+        if (requestedDelivery is null && cart.BoxBundleProductId is not null)
             throw new StorefrontValidationException("Delivery details are required for a box checkout.");
         OrderDeliveryDto? delivery = null;
-        if (command.Delivery is { } submittedDelivery)
+        if (requestedDelivery is { } submittedDelivery)
         {
             var details = CheckoutDeliveryValidator.NormalizeAndValidate(submittedDelivery);
             var selected = await _fulfilment.ValidateDeliveryDateAsync(details.DeliveryDate, cancellationToken);
@@ -133,9 +136,18 @@ internal sealed class CheckoutService : ICheckoutService
 
         // Spec 068 §9 — a box cart re-validates everything BEFORE reservation: drift stops the
         // checkout with a 409 carrying the refreshed box (A18); an incomplete box rejects (R8).
-        var box = cart.BoxBundleProductId is not null
-            ? await _boxCheckout.PrepareForCheckoutAsync(cart, cancellationToken)
-            : null;
+        BoxCheckoutShape? box;
+        try
+        {
+            box = cart.BoxBundleProductId is not null
+                ? await _boxCheckout.PrepareForCheckoutAsync(cart, cancellationToken)
+                : null;
+        }
+        catch
+        {
+            CartTracking.Detach(_dbContext, tenantId, cart.Id);
+            throw;
+        }
 
         // The whole charge breakdown is computable from the cart alone, so it runs BEFORE any
         // durable side effect: a nonpositive payable (e.g. a 100% coupon with zero delivery)
@@ -148,7 +160,7 @@ internal sealed class CheckoutService : ICheckoutService
             throw new StorefrontValidationException(
                 "The goods total for this box is zero or below; it cannot be checked out.");
         }
-        var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
+        var discount = await _discounts.ComputeAsync(command.DiscountCode ?? draft?.DiscountCode, subtotal, cart.Currency, cancellationToken);
         var taxable = subtotal - discount.Amount;
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
         var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
@@ -261,6 +273,55 @@ internal sealed class CheckoutService : ICheckoutService
             Items: orderItems,
             IdempotencyKey: $"cart:{cart.Id:N}"), cancellationToken);
 
+        // 3. Optionally raise an invoice (when a Finance customer account is supplied).
+        Guid? invoiceId = null;
+        if (command.CustomerAccountId is { } customerAccountId)
+        {
+            // A box invoice is box-aggregate (§9): per-CartItem lines would price dishes from
+            // snapshots that are explicitly not pricing inputs and disagree with the single
+            // aggregate order item. Non-box carts keep the per-item path untouched.
+            var lines = box is null
+                ? cart.Items
+                    .Select(i => new InvoiceLineSpec(i.NameSnapshot, i.Quantity, i.UnitPriceSnapshot))
+                    .ToList()
+                : new List<InvoiceLineSpec> { new($"{box.Size}-dish box", 1m, box.GoodsTotal) };
+            if (box is not null)
+            {
+                // Add-ons are ordinary retail and may show their prices (Spec 071 §7).
+                lines.AddRange(box.AddOnLines.Select(a =>
+                    new InvoiceLineSpec(a.Line.NameSnapshot, a.Line.Quantity, a.ChargedUnitPrice)));
+            }
+            if (box is { DeliveryCharged: > 0 })
+            {
+                lines.Add(new InvoiceLineSpec("Delivery", 1m, box.DeliveryCharged));
+            }
+            if (discount.Amount > 0)
+            {
+                lines.Add(new InvoiceLineSpec($"Discount ({discount.Code})", 1m, -discount.Amount));
+            }
+            if (tax > 0)
+            {
+                lines.Add(new InvoiceLineSpec("Tax", 1m, tax));
+            }
+            var invoice = await _invoices.CreateForOrderAsync(
+                new CreateInvoiceForOrderCommand(order.Id, customerAccountId, cart.Currency, lines), cancellationToken);
+            invoiceId = invoice.InvoiceId;
+        }
+
+        // 4. Initiate funding for the payable total via the permission-free guest path, and link it
+        //    to the order. Capture stays a Finance high-tier action.
+        var intent = await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(
+            OrderId: order.Id,
+            Amount: total,
+            Currency: cart.Currency,
+            Provider: command.Provider,
+            PaymentMethodType: command.PaymentMethodType,
+            ReturnUrl: command.ReturnUrl,
+            CancelUrl: command.CancelUrl), cancellationToken);
+
+        await _orders.LinkFundingAsync(order.Id, intent.PaymentIntentId, cancellationToken);
+
+        // Stage immutable selections only after external work succeeds, beside the final cart claim.
         // 3. Record build-your-own-box contents (Option A — Commerce-owned, soft-linked to the order).
         foreach (var (lineIndex, item) in bundleLineIndices)
         {
@@ -307,59 +368,7 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
-        // 4. Compute the charge breakdown. The order lines stay the goods (subtotal); discount + tax
-        //    are payment-side, so Order / Payment / Ledger stay distinct.
-        // (The charge breakdown was computed and validated before reservation — L4.)
-
-        // 5. Optionally raise an invoice (when a Finance customer account is supplied).
-        Guid? invoiceId = null;
-        if (command.CustomerAccountId is { } customerAccountId)
-        {
-            // A box invoice is box-aggregate (§9): per-CartItem lines would price dishes from
-            // snapshots that are explicitly not pricing inputs and disagree with the single
-            // aggregate order item. Non-box carts keep the per-item path untouched.
-            var lines = box is null
-                ? cart.Items
-                    .Select(i => new InvoiceLineSpec(i.NameSnapshot, i.Quantity, i.UnitPriceSnapshot))
-                    .ToList()
-                : new List<InvoiceLineSpec> { new($"{box.Size}-dish box", 1m, box.GoodsTotal) };
-            if (box is not null)
-            {
-                // Add-ons are ordinary retail and may show their prices (Spec 071 §7).
-                lines.AddRange(box.AddOnLines.Select(a =>
-                    new InvoiceLineSpec(a.Line.NameSnapshot, a.Line.Quantity, a.ChargedUnitPrice)));
-            }
-            if (box is { DeliveryCharged: > 0 })
-            {
-                lines.Add(new InvoiceLineSpec("Delivery", 1m, box.DeliveryCharged));
-            }
-            if (discount.Amount > 0)
-            {
-                lines.Add(new InvoiceLineSpec($"Discount ({discount.Code})", 1m, -discount.Amount));
-            }
-            if (tax > 0)
-            {
-                lines.Add(new InvoiceLineSpec("Tax", 1m, tax));
-            }
-            var invoice = await _invoices.CreateForOrderAsync(
-                new CreateInvoiceForOrderCommand(order.Id, customerAccountId, cart.Currency, lines), cancellationToken);
-            invoiceId = invoice.InvoiceId;
-        }
-
-        // 6. Initiate funding for the payable total via the permission-free guest path, and link it
-        //    to the order. Capture stays a Finance high-tier action.
-        var intent = await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(
-            OrderId: order.Id,
-            Amount: total,
-            Currency: cart.Currency,
-            Provider: command.Provider,
-            PaymentMethodType: command.PaymentMethodType,
-            ReturnUrl: command.ReturnUrl,
-            CancelUrl: command.CancelUrl), cancellationToken);
-
-        await _orders.LinkFundingAsync(order.Id, intent.PaymentIntentId, cancellationToken);
-
-        // 7. Record the durable charge breakdown + the order on the cart; the cart closes when
+        // 6. Record the durable charge breakdown + the order on the cart; the cart closes when
         //    payment completes (ConfirmPaymentAsync).
         _dbContext.OrderChargeSummaries.Add(new OrderChargeSummary
         {
@@ -399,6 +408,8 @@ internal sealed class CheckoutService : ICheckoutService
                 .FirstOrDefaultAsync(c => c.Id == cart.Id && c.TenantId == tenantId, cancellationToken);
             if (fresh?.OrderId == order.Id)
             {
+                if (!CartAccess.IsAuthorized(fresh, access))
+                    throw new NotFoundException($"Cart '{cart.Id}' was not found.");
                 var recorded = await _dbContext.OrderChargeSummaries.AsNoTracking()
                     .FirstOrDefaultAsync(s => s.OrderId == order.Id && s.TenantId == tenantId, cancellationToken);
                 var deliveryRecorded = fresh.BoxBundleProductId is null || await _dbContext.OrderDeliveryDetails.AsNoTracking()
@@ -444,11 +455,11 @@ internal sealed class CheckoutService : ICheckoutService
     private void DiscardAttemptedCheckoutWrites(Entities.Cart.Cart cart, Guid orderId)
     {
         foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry => entry.State == EntityState.Added
-                     && (entry.Entity is OrderDeliveryDetails delivery && delivery.OrderId == orderId
-                         || entry.Entity is OrderChargeSummary charge && charge.OrderId == orderId
-                         || entry.Entity is OrderBundleSelection selection && selection.OrderId == orderId)).ToList())
+                     && (entry.Entity is OrderDeliveryDetails delivery && delivery.OrderId == orderId && delivery.TenantId == cart.TenantId
+                         || entry.Entity is OrderChargeSummary charge && charge.OrderId == orderId && charge.TenantId == cart.TenantId
+                         || entry.Entity is OrderBundleSelection selection && selection.OrderId == orderId && selection.TenantId == cart.TenantId)).ToList())
             entry.State = EntityState.Detached;
-        _dbContext.Entry(cart).State = EntityState.Detached;
+        CartTracking.Detach(_dbContext, cart.TenantId, cart.Id);
     }
 
     private string? GuestOrderToken(Entities.Cart.Cart cart)

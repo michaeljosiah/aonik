@@ -33,7 +33,7 @@ public class CartAdoptionConcurrencySqlServerTests : IClassFixture<SqlLocalDbFix
 
     private CartService NewCarts(Aonik.Commerce.Persistence.CommerceDbContext context, Guid tenantId)
         => new(context, new TestTenantProvider(tenantId),
-            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()));
+            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
 
     [SkippableFact]
     public async Task SamePartyDoubleSubmit_Should_StayIdempotent_AcrossTheRace()
@@ -41,11 +41,11 @@ public class CartAdoptionConcurrencySqlServerTests : IClassFixture<SqlLocalDbFix
         Skip.IfNot(_db.IsAvailable, _db.SkipReason ?? "SQL Server LocalDB unavailable.");
         var tenantId = Guid.NewGuid();
         var party = Guid.NewGuid();
-        var (cartId, token) = await SeedGuestCartAsync(tenantId);
+        var (cartId, token, version) = await SeedGuestCartAsync(tenantId);
 
         await using var contextA = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         await using var contextB = CommerceSqlServerHarness.CreateContext(_db, tenantId);
-        var access = CartAccessContext.ForGuest(token);
+        var access = CartAccessContext.ForGuest(token, version);
         var results = await Task.WhenAll(
             Capture(Task.Run(() => NewCarts(contextA, tenantId).AdoptAsync(cartId, party, access))),
             Capture(Task.Run(() => NewCarts(contextB, tenantId).AdoptAsync(cartId, party, access))));
@@ -65,11 +65,11 @@ public class CartAdoptionConcurrencySqlServerTests : IClassFixture<SqlLocalDbFix
         var tenantId = Guid.NewGuid();
         var partyA = Guid.NewGuid();
         var partyB = Guid.NewGuid();
-        var (cartId, token) = await SeedGuestCartAsync(tenantId);
+        var (cartId, token, version) = await SeedGuestCartAsync(tenantId);
 
         await using var contextA = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         await using var contextB = CommerceSqlServerHarness.CreateContext(_db, tenantId);
-        var access = CartAccessContext.ForGuest(token);
+        var access = CartAccessContext.ForGuest(token, version);
         var results = await Task.WhenAll(
             Capture(Task.Run(() => NewCarts(contextA, tenantId).AdoptAsync(cartId, partyA, access))),
             Capture(Task.Run(() => NewCarts(contextB, tenantId).AdoptAsync(cartId, partyB, access))));
@@ -90,11 +90,11 @@ public class CartAdoptionConcurrencySqlServerTests : IClassFixture<SqlLocalDbFix
         cart.AnonymousToken.Should().BeNull();
     }
 
-    private async Task<(Guid CartId, string Token)> SeedGuestCartAsync(Guid tenantId)
+    private async Task<(Guid CartId, string Token, string Version)> SeedGuestCartAsync(Guid tenantId)
     {
         await using var context = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         var created = await NewCarts(context, tenantId).CreateCartAsync(new CreateCartCommand("GBP"));
-        return (created.Id, created.AnonymousToken!);
+        return (created.Id, created.AnonymousToken!, created.CartVersion);
     }
 
     private static async Task<(bool Succeeded, Exception? Error)> Capture(Task task)

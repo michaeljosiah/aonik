@@ -21,8 +21,8 @@ namespace Aonik.Commerce.Services.Checkout;
 /// Spec 068 — the box-building session. Every operation loads fresh state, authorizes (R10),
 /// applies §8 drift repair, recomputes every price from scratch (R7 — no client-supplied amount
 /// is read anywhere) and returns the whole box + quote. Capacity-affecting writes serialize on
-/// the Cart row's concurrency token (A17): the loser revalidates against fresh state and retries
-/// once, then surfaces the conflict as a 409.
+/// the Cart row's concurrency token (A17). Explicit edits require the client's observed version;
+/// a competing edit returns a conflict for the client to reload and review.
 /// </summary>
 internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 {
@@ -34,6 +34,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private readonly ISettingProvider _settings;
     private readonly ITenantCurrencyProvider _tenantCurrency;
     private readonly IProductPricingService _pricing;
+    private readonly IClock _clock;
 
     public BoxCartService(
         CommerceDbContext dbContext,
@@ -43,7 +44,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         ITenantSettingStore settingStore,
         ISettingProvider settings,
         ITenantCurrencyProvider tenantCurrency,
-        IProductPricingService pricing)
+        IProductPricingService pricing,
+        IClock clock)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -53,6 +55,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         _settings = settings;
         _tenantCurrency = tenantCurrency;
         _pricing = pricing;
+        _clock = clock;
     }
 
     /// <summary>The storefront delivery settings are denominated in the tenant's canonical
@@ -82,7 +85,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             (writtenCart, writtenPlan) = await strategy.ExecuteAsync(async ct =>
             {
-                DetachCreatedCart(cartId);
+                CartTracking.Detach(_dbContext, tenantId, cartId);
                 await using var transaction = _dbContext.Database.IsRelational()
                     ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct)
                     : null;
@@ -131,6 +134,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     Currency = plan.Currency,
                     BoxBundleProductId = product.Id,
                     BoxSize = command.Size,
+                    LastActivityAtUtc = _clock.UtcNow,
                 };
                 _dbContext.Carts.Add(cart);
                 if (command.FirstLine is { } firstLine)
@@ -159,26 +163,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
         catch
         {
-            DetachCreatedCart(cartId);
+            CartTracking.Detach(_dbContext, tenantId, cartId);
             throw;
         }
 
         // Display reads must not cause a retry to repeat an already-committed creation.
         return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, [], token, cancellationToken);
-    }
-
-    private void DetachCreatedCart(Guid cartId)
-    {
-        var carts = _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>()
-            .Where(entry => entry.Entity.Id == cartId).ToList();
-        var items = _dbContext.ChangeTracker.Entries<CartItem>()
-            .Where(entry => entry.Entity.CartId == cartId).ToList();
-        foreach (var item in items) item.State = EntityState.Detached;
-        foreach (var cart in carts)
-        {
-            cart.Entity.Items.Clear();
-            cart.State = EntityState.Detached;
-        }
     }
 
     private Task<List<Entities.Cart.Cart>> ReadActiveCandidatesAsync(Guid tenantId, Guid partyId, CancellationToken ct)
@@ -222,6 +212,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     $"R2: the box holds {units} dish(es); remove {units - newSize} before shrinking to {newSize}.");
             }
 
+            ctx.UserEdited = ctx.Cart.BoxSize != newSize;
             ctx.Cart.BoxSize = newSize;   // reprices the container only
             return Task.CompletedTask;
         }, cancellationToken);
@@ -230,6 +221,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         => RunAsync(cartId, access, requireOpen: true, touchCart: true, async (ctx, ct) =>
         {
             await AddLineCoreAsync(ctx.TenantId, ctx.Cart, ctx.Plan, command, ct);
+            ctx.UserEdited = true;
         }, cancellationToken);
 
     public Task<BoxCartDto> AddExtraLineAsync(Guid cartId, AddBoxExtraCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -298,6 +290,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             // personalisation envelope for nothing and split production demand from ordinary
             // retail demand of the same variant. Null IS the unpersonalised key.
             var canonicalOrNull = priced.CanonicalSelectionJson == "{}" ? null : priced.CanonicalSelectionJson;
+            ctx.UserEdited = true;
 
             var target = ctx.AddOnLines.FirstOrDefault(l => l.ProductVariantId == variant.Id
                 && string.Equals(l.PersonalisationJson, canonicalOrNull, StringComparison.Ordinal));
@@ -358,6 +351,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 if (quantity == 0)
                 {
                     _dbContext.CartItems.Remove(line);
+                    ctx.UserEdited = true;
                     return;
                 }
 
@@ -371,6 +365,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     }
                     await EnsureAvailabilityAsync(ctx, line.ProductVariantId, delta, ct);
                 }
+                ctx.UserEdited = line.Quantity != quantity;
                 line.Quantity = quantity;
             }
 
@@ -387,10 +382,11 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 var priced = await _selections.NormalizeAndPriceAsync(
                     variant.ProductId, personalisation, ctx.Cart.Currency, ct);
 
-                if (string.Equals(priced.CanonicalSelectionJson, line.PersonalisationJson, StringComparison.Ordinal))
+                if (string.Equals(priced.CanonicalSelectionJson, line.PersonalisationJson ?? "{}", StringComparison.Ordinal))
                 {
                     return;   // the "new" selection is this line's own — nothing moves
                 }
+                ctx.UserEdited = true;
 
                 var pool = isAddOn ? ctx.AddOnLines : ctx.BoxLines;
                 var target = pool.FirstOrDefault(l => l.Id != line.Id
@@ -470,6 +466,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 ?? ctx.AddOnLines.FirstOrDefault(l => l.Id == lineId)
                 ?? throw new NotFoundException($"Cart line '{lineId}' was not found.");
             _dbContext.CartItems.Remove(line);
+            ctx.UserEdited = true;
             return Task.CompletedTask;
         }, cancellationToken);
 
@@ -520,6 +517,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         /// <summary>AddOn lines' re-resolved retail unit prices; null = unpriceable (X2).</summary>
         public required Dictionary<Guid, decimal?> PricedAddOns { get; init; }
+        public bool UserEdited { get; set; }
     }
 
     private async Task<BoxCartDto> RunAsync(
@@ -532,13 +530,20 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     {
         try
         {
-            return await AttemptAsync(cartId, access, requireOpen, touchCart, mutate, cancellationToken);
+            try
+            {
+                return await AttemptAsync(cartId, access, requireOpen, touchCart, mutate, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (!requireOpen)
+            {
+                // Reads may retry a competing catalogue repair; never replay a client's edit.
+                return await AttemptAsync(cartId, access, requireOpen, touchCart, mutate, cancellationToken);
+            }
         }
-        catch (DbUpdateConcurrencyException)
+        catch
         {
-            // A17 — the loser revalidates against fresh state and retries once; a second conflict
-            // surfaces as the mapped 409.
-            return await AttemptAsync(cartId, access, requireOpen, touchCart, mutate, cancellationToken);
+            CartTracking.Detach(_dbContext, _tenantProvider.GetCurrentTenantId(), cartId);
+            throw;
         }
     }
 
@@ -558,48 +563,18 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // mutation (the strategy reruns the whole delegate).
         var (writtenCart, writtenPlan, writtenChanges) = await strategy.ExecuteAsync(async ct =>
         {
-            // A replayed attempt must not resubmit entities a failed attempt added or mutated —
-            // and a detached instance must also leave its cart's Items collection, or the fresh
-            // query would materialise a tracked TWIN of the same row beside the stale ghost and
-            // the reload below would hit an identity-map conflict.
-            foreach (var entry in _dbContext.ChangeTracker.Entries<CartItem>()
-                         .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-                         .ToList())
-            {
-                entry.State = EntityState.Detached;
-            }
-            foreach (var trackedCart in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>().ToList())
-            {
-                trackedCart.Entity.Items.RemoveAll(i => _dbContext.Entry(i).State == EntityState.Detached);
-            }
+            CartTracking.Detach(_dbContext, tenantId, cartId);
 
             var cart = await _dbContext.Carts
                 .Include(c => c.Items)
                 .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, ct);
-            if (cart is not null)
-            {
-                await _dbContext.Entry(cart).ReloadAsync(ct);
-                // Snapshot first: reloading an item triggers relationship fixup, which can mutate
-                // cart.Items mid-enumeration.
-                foreach (var item in cart.Items.ToList())
-                {
-                    await _dbContext.Entry(item).ReloadAsync(ct);
-                }
-            }
-
             // R10 — an unknown cart and an unauthorized one are the same 404; no oracle.
             if (cart is null || cart.BoxBundleProductId is null || !CartAccess.IsAuthorized(cart, access))
             {
                 throw new NotFoundException($"Cart '{cartId}' was not found.");
             }
 
-            if (requireOpen && (cart.Status != CartStatuses.Open || cart.OrderId is not null))
-            {
-                // R9 — checkout deliberately leaves a cart Open (OrderId set) until payment
-                // completes; its order, reservation and payment amount are already fixed.
-                throw new StorefrontValidationException(
-                    "R9: this box has been checked out and can no longer be edited.");
-            }
+            if (requireOpen) CartWriteGuard.RequireCurrent(cart, access);
 
             var plan = await LoadPlanAsync(tenantId, cart.BoxBundleProductId.Value, ct);
 
@@ -656,12 +631,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 ? await _dbContext.Database.BeginTransactionAsync(ct)
                 : null;
 
-            if (touchCart)
-            {
-                // A17 — capacity-affecting writes contend on the cart row: two adds racing into
-                // the last space touch different line rows, so without this both would commit.
-                _dbContext.Entry(context.Cart).State = EntityState.Modified;
-            }
+            if (context.UserEdited)
+                CartActivity.UserEdit(_dbContext, cart, _clock);
+            else if (HasPersistedChanges(cart))
+                CartActivity.ServerEdit(_dbContext, cart, _clock);
 
             await _dbContext.SaveChangesAsync(ct);
             if (transaction is not null)
@@ -673,6 +646,15 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }, cancellationToken);
 
         return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, writtenChanges, cartToken: null, cancellationToken);
+    }
+
+    private bool HasPersistedChanges(Entities.Cart.Cart cart)
+    {
+        _dbContext.ChangeTracker.DetectChanges();
+        return _dbContext.Entry(cart).State is EntityState.Added or EntityState.Modified or EntityState.Deleted
+            || _dbContext.ChangeTracker.Entries<CartItem>().Any(entry => entry.Entity.CartId == cart.Id
+                && entry.Entity.TenantId == cart.TenantId
+                && entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
     }
 
     private async Task<BoxContext> BuildContextAsync(
@@ -1204,9 +1186,16 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // A18 — any drift or unavailable line stops checkout BEFORE anything is reserved or
         // created: persist the repair so the refreshed state is durable, then 409 with it. A
         // stale client that skipped continue must explicitly review a changed meal or price.
-        if (context.Changes.Count > 0)
+        // Legacy snapshot normalization can change persisted fields without a visible notice.
+        // It must claim a new parent version here, before shared inventory services can save it.
+        var repaired = HasPersistedChanges(cart);
+        if (repaired || context.Changes.Count > 0)
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (repaired)
+            {
+                CartActivity.ServerEdit(_dbContext, cart, _clock);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
             throw new BoxCheckoutDriftException(
                 await BuildDtoAsync(tenantId, cart, plan, context.Changes, cartToken: null, cancellationToken));
         }
@@ -1383,7 +1372,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             quote,
             changes,
             cartToken,
-            Convert.ToBase64String(cart.RowVersion));
+            Convert.ToBase64String(cart.RowVersion),
+            CheckoutDraft: CartDraftData.Read(cart), Status: cart.Status, OrderId: cart.OrderId);
     }
 
     private async Task<BoxQuoteDto> BuildQuoteAsync(

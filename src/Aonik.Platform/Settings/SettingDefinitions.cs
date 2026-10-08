@@ -110,6 +110,10 @@ public static class SettingDefinitions
             [TextToSpeechSettingNames.TenantProfile] = new SettingDefinition(TextToSpeechSettingNames.TenantProfile),
 
             // ── Commerce storefront (Spec 066/070) ───────────────────────
+            [CommerceSettingNames.CartsAbandonAfterDays] = new SettingDefinition(
+                CommerceSettingNames.CartsAbandonAfterDays, DefaultValue: "7"),
+            [CommerceSettingNames.CartsEmptyAbandonAfterHours] = new SettingDefinition(
+                CommerceSettingNames.CartsEmptyAbandonAfterHours, DefaultValue: "24"),
             [CommerceSettingNames.StorefrontRecommendedChoiceLabel] = new SettingDefinition(
                 CommerceSettingNames.StorefrontRecommendedChoiceLabel,
                 DefaultValue: "Recommended",

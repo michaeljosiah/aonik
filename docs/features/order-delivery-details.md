@@ -6,6 +6,8 @@ Issue #345 adds one Commerce-owned delivery snapshot to the existing checkout an
 
 `POST /commerce/carts/{cartId}/checkout` accepts a trailing `delivery` object:
 
+Since #347, new attempts require `X-Cart-Version`. If `delivery` is omitted, checkout uses the [saved checkout draft](checkout-drafts.md); an explicitly supplied object is the complete delivery source for that attempt. Recorded authorized replays remain version-independent.
+
 ```json
 {
   "provider": "configured-provider",
