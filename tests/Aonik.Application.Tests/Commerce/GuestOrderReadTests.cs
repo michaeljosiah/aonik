@@ -24,8 +24,8 @@ public class GuestOrderReadTests
         var carts = harness.BoxCarts();
         var box = await carts.CreateAsync(new CreateBoxCartCommand(fixture.BundleProductId, 6, BuyerPartyId: partyId));
         var access = partyId is { } party
-            ? CartAccessContext.ForParty(party)
-            : CartAccessContext.ForGuest(box.CartToken);
+            ? CartAccessContext.ForParty(party, "")
+            : CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(fixture.DishVariants["jollof"], 6, null), access);
         var checkout = await harness.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
             Delivery: BoxTestHarness.ValidDelivery), access);
@@ -38,7 +38,7 @@ public class GuestOrderReadTests
         var (harness, box, first) = await CheckoutAsync();
 
         var replay = await harness.Checkout().CheckoutAsync(
-            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), CartAccessContext.ForGuest(box.CartToken));
+            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
 
         first.GuestOrderToken.Should().NotBeNullOrWhiteSpace().And.NotBe(box.CartToken);
         replay.GuestOrderToken.Should().NotBeNullOrWhiteSpace();
@@ -62,7 +62,7 @@ public class GuestOrderReadTests
         var (harness, box, first) = await CheckoutAsync(party);
 
         var replay = await harness.Checkout().CheckoutAsync(
-            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), CartAccessContext.ForParty(party));
+            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), CartAccessContext.ForParty(party, ""));
 
         first.GuestOrderToken.Should().BeNull();
         replay.GuestOrderToken.Should().BeNull();

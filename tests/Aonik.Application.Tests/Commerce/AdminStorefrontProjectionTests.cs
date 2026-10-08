@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -42,7 +42,7 @@ public class AdminStorefrontProjectionTests
 
         var carts = h.BoxCarts();
         var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6, BuyerPartyId: party));
-        var access = CartAccessContext.ForParty(party);
+        var access = CartAccessContext.ForParty(party, "");
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
         await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 2), access);
         var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
@@ -130,7 +130,7 @@ public class AdminStorefrontProjectionTests
 
         var carts = h.BoxCarts();
         var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
-        var access = CartAccessContext.ForGuest(box.CartToken);
+        var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 4, null), access);
         await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
 
@@ -201,8 +201,8 @@ public class AdminStorefrontProjectionTests
         var adoptedParty = Guid.NewGuid();
         var guestBox = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
         await h.BoxCarts().AddLineAsync(guestBox.Box.CartId,
-            new AddBoxLineCommand(f.DishVariants["jollof"], 2, null), CartAccessContext.ForGuest(guestBox.CartToken));
-        await h.Carts().AdoptAsync(guestBox.Box.CartId, adoptedParty, CartAccessContext.ForGuest(guestBox.CartToken));
+            new AddBoxLineCommand(f.DishVariants["jollof"], 2, null), CartAccessContext.ForGuest(guestBox.CartToken, guestBox.CartVersion));
+        await h.Carts().AdoptAsync(guestBox.Box.CartId, adoptedParty, CartAccessContext.ForGuest(guestBox.CartToken, guestBox.CartVersion));
 
         var adopted = await admin.GetPartyStorefrontAsync(adoptedParty);
         adopted.Adopted.Should().BeTrue("the party-bound cart's guest token was retired");
@@ -428,7 +428,7 @@ public class AdminStorefrontProjectionTests
 
         var carts = h.BoxCarts();
         var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
-        var access = CartAccessContext.ForGuest(box.CartToken);
+        var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
         using var selection = System.Text.Json.JsonDocument.Parse("""{"sauce":"hot"}""");
         await carts.AddLineAsync(box.Box.CartId,
             new AddBoxLineCommand(f.DishVariants["jollof"], 2, selection.RootElement), access);
@@ -471,7 +471,7 @@ public class AdminStorefrontProjectionTests
 
         var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
         await h.BoxCarts().AddLineAsync(box.Box.CartId,
-            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken));
+            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
 
         var admin = AdminSvc(h);
         (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
@@ -497,7 +497,7 @@ public class AdminStorefrontProjectionTests
 
         var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
         await h.BoxCarts().AddLineAsync(box.Box.CartId,
-            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken));
+            new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
 
         var admin = AdminSvc(h);
         (await admin.ListCartsAsync()).Items.Single(r => r.CartId == box.Box.CartId)
@@ -543,7 +543,7 @@ public class AdminStorefrontProjectionTests
         // dish products all carry option groups, so they never hit this path.)
         var (product, extraVariant) = await h.AddExtraAsync("zobo", 3.50m);
         var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
-        var access = CartAccessContext.ForGuest(box.CartToken);
+        var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
         await h.BoxCarts().AddLineAsync(box.Box.CartId,
             new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
         await h.BoxCarts().AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 1), access);
@@ -587,7 +587,7 @@ public class AdminStorefrontProjectionTests
         var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(hamper.Id, "Pick 1", 1, 1));
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: party));
-        var access = CartAccessContext.ForParty(party);
+        var access = CartAccessContext.ForParty(party, "");
         await h.Carts().AddBundleAsync(new AddBundleToCartCommand(
             cart.Id, hamper.Id, [new BundleSelectionLine(slot.Id, cakeVariant)]), access);
 

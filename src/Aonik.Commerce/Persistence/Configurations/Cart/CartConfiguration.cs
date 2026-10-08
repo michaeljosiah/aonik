@@ -13,6 +13,7 @@ public class CartConfiguration : IEntityTypeConfiguration<Entities.Cart.Cart>
         builder.Property(x => x.Status).IsRequired().HasMaxLength(16);
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.AnonymousToken).HasMaxLength(128);
+        builder.Property(x => x.CheckoutDraftJson).HasMaxLength(24000);
 
         builder.HasMany(x => x.Items)
             .WithOne()

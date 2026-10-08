@@ -8,6 +8,7 @@ using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Infrastructure.Persistence;
@@ -77,6 +78,7 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
             calendar.Timezone = "UTC";
             await db.SaveChangesAsync();
         }
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
         using var replayResponse = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(input with
         {
             Purchaser = null!, Address = null!, DeliveryDate = default, WindowId = "unsupported"
@@ -185,6 +187,97 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
         await AssertOneCheckoutAsync(seeded, checkout.OrderId, null);
     }
 
+    [Fact]
+    public async Task Checkout_Should_ReadDeliveryAndDiscountFromTheSavedDraft()
+    {
+        var seeded = await SeedCartAsync();
+        using var client = Client(seeded);
+        var delivery = ValidDelivery();
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            db.Discounts.Add(new Discount
+            {
+                TenantId = seeded.TenantId, Code = "SAVE10", Kind = DiscountKinds.Percentage, Value = 10m, IsActive = true
+            });
+            await db.SaveChangesAsync();
+        }
+        using var saved = await client.PutAsJsonAsync($"/commerce/carts/{seeded.CartId}/checkout-draft",
+            new CartCheckoutDraftDto(delivery.Purchaser, delivery.Address, DeliveryDate: delivery.DeliveryDate,
+                Notes: "Saved instructions", CreateAccount: true, DiscountCode: "SAVE10"));
+        saved.StatusCode.Should().Be(HttpStatusCode.OK);
+        var draft = (await saved.Content.ReadFromJsonAsync<CartCheckoutDraftResponse>())!;
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", draft.CartVersion).Should().BeTrue();
+
+        using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResult>())!;
+        checkout.DiscountTotal.Should().Be(2m);
+        checkout.Total.Should().Be(18m);
+        client.DefaultRequestHeaders.Add("X-Order-Token", checkout.GuestOrderToken);
+        var confirmation = await client.GetFromJsonAsync<StorefrontOrderDetailDto>(GuestPath(checkout.OrderId));
+        var expected = new OrderDeliveryDto(delivery.Purchaser, delivery.Address, delivery.DeliveryDate,
+            "Europe/London", new("Pat Customer", delivery.Purchaser.Phone), "Saved instructions");
+        confirmation!.Delivery.Should().Be(expected);
+        await AssertOneCheckoutAsync(seeded, checkout.OrderId, expected);
+    }
+
+    [Fact]
+    public async Task Checkout_Should_UseExplicitDeliveryAsAWhole_InsteadOfCombiningItWithTheDraft()
+    {
+        var seeded = await SeedCartAsync();
+        using var client = Client(seeded);
+        using var saved = await client.PutAsJsonAsync($"/commerce/carts/{seeded.CartId}/checkout-draft",
+            new CartCheckoutDraftDto(Purchaser: new("unfinished@", "Draft", "Buyer", "07"),
+                Recipient: new("Draft recipient", "07"), Notes: "Old draft notes"));
+        saved.StatusCode.Should().Be(HttpStatusCode.OK);
+        var draft = (await saved.Content.ReadFromJsonAsync<CartCheckoutDraftResponse>())!;
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", draft.CartVersion);
+
+        using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(ValidDelivery()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResult>())!;
+        client.DefaultRequestHeaders.Add("X-Order-Token", checkout.GuestOrderToken);
+        var confirmation = await client.GetFromJsonAsync<StorefrontOrderDetailDto>(GuestPath(checkout.OrderId));
+        confirmation!.Delivery!.Purchaser.Should().Be(ValidDelivery().Purchaser);
+        confirmation.Delivery.Recipient.Name.Should().Be("Pat Customer");
+        confirmation.Delivery.Notes.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CompletedCart_Should_ReturnItsOrderAndState_OnAnAttemptedDraftOverwrite()
+    {
+        var seeded = await SeedCartAsync();
+        using var client = Client(seeded);
+        using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(ValidDelivery()));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResult>())!;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            var cart = await db.Carts.SingleAsync(row => row.Id == seeded.CartId);
+            cart.Status = CartStatuses.CheckedOut;
+            await db.SaveChangesAsync();
+        }
+
+        using var write = await client.PutAsJsonAsync($"/commerce/carts/{seeded.CartId}/checkout-draft", new { notes = "A stale tab" });
+
+        write.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        write.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var conflict = await write.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        conflict.GetProperty("code").GetString().Should().Be("commerce.cart_locked");
+        conflict.GetProperty("cartId").GetGuid().Should().Be(seeded.CartId);
+        conflict.GetProperty("status").GetString().Should().Be(CartStatuses.CheckedOut);
+        conflict.GetProperty("orderId").GetGuid().Should().Be(checkout.OrderId);
+        _factory.PaymentCalls.Count.Should().Be(seeded.PaymentCallsBefore + 1);
+    }
+
     private static CheckoutDeliveryDetails ValidDelivery() => new(
         new("buyer@example.test", "Pat", "Customer", "+44 7700 900123"),
         new("12 Sample Street", null, "London", null, "SW1A 1AA", "GB"), SelectedDate);
@@ -199,7 +292,11 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Tenant-Id", seeded.TenantId.ToString());
-        if (includeCartToken) client.DefaultRequestHeaders.Add("X-Cart-Token", seeded.CartToken);
+        if (includeCartToken)
+        {
+            client.DefaultRequestHeaders.Add("X-Cart-Token", seeded.CartToken);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", seeded.CartVersion).Should().BeTrue();
+        }
         return client;
     }
 
@@ -242,7 +339,8 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
                 CutoffLocalTime = new TimeOnly(12, 0), LeadDays = 7, IsActive = true
             });
         await db.SaveChangesAsync();
-        return new SeededCart(tenantId, cartId, variantId, token, _factory.PaymentCalls.Count);
+        return new SeededCart(tenantId, cartId, variantId, token, _factory.PaymentCalls.Count,
+            Convert.ToBase64String(db.Carts.Local.Single(row => row.Id == cartId).RowVersion));
     }
 
     private async Task AssertNoCheckoutEffectsAsync(SeededCart seeded)
@@ -280,7 +378,8 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
         }
     }
 
-    private sealed record SeededCart(Guid TenantId, Guid CartId, Guid VariantId, string CartToken, int PaymentCallsBefore);
+    private sealed record SeededCart(Guid TenantId, Guid CartId, Guid VariantId, string CartToken, int PaymentCallsBefore,
+        string CartVersion);
 
     public sealed class CheckoutDeliveryFactory : CustomWebApplicationFactory
     {

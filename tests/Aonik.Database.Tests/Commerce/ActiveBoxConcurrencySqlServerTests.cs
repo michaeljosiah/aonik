@@ -40,8 +40,8 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
         await using var contextB = CreateContext(tenantId, barrier);
 
         var outcomes = await Task.WhenAll(
-            Capture(NewCarts(contextA, tenantId).AdoptAsync(first.Box.CartId, partyId, CartAccessContext.ForGuest(first.CartToken))),
-            Capture(NewCarts(contextB, tenantId).AdoptAsync(second.Box.CartId, partyId, CartAccessContext.ForGuest(second.CartToken))));
+            Capture(NewCarts(contextA, tenantId).AdoptAsync(first.Box.CartId, partyId, CartAccessContext.ForGuest(first.CartToken, first.CartVersion))),
+            Capture(NewCarts(contextB, tenantId).AdoptAsync(second.Box.CartId, partyId, CartAccessContext.ForGuest(second.CartToken, second.CartVersion))));
 
         AssertOneWinner(outcomes, barrier);
         await using var verification = CreateContext(tenantId);
@@ -90,7 +90,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
 
         var outcomes = await Task.WhenAll(
             Capture(NewBoxes(createContext, tenantId).CreateAsync(new CreateBoxCartCommand(bundleId, 6, BuyerPartyId: partyId))),
-            Capture(NewCarts(adoptContext, tenantId).AdoptAsync(guest.Box.CartId, partyId, CartAccessContext.ForGuest(guest.CartToken))));
+            Capture(NewCarts(adoptContext, tenantId).AdoptAsync(guest.Box.CartId, partyId, CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion))));
 
         AssertOneWinner(outcomes, barrier);
         await using var verification = CreateContext(tenantId);
@@ -134,7 +134,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
         await using var savedContext = CreateContext(tenantId, barrier);
         var choice = new AdoptCartChoice(CartAdoptionDecisions.KeepGuest, saved.Box.CartId,
             saved.CartVersion, guest.CartVersion);
-        var access = CartAccessContext.ForGuest(guest.CartToken);
+        var access = CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion);
 
         var outcomes = await Task.WhenAll(
             Capture(NewCarts(keepContext, tenantId).AdoptAsync(guest.Box.CartId, partyId, access, choice)),
@@ -164,8 +164,8 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
         var partyB = Guid.NewGuid();
 
         var outcomes = await Task.WhenAll(
-            Capture(NewCarts(contextA, tenantId).AdoptAsync(guest.Box.CartId, partyA, CartAccessContext.ForGuest(guest.CartToken))),
-            Capture(NewCarts(contextB, tenantId).AdoptAsync(guest.Box.CartId, partyB, CartAccessContext.ForGuest(guest.CartToken))));
+            Capture(NewCarts(contextA, tenantId).AdoptAsync(guest.Box.CartId, partyA, CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion))),
+            Capture(NewCarts(contextB, tenantId).AdoptAsync(guest.Box.CartId, partyB, CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion))));
 
         outcomes.Count(x => x is null).Should().Be(1);
         outcomes.Single(x => x is not null).Should().BeOfType<NotFoundException>();
@@ -196,7 +196,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
         var pause = new BeforeFirstCartRead();
         await using var adoptContext = CreateContext(tenantId, pause);
         var adoption = Capture(NewCarts(adoptContext, tenantId).AdoptAsync(guest.Box.CartId,
-            partyId, CartAccessContext.ForGuest(guest.CartToken), choice));
+            partyId, CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion), choice));
         await pause.Reached.Task.WaitAsync(TimeSpan.FromSeconds(30));
         var changedId = changeGuest ? guest.Box.CartId : saved.Box.CartId;
         try
@@ -212,7 +212,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
             else
             {
                 await NewBoxes(writer, tenantId).ChangeSizeAsync(changedId, 12,
-                    changeGuest ? CartAccessContext.ForGuest(guest.CartToken) : CartAccessContext.ForParty(partyId));
+                    changeGuest ? CartAccessContext.ForGuest(guest.CartToken, guest.CartVersion) : CartAccessContext.ForParty(partyId, saved.CartVersion));
             }
         }
         finally
@@ -256,7 +256,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
     }
 
     private static CartService NewCarts(CommerceDbContext context, Guid tenantId) => new(context,
-        new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()));
+        new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
 
     private static BoxCartService NewBoxes(CommerceDbContext context, Guid tenantId)
     {
@@ -269,7 +269,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
             new OptionSelectionService(context, CommerceSqlServerHarness.CreateOptionService(context, tenantId), tenant),
             new InventoryService(context, tenant, new TenantContext { TenantId = tenantId }, clock),
             Mock.Of<ITenantSettingStore>(), Mock.Of<ISettingProvider>(), currency.Object,
-            new ProductPricingService(context, tenant, clock));
+            new ProductPricingService(context, tenant, clock), clock);
     }
 
     private async Task<BoxCartDto> CreateBoxAsync(Guid tenantId, Guid bundleId, Guid? partyId = null)

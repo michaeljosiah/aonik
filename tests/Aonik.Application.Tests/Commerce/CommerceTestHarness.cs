@@ -89,5 +89,5 @@ internal sealed class GbpTenantCurrencyProvider : Aonik.SharedKernel.Abstraction
 internal static class CartTestAccess
 {
     public static CartAccessContext Owner(CartDto cart)
-        => CartAccessContext.ForParty(cart.BuyerPartyId!.Value);
+        => CartAccessContext.ForParty(cart.BuyerPartyId!.Value, cart.CartVersion);
 }

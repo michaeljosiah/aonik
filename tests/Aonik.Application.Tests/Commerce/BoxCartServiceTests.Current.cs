@@ -78,7 +78,7 @@ public partial class BoxCartServiceTests
             new(f.DishVariants["jollof"], 1), partyId));
 
         await h.BoxCarts().RemoveLineAsync(box.Box.CartId, box.Box.Lines.Single().LineId,
-            CartAccessContext.ForParty(partyId));
+            CartAccessContext.ForParty(partyId, ""));
         var current = await h.BoxCarts().GetCurrentAsync(partyId);
 
         current.Should().NotBeNull();
@@ -130,7 +130,7 @@ public partial class BoxCartServiceTests
         await using var context = h.Commerce();
         var service = new BoxCartService(context, new TestTenantProvider(h.TenantId),
             CommerceTestHarness.NewSelectionService(context, h.TenantId), h.Inventory(),
-            new DictionaryTenantSettingStore(h.Settings), new NullSettingProvider(), currencies.Object, h.Pricing());
+            new DictionaryTenantSettingStore(h.Settings), new NullSettingProvider(), currencies.Object, h.Pricing(), h.Clock);
 
         var current = await service.GetCurrentAsync(partyId);
 

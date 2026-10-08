@@ -14,9 +14,9 @@ All `/commerce/carts` responses carry `Cache-Control: no-store`, including authe
 
 ## Choose a whole box at sign-in
 
-The existing `POST /commerce/carts/{guestCartId}/adopt` still accepts an empty body when there is no competing account box. It requires both the authenticated account and possession of the guest cart token. Unknown carts, wrong tokens, foreign owners and other tenants remain indistinguishable `404` responses.
+The existing `POST /commerce/carts/{guestCartId}/adopt` still accepts an empty body when there is no competing account box. It requires both the authenticated account and possession of the guest cart token. Since #347, a new empty-body adoption also requires the observed `X-Cart-Version`; explicit choices below retain their two body versions. Unknown carts, wrong tokens, foreign owners and other tenants remain indistinguishable `404` responses.
 
-When a different account box exists, an empty-body request returns `409 commerce.box_choice_required` without changing either cart. The response includes `guest` and `savedCandidates` summaries with `cartId`, `cartVersion`, `boxSize`, `lineCount` and `lastActivityAt`. The timestamp is the existing cart update/creation timestamp, not a new retention clock.
+When a different account box exists, a current-version empty-body request returns `409 commerce.box_choice_required` without changing either cart. The response includes `guest` and `savedCandidates` summaries with `cartId`, `cartVersion`, `boxSize`, `lineCount` and `lastActivityAt`. Since #347 the timestamp is meaningful user activity, falling back to the update/creation timestamp for legacy carts.
 
 Resubmit the same route with the guest token and JSON:
 
@@ -39,7 +39,7 @@ Account box creation and box adoption use a serializable SQL transaction before 
 
 Older code could leave several active account boxes. Current reads and creates return `409 commerce.multiple_active_boxes` instead of choosing or archiving customer work. Adoption also refuses when more than one other saved candidate exists. Conflict responses contain at most 20 owned summaries and `hasMore`; the existing authorized cart read can inspect a known candidate. This issue does not add bulk duplicate recovery or silently archive an unshown third box.
 
-The guarantee covers the existing box create/adopt service paths, not arbitrary direct database writes. Retention, richer checkout drafts and payment recovery belong to the subsequent checkout issues. Existing plan-authoring currency checks are preserved; this change does not redesign concurrent plan authoring.
+The guarantee covers the existing box create/adopt service paths, not arbitrary direct database writes. [Checkout drafts](checkout-drafts.md) add shared form state, conditional writes and activity-based retention in #347; authoritative payment recovery remains #344. Existing plan-authoring currency checks are preserved; this change does not redesign concurrent plan authoring.
 
 ## Verification
 

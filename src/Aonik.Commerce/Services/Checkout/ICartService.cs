@@ -13,6 +13,8 @@ public interface ICartService
     /// response (R10); any client-supplied token value is ignored.</summary>
     Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default);
     Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
+    Task<CartCheckoutDraftResponse> SaveCheckoutDraftAsync(Guid cartId, CartCheckoutDraftDto draft,
+        CartAccessContext access, CancellationToken cancellationToken = default);
     Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     /// <summary>Adds a validated build-your-own-box selection as a single bundle line (§12).</summary>

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
@@ -23,7 +23,7 @@ public class BoxAddOnTests
         return document.RootElement.Clone();
     }
 
-    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken);
+    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken, dto.CartVersion);
 
     private static async Task<(BoxTestHarness H, BoxTestHarness.BoxFixture F, BoxCartDto Box, Guid ExtraVariant)> ArrangeAsync()
     {

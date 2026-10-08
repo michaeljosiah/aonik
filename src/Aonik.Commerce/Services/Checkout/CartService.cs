@@ -18,12 +18,14 @@ internal sealed class CartService : ICartService
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IProductPricingService _pricing;
+    private readonly IClock _clock;
 
-    public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing)
+    public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing, IClock clock)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _pricing = pricing;
+        _clock = clock;
     }
 
     public async Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default)
@@ -39,6 +41,7 @@ internal sealed class CartService : ICartService
             AnonymousToken = CartAccess.MintToken(),
             Status = CartStatuses.Open,
             Currency = command.Currency,
+            LastActivityAtUtc = _clock.UtcNow,
         };
         _dbContext.Carts.Add(cart);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -64,6 +67,22 @@ internal sealed class CartService : ICartService
         return cart is null ? null : Map(cart);
     }
 
+    public async Task<CartCheckoutDraftResponse> SaveCheckoutDraftAsync(Guid cartId, CartCheckoutDraftDto draft,
+        CartAccessContext access, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await LoadAuthorizedAsync(cartId, tenantId, access, cancellationToken);
+        CartWriteGuard.RequireCurrent(cart, access);
+        var json = CartDraftData.Serialize(draft);
+        if (cart.CheckoutDraftJson != json)
+        {
+            cart.CheckoutDraftJson = json;
+            await SaveCartEditAsync(cart, cancellationToken);
+        }
+        return new CartCheckoutDraftResponse(cart.Id, Convert.ToBase64String(cart.RowVersion),
+            cart.Status, cart.OrderId, CartDraftData.Read(cart));
+    }
+
     public async Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         if (command.Quantity <= 0)
@@ -81,10 +100,7 @@ internal sealed class CartService : ICartService
         var unit = await _pricing.ResolvePriceAsync(variant.Id, cart.Currency, null, cancellationToken)
             ?? throw new InvalidOperationException($"No {cart.Currency} price for variant '{variant.Id}'.");
 
-        // Insert the line directly — the cart parent owns no totals; the one
-        // parent write is the activity stamp below, so list surfaces can order
-        // by Cart.UpdatedAt (the soft-delete query filter hides removed lines
-        // from any per-line aggregate).
+        // Parent version and line commit together so a stale write leaves no partial line.
         _dbContext.CartItems.Add(new CartItem
         {
             Id = Guid.NewGuid(),
@@ -98,8 +114,7 @@ internal sealed class CartService : ICartService
             NameSnapshot = variant.Name,
         });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
+        await SaveCartEditAsync(cart, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
@@ -167,22 +182,20 @@ internal sealed class CartService : ICartService
         }
 
         _dbContext.CartItems.Add(item);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await TouchCartAsync(cart.Id, tenantId, cancellationToken);
+        await SaveCartEditAsync(cart, cancellationToken);
         return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
     }
 
     public async Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CartAccessContext access, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        await ValidateOpenCartAsync(cartId, tenantId, access, cancellationToken);
+        var cart = await ValidateOpenCartAsync(cartId, tenantId, access, cancellationToken);
         var item = await _dbContext.CartItems
             .FirstOrDefaultAsync(i => i.Id == cartItemId && i.CartId == cartId && i.TenantId == tenantId, cancellationToken);
         if (item is not null)
         {
             _dbContext.CartItems.Remove(item);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await TouchCartAsync(cartId, tenantId, cancellationToken);
+            await SaveCartEditAsync(cart, cancellationToken);
         }
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
@@ -235,6 +248,7 @@ internal sealed class CartService : ICartService
                     && guest.Status == CartStatuses.Abandoned && guest.OrderId is null)
                     throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.StaleChoice, guest, []);
                 EnsureAdoptable(guest!);
+                if (choice is null) CartWriteGuard.RequireCurrent(guest!, access);
 
                 // Serializable starts before this indexed range read: two different guest
                 // carts must not both become the account's single active box.
@@ -250,6 +264,7 @@ internal sealed class CartService : ICartService
                         throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.StaleChoice, guest, candidates);
                     guest!.BuyerPartyId = partyId;
                     guest.AnonymousToken = null;
+                    CartActivity.UserEdit(_dbContext, guest, _clock);
                     await _dbContext.SaveChangesAsync(ct);
                     if (transaction is not null) await transaction.CommitAsync(ct);
                     return cartId;
@@ -273,6 +288,8 @@ internal sealed class CartService : ICartService
                 else
                     guest.Status = CartStatuses.Abandoned;
 
+                CartActivity.UserEdit(_dbContext, guest, _clock);
+                CartActivity.UserEdit(_dbContext, saved, _clock);
                 await _dbContext.SaveChangesAsync(ct);
                 if (transaction is not null) await transaction.CommitAsync(ct);
                 return choice.Decision == CartAdoptionDecisions.KeepGuest ? cartId : saved.Id;
@@ -287,6 +304,11 @@ internal sealed class CartService : ICartService
             var replayId = await ReadAdoptionReplayAsync(winner!, partyId, choice, cancellationToken);
             if (!replayId.HasValue) throw;
             selectedId = replayId.Value;
+        }
+        catch
+        {
+            DetachAdoptionCarts(touchedIds);
+            throw;
         }
 
         // Response reads are outside the retrying write, so a rendering failure cannot
@@ -326,14 +348,14 @@ internal sealed class CartService : ICartService
 
     private void DetachAdoptionCarts(HashSet<Guid> cartIds)
     {
-        foreach (var entry in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>()
-                     .Where(entry => cartIds.Contains(entry.Entity.Id)).ToList())
-            entry.State = EntityState.Detached;
+        foreach (var cartId in cartIds)
+            CartTracking.Detach(_dbContext, _tenantProvider.GetCurrentTenantId(), cartId);
     }
 
     private async Task<CartDto> AdoptGenericAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        CartTracking.Detach(_dbContext, tenantId, cartId);
         var cart = await _dbContext.Carts
             .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
@@ -357,10 +379,12 @@ internal sealed class CartService : ICartService
         }
 
         EnsureAdoptable(cart);
+        CartWriteGuard.RequireCurrent(cart, access);
 
         cart.BuyerPartyId = partyId;
         // Z3 — a leaked pre-adoption token must be dead afterwards.
         cart.AnonymousToken = null;
+        CartActivity.UserEdit(_dbContext, cart, _clock);
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -381,6 +405,11 @@ internal sealed class CartService : ICartService
             }
             EnsureAdoptable(winner);
         }
+        catch
+        {
+            CartTracking.Detach(_dbContext, tenantId, cartId);
+            throw;
+        }
 
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
@@ -395,61 +424,35 @@ internal sealed class CartService : ICartService
         }
     }
 
-    /// <summary>
-    /// Stamps the parent cart's activity AFTER the line write has committed, in
-    /// its own unit of work. A line add/remove is cart activity — and the
-    /// soft-delete query filter hides removed lines from every per-line
-    /// aggregate, so Cart.UpdatedAt is the only ordering signal a removal can
-    /// leave behind — but every AuditableEntity carries a row-version token, so
-    /// enlisting the parent in the line's save would turn two legitimate
-    /// parallel line edits into a concurrency conflict that rolls the line
-    /// mutation back. Keeping it separate preserves the independence of child
-    /// writes; a lost race here is retried, and after the bounded attempts the
-    /// stamp is abandoned rather than failing a line mutation that has already
-    /// committed — the ordering falls back to the line-level timestamps the
-    /// admin projection also considers.
-    /// </summary>
-    private async Task TouchCartAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
+    private async Task SaveCartEditAsync(Entities.Cart.Cart cart, CancellationToken cancellationToken)
     {
-        const int attempts = 3;
-        for (var attempt = 1; attempt <= attempts; attempt++)
+        CartActivity.UserEdit(_dbContext, cart, _clock);
+        try
         {
-            var tracked = await _dbContext.Carts
-                .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
-            if (tracked is null)
-            {
-                return;
-            }
-
-            tracked.UpdatedAt = DateTime.UtcNow;
-            try
-            {
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                return;
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                // Another writer stamped first. Drop the stale tracked copy and
-                // re-read so the next attempt carries the current row version.
-                foreach (var entry in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>().ToList())
-                {
-                    entry.State = EntityState.Detached;
-                }
-            }
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
+        catch
+        {
+            CartTracking.Detach(_dbContext, cart.TenantId, cart.Id);
+            throw;
+        }
+    }
+
+    private async Task<Entities.Cart.Cart> LoadAuthorizedAsync(Guid cartId, Guid tenantId,
+        CartAccessContext access, CancellationToken cancellationToken)
+    {
+        CartTracking.Detach(_dbContext, tenantId, cartId);
+        var cart = await _dbContext.Carts
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+        if (cart is null || !CartAccess.IsAuthorized(cart, access))
+            throw new NotFoundException($"Cart '{cartId}' was not found.");
+        return cart;
     }
 
     private async Task<Entities.Cart.Cart> ValidateOpenCartAsync(Guid cartId, Guid tenantId, CartAccessContext access, CancellationToken cancellationToken)
     {
-        var cart = await _dbContext.Carts.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken)
-            ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
-
-        // R10 — unauthorized is the same 404 an unknown id gets; no oracle.
-        if (!CartAccess.IsAuthorized(cart, access))
-        {
-            throw new NotFoundException($"Cart '{cartId}' was not found.");
-        }
+        var cart = await LoadAuthorizedAsync(cartId, tenantId, access, cancellationToken);
+        CartWriteGuard.RequireCurrent(cart, access);
 
         // R11 — a box session is writable only through kind-aware routes: a kind-blind insert
         // would land a line that capacity, slot, personalisation, merge and quote rules cannot
@@ -460,16 +463,6 @@ internal sealed class CartService : ICartService
                 "R11: this cart is a box session — use the box routes (/commerce/carts/{id}/lines).");
         }
 
-        if (cart.Status != CartStatuses.Open)
-        {
-            throw new InvalidOperationException($"Cart '{cartId}' is {cart.Status}, not Open.");
-        }
-        // A cart stays Open until payment completes, but once checkout has stamped an OrderId the
-        // order/reservation/payment amount are fixed — block further edits so the cart can't diverge.
-        if (cart.OrderId is not null)
-        {
-            throw new InvalidOperationException($"Cart '{cartId}' is checked out (pending payment) and can no longer be edited.");
-        }
         return cart;
     }
 
@@ -483,6 +476,6 @@ internal sealed class CartService : ICartService
 
         // R10 — the token is disclosed exactly once, by create; every other read carries null.
         return new CartDto(cart.Id, cart.BuyerPartyId, null, cart.Status, cart.Currency, cart.OrderId,
-            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId, Convert.ToBase64String(cart.RowVersion));
+            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId, Convert.ToBase64String(cart.RowVersion), CartDraftData.Read(cart));
     }
 }

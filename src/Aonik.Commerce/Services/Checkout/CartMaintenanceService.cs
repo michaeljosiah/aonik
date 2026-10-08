@@ -14,9 +14,9 @@ namespace Aonik.Commerce.Services.Checkout;
 /// <summary>Background maintenance over carts, invoked by the Worker sweep.</summary>
 public interface ICartMaintenanceService
 {
-    /// <summary>Spec 068 A6 — box sessions idle beyond <c>Commerce.Carts.AbandonAfterDays</c>
-    /// (default 14) transition to Abandoned, so a single stale anonymous session cannot pin size-
-    /// plan authoring (A4's currency lock counts open sessions) forever. Returns the count. When
+    /// <summary>Empty box sessions expire after 24 hours of inactivity; sessions containing
+    /// dishes expire after 7 days. Both global housekeeping windows are configurable. Returns
+    /// the number actually abandoned, excluding concurrent edits and pending checkouts. When
     /// <paramref name="tenantIds"/> is given only those tenants are swept.</summary>
     Task<int> AbandonIdleBoxCartsAsync(DateTime? asOfUtc = null, IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default);
 
@@ -30,8 +30,10 @@ public interface ICartMaintenanceService
 
 internal sealed class CartMaintenanceService : ICartMaintenanceService
 {
-    public const string AbandonAfterDaysSettingKey = "Commerce.Carts.AbandonAfterDays";
-    private const int DefaultAbandonAfterDays = 14;
+    public const string AbandonAfterDaysSettingKey = CommerceSettingNames.CartsAbandonAfterDays;
+    public const string EmptyAbandonAfterHoursSettingKey = CommerceSettingNames.CartsEmptyAbandonAfterHours;
+    private const int DefaultAbandonAfterDays = 7;
+    private const int DefaultEmptyAbandonAfterHours = 24;
 
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
@@ -52,8 +54,8 @@ internal sealed class CartMaintenanceService : ICartMaintenanceService
 
     public async Task<IReadOnlyList<Guid>> FindTenantsWithIdleBoxCartsAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default)
     {
-        var cutoff = await ResolveCutoffAsync(asOfUtc, cancellationToken);
-        return await IdleBoxCarts(cutoff)
+        var cutoffs = await ResolveCutoffsAsync(asOfUtc, cancellationToken);
+        return await IdleBoxCarts(cutoffs.Empty, cutoffs.Populated).AsNoTracking()
             .Select(c => c.TenantId)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -61,11 +63,11 @@ internal sealed class CartMaintenanceService : ICartMaintenanceService
 
     public async Task<int> AbandonIdleBoxCartsAsync(DateTime? asOfUtc = null, IReadOnlyCollection<Guid>? tenantIds = null, CancellationToken cancellationToken = default)
     {
-        var cutoff = await ResolveCutoffAsync(asOfUtc, cancellationToken);
+        var cutoffs = await ResolveCutoffsAsync(asOfUtc, cancellationToken);
 
         // Global sweep — the Worker runs without a tenant ambient: read across tenants, write per
         // tenant (the InventoryService.ReleaseExpiredAsync pattern).
-        var query = IdleBoxCarts(cutoff);
+        var query = IdleBoxCarts(cutoffs.Empty, cutoffs.Populated).AsNoTracking();
         if (tenantIds is not null)
         {
             // Spec 097 §12.2 — the Worker passes the tenants whose Commerce module is enabled.
@@ -81,17 +83,31 @@ internal sealed class CartMaintenanceService : ICartMaintenanceService
 
         var originalTenant = _tenantContext.TenantId;
         var originalSource = _tenantContext.ResolutionSource;
+        var abandoned = 0;
         try
         {
-            foreach (var group in idle.GroupBy(c => c.TenantId))
+            foreach (var cart in idle)
             {
-                _tenantContext.TenantId = group.Key;
+                _tenantContext.TenantId = cart.TenantId;
                 _tenantContext.ResolutionSource = "box-cart-abandon-sweep";
-                foreach (var cart in group)
+                CartTracking.Detach(_dbContext, cart.TenantId, cart.Id);
+                _dbContext.Carts.Attach(cart);
+                try
                 {
                     cart.Status = CartStatuses.Abandoned;
+                    CartActivity.ServerEdit(_dbContext, cart, _clock);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    abandoned++;
                 }
-                await _dbContext.SaveChangesAsync(cancellationToken);
+                catch (DbUpdateConcurrencyException)
+                {
+                    // A customer edit or checkout won. Never reapply abandonment to its fresh
+                    // version; leave it for a later sweep and continue with other idle carts.
+                }
+                finally
+                {
+                    CartTracking.Detach(_dbContext, cart.TenantId, cart.Id);
+                }
             }
         }
         finally
@@ -100,30 +116,40 @@ internal sealed class CartMaintenanceService : ICartMaintenanceService
             _tenantContext.ResolutionSource = originalSource;
         }
 
-        return idle.Count;
+        return abandoned;
     }
 
-    private async Task<DateTime> ResolveCutoffAsync(DateTime? asOfUtc, CancellationToken cancellationToken)
+    private async Task<(DateTime Empty, DateTime Populated)> ResolveCutoffsAsync(DateTime? asOfUtc, CancellationToken cancellationToken)
     {
         var at = asOfUtc ?? _clock.UtcNow;
-        var raw = await _settings.GetAsync(AbandonAfterDaysSettingKey, cancellationToken);
-        var days = int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed >= 1
-            ? parsed
-            : DefaultAbandonAfterDays;
-        return at.AddDays(-days);
+        var days = ReadWindow(await _settings.GetAsync(AbandonAfterDaysSettingKey, cancellationToken),
+            DefaultAbandonAfterDays, 365);
+        var hours = ReadWindow(await _settings.GetAsync(EmptyAbandonAfterHoursSettingKey, cancellationToken),
+            DefaultEmptyAbandonAfterHours, 365 * 24);
+        return (at.AddHours(-hours), at.AddDays(-days));
     }
 
+    private static int ReadWindow(string? raw, int fallback, int maximum)
+        => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            && parsed >= 1 && parsed <= maximum ? parsed : fallback;
+
     /// <summary>
-    /// Only pure building sessions abandon (OrderId null): a pending-payment cart's order, reservation
-    /// and payment already exist, and abandoning it would fight payment completion — its stock frees
-    /// via the reservation TTL regardless. AcrossTenants() also drops the soft-delete filter, so
-    /// deleted rows are excluded explicitly.
+    /// Pending/unknown payment results must resolve before their carts can expire. AcrossTenants
+    /// drops every query filter, so child tenant ownership and both soft deletes are explicit.
+    /// Extras alone do not populate a box; unavailable retained dishes still do.
     /// </summary>
-    private IQueryable<Cart> IdleBoxCarts(DateTime cutoff)
-        => _dbContext.Carts.AcrossTenants()
+    private IQueryable<Cart> IdleBoxCarts(DateTime emptyCutoff, DateTime populatedCutoff)
+    {
+        var items = _dbContext.CartItems.AcrossTenants();
+        return _dbContext.Carts.AcrossTenants()
             .Where(c => !c.IsDeleted
                 && c.BoxBundleProductId != null
                 && c.Status == CartStatuses.Open
                 && c.OrderId == null
-                && (c.UpdatedAt ?? c.CreatedAt) < cutoff);
+                && (c.LastActivityAtUtc ?? c.UpdatedAt ?? c.CreatedAt) <=
+                    (items.Any(item => item.CartId == c.Id
+                        && item.TenantId == c.TenantId && !item.IsDeleted
+                        && item.LineKind == CartLineKinds.BoxDish && item.BoxBundleSlotId != null
+                        && item.Quantity > 0) ? populatedCutoff : emptyCutoff));
+    }
 }

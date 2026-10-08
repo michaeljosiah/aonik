@@ -42,6 +42,7 @@ public partial class CommerceBoxCartEndpointTests : IClassFixture<CustomWebAppli
         token.Should().NotBeNullOrEmpty();
 
         client.DefaultRequestHeaders.Add("X-Cart-Token", token);
+        UseCartVersion(client, created.GetProperty("cartVersion").GetString()!);
 
         // AC-20 — continue on an incomplete box names the shortfall.
         (await client.PostAsync($"/commerce/carts/{cartId}/continue", null))
@@ -53,6 +54,7 @@ public partial class CommerceBoxCartEndpointTests : IClassFixture<CustomWebAppli
             new { productVariantId = variantId, quantity = 6, price = 0.01m });
         add.StatusCode.Should().Be(HttpStatusCode.OK);
         var filled = await add.Content.ReadFromJsonAsync<JsonElement>();
+        UseCartVersion(client, filled.GetProperty("cartVersion").GetString()!);
         var quote = filled.GetProperty("quote");
         quote.GetProperty("total").GetDecimal().Should().Be(95m, "server figures only");
         quote.GetProperty("isFull").GetBoolean().Should().BeTrue();
@@ -140,6 +142,12 @@ public partial class CommerceBoxCartEndpointTests : IClassFixture<CustomWebAppli
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString());
         return client;
+    }
+
+    private static void UseCartVersion(HttpClient client, string version)
+    {
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", version).Should().BeTrue();
     }
 
     private async Task<(Guid BundleId, Guid VariantId)> SeedBoxWorldAsync(Guid tenantId)

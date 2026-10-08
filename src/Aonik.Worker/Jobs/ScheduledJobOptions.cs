@@ -264,11 +264,10 @@ public sealed class BoxCartAbandonSweepJobOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Quartz cron expression (6-field with seconds). Default: daily at 03:10 — abandonment is a
-    /// days-scale window (Spec 068 A6, Commerce.Carts.AbandonAfterDays, default 14), so a daily
-    /// pass is ample; the transition is idempotent.
+    /// Quartz cron expression (6-field with seconds). Default: hourly at minute 10, so the
+    /// 24-hour empty-draft window does not need to wait an extra day for housekeeping.
     /// </summary>
-    public string CronExpression { get; set; } = "0 10 3 * * ?";
+    public string CronExpression { get; set; } = "0 10 * * * ?";
 }
 
 /// <summary>Spec 095 §11.</summary>

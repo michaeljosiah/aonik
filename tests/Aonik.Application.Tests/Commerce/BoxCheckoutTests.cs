@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
@@ -25,7 +25,7 @@ public class BoxCheckoutTests
         return document.RootElement.Clone();
     }
 
-    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken);
+    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken, dto.CartVersion);
 
     /// <summary>A full 6-box: 4 default jollof + 2 salmon jollof (adjustment +3 each).</summary>
     private static async Task<(BoxTestHarness H, BoxTestHarness.BoxFixture F, BoxCartDto Box)> ArrangeFullBoxAsync(

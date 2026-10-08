@@ -1,9 +1,10 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
 
 using FluentAssertions;
@@ -24,7 +25,7 @@ public partial class BoxCartServiceTests
         return document.RootElement.Clone();
     }
 
-    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken);
+    private static CartAccessContext Token(BoxCartDto dto) => CartAccessContext.ForGuest(dto.CartToken, dto.CartVersion);
 
     private static async Task<(BoxTestHarness H, BoxTestHarness.BoxFixture F, BoxCartDto Box)> ArrangeAsync(
         int size = 6, params string[] dishes)
@@ -114,7 +115,7 @@ public partial class BoxCartServiceTests
         var party = Guid.NewGuid();
         var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6, BuyerPartyId: party));
 
-        var viaParty = await h.BoxCarts().GetAsync(box.Box.CartId, CartAccessContext.ForParty(party));
+        var viaParty = await h.BoxCarts().GetAsync(box.Box.CartId, CartAccessContext.ForParty(party, ""));
         viaParty.Box.CartId.Should().Be(box.Box.CartId);
 
         var viaToken = () => h.BoxCarts().GetAsync(box.Box.CartId, Token(box));
@@ -339,7 +340,7 @@ public partial class BoxCartServiceTests
         var act = () => h.BoxCarts().AddLineAsync(box.Box.CartId,
             new AddBoxLineCommand(f.DishVariants["jollof"], 1, null), Token(box));
 
-        (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("R9");
+        (await act.Should().ThrowAsync<CartWriteConflictException>()).Which.Status.Should().Be(CartStatuses.Open);
     }
 
     // ─── §8 drift ────────────────────────────────────────────────────────────

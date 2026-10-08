@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Contracts.Models.Reporting;
@@ -102,7 +102,7 @@ public class MarginReportServiceTests
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, Clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, Clock);
-        public CartService Carts() => new(Commerce(), _tenant, Pricing());
+        public CartService Carts() => new(Commerce(), _tenant, Pricing(), Clock);
         public DiscountService Discounts() => new(Commerce(), _tenant, Clock);
         public RecipeService Recipes() => new(Commerce(), _tenant);
         public IngredientCostService Costs() => new(Commerce(), _tenant, Clock);
@@ -113,7 +113,7 @@ public class MarginReportServiceTests
             var ctx = Commerce();
             var boxCarts = new BoxCartService(ctx, _tenant,
                 CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock));
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock), Clock);
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
                 Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,

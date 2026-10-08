@@ -374,6 +374,19 @@ public static class ExceptionHandlerConfiguration
                 await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new { error = ex.Message });
                 return;
 
+            case CartWriteConflictException cartConflict:
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    code = cartConflict.Code,
+                    message = cartConflict.Message,
+                    cartId = cartConflict.CartId,
+                    cartVersion = cartConflict.CartVersion,
+                    status = cartConflict.Status,
+                    orderId = cartConflict.OrderId,
+                }, context.RequestAborted);
+                return;
+
             case ActiveBoxConflictException activeBox:
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 await context.Response.WriteAsJsonAsync(new
@@ -397,6 +410,9 @@ public static class ExceptionHandlerConfiguration
                     box = boxDrift.Refreshed.Box,
                     quote = boxDrift.Refreshed.Quote,
                     changes = boxDrift.Refreshed.Changes,
+                    cartVersion = boxDrift.Refreshed.CartVersion,
+                    status = boxDrift.Refreshed.Status,
+                    orderId = boxDrift.Refreshed.OrderId,
                 });
                 return;
 

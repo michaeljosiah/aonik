@@ -1,4 +1,6 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using System.Text.Json;
+
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Persistence;
@@ -82,7 +84,7 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
             settings,
             settings,
             new GbpCurrency(),
-            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()));
+            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
     }
 
     [SkippableFact]
@@ -94,20 +96,22 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
 
         Guid cartId;
         string token;
+        string version;
         await using (var setup = CommerceSqlServerHarness.CreateContext(_db, tenantId))
         {
             var carts = NewBoxCarts(setup, tenantId);
             var box = await carts.CreateAsync(new CreateBoxCartCommand(bundleId, 6));
             cartId = box.Box.CartId;
             token = box.CartToken!;
-            await carts.AddLineAsync(cartId, new AddBoxLineCommand(variantA, 5, null),
-                CartAccessContext.ForGuest(token));
+            var populated = await carts.AddLineAsync(cartId, new AddBoxLineCommand(variantA, 5, null),
+                CartAccessContext.ForGuest(token, box.CartVersion));
+            version = populated.CartVersion;
         }
 
         // Two writers over two independent contexts — different new line rows, one last space.
         await using var contextA = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         await using var contextB = CommerceSqlServerHarness.CreateContext(_db, tenantId);
-        var access = CartAccessContext.ForGuest(token);
+        var access = CartAccessContext.ForGuest(token, version);
         var addA = Task.Run(() => NewBoxCarts(contextA, tenantId)
             .AddLineAsync(cartId, new AddBoxLineCommand(variantA, 1, null), access));
         var addB = Task.Run(() => NewBoxCarts(contextB, tenantId)
@@ -119,9 +123,8 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
 
         results.Count(r => r.Succeeded).Should().Be(1, "a seven-unit six-box is unrepresentable");
         var loser = results.Single(r => !r.Succeeded);
-        loser.Error.Should().BeOfType<StorefrontValidationException>(
-            "the loser revalidates against fresh state and reports the capacity rejection");
-        loser.Error!.Message.Should().Contain("R3");
+        (loser.Error is CartWriteConflictException or DbUpdateConcurrencyException).Should().BeTrue(
+            "the stale mutation must fail its explicit precondition or native parent claim without being replayed");
 
         await using var verify = CommerceSqlServerHarness.CreateContext(_db, tenantId);
         var units = await verify.CartItems
@@ -141,6 +144,66 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
         {
             return (false, ex);
         }
+    }
+
+    [SkippableFact]
+    public async Task CatalogueRepair_Should_AdvanceTheParentVersion_WithoutRenewingActivity()
+    {
+        Skip.IfNot(_db.IsAvailable, _db.SkipReason ?? "SQL Server LocalDB unavailable.");
+        var tenantId = Guid.NewGuid();
+        var (bundleId, variantId, _) = await SeedAsync(tenantId);
+        await using var context = CommerceSqlServerHarness.CreateContext(_db, tenantId);
+        var boxes = NewBoxCarts(context, tenantId);
+        var created = await boxes.CreateAsync(new CreateBoxCartCommand(bundleId, 6));
+        var populated = await boxes.AddLineAsync(created.Box.CartId, new AddBoxLineCommand(variantId, 1),
+            CartAccessContext.ForGuest(created.CartToken, created.CartVersion));
+        var originalActivity = (await context.Carts.AsNoTracking().SingleAsync()).LastActivityAtUtc;
+        await using (var author = CommerceSqlServerHarness.CreateContext(_db, tenantId))
+        {
+            var variant = await author.ProductVariants.SingleAsync(row => row.Id == variantId);
+            var product = await author.Products.SingleAsync(row => row.Id == variant.ProductId);
+            product.UnitSurcharge = 2m;
+            product.UnitSurchargeCurrency = "GBP";
+            await author.SaveChangesAsync();
+        }
+
+        var repaired = await boxes.GetAsync(created.Box.CartId, CartAccessContext.ForGuest(created.CartToken));
+
+        repaired.CartVersion.Should().NotBe(populated.CartVersion);
+        repaired.Box.Lines.Single().UnitSurcharge.Should().Be(2m);
+        (await context.Carts.AsNoTracking().SingleAsync()).LastActivityAtUtc.Should().Be(originalActivity);
+        var unchanged = await boxes.GetAsync(created.Box.CartId, CartAccessContext.ForGuest(created.CartToken));
+        unchanged.CartVersion.Should().Be(repaired.CartVersion, "an unchanged GET does not write or renew the draft");
+        var tenant = new TestTenantProvider(tenantId);
+        var stale = () => new CartService(context, tenant, new ProductPricingService(context, tenant, new WallClock()), new WallClock())
+            .SaveCheckoutDraftAsync(created.Box.CartId, new CartCheckoutDraftDto(Notes: "Stale before repair"),
+                CartAccessContext.ForGuest(created.CartToken, populated.CartVersion));
+        await stale.Should().ThrowAsync<CartWriteConflictException>();
+    }
+
+    [SkippableFact]
+    public async Task FailedBoxMutation_Should_NotLeakItsQuantityIntoALaterInventorySave()
+    {
+        Skip.IfNot(_db.IsAvailable, _db.SkipReason ?? "SQL Server LocalDB unavailable.");
+        var tenantId = Guid.NewGuid();
+        var (bundleId, variantId, _) = await SeedAsync(tenantId);
+        await using var context = CommerceSqlServerHarness.CreateContext(_db, tenantId);
+        var boxes = NewBoxCarts(context, tenantId);
+        var created = await boxes.CreateAsync(new CreateBoxCartCommand(bundleId, 6));
+        var populated = await boxes.AddLineAsync(created.Box.CartId, new AddBoxLineCommand(variantId, 1),
+            CartAccessContext.ForGuest(created.CartToken, created.CartVersion));
+        using var personalisation = JsonDocument.Parse("{}");
+        var act = () => boxes.UpdateLineAsync(created.Box.CartId, populated.Box.Lines.Single().LineId,
+            new UpdateBoxLineCommand(2, personalisation.RootElement, ApplyToUnits: 3),
+                CartAccessContext.ForGuest(created.CartToken, populated.CartVersion));
+
+        await act.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*applyToUnits*");
+        await new InventoryService(context, new TestTenantProvider(tenantId),
+            new TenantContext { TenantId = tenantId }, new WallClock()).SetOnHandAsync(variantId, 60m);
+
+        await using var verify = CommerceSqlServerHarness.CreateContext(_db, tenantId);
+        (await verify.CartItems.SingleAsync()).Quantity.Should().Be(1m);
+        Convert.ToBase64String((await verify.Carts.SingleAsync()).RowVersion).Should().Be(populated.CartVersion);
     }
 
     private async Task<(Guid BundleId, Guid VariantA, Guid VariantB)> SeedAsync(Guid tenantId)

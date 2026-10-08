@@ -12,11 +12,11 @@ namespace Aonik.Commerce.Contracts.Models.Checkout;
 /// these; authorization lives in one shared authorizer at the service boundary, and any mismatch
 /// is a 404 indistinguishable from an unknown cart.
 /// </summary>
-public sealed record CartAccessContext(string? GuestToken, Guid? AuthenticatedPartyId)
+public sealed record CartAccessContext(string? GuestToken, Guid? AuthenticatedPartyId, string? ExpectedCartVersion = null)
 {
-    public static CartAccessContext ForGuest(string? token) => new(token, null);
+    public static CartAccessContext ForGuest(string? token, string? version = null) => new(token, null, version);
 
-    public static CartAccessContext ForParty(Guid partyId) => new(null, partyId);
+    public static CartAccessContext ForParty(Guid partyId, string? version = null) => new(null, partyId, version);
 }
 
 // ─── The §7 payload ─────────────────────────────────────────────────────────
@@ -99,7 +99,10 @@ public record BoxCartDto(
     BoxQuoteDto Quote,
     IReadOnlyList<BoxChangeDto> Changes,
     string? CartToken = null,
-    string CartVersion = "");
+    string CartVersion = "",
+    string Status = "Open",
+    Guid? OrderId = null,
+    CartCheckoutDraftDto? CheckoutDraft = null);
 
 // ─── Commands (§10) ─────────────────────────────────────────────────────────
 

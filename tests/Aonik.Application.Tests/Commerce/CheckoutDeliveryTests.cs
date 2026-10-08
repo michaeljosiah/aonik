@@ -22,7 +22,7 @@ public class CheckoutDeliveryTests
             Recipient = new(" Sam Recipient ", " 07700 900222 "),
             Notes = " Please ring the bell.\nLeave with reception. "
         };
-        var access = CartAccessContext.ForGuest(box.CartToken);
+        var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
 
         var result = await harness.Checkout().CheckoutAsync(new(box.Box.CartId, "Stripe", "Card", Delivery: input), access);
 
@@ -65,7 +65,7 @@ public class CheckoutDeliveryTests
         var (harness, box) = await FullBoxAsync();
 
         await harness.Checkout().CheckoutAsync(new(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery),
-            CartAccessContext.ForGuest(box.CartToken));
+            CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
 
         await using var context = harness.Commerce();
         var row = await context.OrderDeliveryDetails.SingleAsync();
@@ -120,7 +120,7 @@ public class CheckoutDeliveryTests
         }
 
         var attempt = () => harness.Checkout().CheckoutAsync(new(box.Box.CartId, "Stripe", "Card", Delivery: input),
-            CartAccessContext.ForGuest(box.CartToken));
+            CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
 
         await attempt.Should().ThrowAsync<StorefrontValidationException>();
         harness.Payments.Calls.Should().Be(0);
@@ -152,7 +152,7 @@ public class CheckoutDeliveryTests
         var variant = fixture.DishVariants["dish"];
         await harness.Pricing().SetPriceAsync(new SetPriceCommand(variant, "GBP", 10m));
         var cart = await harness.Carts().CreateCartAsync(new("GBP"));
-        var access = CartAccessContext.ForGuest(cart.AnonymousToken);
+        var access = CartAccessContext.ForGuest(cart.AnonymousToken, cart.CartVersion);
         await harness.Carts().AddItemAsync(new(cart.Id, variant), access);
 
         var result = await harness.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
@@ -168,7 +168,7 @@ public class CheckoutDeliveryTests
         var fixture = await harness.BuildAsync("dish");
         var box = await harness.BoxCarts().CreateAsync(new(fixture.BundleProductId, 6));
         await harness.BoxCarts().AddLineAsync(box.Box.CartId, new(fixture.DishVariants["dish"], 6, null),
-            CartAccessContext.ForGuest(box.CartToken));
+            CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
         return (harness, box);
     }
 }

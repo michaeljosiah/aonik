@@ -103,6 +103,7 @@ public partial class CommerceBoxCartEndpointTests
         var guest = await CreateBoxAsync(anonymous, bundleId, variantId, 1, size: 12);
         anonymous.DefaultRequestHeaders.Add("X-Cart-Token", guest.CartToken);
         customer.Client.DefaultRequestHeaders.Add("X-Cart-Token", guest.CartToken);
+        UseCartVersion(customer.Client, guest.CartVersion);
         var adoptRoute = $"/commerce/carts/{guest.Box.CartId}/adopt";
 
         var conflictResponse = await customer.Client.PostAsync(adoptRoute, null);
@@ -114,9 +115,12 @@ public partial class CommerceBoxCartEndpointTests
         var choice = new AdoptCartChoice(decision, saved.Box.CartId,
             conflict.GetProperty("savedCandidates")[0].GetProperty("cartVersion").GetString()!,
             conflict.GetProperty("guest").GetProperty("cartVersion").GetString()!);
+        customer.Client.DefaultRequestHeaders.Remove("X-Cart-Version");
 
         var stale = await customer.Client.PostAsJsonAsync(adoptRoute, choice with { ExpectedGuestCartVersion = "AQ==" });
         await ReadConflictAsync(stale, ActiveBoxConflictException.StaleChoice);
+        var staleSaved = await customer.Client.PostAsJsonAsync(adoptRoute, choice with { ExpectedSavedCartVersion = "AQ==" });
+        await ReadConflictAsync(staleSaved, ActiveBoxConflictException.StaleChoice);
         (await customer.Client.GetFromJsonAsync<BoxCartDto>(CurrentBoxRoute))!.Box.CartId.Should().Be(saved.Box.CartId);
         (await anonymous.GetAsync($"/commerce/carts/{guest.Box.CartId}")).StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -159,11 +163,13 @@ public partial class CommerceBoxCartEndpointTests
         var anonymous = Client(tenantId);
         Guid cartId;
         string token;
+        string version;
         if (boxCart)
         {
             var guest = await CreateBoxAsync(anonymous, bundleId);
             cartId = guest.Box.CartId;
             token = guest.CartToken!;
+            version = guest.CartVersion;
         }
         else
         {
@@ -175,8 +181,10 @@ public partial class CommerceBoxCartEndpointTests
             var guest = await created.Content.ReadFromJsonAsync<CartDto>();
             cartId = guest!.Id;
             token = guest.AnonymousToken!;
+            version = guest.CartVersion;
         }
         customer.Client.DefaultRequestHeaders.Add("X-Cart-Token", token);
+        UseCartVersion(customer.Client, version);
         var adopted = await customer.Client.PostAsync($"/commerce/carts/{cartId}/adopt", null);
 
         adopted.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -242,6 +250,54 @@ public partial class CommerceBoxCartEndpointTests
         conflict.GetProperty("savedCandidates").EnumerateArray().Select(x => x.GetProperty("cartId").GetGuid())
             .Should().BeEquivalentTo(new[] { first.Box.CartId, extraId });
         (await ReadCartsAsync(tenantId)).Should().HaveCount(2).And.OnlyContain(x => x.Status == CartStatuses.Open);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewAdoption_Should_RequireCurrentSourceVersion_WhileOwnedReplayDoesNot(bool boxCart)
+    {
+        var tenantId = Guid.NewGuid();
+        var (bundleId, _) = await SeedBoxWorldAsync(tenantId);
+        var customer = await CustomerAsync(tenantId);
+        using var anonymous = Client(tenantId);
+        Guid cartId;
+        string token;
+        string version;
+        if (boxCart)
+        {
+            var created = await CreateBoxAsync(anonymous, bundleId);
+            cartId = created.Box.CartId;
+            token = created.CartToken!;
+            version = created.CartVersion;
+        }
+        else
+        {
+            using var create = await anonymous.PostAsJsonAsync("/commerce/carts", new { currency = "GBP" });
+            var created = (await create.Content.ReadFromJsonAsync<CartDto>())!;
+            cartId = created.Id;
+            token = created.AnonymousToken!;
+            version = created.CartVersion;
+        }
+        using var client = customer.Client;
+        client.DefaultRequestHeaders.Add("X-Cart-Token", token);
+        var route = $"/commerce/carts/{cartId}/adopt";
+        using var missing = await client.PostAsync(route, null);
+        await AssertCartConflictAsync(missing, cartId, version);
+        UseCartVersion(client, "AQIDBAUGBwg=");
+        using var stale = await client.PostAsync(route, null);
+        await AssertCartConflictAsync(stale, cartId, version);
+        UseCartVersion(client, version);
+
+        using var adopted = await client.PostAsync(route, null);
+
+        adopted.StatusCode.Should().Be(HttpStatusCode.OK);
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.Remove("X-Cart-Token");
+        using var replay = await client.PostAsync(route, null);
+        replay.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertNoStore(replay);
+        (await replay.Content.ReadFromJsonAsync<CartDto>())!.Id.Should().Be(cartId);
     }
 
     private async Task<(HttpClient Client, Guid PartyId)> CustomerAsync(Guid tenantId)
