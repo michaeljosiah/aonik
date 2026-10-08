@@ -25,4 +25,7 @@ public interface ICartService
     /// the SAME party adopts again; every other mismatch is the R10 404 (Z2). Open, order-less
     /// carts only (Z4).</summary>
     Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default);
+
+    Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, AdoptCartChoice choice,
+        CancellationToken cancellationToken = default);
 }

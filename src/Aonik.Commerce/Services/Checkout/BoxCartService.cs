@@ -71,70 +71,140 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     public async Task<BoxCartDto> CreateAsync(CreateBoxCartCommand command, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var product = await _dbContext.Products
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == command.BundleProductId && p.TenantId == tenantId, cancellationToken)
-            ?? throw new NotFoundException($"Product '{command.BundleProductId}' was not found.");
-        if (product.Kind != ProductKinds.Bundle
-            || product.Status != ProductStatuses.Active
-            || product.BundlePricingMode != BundlePricingModes.SizeTiered)
+        // Reuse this identity if the execution strategy retries after an uncertain commit.
+        var cartId = Guid.NewGuid();
+        var token = CartAccess.MintToken();
+        var retrying = false;
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        Entities.Cart.Cart writtenCart;
+        BundleSizePlan writtenPlan;
+        try
         {
-            throw new StorefrontValidationException(
-                "Box sessions require an Active bundle product with size-tiered pricing.");
+            (writtenCart, writtenPlan) = await strategy.ExecuteAsync(async ct =>
+            {
+                DetachCreatedCart(cartId);
+                await using var transaction = _dbContext.Database.IsRelational()
+                    ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct)
+                    : null;
+
+                if (retrying)
+                {
+                    var committed = await _dbContext.Carts.AsNoTracking().Include(cart => cart.Items)
+                        .FirstOrDefaultAsync(cart => cart.Id == cartId && cart.TenantId == tenantId, ct);
+                    if (committed is not null)
+                    {
+                        if (committed.BuyerPartyId != command.BuyerPartyId
+                            || committed.BoxBundleProductId != command.BundleProductId)
+                            throw new NotFoundException($"Cart '{cartId}' was not found.");
+                        return (committed, await LoadPlanAsync(tenantId, command.BundleProductId, ct));
+                    }
+                }
+                retrying = true;
+
+                if (command.BuyerPartyId is { } partyId)
+                {
+                    // Protect the empty indexed party range too: different carts cannot
+                    // both become this customer's first active box.
+                    var candidates = await ReadActiveCandidatesAsync(tenantId, partyId, ct);
+                    if (candidates.Count > 0)
+                        throw ActiveBoxCarts.Conflict(candidates.Count == 1
+                            ? ActiveBoxConflictException.Existing : ActiveBoxConflictException.Multiple, null, candidates);
+                }
+
+                var product = await _dbContext.Products.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == command.BundleProductId && p.TenantId == tenantId, ct)
+                    ?? throw new NotFoundException($"Product '{command.BundleProductId}' was not found.");
+                if (product.Kind != ProductKinds.Bundle || product.Status != ProductStatuses.Active
+                    || product.BundlePricingMode != BundlePricingModes.SizeTiered)
+                    throw new StorefrontValidationException(
+                        "Box sessions require an Active bundle product with size-tiered pricing.");
+
+                var plan = await LoadPlanAsync(tenantId, product.Id, ct);
+                ValidateSize(plan, command.Size);
+                var cart = new Entities.Cart.Cart
+                {
+                    Id = cartId,
+                    TenantId = tenantId,
+                    BuyerPartyId = command.BuyerPartyId,
+                    AnonymousToken = token,
+                    Status = CartStatuses.Open,
+                    Currency = plan.Currency,
+                    BoxBundleProductId = product.Id,
+                    BoxSize = command.Size,
+                };
+                _dbContext.Carts.Add(cart);
+                if (command.FirstLine is { } firstLine)
+                    await AddLineCoreAsync(tenantId, cart, plan, firstLine, ct);
+
+                await _dbContext.SaveChangesAsync(ct);
+
+                // L8 — retain the currency check before committing the new session.
+                var currentCurrency = await _dbContext.BundleSizePlans.AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.BundleProductId == product.Id)
+                    .Select(x => x.Currency).FirstOrDefaultAsync(ct);
+                if (!string.Equals(currentCurrency, cart.Currency, StringComparison.Ordinal))
+                {
+                    if (transaction is null)
+                    {
+                        _dbContext.Carts.Remove(cart);
+                        await _dbContext.SaveChangesAsync(ct);
+                    }
+                    throw new StorefrontValidationException(
+                        "The plan was repriced while this box was being created; try again.");
+                }
+
+                if (transaction is not null) await transaction.CommitAsync(ct);
+                return (cart, plan);
+            }, cancellationToken);
+        }
+        catch
+        {
+            DetachCreatedCart(cartId);
+            throw;
         }
 
-        var plan = await LoadPlanAsync(tenantId, product.Id, cancellationToken);
-        ValidateSize(plan, command.Size);
-
-        var cart = new Entities.Cart.Cart
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            BuyerPartyId = command.BuyerPartyId,
-            // R10 — server-minted, ignoring anything a client may have supplied elsewhere;
-            // disclosed exactly once, in this response.
-            AnonymousToken = CartAccess.MintToken(),
-            Status = CartStatuses.Open,
-            Currency = plan.Currency,
-            BoxBundleProductId = product.Id,
-            BoxSize = command.Size,
-        };
-        _dbContext.Carts.Add(cart);
-
-        var changes = new List<BoxChangeDto>();
-        if (command.FirstLine is { } firstLine)
-        {
-            // The dish-detail → Step 1 handoff, atomically: an invalid first line fails the whole
-            // create rather than stranding an empty session behind an error.
-            await AddLineCoreAsync(tenantId, cart, plan, firstLine, cancellationToken);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // L8 — an A4 currency change could have committed between our plan read and this save:
-        // its open-session count could not see this cart yet, and the session would be born dead
-        // (every later operation fails the currency guard). Verify and unwind instead.
-        var currentCurrency = await _dbContext.BundleSizePlans
-            .AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.BundleProductId == product.Id)
-            .Select(x => x.Currency)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (!string.Equals(currentCurrency, cart.Currency, StringComparison.Ordinal))
-        {
-            _dbContext.Carts.Remove(cart);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            throw new StorefrontValidationException(
-                "The plan was repriced while this box was being created; try again.");
-        }
-
-        return await BuildDtoAsync(tenantId, cart, plan, changes, cart.AnonymousToken, cancellationToken);
+        // Display reads must not cause a retry to repeat an already-committed creation.
+        return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, [], token, cancellationToken);
     }
+
+    private void DetachCreatedCart(Guid cartId)
+    {
+        var carts = _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>()
+            .Where(entry => entry.Entity.Id == cartId).ToList();
+        var items = _dbContext.ChangeTracker.Entries<CartItem>()
+            .Where(entry => entry.Entity.CartId == cartId).ToList();
+        foreach (var item in items) item.State = EntityState.Detached;
+        foreach (var cart in carts)
+        {
+            cart.Entity.Items.Clear();
+            cart.State = EntityState.Detached;
+        }
+    }
+
+    private Task<List<Entities.Cart.Cart>> ReadActiveCandidatesAsync(Guid tenantId, Guid partyId, CancellationToken ct)
+        => ActiveBoxCarts.ForParty(_dbContext, tenantId, partyId).AsNoTracking().Include(cart => cart.Items)
+            .OrderByDescending(cart => cart.UpdatedAt ?? cart.CreatedAt).ThenBy(cart => cart.Id)
+            .Take(ActiveBoxCarts.CandidateLimit + 1).ToListAsync(ct);
 
     // ─── Reads and writes through the serialized core ────────────────────────
 
     public Task<BoxCartDto> GetAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
         => RunAsync(cartId, access, requireOpen: false, touchCart: false, mutate: null, cancellationToken);
+
+    public async Task<BoxCartDto?> GetCurrentAsync(Guid partyId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var candidates = await ReadActiveCandidatesAsync(tenantId, partyId, cancellationToken);
+        if (candidates.Count == 0) return null;
+        if (candidates.Count > 1)
+            throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.Multiple, null, candidates);
+
+        var cartId = candidates[0].Id;
+        var current = await GetAsync(cartId, CartAccessContext.ForParty(partyId), cancellationToken);
+        // Checkout may have frozen it while its quote was being read.
+        return await ActiveBoxCarts.ForParty(_dbContext, tenantId, partyId)
+            .AnyAsync(cart => cart.Id == cartId, cancellationToken) ? current : null;
+    }
 
     public Task<BoxCartDto> QuoteAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
         => RunAsync(cartId, access, requireOpen: false, touchCart: false, mutate: null, cancellationToken);
@@ -1312,7 +1382,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             new BoxDto(cart.Id, cart.BoxBundleProductId!.Value, cart.BoxSize!.Value, cart.Currency, lines),
             quote,
             changes,
-            cartToken);
+            cartToken,
+            Convert.ToBase64String(cart.RowVersion));
     }
 
     private async Task<BoxQuoteDto> BuildQuoteAsync(

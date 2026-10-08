@@ -374,6 +374,18 @@ public static class ExceptionHandlerConfiguration
                 await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new { error = ex.Message });
                 return;
 
+            case ActiveBoxConflictException activeBox:
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    code = activeBox.Code,
+                    message = activeBox.Message,
+                    guest = activeBox.Guest,
+                    savedCandidates = activeBox.SavedCandidates,
+                    hasMore = activeBox.HasMore,
+                }, context.RequestAborted);
+                return;
+
             case BoxCheckoutDriftException boxDrift:
                 // Spec 068 A18 — the box changed since the client last saw it; nothing was
                 // reserved or created. The refreshed box + changes travel in the body so the

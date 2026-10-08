@@ -16,7 +16,7 @@ namespace Aonik.Application.Tests.Commerce;
 /// Spec 068 §6/§8/§12 — box-cart write semantics: merge, split, capacity, availability, drift
 /// repair, the R10 access boundary and the R-rules, all over the launch pricing table.
 /// </summary>
-public class BoxCartServiceTests
+public partial class BoxCartServiceTests
 {
     private static JsonElement Sel(string json)
     {

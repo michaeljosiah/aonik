@@ -174,6 +174,14 @@ if (builder.Configuration.GetValue<bool>("Auth:Diagnostics:LogHeaderPresence"))
 app.UseRouting();
 app.UseAonikCors();
 
+// Cart responses contain customer state or guest credentials, including validation and auth errors.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/commerce/carts"))
+        context.Response.Headers.CacheControl = "no-store";
+    await next();
+});
+
 // Enable WebSocket upgrades for the voice endpoint at /ai/voice.
 // See docs/specifications/022.aonik-voice-realtime.md Phase 1.
 //

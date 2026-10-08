@@ -16,6 +16,8 @@ public interface IBoxCartService
 
     Task<BoxCartDto> GetAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
 
+    Task<BoxCartDto?> GetCurrentAsync(Guid partyId, CancellationToken cancellationToken = default);
+
     /// <summary>R1/R2 — validate against the plan; reject below current units naming the count to
     /// remove. Reprices the container only.</summary>
     Task<BoxCartDto> ChangeSizeAsync(Guid cartId, int newSize, CartAccessContext access, CancellationToken cancellationToken = default);
