@@ -1,6 +1,7 @@
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Aonik.Platform.Services.Seeding;
 
 /// <summary>
-/// Seeds shared (tenant-agnostic) notification templates for the registration flow.
+/// Seeds shared (tenant-agnostic) registration and transactional notification templates.
 /// Only inserts templates that don't already exist (matched by Name + Channel).
 /// Idempotent and safe to call on every startup.
 /// Tenants can override these by creating a <see cref="NotificationTemplateBinding"/>
@@ -145,6 +146,109 @@ internal class NotificationTemplateSeedService
                 <p>The invitation expires on <strong>{{ expiry_utc }}</strong>. If you did not expect this invitation, you can safely ignore this email.</p>
                 <p>Best regards,<br/>The {{ tenant_name }} Team</p>
                 """
-        }
+        },
+        TransactionalTemplate(
+            TransactionalEmailTemplateNames.OrderConfirmation,
+            "Sent after a recorded Commerce payment and order have completed",
+            "Your order confirmation",
+            """
+            <h1>Your order is confirmed</h1>
+            <p>Hi {{ purchaser_name | escape }},</p>
+            <p>We have received your payment for order <strong>{{ order_id | escape }}</strong>.</p>
+            <h2>Your order</h2>
+            <table>
+              <thead><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr></thead>
+              <tbody>
+              {% for item in items %}
+                <tr><td>{{ item.description | escape }}</td><td>{{ item.quantity | escape }}</td><td>{{ currency | escape }} {{ item.unit_price | escape }}</td><td>{{ currency | escape }} {{ item.total | escape }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+            {% if selections != empty %}
+            <h3>Box selections</h3>
+            <ul>{% for selection in selections %}<li>{{ selection.description | escape }} &times; {{ selection.quantity | escape }}{% if selection.personalisation != blank %} ({{ selection.personalisation | escape }}){% endif %}</li>{% endfor %}</ul>
+            {% endif %}
+            <p>Subtotal: {{ currency | escape }} {{ subtotal | escape }}<br/>
+            Discount: {{ currency | escape }} {{ discount_total | escape }}<br/>
+            Tax: {{ currency | escape }} {{ tax_total | escape }}<br/>
+            Delivery: {{ currency | escape }} {{ delivery_total | escape }}<br/>
+            <strong>Total paid: {{ currency | escape }} {{ total | escape }}</strong></p>
+            {% if delivery %}
+            <h2>Delivery details</h2>
+            <p>Delivery date: {{ delivery.date | escape }} ({{ delivery.timezone | escape }})</p>
+            <p>{{ delivery.recipient_name | escape }}<br/>
+            {{ delivery.line1 | escape }}<br/>
+            {% if delivery.line2 != blank %}{{ delivery.line2 | escape }}<br/>{% endif %}
+            {{ delivery.city | escape }}<br/>
+            {% if delivery.region != blank %}{{ delivery.region | escape }}<br/>{% endif %}
+            {{ delivery.postcode | escape }}<br/>
+            {{ delivery.country_code | escape }}</p>
+            {% if delivery.notes != blank %}<p>Delivery notes: {{ delivery.notes | escape }}</p>{% endif %}
+            {% endif %}
+            """),
+        TransactionalTemplate(
+            TransactionalEmailTemplateNames.AccountSetupAccess,
+            "Ready for secure account setup or access links issued by the account flow",
+            "Set up or access your account",
+            """
+            <h1>Set up or access your account</h1>
+            <p>Hi {{ first_name | escape }},</p>
+            <p>Use the secure link below to continue setting up or accessing your account.</p>
+            <p><a href="{{ action_url | escape }}">Continue to your account</a></p>
+            <p>This link expires at {{ expires_at | escape }}.</p>
+            <p>If you did not request this email, you can ignore it.</p>
+            """),
+        TransactionalTemplate(
+            TransactionalEmailTemplateNames.PasswordReset,
+            "Ready for secure password reset links issued by the account flow",
+            "Reset your password",
+            """
+            <h1>Reset your password</h1>
+            <p>Hi {{ first_name | escape }},</p>
+            <p>Use the secure link below to choose a new password.</p>
+            <p><a href="{{ action_url | escape }}">Reset password</a></p>
+            <p>This link expires at {{ expires_at | escape }}.</p>
+            <p>If you did not request a password reset, you can ignore this email.</p>
+            """),
+        TransactionalTemplate(
+            TransactionalEmailTemplateNames.EmailChangeConfirmation,
+            "Ready for verification links sent to a proposed new account email address",
+            "Confirm your new email address",
+            """
+            <h1>Confirm your new email address</h1>
+            <p>Hi {{ first_name | escape }},</p>
+            <p>Confirm this email address to continue your requested account email change.</p>
+            <p><a href="{{ action_url | escape }}">Confirm email address</a></p>
+            <p>This link expires at {{ expires_at | escape }}.</p>
+            <p>If you did not request this change, you can ignore this email.</p>
+            """)
     ];
+
+    private static NotificationTemplate TransactionalTemplate(string name, string description, string subject, string body)
+        => new()
+        {
+            Name = name,
+            Channel = "Email",
+            IsShared = true,
+            IsActive = true,
+            Description = description,
+            SubjectTemplate = subject,
+            BodyTemplate = """
+                <div style="font-family: sans-serif; max-width: 640px; margin: auto;">
+                <header>
+                  {% if brand.logo_url != blank %}<img src="{{ brand.logo_url | escape }}" alt="{{ brand.display_name | escape }}" style="max-width: 200px;"/>{% endif %}
+                  <p><strong>{{ brand.display_name | escape }}</strong></p>
+                </header>
+                <main>
+                """ + body + """
+                </main>
+                <footer>
+                  <p>{{ brand.display_name | escape }}</p>
+                  {% if brand.contact_email != blank %}<p>Contact: {{ brand.contact_email | escape }}</p>{% endif %}
+                  {% if brand.contact_phone != blank %}<p>{{ brand.contact_phone | escape }}</p>{% endif %}
+                  {% if brand.website != blank %}<p><a href="{{ brand.website | escape }}">{{ brand.website | escape }}</a></p>{% endif %}
+                </footer>
+                </div>
+                """
+        };
 }

@@ -477,20 +477,19 @@ internal sealed class CheckoutService : ICheckoutService
             return; // not a Commerce checkout order.
         }
 
-        // Converge the durable funding record: the summary's PaymentStatus was stamped with the
-        // provider's at-creation status (normally pending), and it is what the admin projections,
-        // the payment-status filter and paid-revenue KPIs read. Capture is the one producer of
-        // PaymentCompletedEvent, so completion means Captured — but ONLY for the intent this
-        // checkout recorded. Finance permits several intents per order, so an unrelated intent
-        // capturing (possibly a different amount or currency) must not mark this charge captured;
-        // an unknown intent id leaves the status alone rather than guessing. Deliberately outside
-        // the cart-status guard so an earlier partial confirmation still converges on retry.
+        // Only the recorded checkout intent can commit stock, close the cart or complete its order.
         var summary = await _dbContext.OrderChargeSummaries
             .FirstOrDefaultAsync(s => s.OrderId == orderId && s.TenantId == tenantId, cancellationToken);
-        if (summary is not null
-            && completedPaymentIntentId is { } completedIntent
-            && summary.PaymentIntentId == completedIntent
-            && !string.Equals(summary.PaymentStatus, CheckoutPaymentStatuses.Captured, StringComparison.Ordinal))
+        if (summary is null || completedPaymentIntentId is not { } completedIntent
+            || summary.PaymentIntentId != completedIntent) return;
+
+        // An email retry may arrive after a refund/cancellation. It must not restore captured state.
+        if (cart.Status == CartStatuses.CheckedOut && summary.PaymentStatus != CheckoutPaymentStatuses.Captured) return;
+        var order = await _orders.GetAsync(orderId, cancellationToken)
+            ?? throw new InvalidOperationException("The checkout order was not found.");
+        if (order.Status is not (OrderStatusCodes.Draft or "PendingFunding" or OrderStatusCodes.Complete)) return;
+
+        if (summary.PaymentStatus != CheckoutPaymentStatuses.Captured)
         {
             summary.PaymentStatus = CheckoutPaymentStatuses.Captured;
         }
@@ -507,10 +506,9 @@ internal sealed class CheckoutService : ICheckoutService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        // Always ensure the order reaches Complete — TransitionAsync is a no-op when already there,
-        // so an outbox retry after a transition failure (cart already CheckedOut) still completes it
-        // rather than leaving the order stuck in PendingFunding. Deliberately no expectedFromStatus:
-        // this is an unconditional converge-to-Complete, not a guarded transition.
-        await _orders.TransitionAsync(orderId, "Complete", "Payment completed", cancellationToken: cancellationToken);
+        // Retry a partial completion, but never overwrite an intervening order transition.
+        if (order.Status != OrderStatusCodes.Complete)
+            await _orders.TransitionAsync(orderId, OrderStatusCodes.Complete, "Payment completed",
+                expectedFromStatus: order.Status, cancellationToken: cancellationToken);
     }
 }

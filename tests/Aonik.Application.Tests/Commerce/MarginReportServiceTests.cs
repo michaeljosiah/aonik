@@ -201,7 +201,7 @@ public class MarginReportServiceTests
             var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: discountCode), Owner(cart));
             if (confirmPayment)
             {
-                await Checkout().ConfirmPaymentAsync(result.OrderId);
+                await Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
             }
             return result;
         }
@@ -342,7 +342,7 @@ public class MarginReportServiceTests
             new BundleSelectionLine(slot.Id, moimoi, 1m),
         }), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
 
         var report = await h.ReportAsync();
 
@@ -399,7 +399,7 @@ public class MarginReportServiceTests
             new BundleSelectionLine(slot.Id, moimoi, 1m),
         }), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
 
         // A lowercase report currency must behave IDENTICALLY to the uppercase call. The order
         // filter admits case-insensitively but ResolvePriceAsync matches ProductPrice.Currency

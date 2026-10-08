@@ -17,11 +17,14 @@ namespace Aonik.Commerce.IntegrationEvents;
 internal sealed class CommercePaymentCompletedHandler : IEventHandler<PaymentCompletedEvent>
 {
     private readonly ICheckoutService _checkout;
+    private readonly IOrderConfirmationEmailService _confirmationEmail;
     private readonly ILogger<CommercePaymentCompletedHandler> _logger;
 
-    public CommercePaymentCompletedHandler(ICheckoutService checkout, ILogger<CommercePaymentCompletedHandler> logger)
+    public CommercePaymentCompletedHandler(ICheckoutService checkout, IOrderConfirmationEmailService confirmationEmail,
+        ILogger<CommercePaymentCompletedHandler> logger)
     {
         _checkout = checkout;
+        _confirmationEmail = confirmationEmail;
         _logger = logger;
     }
 
@@ -35,6 +38,7 @@ internal sealed class CommercePaymentCompletedHandler : IEventHandler<PaymentCom
         // PaymentId identifies WHICH intent completed — an order may carry several, and only the
         // one checkout recorded may converge this cart's charge summary.
         await _checkout.ConfirmPaymentAsync(orderId, @event.PaymentId, cancellationToken);
-        _logger.LogInformation("Commerce checkout confirmed for order {OrderId} on payment completion.", orderId);
+        await _confirmationEmail.SendAsync(orderId, @event.PaymentId, cancellationToken);
+        _logger.LogInformation("Processed commerce payment completion for order {OrderId}.", orderId);
     }
 }

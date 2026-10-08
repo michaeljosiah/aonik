@@ -1,5 +1,6 @@
 ﻿using Aonik.Platform.Agents;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using Aonik.Platform.Contracts.Services.Cms;
 using Aonik.Platform.Contracts.Services.Compliance;
@@ -129,6 +130,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IUserNotificationWriter, UserNotificationWriter>();
         services.AddScoped<INotificationDeviceService, NotificationDeviceService>();
         services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
+        services.AddScoped<ITemplatedEmailSender, TemplatedEmailSender>();
         services.AddSingleton<NotificationRealtimePublisher>();
 
         // ── Task / WorkItem Scheduling (Spec 034) ────────────────────

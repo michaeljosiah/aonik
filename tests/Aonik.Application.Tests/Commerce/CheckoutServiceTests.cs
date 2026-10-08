@@ -1,6 +1,8 @@
 ﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -227,13 +229,21 @@ public class CheckoutServiceTests
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
 
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m);
         (await h.Carts().GetCartAsync(cart.Id, Owner(cart)))!.Status.Should().Be("CheckedOut");
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
+        (await ordering.Orders.CountAsync()).Should().Be(1);
+        await using var commerce = h.Commerce();
+        (await commerce.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Committed);
+        (await commerce.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
+        var stock = await commerce.InventoryLevels.SingleAsync();
+        stock.OnHand.Should().Be(8m);
+        stock.Reserved.Should().Be(0m);
     }
 
     [Fact]
@@ -264,6 +274,114 @@ public class CheckoutServiceTests
         var charge = await commerce.OrderChargeSummaries.FirstAsync(c => c.OrderId == result.OrderId);
         charge.Total.Should().Be(4_500m);
         charge.DiscountCode.Should().Be("SAVE10");
+    }
+
+    [Theory]
+    [InlineData("missing-intent")]
+    [InlineData("wrong-intent")]
+    [InlineData("missing-summary")]
+    public async Task ConfirmPayment_Should_NotConvergeAnything_WithoutTheRecordedIntent(string missingEvidence)
+    {
+        var (h, checkout) = await PendingConfirmationAsync();
+        if (missingEvidence == "missing-summary")
+        {
+            await using var setup = h.Commerce();
+            setup.OrderChargeSummaries.Remove(await setup.OrderChargeSummaries.SingleAsync());
+            await setup.SaveChangesAsync();
+        }
+        Guid? completedIntent = missingEvidence switch
+        {
+            "missing-intent" => null,
+            "wrong-intent" => Guid.NewGuid(),
+            _ => checkout.PaymentIntentId,
+        };
+
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, completedIntent);
+
+        await using var commerce = h.Commerce();
+        (await commerce.Carts.SingleAsync()).Status.Should().Be(CartStatuses.Open);
+        (await commerce.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Held);
+        var stock = await commerce.InventoryLevels.SingleAsync();
+        stock.OnHand.Should().Be(10m);
+        stock.Reserved.Should().Be(2m);
+        var summary = await commerce.OrderChargeSummaries.SingleOrDefaultAsync();
+        if (missingEvidence == "missing-summary") summary.Should().BeNull();
+        else summary!.PaymentStatus.Should().Be(checkout.PaymentStatus);
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.SingleAsync()).Status.Should().Be(OrderStatusCodes.Draft);
+        (await commerce.Carts.SingleAsync()).OrderId.Should().Be(checkout.OrderId);
+    }
+
+    [Theory]
+    [InlineData(OrderStatusCodes.Cancelled, false)]
+    [InlineData(OrderStatusCodes.Cancelled, true)]
+    [InlineData(OrderStatusCodes.Failed, true)]
+    [InlineData(OrderStatusCodes.Expired, true)]
+    [InlineData("Refunded", true)]
+    public async Task ConfirmPayment_Should_NotReviveAnOrderThatMovedBeyondPaymentCompletion(string laterStatus, bool wasCompleted)
+    {
+        var (h, checkout) = await PendingConfirmationAsync();
+        if (wasCompleted)
+            await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        int historyCount;
+        await using (var setup = h.Ordering())
+        {
+            (await setup.Orders.SingleAsync()).Status = laterStatus;
+            await setup.SaveChangesAsync();
+            historyCount = await setup.OrderHistoryEvents.CountAsync();
+        }
+
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.SingleAsync()).Status.Should().Be(laterStatus);
+        (await ordering.OrderHistoryEvents.CountAsync()).Should().Be(historyCount);
+        await using var commerce = h.Commerce();
+        (await commerce.Carts.SingleAsync()).Status.Should().Be(wasCompleted ? CartStatuses.CheckedOut : CartStatuses.Open);
+        (await commerce.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be(
+            wasCompleted ? CheckoutPaymentStatuses.Captured : checkout.PaymentStatus);
+        (await commerce.InventoryReservations.SingleAsync()).Status.Should().Be(
+            wasCompleted ? InventoryReservationStatuses.Committed : InventoryReservationStatuses.Held);
+        var stock = await commerce.InventoryLevels.SingleAsync();
+        stock.OnHand.Should().Be(wasCompleted ? 8m : 10m);
+        stock.Reserved.Should().Be(wasCompleted ? 0m : 2m);
+    }
+
+    [Theory]
+    [InlineData("Refunded")]
+    [InlineData("PartiallyRefunded")]
+    public async Task ConfirmPayment_Should_PreservePostCapturePaymentState_OnAnEmailRetry(string paymentStatus)
+    {
+        var (h, checkout) = await PendingConfirmationAsync();
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await using (var setup = h.Commerce())
+        {
+            (await setup.OrderChargeSummaries.SingleAsync()).PaymentStatus = paymentStatus;
+            await setup.SaveChangesAsync();
+        }
+
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+
+        await using var commerce = h.Commerce();
+        (await commerce.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be(paymentStatus);
+        (await commerce.Carts.SingleAsync()).Status.Should().Be(CartStatuses.CheckedOut);
+        (await commerce.InventoryLevels.SingleAsync()).OnHand.Should().Be(8m);
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.SingleAsync()).Status.Should().Be(OrderStatusCodes.Complete);
+    }
+
+    private static async Task<(Harness Harness, CheckoutResult Checkout)> PendingConfirmationAsync()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: [new CreateVariantLine("TEA-20", "20")]));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
+        var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
+        return (h, checkout);
     }
 
     [Fact]
@@ -319,8 +437,10 @@ public class CheckoutServiceTests
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m); // 10 - 2, not 10 - 4
     }
 
-    [Fact]
-    public async Task ConfirmPayment_Should_CompleteOrder_EvenWhenCartAlreadyCheckedOut()
+    [Theory]
+    [InlineData(OrderStatusCodes.Draft)]
+    [InlineData("PendingFunding")]
+    public async Task ConfirmPayment_Should_CompleteOrder_EvenWhenCartAlreadyCheckedOut(string orderStatus)
     {
         var h = new Harness();
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
@@ -333,19 +453,28 @@ public class CheckoutServiceTests
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
-        // Simulate the failure window: the cart was saved CheckedOut but the order transition never
-        // ran, leaving the order short of Complete.
+        // Inventory, capture status and cart were saved before the order transition failed.
+        await h.Inventory().CommitAsync(cart.Id);
         await using (var ctx = h.Commerce())
         {
             var c = await ctx.Carts.FirstAsync(x => x.Id == cart.Id);
-            c.Status = "CheckedOut";
+            c.Status = CartStatuses.CheckedOut;
+            (await ctx.OrderChargeSummaries.SingleAsync()).PaymentStatus = CheckoutPaymentStatuses.Captured;
             await ctx.SaveChangesAsync();
         }
+        await using (var pending = h.Ordering())
+        {
+            (await pending.Orders.SingleAsync()).Status = orderStatus;
+            await pending.SaveChangesAsync();
+        }
 
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
+        await using var commerce = h.Commerce();
+        (await commerce.InventoryLevels.SingleAsync()).OnHand.Should().Be(8m);
+        (await commerce.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Committed);
     }
 
     [Fact]
