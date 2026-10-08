@@ -4,12 +4,14 @@ using System.Net.Http.Json;
 
 using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Services.Checkout;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Identity;
@@ -394,8 +396,21 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
                 services.AddSingleton<IPaymentInitiator>(new TestPaymentInitiator(PaymentCalls));
                 services.RemoveAll<IClock>();
                 services.AddSingleton<IClock>(new TestClock());
+                // These tests own delivery snapshots; postcode enforcement has a separate real-service API fixture.
+                services.RemoveAll<IDeliveryCoverageService>();
+                services.AddSingleton<IDeliveryCoverageService>(new AllowedTestCoverage());
             });
         }
+    }
+
+    private sealed class AllowedTestCoverage : IDeliveryCoverageService
+    {
+        public Task<DeliveryCoverageDto> CheckAsync(string? postcode, CancellationToken cancellationToken = default)
+            => Task.FromResult(new DeliveryCoverageDto(DeliveryCoverageStatuses.Serves, postcode));
+        public Task<DeliveryCoverageConfigDto?> GetConfigurationAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<DeliveryCoverageConfigDto> UpdateConfigurationAsync(DeliveryCoverageConfigDto configuration,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class TestClock : IClock

@@ -84,7 +84,7 @@ internal sealed class BoxTestHarness
     /// <summary>CheckoutService and its IBoxCheckoutSupport share ONE context, exactly as the
     /// scoped production registration resolves them — the drift repair mutates entities the
     /// checkout context tracks, so a split pair would silently save nothing.</summary>
-    public CheckoutService Checkout()
+    public CheckoutService Checkout(IDeliveryCoverageService? coverage = null)
     {
         var ctx = Commerce();
         var inventory = new InventoryService(ctx, _tenant, new TenantContext { TenantId = _tenantId }, _clock);
@@ -95,7 +95,7 @@ internal sealed class BoxTestHarness
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
             new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess,
-            new FulfilmentPromiseService(ctx, _tenant, _clock));
+            new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage());
     }
 
     public CartMaintenanceService Maintenance() => new(

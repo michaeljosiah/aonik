@@ -117,7 +117,7 @@ public class MarginReportServiceTests
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
                 Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,
-                new FulfilmentPromiseService(ctx, _tenant, Clock));
+                new FulfilmentPromiseService(ctx, _tenant, Clock), new ServedTestDeliveryCoverage());
         }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);

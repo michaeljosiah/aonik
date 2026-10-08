@@ -1,5 +1,6 @@
 ﻿using Aonik.Commerce.Services.Checkout;
 using System.Diagnostics;
+using Aonik.Commerce.Services.Fulfilment;
 using System.Text;
 using System.Text.Json;
 using Aonik.Commerce.Services.Catalog;
@@ -354,6 +355,18 @@ public static class ExceptionHandlerConfiguration
                     code = "commerce.option_validation",
                     rule = optionValidation.RuleId,
                 });
+                return;
+
+            case DeliveryCoverageException coverage:
+                await WriteJsonAsync(context,
+                    coverage.Code == DeliveryCoverageException.Unavailable
+                        ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status400BadRequest,
+                    new
+                    {
+                        error = coverage.Message,
+                        code = coverage.Code,
+                        fieldName = coverage.FieldName
+                    });
                 return;
 
             case StorefrontValidationException:

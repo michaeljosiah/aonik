@@ -93,7 +93,14 @@ public static class Extensions
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation()
+                    .AddHttpClientInstrumentation(options =>
+                        // Postcodes.io puts the customer's postcode in the path. HTTP log removal
+                        // does not prevent url.full traces; keep this narrow filter out of metrics.
+                        options.FilterHttpRequestMessage = request =>
+                            !(request.RequestUri is { IsAbsoluteUri: true } uri
+                                && uri.Host.Equals("api.postcodes.io", StringComparison.OrdinalIgnoreCase)
+                                && uri.AbsolutePath.StartsWith("/postcodes/", StringComparison.Ordinal))
+                    )
                     .AddSqlClientInstrumentation()
                     // AI / Agent Framework tracing (GenAI semantic conventions)
                     .AddSource("Aonik.Ai")

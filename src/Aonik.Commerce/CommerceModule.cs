@@ -82,6 +82,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IBoxCheckoutSupport>(sp => sp.GetRequiredService<BoxCartService>());
         services.AddScoped<ICartMaintenanceService, CartMaintenanceService>();
         services.AddScoped<Services.Fulfilment.IFulfilmentPromiseService, Services.Fulfilment.FulfilmentPromiseService>();
+        services.AddScoped<Services.Fulfilment.IDeliveryCoverageService, Services.Fulfilment.DeliveryCoverageService>();
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddScoped<IOrderConfirmationEmailService, OrderConfirmationEmailService>();
         services.AddScoped<IDiscountService, DiscountService>();

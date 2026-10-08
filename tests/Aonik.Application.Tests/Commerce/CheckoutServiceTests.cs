@@ -108,7 +108,7 @@ public class CheckoutServiceTests
         public CheckoutService Checkout() => new(
             Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess,
-            new FulfilmentPromiseService(Commerce(), _tenant, _clock));
+            new FulfilmentPromiseService(Commerce(), _tenant, _clock), new ServedTestDeliveryCoverage());
     }
 
     [Fact]
