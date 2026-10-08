@@ -98,7 +98,8 @@ public record BoxCartDto(
     BoxDto Box,
     BoxQuoteDto Quote,
     IReadOnlyList<BoxChangeDto> Changes,
-    string? CartToken = null);
+    string? CartToken = null,
+    string CartVersion = "");
 
 // ─── Commands (§10) ─────────────────────────────────────────────────────────
 

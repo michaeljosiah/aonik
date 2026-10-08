@@ -1,4 +1,6 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using System.Data;
+
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
@@ -185,7 +187,151 @@ internal sealed class CartService : ICartService
         return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
     }
 
-    public async Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default)
+    public Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default)
+        => AdoptCoreAsync(cartId, partyId, access, null, cancellationToken);
+
+    public Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, AdoptCartChoice choice,
+        CancellationToken cancellationToken = default)
+        => AdoptCoreAsync(cartId, partyId, access, choice, cancellationToken);
+
+    private async Task<CartDto> AdoptCoreAsync(Guid cartId, Guid partyId, CartAccessContext access,
+        AdoptCartChoice? choice, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var source = await _dbContext.Carts.AsNoTracking()
+            .SingleOrDefaultAsync(cart => cart.Id == cartId && cart.TenantId == tenantId, cancellationToken);
+        AuthorizeAdoption(source, partyId, access);
+        if (source!.BoxBundleProductId is null)
+        {
+            if (choice is not null)
+                throw new StorefrontValidationException("Keep/use-saved choices apply only to box carts.");
+            return await AdoptGenericAsync(cartId, partyId, access, cancellationToken);
+        }
+
+        if (choice is not null && (choice.Decision is not (CartAdoptionDecisions.KeepGuest or CartAdoptionDecisions.UseSaved)
+            || choice.ExpectedSavedCartId == Guid.Empty || choice.ExpectedSavedCartId == cartId))
+            throw new StorefrontValidationException("Choose KeepGuest or UseSaved and identify the saved box shown.");
+
+        var touchedIds = new HashSet<Guid> { cartId };
+        if (choice is not null) touchedIds.Add(choice.ExpectedSavedCartId);
+        Guid selectedId;
+        try
+        {
+            selectedId = await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+            {
+                DetachAdoptionCarts(touchedIds);
+                await using var transaction = _dbContext.Database.IsRelational()
+                    ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+
+                var guest = await _dbContext.Carts.Include(cart => cart.Items)
+                    .SingleOrDefaultAsync(cart => cart.Id == cartId && cart.TenantId == tenantId, ct);
+                AuthorizeAdoption(guest, partyId, access);
+
+                // Replays only read an outcome already owned by this party. They never select
+                // a replacement target or repeat an archive using freshly loaded versions.
+                var replayId = await ReadAdoptionReplayAsync(guest!, partyId, choice, ct);
+                if (replayId.HasValue) return replayId.Value;
+                if (choice is not null && guest!.BuyerPartyId == partyId
+                    && guest.Status == CartStatuses.Abandoned && guest.OrderId is null)
+                    throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.StaleChoice, guest, []);
+                EnsureAdoptable(guest!);
+
+                // Serializable starts before this indexed range read: two different guest
+                // carts must not both become the account's single active box.
+                var candidates = await ActiveBoxCarts.ForParty(_dbContext, tenantId, partyId)
+                    .Where(cart => cart.Id != cartId).AsNoTracking().Include(cart => cart.Items)
+                    .OrderBy(cart => cart.Id).Take(ActiveBoxCarts.CandidateLimit + 1).ToListAsync(ct);
+                if (candidates.Count > 1)
+                    throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.Multiple, guest, candidates);
+
+                if (candidates.Count == 0)
+                {
+                    if (choice is not null)
+                        throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.StaleChoice, guest, candidates);
+                    guest!.BuyerPartyId = partyId;
+                    guest.AnonymousToken = null;
+                    await _dbContext.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return cartId;
+                }
+
+                if (choice is null)
+                    throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.ChoiceRequired, guest, candidates);
+                var candidate = candidates[0];
+                if (candidate.Id != choice.ExpectedSavedCartId
+                    || !ActiveBoxCarts.MatchesVersion(guest!, choice.ExpectedGuestCartVersion)
+                    || !ActiveBoxCarts.MatchesVersion(candidate, choice.ExpectedSavedCartVersion))
+                    throw ActiveBoxCarts.Conflict(ActiveBoxConflictException.StaleChoice, guest, candidates);
+
+                // Load only the parent for the write; candidate item snapshots stay detached.
+                var saved = await _dbContext.Carts.SingleAsync(cart => cart.Id == candidate.Id && cart.TenantId == tenantId, ct);
+                touchedIds.Add(saved.Id);
+                guest!.BuyerPartyId = partyId;
+                guest.AnonymousToken = null;
+                if (choice.Decision == CartAdoptionDecisions.KeepGuest)
+                    saved.Status = CartStatuses.Abandoned;
+                else
+                    guest.Status = CartStatuses.Abandoned;
+
+                await _dbContext.SaveChangesAsync(ct);
+                if (transaction is not null) await transaction.CommitAsync(ct);
+                return choice.Decision == CartAdoptionDecisions.KeepGuest ? cartId : saved.Id;
+            }, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            DetachAdoptionCarts(touchedIds);
+            var winner = await _dbContext.Carts.AsNoTracking()
+                .SingleOrDefaultAsync(cart => cart.Id == cartId && cart.TenantId == tenantId, cancellationToken);
+            AuthorizeAdoption(winner, partyId, access);
+            var replayId = await ReadAdoptionReplayAsync(winner!, partyId, choice, cancellationToken);
+            if (!replayId.HasValue) throw;
+            selectedId = replayId.Value;
+        }
+
+        // Response reads are outside the retrying write, so a rendering failure cannot
+        // re-adopt a cart or repeat a customer's destructive choice.
+        return (await LoadDtoAsync(selectedId, tenantId, cancellationToken))!;
+    }
+
+    private static void AuthorizeAdoption(Entities.Cart.Cart? cart, Guid partyId, CartAccessContext access)
+    {
+        if (cart is null || partyId == Guid.Empty
+            || (cart.BuyerPartyId != partyId && (cart.BuyerPartyId is not null
+                || !CartAccess.IsAuthorized(cart, CartAccessContext.ForGuest(access.GuestToken)))))
+            throw new NotFoundException("Cart was not found.");
+    }
+
+    private async Task<Guid?> ReadAdoptionReplayAsync(Entities.Cart.Cart source, Guid partyId,
+        AdoptCartChoice? choice, CancellationToken cancellationToken)
+    {
+        if (source.BuyerPartyId != partyId) return null;
+        if (choice is null)
+        {
+            EnsureAdoptable(source);
+            return source.Id;
+        }
+        if (source.OrderId is not null || source.AnonymousToken is not null) return null;
+        var target = await _dbContext.Carts.AsNoTracking().SingleOrDefaultAsync(cart =>
+            cart.Id == choice.ExpectedSavedCartId && cart.TenantId == source.TenantId
+            && cart.BuyerPartyId == partyId && cart.BoxBundleProductId != null && cart.OrderId == null,
+            cancellationToken);
+        if (target is null) return null;
+        if (choice.Decision == CartAdoptionDecisions.KeepGuest && source.Status == CartStatuses.Open
+            && target.Status == CartStatuses.Abandoned) return source.Id;
+        if (choice.Decision == CartAdoptionDecisions.UseSaved && source.Status == CartStatuses.Abandoned
+            && target.Status == CartStatuses.Open) return target.Id;
+        return null;
+    }
+
+    private void DetachAdoptionCarts(HashSet<Guid> cartIds)
+    {
+        foreach (var entry in _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>()
+                     .Where(entry => cartIds.Contains(entry.Entity.Id)).ToList())
+            entry.State = EntityState.Detached;
+    }
+
+    private async Task<CartDto> AdoptGenericAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await _dbContext.Carts
@@ -337,6 +483,6 @@ internal sealed class CartService : ICartService
 
         // R10 — the token is disclosed exactly once, by create; every other read carries null.
         return new CartDto(cart.Id, cart.BuyerPartyId, null, cart.Status, cart.Currency, cart.OrderId,
-            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId);
+            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId, Convert.ToBase64String(cart.RowVersion));
     }
 }

@@ -34,7 +34,8 @@ public record CartDto(
     decimal Total,
     IReadOnlyList<CartItemDto> Items,
     /// Spec 068 — set when this cart is a box session; GET then serves the §7 box payload.
-    Guid? BoxBundleProductId = null);
+    Guid? BoxBundleProductId = null,
+    string CartVersion = "");
 
 public record CreateCartCommand(string Currency, Guid? BuyerPartyId = null, string? AnonymousToken = null);
 

@@ -20,7 +20,7 @@ namespace Aonik.Api.Tests;
 /// (A16 — absent/wrong tokens are the same 404 an unknown cart gets), the box-plan read, the
 /// continue gate (AC-20) and the component-sum quote contract (A24).
 /// </summary>
-public class CommerceBoxCartEndpointTests : IClassFixture<CustomWebApplicationFactory>
+public partial class CommerceBoxCartEndpointTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
 

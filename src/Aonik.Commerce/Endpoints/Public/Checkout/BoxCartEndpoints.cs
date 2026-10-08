@@ -1,8 +1,12 @@
-﻿using Aonik.Commerce.Contracts.Api.Checkout;
+using System.Text.Json;
+
+using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace Aonik.Commerce.Endpoints.Public.Checkout;
 
@@ -193,7 +197,11 @@ public class AdoptCartEndpoint : EndpointWithoutRequest<CartDto>
     {
         Post("/commerce/carts/{cartId:guid}/adopt");
         Policies("AdminUserWritePolicy");   // admits PersonalUser — B2C self-service writes (Z6)
-        Summary(s => s.Summary = "Bind a guest cart to the authenticated customer's account.");
+        Summary(s =>
+        {
+            s.Summary = "Bind a guest cart to the authenticated customer's account.";
+            s.Description = "The body may be empty. To resolve an active-box conflict, send an AdoptCartChoice JSON object with the displayed cart versions.";
+        });
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -202,7 +210,29 @@ public class AdoptCartEndpoint : EndpointWithoutRequest<CartDto>
             ?? throw new Aonik.Commerce.Services.Catalog.StorefrontValidationException(
                 "This account has no customer profile to adopt the cart into.");
         var access = await CartRequestAccess.FromAsync(HttpContext, ct);
-        await Send.OkAsync(await _carts.AdoptAsync(Route<Guid>("cartId"), partyId, access, ct), ct);
+        AdoptCartChoice? choice = null;
+        if (HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody == true)
+        {
+            if (!HttpContext.Request.HasJsonContentType())
+            {
+                await Send.StatusCodeAsync(StatusCodes.Status415UnsupportedMediaType, ct);
+                return;
+            }
+            try
+            {
+                choice = await HttpContext.Request.ReadFromJsonAsync<AdoptCartChoice>(ct);
+            }
+            catch (JsonException)
+            {
+                await Send.ResultAsync(Results.BadRequest(new { error = "The adoption choice must be valid JSON." }));
+                return;
+            }
+        }
+
+        var result = choice is null
+            ? await _carts.AdoptAsync(Route<Guid>("cartId"), partyId, access, ct)
+            : await _carts.AdoptAsync(Route<Guid>("cartId"), partyId, access, choice, ct);
+        await Send.OkAsync(result, ct);
     }
 }
 
