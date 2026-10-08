@@ -45,7 +45,7 @@ internal sealed class CartService : ICartService
         };
         _dbContext.Carts.Add(cart);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))! with { AnonymousToken = cart.AnonymousToken };
+        return Map(cart) with { AnonymousToken = cart.AnonymousToken };
     }
 
     public async Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -59,13 +59,10 @@ internal sealed class CartService : ICartService
         return cart is null || !CartAccess.IsAuthorized(cart, access) ? null : Map(cart);
     }
 
-    private async Task<CartDto?> LoadDtoAsync(Guid cartId, Guid tenantId, CancellationToken cancellationToken)
-    {
-        var cart = await _dbContext.Carts.AsNoTracking()
-            .Include(c => c.Items).ThenInclude(i => i.Selections)
-            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
-        return cart is null ? null : Map(cart);
-    }
+    private async Task<CartDto> LoadDtoAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken)
+        // Adoption may revoke guest access between the committed edit and this fresh read.
+        => await GetCartAsync(cartId, access, cancellationToken)
+            ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
 
     public async Task<CartCheckoutDraftResponse> SaveCheckoutDraftAsync(Guid cartId, CartCheckoutDraftDto draft,
         CartAccessContext access, CancellationToken cancellationToken = default)
@@ -115,7 +112,7 @@ internal sealed class CartService : ICartService
         });
 
         await SaveCartEditAsync(cart, cancellationToken);
-        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
+        return await LoadDtoAsync(cart.Id, access, cancellationToken);
     }
 
     public async Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -183,7 +180,7 @@ internal sealed class CartService : ICartService
 
         _dbContext.CartItems.Add(item);
         await SaveCartEditAsync(cart, cancellationToken);
-        return (await LoadDtoAsync(cart.Id, tenantId, cancellationToken))!;
+        return await LoadDtoAsync(cart.Id, access, cancellationToken);
     }
 
     public async Task<CartDto> RemoveItemAsync(Guid cartId, Guid cartItemId, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -197,7 +194,7 @@ internal sealed class CartService : ICartService
             _dbContext.CartItems.Remove(item);
             await SaveCartEditAsync(cart, cancellationToken);
         }
-        return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+        return await LoadDtoAsync(cartId, access, cancellationToken);
     }
 
     public Task<CartDto> AdoptAsync(Guid cartId, Guid partyId, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -313,7 +310,7 @@ internal sealed class CartService : ICartService
 
         // Response reads are outside the retrying write, so a rendering failure cannot
         // re-adopt a cart or repeat a customer's destructive choice.
-        return (await LoadDtoAsync(selectedId, tenantId, cancellationToken))!;
+        return await LoadDtoAsync(selectedId, CartAccessContext.ForParty(partyId), cancellationToken);
     }
 
     private static void AuthorizeAdoption(Entities.Cart.Cart? cart, Guid partyId, CartAccessContext access)
@@ -367,7 +364,7 @@ internal sealed class CartService : ICartService
         if (cart.BuyerPartyId == partyId)
         {
             EnsureAdoptable(cart);
-            return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+            return await LoadDtoAsync(cartId, CartAccessContext.ForParty(partyId), cancellationToken);
         }
 
         // Z2 — a cart bound to ANOTHER party, or a wrong/absent guest token, is the same 404 an
@@ -411,7 +408,7 @@ internal sealed class CartService : ICartService
             throw;
         }
 
-        return (await LoadDtoAsync(cartId, tenantId, cancellationToken))!;
+        return await LoadDtoAsync(cartId, CartAccessContext.ForParty(partyId), cancellationToken);
     }
 
     /// <summary>Z4 — once checkout has stamped an order (or the cart has left Open), the buyer is

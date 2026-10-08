@@ -73,6 +73,52 @@ public class CartDraftConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
     }
 
     [SkippableFact]
+    public async Task GuestEditResponse_Should_NotReadPrivateDraft_AfterItsCommittedWriteIsAdopted()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var seeded = await SeedAsync(tenantId);
+        var gate = new AfterCartSave(seeded.CartId);
+        await using var guestContext = Context(tenantId, gate);
+        var guest = Carts(guestContext, tenantId).AddItemAsync(
+            new AddCartItemCommand(seeded.CartId, seeded.VariantId),
+            CartAccessContext.ForGuest(seeded.Token, seeded.Version));
+        try
+        {
+            await gate.WaitUntilReachedAsync(guest);
+            await using var ownerContext = Context(tenantId);
+            var ownerCarts = Carts(ownerContext, tenantId);
+            var committed = await ownerCarts.GetCartAsync(seeded.CartId, CartAccessContext.ForGuest(seeded.Token));
+            committed!.Items.Should().ContainSingle();
+            var adopted = await ownerCarts.AdoptAsync(seeded.CartId, partyId,
+                CartAccessContext.ForGuest(seeded.Token, committed.CartVersion));
+            var privateDraft = new CartCheckoutDraftDto(
+                Purchaser: new CheckoutContactDto("owner@example.test", "Private", "Owner", "07123456789"),
+                Notes: "Owner-only delivery instructions");
+            var saved = await ownerCarts.SaveCheckoutDraftAsync(seeded.CartId, privateDraft,
+                CartAccessContext.ForParty(partyId, adopted.CartVersion));
+            gate.Release.TrySetResult();
+
+            Func<Task> response = async () => await guest.WaitAsync(TimeSpan.FromSeconds(30));
+            await response.Should().ThrowAsync<NotFoundException>();
+            await guestContext.SaveChangesAsync();
+            await using var verify = Context(tenantId);
+            var cart = await verify.Carts.Include(row => row.Items).SingleAsync(row => row.Id == seeded.CartId);
+            cart.BuyerPartyId.Should().Be(partyId);
+            cart.AnonymousToken.Should().BeNull();
+            cart.Items.Should().ContainSingle().Which.Quantity.Should().Be(1m);
+            CartDraftData.Read(cart).Should().Be(privateDraft);
+            Convert.ToBase64String(cart.RowVersion).Should().Be(saved.CartVersion);
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+            await Capture(guest).WaitAsync(TimeSpan.FromSeconds(30));
+        }
+    }
+
+    [SkippableFact]
     public async Task ReusedContext_Should_RejectAnObservedStaleDraft_AndRefreshItsTrackedGraph()
     {
         RequireSqlServer();
@@ -224,6 +270,34 @@ public class CartDraftConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
             {
                 if (Interlocked.Increment(ref _arrivals) == 2) _both.TrySetResult();
                 await _both.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            return result;
+        }
+    }
+
+    private sealed class AfterCartSave(Guid cartId) : SaveChangesInterceptor
+    {
+        private int _seen;
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task WaitUntilReachedAsync(Task operation)
+        {
+            if (await Task.WhenAny(Reached.Task, operation).WaitAsync(TimeSpan.FromSeconds(30)) == operation)
+            {
+                await operation;
+                throw new InvalidOperationException("Guest edit completed before its committed save was observed.");
+            }
+        }
+
+        public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData,
+            int result, CancellationToken cancellationToken = default)
+        {
+            if (result > 0 && eventData.Context!.ChangeTracker.Entries<Cart>().Any(entry => entry.Entity.Id == cartId)
+                && Interlocked.CompareExchange(ref _seen, 1, 0) == 0)
+            {
+                Reached.TrySetResult();
+                await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
             }
             return result;
         }
