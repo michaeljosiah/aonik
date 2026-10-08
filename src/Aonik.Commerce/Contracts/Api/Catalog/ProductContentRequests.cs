@@ -25,7 +25,8 @@ public record UpsertProductContentRequest(
     string? Allergens = null,
     string? HeatingJson = null,
     IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
-    string? PrecautionaryStatement = null);
+    string? PrecautionaryStatement = null,
+    decimal? SaturatesGrams = null);
 
 /// <param name="ExpectedCanonicalSelectionJson">The combination this content is authored FOR.
 /// Required on UPDATE, where the variant already has an identity that a shifted offer would
@@ -47,7 +48,8 @@ public record UpsertContentVariantRequest(
     string? Allergens = null,
     string? HeatingJson = null,
     IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
-    string? PrecautionaryStatement = null);
+    string? PrecautionaryStatement = null,
+    decimal? SaturatesGrams = null);
 
 /// <summary>Confirming a review asserts the block still describes the standard preparation the
 /// operator SAW, so that preparation travels with the request.</summary>

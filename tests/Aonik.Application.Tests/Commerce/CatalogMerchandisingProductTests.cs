@@ -23,13 +23,13 @@ public class CatalogMerchandisingProductTests
         var ids = await builder.ProductIdsBySlugAsync();
 
         var updated = await builder.Products.UpdateProductAsync(ids["jollof"], new UpdateProductCommand(
-            TagsJson: """["vegan","new"]""",
+            TagsJson: """["vegan","vegetarian"]""",
             SearchKeywordsJson: """["party","owambe"]"""));
 
         updated.Name.Should().Be("Jollof Rice");
         updated.Status.Should().Be(ProductStatuses.Active);
         updated.CategoryId.Should().Be(builder.RiceMainsId);
-        updated.TagsJson.Should().Contain("new");
+        updated.TagsJson.Should().Contain("vegetarian");
         updated.SearchKeywords.Should().BeEquivalentTo(["party", "owambe"]);
     }
 
@@ -239,6 +239,7 @@ public class CatalogMerchandisingProductTests
         var ctx = CommerceTestHarness.CreateContext(options, tenantId);
         var builder = new MerchandisingBuilder(ctx, tenantId);
         await builder.WithCategoriesAsync();
+        await builder.WithFacetsAsync();
         await builder.WithProductsAsync();
         return (builder, ctx);
     }

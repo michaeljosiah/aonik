@@ -76,6 +76,9 @@ public static class DevelopmentStaticFilesConfiguration
             relativePath: configuration["BlobStorage:Documents:Path"] ?? "documents",
             requestPath: "/storage/documents");
 
+        var productImagesPath = configuration["BlobStorage:ProductImages:Path"] ?? "products";
+        MountStaticFiles(app, basePath, productImagesPath, $"/storage/{productImagesPath.Trim('/')}");
+
         return app;
     }
 

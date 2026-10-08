@@ -56,6 +56,7 @@ export function emptyDraft(): ContentDraft {
       proteinGrams: '',
       carbsGrams: '',
       fatGrams: '',
+      saturatesGrams: '',
       fibreGrams: '',
       sugarsGrams: '',
       saltGrams: '',

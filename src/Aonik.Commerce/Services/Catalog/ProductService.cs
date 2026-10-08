@@ -22,17 +22,20 @@ internal sealed partial class ProductService : IProductService
     private readonly ITenantProvider _tenantProvider;
     private readonly IProductOptionService _options;
     private readonly ILogger<ProductService> _logger;
+    private readonly IProductContentService _content;
 
     public ProductService(
         CommerceDbContext dbContext,
         ITenantProvider tenantProvider,
         IProductOptionService options,
-        ILogger<ProductService> logger)
+        ILogger<ProductService> logger,
+        IProductContentService content)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _options = options;
         _logger = logger;
+        _content = content;
     }
 
     public async Task<ProductDto> CreateProductAsync(CreateProductCommand command, CancellationToken cancellationToken = default)
@@ -43,6 +46,13 @@ internal sealed partial class ProductService : IProductService
         {
             throw new InvalidOperationException($"A product with slug '{command.Slug}' already exists.");
         }
+
+        ValidateHeat(command.Heat);
+        var componentsLine = NormalizeAuthoredText(command.ComponentsLine, "componentsLine", 500);
+        var shelfLife = NormalizeAuthoredText(command.ShelfLife, "shelfLife", 1000);
+        await ValidateProductReferencesAsync(tenantId, command.CategoryId, command.RelatedCollectionId, cancellationToken);
+        var tags = command.TagsJson is null ? "[]" : ValidateStringArrayJson(command.TagsJson, "tagsJson");
+        await ValidateNewTagKeysAsync(tenantId, tags, "[]", cancellationToken);
 
         var product = new Product
         {
@@ -56,7 +66,7 @@ internal sealed partial class ProductService : IProductService
             CategoryId = command.CategoryId,
             // JSON hygiene applies at create too (§11) — the browse path reads these defensively,
             // but a 400 at authoring beats a warning-logged half-rendered row later.
-            TagsJson = command.TagsJson is null ? "[]" : ValidateStringArrayJson(command.TagsJson, "tagsJson"),
+            TagsJson = tags,
             AttributesJson = command.AttributesJson is null ? "{}" : ValidateObjectJson(command.AttributesJson, "attributesJson"),
             SearchKeywordsJson = command.SearchKeywordsJson is null
                 ? "[]"
@@ -65,6 +75,13 @@ internal sealed partial class ProductService : IProductService
             BundleFixedAmount = command.BundleFixedAmount,
             BundlePremium = command.BundlePremium,
             BundleCurrency = command.BundleCurrency,
+            Heat = command.Heat,
+            ComponentsLine = componentsLine,
+            LowSugar = command.LowSugar,
+            Freezable = command.Freezable,
+            ShelfLife = shelfLife,
+            RelatedCollectionId = command.RelatedCollectionId,
+            IsPlaceholder = command.IsPlaceholder,
         };
 
         foreach (var line in command.Variants ?? Array.Empty<CreateVariantLine>())
@@ -94,7 +111,7 @@ internal sealed partial class ProductService : IProductService
         var product = await QueryWithGraph()
             .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId, cancellationToken);
         if (product is null) return null;
-        return Map(product, await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken));
+        return await MapPublicAsync(product, cancellationToken);
     }
 
     public async Task<ProductDto?> GetProductBySlugAsync(string slug, CancellationToken cancellationToken = default)
@@ -103,7 +120,7 @@ internal sealed partial class ProductService : IProductService
         var product = await QueryWithGraph()
             .FirstOrDefaultAsync(p => p.Slug == slug && p.TenantId == tenantId, cancellationToken);
         if (product is null) return null;
-        return Map(product, await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken));
+        return await MapPublicAsync(product, cancellationToken);
     }
 
     public async Task<PagedResult<ProductSummaryDto>> ListProductsAsync(ListProductsQuery query, CancellationToken cancellationToken = default)
@@ -128,7 +145,8 @@ internal sealed partial class ProductService : IProductService
             .Include(p => p.Variants)
             .ToListAsync(cancellationToken);
 
-        var rows = candidates.Select(ParseRow).ToList();
+        var content = await _content.ResolveDefaultsAsync(candidates.Select(p => p.Id).ToList(), cancellationToken);
+        var rows = candidates.Select(p => ParseRow(p, content.GetValueOrDefault(p.Id))).ToList();
 
         // Collection membership filter + the rank order it carries (§6).
         Dictionary<Guid, int>? ranks = null;
@@ -166,6 +184,12 @@ internal sealed partial class ProductService : IProductService
 
         var ordered = sort switch
         {
+            ProductSortOrders.ProteinDescending => rows.OrderBy(r => r.Nutrition?.ProteinGrams is null)
+                .ThenByDescending(r => r.Nutrition?.ProteinGrams)
+                .ThenBy(r => r.Product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.Product.Slug, StringComparer.Ordinal),
+            ProductSortOrders.CaloriesAscending => rows.OrderBy(r => r.Nutrition?.Kcal is null)
+                .ThenBy(r => r.Nutrition?.Kcal)
+                .ThenBy(r => r.Product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.Product.Slug, StringComparer.Ordinal),
             ProductSortOrders.Rank => rows.OrderBy(r => ranks![r.Product.Id]).ThenBy(r => r.Product.Name, StringComparer.OrdinalIgnoreCase),
             ProductSortOrders.Newest => rows.OrderByDescending(r => r.Product.CreatedAt).ThenBy(r => r.Product.Id),
             _ => rows.OrderBy(r => r.Product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.Product.Slug, StringComparer.Ordinal),
@@ -174,11 +198,16 @@ internal sealed partial class ProductService : IProductService
         var total = rows.Count;
         var page = Math.Max(1, query.Page);
         var size = Math.Clamp(query.PageSize, 1, 200);
+        var categoryIds = rows.Where(r => r.Product.CategoryId.HasValue).Select(r => r.Product.CategoryId!.Value).Distinct().ToList();
+        var categories = await _dbContext.ProductCategories.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.IsActive && categoryIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
 
         var items = ordered
             .Skip((page - 1) * size)
             .Take(size)
-            .Select(r => ProductSummaryMapper.Map(r.Product, r.Tags))
+            .Select(r => ProductSummaryMapper.Map(r.Product, r.Tags, r.Content,
+                r.Product.CategoryId is { } id ? categories.GetValueOrDefault(id) : null))
             .ToList();
 
         return new PagedResult<ProductSummaryDto>(items, total, page, size);
@@ -197,9 +226,13 @@ internal sealed partial class ProductService : IProductService
         IReadOnlyList<string> Tags,
         JsonElement? Attributes,
         IReadOnlyList<string> SearchKeywords,
-        bool Malformed);
+        bool Malformed,
+        ResolvedContentDto? Content)
+    {
+        public NutritionDto? Nutrition => ProductSummaryMapper.SafeNutrition(Content);
+    }
 
-    private BrowseRow ParseRow(Product product)
+    private BrowseRow ParseRow(Product product, ResolvedContentDto? content)
     {
         var tags = StorefrontJson.ParseStringArray(product.TagsJson, out var tagsMalformed);
         var attributes = StorefrontJson.ParseObject(product.AttributesJson, out var attributesMalformed);
@@ -208,10 +241,10 @@ internal sealed partial class ProductService : IProductService
         if (tagsMalformed || attributesMalformed || keywordsMalformed)
         {
             LogMalformedProductJson(_logger, product.Slug, product.Id);
-            return new BrowseRow(product, [], null, [], Malformed: true);
+            return new BrowseRow(product, [], null, [], Malformed: true, content);
         }
 
-        return new BrowseRow(product, tags, attributes, keywords, Malformed: false);
+        return new BrowseRow(product, tags, attributes, keywords, Malformed: false, content);
     }
 
     private static string ResolveSort(ListProductsQuery query)
@@ -220,10 +253,11 @@ internal sealed partial class ProductService : IProductService
             ? (string.IsNullOrWhiteSpace(query.Collection) ? ProductSortOrders.Name : ProductSortOrders.Rank)
             : query.Sort.Trim().ToLowerInvariant();
 
-        if (sort is not (ProductSortOrders.Name or ProductSortOrders.Newest or ProductSortOrders.Rank))
+        if (sort is not (ProductSortOrders.Name or ProductSortOrders.Newest or ProductSortOrders.Rank
+            or ProductSortOrders.ProteinDescending or ProductSortOrders.CaloriesAscending))
         {
             throw new StorefrontValidationException(
-                $"Unknown sort '{query.Sort}'; expected {ProductSortOrders.Name}, {ProductSortOrders.Newest} or {ProductSortOrders.Rank}.");
+                $"Unknown sort '{query.Sort}'; expected name, newest, rank, protein-desc or calories-asc.");
         }
 
         // Rank is curated order WITHIN one collection; outside one it has no meaning (§6).
@@ -316,7 +350,13 @@ internal sealed partial class ProductService : IProductService
     private static Func<BrowseRow, bool> BuildAttributePredicate(FacetGroup group, List<string> selectedValues)
         => row =>
         {
-            var value = StorefrontJson.ReadString(row.Attributes, group.SourcePath ?? string.Empty);
+            var value = group.SourcePath switch
+            {
+                "heat" => row.Product.Heat?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "lowSugar" => row.Product.LowSugar is { } lowSugar ? (lowSugar ? "true" : "false") : null,
+                "nutrition.kcal" or "nutrition.proteinGrams" or "nutrition.fibreGrams" => null,
+                _ => StorefrontJson.ReadString(row.Attributes, group.SourcePath ?? string.Empty),
+            };
             return value is not null && selectedValues.Contains(value, StringComparer.OrdinalIgnoreCase);
         };
 
@@ -325,7 +365,15 @@ internal sealed partial class ProductService : IProductService
         {
             // Half-open [min, max): min inclusive, max exclusive. A product missing the value
             // matches no band (§6) — absence of data is never a match.
-            var value = StorefrontJson.ReadNumber(row.Attributes, group.SourcePath ?? string.Empty);
+            var value = group.SourcePath switch
+            {
+                "heat" => row.Product.Heat,
+                "nutrition.kcal" => row.Nutrition?.Kcal,
+                "nutrition.proteinGrams" => row.Nutrition?.ProteinGrams,
+                "nutrition.fibreGrams" => row.Nutrition?.FibreGrams,
+                "lowSugar" => null,
+                _ => StorefrontJson.ReadNumber(row.Attributes, group.SourcePath ?? string.Empty),
+            };
             return value is { } number && selectedBands.Any(b =>
                 (b.Min is not { } min || number >= min) && (b.Max is not { } max || number < max));
         };
@@ -426,17 +474,18 @@ internal sealed partial class ProductService : IProductService
             }
         }
 
-        if (command.CategoryId is { } categoryId && !command.ClearCategory)
-        {
-            var categoryExists = await _dbContext.ProductCategories
-                .AnyAsync(c => c.Id == categoryId && c.TenantId == tenantId, cancellationToken);
-            if (!categoryExists)
-            {
-                throw new NotFoundException($"Category '{categoryId}' was not found.");
-            }
-        }
+        await ValidateProductReferencesAsync(tenantId,
+            command.ClearCategory ? null : command.CategoryId,
+            command.ClearRelatedCollection ? null : command.RelatedCollectionId, cancellationToken);
+        if (!command.ClearHeat) ValidateHeat(command.Heat);
+        var componentsLine = NormalizeAuthoredText(command.ComponentsLine, "componentsLine", 500);
+        var shelfLife = NormalizeAuthoredText(command.ShelfLife, "shelfLife", 1000);
 
         var tags = command.TagsJson is not null ? ValidateStringArrayJson(command.TagsJson, "tagsJson") : null;
+        if (tags is not null)
+        {
+            await ValidateNewTagKeysAsync(tenantId, tags, product.TagsJson, cancellationToken);
+        }
         var keywords = command.SearchKeywordsJson is not null
             ? ValidateBoundedKeywords(command.SearchKeywordsJson)
             : null;
@@ -493,6 +542,18 @@ internal sealed partial class ProductService : IProductService
             product.SearchKeywordsJson = keywords;
         }
 
+        if (command.ClearHeat) product.Heat = null;
+        else if (command.Heat is { } heat) product.Heat = heat;
+        if (command.ComponentsLine is not null) product.ComponentsLine = componentsLine;
+        if (command.ClearLowSugar) product.LowSugar = null;
+        else if (command.LowSugar is { } lowSugar) product.LowSugar = lowSugar;
+        if (command.ClearFreezable) product.Freezable = null;
+        else if (command.Freezable is { } freezable) product.Freezable = freezable;
+        if (command.ShelfLife is not null) product.ShelfLife = shelfLife;
+        if (command.ClearRelatedCollection) product.RelatedCollectionId = null;
+        else if (command.RelatedCollectionId is { } relatedId) product.RelatedCollectionId = relatedId;
+        if (command.IsPlaceholder is { } isPlaceholder) product.IsPlaceholder = isPlaceholder;
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return (await GetAdminProductAsync(productId, cancellationToken))!;
@@ -522,6 +583,7 @@ internal sealed partial class ProductService : IProductService
             {
                 throw new StorefrontValidationException($"'{line.Kind}' is not a valid media kind; expected image or doc.");
             }
+            NormalizeAuthoredText(line.AltText, "altText", 500);
         }
 
         _dbContext.ProductMedia.RemoveRange(product.Media);
@@ -535,6 +597,7 @@ internal sealed partial class ProductService : IProductService
                 Url = line.Url.Trim(),
                 Kind = line.Kind ?? "image",
                 SortOrder = index,
+                AltText = NormalizeAuthoredText(line.AltText, "altText", 500),
             })
             .ToList();
         _dbContext.ProductMedia.AddRange(replacements);
@@ -547,7 +610,7 @@ internal sealed partial class ProductService : IProductService
 
         return replacements
             .OrderBy(m => m.SortOrder)
-            .Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder))
+            .Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder, m.AltText))
             .ToList();
     }
 
@@ -579,6 +642,58 @@ internal sealed partial class ProductService : IProductService
         return keywords.Length <= 1024
             ? keywords
             : throw new StorefrontValidationException("searchKeywordsJson exceeds the 1024-character bound.");
+    }
+
+    private static void ValidateHeat(int? heat)
+    {
+        if (heat is < 0 or > 3)
+        {
+            throw new StorefrontValidationException("heat must be 0 (None), 1 (Mild), 2 (Medium), or 3 (Hot).");
+        }
+    }
+
+    private static string? NormalizeAuthoredText(string? value, string field, int maxLength)
+    {
+        var trimmed = value?.Trim();
+        if (trimmed?.Length > maxLength)
+        {
+            throw new StorefrontValidationException($"{field} is at most {maxLength} characters.");
+        }
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private async Task ValidateProductReferencesAsync(
+        Guid tenantId, Guid? categoryId, Guid? relatedCollectionId, CancellationToken cancellationToken)
+    {
+        if (categoryId is { } category && !await _dbContext.ProductCategories
+                .AnyAsync(c => c.TenantId == tenantId && c.Id == category, cancellationToken))
+        {
+            throw new NotFoundException($"Category '{category}' was not found.");
+        }
+        if (relatedCollectionId is { } related && !await _dbContext.Collections
+                .AnyAsync(c => c.TenantId == tenantId && c.Id == related, cancellationToken))
+        {
+            throw new NotFoundException($"Collection '{related}' was not found.");
+        }
+    }
+
+    private async Task ValidateNewTagKeysAsync(
+        Guid tenantId, string tagsJson, string existingTagsJson, CancellationToken cancellationToken)
+    {
+        var existing = StorefrontJson.ParseStringArray(existingTagsJson, out _);
+        var added = StorefrontJson.ParseStringArray(tagsJson, out _)
+            .Except(existing, StringComparer.Ordinal).ToList();
+        if (added.Count == 0) return;
+
+        var definitions = await _dbContext.FacetGroups.AsNoTracking()
+            .Where(g => g.TenantId == tenantId && g.IsActive && g.MatchKind == FacetMatchKinds.Tag)
+            .Select(g => g.OptionsJson).ToListAsync(cancellationToken);
+        var allowed = definitions.SelectMany(FacetDefinitions.ParseLenient)
+            .Select(o => o.Value).ToHashSet(StringComparer.Ordinal);
+        if (added.Any(key => !allowed.Contains(key)))
+        {
+            throw new StorefrontValidationException("New tag keys must be configured in an active Tag facet group.");
+        }
     }
 
     private static string ValidateObjectJson(string json, string field)
@@ -820,18 +935,36 @@ internal sealed partial class ProductService : IProductService
             baseline.BundlePricingMode, baseline.BundleFixedAmount, baseline.BundlePremium, baseline.BundleCurrency,
             baseline.TargetMarginPct, baseline.Variants, baseline.Media, baseline.BundleSlots,
             baseline.EffectiveOptionGroups, baseline.UnitSurcharge, baseline.UnitSurchargeCurrency,
-            keywords);
+            keywords, p.Heat, p.ComponentsLine, p.LowSugar, p.Freezable, p.ShelfLife,
+            p.RelatedCollectionId, p.IsPlaceholder);
+    }
+
+    private async Task<ProductDto> MapPublicAsync(Product product, CancellationToken cancellationToken)
+    {
+        var result = Map(product, await _options.GetEffectiveOptionsAsync(product.Id, cancellationToken));
+        var category = product.CategoryId is { } categoryId
+            ? await _dbContext.ProductCategories.AsNoTracking().FirstOrDefaultAsync(
+                c => c.TenantId == product.TenantId && c.Id == categoryId && c.IsActive, cancellationToken)
+            : null;
+        var relatedSlug = product.RelatedCollectionId is { } relatedId
+            ? await _dbContext.Collections.AsNoTracking()
+                .Where(c => c.TenantId == product.TenantId && c.Id == relatedId && c.IsActive)
+                .Select(c => c.Slug).FirstOrDefaultAsync(cancellationToken)
+            : null;
+        return result with { CategoryName = category?.Name, CategorySlug = category?.Slug, RelatedCollectionSlug = relatedSlug };
     }
 
     private static ProductDto Map(Product p, IReadOnlyList<EffectiveOptionGroupDto> effectiveOptions) => new(
         p.Id, p.Slug, p.Name, p.Description, p.Status, p.Kind, p.CategoryId, p.TagsJson, p.AttributesJson,
         p.BundlePricingMode, p.BundleFixedAmount, p.BundlePremium, p.BundleCurrency, p.TargetMarginPct,
         p.Variants.OrderBy(v => v.Name).Select(v => MapVariant(v, v.Prices)).ToList(),
-        p.Media.OrderBy(m => m.SortOrder).Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder)).ToList(),
+        p.Media.OrderBy(m => m.SortOrder).Select(m => new ProductMediaDto(m.Id, m.Url, m.Kind, m.SortOrder, m.AltText)).ToList(),
         p.BundleSlots.OrderBy(s => s.SortOrder).Select(MapSlot).ToList(),
         effectiveOptions,
         p.UnitSurcharge,
-        p.UnitSurchargeCurrency);
+        p.UnitSurchargeCurrency,
+        Heat: p.Heat, ComponentsLine: p.ComponentsLine, LowSugar: p.LowSugar,
+        Freezable: p.Freezable, ShelfLife: p.ShelfLife, IsPlaceholder: p.IsPlaceholder);
 
     private static ProductVariantDto MapVariant(ProductVariant v, IEnumerable<ProductPrice> prices) => new(
         v.Id, v.ProductId, v.Sku, v.Name, v.OptionsJson, v.WeightGrams, v.IsActive,

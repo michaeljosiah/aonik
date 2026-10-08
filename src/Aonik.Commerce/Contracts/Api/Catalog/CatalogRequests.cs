@@ -15,7 +15,14 @@ public record CreateProductRequest(
     decimal? BundlePremium,
     string? BundleCurrency,
     IReadOnlyCollection<CreateVariantRequestLine>? Variants,
-    string? SearchKeywordsJson = null);
+    string? SearchKeywordsJson = null,
+    int? Heat = null,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool? Freezable = null,
+    string? ShelfLife = null,
+    Guid? RelatedCollectionId = null,
+    bool IsPlaceholder = true);
 
 public record CreateVariantRequestLine(string Sku, string Name, string? OptionsJson, decimal? WeightGrams);
 

@@ -1,4 +1,4 @@
-using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.SharedKernel.Abstractions.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -18,27 +18,34 @@ public class ImageProcessingService : IImageProcessingService
         int maxWidth,
         int maxHeight,
         int quality = 85,
+        bool stripMetadata = false,
         CancellationToken cancellationToken = default)
     {
         using var image = await LoadImageAsync(sourceStream, cancellationToken);
 
-        // Calculate new dimensions while maintaining aspect ratio
-        var (newWidth, newHeight) = CalculateResizedDimensions(
-            image.Width,
-            image.Height,
-            maxWidth,
-            maxHeight);
-
-        // Resize image
-        image.Mutate(x => x.Resize(new ResizeOptions
+        if (stripMetadata)
         {
-            Size = new Size(newWidth, newHeight),
-            Mode = ResizeMode.Max,
-            Sampler = KnownResamplers.Lanczos3
-        }));
+            // Apply camera orientation before removing the profile that records it.
+            image.Mutate(x => x.AutoOrient());
+            image.Metadata.ExifProfile = null;
+            image.Metadata.XmpProfile = null;
+            image.Metadata.IccProfile = null;
+            image.Metadata.IptcProfile = null;
+            image.Metadata.CicpProfile = null;
+        }
+
+        if (image.Width > maxWidth || image.Height > maxHeight)
+        {
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new Size(maxWidth, maxHeight),
+                Mode = ResizeMode.Max,
+                Sampler = KnownResamplers.Lanczos3
+            }));
+        }
 
         // Save as JPEG with specified quality
-        var encoder = new JpegEncoder { Quality = quality };
+        var encoder = new JpegEncoder { Quality = quality, SkipMetadata = stripMetadata };
         await image.SaveAsync(destinationStream, encoder, cancellationToken);
     }
 
@@ -77,45 +84,39 @@ public class ImageProcessingService : IImageProcessingService
         }
     }
 
+    public async Task<string?> DetectContentTypeAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return (await Image.DetectFormatAsync(stream, cancellationToken)).DefaultMimeType;
+        }
+        catch (UnknownImageFormatException)
+        {
+            return null;
+        }
+    }
+
     public async Task<(int Width, int Height)> GetImageDimensionsAsync(
         Stream stream,
         CancellationToken cancellationToken = default)
     {
-        var info = await Image.IdentifyAsync(stream, cancellationToken);
-        if (info == null)
+        try
         {
-            throw new InvalidOperationException("Unable to identify image dimensions.");
+            var info = await Image.IdentifyAsync(stream, cancellationToken);
+            return (info.Width, info.Height);
         }
-
-        return (info.Width, info.Height);
-    }
-
-    private static (int Width, int Height) CalculateResizedDimensions(
-        int originalWidth,
-        int originalHeight,
-        int maxWidth,
-        int maxHeight)
-    {
-        if (originalWidth <= maxWidth && originalHeight <= maxHeight)
+        catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
         {
-            return (originalWidth, originalHeight);
+            throw new ArgumentException("Choose a valid JPEG or PNG image.", nameof(stream), ex);
         }
-
-        var ratioX = (double)maxWidth / originalWidth;
-        var ratioY = (double)maxHeight / originalHeight;
-        var ratio = Math.Min(ratioX, ratioY);
-
-        var newWidth = (int)(originalWidth * ratio);
-        var newHeight = (int)(originalHeight * ratio);
-
-        return (newWidth, newHeight);
     }
 
     private static async Task<Image> LoadImageAsync(Stream sourceStream, CancellationToken cancellationToken)
     {
         try
         {
-            return await Image.LoadAsync(sourceStream, cancellationToken);
+            // Every output here is a single JPEG; do not allocate discarded animation frames.
+            return await Image.LoadAsync(new DecoderOptions { MaxFrames = 1 }, sourceStream, cancellationToken);
         }
         catch (UnknownImageFormatException ex)
         {

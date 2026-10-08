@@ -54,5 +54,10 @@ public interface IProductContentService
     /// content is optional per product). Selection null/empty resolves the standard preparation.</summary>
     Task<ResolvedContentDto?> ResolveAsync(Guid productId, JsonElement? selection, CancellationToken ct = default);
 
+    /// <summary>Current standard preparations using the same resolution rules as a detail read.
+    /// Products without a stored content block are omitted.</summary>
+    Task<IReadOnlyDictionary<Guid, ResolvedContentDto>> ResolveDefaultsAsync(
+        IReadOnlyCollection<Guid> productIds, CancellationToken ct = default);
+
     Task<ContentCoverageDto> GetCoverageAsync(Guid productId, CancellationToken ct = default);
 }

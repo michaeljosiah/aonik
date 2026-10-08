@@ -28,7 +28,8 @@ public class UpsertProductContentEndpoint : Endpoint<UpsertProductContentRequest
             new UpsertProductContentCommand(
                 req.ServingLabel, req.Kcal, req.ProteinGrams, req.CarbsGrams, req.FatGrams,
                 req.FibreGrams, req.SugarsGrams, req.SaltGrams,
-                req.Ingredients, req.Allergens, req.HeatingJson, req.AllergensPresent, req.PrecautionaryStatement),
+                req.Ingredients, req.Allergens, req.HeatingJson, req.AllergensPresent, req.PrecautionaryStatement,
+                req.SaturatesGrams),
             new BlockWritePrecondition(req.ExpectedDefaultsSelectionJson, req.ExpectedBlockSignature),
             ct);
         await Send.OkAsync(result, ct);

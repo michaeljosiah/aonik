@@ -227,6 +227,7 @@ public class CollectionServiceTests
         var ctx = CommerceTestHarness.CreateContext(options, tenantId);
         var builder = new MerchandisingBuilder(ctx, tenantId);
         await builder.WithCategoriesAsync();
+        await builder.WithFacetsAsync();
         await builder.WithProductsAsync();
         return (builder, ctx);
     }

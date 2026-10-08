@@ -418,12 +418,178 @@ public class ProductContentResolutionTests
         // a false V-C10.
         var (content, productId, _, ctx) = await ArrangeAsync();
 
-        var written = await WriteBlockAsync(content, productId, DefaultBlock() with { ProteinGrams = 1.234m });
+        var written = await WriteBlockAsync(content, productId, DefaultBlock() with
+        {
+            ProteinGrams = 1.234m,
+            SaturatesGrams = 2.345m,
+        });
         var reread = await content.GetAdminAsync(productId);
 
         written.Nutrition.ProteinGrams.Should().Be(1.23m);
+        written.Nutrition.SaturatesGrams.Should().Be(2.35m);
         written.BlockSignature.Should().Be(reread.Block!.BlockSignature);
         ctx.ProductContents.Single(c => c.ProductId == productId).ProteinGrams.Should().Be(1.23m);
+        ctx.ProductContents.Single(c => c.ProductId == productId).SaturatesGrams.Should().Be(2.35m);
+    }
+
+    [Fact]
+    public async Task Saturates_Should_PreserveNullAndZero_AndProtectConcurrentBlockEdits()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        var original = await content.GetAdminAsync(productId);
+        original.Block!.Nutrition.SaturatesGrams.Should().BeNull();
+
+        var zero = await WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = 0 });
+
+        zero.Nutrition.SaturatesGrams.Should().Be(0);
+        zero.BlockSignature.Should().NotBe(original.Block.BlockSignature);
+        (await content.ResolveAsync(productId, null))!.Nutrition.SaturatesGrams.Should().Be(0);
+        var staleSave = () => content.UpsertContentAsync(productId, DefaultBlock(),
+            new BlockWritePrecondition(original.CurrentDefaultsSelectionJson, original.Block.BlockSignature));
+        await staleSave.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C10*");
+
+        var cleared = await WriteBlockAsync(content, productId, DefaultBlock());
+        cleared.Nutrition.SaturatesGrams.Should().BeNull();
+        cleared.BlockSignature.Should().Be(original.Block.BlockSignature);
+        (await content.ResolveAsync(productId, null))!.Nutrition.SaturatesGrams.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Resolve_Should_ServeAuthoredSaturatesForExactVariants_AndQualifyFallbacks()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        await WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = 2 });
+        var variant = await AddVariantAsync(content, productId,
+            Variant("""{"protein":"salmon"}""", 640, "Salmon", "Rice, salmon", "Fish") with
+            {
+                SaturatesGrams = 4.567m,
+            });
+
+        var exact = await content.ResolveAsync(productId, Selection("""{"protein":"salmon"}"""));
+        var fallback = await content.ResolveAsync(productId, Selection("""{"protein":"prawns"}"""));
+
+        variant.Nutrition.SaturatesGrams.Should().Be(4.57m);
+        exact!.Nutrition.SaturatesGrams.Should().Be(4.57m);
+        exact.IsStandardPreparation.Should().BeFalse();
+        fallback!.Nutrition.SaturatesGrams.Should().Be(2);
+        fallback.IsStandardPreparation.Should().BeTrue();
+        fallback.DeclarationsWithheld.Should().BeTrue();
+        (await content.GetAdminAsync(productId)).Variants.Single().Nutrition.SaturatesGrams.Should().Be(4.57m);
+    }
+
+    [Fact]
+    public async Task ListAdminStatus_Should_CountAnAuthoredZeroSaturates_AsFigures()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        await WriteBlockAsync(content, productId, new UpsertProductContentCommand("Standard", SaturatesGrams: 0));
+
+        (await content.ListAdminStatusAsync()).Items.Single().HasFigures.Should().BeTrue();
+
+        await WriteBlockAsync(content, productId, new UpsertProductContentCommand("Standard"));
+        (await content.ListAdminStatusAsync()).Items.Single().HasFigures.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ResolveDefaults_Should_MatchDetails_ForFreshStaleExactAndMultiSelectDefaults()
+    {
+        var (content, freshId, builder, ctx) = await ArrangeAsync();
+        var staleId = await builder.BuildProductAsync("stale");
+        var exactId = await builder.BuildProductAsync("exact");
+        var multiId = await builder.BuildProductAsync("multi");
+        var absentId = await builder.BuildProductAsync("absent");
+        foreach (var id in new[] { staleId, exactId })
+        {
+            await builder.OfferAllAsync(id);
+            await WriteBlockAsync(content, id, DefaultBlock() with { SaturatesGrams = 2 });
+        }
+        await builder.OfferAsync(multiId, new ProductOptionGroupLine("protein", SelectionModeOverride: OptionSelectionModes.Multi));
+        await WriteBlockAsync(content, multiId, DefaultBlock());
+        await AddVariantAsync(content, exactId,
+            Variant("""{"protein":"salmon"}""", 640, "Salmon", "Rice, salmon", "Fish") with { SaturatesGrams = 4 });
+        await builder.OfferAsync(exactId,
+            new ProductOptionGroupLine("portion"),
+            new ProductOptionGroupLine("protein", DefaultChoiceKey: "salmon"),
+            new ProductOptionGroupLine("side"),
+            new ProductOptionGroupLine("heat"));
+        ctx.ProductContents.Single(c => c.ProductId == staleId).DescribesSelectionJson = "{}";
+        await ctx.SaveChangesAsync();
+
+        var batch = await content.ResolveDefaultsAsync([freshId, staleId, exactId, multiId, absentId, Guid.NewGuid(), freshId]);
+
+        batch.Keys.Should().BeEquivalentTo(new[] { freshId, staleId, exactId, multiId });
+        foreach (var pair in batch)
+        {
+            pair.Value.Should().BeEquivalentTo(await content.ResolveAsync(pair.Key, null));
+        }
+        batch[freshId].IsStale.Should().BeFalse();
+        batch[freshId].DeclarationsWithheld.Should().BeFalse();
+        batch[staleId].IsStale.Should().BeTrue();
+        batch[staleId].DeclarationsWithheld.Should().BeTrue();
+        batch[staleId].HeatingWithheld.Should().BeTrue();
+        batch[exactId].IsStale.Should().BeFalse("an exact variant still wins after the default moved");
+        batch[exactId].Nutrition.SaturatesGrams.Should().Be(4);
+        batch[exactId].Allergens.Should().Be("Fish");
+        batch[multiId].CanonicalSelectionJson.Should().Be("""{"protein":["chicken"]}""");
+    }
+
+    [Theory]
+    [InlineData("retired")]
+    [InlineData("deleted")]
+    [InlineData("mismatched")]
+    public async Task ResolveDefaults_Should_RejectUnavailableOrInexactVariants(string state)
+    {
+        var (content, productId, builder, ctx, tenantId) = await ArrangeWithTenantAsync();
+        var variant = await AddVariantAsync(content, productId,
+            Variant("""{"protein":"salmon"}""", 640, "Salmon", "Rice, salmon", "Fish") with
+            {
+                SaturatesGrams = 4,
+                PrecautionaryStatement = "May contain milk.",
+            });
+        await CommerceTestHarness.NewOptionService(ctx, tenantId)
+            .SetRecommendedDefaultAsync(await builder.GroupIdAsync("protein"), "salmon");
+        (await content.ResolveDefaultsAsync([productId]))[productId].MatchedVariantSelectionJson.Should().Be(variant.SelectionJson);
+        var stored = ctx.ProductContentVariants.Single(v => v.Id == variant.Id);
+        if (state == "retired") stored.IsActive = false;
+        else if (state == "deleted") stored.IsDeleted = true;
+        else stored.SelectionJson = "{}";
+        await ctx.SaveChangesAsync();
+
+        var resolved = (await content.ResolveDefaultsAsync([productId]))[productId];
+
+        resolved.Should().BeEquivalentTo(await content.ResolveAsync(productId, null));
+        resolved.IsStale.Should().BeTrue();
+        resolved.MatchedVariantSelectionJson.Should().BeNull();
+        resolved.DeclarationsWithheld.Should().BeTrue();
+        resolved.AllergensPresent.Should().BeNull();
+        resolved.PrecautionaryStatement.Should().BeNull();
+        resolved.Nutrition.SaturatesGrams.Should().BeNull("the default did not publish this figure");
+    }
+
+    [Fact]
+    public async Task ResolveDefaults_Should_OmitAbsentDeletedAndForeignTenantBlocks()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var builder = new OptionCatalogueBuilder(ctx, tenantId);
+        var content = CommerceTestHarness.NewContentService(ctx, tenantId);
+        var ownedId = await builder.BuildProductAsync("owned");
+        var deletedId = await builder.BuildProductAsync("deleted");
+        await WriteBlockAsync(content, ownedId, DefaultBlock());
+        await WriteBlockAsync(content, deletedId, DefaultBlock());
+        ctx.ProductContents.Single(c => c.ProductId == deletedId).IsDeleted = true;
+        await ctx.SaveChangesAsync();
+        var foreignTenantId = Guid.NewGuid();
+        await using var foreignContext = CommerceTestHarness.CreateContext(options, foreignTenantId);
+        var foreignId = await new OptionCatalogueBuilder(foreignContext, foreignTenantId).BuildProductAsync("foreign");
+        await WriteBlockAsync(CommerceTestHarness.NewContentService(foreignContext, foreignTenantId), foreignId, DefaultBlock());
+
+        var batch = await content.ResolveDefaultsAsync([ownedId, deletedId, foreignId, Guid.NewGuid()]);
+
+        batch.Keys.Should().Equal(ownedId);
+        batch[ownedId].Should().BeEquivalentTo(await content.ResolveAsync(ownedId, null));
+        (await content.ResolveAsync(deletedId, null)).Should().BeNull();
+        (await content.ResolveAsync(foreignId, null)).Should().BeNull();
+        (await content.ResolveDefaultsAsync([])).Should().BeEmpty();
     }
 
     private static async Task<(ProductContentService Content, Guid ProductId, OptionCatalogueBuilder Builder, Aonik.Commerce.Persistence.CommerceDbContext Ctx)> ArrangeAsync()

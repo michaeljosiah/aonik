@@ -7,7 +7,7 @@ using FastEndpoints;
 namespace Aonik.Commerce.Endpoints.Admin.Catalog;
 
 /// <summary>Full-replace of a product's ordered media URLs (Spec 070 §10) — list, reorder,
-/// remove. Upload itself is the storefront-readiness wiring item (§3), not this endpoint.</summary>
+/// remove. The image-upload route returns a draft asset for this list.</summary>
 public class ReplaceProductMediaEndpoint : Endpoint<ReplaceProductMediaRequest, IReadOnlyList<ProductMediaDto>>
 {
     private readonly IProductService _products;
@@ -27,7 +27,7 @@ public class ReplaceProductMediaEndpoint : Endpoint<ReplaceProductMediaRequest, 
         var result = await _products.ReplaceProductMediaAsync(
             Route<Guid>("productId"),
             new ReplaceProductMediaCommand(
-                req.Items?.Select(i => new ProductMediaLine(i.Url, i.Kind)).ToList()),
+                req.Items?.Select(i => new ProductMediaLine(i.Url, i.Kind, i.AltText)).ToList()),
             ct);
         await Send.OkAsync(result, ct);
     }

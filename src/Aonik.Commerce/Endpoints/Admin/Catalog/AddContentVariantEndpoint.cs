@@ -36,5 +36,6 @@ public class AddContentVariantEndpoint : Endpoint<UpsertContentVariantRequest, P
     internal static UpsertContentVariantCommand Map(UpsertContentVariantRequest req) => new(
         req.SelectionJson, req.ServingLabel, req.Kcal, req.ProteinGrams, req.CarbsGrams,
         req.FatGrams, req.FibreGrams, req.SugarsGrams, req.SaltGrams,
-        req.Ingredients, req.Allergens, req.HeatingJson, req.AllergensPresent, req.PrecautionaryStatement);
+        req.Ingredients, req.Allergens, req.HeatingJson, req.AllergensPresent, req.PrecautionaryStatement,
+        req.SaturatesGrams);
 }

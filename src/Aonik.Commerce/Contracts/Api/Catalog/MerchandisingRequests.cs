@@ -56,12 +56,23 @@ public record UpdateProductRequest(
     bool ClearCategory = false,
     string? TagsJson = null,
     string? AttributesJson = null,
-    string? SearchKeywordsJson = null);
+    string? SearchKeywordsJson = null,
+    int? Heat = null,
+    bool ClearHeat = false,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool ClearLowSugar = false,
+    bool? Freezable = null,
+    bool ClearFreezable = false,
+    string? ShelfLife = null,
+    Guid? RelatedCollectionId = null,
+    bool ClearRelatedCollection = false,
+    bool? IsPlaceholder = null);
 
-public record ProductMediaRequestLine(string Url, string? Kind = null);
+public record ProductMediaRequestLine(string Url, string? Kind = null, string? AltText = null);
 
-/// <summary>Full-replace of a product's ordered media. Upload wiring is out of scope (§3);
-/// this orders/removes existing URLs. <see cref="Items"/> required for the same reason as
+/// <summary>Full-replace of a product's ordered media, including uploaded draft URLs.
+/// <see cref="Items"/> required for the same reason as
 /// collection items — omission must not read as an intentional clear.</summary>
 public record ReplaceProductMediaRequest(IReadOnlyList<ProductMediaRequestLine>? Items);
 

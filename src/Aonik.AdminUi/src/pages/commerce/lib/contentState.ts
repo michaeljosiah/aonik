@@ -88,6 +88,7 @@ export const FIGURE_FIELDS = [
   { key: 'proteinGrams', label: 'Protein', unit: 'g' },
   { key: 'carbsGrams', label: 'Carbs', unit: 'g' },
   { key: 'fatGrams', label: 'Fat', unit: 'g' },
+  { key: 'saturatesGrams', label: 'Saturates', unit: 'g' },
   { key: 'fibreGrams', label: 'Fibre', unit: 'g' },
   { key: 'sugarsGrams', label: 'Sugars', unit: 'g' },
   { key: 'saltGrams', label: 'Salt', unit: 'g' },

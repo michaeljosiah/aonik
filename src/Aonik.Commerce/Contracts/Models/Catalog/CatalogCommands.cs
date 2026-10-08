@@ -25,7 +25,14 @@ public record CreateProductCommand(
     string? BundleCurrency = null,
     // Spec 070 §7 — keywords are part of product authoring; forcing a follow-up PATCH to make a
     // new product searchable would be a two-request contract for a one-request intent.
-    string? SearchKeywordsJson = null);
+    string? SearchKeywordsJson = null,
+    int? Heat = null,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool? Freezable = null,
+    string? ShelfLife = null,
+    Guid? RelatedCollectionId = null,
+    bool IsPlaceholder = true);
 
 public record AddVariantCommand(
     Guid ProductId,
@@ -70,7 +77,7 @@ public record ListProductsQuery(
     IReadOnlyDictionary<string, IReadOnlyList<string>>? Facets = null,
     /// Spec 070 §6 — collection slug membership filter.
     string? Collection = null,
-    /// Spec 070 §6 — name | newest | rank. Rank requires a collection filter. Null defaults to
+    /// name | newest | rank | protein-desc | calories-asc. Rank requires a collection filter. Null defaults to
     /// rank when a collection is present, name otherwise.
     string? Sort = null);
 
@@ -85,12 +92,23 @@ public record UpdateProductCommand(
     bool ClearCategory = false,
     string? TagsJson = null,
     string? AttributesJson = null,
-    string? SearchKeywordsJson = null);
+    string? SearchKeywordsJson = null,
+    int? Heat = null,
+    bool ClearHeat = false,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool ClearLowSugar = false,
+    bool? Freezable = null,
+    bool ClearFreezable = false,
+    string? ShelfLife = null,
+    Guid? RelatedCollectionId = null,
+    bool ClearRelatedCollection = false,
+    bool? IsPlaceholder = null);
 
-public record ProductMediaLine(string Url, string? Kind = null);
+public record ProductMediaLine(string Url, string? Kind = null, string? AltText = null);
 
 /// <summary>Full-replace of a product's ordered media (Spec 070 §10) — list/reorder/remove;
-/// upload wiring is out of scope (§3). Null <see cref="Items"/> is rejected: a missing property
+/// uploads supply draft URLs for this same list. Null <see cref="Items"/> is rejected: a missing property
 /// must never read as an intentional clear.</summary>
 public record ReplaceProductMediaCommand(IReadOnlyList<ProductMediaLine>? Items);
 
@@ -100,4 +118,6 @@ public static class ProductSortOrders
     public const string Name = "name";
     public const string Newest = "newest";
     public const string Rank = "rank";
+    public const string ProteinDescending = "protein-desc";
+    public const string CaloriesAscending = "calories-asc";
 }

@@ -62,6 +62,7 @@ export interface ProductMediaDto {
   url: string;
   kind: string;
   sortOrder: number;
+  altText: string | null;
 }
 
 export interface BundleSlotOptionDto {
@@ -103,6 +104,23 @@ export interface ProductSummaryDto {
   tags: string[];
   attributesJson: string;
   unitSurcharge: number | null;
+  description: string;
+  categoryName: string | null;
+  categorySlug: string | null;
+  heat: number | null;
+  componentsLine: string | null;
+  lowSugar: boolean | null;
+  freezable: boolean | null;
+  shelfLife: string | null;
+  isPlaceholder: boolean;
+  heroImageAltText: string | null;
+  kcal: number | null;
+  proteinGrams: number | null;
+  fibreGrams: number | null;
+  servingLabel: string | null;
+  contentIsStale: boolean;
+  contentIsStandardPreparation: boolean;
+  contentVersion: number | null;
 }
 
 /** The full public product detail — what create/get product endpoints return.
@@ -112,9 +130,18 @@ export interface ProductDto {
   slug: string;
   name: string;
   description: string;
+  heat: number | null;
+  componentsLine: string | null;
+  lowSugar: boolean | null;
+  freezable: boolean | null;
+  shelfLife: string | null;
+  relatedCollectionSlug: string | null;
+  isPlaceholder: boolean;
   status: string;
   kind: string;
   categoryId: string | null;
+  categoryName: string | null;
+  categorySlug: string | null;
   tagsJson: string;
   attributesJson: string;
   bundlePricingMode: string | null;
@@ -135,6 +162,7 @@ export interface ProductDto {
 /** The admin product detail (Spec 070 §7) — ProductDto plus flat search keywords. */
 export interface AdminProductDetailDto extends ProductDto {
   searchKeywords: string[];
+  relatedCollectionId: string | null;
 }
 
 // ─── Catalog: option groups & personalisation (Specs 066/074) ───────────────
@@ -210,6 +238,7 @@ export interface NutritionDto {
   fibreGrams: number | null;
   sugarsGrams: number | null;
   saltGrams: number | null;
+  saturatesGrams: number | null;
 }
 
 export interface HeatingStepDto {

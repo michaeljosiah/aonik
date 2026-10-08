@@ -22,7 +22,7 @@ public record ProductVariantDto(
     bool IsActive,
     IReadOnlyList<ProductPriceDto> Prices);
 
-public record ProductMediaDto(Guid Id, string Url, string Kind, int SortOrder);
+public record ProductMediaDto(Guid Id, string Url, string Kind, int SortOrder, string? AltText = null);
 
 public record BundleSlotOptionDto(Guid Id, Guid ProductVariantId, decimal? PriceDelta);
 
@@ -75,7 +75,16 @@ public record ProductDto(
     /// surfaces that do not compose content (admin detail; content has its own admin reads).
     ResolvedContentDto? Content = null,
     /// Spec 067 §8 — the cache-key version the storefront passes back as `v`. Null with Content.
-    int? ContentVersion = null);
+    int? ContentVersion = null,
+    int? Heat = null,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool? Freezable = null,
+    string? ShelfLife = null,
+    string? RelatedCollectionSlug = null,
+    bool IsPlaceholder = true,
+    string? CategoryName = null,
+    string? CategorySlug = null);
 
 /// <summary>The ADMIN product detail (Spec 070 §7): every <see cref="ProductDto"/> field plus the
 /// hidden search keywords, serialized flat. A distinct type on purpose — the public product read
@@ -102,11 +111,20 @@ public record AdminProductDetailDto(
     IReadOnlyList<EffectiveOptionGroupDto> EffectiveOptionGroups,
     decimal? UnitSurcharge,
     string? UnitSurchargeCurrency,
-    IReadOnlyList<string> SearchKeywords)
+    IReadOnlyList<string> SearchKeywords,
+    int? Heat = null,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool? Freezable = null,
+    string? ShelfLife = null,
+    Guid? RelatedCollectionId = null,
+    bool IsPlaceholder = true)
     : ProductDto(
         Id, Slug, Name, Description, Status, Kind, CategoryId, TagsJson, AttributesJson,
         BundlePricingMode, BundleFixedAmount, BundlePremium, BundleCurrency, TargetMarginPct,
-        Variants, Media, BundleSlots, EffectiveOptionGroups, UnitSurcharge, UnitSurchargeCurrency);
+        Variants, Media, BundleSlots, EffectiveOptionGroups, UnitSurcharge, UnitSurchargeCurrency,
+        Heat: Heat, ComponentsLine: ComponentsLine, LowSugar: LowSugar, Freezable: Freezable,
+        ShelfLife: ShelfLife, IsPlaceholder: IsPlaceholder);
 
 /// <summary>Lightweight product row for list/browse responses — everything a menu-grid card
 /// renders without a detail call (Spec 070 §8). Deliberately carries NO retail price: the brand
@@ -125,6 +143,23 @@ public record ProductSummaryDto(
     string? HeroImageUrl,
     /// Parsed from TagsJson; a malformed legacy row renders with empty tags rather than failing.
     IReadOnlyList<string> Tags,
-    /// Pass-through for card badges (spice, etc.).
+    /// Legacy/general metadata; typed dish and resolved nutrition members are authoritative.
     string AttributesJson,
-    decimal? UnitSurcharge);
+    decimal? UnitSurcharge,
+    string Description = "",
+    string? CategoryName = null,
+    string? CategorySlug = null,
+    int? Heat = null,
+    string? ComponentsLine = null,
+    bool? LowSugar = null,
+    bool? Freezable = null,
+    string? ShelfLife = null,
+    bool IsPlaceholder = true,
+    string? HeroImageAltText = null,
+    decimal? Kcal = null,
+    decimal? ProteinGrams = null,
+    decimal? FibreGrams = null,
+    string? ServingLabel = null,
+    bool ContentIsStale = false,
+    bool ContentIsStandardPreparation = false,
+    int? ContentVersion = null);

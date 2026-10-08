@@ -101,6 +101,58 @@ public class ProductContentAuthoringTests
         removeFat.Nutrition.FatGrams.Should().BeNull();
     }
 
+    [Fact]
+    public async Task VariantWrites_Should_RequireSaturates_WhenTheBlockPublishesZero()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        await WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = 0 });
+        var command = Variant("""{"protein":"salmon"}""", 640);
+
+        var missing = () => AddVariantAsync(content, productId, command);
+        await missing.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C2*saturatesGrams*");
+        var variant = await AddVariantAsync(content, productId, command with { SaturatesGrams = 0 });
+        variant.Nutrition.SaturatesGrams.Should().Be(0);
+
+        var remove = () => UpdateVariantAsync(content, variant, command);
+        await remove.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C2*saturatesGrams*");
+        (await content.GetAdminAsync(productId)).Variants.Single().Nutrition.SaturatesGrams.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task BlockWrites_Should_RequireActiveVariantsToPublishSaturates_BeforeAddingIt()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        var command = Variant("""{"protein":"salmon"}""", 640);
+        var variant = await AddVariantAsync(content, productId, command);
+
+        var add = () => WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = 0 });
+        await add.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C6*saturatesGrams*");
+        await UpdateVariantAsync(content, variant, command with { SaturatesGrams = 1.5m });
+        var published = await WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = 0 });
+
+        published.Nutrition.SaturatesGrams.Should().Be(0);
+        await WriteBlockAsync(content, productId, DefaultBlock());
+        (await content.ResolveAsync(productId, null))!.Nutrition.SaturatesGrams.Should().BeNull();
+        (await content.GetAdminAsync(productId)).Variants.Single().Nutrition.SaturatesGrams.Should().Be(1.5m);
+    }
+
+    [Fact]
+    public async Task Authoring_Should_RejectSaturatesOutsideTheFigureBounds_OnBlocksAndVariants()
+    {
+        var (content, productId, _, _) = await ArrangeAsync();
+        foreach (var value in new[] { -0.01m, 10_000_000m })
+        {
+            var block = () => WriteBlockAsync(content, productId, DefaultBlock() with { SaturatesGrams = value });
+            var variant = () => AddVariantAsync(content, productId,
+                Variant("""{"protein":"salmon"}""", 640) with { SaturatesGrams = value });
+
+            await block.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C7*saturatesGrams*");
+            await variant.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*V-C7*saturatesGrams*");
+        }
+        (await content.GetAdminAsync(productId)).Block!.Nutrition.SaturatesGrams.Should().BeNull();
+        (await content.GetAdminAsync(productId)).Variants.Should().BeEmpty();
+    }
+
     // ─── V-C3 / V-C7 / V-C8 ──────────────────────────────────────────────────
 
     [Fact]

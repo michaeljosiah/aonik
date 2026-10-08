@@ -27,6 +27,7 @@ using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Options;
 using Aonik.Platform.Contracts.Services.Observability;
 using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.SharedKernel.Abstractions.Storage;
 using Aonik.Platform.Services.Onboarding;
 
 using Aonik.Platform.Services.Identity;
@@ -140,6 +141,13 @@ public static class DependencyInjection
             var blobStorageFactory = sp.GetRequiredService<Aonik.Application.Abstractions.Storage.IBlobStorageFactory>();
             var storageOptions = sp.GetRequiredService<IOptions<BlobStorageOptions>>();
             return new FileStore(blobStorageFactory, storageOptions, storageOptions.Value.Attachments);
+        });
+
+        services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Storage.IFileStore>(FileStoreKeys.ProductImages, (sp, _) =>
+        {
+            var factory = sp.GetRequiredService<IBlobStorageFactory>();
+            var options = sp.GetRequiredService<IOptions<BlobStorageOptions>>();
+            return new FileStore(factory, options, options.Value.ProductImages);
         });
 
         services.AddHostedService<ProfilePhotoStorageInitializer>();

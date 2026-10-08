@@ -16,6 +16,7 @@ const block: ProductContentDto = {
     fibreGrams: null,
     sugarsGrams: null,
     saltGrams: null,
+    saturatesGrams: null,
   },
   ingredients: null,
   allergens: 'Legacy declaration',

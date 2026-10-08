@@ -39,6 +39,13 @@ export interface CreateProductRequest {
   categoryId?: string | null;
   tagsJson?: string;
   attributesJson?: string;
+  heat?: number | null;
+  componentsLine?: string | null;
+  lowSugar?: boolean | null;
+  freezable?: boolean | null;
+  shelfLife?: string | null;
+  relatedCollectionId?: string | null;
+  isPlaceholder?: boolean;
 }
 
 /** PATCH semantics — omitted members leave the stored value unchanged (Spec 070 §7).
@@ -53,6 +60,17 @@ export interface PatchProductRequest {
   tagsJson?: string;
   attributesJson?: string;
   searchKeywordsJson?: string;
+  heat?: number;
+  clearHeat?: boolean;
+  componentsLine?: string;
+  lowSugar?: boolean;
+  clearLowSugar?: boolean;
+  freezable?: boolean;
+  clearFreezable?: boolean;
+  shelfLife?: string;
+  relatedCollectionId?: string;
+  clearRelatedCollection?: boolean;
+  isPlaceholder?: boolean;
 }
 
 export interface TargetMarginDto {
@@ -64,6 +82,7 @@ export interface TargetMarginDto {
 export interface ProductMediaLine {
   url: string;
   kind?: string | null;
+  altText?: string | null;
 }
 
 export interface CreateOptionGroupRequest {
@@ -150,6 +169,14 @@ export const commerceCatalogService = {
   /** Returns the replaced media list, not a product detail. */
   replaceProductMedia: async (productId: string, items: ProductMediaLine[]): Promise<ProductMediaDto[]> =>
     api.put<ProductMediaDto[]>(`/commerce/admin/products/${productId}/media`, { items }),
+  uploadProductImage: async (productId: string, file: File, altText: string): Promise<{ url: string; altText: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('altText', altText);
+    return api.post<{ url: string; altText: string }>(`/commerce/admin/products/${productId}/images`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   listCategories: async (): Promise<ProductCategoryDto[]> =>
     api.get<ProductCategoryDto[]>('/commerce/admin/categories'),
 

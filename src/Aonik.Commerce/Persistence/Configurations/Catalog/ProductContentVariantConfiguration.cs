@@ -28,6 +28,7 @@ public class ProductContentVariantConfiguration : IEntityTypeConfiguration<Produ
         builder.Property(x => x.FibreGrams).HasPrecision(9, 2);
         builder.Property(x => x.SugarsGrams).HasPrecision(9, 2);
         builder.Property(x => x.SaltGrams).HasPrecision(9, 2);
+        builder.Property(x => x.SaturatesGrams).HasPrecision(9, 2);
 
         // One row per (product, combination) — active OR retired: variants soft-retire via
         // IsActive (V-C5), and re-authoring a retired combination reactivates that row rather

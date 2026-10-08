@@ -145,4 +145,22 @@ public class FacetGroupServiceTests
         var ctx = CommerceTestHarness.CreateContext(options, tenantId);
         return new FacetGroupService(ctx, new TestTenantProvider(tenantId));
     }
+
+    [Fact]
+    public async Task TypedSources_Should_RequireCompatibleFacetKinds_AndPreserveOtherAttributePaths()
+    {
+        var facets = NewService();
+        await FluentActions.Awaiting(() => facets.CreateAsync(new CreateFacetGroupCommand(
+            "calories", "Calories", FacetMatchKinds.Attribute,
+            """[{"value":"400","label":"400"}]""", SourcePath: "nutrition.kcal")))
+            .Should().ThrowAsync<StorefrontValidationException>();
+        await FluentActions.Awaiting(() => facets.CreateAsync(new CreateFacetGroupCommand(
+            "sugar", "Low sugar", FacetMatchKinds.Range,
+            """[{"value":"low","label":"Low","max":1}]""", SourcePath: "lowSugar")))
+            .Should().ThrowAsync<StorefrontValidationException>();
+        await FluentActions.Awaiting(() => facets.CreateAsync(new CreateFacetGroupCommand(
+            "custom", "Custom metadata", FacetMatchKinds.Range,
+            """[{"value":"low","label":"Low","max":1}]""", SourcePath: "custom.value")))
+            .Should().NotThrowAsync();
+    }
 }

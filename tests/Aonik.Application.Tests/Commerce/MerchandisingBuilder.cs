@@ -27,7 +27,8 @@ internal sealed class MerchandisingBuilder
             ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId),
             NullLogger<CollectionService>.Instance, new FakeExtrasCatalog(),
             new GbpTenantCurrencyProvider(),
-            new ProductPricingService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), new CommerceTestHarness.TestClock()));
+            new ProductPricingService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), new CommerceTestHarness.TestClock()),
+            CommerceTestHarness.NewContentService(ctx, tenantId));
         Facets = new FacetGroupService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId));
     }
 
@@ -111,6 +112,18 @@ internal sealed class MerchandisingBuilder
 
         await Products.CreateProductAsync(new CreateProductCommand(
             "secret-dish", "Secret Dish", ProductKinds.Simple, Status: ProductStatuses.Draft));
+
+        // Nutrition paths now read authored content, never the legacy JSON copies above.
+        var ids = await ProductIdsBySlugAsync();
+        foreach (var (slug, kcal) in new[] { ("jollof", 450m), ("egusi", 650m), ("garden-salad", 320m), ("pounded-yam", 800m) })
+        {
+            _ctx.ProductContents.Add(new ProductContent
+            {
+                Id = Guid.NewGuid(), TenantId = _tenantId, ProductId = ids[slug],
+                ServingLabel = "Standard serving", Kcal = kcal, ContentVersion = 1,
+            });
+        }
+        await _ctx.SaveChangesAsync();
 
         return this;
     }

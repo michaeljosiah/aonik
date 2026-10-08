@@ -28,7 +28,10 @@ public class UpdateProductEndpoint : Endpoint<UpdateProductRequest, AdminProduct
             new UpdateProductCommand(
                 req.Name, req.Description, req.Status,
                 req.CategoryId, req.ClearCategory,
-                req.TagsJson, req.AttributesJson, req.SearchKeywordsJson),
+                req.TagsJson, req.AttributesJson, req.SearchKeywordsJson,
+                req.Heat, req.ClearHeat, req.ComponentsLine,
+                req.LowSugar, req.ClearLowSugar, req.Freezable, req.ClearFreezable, req.ShelfLife,
+                req.RelatedCollectionId, req.ClearRelatedCollection, req.IsPlaceholder),
             ct);
         await Send.OkAsync(result, ct);
     }
