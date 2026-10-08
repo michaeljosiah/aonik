@@ -19,6 +19,13 @@ public interface IFulfilmentPromiseService
     /// resolvable calendar exists. Unconfigured is a state, not an error — never guess.</summary>
     Task<FulfilmentPromiseDto?> GetEarliestDeliveryAsync(CancellationToken cancellationToken = default);
 
+    Task<DeliveryDatesDto?> GetDeliveryDatesAsync(
+        DateOnly? fromDate = null, int days = 31, CancellationToken cancellationToken = default);
+
+    /// <summary>Validates current calendar eligibility, without reserving capacity.</summary>
+    Task<ValidatedDeliveryDateDto> ValidateDeliveryDateAsync(
+        DateOnly date, CancellationToken cancellationToken = default);
+
     /// <summary>The calendar including inactive (admin read); null when none exists.</summary>
     Task<FulfilmentCalendarDto?> GetCalendarAsync(CancellationToken cancellationToken = default);
 
@@ -27,7 +34,7 @@ public interface IFulfilmentPromiseService
 
 internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
 {
-    private const int MaxLeadDays = 60;
+    private const int MaxLeadDays = FulfilmentPromiseCalculator.MaxLeadDays;
     private const int MaxFutureBlackouts = 100;
 
     private readonly CommerceDbContext _dbContext;
@@ -63,6 +70,26 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId, cancellationToken);
         return calendar is null ? null : Map(calendar);
+    }
+
+    public async Task<DeliveryDatesDto?> GetDeliveryDatesAsync(
+        DateOnly? fromDate = null, int days = 31, CancellationToken cancellationToken = default)
+    {
+        FulfilmentPromiseCalculator.ValidateRange(fromDate, days);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var calendar = await _dbContext.FulfilmentCalendars.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && !c.IsDeleted, cancellationToken);
+        var now = _clock.UtcNow;
+        return calendar is null ? null : FulfilmentPromiseCalculator.DeliveryDates(calendar, now, fromDate, days);
+    }
+
+    public async Task<ValidatedDeliveryDateDto> ValidateDeliveryDateAsync(
+        DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var offered = await GetDeliveryDatesAsync(date, 1, cancellationToken);
+        if (offered is null || !offered.Dates.Contains(date))
+            throw new StorefrontValidationException("The selected delivery date is unavailable. Refresh the offered dates and choose again.");
+        return new ValidatedDeliveryDateDto(date, offered.Timezone);
     }
 
     public async Task<FulfilmentCalendarDto> UpsertCalendarAsync(UpsertFulfilmentCalendarCommand command, CancellationToken cancellationToken = default)

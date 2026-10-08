@@ -17,12 +17,13 @@ public class ListAdminStorefrontOrdersEndpoint : EndpointWithoutRequest<PagedRes
     public override void Configure()
     {
         Get("/commerce/admin/orders");
-        Policies("AdminUserPolicy");
+        Policies("AdminReadPolicy");
         Summary(s => s.Summary = "Tenant-wide storefront orders with payment/fulfilment status and buyer kind, newest first.");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        HttpContext.Response.Headers.CacheControl = "no-store";
         var page = Query<int?>("page", isRequired: false) ?? 1;
         var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
         var paymentStatus = Query<string?>("paymentStatus", isRequired: false);

@@ -27,7 +27,8 @@ public class GuestOrderReadTests
             ? CartAccessContext.ForParty(party)
             : CartAccessContext.ForGuest(box.CartToken);
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(fixture.DishVariants["jollof"], 6, null), access);
-        var checkout = await harness.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var checkout = await harness.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
+            Delivery: BoxTestHarness.ValidDelivery), access);
         return (harness, box, checkout);
     }
 
@@ -213,7 +214,9 @@ public class GuestOrderReadTests
         var json = JsonSerializer.SerializeToElement(result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         json.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal", "total",
-            "boxSize", "items", "selections", "paymentStatus" });
+            "boxSize", "items", "selections", "paymentStatus", "delivery" });
+        result!.Delivery!.Address.Should().BeEquivalentTo(BoxTestHarness.ValidDelivery.Address);
+        result.Delivery.DeliveryDate.Should().Be(BoxTestHarness.ValidDelivery.DeliveryDate);
         json.GetProperty("items")[0].EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
             "itemType", "quantity", "unitPrice", "amountIn", "sku" });
         json.GetProperty("selections")[0].EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
@@ -254,6 +257,7 @@ public class GuestOrderReadTests
         {
             Carts = await commerce.Carts.AsNoTracking().ToListAsync(),
             Summaries = await commerce.OrderChargeSummaries.AsNoTracking().ToListAsync(),
+            Deliveries = await commerce.OrderDeliveryDetails.AsNoTracking().ToListAsync(),
             Reservations = await commerce.InventoryReservations.AsNoTracking().ToListAsync(),
             Orders = await ordering.Orders.AsNoTracking().ToListAsync(),
             Funding = await ordering.OrderFundingRefs.AsNoTracking().ToListAsync()

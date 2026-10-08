@@ -1,0 +1,36 @@
+using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Entities.Fulfilment;
+
+namespace Aonik.Commerce.Services.Checkout;
+
+internal static class OrderDeliveryMapper
+{
+    public static OrderDeliveryDto Map(OrderDeliveryDetails delivery) => new(
+        new CheckoutContactDto(delivery.PurchaserEmail, delivery.PurchaserFirstName,
+            delivery.PurchaserLastName, delivery.PurchaserPhone),
+        new DeliveryAddressDto(delivery.AddressLine1, delivery.AddressLine2, delivery.City,
+            delivery.Region, delivery.Postcode, delivery.CountryCode),
+        delivery.DeliveryDate, delivery.Timezone,
+        new DeliveryRecipientDto(delivery.RecipientName, delivery.RecipientPhone), delivery.Notes);
+
+    public static OrderDeliveryDetails Create(Guid tenantId, Guid orderId, OrderDeliveryDto delivery) => new()
+    {
+        TenantId = tenantId,
+        OrderId = orderId,
+        PurchaserEmail = delivery.Purchaser.Email,
+        PurchaserFirstName = delivery.Purchaser.FirstName,
+        PurchaserLastName = delivery.Purchaser.LastName,
+        PurchaserPhone = delivery.Purchaser.Phone,
+        AddressLine1 = delivery.Address.Line1,
+        AddressLine2 = delivery.Address.Line2,
+        City = delivery.Address.City,
+        Region = delivery.Address.Region,
+        Postcode = delivery.Address.Postcode,
+        CountryCode = delivery.Address.CountryCode,
+        DeliveryDate = delivery.DeliveryDate,
+        Timezone = delivery.Timezone,
+        RecipientName = delivery.Recipient.Name,
+        RecipientPhone = delivery.Recipient.Phone,
+        Notes = delivery.Notes
+    };
+}

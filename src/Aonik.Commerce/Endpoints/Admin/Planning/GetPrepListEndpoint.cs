@@ -1,4 +1,5 @@
 using Aonik.Commerce.Contracts.Models.Production;
+using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Production;
 
 using FastEndpoints;
@@ -17,17 +18,25 @@ public class GetPrepListEndpoint : EndpointWithoutRequest<PrepListDto>
         Policies("AdminUserPolicy");
         Summary(s => s.Summary =
             "The ingredient prep list: the production sheet for ?fromUtc=&toUtc= (UTC, half-open " +
-            "[from, to)) exploded through active recipes, per-ingredient in base units. ?net=true " +
+            "[from, to)), or ?deliveryDate= (calendar-local date), exploded through active recipes. " +
+            "Supply exactly one selector. Ingredient quantities are in base units. ?net=true " +
             "(default) nets each line against available stock (on-hand minus reserved) adding shortfall " +
             "and a suggested order quantity; ?net=false returns raw requirements.");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var fromUtc = Query<DateTime>("fromUtc");
-        var toUtc = Query<DateTime>("toUtc");
+        var fromUtc = Query<DateTime?>("fromUtc", isRequired: HttpContext.Request.Query.ContainsKey("fromUtc"));
+        var toUtc = Query<DateTime?>("toUtc", isRequired: HttpContext.Request.Query.ContainsKey("toUtc"));
+        var deliveryDate = Query<DateOnly?>("deliveryDate", isRequired: HttpContext.Request.Query.ContainsKey("deliveryDate"));
+        if (deliveryDate.HasValue ? fromUtc.HasValue || toUtc.HasValue : !fromUtc.HasValue || !toUtc.HasValue)
+        {
+            throw new StorefrontValidationException("Supply either deliveryDate or both fromUtc and toUtc.");
+        }
         var net = Query<bool?>("net", isRequired: false) ?? true;
-        var result = await _planning.GetPrepListAsync(new ProductionWindow(fromUtc, toUtc), net, ct);
+        var result = deliveryDate is { } date
+            ? await _planning.GetPrepListForDeliveryDateAsync(date, net, ct)
+            : await _planning.GetPrepListAsync(new ProductionWindow(fromUtc!.Value, toUtc!.Value), net, ct);
         await Send.OkAsync(result, ct);
     }
 }

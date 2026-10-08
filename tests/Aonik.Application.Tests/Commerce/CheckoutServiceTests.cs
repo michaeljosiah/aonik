@@ -4,6 +4,7 @@ using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.Ordering.Persistence;
@@ -104,7 +105,8 @@ public class CheckoutServiceTests
 
         public CheckoutService Checkout() => new(
             Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
-            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess);
+            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess,
+            new FulfilmentPromiseService(Commerce(), _tenant, _clock));
     }
 
     [Fact]

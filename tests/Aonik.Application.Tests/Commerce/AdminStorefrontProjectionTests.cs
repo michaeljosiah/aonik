@@ -45,7 +45,8 @@ public class AdminStorefrontProjectionTests
         var access = CartAccessContext.ForParty(party);
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
         await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 2), access);
-        var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
+            Delivery: BoxTestHarness.ValidDelivery), access);
 
         var admin = AdminSvc(h);
 
@@ -116,6 +117,8 @@ public class AdminStorefrontProjectionTests
         detail.Charge.Total.Should().Be(row.Total);
         detail.PaymentStatus.Should().Be(confirmed.PaymentStatus, "detail and list read the same durable record");
         detail.FulfilmentStatus.Should().Be("Unfulfilled");
+        detail.Delivery!.Address.Should().BeEquivalentTo(BoxTestHarness.ValidDelivery.Address);
+        row.DeliveryDate.Should().Be(BoxTestHarness.ValidDelivery.DeliveryDate);
     }
 
     [Fact]

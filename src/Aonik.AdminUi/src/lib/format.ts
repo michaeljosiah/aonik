@@ -11,6 +11,16 @@ export function formatDate(value?: string | null): string {
   });
 }
 
+/** A delivery date is a calendar day, so the viewer's timezone must not move it. */
+export function formatCalendarDate(value?: string | null): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '—';
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return '—';
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+}
+
 /**
  * Date AND time. Use wherever the question is "how recently did this happen" rather than
  * "on what day" — cart activity being the case that forced it: several sessions touched on

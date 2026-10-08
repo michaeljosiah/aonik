@@ -22,6 +22,11 @@ public interface IProductionPlanningService
     /// </summary>
     Task<ProductionSheetDto> GetProductionSheetAsync(ProductionWindow window, CancellationToken cancellationToken = default);
 
+    /// <summary>Same demand aggregation for orders scheduled on the supplied calendar-local
+    /// delivery date, regardless of when those orders were placed. Legacy orders without a
+    /// recorded delivery date are excluded.</summary>
+    Task<ProductionSheetDto> GetProductionSheetForDeliveryDateAsync(DateOnly deliveryDate, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// The production sheet fed through <c>IRecipeService.ExplodeManyAsync</c> (Spec 050 §11) —
     /// per-ingredient required quantity in base units, merged across variants, with the no-recipe
@@ -31,4 +36,7 @@ public interface IProductionPlanningService
     /// and the list is pure requirements.
     /// </summary>
     Task<PrepListDto> GetPrepListAsync(ProductionWindow window, bool netAgainstStock = true, CancellationToken cancellationToken = default);
+
+    /// <summary>The delivery-date sheet composed with the same recipe explosion and stock netting.</summary>
+    Task<PrepListDto> GetPrepListForDeliveryDateAsync(DateOnly deliveryDate, bool netAgainstStock = true, CancellationToken cancellationToken = default);
 }

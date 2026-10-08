@@ -9,6 +9,7 @@ using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Production;
 using Aonik.Commerce.Services.Promotions;
@@ -115,7 +116,8 @@ public class MarginReportServiceTests
                 new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock));
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
-                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess);
+                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,
+                new FulfilmentPromiseService(ctx, _tenant, Clock));
         }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);

@@ -28,6 +28,7 @@ public class ListMyOrdersEndpoint : EndpointWithoutRequest<Contracts.Models.Cata
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        HttpContext.Response.Headers.CacheControl = "no-store";
         var page = Query<int?>("page", isRequired: false) ?? 1;
         var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
         var partyId = await _parties.GetCurrentPartyIdAsync(ct);
@@ -61,6 +62,7 @@ public class GetMyOrderEndpoint : EndpointWithoutRequest<StorefrontOrderDetailDt
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        HttpContext.Response.Headers.CacheControl = "no-store";
         var partyId = await _parties.GetCurrentPartyIdAsync(ct);
         var detail = partyId is null
             ? null

@@ -11,12 +11,14 @@ public record CreateProductionOrderRequest(
 public record CreateProductionOrderLine(Guid ProductVariantId, decimal PlannedQuantity);
 
 /// <summary>Seeds a production order from the Spec 055 production sheet for a UTC window
-/// (half-open [FromUtc, ToUtc)); PlannedFor defaults to FromUtc.</summary>
+/// (half-open [FromUtc, ToUtc)); PlannedFor defaults to FromUtc. Alternatively supply DeliveryDate
+/// without UTC bounds and an explicit PlannedFor cooking time.</summary>
 public record CreateProductionOrderFromSheetRequest(
-    DateTime FromUtc,
-    DateTime ToUtc,
-    DateTime? PlannedFor,
-    string? Notes);
+    DateTime? FromUtc = null,
+    DateTime? ToUtc = null,
+    DateTime? PlannedFor = null,
+    string? Notes = null,
+    DateOnly? DeliveryDate = null);
 
 /// <summary>Completes a production run; omitted actuals default each line's produced quantity to
 /// its planned quantity. YieldFinishedGoods (default true) increments each produced variant's

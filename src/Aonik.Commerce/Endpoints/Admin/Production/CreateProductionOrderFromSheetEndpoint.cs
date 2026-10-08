@@ -18,14 +18,15 @@ public class CreateProductionOrderFromSheetEndpoint : Endpoint<CreateProductionO
         Policies("AdminWritePolicy");
         Summary(s => s.Summary =
             "Seed a Planned production run from the Spec 055 production sheet for a UTC window " +
-            "(half-open [fromUtc, toUtc)): one line per demanded variant with an active recipe. " +
+            "(half-open [fromUtc, toUtc)), or a deliveryDate with an explicit plannedFor cooking time: " +
+            "one line per demanded variant with an active recipe. " +
             "Demanded variants without a recipe are skipped and reported in SkippedVariants — never silently dropped.");
     }
 
     public override async Task HandleAsync(CreateProductionOrderFromSheetRequest req, CancellationToken ct)
     {
         var result = await _productionOrders.CreateFromProductionSheetAsync(
-            new CreateFromProductionSheetCommand(req.FromUtc, req.ToUtc, req.PlannedFor, req.Notes), ct);
+            new CreateFromProductionSheetCommand(req.FromUtc, req.ToUtc, req.PlannedFor, req.Notes, req.DeliveryDate), ct);
         await Send.OkAsync(result, ct);
     }
 }

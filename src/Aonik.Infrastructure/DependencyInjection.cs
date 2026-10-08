@@ -443,6 +443,12 @@ public static class DependencyInjection
                     ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
                     Array.Empty<string>())));
 
+            // Staff reads that expose tenant-wide customer information must exclude PersonalUser.
+            options.AddPolicy("AdminReadPolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin", "Operations", "ReadOnly"],
+                    Array.Empty<string>())));
+
             // Write variant of AdminUserPolicy: the same role set MINUS the read-only
             // role. RoleOrPermissionAuthorizationHandler succeeds on any role match, so
             // a principal named ReadOnly would otherwise satisfy AdminUserPolicy and reach

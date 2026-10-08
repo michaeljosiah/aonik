@@ -34,7 +34,7 @@ namespace Aonik.Application.Tests.Commerce;
 /// planned; explicit actuals; the yield toggle), and the §11 kitchen sheet (numbers identical to
 /// release consumption by construction).
 /// </summary>
-public class ProductionOrderServiceTests
+public partial class ProductionOrderServiceTests
 {
     private static readonly DateTime PlannedFor = new(2026, 7, 6, 6, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime FromUtc = new(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -69,6 +69,7 @@ public class ProductionOrderServiceTests
         }
 
         public CommerceTestHarness.TestClock Clock { get; } = new();
+        public Guid TenantId => _tenantId;
 
         private DbContextOptions<CommerceDbContext> CommerceOptions(bool intercepted = false)
         {
@@ -163,7 +164,7 @@ public class ProductionOrderServiceTests
 
         /// <summary>A committed ProductPurchase order on the spine — Spec 055 §9 demand for the
         /// from-sheet seed (checkout leaves Draft, which the sheet excludes; Pending counts).</summary>
-        public async Task CreateDemandOrderAsync(DateTime createdAtUtc, params (Guid VariantId, decimal Quantity)[] lines)
+        public async Task<Guid> CreateDemandOrderAsync(DateTime createdAtUtc, params (Guid VariantId, decimal Quantity)[] lines)
         {
             Clock.UtcNow = createdAtUtc;
             var items = lines
@@ -184,6 +185,7 @@ public class ProductionOrderServiceTests
                 CurrencyIn: "NGN",
                 Items: items));
             await Orders().TransitionAsync(order.Id, OrderStatusCodes.Pending, "test: committed demand");
+            return order.Id;
         }
 
         /// <summary>Jollof: yield 4 portions from 1 kg rice + 0.5 kg tomato ⇒ 0.25 / 0.125 per portion

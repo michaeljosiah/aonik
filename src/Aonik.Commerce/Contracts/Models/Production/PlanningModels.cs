@@ -29,12 +29,14 @@ public record ProductionSheetLineDto(
 /// <summary>The aggregated production sheet for a window (Spec 055 §9): "what must the kitchen
 /// make, and how many portions of each". <see cref="TotalOrders"/> counts the orders admitted by
 /// the §9 inclusion filter; <see cref="BundleLinesExpanded"/> counts the build-your-own-box order
-/// lines that were expanded into their chosen component variants (Spec 042 §12 Option A).</summary>
+/// lines that were expanded into their chosen component variants (Spec 042 §12 Option A).
+/// Delivery-date reads carry DeliveryDate and a null Window; creation-time reads carry Window.</summary>
 public record ProductionSheetDto(
-    ProductionWindow Window,
+    ProductionWindow? Window,
     IReadOnlyList<ProductionSheetLineDto> Lines,
     int TotalOrders,
-    int BundleLinesExpanded);
+    int BundleLinesExpanded,
+    DateOnly? DeliveryDate = null);
 
 /// <summary>One prep-list line: the required quantity of an ingredient, in its base unit
 /// (Spec 055 §10/§11). The netting fields are null when the caller asked for raw requirements
@@ -55,9 +57,11 @@ public record PrepListLineDto(
 /// <summary>The ingredient prep list for a window (Spec 055 §10): the production sheet exploded
 /// through active recipes via Spec 050's <c>ExplodeManyAsync</c>, merged per ingredient.
 /// <see cref="VariantsWithoutRecipe"/> surfaces the Spec 050 no-recipe diagnostic — a demanded
-/// variant with no active recipe is reported, never silently under-counted.</summary>
+/// variant with no active recipe is reported, never silently under-counted. The selector is
+/// echoed as either Window or DeliveryDate, matching the source production sheet.</summary>
 public record PrepListDto(
-    ProductionWindow Window,
+    ProductionWindow? Window,
     IReadOnlyList<PrepListLineDto> Lines,
     IReadOnlyList<Guid> VariantsWithoutRecipe,
-    bool NettedAgainstStock);
+    bool NettedAgainstStock,
+    DateOnly? DeliveryDate = null);

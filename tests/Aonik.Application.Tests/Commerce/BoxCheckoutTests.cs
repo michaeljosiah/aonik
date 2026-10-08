@@ -47,7 +47,7 @@ public class BoxCheckoutTests
         var (h, f, box) = await ArrangeFullBoxAsync();
 
         var result = await h.Checkout().CheckoutAsync(
-            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+            new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         // Goods: box 95 + personalisation (2 × 3) = 101; no per-dish price anywhere.
         result.Total.Should().Be(101m);
@@ -84,7 +84,7 @@ public class BoxCheckoutTests
         var (_, f, box) = await ArrangeFullBoxAsync(h);
 
         var result = await h.Checkout().CheckoutAsync(
-            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+            new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         result.Total.Should().Be(101m + 4.50m, "subtotal − discount + tax + delivery");
         h.Payments.LastAmount.Should().Be(105.50m);
@@ -108,7 +108,7 @@ public class BoxCheckoutTests
         await options.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", IsActive: false));
 
         var checkout = h.Checkout();
-        var stale = () => checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var stale = () => checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
         var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
 
         drift.Refreshed.Changes.Should().Contain(c => c.Reason == "option-retired");
@@ -120,7 +120,7 @@ public class BoxCheckoutTests
 
         // The repair persisted (salmon remapped onto the default line) — resubmission proceeds.
         var result = await h.Checkout().CheckoutAsync(
-            new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+            new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
         result.Total.Should().Be(95m, "the remapped box is all defaults again");
     }
 
@@ -130,8 +130,8 @@ public class BoxCheckoutTests
         var (h, _, box) = await ArrangeFullBoxAsync();
         var checkout = h.Checkout();
 
-        var first = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
-        var retry = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var first = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
+        var retry = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         retry.OrderId.Should().Be(first.OrderId);
         retry.Total.Should().Be(first.Total);
@@ -148,7 +148,7 @@ public class BoxCheckoutTests
         await h.Plans().UpsertAsync(f.BundleProductId, new(
             MinSize: 2, MaxSize: 5, BaseSize: 2, BasePrice: 95m, PerSpacePrice: 15m, Currency: "GBP", Presets: []));
 
-        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("R1");
         h.Payments.Calls.Should().Be(0);
@@ -166,7 +166,7 @@ public class BoxCheckoutTests
             await ctx.SaveChangesAsync();
         }
 
-        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>())
             .Which.Message.Should().Contain("no longer available");
@@ -180,7 +180,7 @@ public class BoxCheckoutTests
         // price edit cannot display a figure different from what was charged; J9 — a cart whose
         // order exists no longer pins the currency, and the historical view survives the change.
         var (h, f, box) = await ArrangeFullBoxAsync();
-        var paid = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var paid = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         await h.Plans().UpsertAsync(f.BundleProductId, new(
             MinSize: 6, MaxSize: 30, BaseSize: 6, BasePrice: 250m, PerSpacePrice: 15m, Currency: "GBP", Presets: []));
@@ -214,7 +214,7 @@ public class BoxCheckoutTests
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(
             f.DishVariants["jollof"], 6, Sel("""{"side":"none"}""")), Token(box));
 
-        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var act = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
 
         (await act.Should().ThrowAsync<StorefrontValidationException>())
             .Which.Message.Should().Contain("zero or below");
@@ -229,7 +229,7 @@ public class BoxCheckoutTests
         // A14 — two Jollof preparations are two demand lines; collapsing them can never be undone.
         var (h, _, box) = await ArrangeFullBoxAsync();
         var checkout = h.Checkout();
-        var result = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), Token(box));
+        var result = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
         // Draft orders are deliberately not kitchen demand (§9) — payment completion admits them.
         await checkout.ConfirmPaymentAsync(result.OrderId);
 

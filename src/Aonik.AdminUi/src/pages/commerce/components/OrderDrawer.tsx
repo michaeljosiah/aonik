@@ -13,6 +13,7 @@ import type { AdminOrderStorefrontDto } from '@/types/commerce';
 import { BuyerLabel } from './BuyerLabel';
 import { LifecycleStepper } from './LifecycleStepper';
 import { OrderLineItems } from './OrderLineItems';
+import { OrderDeliveryDetails } from './OrderDeliveryDetails';
 import { orderLifecycle } from '../lib/orderLifecycle';
 import { paymentTone, fulfilmentTone } from '../lib/statusTone';
 
@@ -95,6 +96,8 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
                   </span>
                 </div>
               </AonikCard>
+
+              <OrderDeliveryDetails delivery={order.delivery} />
 
               <AonikCard
                 title="Items"

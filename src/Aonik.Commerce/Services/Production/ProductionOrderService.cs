@@ -3,6 +3,7 @@
 using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Entities.Production;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -132,13 +133,25 @@ internal sealed class ProductionOrderService : IProductionOrderService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        // The Spec 055 sheet is the demand source — same window semantics, same §9 inclusion
-        // filter, bundle lines already expanded into their component variants.
-        var sheet = await _planning.GetProductionSheetAsync(new ProductionWindow(command.FromUtc, command.ToUtc), cancellationToken);
+        if (command.DeliveryDate.HasValue
+                ? command.FromUtc.HasValue || command.ToUtc.HasValue
+                : !command.FromUtc.HasValue || !command.ToUtc.HasValue)
+        {
+            throw new StorefrontValidationException("Supply either DeliveryDate or both FromUtc and ToUtc.");
+        }
+        if (command.DeliveryDate.HasValue && command.PlannedFor is null)
+        {
+            throw new StorefrontValidationException("PlannedFor is required when planning by DeliveryDate; delivery date is not cooking time.");
+        }
+
+        // Both selectors share the same demand filter and aggregation, including bundle expansion.
+        var sheet = command.DeliveryDate is { } deliveryDate
+            ? await _planning.GetProductionSheetForDeliveryDateAsync(deliveryDate, cancellationToken)
+            : await _planning.GetProductionSheetAsync(new ProductionWindow(command.FromUtc!.Value, command.ToUtc!.Value), cancellationToken);
         if (sheet.Lines.Count == 0)
         {
             throw new InvalidOperationException(
-                $"The production sheet for [{command.FromUtc:O}, {command.ToUtc:O}) holds no demand; there is nothing to seed.");
+                "The selected production sheet holds no demand; there is nothing to seed.");
         }
 
         // Seed the variants that CAN be exploded; skip and REPORT the rest (§7). The sheet
@@ -169,7 +182,7 @@ internal sealed class ProductionOrderService : IProductionOrderService
                 "Define recipes (SetRecipe) or create the production order from explicit lines.");
         }
 
-        var order = await PersistAsync(tenantId, command.PlannedFor ?? command.FromUtc, seeds, command.Notes, cancellationToken);
+        var order = await PersistAsync(tenantId, command.PlannedFor ?? command.FromUtc!.Value, seeds, command.Notes, cancellationToken);
         return new ProductionOrderFromSheetDto(Map(order), skipped);
     }
 

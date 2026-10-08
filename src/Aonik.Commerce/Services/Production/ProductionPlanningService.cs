@@ -70,9 +70,20 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
     public async Task<ProductionSheetDto> GetProductionSheetAsync(ProductionWindow window, CancellationToken cancellationToken = default)
     {
         ValidateWindow(window);
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-
         var included = await ReadDemandOrdersAsync(window, cancellationToken);
+        return await BuildProductionSheetAsync(included, window, null, cancellationToken);
+    }
+
+    public async Task<ProductionSheetDto> GetProductionSheetForDeliveryDateAsync(DateOnly deliveryDate, CancellationToken cancellationToken = default)
+    {
+        var included = await ReadDeliveryDemandOrdersAsync(deliveryDate, cancellationToken);
+        return await BuildProductionSheetAsync(included, null, deliveryDate, cancellationToken);
+    }
+
+    private async Task<ProductionSheetDto> BuildProductionSheetAsync(
+        IReadOnlyList<OrderDto> included, ProductionWindow? window, DateOnly? deliveryDate, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
 
         // Bundle order lines carry the BUNDLE PRODUCT id on OrderItem.ProductId (Spec 042 §12
         // Option A); the chosen components live in Commerce's OrderBundleSelection rows, keyed by
@@ -172,7 +183,7 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
             .ThenBy(l => l.PersonalisationSummary ?? string.Empty, StringComparer.Ordinal)
             .ToList();
 
-        return new ProductionSheetDto(window, lines, TotalOrders: included.Count, bundleLinesExpanded);
+        return new ProductionSheetDto(window, lines, included.Count, bundleLinesExpanded, deliveryDate);
     }
 
     public async Task<PrepListDto> GetPrepListAsync(ProductionWindow window, bool netAgainstStock = true, CancellationToken cancellationToken = default)
@@ -180,7 +191,17 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
         // §10 — the prep list IS the exploded sheet: same window, same inclusion filter, and the
         // BOM math is Spec 050's primitive, never re-implemented here.
         var sheet = await GetProductionSheetAsync(window, cancellationToken);
+        return await BuildPrepListAsync(sheet, netAgainstStock, cancellationToken);
+    }
 
+    public async Task<PrepListDto> GetPrepListForDeliveryDateAsync(DateOnly deliveryDate, bool netAgainstStock = true, CancellationToken cancellationToken = default)
+    {
+        var sheet = await GetProductionSheetForDeliveryDateAsync(deliveryDate, cancellationToken);
+        return await BuildPrepListAsync(sheet, netAgainstStock, cancellationToken);
+    }
+
+    private async Task<PrepListDto> BuildPrepListAsync(ProductionSheetDto sheet, bool netAgainstStock, CancellationToken cancellationToken)
+    {
         var demands = sheet.Lines
             .Select(l => new VariantDemand(l.ProductVariantId, l.PortionsDemanded))
             .ToList();
@@ -223,7 +244,7 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
             }
         }
 
-        return new PrepListDto(window, lines, bom.VariantsWithoutRecipe, netAgainstStock);
+        return new PrepListDto(sheet.Window, lines, bom.VariantsWithoutRecipe, netAgainstStock, sheet.DeliveryDate);
     }
 
     // ── §9 demand read ──────────────────────────────────────────────────────────────────────────
@@ -254,6 +275,27 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
             }
             pageNumber++;
         }
+    }
+
+    private async Task<List<OrderDto>> ReadDeliveryDemandOrdersAsync(DateOnly deliveryDate, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var orderIds = await _dbContext.OrderDeliveryDetails.AsNoTracking()
+            .Where(details => details.TenantId == tenantId && details.DeliveryDate == deliveryDate)
+            .OrderBy(details => details.OrderId)
+            .Select(details => details.OrderId)
+            .ToListAsync(cancellationToken);
+
+        var included = new List<OrderDto>();
+        // An empty OrderIds filter means unrestricted on the spine; never send an empty batch.
+        // Each batch fits one spine page, without filtering by the order's creation timestamp.
+        foreach (var batch in orderIds.Chunk(DemandPageSize))
+        {
+            var page = await _orders.ListWithItemsAsync(new ListOrdersQuery(
+                OrderType: OrderTypeCodes.ProductPurchase, PageSize: DemandPageSize, OrderIds: batch), cancellationToken);
+            included.AddRange(page.Items.Where(order => DemandStatuses.Contains(order.Status)));
+        }
+        return included;
     }
 
     // ── name resolution (LEFT-join semantics) ───────────────────────────────────────────────────
