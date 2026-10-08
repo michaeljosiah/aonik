@@ -415,7 +415,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         return new CheckoutService(context, Inventory(context, tenantId), ordering.GetRequiredService<IOrderService>(),
             payments, Mock.Of<IInvoiceWriter>(MockBehavior.Strict), new DiscountService(context, tenant, Clock),
             new ZeroRateTaxCalculator(), tenant, new UnexpectedBoxCheckout(),
-            new GuestOrderAccess(new EphemeralDataProtectionProvider()), new FulfilmentPromiseService(context, tenant, Clock));
+            new GuestOrderAccess(new EphemeralDataProtectionProvider()), new FulfilmentPromiseService(context, tenant, Clock),
+            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict));
     }
 
     private async Task<(Guid CartId, string Token, Guid VariantId, string Version)> SeedCartAsync(Guid tenantId)

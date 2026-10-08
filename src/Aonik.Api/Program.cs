@@ -47,6 +47,7 @@ builder.Services.AddDocumentsModule(builder.Configuration);
 
 builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
+builder.Services.AddDeliveryCoverageRateLimit(builder.Configuration);
 
 // FastEndpoints — explicitly enumerate the module assemblies so endpoints
 // AND validators (Validator<TRequest>) defined in each module are
@@ -164,6 +165,16 @@ app.UseForwardedHeaders(forwardedHeadersOptions);
 // callback runs even on error responses, so headers will still attach.
 app.UseAonikExceptionHandler(app.Environment);
 
+// Cart state and delivery checks must not be cached, including early redirects and auth errors.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/commerce/carts")
+        || context.Request.Path.StartsWithSegments("/commerce/delivery")
+        || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-coverage"))
+        context.Response.Headers.CacheControl = "no-store";
+    await next();
+});
+
 app.UseHttpsRedirection();
 
 if (builder.Configuration.GetValue<bool>("Auth:Diagnostics:LogHeaderPresence"))
@@ -173,14 +184,6 @@ if (builder.Configuration.GetValue<bool>("Auth:Diagnostics:LogHeaderPresence"))
 
 app.UseRouting();
 app.UseAonikCors();
-
-// Cart responses contain customer state or guest credentials, including validation and auth errors.
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/commerce/carts"))
-        context.Response.Headers.CacheControl = "no-store";
-    await next();
-});
 
 // Enable WebSocket upgrades for the voice endpoint at /ai/voice.
 // See docs/specifications/022.aonik-voice-realtime.md Phase 1.
@@ -220,6 +223,9 @@ app.UseTenantValidation();
 //     Runs after auth + tenant context + authorization and before FastEndpoints,
 //     inside the exception handler that maps ModuleDisabledException to 403.
 app.UseModuleEnablement();
+
+// Named delivery policies share the resolved tenant/client budget across public checks and checkout.
+app.UseRateLimiter();
 
 // Verify Plaid webhook signatures before FastEndpoints binds/handles the anonymous
 // webhook endpoints (H13). No-op for every other path and in Plaid-simulation mode.

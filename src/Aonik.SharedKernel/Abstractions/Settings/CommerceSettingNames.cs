@@ -6,6 +6,9 @@
 /// </summary>
 public static class CommerceSettingNames
 {
+    /// <summary>Explicit tenant-only UK courier coverage document. No global/default coverage.</summary>
+    public const string DeliveryCoverage = "Commerce.Delivery.Coverage";
+
     /// <summary>Global housekeeping window for box drafts containing dishes; default 7 days.</summary>
     public const string CartsAbandonAfterDays = "Commerce.Carts.AbandonAfterDays";
 

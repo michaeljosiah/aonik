@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Promotions;
@@ -33,6 +34,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly IBoxCheckoutSupport _boxCheckout;
     private readonly GuestOrderAccess _guestOrders;
     private readonly IFulfilmentPromiseService _fulfilment;
+    private readonly IDeliveryCoverageService _coverage;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -45,7 +47,8 @@ internal sealed class CheckoutService : ICheckoutService
         ITenantProvider tenantProvider,
         IBoxCheckoutSupport boxCheckout,
         GuestOrderAccess guestOrders,
-        IFulfilmentPromiseService fulfilment)
+        IFulfilmentPromiseService fulfilment,
+        IDeliveryCoverageService coverage)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -58,6 +61,7 @@ internal sealed class CheckoutService : ICheckoutService
         _boxCheckout = boxCheckout;
         _guestOrders = guestOrders;
         _fulfilment = fulfilment;
+        _coverage = coverage;
     }
 
     private static readonly JsonSerializerOptions EnvelopeSerializerOptions =
@@ -128,6 +132,25 @@ internal sealed class CheckoutService : ICheckoutService
         if (requestedDelivery is { } submittedDelivery)
         {
             var details = CheckoutDeliveryValidator.NormalizeAndValidate(submittedDelivery);
+            if (cart.BoxBundleProductId is not null)
+            {
+                if (details.Address.CountryCode != "GB")
+                    throw new DeliveryCoverageException(DeliveryCoverageException.UnsupportedCountry,
+                        "Box delivery currently requires a GB address.", "countryCode");
+
+                var coverage = await _coverage.CheckAsync(details.Address.Postcode, cancellationToken);
+                if (coverage.Status == DeliveryCoverageStatuses.NotServed)
+                    throw new DeliveryCoverageException(DeliveryCoverageException.NotServed,
+                        "Delivery is not available to this postcode.", "postcode");
+                if (coverage.Status != DeliveryCoverageStatuses.Serves)
+                    throw new DeliveryCoverageException(DeliveryCoverageException.Unavailable,
+                        "Delivery coverage could not be checked. Please try again.");
+
+                details = details with
+                {
+                    Address = details.Address with { Postcode = coverage.NormalisedPostcode ?? details.Address.Postcode }
+                };
+            }
             var selected = await _fulfilment.ValidateDeliveryDateAsync(details.DeliveryDate, cancellationToken);
             delivery = new OrderDeliveryDto(details.Purchaser, details.Address, selected.DeliveryDate,
                 selected.Timezone, details.Recipient ?? new DeliveryRecipientDto(

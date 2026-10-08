@@ -1,6 +1,8 @@
 ﻿using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
@@ -90,4 +92,17 @@ internal static class CartTestAccess
 {
     public static CartAccessContext Owner(CartDto cart)
         => CartAccessContext.ForParty(cart.BuyerPartyId!.Value, cart.CartVersion);
+}
+
+/// <summary>Explicit coverage approval for tests whose subject is not the postcode gate.</summary>
+internal sealed class ServedTestDeliveryCoverage : IDeliveryCoverageService
+{
+    public Task<DeliveryCoverageDto> CheckAsync(string? postcode, CancellationToken cancellationToken = default)
+        => Task.FromResult(new DeliveryCoverageDto("serves", postcode));
+
+    public Task<DeliveryCoverageConfigDto?> GetConfigurationAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<DeliveryCoverageConfigDto> UpdateConfigurationAsync(DeliveryCoverageConfigDto configuration,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }

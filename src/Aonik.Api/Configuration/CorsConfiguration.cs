@@ -103,6 +103,7 @@ public static class CorsConfiguration
                 policy.WithOrigins(allOrigins)
                       .AllowAnyMethod()
                       .AllowAnyHeader()
+                      .WithExposedHeaders("Retry-After")
                       .AllowCredentials();
             });
         });

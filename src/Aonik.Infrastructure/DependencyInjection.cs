@@ -52,6 +52,7 @@ using Aonik.Infrastructure.Authentication.TokenExchange;
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Communication;
 using Aonik.Infrastructure.Communication.Configuration;
+using Aonik.Infrastructure.ExternalServices.Postcodes;
 using FluentStorage.Blobs;
 
 using Aonik.Infrastructure.Identity;
@@ -207,6 +208,17 @@ public static class DependencyInjection
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<ITenantSettingStore, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.Configure<PostcodesIoOptions>(configuration.GetSection(PostcodesIoOptions.SectionName));
+#pragma warning disable EXTEXP0001 // This lookup makes one attempt within HttpClient's timeout, without inherited retries.
+        services.AddHttpClient<Aonik.Commerce.Services.Fulfilment.IPostcodeLookup, PostcodesIoLookup>(client =>
+        {
+            client.Timeout = PostcodesIoLookup.RequestTimeout;
+            client.MaxResponseContentBufferSize = PostcodesIoLookup.MaxResponseBytes;
+        })
+        .RemoveAllResilienceHandlers()
+        .RemoveAllLoggers() // The lookup path contains the customer's postcode.
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+#pragma warning restore EXTEXP0001
         services.AddHttpClient<IAiModelCatalogSource, ModelsDevAiModelCatalogSource>((_, client) =>
         {
             client.BaseAddress = new Uri(configuration["AI:ModelCatalog:BaseAddress"] ?? "https://models.dev", UriKind.Absolute);
