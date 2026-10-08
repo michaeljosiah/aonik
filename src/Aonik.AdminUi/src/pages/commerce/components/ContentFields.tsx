@@ -1,5 +1,5 @@
 // The field set shared by the default block and a combination variant (Spec 075 §3). One
-// component because the two write the SAME seven figures, two declarations and heating list —
+// component because the two write the same figures, declarations and heating list —
 // and the recurring defect across this series has been a rule that reached some of its call
 // sites, so the fields and their validation live in one place rather than two.
 
@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { FIGURE_FIELDS, type FigureKey, type HeatingStep } from '../lib/contentState';
 import type { ContentDraft } from '../lib/contentDraft';
+import { ALLERGEN_LABELS, REGULATED_ALLERGENS } from '../lib/allergens';
 
 const inputClass =
   'w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-primary';
@@ -95,18 +96,61 @@ export function ContentFields({
         />
       </label>
 
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-xs font-medium text-muted-foreground">Allergens present</legend>
+        <label className="flex items-start gap-2 text-[12px]">
+          <Checkbox
+            checked={draft.allergensPresent !== null}
+            onCheckedChange={(checked) =>
+              onChange({ ...draft, allergensPresent: checked === true ? [] : null })
+            }
+            className="mt-0.5"
+          />
+          <span>I have reviewed the allergens for this preparation and will publish the selection below.</span>
+        </label>
+        <p className="text-[11px] text-muted-foreground">
+          Without a review, allergens are withheld. A reviewed selection with no boxes ticked declares
+          none of the 14 regulated allergens; it does not claim the food is allergen-free.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {REGULATED_ALLERGENS.map((allergen) => (
+            <label key={allergen} className="flex items-start gap-2 text-[12px]">
+              <Checkbox
+                disabled={draft.allergensPresent === null}
+                checked={draft.allergensPresent?.includes(allergen) ?? false}
+                onCheckedChange={(checked) => {
+                  if (draft.allergensPresent === null) return;
+                  const selected = checked === true
+                    ? [...draft.allergensPresent, allergen]
+                    : draft.allergensPresent.filter((value) => value !== allergen);
+                  onChange({ ...draft, allergensPresent: REGULATED_ALLERGENS.filter((value) => selected.includes(value)) });
+                }}
+                className="mt-0.5"
+              />
+              <span>{ALLERGEN_LABELS[allergen]}</span>
+            </label>
+          ))}
+        </div>
+        {draft.allergens && (
+          <p className="rounded-md border border-border p-2 text-[11px] text-muted-foreground">
+            Previous free-text declaration (reference only): {draft.allergens}. Review it against
+            the recipe and select the regulated allergens above; this text is not published.
+          </p>
+        )}
+      </fieldset>
+
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          Allergens
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">Precautionary statement (optional)</span>
         <textarea
-          value={draft.allergens}
-          onChange={(e) => onChange({ ...draft, allergens: e.target.value })}
+          value={draft.precautionaryStatement}
+          onChange={(e) => onChange({ ...draft, precautionaryStatement: e.target.value })}
           rows={2}
+          maxLength={2000}
           className={inputClass}
         />
         <span className="text-[11px] text-muted-foreground">
-          Left empty, this is withheld from customers — never substituted from anywhere else.
+          Only add a cross-contact warning supported by the kitchen’s risk assessment. It is
+          published alongside a reviewed allergen selection, and must not replace declaring allergens present.
         </span>
       </label>
 

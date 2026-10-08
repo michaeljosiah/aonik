@@ -217,12 +217,31 @@ export interface HeatingStepDto {
   body: string;
 }
 
+export type RegulatedAllergen =
+  | 'Celery'
+  | 'CerealsContainingGluten'
+  | 'Crustaceans'
+  | 'Eggs'
+  | 'Fish'
+  | 'Lupin'
+  | 'Milk'
+  | 'Molluscs'
+  | 'Mustard'
+  | 'Peanuts'
+  | 'Sesame'
+  | 'Soybeans'
+  | 'SulphurDioxideAndSulphites'
+  | 'TreeNuts';
+
 /** The public §5 resolution — facts are authored or WITHHELD, never substituted. */
 export interface ResolvedContentDto {
   servingLabel: string;
   nutrition: NutritionDto;
   ingredients: string | null;
   allergens: string | null;
+  /** Null is withheld; [] explicitly declares none of the 14 regulated allergens. */
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string | null;
   declarationsWithheld: boolean;
   heating: HeatingStepDto[];
   heatingWithheld: boolean;
@@ -238,7 +257,10 @@ export interface ProductContentDto {
   servingLabel: string;
   nutrition: NutritionDto;
   ingredients: string | null;
+  /** Legacy free text retained only as an authoring reference. */
   allergens: string | null;
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string | null;
   /** Null when the stored JSON cannot be parsed — customers are shown nothing for it. */
   heating: HeatingStepDto[] | null;
   describesSelectionJson: string;
@@ -261,7 +283,10 @@ export interface ProductContentVariantDto {
   servingLabel: string;
   nutrition: NutritionDto;
   ingredients: string | null;
+  /** Legacy free text retained only as an authoring reference. */
   allergens: string | null;
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string | null;
   heating: HeatingStepDto[] | null;
   isActive: boolean;
 }

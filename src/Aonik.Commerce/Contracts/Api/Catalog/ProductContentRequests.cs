@@ -1,3 +1,5 @@
+using Aonik.Commerce.Contracts.Models.Catalog;
+
 namespace Aonik.Commerce.Contracts.Api.Catalog;
 
 /// <summary>HTTP bodies for the Spec 067 content endpoints. Figures are per-serving decimals;
@@ -21,7 +23,9 @@ public record UpsertProductContentRequest(
     decimal? SaltGrams = null,
     string? Ingredients = null,
     string? Allergens = null,
-    string? HeatingJson = null);
+    string? HeatingJson = null,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 /// <param name="ExpectedCanonicalSelectionJson">The combination this content is authored FOR.
 /// Required on UPDATE, where the variant already has an identity that a shifted offer would
@@ -41,7 +45,9 @@ public record UpsertContentVariantRequest(
     decimal? SaltGrams = null,
     string? Ingredients = null,
     string? Allergens = null,
-    string? HeatingJson = null);
+    string? HeatingJson = null,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 /// <summary>Confirming a review asserts the block still describes the standard preparation the
 /// operator SAW, so that preparation travels with the request.</summary>

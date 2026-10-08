@@ -44,6 +44,7 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
             ["kcal"] = 500m,
             ["ingredients"] = "Rice",
             ["allergens"] = "None",
+            ["allergensPresent"] = Array.Empty<string>(),
         });
         upsert.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -118,11 +119,11 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
         var anonymous = AnonymousClient(tenantId);
 
         await PutBlockAsync(admin, productId,
-            new() { ["servingLabel"] = "Standard 300g", ["allergens"] = "None" });
+            new() { ["servingLabel"] = "Standard 300g", ["allergensPresent"] = Array.Empty<string>() });
         var v1 = (await anonymous.GetFromJsonAsync<ProductResponse>("/commerce/catalog/products/jollof"))!.ContentVersion;
 
         await PutBlockAsync(admin, productId,
-            new() { ["servingLabel"] = "Standard 300g", ["allergens"] = "Mustard" });
+            new() { ["servingLabel"] = "Standard 300g", ["allergensPresent"] = new[] { "Mustard" } });
         var v2 = (await anonymous.GetFromJsonAsync<ProductResponse>("/commerce/catalog/products/jollof"))!.ContentVersion;
 
         v2.Should().BeGreaterThan(v1!.Value);
@@ -138,9 +139,122 @@ public class CommerceContentEndpointTests : IClassFixture<CustomWebApplicationFa
 
         var upsert = await anonymous.PutAsJsonAsync($"/commerce/admin/products/{productId}/content", new { servingLabel = "X" });
         var coverage = await anonymous.GetAsync($"/commerce/admin/products/{productId}/content-coverage");
+        var labels = await anonymous.GetAsync($"/commerce/admin/products/{productId}/label-content");
 
         upsert.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
         coverage.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+        labels.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task LabelFeed_Should_ShareTheStorefrontsControlledDeclarations_AndWithholdLegacyText()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "jollof");
+        var admin = await AdminClient(tenantId);
+        var anonymous = AnonymousClient(tenantId);
+        var upsert = await PutBlockAsync(admin, productId, new()
+        {
+            ["servingLabel"] = "Standard", ["ingredients"] = "Milk, rice", ["allergens"] = "None",
+            ["allergensPresent"] = new[] { "Milk" }, ["precautionaryStatement"] = "May contain sesame.",
+        });
+        upsert.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var label = await admin.GetAsync($"/commerce/admin/products/{productId}/label-content");
+        var labelBody = await label.Content.ReadFromJsonAsync<JsonElement>();
+        var storefront = await anonymous.GetFromJsonAsync<JsonElement>("/commerce/catalog/products/jollof/content");
+
+        label.StatusCode.Should().Be(HttpStatusCode.OK);
+        label.Headers.CacheControl!.NoStore.Should().BeTrue();
+        labelBody.GetRawText().Should().Be(storefront.GetRawText(), "both surfaces resolve the same authored facts");
+        labelBody.GetProperty("allergens").GetString().Should().Be("Milk");
+        labelBody.GetProperty("allergensPresent")[0].GetString().Should().Be("Milk");
+        labelBody.GetProperty("precautionaryStatement").GetString().Should().Be("May contain sesame.");
+        labelBody.GetProperty("declarationsWithheld").GetBoolean().Should().BeFalse();
+
+        await PutBlockAsync(admin, productId, new()
+        {
+            ["servingLabel"] = "Standard", ["ingredients"] = "Rice", ["allergens"] = "None",
+        });
+        var legacy = await admin.GetFromJsonAsync<JsonElement>($"/commerce/admin/products/{productId}/label-content");
+        legacy.GetProperty("allergensPresent").ValueKind.Should().Be(JsonValueKind.Null);
+        legacy.GetProperty("allergens").ValueKind.Should().Be(JsonValueKind.Null);
+        legacy.GetProperty("declarationsWithheld").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LabelFeed_Should_Return404ForMissingOrForeignProducts_AndValidateSelection()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "jollof");
+        var admin = await AdminClient(tenantId);
+        (await admin.GetAsync($"/commerce/admin/products/{productId}/label-content"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound, "no content has been authored");
+        await PutBlockAsync(admin, productId, new()
+        {
+            ["servingLabel"] = "Standard", ["ingredients"] = "Rice", ["allergensPresent"] = Array.Empty<string>(),
+        });
+
+        (await admin.GetAsync($"/commerce/admin/products/{Guid.NewGuid()}/label-content"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await admin.GetAsync($"/commerce/admin/products/{productId}/label-content?selection=%7Bnot-json"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await admin.GetAsync($"/commerce/admin/products/{productId}/label-content?selection=%7B%22protein%22%3A%22salmon%22%7D"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "this product offers no protein option");
+
+        var otherTenantId = Guid.NewGuid();
+        await SeedTenantAsync(otherTenantId);
+        var otherAdmin = await AdminClient(otherTenantId);
+        (await otherAdmin.GetAsync($"/commerce/admin/products/{productId}/label-content"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task LabelFeed_Should_ServeDraftProducts_WithoutPublishingThemToTheStorefront()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "jollof");
+        var admin = await AdminClient(tenantId);
+        await PutBlockAsync(admin, productId, new()
+        {
+            ["servingLabel"] = "Standard", ["ingredients"] = "Rice", ["allergensPresent"] = Array.Empty<string>(),
+        });
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            (await db.Products.SingleAsync(p => p.Id == productId)).Status = ProductStatuses.Draft;
+            await db.SaveChangesAsync();
+        }
+
+        (await admin.GetAsync($"/commerce/admin/products/{productId}/label-content"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await AnonymousClient(tenantId).GetAsync("/commerce/catalog/products/jollof/content"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("UnknownAllergen")]
+    [InlineData("Milk, Fish")]
+    [InlineData("6")]
+    [InlineData(6)]
+    [InlineData(999)]
+    public async Task ContentAuthoring_Should_RejectUnknownControlledAllergens(object allergen)
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        var productId = await SeedProductAsync(tenantId, "jollof");
+        var admin = await AdminClient(tenantId);
+
+        var response = await PutBlockAsync(admin, productId, new()
+        {
+            ["servingLabel"] = "Standard", ["allergensPresent"] = new[] { allergen },
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ─── Seeding ─────────────────────────────────────────────────────────────

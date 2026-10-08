@@ -41,16 +41,22 @@ public class ProductContentSqlServerTests : IClassFixture<SqlLocalDbFixture>
         // must survive EnableRetryOnFailure — the exact class that failed 100% on SQL Server
         // behind a green InMemory suite in Spec 066 round 2.
         var block = await WriteBlockAsync(content, productId, new UpsertProductContentCommand(
-            "Standard", Kcal: 500, Ingredients: "Rice", Allergens: "None"));
+            "Standard", Kcal: 500, Ingredients: "Rice", AllergensPresent: []));
         block.ContentVersion.Should().BeGreaterThan(0);
 
         var variant = await AddVariantAsync(content, productId, new UpsertContentVariantCommand(
-            """{"portion":"full"}""", "Full", Kcal: 900));
+            """{"portion":"full"}""", "Full", Kcal: 900, Ingredients: "Rice, milk",
+            AllergensPresent: [RegulatedAllergen.Milk], PrecautionaryStatement: "May contain sesame."));
         variant.SelectionJson.Should().Contain("\"portion\":\"full\"");
+        context.ChangeTracker.Clear();
+        var persisted = await content.GetAdminAsync(productId);
+        persisted.Block!.AllergensPresent.Should().NotBeNull().And.BeEmpty();
+        persisted.Variants.Single().AllergensPresent.Should().Equal(RegulatedAllergen.Milk);
+        persisted.Variants.Single().PrecautionaryStatement.Should().Be("May contain sesame.");
 
         // V-C6 against COMMITTED variant state, through the serialized write path.
         var addSugars = () => WriteBlockAsync(content, productId, new UpsertProductContentCommand(
-            "Standard", Kcal: 500, SugarsGrams: 4, Ingredients: "Rice", Allergens: "None"));
+            "Standard", Kcal: 500, SugarsGrams: 4, Ingredients: "Rice", AllergensPresent: []));
         (await addSugars.Should().ThrowAsync<Aonik.Commerce.Services.Catalog.StorefrontValidationException>())
             .Which.Message.Should().Contain("V-C6");
 

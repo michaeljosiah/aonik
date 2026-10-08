@@ -1,10 +1,10 @@
 // The editable shape both content sheets bind to, and the mapping between it and the wire.
 //
 // Extracted from the components so the rules live somewhere testable — and because the block
-// upsert is a FULL REPLACE across eleven members, which makes "what exactly does this form
+// upsert is a FULL REPLACE, which makes "what exactly does this form
 // send" the single most consequential question on the page.
 
-import type { ProductContentDto, ProductContentVariantDto } from '@/types/commerce';
+import type { ProductContentDto, ProductContentVariantDto, RegulatedAllergen } from '@/types/commerce';
 
 import { NUTRITION_FIGURE_RULE, validateDecimalInput } from './decimalInput';
 import {
@@ -21,7 +21,10 @@ export interface ContentDraft {
   servingLabel: string;
   figures: Record<FigureKey, string>;
   ingredients: string;
+  /** Read-only legacy reference; preserved when the content is replaced. */
   allergens: string;
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string;
   heating: HeatingStep[];
   /**
    * The source stored an AUTHORED EMPTY heating panel (`[]`), not a withheld one (`null`).
@@ -59,6 +62,8 @@ export function emptyDraft(): ContentDraft {
     },
     ingredients: '',
     allergens: '',
+    allergensPresent: null,
+    precautionaryStatement: '',
     heating: [],
     heatingAuthoredEmpty: false,
     heatingUnreadable: false,
@@ -67,7 +72,8 @@ export function emptyDraft(): ContentDraft {
 }
 
 function draftFrom(
-  source: Pick<ProductContentDto, 'servingLabel' | 'nutrition' | 'ingredients' | 'allergens'> & {
+  source: Pick<ProductContentDto,
+    'servingLabel' | 'nutrition' | 'ingredients' | 'allergens' | 'allergensPresent' | 'precautionaryStatement'> & {
     heating: ProductContentDto['heating'] | null;
   },
   /**
@@ -88,6 +94,8 @@ function draftFrom(
     ) as ContentDraft['figures'],
     ingredients: source.ingredients ?? '',
     allergens: source.allergens ?? '',
+    allergensPresent: source.allergensPresent == null ? null : [...source.allergensPresent],
+    precautionaryStatement: source.precautionaryStatement ?? '',
     heating: (source.heating ?? []).map((step) => ({ method: step.method, body: step.body })),
     heatingAuthoredEmpty: Array.isArray(source.heating) && source.heating.length === 0,
     heatingUnreadable: nullHeatingIsDamage && source.heating === null,
@@ -124,6 +132,9 @@ export function validateDraft(draft: ContentDraft): string | null {
     );
   }
   if (!draft.servingLabel.trim()) return 'A serving label is required — it captions every figure.';
+  if (draft.precautionaryStatement.trim().length > 2000) {
+    return 'The precautionary statement must be no longer than 2,000 characters.';
+  }
   for (const field of FIGURE_FIELDS) {
     const message = validateDecimalInput(draft.figures[field.key as FigureKey], {
       ...NUTRITION_FIGURE_RULE,
@@ -154,6 +165,8 @@ export function wireFromDraft(draft: ContentDraft) {
     ) as Record<FigureKey, number | null>),
     ingredients: draft.ingredients.trim() === '' ? null : draft.ingredients.trim(),
     allergens: draft.allergens.trim() === '' ? null : draft.allergens.trim(),
+    allergensPresent: draft.allergensPresent,
+    precautionaryStatement: draft.precautionaryStatement.trim() || null,
     // An authored-empty panel is resent as `[]` rather than null, so an edit elsewhere on the
     // form does not turn "no heating required" into "heating withheld".
     heatingJson: heatingToWire(draft.heating) ?? (draft.heatingAuthoredEmpty ? '[]' : null),

@@ -452,14 +452,16 @@ public class ProductContentResolutionTests
         Kcal: 450, ProteinGrams: 22, CarbsGrams: 60, FatGrams: 12,
         Ingredients: "Rice, tomato, prawn stock",
         Allergens: allergens,
-        HeatingJson: """[{"method":"Oven","body":"25 min at 180C"}]""");
+        HeatingJson: """[{"method":"Oven","body":"25 min at 180C"}]""",
+        AllergensPresent: allergens.Split(", ").Select(Enum.Parse<RegulatedAllergen>).ToArray());
 
     private static UpsertContentVariantCommand Variant(
         string selectionJson, decimal kcal, string label,
         string? ingredients = null, string? allergens = null, string? heatingJson = null) => new(
         selectionJson, label,
         Kcal: kcal, ProteinGrams: 30, CarbsGrams: 60, FatGrams: 15,
-        Ingredients: ingredients, Allergens: allergens, HeatingJson: heatingJson);
+        Ingredients: ingredients, Allergens: allergens, HeatingJson: heatingJson,
+        AllergensPresent: allergens?.Split(", ").Select(Enum.Parse<RegulatedAllergen>).ToArray());
 
     private static JsonElement Selection(string json)
     {

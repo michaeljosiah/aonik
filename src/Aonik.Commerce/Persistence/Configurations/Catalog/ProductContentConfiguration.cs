@@ -14,6 +14,8 @@ public class ProductContentConfiguration : IEntityTypeConfiguration<ProductConte
         builder.Property(x => x.HeatingJson).IsRequired().HasColumnType("nvarchar(max)");
         builder.Property(x => x.Ingredients).HasColumnType("nvarchar(max)");
         builder.Property(x => x.Allergens).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.AllergensPresentJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.PrecautionaryStatement).HasMaxLength(2000);
 
         // Spec 066 bounds neither group count nor multi-select width, so a fixed cap could reject
         // a valid canonical selection at persistence after it passed validation (§10).

@@ -13,6 +13,7 @@ import { AlertTriangle, FilePlus, Info } from 'lucide-react';
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import type { HeatingStepDto, ProductContentDto, ResolvedContentDto } from '@/types/commerce';
+import { formatAllergens } from '../lib/allergens';
 
 import {
   FIGURE_FIELDS,
@@ -70,7 +71,8 @@ export function ContentWorkbench({
     servingLabel: block.servingLabel,
     nutrition: block.nutrition,
     ingredients: block.ingredients,
-    allergens: block.allergens,
+    allergensPresent: block.allergensPresent,
+    precautionaryStatement: block.allergensPresent == null ? null : block.precautionaryStatement,
     declarationsWithheld: state === 'review',
     heating: block.heating,
     // `block.heating === null` is the admin read's word for "the stored JSON does not parse",
@@ -144,8 +146,14 @@ export function ContentWorkbench({
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <DeclarationCell label="Ingredients" text={panel.ingredients} underReview={underReview} />
-          <DeclarationCell label="Allergens" text={panel.allergens} underReview={underReview} />
+          <DeclarationCell label="Allergens" text={formatAllergens(panel.allergensPresent)} underReview={underReview} />
         </div>
+
+        {panel.precautionaryStatement && (
+          <div className="mt-3">
+            <DeclarationCell label="Precautionary statement" text={panel.precautionaryStatement} underReview={underReview} />
+          </div>
+        )}
 
         <Heating steps={panel.heating} withheld={heatingWithheld} underReview={underReview} />
       </div>

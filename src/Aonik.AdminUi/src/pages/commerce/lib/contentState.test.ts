@@ -10,8 +10,8 @@ import {
   renderDeclaration,
 } from './contentState';
 
-const authored = { ingredients: 'Rice, tomato', allergens: 'None' };
-const declarationless = { ingredients: null, allergens: null };
+const authored = { ingredients: 'Rice, tomato', allergensPresent: null };
+const declarationless = { ingredients: null, allergensPresent: null };
 
 describe('deriveContentState', () => {
   it('maps a missing block to none', () => {
@@ -41,8 +41,17 @@ describe('deriveContentState', () => {
   });
 
   it('treats one authored declaration as authored', () => {
-    expect(deriveContentState({ ingredients: 'Rice', allergens: null }, false)).toBe('authored');
-    expect(deriveContentState({ ingredients: null, allergens: 'Celery' }, false)).toBe('authored');
+    expect(deriveContentState({ ingredients: 'Rice', allergensPresent: null }, false)).toBe('authored');
+    expect(deriveContentState({ ingredients: null, allergensPresent: ['Celery'] }, false)).toBe('authored');
+  });
+
+  it('treats an explicitly empty allergen review as authored', () => {
+    expect(deriveContentState({ ingredients: null, allergensPresent: [] }, false)).toBe('authored');
+  });
+
+  it('does not publish a legacy free-text declaration as a controlled allergen review', () => {
+    const legacy = { ingredients: null, allergens: 'Celery', allergensPresent: null };
+    expect(deriveContentState(legacy, false)).toBe('withheld');
   });
 });
 

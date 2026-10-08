@@ -27,8 +27,14 @@ public class ProductContent : AuditableEntity, ITenantScoped
     /// <summary>Full ingredients declaration text; null = not published.</summary>
     public string? Ingredients { get; set; }
 
-    /// <summary>Allergen declaration text; null = not published.</summary>
+    /// <summary>Legacy free text retained for admin review; never used as the published allergen list.</summary>
     public string? Allergens { get; set; }
+
+    /// <summary>Controlled allergen groups as JSON. Null = not reviewed; [] = reviewed, none declared.</summary>
+    public string? AllergensPresentJson { get; set; }
+
+    /// <summary>Authored only where justified by the kitchen's cross-contamination risk assessment.</summary>
+    public string? PrecautionaryStatement { get; set; }
 
     /// <summary>Heating/preparation steps: <c>[{ "method": "...", "body": "..." }]</c>.</summary>
     public string HeatingJson { get; set; } = "[]";

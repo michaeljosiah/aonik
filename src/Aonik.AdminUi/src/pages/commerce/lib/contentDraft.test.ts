@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProductContentDto, ProductContentVariantDto } from '@/types/commerce';
+import type { ProductContentDto, ProductContentVariantDto, RegulatedAllergen } from '@/types/commerce';
 
 import {
   draftFromBlock,
@@ -24,6 +24,8 @@ const block = {
   },
   ingredients: 'Rice, tomato',
   allergens: null,
+  allergensPresent: null,
+  precautionaryStatement: null,
   heating: [{ method: 'Oven', body: '20 min at 180C' }],
   describesSelectionJson: '{}',
   requiresReview: false,
@@ -69,6 +71,41 @@ describe('draftFromVariant', () => {
 });
 
 describe('wireFromDraft', () => {
+  it.each<[RegulatedAllergen[] | null]>([[null], [[]], [['Milk', 'TreeNuts']]])(
+    'preserves a controlled declaration through default and variant edits: %j',
+    (allergensPresent) => {
+      const content = {
+        ...block,
+        allergensPresent,
+        precautionaryStatement: 'May contain sesame',
+      };
+      const variant: ProductContentVariantDto = {
+        ...content,
+        id: 'v1',
+        selectionJson: '{}',
+        isActive: true,
+      };
+      for (const draft of [draftFromBlock(content), draftFromVariant(variant)]) {
+        draft.figures.kcal = '600';
+        const wire = wireFromDraft(draft);
+        expect(wire.allergensPresent).toEqual(allergensPresent);
+        expect(wire.precautionaryStatement).toBe('May contain sesame');
+      }
+    },
+  );
+
+  it('does not turn a legacy text declaration into a reviewed list', () => {
+    const wire = wireFromDraft(draftFromBlock({ ...block, allergens: 'Milk' }));
+    expect(wire.allergens).toBe('Milk');
+    expect(wire.allergensPresent).toBeNull();
+  });
+
+  it('sends a blank precautionary statement as null and trims authored text', () => {
+    expect(wireFromDraft(emptyDraft()).precautionaryStatement).toBeNull();
+    expect(wireFromDraft({ ...emptyDraft(), precautionaryStatement: '  May contain milk  ' })
+      .precautionaryStatement).toBe('May contain milk');
+  });
+
   it('sends a blank figure as NULL and an authored zero as 0', () => {
     const draft = draftFromBlock(block);
     const wire = wireFromDraft(draft);
@@ -134,7 +171,12 @@ describe('validateDraft', () => {
   });
 
   it('accepts an all-blank panel — a declarations-only block is legitimate', () => {
-    expect(validateDraft({ ...emptyDraft(), servingLabel: 'Per 1', allergens: 'Celery' })).toBeNull();
+    expect(validateDraft({ ...emptyDraft(), servingLabel: 'Per 1', allergensPresent: ['Celery'] })).toBeNull();
+  });
+
+  it('rejects precautionary statements exceeding the server limit', () => {
+    expect(validateDraft({ ...emptyDraft(), servingLabel: 'Per 1', precautionaryStatement: 'a'.repeat(2001) }))
+      .toMatch(/2,000 characters/);
   });
 });
 
