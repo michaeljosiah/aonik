@@ -1,0 +1,314 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+
+using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Promotions;
+using Aonik.Commerce.Services.Checkout;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Entities.Identity;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+
+using FluentAssertions;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Aonik.Api.Tests;
+
+public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicationFactory>
+{
+    private readonly CustomWebApplicationFactory _factory;
+
+    public GuestStorefrontOrderEndpointTests(CustomWebApplicationFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task Read_Should_ReturnMinimalSummary_AndPollPersistedPaymentStatusWithTheSameToken()
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+
+        // Act
+        using var pending = await client.GetAsync(GuestPath(seeded.OrderId));
+
+        // Assert
+        pending.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(pending);
+        var body = await pending.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("orderId").GetGuid().Should().Be(seeded.OrderId);
+        body.GetProperty("paymentStatus").GetString().Should().Be("RequiresAction");
+        body.GetProperty("status").GetString().Should().Be(OrderStatuses.Pending);
+        body.GetProperty("total").GetDecimal().Should().Be(95m);
+        body.GetProperty("boxSize").GetInt32().Should().Be(6);
+        body.GetProperty("items").GetArrayLength().Should().Be(1);
+        body.GetProperty("items")[0].GetProperty("sku").GetString().Should().Be("MEAL-BOX");
+        body.GetProperty("selections").GetArrayLength().Should().Be(1);
+        body.GetProperty("selections")[0].GetProperty("sku").GetString().Should().Be("DISH-01");
+        body.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(
+        [
+            "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
+            "total", "boxSize", "items", "selections", "paymentStatus",
+        ]);
+        body.GetRawText().Should().NotContain("private-checkout-secret").And.NotContain("private-checkout-url")
+            .And.NotContain("private-order-note").And.NotContain("private@example.com")
+            .And.NotContain("detailsJson").And.NotContain("payerPartyId").And.NotContain("tenantId")
+            .And.NotContain("paymentIntentId").And.NotContain("invoiceId");
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            var summary = await db.OrderChargeSummaries.SingleAsync(s => s.OrderId == seeded.OrderId);
+            summary.PaymentStatus = CheckoutPaymentStatuses.Captured;
+            await db.SaveChangesAsync();
+        }
+
+        using var paid = await client.GetAsync(GuestPath(seeded.OrderId));
+        paid.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(paid);
+        var refreshed = await paid.Content.ReadFromJsonAsync<JsonElement>();
+        refreshed.GetProperty("paymentStatus").GetString().Should().Be(CheckoutPaymentStatuses.Captured);
+        refreshed.GetProperty("status").GetString().Should().Be(OrderStatuses.Pending,
+            "payment and order states remain distinct");
+
+        await AssertCheckoutUnchangedAsync(seeded);
+    }
+
+    [Fact]
+    public async Task Read_Should_ReturnTheSame404_ForMissingMalformedRepeatedAndQueryTokens()
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        using var client = Client(seeded.TenantId);
+        string?[] invalidTokens =
+        [
+            null, "", "not-a-valid-token", "a", seeded.CartToken, new string('x', 2048),
+            seeded.OrderToken + "=", seeded.OrderToken.Insert(10, " "),
+            seeded.OrderToken + "," + seeded.OrderToken,
+        ];
+
+        foreach (var token in invalidTokens)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, GuestPath(seeded.OrderId));
+            if (token is not null) request.Headers.TryAddWithoutValidation("X-Order-Token", token);
+
+            // Act
+            using var response = await client.SendAsync(request);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            AssertPrivateHeaders(response);
+        }
+
+        using var repeated = new HttpRequestMessage(HttpMethod.Get, GuestPath(seeded.OrderId));
+        repeated.Headers.TryAddWithoutValidation("X-Order-Token", [seeded.OrderToken, seeded.OrderToken]);
+        using var repeatedResponse = await client.SendAsync(repeated);
+        repeatedResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(repeatedResponse);
+
+        using var queryResponse = await client.GetAsync(
+            GuestPath(seeded.OrderId) + "?token=" + Uri.EscapeDataString(seeded.OrderToken));
+        queryResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(queryResponse);
+    }
+
+    [Fact]
+    public async Task Read_Should_RejectTokensForAnotherOrderOrTenant()
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        var anotherOrder = await SeedGuestCheckoutAsync(seeded.TenantId);
+        var anotherTenant = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+
+        // Act
+        using var wrongOrder = await client.GetAsync(GuestPath(anotherOrder.OrderId));
+        using var foreignClient = Client(anotherTenant.TenantId);
+        foreignClient.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        using var wrongTenant = await foreignClient.GetAsync(GuestPath(seeded.OrderId));
+
+        // Assert
+        wrongOrder.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        wrongTenant.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(wrongOrder);
+        AssertPrivateHeaders(wrongTenant);
+    }
+
+    [Theory]
+    [InlineData("cart")]
+    [InlineData("order")]
+    [InlineData("summary")]
+    public async Task Read_Should_Return404_WhenACheckoutRecordIsMissing(string missing)
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            if (missing == "cart") db.Carts.Remove(await db.Carts.SingleAsync(c => c.Id == seeded.CartId));
+            if (missing == "order") db.Set<Order>().Remove(await db.Set<Order>().SingleAsync(o => o.Id == seeded.OrderId));
+            if (missing == "summary") db.OrderChargeSummaries.Remove(await db.OrderChargeSummaries.SingleAsync(s => s.OrderId == seeded.OrderId));
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+
+        // Act
+        using var response = await client.GetAsync(GuestPath(seeded.OrderId));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(response);
+    }
+
+    [Fact]
+    public async Task CheckoutReplay_Should_ReturnProtectedGuestTokenAndPrivateHeaders_WithoutAnotherCheckout()
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Cart-Token", seeded.CartToken);
+        var command = new { provider = "Stripe", paymentMethodType = "Card" };
+
+        // Act
+        using var response = await client.PostAsJsonAsync($"/commerce/carts/{seeded.CartId}/checkout", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(response);
+        var result = await response.Content.ReadFromJsonAsync<CheckoutResult>();
+        result.Should().NotBeNull();
+        result!.OrderId.Should().Be(seeded.OrderId);
+        result.PaymentIntentId.Should().Be(seeded.PaymentIntentId);
+        result.GuestOrderToken.Should().NotBeNullOrWhiteSpace();
+        result.ClientSecret.Should().Be("private-checkout-secret");
+
+        using var reader = Client(seeded.TenantId);
+        foreach (var token in new[] { seeded.OrderToken, result.GuestOrderToken! })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, GuestPath(seeded.OrderId));
+            request.Headers.Add("X-Order-Token", token);
+            using var read = await reader.SendAsync(request);
+            read.StatusCode.Should().Be(HttpStatusCode.OK, "replay does not revoke an earlier guest capability");
+        }
+        using var unauthorised = await reader.PostAsJsonAsync($"/commerce/carts/{seeded.CartId}/checkout", command);
+        unauthorised.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await unauthorised.Content.ReadAsStringAsync()).Should().NotContain("guestOrderToken")
+            .And.NotContain("private-checkout-secret");
+        await AssertCheckoutUnchangedAsync(seeded);
+    }
+
+    [Fact]
+    public async Task GuestToken_Should_NotAuthenticateTheCustomerOrderRoutes()
+    {
+        // Arrange
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+
+        // Act
+        using var detail = await client.GetAsync($"/commerce/storefront/orders/{seeded.OrderId}");
+        using var list = await client.GetAsync("/commerce/storefront/orders");
+
+        // Assert
+        detail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        list.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private HttpClient Client(Guid tenantId)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString());
+        return client;
+    }
+
+    private static string GuestPath(Guid orderId) => $"/commerce/storefront/guest-orders/{orderId}";
+
+    private static void AssertPrivateHeaders(HttpResponseMessage response)
+    {
+        response.Headers.CacheControl.Should().NotBeNull();
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        response.Headers.GetValues("Referrer-Policy").Should().Equal("no-referrer");
+    }
+
+    private async Task AssertCheckoutUnchangedAsync(GuestCheckout seeded)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var cart = await db.Carts.SingleAsync(c => c.Id == seeded.CartId);
+        cart.OrderId.Should().Be(seeded.OrderId);
+        cart.Status.Should().Be(CartStatuses.Open);
+        cart.AnonymousToken.Should().Be(seeded.CartToken);
+        (await db.Set<Order>().CountAsync(o => o.TenantId == seeded.TenantId)).Should().Be(1);
+        (await db.OrderChargeSummaries.CountAsync(s => s.TenantId == seeded.TenantId)).Should().Be(1);
+        (await db.OrderChargeSummaries.SingleAsync(s => s.OrderId == seeded.OrderId)).PaymentIntentId
+            .Should().Be(seeded.PaymentIntentId);
+    }
+
+    private async Task<GuestCheckout> SeedGuestCheckoutAsync(Guid tenantId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        if (!await db.Tenants.AnyAsync(t => t.Id == tenantId))
+        {
+            db.Tenants.Add(new Tenant
+            {
+                Id = tenantId, Name = $"Guest order tenant {tenantId:N}", Environment = "Testing",
+                DefaultCurrency = "GBP", SupportedCountriesJson = "[]", Status = TenantStatus.Active,
+            });
+        }
+
+        var orderId = Guid.NewGuid();
+        var cartId = Guid.NewGuid();
+        var paymentIntentId = Guid.NewGuid();
+        var cartToken = CartAccess.MintToken();
+        db.Set<Order>().Add(new Order
+        {
+            Id = orderId, TenantId = tenantId, OrderType = "ProductPurchase",
+            PayerPartyId = Guid.NewGuid(), AmountIn = 95m, CurrencyIn = "GBP",
+            Status = OrderStatuses.Pending, ProvenanceJson = "{}",
+            Items =
+            [
+                new OrderItem
+                {
+                    Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, ItemType = "ProductPurchase",
+                    Quantity = 1m, UnitPrice = 95m, AmountIn = 95m, CurrencyIn = "GBP", Sku = "MEAL-BOX",
+                    Status = OrderStatuses.Pending,
+                    DetailsJson = """{"privateNote":"private-order-note","email":"private@example.com"}""",
+                },
+            ],
+        });
+        db.Carts.Add(new Cart
+        {
+            Id = cartId, TenantId = tenantId, AnonymousToken = cartToken, OrderId = orderId,
+            Currency = "GBP", Status = CartStatuses.Open, BoxSize = 6,
+        });
+        db.OrderChargeSummaries.Add(new OrderChargeSummary
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, Currency = "GBP",
+            Subtotal = 95m, Total = 95m, PaymentIntentId = paymentIntentId,
+            PaymentStatus = "RequiresAction", PaymentClientSecret = "private-checkout-secret",
+            PaymentCheckoutUrl = "https://example.com/private-checkout-url",
+        });
+        db.OrderBundleSelections.Add(new OrderBundleSelection
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId,
+            BundleSlotId = Guid.NewGuid(), ProductVariantId = Guid.NewGuid(), Quantity = 6m, Sku = "DISH-01",
+        });
+        await db.SaveChangesAsync();
+
+        var token = scope.ServiceProvider.GetRequiredService<GuestOrderAccess>().Issue(tenantId, orderId);
+        return new GuestCheckout(tenantId, orderId, cartId, paymentIntentId, cartToken, token);
+    }
+
+    private sealed record GuestCheckout(
+        Guid TenantId, Guid OrderId, Guid CartId, Guid PaymentIntentId, string CartToken, string OrderToken);
+}

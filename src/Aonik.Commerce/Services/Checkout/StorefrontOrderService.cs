@@ -1,5 +1,4 @@
 ﻿using Aonik.Commerce.Persistence;
-using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
@@ -15,6 +14,8 @@ public interface IStorefrontOrderService
     Task<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
 
     Task<StorefrontOrderDetailDto?> GetMyOrderAsync(Guid partyId, Guid orderId, CancellationToken cancellationToken = default);
+
+    Task<StorefrontOrderDetailDto?> GetGuestOrderAsync(Guid orderId, string? token, CancellationToken cancellationToken = default);
 }
 
 public record StorefrontOrderSummaryDto(
@@ -55,19 +56,22 @@ public record StorefrontOrderDetailDto(
     decimal Total,
     int? BoxSize,
     IReadOnlyList<StorefrontOrderItemDto> Items,
-    IReadOnlyList<StorefrontOrderSelectionDto> Selections);
+    IReadOnlyList<StorefrontOrderSelectionDto> Selections,
+    string PaymentStatus);
 
 internal sealed class StorefrontOrderService : IStorefrontOrderService
 {
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IOrderService _orders;
+    private readonly GuestOrderAccess _guestOrders;
 
-    public StorefrontOrderService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IOrderService orders)
+    public StorefrontOrderService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IOrderService orders, GuestOrderAccess guestOrders)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _orders = orders;
+        _guestOrders = guestOrders;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
@@ -131,11 +135,22 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             .FirstOrDefaultAsync(
                 c => c.TenantId == tenantId && c.BuyerPartyId == partyId && c.OrderId == orderId,
                 cancellationToken);
-        if (cart is null)
-        {
-            return null;
-        }
+        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart.BoxSize, cancellationToken);
+    }
 
+    public async Task<StorefrontOrderDetailDto?> GetGuestOrderAsync(Guid orderId, string? token, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        if (!_guestOrders.IsValid(token, tenantId, orderId)) return null;
+
+        var cart = await _dbContext.Carts.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.OrderId == orderId, cancellationToken);
+        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart.BoxSize, cancellationToken);
+    }
+
+    // Both callers authorize first; this projection contains no payment secrets or raw order metadata.
+    private async Task<StorefrontOrderDetailDto?> GetDetailAsync(Guid tenantId, Guid orderId, int? boxSize, CancellationToken cancellationToken)
+    {
         var order = await _orders.GetAsync(orderId, cancellationToken);
         var summary = await _dbContext.OrderChargeSummaries
             .AsNoTracking()
@@ -161,10 +176,11 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             summary.DiscountTotal,
             summary.TaxTotal,
             summary.Total,
-            cart.BoxSize,
+            boxSize,
             order.Items
                 .Select(i => new StorefrontOrderItemDto(i.ItemType, i.Quantity, i.UnitPrice, i.AmountIn, i.Sku))
                 .ToList(),
-            selections);
+            selections,
+            summary.PaymentStatus);
     }
 }

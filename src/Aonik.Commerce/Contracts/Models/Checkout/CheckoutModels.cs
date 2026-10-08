@@ -62,7 +62,8 @@ public record CheckoutResult(
     decimal Total,
     string Currency,
     string? ClientSecret = null,
-    string? CheckoutUrl = null);
+    string? CheckoutUrl = null,
+    string? GuestOrderToken = null);
 
 /// <summary>
 /// The one storefront payment status Commerce itself writes. OrderChargeSummary.PaymentStatus

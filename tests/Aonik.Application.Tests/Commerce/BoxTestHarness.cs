@@ -15,6 +15,7 @@ using Aonik.TestSupport.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Aonik.Application.Tests.Commerce;
 
@@ -37,6 +38,7 @@ internal sealed class BoxTestHarness
     public Guid TenantId => _tenantId;
 
     public FakeBoxPaymentInitiator Payments { get; } = new();
+    public GuestOrderAccess GuestOrderAccess { get; } = new(new EphemeralDataProtectionProvider());
 
     /// <summary>Tenant-scoped delivery settings for quote/checkout tests; empty = defaults (0/0).</summary>
     public Dictionary<string, string> Settings { get; } = new(StringComparer.Ordinal);
@@ -57,6 +59,8 @@ internal sealed class BoxTestHarness
     public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, _clock);
     public CartService Carts() => new(Commerce(), _tenant, Pricing());
     public BundleSizePlanService Plans() => new(Commerce(), _tenant);
+    public StorefrontOrderService StorefrontOrders() => new(
+        Commerce(), _tenant, new CoreOrderService(Ordering(), _tenant, _clock, _user), GuestOrderAccess);
 
     public BoxCartService BoxCarts()
     {
@@ -78,7 +82,7 @@ internal sealed class BoxTestHarness
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
-            new ZeroRateTaxCalculator(), _tenant, boxCarts);
+            new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess);
     }
 
     public CartMaintenanceService Maintenance() => new(

@@ -20,6 +20,9 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
 
     public override async Task HandleAsync(CheckoutRequest req, CancellationToken ct)
     {
+        HttpContext.Response.Headers.CacheControl = "no-store";
+        HttpContext.Response.Headers["Referrer-Policy"] = "no-referrer";
+
         var result = await _checkout.CheckoutAsync(
             new CheckoutCommand(
                 Route<Guid>("cartId"),
