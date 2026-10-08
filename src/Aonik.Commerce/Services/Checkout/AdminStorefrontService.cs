@@ -123,8 +123,13 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>([], totalCount, page, pageSize);
         }
 
+        var orderIds = rows.Select(r => r.OrderId).ToList();
+        var deliveryDates = await _dbContext.OrderDeliveryDetails.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && orderIds.Contains(d.OrderId))
+            .Select(d => new { d.OrderId, d.DeliveryDate })
+            .ToDictionaryAsync(d => d.OrderId, d => (DateOnly?)d.DeliveryDate, cancellationToken);
         var spine = await _orders.ListAsync(
-            new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
+            new ListOrdersQuery(OrderIds: orderIds, PageSize: rows.Count),
             cancellationToken);
         var byId = spine.Items.ToDictionary(o => o.Id);
 
@@ -146,7 +151,8 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 DeriveFulfilment(order.Status),
                 row.Currency,
                 row.Total,
-                row.BoxSize));
+                row.BoxSize,
+                deliveryDates.GetValueOrDefault(row.OrderId)));
         }
 
         return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(results, totalCount, page, pageSize);
@@ -224,6 +230,9 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 s.OrderItemIndex, selectionNames.GetValueOrDefault(s.ProductVariantId)))
             .ToList();
 
+        var delivery = await _dbContext.OrderDeliveryDetails.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.OrderId == orderId, cancellationToken);
+
         return new AdminOrderStorefrontDto(
             order.Id,
             cart.BuyerPartyId is null ? "guest" : "party",
@@ -237,7 +246,8 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             new AdminOrderChargeDto(
                 summary.Subtotal, summary.DiscountTotal, summary.DiscountCode,
                 summary.TaxTotal, summary.Total, summary.Currency),
-            cart.BoxSize);
+            cart.BoxSize,
+            delivery is null ? null : OrderDeliveryMapper.Map(delivery));
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminCartRowDto>> ListCartsAsync(

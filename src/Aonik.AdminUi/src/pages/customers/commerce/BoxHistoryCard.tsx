@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import type { StorefrontOrderSummaryDto } from '@/types/commerce';
 
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCalendarDate, formatCurrency, formatDate } from '@/lib/format';
 
 const STATUS_TONE: Record<string, PillTone> = {
   Complete: 'success',
@@ -42,7 +42,8 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Order</TableHead>
-                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Date</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Placed</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Delivery date</TableHead>
                 <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Size</TableHead>
                 <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Status</TableHead>
                 <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Total</TableHead>
@@ -59,6 +60,11 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                   <TableCell className="px-2 py-2.5">
                     <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                       {formatDate(order.placedAtUtc)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-2 py-2.5">
+                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {formatCalendarDate(order.deliveryDate)}
                     </span>
                   </TableCell>
                   <TableCell numeric className="px-2 py-2.5">

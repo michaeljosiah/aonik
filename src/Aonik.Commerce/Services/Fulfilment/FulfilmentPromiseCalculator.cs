@@ -1,6 +1,8 @@
 ﻿using System.Text.Json;
 
+using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Fulfilment;
+using Aonik.Commerce.Services.Catalog;
 
 namespace Aonik.Commerce.Services.Fulfilment;
 
@@ -13,79 +15,112 @@ namespace Aonik.Commerce.Services.Fulfilment;
 /// </summary>
 internal static class FulfilmentPromiseCalculator
 {
+    internal const int MaxLeadDays = 60;
+    internal const int MaxOfferedDays = 62;
     /// <summary>Beyond the last blackout no blackout can apply, so with ≥1 delivery weekday a
     /// valid day exists within 7 days of the horizon start — a calendar the admin API accepted
     /// can never produce a false null. Exhaustion means genuinely misconfigured.</summary>
     private const int SearchHorizonDays = 62;
 
     public static DateOnly? EarliestDelivery(FulfilmentCalendar calendar, DateTime nowUtc)
+        => ReadRules(calendar) is { } rules ? EarliestDelivery(calendar, nowUtc, rules) : null;
+
+    public static DeliveryDatesDto? DeliveryDates(
+        FulfilmentCalendar calendar, DateTime nowUtc, DateOnly? fromDate, int days)
     {
-        if (!calendar.IsActive)
-        {
-            return null;
-        }
+        ValidateRange(fromDate, days);
+        var rules = ReadRules(calendar);
+        if (rules is null || EarliestDelivery(calendar, nowUtc, rules) is not { } earliest) return null;
 
-        var deliveryDays = ParseDays(calendar.DeliveryDaysJson);
-        if (deliveryDays.Count == 0)
+        var start = fromDate ?? earliest;
+        ValidateRange(start, days);
+        var end = start.AddDays(days - 1);
+        var dates = new List<DateOnly>();
+        for (var day = Math.Max(start.DayNumber, earliest.DayNumber); day <= end.DayNumber; day++)
         {
-            return null;
+            var date = DateOnly.FromDayNumber(day);
+            if (IsDeliveryDay(date, rules)) dates.Add(date);
         }
+        return new DeliveryDatesDto(earliest, calendar.Timezone, start, end, dates);
+    }
 
-        TimeZoneInfo timezone;
-        try
-        {
-            timezone = TimeZoneInfo.FindSystemTimeZoneById(calendar.Timezone);
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            return null;   // unconfigured is a state, not an error — never guess
-        }
+    internal static void ValidateRange(DateOnly? fromDate, int days)
+    {
+        if (days is < 1 or > MaxOfferedDays)
+            throw new StorefrontValidationException($"days must be between 1 and {MaxOfferedDays}.");
+        if (fromDate is { } start && start.DayNumber > DateOnly.MaxValue.DayNumber - (days - 1))
+            throw new StorefrontValidationException("The requested delivery date range exceeds the supported dates.");
+    }
 
-        var blackouts = ParseDates(calendar.BlackoutDatesJson);
-        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc), timezone);
+    private static DateOnly? EarliestDelivery(FulfilmentCalendar calendar, DateTime nowUtc, CalendarRules rules)
+    {
+        nowUtc = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc);
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, rules.Timezone);
         var today = DateOnly.FromDateTime(nowLocal);
-
-        DateOnly effectiveDate;
-        if (TryParseDay(calendar.CutoffDayOfWeek) is { } cycleDay)
+        int daysToEffectiveDate;
+        if (rules.CutoffDay is { } cycleDay)
         {
-            // Weekly cycle: the order book closes at that weekday's cutoff; orders after it join
-            // the FOLLOWING week's cycle. Find the next occurrence whose cutoff has not passed.
-            var candidate = today;
-            while (candidate.DayOfWeek != cycleDay)
-            {
-                candidate = candidate.AddDays(1);
-            }
-            if (candidate == today && nowUtc > CutoffInstantUtc(today, calendar.CutoffLocalTime, timezone))
-            {
-                candidate = candidate.AddDays(7);
-            }
-            effectiveDate = candidate;
+            // Weekly cycle: the next cycle-close date, or the following week if today's cutoff passed.
+            daysToEffectiveDate = ((int)cycleDay - (int)today.DayOfWeek + 7) % 7;
+            if (daysToEffectiveDate == 0 && nowUtc > CutoffInstantUtc(today, calendar.CutoffLocalTime, rules.Timezone))
+                daysToEffectiveDate = 7;
         }
         else
         {
-            // Daily order book: exactly AT the cutoff is still before it — ">" flips the day.
-            effectiveDate = nowUtc > CutoffInstantUtc(today, calendar.CutoffLocalTime, timezone)
-                ? today.AddDays(1)
-                : today;
+            // Exactly AT the cutoff still belongs to today's order book.
+            daysToEffectiveDate = nowUtc > CutoffInstantUtc(today, calendar.CutoffLocalTime, rules.Timezone) ? 1 : 0;
         }
 
-        var readyDate = effectiveDate.AddDays(calendar.LeadDays);
-
-        var horizonStart = blackouts.Count > 0 && blackouts.Max() > readyDate ? blackouts.Max() : readyDate;
-        // Clamp: an extreme stored blackout (e.g. 9999-12-31) must degrade to "no promise", not
-        // throw past DateOnly.MaxValue — the upsert bounds new data, but stored data is forever.
-        var maxSpan = DateOnly.MaxValue.DayNumber - horizonStart.DayNumber;
-        var horizon = horizonStart.AddDays(Math.Min(SearchHorizonDays, maxSpan));
-        for (var date = readyDate; date <= horizon; date = date.AddDays(1))
+        var readyDay = today.DayNumber + daysToEffectiveDate + calendar.LeadDays;
+        if (readyDay > DateOnly.MaxValue.DayNumber) return null;
+        var horizonStart = rules.Blackouts.Count > 0 ? Math.Max(rules.Blackouts.Max().DayNumber, readyDay) : readyDay;
+        var horizon = Math.Min(horizonStart + SearchHorizonDays, DateOnly.MaxValue.DayNumber);
+        for (var day = readyDay; day <= horizon; day++)
         {
-            if (deliveryDays.Contains(date.DayOfWeek) && !blackouts.Contains(date))
-            {
-                return date;
-            }
+            var date = DateOnly.FromDayNumber(day);
+            if (IsDeliveryDay(date, rules)) return date;
         }
-
         return null;
     }
+
+    private static bool IsDeliveryDay(DateOnly date, CalendarRules rules)
+        => rules.DeliveryDays.Contains(date.DayOfWeek) && !rules.Blackouts.Contains(date);
+
+    private static CalendarRules? ReadRules(FulfilmentCalendar calendar)
+    {
+        if (!calendar.IsActive || calendar.LeadDays is < 0 or > MaxLeadDays) return null;
+        try
+        {
+            var timezone = TimeZoneInfo.FindSystemTimeZoneById(calendar.Timezone);
+            var names = JsonSerializer.Deserialize<List<string?>>(calendar.DeliveryDaysJson);
+            var rawBlackouts = JsonSerializer.Deserialize<List<string?>>(calendar.BlackoutDatesJson);
+            if (names is not { Count: > 0 } || rawBlackouts is null) return null;
+            var days = new HashSet<DayOfWeek>();
+            foreach (var name in names)
+            {
+                if (TryParseDay(name) is not { } day) return null;
+                days.Add(day);
+            }
+            var blackouts = new HashSet<DateOnly>();
+            foreach (var value in rawBlackouts)
+            {
+                if (!DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var date)) return null;
+                blackouts.Add(date);
+            }
+            var cutoffDay = TryParseDay(calendar.CutoffDayOfWeek);
+            if (calendar.CutoffDayOfWeek is not null && cutoffDay is null) return null;
+            return new CalendarRules(timezone, days, blackouts, cutoffDay);
+        }
+        catch (Exception ex) when (ex is JsonException or TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
+        {
+            // Malformed blackout data must not become an empty list and authorize delivery.
+            return null;
+        }
+    }
+
+    private sealed record CalendarRules(TimeZoneInfo Timezone, HashSet<DayOfWeek> DeliveryDays,
+        HashSet<DateOnly> Blackouts, DayOfWeek? CutoffDay);
 
     /// <summary>The UTC instant of the FIRST mapping of the wall-clock cutoff on a date (§5 DST
     /// policy): a nonexistent time (spring-forward gap) maps to the first valid instant after
@@ -129,19 +164,6 @@ internal static class FulfilmentPromiseCalculator
         {
             return [];
         }
-    }
-
-    internal static HashSet<DayOfWeek> ParseDays(string json)
-    {
-        var days = new HashSet<DayOfWeek>();
-        foreach (var name in ParseDayNames(json))
-        {
-            if (TryParseDay(name) is { } day)
-            {
-                days.Add(day);
-            }
-        }
-        return days;
     }
 
     internal static DayOfWeek? TryParseDay(string? name)

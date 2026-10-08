@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Finance.Entities.Orders;
@@ -25,7 +26,7 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
     public GuestStorefrontOrderEndpointTests(CustomWebApplicationFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Read_Should_ReturnMinimalSummary_AndPollPersistedPaymentStatusWithTheSameToken()
+    public async Task Read_Should_ReturnConfirmationDetails_AndPollPersistedPaymentStatusWithTheSameToken()
     {
         // Arrange
         var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
@@ -51,8 +52,17 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         body.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(
         [
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
-            "total", "boxSize", "items", "selections", "paymentStatus",
+            "total", "boxSize", "items", "selections", "paymentStatus", "delivery",
         ]);
+        var delivery = body.GetProperty("delivery");
+        delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
+            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes" });
+        delivery.GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
+        delivery.GetProperty("timezone").GetString().Should().Be("Europe/London");
+        delivery.GetProperty("purchaser").GetProperty("email").GetString().Should().Be("purchaser@example.com");
+        delivery.GetProperty("recipient").GetProperty("name").GetString().Should().Be("Sam Recipient");
+        delivery.GetProperty("address").GetProperty("line1").GetString().Should().Be("10 Kitchen Road");
+        delivery.GetProperty("notes").GetString().Should().Be("Ring the bell");
         body.GetRawText().Should().NotContain("private-checkout-secret").And.NotContain("private-checkout-url")
             .And.NotContain("private-order-note").And.NotContain("private@example.com")
             .And.NotContain("detailsJson").And.NotContain("payerPartyId").And.NotContain("tenantId")
@@ -102,6 +112,8 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
             AssertPrivateHeaders(response);
+            (await response.Content.ReadAsStringAsync()).Should().NotContain("purchaser@example.com")
+                .And.NotContain("Kitchen Road");
         }
 
         using var repeated = new HttpRequestMessage(HttpMethod.Get, GuestPath(seeded.OrderId));
@@ -221,6 +233,106 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         list.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Theory]
+    [InlineData("PlatformAdmin")]
+    [InlineData("TenantAdmin")]
+    [InlineData("Operations")]
+    [InlineData("ReadOnly")]
+    public async Task AdminReads_Should_AllowStaff_AndReturnPrivateDeliveryDetails(string role)
+    {
+        var tenantId = Guid.NewGuid();
+        using var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles(role));
+        var seeded = await SeedGuestCheckoutAsync(tenantId);
+
+        using var detail = await client.GetAsync($"/commerce/admin/orders/{seeded.OrderId}/storefront");
+        using var list = await client.GetAsync("/commerce/admin/orders");
+
+        detail.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var order = await detail.Content.ReadFromJsonAsync<AdminOrderStorefrontDto>();
+        order!.Delivery!.Address.Line1.Should().Be("10 Kitchen Road");
+        list.StatusCode.Should().Be(HttpStatusCode.OK);
+        list.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var page = await list.Content.ReadFromJsonAsync<JsonElement>();
+        page.GetProperty("items")[0].GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
+        page.GetRawText().Should().NotContain("purchaser@example.com").And.NotContain("Kitchen Road");
+
+        using var otherTenant = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(Guid.NewGuid()).WithRoles(role));
+        using var hidden = await otherTenant.GetAsync($"/commerce/admin/orders/{seeded.OrderId}/storefront");
+        hidden.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        hidden.Headers.CacheControl!.NoStore.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Customer_Should_ReadOnlyOwnDelivery_AndNeverUseTheTenantWideAdminOrderRoutes()
+    {
+        var tenantId = Guid.NewGuid();
+        var options = TestAuthOptions.Create().WithTenant(tenantId).WithRoles("PersonalUser").WithPermissions("Customers.Read");
+        using var customer = await _factory.CreateAuthenticatedClientAsync(options);
+        var partyId = await WorkspaceTestSeeding.SeedPartyAsync(_factory, tenantId, options.UserId, "Delivery customer");
+        var seeded = await SeedGuestCheckoutAsync(tenantId);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            (await db.Carts.SingleAsync(c => c.Id == seeded.CartId)).BuyerPartyId = partyId;
+            await db.SaveChangesAsync();
+        }
+
+        using var detail = await customer.GetAsync($"/commerce/storefront/orders/{seeded.OrderId}");
+        using var list = await customer.GetAsync("/commerce/storefront/orders");
+
+        detail.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail.Headers.CacheControl!.NoStore.Should().BeTrue();
+        (await detail.Content.ReadFromJsonAsync<StorefrontOrderDetailDto>())!.Delivery!.Recipient.Name.Should().Be("Sam Recipient");
+        list.StatusCode.Should().Be(HttpStatusCode.OK);
+        list.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var page = await list.Content.ReadFromJsonAsync<JsonElement>();
+        page.GetProperty("items")[0].GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
+        page.GetRawText().Should().NotContain("purchaser@example.com").And.NotContain("Kitchen Road");
+        foreach (var path in new[] { "/commerce/admin/orders", $"/commerce/admin/orders/{seeded.OrderId}/storefront" })
+        {
+            using var forbidden = await customer.GetAsync(path);
+            forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            (await forbidden.Content.ReadAsStringAsync()).Should().NotContain("Kitchen Road");
+        }
+
+        var otherOptions = TestAuthOptions.Create().WithTenant(tenantId).WithRoles("PersonalUser").WithPermissions("Customers.Read");
+        using var otherCustomer = await _factory.CreateAuthenticatedClientAsync(otherOptions);
+        await WorkspaceTestSeeding.SeedPartyAsync(_factory, tenantId, otherOptions.UserId, "Another customer");
+        using var hidden = await otherCustomer.GetAsync($"/commerce/storefront/orders/{seeded.OrderId}?partyId={partyId}");
+        hidden.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        hidden.Headers.CacheControl!.NoStore.Should().BeTrue();
+
+        using var admin = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles("Operations"));
+        using var partySummary = await admin.GetAsync($"/commerce/admin/parties/{partyId}/storefront");
+        partySummary.StatusCode.Should().Be(HttpStatusCode.OK);
+        partySummary.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var summary = await partySummary.Content.ReadAsStringAsync();
+        summary.Should().Contain("2026-10-25").And.NotContain("purchaser@example.com").And.NotContain("Kitchen Road");
+    }
+
+    [Fact]
+    public async Task LegacyOrder_Should_ReturnNullDelivery_WhenNoSnapshotWasRecorded()
+    {
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            db.OrderDeliveryDetails.Remove(await db.OrderDeliveryDetails.SingleAsync(d => d.OrderId == seeded.OrderId));
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(seeded.TenantId);
+        client.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+
+        using var response = await client.GetAsync(GuestPath(seeded.OrderId));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(response);
+        (await response.Content.ReadFromJsonAsync<StorefrontOrderDetailDto>())!.Delivery.Should().BeNull();
+    }
+
     private HttpClient Client(Guid tenantId)
     {
         var client = _factory.CreateClient();
@@ -302,6 +414,13 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         {
             Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId,
             BundleSlotId = Guid.NewGuid(), ProductVariantId = Guid.NewGuid(), Quantity = 6m, Sku = "DISH-01",
+        });
+        db.OrderDeliveryDetails.Add(new OrderDeliveryDetails
+        {
+            TenantId = tenantId, OrderId = orderId, DeliveryDate = new DateOnly(2026, 10, 25), Timezone = "Europe/London",
+            PurchaserEmail = "purchaser@example.com", PurchaserFirstName = "Ada", PurchaserLastName = "Cook", PurchaserPhone = "+44 20 1111 1111",
+            RecipientName = "Sam Recipient", RecipientPhone = "+44 20 2222 2222",
+            AddressLine1 = "10 Kitchen Road", City = "London", Postcode = "SW1A 1AA", CountryCode = "GB", Notes = "Ring the bell",
         });
         await db.SaveChangesAsync();
 

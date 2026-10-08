@@ -5,6 +5,8 @@ using Aonik.Commerce.Services.Fulfilment;
 
 using FluentAssertions;
 
+using Microsoft.EntityFrameworkCore;
+
 namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
@@ -232,5 +234,209 @@ public class FulfilmentPromiseTests
 
         var hundred = await service.UpsertCalendarAsync(Command(blackouts: hundredOne.Take(100).ToList()));
         hundred.BlackoutDates.Should().HaveCount(100);
+    }
+
+    [Fact]
+    public void OfferedDates_Should_UseTheSameEarliestPromise_AndExcludeBlackoutsAndWrongWeekdays()
+    {
+        var calendar = Launch(days: """["thursday","saturday"]""", blackouts: """["2026-08-08"]""");
+        var now = Bst(2026, 7, 21, 10);
+
+        var result = FulfilmentPromiseCalculator.DeliveryDates(calendar, now, new DateOnly(2026, 8, 1), 15);
+
+        result.Should().NotBeNull();
+        result!.EarliestDeliveryDate.Should().Be(FulfilmentPromiseCalculator.EarliestDelivery(calendar, now)!.Value);
+        result.Timezone.Should().Be("Europe/London");
+        result.FromDate.Should().Be(new DateOnly(2026, 8, 1));
+        result.ToDate.Should().Be(new DateOnly(2026, 8, 15));
+        result.Dates.Should().Equal(new DateOnly(2026, 8, 6), new DateOnly(2026, 8, 13), new DateOnly(2026, 8, 15));
+    }
+
+    [Theory]
+    [InlineData(0, 30, true)]
+    [InlineData(0, 45, false)]
+    [InlineData(1, 15, false)]
+    public void OfferedDates_Should_NotReopenTheDate_WhenAutumnClocksRollBack(int utcHour, int utcMinute, bool available)
+    {
+        var calendar = Launch(days: """["sunday"]""", lead: 0, cutoff: "01:30");
+        var date = new DateOnly(2026, 10, 25);
+        var now = new DateTime(2026, 10, 25, utcHour, utcMinute, 0, DateTimeKind.Utc);
+
+        var result = FulfilmentPromiseCalculator.DeliveryDates(calendar, now, date, 1);
+
+        result.Should().NotBeNull();
+        result!.Dates.Contains(date).Should().Be(available);
+    }
+
+    [Fact]
+    public void OfferedDates_Should_HandleTheLastRepresentableDate_WithoutOverflow()
+    {
+        var calendar = Launch(days: """["friday"]""", lead: 0, timezone: "UTC");
+        var now = new DateTime(9999, 12, 31, 10, 0, 0, DateTimeKind.Utc);
+
+        var result = FulfilmentPromiseCalculator.DeliveryDates(calendar, now, DateOnly.MaxValue, 1);
+
+        result!.Dates.Should().Equal(DateOnly.MaxValue);
+        calendar.BlackoutDatesJson = """["9999-12-31"]""";
+        FulfilmentPromiseCalculator.DeliveryDates(calendar, now, DateOnly.MaxValue, 1).Should().BeNull();
+        calendar.BlackoutDatesJson = "[]";
+        calendar.LeadDays = 1;
+        FulfilmentPromiseCalculator.DeliveryDates(calendar, now, DateOnly.MaxValue, 1).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task OfferedDates_Should_DefaultToEarliestAnd31Days_WithoutInventingABookingHorizon()
+    {
+        var (service, _, context) = NewService();
+        using var _ = context;
+        await service.UpsertCalendarAsync(Command());
+
+        var result = await service.GetDeliveryDatesAsync();
+        var future = await service.GetDeliveryDatesAsync(new DateOnly(2030, 1, 1), 62);
+        var past = await service.GetDeliveryDatesAsync(new DateOnly(2026, 1, 1), 31);
+
+        result!.FromDate.Should().Be(result.EarliestDeliveryDate);
+        result.ToDate.Should().Be(result.FromDate.AddDays(30));
+        result.Dates.Should().Equal(Enumerable.Range(0, 5).Select(week => new DateOnly(2026, 6, 25).AddDays(week * 7)));
+        future!.Dates.Should().NotBeEmpty().And.OnlyContain(date => date.DayOfWeek == DayOfWeek.Thursday);
+        future.ToDate.Should().Be(new DateOnly(2030, 3, 3));
+        past!.Dates.Should().BeEmpty("a configured calendar can have no eligible dates in the requested range");
+        context.ChangeTracker.HasChanges().Should().BeFalse("reading offered dates does not reserve or modify anything");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(63)]
+    [InlineData(int.MaxValue)]
+    public async Task OfferedDates_Should_RejectUnboundedRanges_EvenWhenUnconfigured(int days)
+    {
+        var (service, _, context) = NewService();
+        using var _ = context;
+
+        var act = () => service.GetDeliveryDatesAsync(days: days);
+
+        await act.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Fact]
+    public async Task OfferedDates_Should_RejectRangeOverflow()
+    {
+        var (service, _, context) = NewService();
+        using var _ = context;
+
+        var act = () => service.GetDeliveryDatesAsync(DateOnly.MaxValue, 2);
+
+        await act.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Theory]
+    [InlineData("2026-06-18")]
+    [InlineData("2026-06-26")]
+    [InlineData("2026-07-02")]
+    public async Task SelectedDate_Should_RejectTooEarly_WrongWeekday_OrBlackout(string value)
+    {
+        var (service, _, context) = NewService();
+        using var _ = context;
+        await service.UpsertCalendarAsync(Command(blackouts: ["2026-07-02"]));
+
+        var act = () => service.ValidateDeliveryDateAsync(DateOnly.Parse(value));
+
+        await act.Should().ThrowAsync<StorefrontValidationException>();
+        context.ChangeTracker.HasChanges().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SelectedDate_Should_RecheckClockAndCalendar_InsteadOfTrustingAnEarlierOffer()
+    {
+        var (service, clock, context) = NewService();
+        using var _ = context;
+        clock.UtcNow = Bst(2026, 6, 18, 12);
+        await service.UpsertCalendarAsync(Command());
+        var date = (await service.GetDeliveryDatesAsync())!.Dates.First();
+        var selected = await service.ValidateDeliveryDateAsync(date);
+        selected.Should().Be(new ValidatedDeliveryDateDto(new DateOnly(2026, 6, 18), "Europe/London"));
+
+        clock.UtcNow = clock.UtcNow.AddTicks(1);
+        var afterCutoff = () => service.ValidateDeliveryDateAsync(date);
+        await afterCutoff.Should().ThrowAsync<StorefrontValidationException>();
+
+        var nextDate = (await service.GetDeliveryDatesAsync())!.Dates.First();
+        await service.UpsertCalendarAsync(Command(blackouts: [nextDate.ToString("yyyy-MM-dd")]));
+        var afterBlackout = () => service.ValidateDeliveryDateAsync(nextDate);
+        await afterBlackout.Should().ThrowAsync<StorefrontValidationException>();
+
+        var anotherDate = (await service.GetDeliveryDatesAsync())!.Dates.First();
+        await service.UpsertCalendarAsync(Command(active: false));
+        (await service.GetDeliveryDatesAsync()).Should().BeNull();
+        var afterDeactivation = () => service.ValidateDeliveryDateAsync(anotherDate);
+        await afterDeactivation.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Theory]
+    [InlineData("days-json")]
+    [InlineData("days-null")]
+    [InlineData("unknown-weekday")]
+    [InlineData("null-weekday")]
+    [InlineData("blackouts-json")]
+    [InlineData("blackouts-null")]
+    [InlineData("invalid-blackout")]
+    [InlineData("null-blackout")]
+    [InlineData("cutoff-day")]
+    [InlineData("negative-lead")]
+    [InlineData("excessive-lead")]
+    [InlineData("timezone")]
+    public async Task StoredInvalidCalendar_Should_WithholdBothPromiseAndDates_AndRejectSelection(string corruption)
+    {
+        var (service, _, context) = NewService();
+        using var _ = context;
+        await service.UpsertCalendarAsync(Command());
+        var calendar = await context.FulfilmentCalendars.SingleAsync();
+        switch (corruption)
+        {
+            case "days-json": calendar.DeliveryDaysJson = "{"; break;
+            case "days-null": calendar.DeliveryDaysJson = "null"; break;
+            case "unknown-weekday": calendar.DeliveryDaysJson = """["thursday","unknown"]"""; break;
+            case "null-weekday": calendar.DeliveryDaysJson = """["thursday",null]"""; break;
+            case "blackouts-json": calendar.BlackoutDatesJson = "{"; break;
+            case "blackouts-null": calendar.BlackoutDatesJson = "null"; break;
+            case "invalid-blackout": calendar.BlackoutDatesJson = """["2026-06-25","invalid"]"""; break;
+            case "null-blackout": calendar.BlackoutDatesJson = "[null]"; break;
+            case "cutoff-day": calendar.CutoffDayOfWeek = "invalid"; break;
+            case "negative-lead": calendar.LeadDays = -1; break;
+            case "excessive-lead": calendar.LeadDays = 61; break;
+            case "timezone": calendar.Timezone = "Not/AZone"; break;
+        }
+        await context.SaveChangesAsync();
+
+        (await service.GetEarliestDeliveryAsync()).Should().BeNull();
+        (await service.GetDeliveryDatesAsync()).Should().BeNull();
+        var select = () => service.ValidateDeliveryDateAsync(new DateOnly(2026, 6, 25));
+        await select.Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Fact]
+    public async Task OfferedDatesAndSelection_Should_RespectTenantAndSoftDeletion_WithoutFallback()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        using var context = CommerceTestHarness.CreateContext(options, tenantId);
+        var clock = new CommerceTestHarness.TestClock();
+        var service = new FulfilmentPromiseService(context, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), clock);
+        await service.UpsertCalendarAsync(Command());
+        var date = (await service.GetDeliveryDatesAsync())!.Dates.First();
+        var otherTenant = Guid.NewGuid();
+        using var otherContext = CommerceTestHarness.CreateContext(options, otherTenant);
+        var otherService = new FulfilmentPromiseService(otherContext, new Aonik.TestSupport.Multitenancy.TestTenantProvider(otherTenant), clock);
+
+        (await otherService.GetDeliveryDatesAsync()).Should().BeNull();
+        var otherSelection = () => otherService.ValidateDeliveryDateAsync(date);
+        await otherSelection.Should().ThrowAsync<StorefrontValidationException>();
+
+        var calendar = await context.FulfilmentCalendars.SingleAsync();
+        calendar.IsDeleted = true;
+        await context.SaveChangesAsync();
+        (await service.GetDeliveryDatesAsync()).Should().BeNull();
+        var deletedSelection = () => service.ValidateDeliveryDateAsync(date);
+        await deletedSelection.Should().ThrowAsync<StorefrontValidationException>();
     }
 }

@@ -108,7 +108,7 @@ public class StorefrontIdentityTests
             var box = await carts.CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6, BuyerPartyId: party));
             var access = CartAccessContext.ForParty(party);
             await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
-            var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+            var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
             return result.OrderId;
         }
 

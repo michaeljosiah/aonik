@@ -560,6 +560,24 @@ export interface AdminStorefrontOrderRowDto {
   currency: string;
   total: number;
   boxSize: number | null;
+  deliveryDate: string | null;
+}
+
+/** Checkout snapshots: these values are not refreshed from the customer's current profile. */
+export interface OrderDeliveryDto {
+  purchaser: { email: string; firstName: string; lastName: string; phone: string };
+  address: {
+    line1: string;
+    line2: string | null;
+    city: string;
+    region: string | null;
+    postcode: string;
+    countryCode: string;
+  };
+  deliveryDate: string;
+  timezone: string;
+  recipient: { name: string; phone: string };
+  notes: string | null;
 }
 
 export interface AdminOrderStorefrontItemDto {
@@ -606,6 +624,7 @@ export interface AdminOrderStorefrontDto {
   selections: StorefrontOrderSelectionDto[];
   charge: AdminOrderChargeDto;
   boxSize: number | null;
+  delivery: OrderDeliveryDto | null;
 }
 
 export interface AdminCartBoxMetaDto {
@@ -689,6 +708,7 @@ export interface StorefrontOrderSummaryDto {
   currency: string;
   total: number;
   boxSize: number | null;
+  deliveryDate: string | null;
 }
 
 export interface AdminPartyActiveCartDto {

@@ -28,7 +28,7 @@ namespace Aonik.Application.Tests.Commerce;
 /// example, and §11 netting against Available = OnHand − Reserved (never raw on-hand) with the
 /// Spec 053 seed precedence for the suggested order quantity.
 /// </summary>
-public class ProductionPlanningServiceTests
+public partial class ProductionPlanningServiceTests
 {
     private static readonly DateTime FromUtc = new(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime ToUtc = new(2026, 7, 8, 0, 0, 0, DateTimeKind.Utc);
@@ -65,7 +65,7 @@ public class ProductionPlanningServiceTests
 
         public SupplierService Suppliers() => new(Commerce(), _tenant);
 
-        public ProductionPlanningService Planning() => new(Commerce(), Orders(), Recipes(), Inventory(), _tenant);
+        public ProductionPlanningService Planning(IOrderService? orders = null) => new(Commerce(), orders ?? Orders(), Recipes(), Inventory(), _tenant);
 
         public async Task<Guid> SeedVariantAsync(string productName, string variantName)
         {

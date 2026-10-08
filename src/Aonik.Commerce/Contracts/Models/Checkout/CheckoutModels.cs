@@ -50,7 +50,8 @@ public record CheckoutCommand(
     string? ReturnUrl = null,
     string? CancelUrl = null,
     Guid? CustomerAccountId = null,
-    string? DiscountCode = null);
+    string? DiscountCode = null,
+    CheckoutDeliveryDetails? Delivery = null);
 
 public record CheckoutResult(
     Guid OrderId,

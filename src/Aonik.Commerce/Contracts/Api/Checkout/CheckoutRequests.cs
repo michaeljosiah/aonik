@@ -1,4 +1,5 @@
 using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Checkout;
 
 namespace Aonik.Commerce.Contracts.Api.Checkout;
 
@@ -14,4 +15,5 @@ public record CheckoutRequest(
     string? ReturnUrl,
     string? CancelUrl,
     Guid? CustomerAccountId,
-    string? DiscountCode);
+    string? DiscountCode,
+    CheckoutDeliveryDetails? Delivery = null);

@@ -4,6 +4,16 @@ namespace Aonik.Commerce.Contracts.Models.Fulfilment;
 /// derives the weekday label from the date itself, never a second configured string.</summary>
 public record FulfilmentPromiseDto(DateOnly EarliestDeliveryDate, string Timezone);
 
+/// <summary>Calendar eligibility in an inclusive date range; this does not reserve capacity.</summary>
+public record DeliveryDatesDto(
+    DateOnly EarliestDeliveryDate,
+    string Timezone,
+    DateOnly FromDate,
+    DateOnly ToDate,
+    IReadOnlyList<DateOnly> Dates);
+
+public record ValidatedDeliveryDateDto(DateOnly DeliveryDate, string Timezone);
+
 public record FulfilmentCalendarDto(
     string Timezone,
     IReadOnlyList<string> DeliveryDays,

@@ -22,7 +22,7 @@ import {
 import { DataTable, DataTablePagination, type ColumnDef } from '@/components/ui/data-table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCalendarDate, formatCurrency, formatDate } from '@/lib/format';
 import type { PagedResult } from '@/types';
 import type { AdminStorefrontOrderRowDto } from '@/types/commerce';
 
@@ -155,6 +155,13 @@ export function CommerceOrdersPage() {
       cell: (row) => (
         <Pill tone={fulfilmentTone(row.fulfilmentStatus)}>{row.fulfilmentStatus}</Pill>
       ),
+      className: 'w-[130px]',
+    },
+    {
+      id: 'delivery',
+      header: 'Delivery date',
+      accessorFn: (row) => row.deliveryDate,
+      cell: (row) => <span className="text-[12px] text-muted-foreground">{formatCalendarDate(row.deliveryDate)}</span>,
       className: 'w-[130px]',
     },
     {

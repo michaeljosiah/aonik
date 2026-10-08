@@ -1,4 +1,5 @@
 ﻿using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
@@ -24,7 +25,8 @@ public record StorefrontOrderSummaryDto(
     string Status,
     string Currency,
     decimal Total,
-    int? BoxSize);
+    int? BoxSize,
+    DateOnly? DeliveryDate = null);
 
 public record StorefrontOrderItemDto(
     string ItemType,
@@ -57,7 +59,8 @@ public record StorefrontOrderDetailDto(
     int? BoxSize,
     IReadOnlyList<StorefrontOrderItemDto> Items,
     IReadOnlyList<StorefrontOrderSelectionDto> Selections,
-    string PaymentStatus);
+    string PaymentStatus,
+    OrderDeliveryDto? Delivery = null);
 
 internal sealed class StorefrontOrderService : IStorefrontOrderService
 {
@@ -106,8 +109,13 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>([], totalCount, page, pageSize);
         }
 
+        var orderIds = rows.Select(r => r.OrderId).ToList();
+        var deliveryDates = await _dbContext.OrderDeliveryDetails.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && orderIds.Contains(d.OrderId))
+            .Select(d => new { d.OrderId, d.DeliveryDate })
+            .ToDictionaryAsync(d => d.OrderId, d => (DateOnly?)d.DeliveryDate, cancellationToken);
         var orders = await _orders.ListAsync(
-            new ListOrdersQuery(OrderIds: rows.Select(r => r.OrderId).ToList(), PageSize: rows.Count),
+            new ListOrdersQuery(OrderIds: orderIds, PageSize: rows.Count),
             cancellationToken);
         var byId = orders.Items.ToDictionary(o => o.Id);
 
@@ -119,7 +127,8 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
                 continue;   // summary outlived its order — serve the rest rather than 500
             }
             results.Add(new StorefrontOrderSummaryDto(
-                order.Id, order.CreatedAt, order.Status, row.Currency, row.Total, row.BoxSize));
+                order.Id, order.CreatedAt, order.Status, row.Currency, row.Total, row.BoxSize,
+                deliveryDates.GetValueOrDefault(row.OrderId)));
         }
 
         return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>(results, totalCount, page, pageSize);
@@ -167,6 +176,9 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
                 s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary, s.OrderItemIndex, null))
             .ToListAsync(cancellationToken);
 
+        var delivery = await _dbContext.OrderDeliveryDetails.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.OrderId == orderId, cancellationToken);
+
         return new StorefrontOrderDetailDto(
             order.Id,
             order.CreatedAt,
@@ -181,6 +193,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
                 .Select(i => new StorefrontOrderItemDto(i.ItemType, i.Quantity, i.UnitPrice, i.AmountIn, i.Sku))
                 .ToList(),
             selections,
-            summary.PaymentStatus);
+            summary.PaymentStatus,
+            delivery is null ? null : OrderDeliveryMapper.Map(delivery));
     }
 }

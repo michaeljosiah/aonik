@@ -24,7 +24,8 @@ public record AdminStorefrontOrderRowDto(
     string FulfilmentStatus,
     string Currency,
     decimal Total,
-    int? BoxSize);
+    int? BoxSize,
+    DateOnly? DeliveryDate = null);
 
 public record AdminOrderStorefrontItemDto(
     string ItemType,
@@ -61,7 +62,8 @@ public record AdminOrderStorefrontDto(
     /// The kitchen landing — per-selection personalisation snapshots.
     IReadOnlyList<StorefrontOrderSelectionDto> Selections,
     AdminOrderChargeDto Charge,
-    int? BoxSize);
+    int? BoxSize,
+    OrderDeliveryDto? Delivery = null);
 
 /// <summary>Box state on a cart row (Spec 083 list contract). <see cref="Drift"/>
 /// is the computed, never-persisted "checkout blocked" signal for OPEN box

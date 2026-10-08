@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { formatCurrency, formatDate } from './format';
+import { formatCalendarDate, formatCurrency, formatDate } from './format';
 
 describe('formatCurrency', () => {
   it('preserves minor units — a rounded total reports money the order does not have', () => {
@@ -35,4 +35,24 @@ describe('formatDate', () => {
   it('formats an ISO timestamp', () => {
     expect(formatDate('2026-07-27T12:00:00Z')).toMatch(/2026/);
   });
+});
+
+describe('formatCalendarDate', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each(['America/Los_Angeles', 'Pacific/Kiritimati', 'Europe/London'])(
+    'keeps the selected day for a viewer in %s', (timezone) => {
+      vi.stubEnv('TZ', timezone);
+      const expected = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+      }).format(new Date('2026-10-25T00:00:00Z'));
+      expect(formatCalendarDate('2026-10-25')).toBe(expected);
+    },
+  );
+
+  it.each([null, undefined, '', '2026-02-30', '2026-13-01', '2026-07-27T12:00:00Z'])(
+    'withholds absent or invalid calendar date %s', (value) => {
+      expect(formatCalendarDate(value)).toBe('—');
+    },
+  );
 });

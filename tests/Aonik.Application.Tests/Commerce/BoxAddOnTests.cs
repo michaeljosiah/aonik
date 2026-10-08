@@ -178,12 +178,12 @@ public class BoxAddOnTests
             extraVariant, "GBP", 4.25m));
 
         // Checkout must STOP on the changed price (A18) — the customer accepts the new amount.
-        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
         drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 0.75m);
 
         // Resubmission charges the accepted new price.
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         result.Total.Should().Be(95m + 4.25m * 2);
     }
 
@@ -255,7 +255,7 @@ public class BoxAddOnTests
             line.PersonalisationSummary.Should().BeNull();
         }
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         await using var ordering = h.Ordering();
         var order = await ordering.Orders.Include(o => o.Items).FirstAsync(o => o.Id == result.OrderId);
         // The ordering layer normalizes an absent DetailsJson to "{}" — the claim is that no
@@ -283,11 +283,11 @@ public class BoxAddOnTests
             await ctx.SaveChangesAsync();
         }
 
-        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
         drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 1.00m);
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         result.Total.Should().Be(95m + 3.50m + 1.00m);
     }
 
@@ -307,12 +307,12 @@ public class BoxAddOnTests
         var options = CommerceTestHarness.NewOptionService(h.Commerce(), h.TenantId);
         await options.UpdateChoiceAsync(salmonId, new UpdateOptionChoiceCommand("Salmon", Price: 5m));
 
-        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var stale = () => h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         var drift = (await stale.Should().ThrowAsync<BoxCheckoutDriftException>()).Which;
         drift.Refreshed.Changes.Should().Contain(c => c.Reason == "price-changed" && c.PriceDelta == 2m,
             "adjustment moved 3 → 5");
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
         result.Total.Should().Be(95m + 5m);
     }
 
@@ -325,7 +325,7 @@ public class BoxAddOnTests
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
         await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 2), access);
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card"), access);
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
 
         // Goods: box 95 + extras 7 = 102 (X7).
         result.Total.Should().Be(102m);

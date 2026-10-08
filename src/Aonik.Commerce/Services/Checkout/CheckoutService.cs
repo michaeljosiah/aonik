@@ -2,9 +2,11 @@
 
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
@@ -30,6 +32,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly ITenantProvider _tenantProvider;
     private readonly IBoxCheckoutSupport _boxCheckout;
     private readonly GuestOrderAccess _guestOrders;
+    private readonly IFulfilmentPromiseService _fulfilment;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -41,7 +44,8 @@ internal sealed class CheckoutService : ICheckoutService
         ITaxCalculator tax,
         ITenantProvider tenantProvider,
         IBoxCheckoutSupport boxCheckout,
-        GuestOrderAccess guestOrders)
+        GuestOrderAccess guestOrders,
+        IFulfilmentPromiseService fulfilment)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -53,6 +57,7 @@ internal sealed class CheckoutService : ICheckoutService
         _tenantProvider = tenantProvider;
         _boxCheckout = boxCheckout;
         _guestOrders = guestOrders;
+        _fulfilment = fulfilment;
     }
 
     private static readonly JsonSerializerOptions EnvelopeSerializerOptions =
@@ -110,6 +115,20 @@ internal sealed class CheckoutService : ICheckoutService
         if (string.IsNullOrWhiteSpace(command.PaymentMethodType))
         {
             throw new ArgumentException("A payment method type is required to check out.", nameof(command));
+        }
+
+        // Dedicated boxes ship; generic Commerce clients can still sell nonshipping goods.
+        // Replay above deliberately preserves the original snapshot even after calendar edits.
+        if (command.Delivery is null && cart.BoxBundleProductId is not null)
+            throw new StorefrontValidationException("Delivery details are required for a box checkout.");
+        OrderDeliveryDto? delivery = null;
+        if (command.Delivery is { } submittedDelivery)
+        {
+            var details = CheckoutDeliveryValidator.NormalizeAndValidate(submittedDelivery);
+            var selected = await _fulfilment.ValidateDeliveryDateAsync(details.DeliveryDate, cancellationToken);
+            delivery = new OrderDeliveryDto(details.Purchaser, details.Address, selected.DeliveryDate,
+                selected.Timezone, details.Recipient ?? new DeliveryRecipientDto(
+                    $"{details.Purchaser.FirstName} {details.Purchaser.LastName}", details.Purchaser.Phone), details.Notes);
         }
 
         // Spec 068 §9 — a box cart re-validates everything BEFORE reservation: drift stops the
@@ -359,13 +378,19 @@ internal sealed class CheckoutService : ICheckoutService
             PaymentClientSecret = intent.ClientSecret,
             PaymentCheckoutUrl = intent.CheckoutUrl,
         });
+        if (delivery is not null)
+            _dbContext.OrderDeliveryDetails.Add(OrderDeliveryMapper.Create(tenantId, order.Id, delivery));
         cart.OrderId = order.Id;
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateException exception)
         {
+            // Inventory shares this context in production. Never let its cleanup SaveChanges
+            // flush this attempt's rejected cart claim or order snapshots a second time.
+            DiscardAttemptedCheckoutWrites(cart, order.Id);
+
             // Who won the cart row? Two checkouts share the SAME order via the cart-scoped
             // idempotency key — if the fresh cart already carries THIS order id, the other
             // request was a checkout, its claim stands, and cancelling "our" order would cancel
@@ -376,7 +401,9 @@ internal sealed class CheckoutService : ICheckoutService
             {
                 var recorded = await _dbContext.OrderChargeSummaries.AsNoTracking()
                     .FirstOrDefaultAsync(s => s.OrderId == order.Id && s.TenantId == tenantId, cancellationToken);
-                if (recorded is not null)
+                var deliveryRecorded = fresh.BoxBundleProductId is null || await _dbContext.OrderDeliveryDetails.AsNoTracking()
+                    .AnyAsync(d => d.TenantId == tenantId && d.OrderId == order.Id, cancellationToken);
+                if (recorded is not null && deliveryRecorded)
                 {
                     // This request's extra unfunded intent expires on its own; the winner's hold,
                     // summary and selection rows are the durable truth.
@@ -386,7 +413,14 @@ internal sealed class CheckoutService : ICheckoutService
                         recorded.Currency, recorded.PaymentClientSecret, recorded.PaymentCheckoutUrl,
                         GuestOrderToken(fresh));
                 }
+                // A claimed but incomplete winner is an integrity failure; never cancel it or
+                // replace its delivery details using this losing request.
+                throw;
             }
+
+            // The unique delivery index may reject an insert before the rowversion UPDATE.
+            // Without a complete winner, an ordinary database failure must remain a failure.
+            if (exception is not DbUpdateConcurrencyException) throw;
 
             // K4 — a cart EDIT committed between validation and this claim: the created order no
             // longer describes the cart. Unwind the durable side effects (the summary and
@@ -405,6 +439,16 @@ internal sealed class CheckoutService : ICheckoutService
             order.Id, invoiceId, intent.PaymentIntentId, intent.Status,
             subtotal, discount.Amount, tax, total, cart.Currency, intent.ClientSecret, intent.CheckoutUrl,
             GuestOrderToken(cart));
+    }
+
+    private void DiscardAttemptedCheckoutWrites(Entities.Cart.Cart cart, Guid orderId)
+    {
+        foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry => entry.State == EntityState.Added
+                     && (entry.Entity is OrderDeliveryDetails delivery && delivery.OrderId == orderId
+                         || entry.Entity is OrderChargeSummary charge && charge.OrderId == orderId
+                         || entry.Entity is OrderBundleSelection selection && selection.OrderId == orderId)).ToList())
+            entry.State = EntityState.Detached;
+        _dbContext.Entry(cart).State = EntityState.Detached;
     }
 
     private string? GuestOrderToken(Entities.Cart.Cart cart)

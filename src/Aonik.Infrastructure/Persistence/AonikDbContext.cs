@@ -125,6 +125,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
     public virtual DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
 
+    // Register before shared rowversion/filter configuration, rather than only during table mapping.
+    public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
+
     // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
     public virtual DbSet<Product> Products { get; set; } = null!;
 
@@ -166,6 +169,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<BundleSizePlan> BundleSizePlans { get; set; } = null!;
     public virtual DbSet<BundleSizePreset> BundleSizePresets { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar> FulfilmentCalendars { get; set; } = null!;
+    public virtual DbSet<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails> OrderDeliveryDetails { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
     public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
@@ -508,6 +512,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<BundleSizePlan>(modelBuilder, "BundleSizePlans");
         MapCommerceTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
         MapCommerceTable<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>(modelBuilder, "FulfilmentCalendars");
+        MapCommerceTable<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>(modelBuilder, "OrderDeliveryDetails");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");

@@ -18,12 +18,13 @@ public class GetAdminOrderStorefrontEndpoint : EndpointWithoutRequest<AdminOrder
     public override void Configure()
     {
         Get("/commerce/admin/orders/{orderId:guid}/storefront");
-        Policies("AdminUserPolicy");
+        Policies("AdminReadPolicy");
         Summary(s => s.Summary = "The full storefront detail of one order — the spine's generic read is bill-payment-shaped.");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        HttpContext.Response.Headers.CacheControl = "no-store";
         var detail = await _admin.GetOrderStorefrontAsync(Route<Guid>("orderId"), ct);
         if (detail is null)
         {

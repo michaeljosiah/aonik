@@ -24,5 +24,8 @@ public class GetPartyStorefrontEndpoint : EndpointWithoutRequest<AdminPartyStore
     }
 
     public override async Task HandleAsync(CancellationToken ct)
-        => await Send.OkAsync(await _admin.GetPartyStorefrontAsync(Route<Guid>("partyId"), ct), ct);
+    {
+        HttpContext.Response.Headers.CacheControl = "no-store";
+        await Send.OkAsync(await _admin.GetPartyStorefrontAsync(Route<Guid>("partyId"), ct), ct);
+    }
 }

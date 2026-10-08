@@ -1,7 +1,10 @@
 ﻿using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Promotions;
 using CatalogEntities = Aonik.Commerce.Entities.Catalog;
@@ -39,6 +42,11 @@ internal sealed class BoxTestHarness
 
     public FakeBoxPaymentInitiator Payments { get; } = new();
     public GuestOrderAccess GuestOrderAccess { get; } = new(new EphemeralDataProtectionProvider());
+
+    public static CheckoutDeliveryDetails ValidDelivery => new(
+        new CheckoutContactDto("purchaser@example.test", "Pat", "Customer", "+44 7700 900123"),
+        new DeliveryAddressDto("1 Test Street", null, "London", null, "SW1A 1AA", "GB"),
+        new DateOnly(2026, 6, 25));
 
     /// <summary>Tenant-scoped delivery settings for quote/checkout tests; empty = defaults (0/0).</summary>
     public Dictionary<string, string> Settings { get; } = new(StringComparer.Ordinal);
@@ -83,7 +91,8 @@ internal sealed class BoxTestHarness
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
-            new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess);
+            new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess,
+            new FulfilmentPromiseService(ctx, _tenant, _clock));
     }
 
     public CartMaintenanceService Maintenance() => new(
@@ -108,6 +117,13 @@ internal sealed class BoxTestHarness
 
         var ctx = Commerce();
         var builder = new OptionCatalogueBuilder(ctx, _tenantId);
+        ctx.FulfilmentCalendars.Add(new FulfilmentCalendar
+        {
+            TenantId = _tenantId, Timezone = "Europe/London", IsActive = true,
+            DeliveryDaysJson = "[\"thursday\"]", LeadDays = 7,
+            CutoffLocalTime = new TimeOnly(23, 59)
+        });
+        await ctx.SaveChangesAsync();
         await builder.BuildCatalogueAsync();
 
         var variants = new Dictionary<string, Guid>(StringComparer.Ordinal);

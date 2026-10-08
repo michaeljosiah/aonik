@@ -20,12 +20,14 @@ public record CreateProductionOrderCommand(
 /// <summary>Seeds a production run from the Spec 055 production sheet for a UTC window (half-open
 /// [FromUtc, ToUtc)). Sheet variants WITHOUT an active recipe are skipped and reported — the sheet
 /// legitimately contains them, so they surface as <c>SkippedVariants</c>, never a silent drop.
-/// <see cref="PlannedFor"/> defaults to <see cref="FromUtc"/>.</summary>
+/// <see cref="PlannedFor"/> defaults to <see cref="FromUtc"/>. Alternatively supply DeliveryDate
+/// without UTC bounds; that mode requires an explicit PlannedFor cooking time.</summary>
 public record CreateFromProductionSheetCommand(
-    DateTime FromUtc,
-    DateTime ToUtc,
+    DateTime? FromUtc = null,
+    DateTime? ToUtc = null,
     DateTime? PlannedFor = null,
-    string? Notes = null);
+    string? Notes = null,
+    DateOnly? DeliveryDate = null);
 
 /// <summary>The actual portions a line produced (Spec 056 §10); 0 records a failed batch.</summary>
 public record ProducedQuantityLine(Guid ProductionOrderLineId, decimal ProducedQuantity);
