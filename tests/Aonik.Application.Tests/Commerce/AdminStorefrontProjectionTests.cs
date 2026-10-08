@@ -85,6 +85,13 @@ public class AdminStorefrontProjectionTests
         (await admin.ListOrdersAsync()).Items.Single().PaymentStatus
             .Should().NotBe(CheckoutPaymentStatuses.Captured,
                 "a different intent's capture says nothing about this checkout's charge");
+        await using (var untouched = h.Commerce())
+        {
+            (await untouched.Carts.SingleAsync()).Status.Should().Be("Open");
+            (await untouched.InventoryReservations.ToListAsync()).Should().OnlyContain(reservation => reservation.Status == "Held");
+        }
+        await using (var untouchedOrder = h.Ordering())
+            (await untouchedOrder.Orders.SingleAsync()).Status.Should().Be("Draft");
 
         // Payment completion must converge the DURABLE funding record the
         // projection reads — the at-creation provider status is not the truth

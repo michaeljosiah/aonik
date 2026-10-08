@@ -2,12 +2,15 @@ using Azure;
 using Azure.Communication.Email;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Aonik.Platform.Contracts.Services.Messaging;
-using Aonik.Infrastructure.Communication.Configuration;
-using Aonik.Platform.Services.Settings;
-using Aonik.SharedKernel.Abstractions.Settings;
-using EmailMessage = Aonik.Platform.Contracts.Services.Messaging.EmailMessage;
 
+using Aonik.Infrastructure.Communication.Configuration;
+using Aonik.Infrastructure.Settings;
+using Aonik.Platform.Contracts.Services.Messaging;
+using Aonik.Platform.Services.Settings;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
+
+using EmailMessage = Aonik.Platform.Contracts.Services.Messaging.EmailMessage;
 
 namespace Aonik.Infrastructure.Communication;
 
@@ -18,19 +21,24 @@ public class AzureCommunicationEmailSender : IEmailSender
     private const string LegacyAzureEmailFromAddress = "Communication.Azure.Email.FromAddress";
 
     private readonly ISettingProvider _settingProvider;
+    private readonly TenantFirstSettingReader _settings;
     private readonly CommunicationOptions _options;
     private readonly ILogger<AzureCommunicationEmailSender> _logger;
 
     public AzureCommunicationEmailSender(
         ISettingProvider settingProvider,
         IOptions<CommunicationOptions> options,
-        ILogger<AzureCommunicationEmailSender> logger)
+        ILogger<AzureCommunicationEmailSender> logger,
+        ITenantSettingStore tenantSettings,
+        ITenantProvider tenantProvider)
     {
         _settingProvider = settingProvider;
+        _settings = new TenantFirstSettingReader(tenantSettings, settingProvider, tenantProvider);
         _options = options.Value;
         _logger = logger;
     }
 
+    /// <summary>Legacy options-only probe; SendAsync resolves current tenant/stored settings independently.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.Azure.ConnectionString);
 
     public string ProviderName => "AzureCommunicationServices";
@@ -62,14 +70,14 @@ public class AzureCommunicationEmailSender : IEmailSender
         EmailClient client;
         try
         {
-            client = new EmailClient(settings.ConnectionString);
+            client = CreateClient(settings.ConnectionString);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogWarning(ex, "Azure Communication email client could not be initialized. Email sending will be unavailable.");
+            _logger.LogWarning("Azure Communication email client could not be initialized. Check the configured connection string.");
             throw new MessagingNotConfiguredException(
                 channel: "Email",
-                reason: $"Azure Communication email client failed to initialise: {ex.Message}");
+                reason: "Azure Communication email client could not be initialized. Check the configured connection string.");
         }
 
         var fromAddress = string.IsNullOrWhiteSpace(message.From)
@@ -95,44 +103,28 @@ public class AzureCommunicationEmailSender : IEmailSender
 
         var emailMessage = new Azure.Communication.Email.EmailMessage(fromAddress, recipients, content);
 
-        await client.SendAsync(WaitUntil.Completed, emailMessage, cancellationToken);
+        var operation = await client.SendAsync(WaitUntil.Completed, emailMessage, cancellationToken);
 
-        _logger.LogInformation("Sent email to {Recipient}", message.To);
+        // Provider completion means acceptance for delivery, not arrival in the recipient's mailbox.
+        _logger.LogInformation("Email provider operation {OperationId} completed with status {Status}.",
+            operation.Id, operation.Value.Status);
     }
+
+    protected virtual EmailClient CreateClient(string connectionString) => new(connectionString);
 
     private async Task<AzureEmailRuntimeSettings> ResolveSettingsAsync(CancellationToken cancellationToken)
     {
-        var activeProvider = await _settingProvider.GetAsync(CommunicationSettingNames.EmailProvider, cancellationToken)
+        var activeProvider = await _settings.ReadAsync(CommunicationSettingNames.EmailProvider, cancellationToken)
                              ?? DefaultActiveProvider;
-        var connectionString = await GetFirstConfiguredValueAsync(
-            cancellationToken,
-            CommunicationSettingNames.EmailAzureConnectionString,
-            LegacyAzureConnectionString);
-        var fromAddress = await GetFirstConfiguredValueAsync(
-            cancellationToken,
-            CommunicationSettingNames.EmailAzureFromAddress,
-            LegacyAzureEmailFromAddress);
+        var connectionString = await _settings.ReadAsync(CommunicationSettingNames.EmailAzureConnectionString, cancellationToken)
+                               ?? await _settingProvider.GetAsync(LegacyAzureConnectionString, cancellationToken);
+        var fromAddress = await _settings.ReadAsync(CommunicationSettingNames.EmailAzureFromAddress, cancellationToken)
+                          ?? await _settingProvider.GetAsync(LegacyAzureEmailFromAddress, cancellationToken);
 
         return new AzureEmailRuntimeSettings(
             activeProvider,
             string.IsNullOrWhiteSpace(connectionString) ? _options.Azure.ConnectionString : connectionString,
             string.IsNullOrWhiteSpace(fromAddress) ? _options.Azure.Email.FromAddress : fromAddress);
-    }
-
-    private async Task<string?> GetFirstConfiguredValueAsync(
-        CancellationToken cancellationToken,
-        params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            var value = await _settingProvider.GetAsync(key, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
-
-        return null;
     }
 
     private sealed record AzureEmailRuntimeSettings(

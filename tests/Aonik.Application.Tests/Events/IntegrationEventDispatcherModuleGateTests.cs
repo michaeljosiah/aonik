@@ -105,6 +105,88 @@ public class IntegrationEventDispatcherModuleGateTests
         recording.Received.Should().ContainSingle();
     }
 
+    [Fact]
+    public async Task DispatchAsync_Should_RetryFailedEmail_ThenSuppressRedeliveryAfterInboxCommit()
+    {
+        var orderId = Guid.NewGuid();
+        var paymentId = Guid.NewGuid();
+        var calls = new List<string>();
+        var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
+        checkout.Setup(service => service.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("confirm"))
+            .Returns(Task.CompletedTask);
+        var email = new Mock<IOrderConfirmationEmailService>(MockBehavior.Strict);
+        var emailAttempts = 0;
+        email.Setup(service => service.SendAsync(orderId, paymentId, It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                calls.Add("email");
+                return ++emailAttempts == 1
+                    ? Task.FromException(new InvalidOperationException("Email provider unavailable."))
+                    : Task.CompletedTask;
+            });
+        var recording = new RecordingHandler();
+        using var dbContext = CreateDbContext();
+        var dispatcher = CreateDispatcher(dbContext, checkout.Object, recording, reader: null, email: email.Object);
+        var message = CreateMessage(new PaymentCompletedEvent(TenantId, paymentId, orderId, 10m, "GBP"));
+
+        var first = () => dispatcher.DispatchAsync(message);
+        await first.Should().ThrowAsync<InvalidOperationException>().WithMessage("Email provider unavailable.");
+        dbContext.ChangeTracker.Entries<InboxMessage>().Should().BeEmpty();
+        await dbContext.SaveChangesAsync();
+        (await dbContext.Set<InboxMessage>().CountAsync()).Should().Be(0);
+        recording.Received.Should().BeEmpty();
+
+        await dispatcher.DispatchAsync(message);
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+        var inbox = await dbContext.Set<InboxMessage>().AsNoTracking().ToListAsync();
+        inbox.Should().HaveCount(2);
+        inbox.Should().ContainSingle(row => row.EventId == message.EventId
+            && row.HandlerName == typeof(CommercePaymentCompletedHandler).FullName);
+
+        await dispatcher.DispatchAsync(message);
+
+        calls.Should().Equal("confirm", "email", "confirm", "email");
+        checkout.Verify(service => service.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        email.Verify(service => service.SendAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        recording.Received.Should().ContainSingle();
+        (await dbContext.Set<InboxMessage>().CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_Should_NotSendEmail_WhenCheckoutConfirmationFails()
+    {
+        var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
+        checkout.Setup(service => service.ConfirmPaymentAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Order transition unavailable."));
+        var email = new Mock<IOrderConfirmationEmailService>(MockBehavior.Strict);
+        using var dbContext = CreateDbContext();
+        var dispatcher = CreateDispatcher(dbContext, checkout.Object, new RecordingHandler(), reader: null, email: email.Object);
+        var message = CreateMessage(new PaymentCompletedEvent(TenantId, Guid.NewGuid(), Guid.NewGuid(), 10m, "GBP"));
+
+        var dispatch = () => dispatcher.DispatchAsync(message);
+
+        await dispatch.Should().ThrowAsync<InvalidOperationException>().WithMessage("Order transition unavailable.");
+        email.VerifyNoOtherCalls();
+        dbContext.ChangeTracker.Entries<InboxMessage>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DispatchAsync_Should_NotConfirmOrSend_WhenPaymentHasNoOrder()
+    {
+        var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
+        var email = new Mock<IOrderConfirmationEmailService>(MockBehavior.Strict);
+        using var dbContext = CreateDbContext();
+        var dispatcher = CreateDispatcher(dbContext, checkout.Object, new RecordingHandler(), reader: null, email: email.Object);
+        var message = CreateMessage(new PaymentCompletedEvent(TenantId, Guid.NewGuid(), null, 10m, "GBP"));
+
+        await dispatcher.DispatchAsync(message);
+
+        checkout.VerifyNoOtherCalls();
+        email.VerifyNoOtherCalls();
+    }
+
     private static AonikDbContext CreateDbContext()
     {
         // EF Core caches one model per context type per internal service provider, and every other
@@ -129,11 +211,13 @@ public class IntegrationEventDispatcherModuleGateTests
         AonikDbContext dbContext,
         ICheckoutService checkout,
         RecordingHandler recording,
-        IModuleEnablementReader? reader)
+        IModuleEnablementReader? reader,
+        IOrderConfirmationEmailService? email = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(
-            new CommercePaymentCompletedHandler(checkout, NullLogger<CommercePaymentCompletedHandler>.Instance));
+            new CommercePaymentCompletedHandler(checkout, email ?? Mock.Of<IOrderConfirmationEmailService>(),
+                NullLogger<CommercePaymentCompletedHandler>.Instance));
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(recording);
         if (reader is not null)
             services.AddSingleton(reader);
