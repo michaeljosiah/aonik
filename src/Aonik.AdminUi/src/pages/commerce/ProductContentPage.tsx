@@ -343,7 +343,7 @@ export function ProductContentPage() {
   const stateOf = useCallback(
     (row: ContentStatusRowDto): ContentState =>
       deriveContentState(
-        row.hasBlock ? { ingredients: row.hasDeclarations ? 'authored' : null, allergens: null } : null,
+        row.hasBlock ? { ingredients: row.hasDeclarations ? 'authored' : null, allergensPresent: null } : null,
         row.isStale,
       ),
     [],

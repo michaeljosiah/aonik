@@ -482,6 +482,8 @@ function signatureOf(variant: ProductContentVariantDto): string {
     variant.nutrition,
     variant.ingredients,
     variant.allergens,
+    variant.allergensPresent,
+    variant.precautionaryStatement,
     variant.heating,
     variant.isActive,
   ]);

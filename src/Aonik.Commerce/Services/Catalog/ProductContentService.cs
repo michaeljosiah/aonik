@@ -73,22 +73,25 @@ internal sealed class ProductContentService : IProductContentService
         if (variant is not null && string.Equals(variant.SelectionJson, canonical, StringComparison.Ordinal))
         {
             var heating = ParseHeatingLenient(variant.HeatingJson);
+            var allergens = ParseAllergens(variant.AllergensPresentJson);
             return new ResolvedContentDto(
                 variant.ServingLabel,
                 NutritionOf(variant),
                 variant.Ingredients,
-                variant.Allergens,
+                FormatAllergens(allergens),
                 // ANY missing declaration is withheld: a half-published pair (ingredients
                 // authored, allergens not) must still show the not-yet-published state — the
                 // absent ALLERGEN line is the dangerous half.
-                DeclarationsWithheld: variant.Ingredients is null || variant.Allergens is null,
+                DeclarationsWithheld: variant.Ingredients is null || allergens is null,
                 heating ?? [],
                 HeatingWithheld: heating is null,
                 IsStandardPreparation: false,
                 IsStale: false,
                 canonical,
                 variant.SelectionJson,
-                content.ContentVersion);
+                content.ContentVersion,
+                allergens,
+                allergens is null ? null : variant.PrecautionaryStatement);
         }
 
         // Steps 4–6 — no variant: diff against the CURRENT all-defaults selection. Canonical
@@ -112,20 +115,23 @@ internal sealed class ProductContentService : IProductContentService
         // Null = the stored JSON failed to parse (legacy damage): corrupted heating is WITHHELD,
         // never presented as an explicitly authored "no heating required".
         var blockHeating = ParseHeatingLenient(content.HeatingJson);
+        var blockAllergens = withhold ? null : ParseAllergens(content.AllergensPresentJson);
 
         return new ResolvedContentDto(
             content.ServingLabel,
             NutritionOf(content),
             withhold ? null : content.Ingredients,
-            withhold ? null : content.Allergens,
-            DeclarationsWithheld: withhold || content.Ingredients is null || content.Allergens is null,
+            FormatAllergens(blockAllergens),
+            DeclarationsWithheld: withhold || content.Ingredients is null || blockAllergens is null,
             withhold || blockHeating is null ? [] : blockHeating,
             HeatingWithheld: withhold || blockHeating is null,
             isStandardPreparation,
             isStale,
             canonical,
             MatchedVariantSelectionJson: null,
-            content.ContentVersion);
+            content.ContentVersion,
+            blockAllergens,
+            blockAllergens is null ? null : content.PrecautionaryStatement);
     }
 
     // ─── Authoring (§7/§9) ───────────────────────────────────────────────────
@@ -144,6 +150,8 @@ internal sealed class ProductContentService : IProductContentService
         var heatingJson = NormalizeHeatingJson(command.HeatingJson) ?? "[]";
         var ingredients = NormalizeDeclaration(command.Ingredients);
         var allergens = NormalizeDeclaration(command.Allergens);
+        var allergensPresentJson = NormalizeAllergens(command.AllergensPresent);
+        var precautionaryStatement = NormalizePrecaution(command.PrecautionaryStatement);
 
         // Captured OUTSIDE the write: the all-defaults binding the block will describe.
         return await RunContentWriteAsync(tenantId, productId, requireExisting: false, async (content, ct2) =>
@@ -210,6 +218,8 @@ internal sealed class ProductContentService : IProductContentService
             content.SaltGrams = AtColumnScale(command.SaltGrams);
             content.Ingredients = ingredients;
             content.Allergens = allergens;
+            content.AllergensPresentJson = allergensPresentJson;
+            content.PrecautionaryStatement = precautionaryStatement;
             content.HeatingJson = heatingJson;
             content.DescribesSelectionJson = allDefaults;   // re-captures the binding (§6)
             content.RequiresReview = false;
@@ -268,6 +278,8 @@ internal sealed class ProductContentService : IProductContentService
         ValidateServingLabel(command.ServingLabel);
         ValidateFigures(FiguresOf(command));
         var heatingJson = NormalizeHeatingJson(command.HeatingJson);
+        var allergensPresentJson = NormalizeAllergens(command.AllergensPresent);
+        var precautionaryStatement = NormalizePrecaution(command.PrecautionaryStatement);
 
         ProductContentVariant? result = null;
         await RunContentWriteAsync(tenantId, productId, requireExisting: true, async (content, ct2) =>
@@ -319,7 +331,7 @@ internal sealed class ProductContentService : IProductContentService
                 // Re-authoring a retired combination revives its row (the unique index spans
                 // retired rows precisely so this path exists).
                 existing.IsActive = true;
-                Apply(existing, command, heatingJson);
+                Apply(existing, command, heatingJson, allergensPresentJson, precautionaryStatement);
                 result = existing;
             }
             else
@@ -332,7 +344,7 @@ internal sealed class ProductContentService : IProductContentService
                     SelectionJson = canonical,
                     SelectionHash = hash,
                 };
-                Apply(variant, command, heatingJson);
+                Apply(variant, command, heatingJson, allergensPresentJson, precautionaryStatement);
                 _dbContext.ProductContentVariants.Add(variant);
                 result = variant;
             }
@@ -357,6 +369,8 @@ internal sealed class ProductContentService : IProductContentService
         ValidateServingLabel(command.ServingLabel);
         ValidateFigures(FiguresOf(command));
         var heatingJson = NormalizeHeatingJson(command.HeatingJson);
+        var allergensPresentJson = NormalizeAllergens(command.AllergensPresent);
+        var precautionaryStatement = NormalizePrecaution(command.PrecautionaryStatement);
 
         await RunContentWriteAsync(tenantId, variant.ProductId, requireExisting: true, async (content, ct2) =>
         {
@@ -409,7 +423,7 @@ internal sealed class ProductContentService : IProductContentService
                 variant.SelectionHash = hash;
             }
 
-            Apply(variant, command, heatingJson);
+            Apply(variant, command, heatingJson, allergensPresentJson, precautionaryStatement);
             return content!;
         }, ct, _ => true);
 
@@ -682,7 +696,9 @@ internal sealed class ProductContentService : IProductContentService
     private static NutritionDto NutritionOf(ProductContentVariant v) => new(
         v.Kcal, v.ProteinGrams, v.CarbsGrams, v.FatGrams, v.FibreGrams, v.SugarsGrams, v.SaltGrams);
 
-    private static void Apply(ProductContentVariant variant, UpsertContentVariantCommand command, string? heatingJson)
+    private static void Apply(
+        ProductContentVariant variant, UpsertContentVariantCommand command, string? heatingJson,
+        string? allergensPresentJson, string? precautionaryStatement)
     {
         variant.ServingLabel = command.ServingLabel.Trim();
         variant.Kcal = AtColumnScale(command.Kcal);
@@ -694,6 +710,8 @@ internal sealed class ProductContentService : IProductContentService
         variant.SaltGrams = AtColumnScale(command.SaltGrams);
         variant.Ingredients = NormalizeDeclaration(command.Ingredients);
         variant.Allergens = NormalizeDeclaration(command.Allergens);
+        variant.AllergensPresentJson = allergensPresentJson;
+        variant.PrecautionaryStatement = precautionaryStatement;
         variant.HeatingJson = heatingJson;
     }
 
@@ -705,6 +723,49 @@ internal sealed class ProductContentService : IProductContentService
     /// allergen information — the storefront would suppress its unpublished warning.</summary>
     private static string? NormalizeDeclaration(string? text)
         => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    private static string? NormalizeAllergens(IReadOnlyList<RegulatedAllergen>? allergens)
+    {
+        if (allergens is null) return null;
+        if (allergens.Any(allergen => !Enum.IsDefined(allergen)))
+            throw new StorefrontValidationException("Allergens must use the 14 regulated allergen values.");
+        return JsonSerializer.Serialize(allergens.Distinct().OrderBy(allergen => allergen));
+    }
+
+    private static IReadOnlyList<RegulatedAllergen>? ParseAllergens(string? json)
+    {
+        if (json is null) return null;
+        try
+        {
+            var allergens = JsonSerializer.Deserialize<RegulatedAllergen[]>(json);
+            // Corrupt/unknown stored values must not become a reviewed empty declaration.
+            return allergens is null || allergens.Any(allergen => !Enum.IsDefined(allergen))
+                ? null : allergens.Distinct().OrderBy(allergen => allergen).ToArray();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? NormalizePrecaution(string? statement)
+    {
+        var normalized = NormalizeDeclaration(statement);
+        if (normalized?.Length > 2000)
+            throw new StorefrontValidationException("Precautionary statement must be at most 2000 characters.");
+        return normalized;
+    }
+
+    private static string? FormatAllergens(IReadOnlyList<RegulatedAllergen>? allergens)
+        => allergens is null ? null : allergens.Count == 0
+            ? "None of the 14 regulated allergens declared"
+            : string.Join(", ", allergens.Select(allergen => allergen switch
+            {
+                RegulatedAllergen.CerealsContainingGluten => "Cereals containing gluten",
+                RegulatedAllergen.SulphurDioxideAndSulphites => "Sulphur dioxide and sulphites",
+                RegulatedAllergen.TreeNuts => "Tree nuts",
+                _ => allergen.ToString()
+            }));
 
     private static string? NormalizeHeatingJson(string? heatingJson)
     {
@@ -863,7 +924,7 @@ internal sealed class ProductContentService : IProductContentService
                     || block.FibreGrams is not null || block.SugarsGrams is not null
                     || block.SaltGrams is not null),
                 hasBlock && (!string.IsNullOrWhiteSpace(block!.Ingredients)
-                    || !string.IsNullOrWhiteSpace(block.Allergens))));
+                    || ParseAllergens(block.AllergensPresentJson) is not null)));
         }
 
         return new Contracts.Models.Catalog.PagedResult<ContentStatusRowDto>(rows, totalCount, page, pageSize);
@@ -883,7 +944,9 @@ internal sealed class ProductContentService : IProductContentService
         c.DescribesSelectionJson,
         c.RequiresReview,
         c.ContentVersion,
-        BlockSignatureOf(c));
+        BlockSignatureOf(c),
+        ParseAllergens(c.AllergensPresentJson),
+        c.PrecautionaryStatement);
 
     /// <summary>The authored fields, as a comparable token — see ProductContentDto.BlockSignature.
     ///
@@ -898,6 +961,8 @@ internal sealed class ProductContentService : IProductContentService
         Figure(c.FibreGrams), Figure(c.SugarsGrams), Figure(c.SaltGrams),
         c.Ingredients,
         c.Allergens,
+        c.AllergensPresentJson,
+        c.PrecautionaryStatement,
         c.HeatingJson,
     });
 
@@ -969,5 +1034,7 @@ internal sealed class ProductContentService : IProductContentService
         v.Ingredients,
         v.Allergens,
         ParseHeatingLenient(v.HeatingJson),
-        v.IsActive);
+        v.IsActive,
+        ParseAllergens(v.AllergensPresentJson),
+        v.PrecautionaryStatement);
 }

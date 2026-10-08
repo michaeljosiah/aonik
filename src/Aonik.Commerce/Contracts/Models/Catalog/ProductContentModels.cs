@@ -23,7 +23,9 @@ public record ResolvedContentDto(
     bool IsStale,
     string CanonicalSelectionJson,
     string? MatchedVariantSelectionJson,
-    int ContentVersion);
+    int ContentVersion,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 /// <summary>Published figures with nulls preserved — a tenant that publishes no sugars figure
 /// serves null, never zero.</summary>
@@ -60,7 +62,9 @@ public record ProductContentDto(
     /// variant create/edit/retire bumps it while the block's own text is untouched — versioning
     /// the row fabricates conflicts for unrelated writes. This changes when, and only when,
     /// something a person authored on the block changes.</summary>
-    string BlockSignature);
+    string BlockSignature,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 public record ProductContentVariantDto(
     Guid Id,
@@ -71,7 +75,9 @@ public record ProductContentVariantDto(
     string? Ingredients,
     string? Allergens,
     IReadOnlyList<HeatingStepDto>? Heating,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 public record UpsertProductContentCommand(
     string ServingLabel,
@@ -84,7 +90,9 @@ public record UpsertProductContentCommand(
     decimal? SaltGrams = null,
     string? Ingredients = null,
     string? Allergens = null,
-    string? HeatingJson = null);
+    string? HeatingJson = null,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 /// <summary>Variant authoring. <see cref="SelectionJson"/> may be partial — it is normalised
 /// through Spec 066 (omitted groups filled with the then-current defaults) and stored complete.
@@ -101,7 +109,9 @@ public record UpsertContentVariantCommand(
     decimal? SaltGrams = null,
     string? Ingredients = null,
     string? Allergens = null,
-    string? HeatingJson = null);
+    string? HeatingJson = null,
+    IReadOnlyList<RegulatedAllergen>? AllergensPresent = null,
+    string? PrecautionaryStatement = null);
 
 // ─── Coverage (Spec 067 §8) ─────────────────────────────────────────────────
 

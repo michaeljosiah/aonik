@@ -72,6 +72,8 @@ builder.Services.AddFastEndpoints(o =>
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
+    // The general converter accepts comma-separated enum names, which can silently merge allergens.
+    options.SerializerOptions.Converters.Add(new Aonik.Commerce.Contracts.Models.Catalog.RegulatedAllergenJsonConverter());
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 

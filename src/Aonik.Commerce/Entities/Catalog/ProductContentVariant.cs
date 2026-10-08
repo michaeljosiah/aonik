@@ -40,8 +40,14 @@ public class ProductContentVariant : AuditableEntity, ITenantScoped
     /// incident this spec exists to prevent.</summary>
     public string? Ingredients { get; set; }
 
-    /// <summary>Same explicit-or-withheld rule as <see cref="Ingredients"/>.</summary>
+    /// <summary>Legacy free text retained for admin review; never used as the published allergen list.</summary>
     public string? Allergens { get; set; }
+
+    /// <summary>Controlled allergen groups as JSON. Null = not reviewed; [] = reviewed, none declared.</summary>
+    public string? AllergensPresentJson { get; set; }
+
+    /// <summary>Authored only where justified by the kitchen's cross-contamination risk assessment.</summary>
+    public string? PrecautionaryStatement { get; set; }
 
     /// <summary>Same rule again: heating is option-dependent content too — a full portion served
     /// the light portion's timings is undercooked food, not a display nit (§4/§5).</summary>

@@ -265,7 +265,7 @@ public class ProductContentAuthoringTests
         // the not-yet-published state — the absent ALLERGEN line is the dangerous half. The
         // authored side still serves.
         var (content, productId, _, _) = await ArrangeAsync();
-        await WriteBlockAsync(content, productId, DefaultBlock() with { Allergens = null });
+        await WriteBlockAsync(content, productId, DefaultBlock() with { Allergens = null, AllergensPresent = null });
 
         var block = await content.ResolveAsync(productId, null);
         block!.Ingredients.Should().NotBeNull();
@@ -345,7 +345,7 @@ public class ProductContentAuthoringTests
         // no usable allergen information, suppressing the storefront's unpublished warning.
         var (content, productId, _, _) = await ArrangeAsync();
 
-        await WriteBlockAsync(content, productId, DefaultBlock() with { Ingredients = "  ", Allergens = "" });
+        await WriteBlockAsync(content, productId, DefaultBlock() with { Ingredients = "  ", Allergens = "", AllergensPresent = null });
 
         var resolved = await content.ResolveAsync(productId, null);
         resolved!.Ingredients.Should().BeNull();
@@ -556,7 +556,8 @@ public class ProductContentAuthoringTests
         "Light table 225g",
         Kcal: 450, ProteinGrams: 22, CarbsGrams: 60, FatGrams: 12,
         Ingredients: "Rice, tomato, prawn stock",
-        Allergens: "Crustaceans");
+        Allergens: "Crustaceans",
+        AllergensPresent: [RegulatedAllergen.Crustaceans]);
 
     private static UpsertContentVariantCommand Variant(string selectionJson, decimal kcal) => new(
         selectionJson, "Variant serving",

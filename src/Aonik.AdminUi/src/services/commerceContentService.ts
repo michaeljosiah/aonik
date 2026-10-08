@@ -13,6 +13,7 @@ import type {
   ContentStatusRowDto,
   ProductContentDto,
   ProductContentVariantDto,
+  RegulatedAllergen,
   ResolvedContentDto,
 } from '@/types/commerce';
 import { normalizeCommercePage } from '@/types/commerce';
@@ -33,6 +34,8 @@ export interface UpsertProductContentRequest {
   saltGrams?: number | null;
   ingredients?: string | null;
   allergens?: string | null;
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string | null;
   heatingJson?: string | null;
 }
 
@@ -69,6 +72,8 @@ export interface UpsertContentVariantRequest {
   saltGrams?: number | null;
   ingredients?: string | null;
   allergens?: string | null;
+  allergensPresent: RegulatedAllergen[] | null;
+  precautionaryStatement: string | null;
   heatingJson?: string | null;
 }
 

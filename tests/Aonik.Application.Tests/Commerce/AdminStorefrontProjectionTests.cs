@@ -310,7 +310,7 @@ public class AdminStorefrontProjectionTests
         published.HasDeclarations.Should().BeFalse("neither ingredients nor allergens were authored");
 
         await WriteBlockAsync(content, product, new UpsertProductContentCommand(
-            "Per serving", Kcal: 400, Allergens: "Contains celery"));
+            "Per serving", Kcal: 400, AllergensPresent: [RegulatedAllergen.Celery]));
         (await content.ListAdminStatusAsync()).Items.Single(r => r.ProductId == product)
             .HasDeclarations.Should().BeTrue();
     }

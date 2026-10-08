@@ -14,6 +14,8 @@ public class ProductContentVariantConfiguration : IEntityTypeConfiguration<Produ
         builder.Property(x => x.SelectionJson).IsRequired().HasColumnType("nvarchar(max)");
         builder.Property(x => x.Ingredients).HasColumnType("nvarchar(max)");
         builder.Property(x => x.Allergens).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.AllergensPresentJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.PrecautionaryStatement).HasMaxLength(2000);
         builder.Property(x => x.HeatingJson).HasColumnType("nvarchar(max)");
 
         // SHA-256 hex — always exactly 64 chars; the ONLY selection representation ever indexed.

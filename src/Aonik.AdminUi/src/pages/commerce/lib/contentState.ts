@@ -22,7 +22,7 @@ export type ContentState = 'none' | 'authored' | 'review' | 'withheld';
  * @param isStale The server's verdict. True means the resolver is withholding declarations.
  */
 export function deriveContentState(
-  block: Pick<ProductContentDto, 'ingredients' | 'allergens'> | null | undefined,
+  block: Pick<ProductContentDto, 'ingredients' | 'allergensPresent'> | null | undefined,
   isStale: boolean,
 ): ContentState {
   // NO BLOCK — not "no figures". A block whose figures are all null is still a block, and the
@@ -35,7 +35,7 @@ export function deriveContentState(
   if (isStale) return 'review';
 
   // Withheld means the declarations are absent, whatever the figures do.
-  if (block.ingredients === null && block.allergens === null) return 'withheld';
+  if (block.ingredients === null && block.allergensPresent == null) return 'withheld';
 
   return 'authored';
 }
