@@ -18,6 +18,7 @@ using FluentAssertions;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Aonik.Application.Tests.Commerce;
 
@@ -70,6 +71,7 @@ public class CheckoutServiceTests
         private readonly TestTenantProvider _tenant;
         private readonly TestCurrentUserProvider _user = new();
         private readonly CommerceTestHarness.TestClock _clock = new();
+        private readonly GuestOrderAccess _guestOrderAccess = new(new EphemeralDataProtectionProvider());
 
         public FakePaymentInitiator Payments { get; } = new();
         public FakeInvoiceWriter Invoices { get; } = new();
@@ -101,7 +103,7 @@ public class CheckoutServiceTests
 
         public CheckoutService Checkout() => new(
             Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
-            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts());
+            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess);
     }
 
     [Fact]

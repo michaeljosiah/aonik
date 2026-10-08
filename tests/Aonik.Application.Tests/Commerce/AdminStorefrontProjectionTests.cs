@@ -25,7 +25,7 @@ public class AdminStorefrontProjectionTests
         var ctx = h.Commerce();
         return new AdminStorefrontService(
             ctx, tenant, spine,
-            new StorefrontOrderService(h.Commerce(), tenant, spine),
+            new StorefrontOrderService(h.Commerce(), tenant, spine, h.GuestOrderAccess),
             CommerceTestHarness.NewOptionService(ctx, h.TenantId),
             CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
             h.Pricing(),

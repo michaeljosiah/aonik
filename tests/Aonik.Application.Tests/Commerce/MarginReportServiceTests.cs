@@ -27,6 +27,7 @@ using FluentAssertions;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Aonik.Application.Tests.Commerce;
 
@@ -70,6 +71,7 @@ public class MarginReportServiceTests
         private readonly string _orderingDb = $"margin_o_{Guid.NewGuid()}";
         private readonly TestTenantProvider _tenant;
         private readonly TestCurrentUserProvider _user = new();
+        private readonly GuestOrderAccess _guestOrderAccess = new(new EphemeralDataProtectionProvider());
 
         public Harness() => _tenant = new TestTenantProvider(_tenantId);
 
@@ -112,7 +114,7 @@ public class MarginReportServiceTests
                 new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock));
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
-                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts);
+                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess);
         }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);

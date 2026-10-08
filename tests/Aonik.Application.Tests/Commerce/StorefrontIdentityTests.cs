@@ -116,12 +116,7 @@ public class StorefrontIdentityTests
         var orderA2 = await CheckoutFor(partyA);
         var orderB = await CheckoutFor(partyB);
 
-        var orders = new StorefrontOrderService(h.Commerce(),
-            new Aonik.TestSupport.Multitenancy.TestTenantProvider(h.TenantId),
-            new Aonik.Ordering.Services.CoreOrderService(h.Ordering(),
-                new Aonik.TestSupport.Multitenancy.TestTenantProvider(h.TenantId),
-                new CommerceTestHarness.TestClock(),
-                new Aonik.TestSupport.Identity.TestCurrentUserProvider()));
+        var orders = h.StorefrontOrders();
 
         var mine = await orders.ListMyOrdersAsync(partyA);
         mine.TotalCount.Should().Be(2, "only the caller's own orders list");

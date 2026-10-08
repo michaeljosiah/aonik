@@ -29,6 +29,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly ITaxCalculator _tax;
     private readonly ITenantProvider _tenantProvider;
     private readonly IBoxCheckoutSupport _boxCheckout;
+    private readonly GuestOrderAccess _guestOrders;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -39,7 +40,8 @@ internal sealed class CheckoutService : ICheckoutService
         IDiscountService discounts,
         ITaxCalculator tax,
         ITenantProvider tenantProvider,
-        IBoxCheckoutSupport boxCheckout)
+        IBoxCheckoutSupport boxCheckout,
+        GuestOrderAccess guestOrders)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -50,6 +52,7 @@ internal sealed class CheckoutService : ICheckoutService
         _tax = tax;
         _tenantProvider = tenantProvider;
         _boxCheckout = boxCheckout;
+        _guestOrders = guestOrders;
     }
 
     private static readonly JsonSerializerOptions EnvelopeSerializerOptions =
@@ -87,7 +90,8 @@ internal sealed class CheckoutService : ICheckoutService
                 return new CheckoutResult(
                     existingOrderId, prior.InvoiceId, prior.PaymentIntentId, prior.PaymentStatus,
                     prior.Subtotal, prior.DiscountTotal, prior.TaxTotal, prior.Total, prior.Currency,
-                    prior.PaymentClientSecret, prior.PaymentCheckoutUrl);
+                    prior.PaymentClientSecret, prior.PaymentCheckoutUrl,
+                    GuestOrderToken(cart));
             }
         }
 
@@ -379,7 +383,8 @@ internal sealed class CheckoutService : ICheckoutService
                     return new CheckoutResult(
                         order.Id, recorded.InvoiceId, recorded.PaymentIntentId, recorded.PaymentStatus,
                         recorded.Subtotal, recorded.DiscountTotal, recorded.TaxTotal, recorded.Total,
-                        recorded.Currency, recorded.PaymentClientSecret, recorded.PaymentCheckoutUrl);
+                        recorded.Currency, recorded.PaymentClientSecret, recorded.PaymentCheckoutUrl,
+                        GuestOrderToken(fresh));
                 }
             }
 
@@ -398,8 +403,14 @@ internal sealed class CheckoutService : ICheckoutService
 
         return new CheckoutResult(
             order.Id, invoiceId, intent.PaymentIntentId, intent.Status,
-            subtotal, discount.Amount, tax, total, cart.Currency, intent.ClientSecret, intent.CheckoutUrl);
+            subtotal, discount.Amount, tax, total, cart.Currency, intent.ClientSecret, intent.CheckoutUrl,
+            GuestOrderToken(cart));
     }
+
+    private string? GuestOrderToken(Entities.Cart.Cart cart)
+        => cart.BuyerPartyId is null && cart.OrderId is { } orderId
+            ? _guestOrders.Issue(cart.TenantId, orderId)
+            : null;
 
     public async Task ConfirmPaymentAsync(Guid orderId, Guid? completedPaymentIntentId = null, CancellationToken cancellationToken = default)
     {
