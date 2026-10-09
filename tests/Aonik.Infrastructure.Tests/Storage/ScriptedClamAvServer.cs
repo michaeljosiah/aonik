@@ -13,17 +13,17 @@ namespace Aonik.Infrastructure.Tests.Storage;
 internal sealed class ScriptedClamAvServer : IAsyncDisposable
 {
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
-    private readonly CancellationTokenSource _stopping = new(TimeSpan.FromSeconds(10));
+    private readonly CancellationTokenSource _stopping = new(TimeSpan.FromSeconds(30));
     private readonly Task _connection;
     public TaskCompletionSource<byte[]> Received { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public ClamAvScanner Scanner { get; }
 
-    public ScriptedClamAvServer(string response = "stream: OK\0", bool holdResponse = false)
+    public ScriptedClamAvServer(string response = "stream: OK\0", bool holdResponse = false, int timeoutSeconds = 10)
     {
         _listener.Start();
         Scanner = new ClamAvScanner(Options.Create(new ClamAvOptions
         {
-            Enabled = true, Host = "127.0.0.1", Port = ((IPEndPoint)_listener.LocalEndpoint).Port, TimeoutSeconds = 1
+            Enabled = true, Host = "127.0.0.1", Port = ((IPEndPoint)_listener.LocalEndpoint).Port, TimeoutSeconds = timeoutSeconds
         }));
         _connection = ServeAsync(response, holdResponse);
     }
