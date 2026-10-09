@@ -21,6 +21,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -235,6 +236,115 @@ public class AccountAccessServiceTests
         (await h.Db.AccountAccessActions.CountAsync(x => x.Purpose == AccountAccessPurposes.EmailChange)).Should().Be(0);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Issue_Should_DeferTheEleventhPaidEmailDurably_AndDeliverAfterTheMailboxWindow(bool nextWindowAlreadyUsed)
+    {
+        using var h = new Harness();
+        for (var i = 0; i < 10; i++) await h.Service.IssueAsync(h.Request());
+        var request = h.Request();
+        await h.Service.IssueAsync(request);
+        await h.Service.IssueAsync(request);
+        var deferred = await h.Db.AccountAccessActions.AsNoTracking().SingleAsync(x => x.PaymentIntentId == request.PaymentIntentId);
+        deferred.SendCount.Should().Be(0);
+        deferred.DeliveryStartedAtUtc.Should().BeNull();
+        (await h.Db.Set<OutboxMessage>().CountAsync()).Should().Be(11);
+        var message = await h.Db.Set<OutboxMessage>().SingleAsync(x => x.NextAttemptAt != null);
+        message.NextAttemptAt.Should().Be(h.Clock.UtcNow.AddMinutes(15));
+        message.Payload.Should().Contain(deferred.Id.ToString()).And.NotContain(request.Email);
+        h.Email.Messages.Should().BeEmpty();
+
+        h.Clock.UtcNow = message.NextAttemptAt!.Value;
+        if (nextWindowAlreadyUsed)
+        {
+            for (var i = 0; i < 10; i++) await h.Service.IssueAsync(h.Request());
+            await h.Service.DeliverAsync(deferred.Id, deferred.Generation);
+            h.Email.Messages.Should().BeEmpty();
+            (await h.Db.AccountAccessActions.AsNoTracking().SingleAsync(x => x.Id == deferred.Id)).SendCount.Should().Be(0);
+            var rescheduled = await h.Db.Set<OutboxMessage>().SingleAsync(x => x.NextAttemptAt > h.Clock.UtcNow);
+            rescheduled.NextAttemptAt.Should().Be(h.Clock.UtcNow.AddMinutes(15));
+            h.Clock.UtcNow = rescheduled.NextAttemptAt!.Value;
+        }
+        await h.Service.DeliverAsync(deferred.Id, deferred.Generation);
+
+        var delivered = await h.Db.AccountAccessActions.AsNoTracking().SingleAsync(x => x.Id == deferred.Id);
+        delivered.SendCount.Should().Be(1);
+        delivered.DeliveryStartedAtUtc.Should().Be(h.Clock.UtcNow);
+        delivered.ExpiresAtUtc.Should().Be(h.Clock.UtcNow.AddMinutes(10));
+        h.Email.Messages.Should().HaveCount(1);
+        (await h.Service.ResolveAsync(h.Email.Token)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FailedEmailConsumption_Should_NotLeakReloadedUserOrActionIntoALaterSave()
+    {
+        var failure = new FailAccountSave();
+        using var h = new Harness(failure);
+        var proof = await h.CreateKnownUserAsync();
+        await h.Service.RequestEmailChangeAsync("new@example.test", proof);
+        var action = await h.Db.AccountAccessActions.SingleAsync(x => x.Purpose == AccountAccessPurposes.EmailChange);
+        await h.Service.DeliverAsync(action.Id, action.Generation);
+        _ = await h.Db.Users.SingleAsync();
+        _ = await h.Db.AccountAccessActions.SingleAsync(x => x.Id == action.Id);
+        var outboxCount = await h.Db.Set<OutboxMessage>().CountAsync();
+        failure.When = context => context.ChangeTracker.Entries<AccountAccessAction>()
+            .Any(x => x.Entity.Purpose == AccountAccessPurposes.EmailChange && x.Entity.Status == "Consumed");
+
+        (await h.Service.CompleteAsync(h.Email.Token, proof, AccountAccessPurposes.EmailChange)).Should().BeFalse();
+        failure.Triggered.Should().BeTrue();
+        h.Db.Roles.Add(new Role { TenantId = proof.TenantId, Name = "Unrelated save" });
+        await h.Db.SaveChangesAsync();
+
+        var user = await h.Db.Users.AsNoTracking().SingleAsync();
+        user.Email.Should().Be("paid@example.test");
+        user.IdentityRevision.Should().Be(0);
+        (await h.Db.AccountAccessActions.AsNoTracking().SingleAsync(x => x.Id == action.Id)).Status.Should().Be("Applying");
+        (await h.Db.PartyContacts.AsNoTracking().SingleAsync()).Value.Should().Be("paid@example.test");
+        (await h.Db.Set<OutboxMessage>().CountAsync()).Should().Be(outboxCount);
+    }
+
+    [Fact]
+    public async Task FailedReplacement_Should_PreservePreloadedPendingAction_WithoutLeakingItsNewOutbox()
+    {
+        var failure = new FailAccountSave();
+        using var h = new Harness(failure);
+        var proof = await h.CreateKnownUserAsync();
+        await h.Service.RequestEmailChangeAsync("first@example.test", proof);
+        var existing = await h.Db.AccountAccessActions.SingleAsync(x => x.Purpose == AccountAccessPurposes.EmailChange);
+        _ = await h.Db.Users.SingleAsync();
+        var outboxCount = await h.Db.Set<OutboxMessage>().CountAsync();
+        failure.When = context => context.ChangeTracker.Entries<AccountAccessAction>()
+            .Any(x => x.State == EntityState.Added && x.Entity.Email == "rejected@example.test");
+
+        await h.Service.RequestEmailChangeAsync("rejected@example.test", proof);
+        failure.Triggered.Should().BeTrue();
+        h.Db.Roles.Add(new Role { TenantId = proof.TenantId, Name = "Unrelated save" });
+        await h.Db.SaveChangesAsync();
+
+        (await h.Db.AccountAccessActions.AsNoTracking().SingleAsync(x => x.Purpose == AccountAccessPurposes.EmailChange))
+            .Status.Should().Be("Pending");
+        (await h.Db.AccountAccessActions.AnyAsync(x => x.Email == "rejected@example.test")).Should().BeFalse();
+        (await h.Db.Set<OutboxMessage>().CountAsync()).Should().Be(outboxCount);
+        (await h.Db.Users.AsNoTracking().SingleAsync()).Email.Should().Be("paid@example.test");
+    }
+
+    private sealed class FailAccountSave : SaveChangesInterceptor
+    {
+        public Func<DbContext, bool>? When { get; set; }
+        public bool Triggered { get; private set; }
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!Triggered && When?.Invoke(eventData.Context!) == true)
+            {
+                Triggered = true;
+                throw new DbUpdateException("Injected account write failure");
+            }
+            return ValueTask.FromResult(result);
+        }
+    }
+
     private sealed class Harness : IDisposable
     {
         public static string ValidConfiguration => JsonSerializer.Serialize(new AccountAccessConfiguration(true,
@@ -249,10 +359,12 @@ public class AccountAccessServiceTests
         public Mock<IUserSessionBlocklist> Blocklist { get; } = new();
         public AccountAccessService Service { get; }
 
-        public Harness()
+        public Harness(SaveChangesInterceptor? interceptor = null)
         {
-            Db = new PlatformDbContext(new DbContextOptionsBuilder<PlatformDbContext>()
-                .UseInMemoryDatabase("AccountAccess_" + Guid.NewGuid()).Options, Tenant, new TestCurrentUserProvider(), Clock);
+            var options = new DbContextOptionsBuilder<PlatformDbContext>()
+                .UseInMemoryDatabase("AccountAccess_" + Guid.NewGuid());
+            if (interceptor is not null) options.AddInterceptors(interceptor);
+            Db = new PlatformDbContext(options.Options, Tenant, new TestCurrentUserProvider(), Clock);
             var tenantSettings = new Mock<ITenantSettingStore>();
             tenantSettings.Setup(x => x.GetTenantValueAsync(AccountAccessSettingNames.Configuration, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => Configuration);

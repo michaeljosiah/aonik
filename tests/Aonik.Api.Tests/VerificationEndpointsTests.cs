@@ -127,8 +127,12 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
             .Value;
 
         tenantContext.TenantId = options.TenantId;
-
-
+        if (channel == VerificationChannel.Email)
+        {
+            // Verification confirms the recorded mailbox; changing it now requires the link flow.
+            var user = await dbContext.Users.FindAsync(options.UserId);
+            user!.Email = target.Trim().ToLowerInvariant();
+        }
         var challenge = new VerificationChallenge
         {
             TenantId = options.TenantId!.Value,

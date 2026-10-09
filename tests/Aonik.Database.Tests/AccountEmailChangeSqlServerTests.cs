@@ -222,7 +222,7 @@ public class AccountEmailChangeSqlServerTests(SqlLocalDbFixture database) : ICla
     {
         var tenantId = Guid.NewGuid();
         await using var context = Context(tenantId);
-        context.Tenants.Add(new Tenant { Id = tenantId, Name = "Email change SQL tests", Status = "Active" });
+        context.Tenants.Add(new Tenant { Id = tenantId, Name = $"Email change SQL tests {tenantId}", Status = "Active" });
         var user = new User
         {
             TenantId = tenantId, ExternalIssuer = Issuer, ExternalSubject = Subject, Email = OriginalEmail, Status = "Active"

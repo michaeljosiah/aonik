@@ -20,6 +20,7 @@ using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Events.Outbox;
 
 namespace Aonik.Platform.Services.Identity;
 
@@ -70,7 +71,8 @@ internal sealed class AccountAccessService(
                 GuestPartyId = request.GuestPartyId, Email = email, Generation = Guid.NewGuid(),
                 ExpiresAtUtc = clock.UtcNow.AddMinutes(10), SendWindowStartedAtUtc = clock.UtcNow
             };
-            await QueueWithinBudgetAsync(action, cancellationToken);
+            if (!await QueueWithinBudgetAsync(action, cancellationToken))
+                await QueueDeferredDeliveryAsync(action, cancellationToken);
             db.AccountAccessActions.Add(action);
             await db.SaveChangesAsync(cancellationToken);
             return true;
@@ -261,6 +263,14 @@ internal sealed class AccountAccessService(
             if (action.DeliveryStartedAtUtc is null)
             {
                 AttachAction(action);
+                // A paid action deferred at issuance has not spent a mailbox send yet.
+                // Acquire the budget under the same serializable transaction as delivery start.
+                if (action.SendCount == 0 && !await QueueWithinBudgetAsync(action, cancellationToken, enqueue: false))
+                {
+                    await QueueDeferredDeliveryAsync(action, cancellationToken);
+                    await db.SaveChangesAsync(cancellationToken);
+                    return false;
+                }
                 action.DeliveryStartedAtUtc = clock.UtcNow;
                 action.ExpiresAtUtc = clock.UtcNow.AddMinutes(10);
                 await db.SaveChangesAsync(cancellationToken);
@@ -283,7 +293,7 @@ internal sealed class AccountAccessService(
             }), cancellationToken);
     }
 
-    private async Task<bool> QueueWithinBudgetAsync(AccountAccessAction action, CancellationToken ct, bool rotate = false)
+    private async Task<bool> QueueWithinBudgetAsync(AccountAccessAction action, CancellationToken ct, bool rotate = false, bool enqueue = true)
     {
         var since = clock.UtcNow.AddMinutes(-15);
         var targetSends = await Actions().Where(x => x.Email == action.Email && x.SendWindowStartedAtUtc > since)
@@ -298,8 +308,22 @@ internal sealed class AccountAccessService(
             action.DeliveryStartedAtUtc = null;
             action.ExpiresAtUtc = clock.UtcNow.AddMinutes(10);
         }
-        db.EnqueueIntegrationEvent(new AccountAccessDeliveryRequestedEvent(action.TenantId, action.Id, action.Generation));
+        if (enqueue) db.EnqueueIntegrationEvent(new AccountAccessDeliveryRequestedEvent(action.TenantId, action.Id, action.Generation));
         return true;
+    }
+
+    private async Task QueueDeferredDeliveryAsync(AccountAccessAction action, CancellationToken ct)
+    {
+        var since = clock.UtcNow.AddMinutes(-15);
+        var firstWindow = await Actions().Where(x => x.Email == action.Email && x.SendCount > 0
+                && x.SendWindowStartedAtUtc > since)
+            .Select(x => (DateTime?)x.SendWindowStartedAtUtc).MinAsync(ct);
+        var pending = db.ChangeTracker.Entries<OutboxMessage>().Select(x => x.Entity)
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        db.EnqueueIntegrationEvent(new AccountAccessDeliveryRequestedEvent(action.TenantId, action.Id, action.Generation));
+        // Set the existing scheduling field on this exact newly enqueued row.
+        db.ChangeTracker.Entries<OutboxMessage>().Single(x => !pending.Contains(x.Entity)).Entity.NextAttemptAt
+            = (firstWindow ?? clock.UtcNow).AddMinutes(15);
     }
 
     private IQueryable<AccountAccessAction> Actions()
@@ -388,7 +412,7 @@ internal sealed class AccountAccessService(
     private async Task<bool> InTransactionAsync(Func<Task<bool>> operation, CancellationToken ct, bool conflictIsFalse = false)
     {
         // Retrying uses fresh instances; failed tracked writes must not leak into a later SaveChanges in this scope.
-        var initial = db.ChangeTracker.Entries().Select(x => x.Entity).ToHashSet();
+        var initial = db.ChangeTracker.Entries().Select(x => x.Entity).ToHashSet(ReferenceEqualityComparer.Instance);
         try
         {
             return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>

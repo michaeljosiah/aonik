@@ -18,6 +18,8 @@ Each generation expires ten minutes after its first delivery attempt and shares 
 
 `POST /identity/account-access/resend` accepts the original token and always returns an empty HTTP 202. An eligible expired action can rotate to a fresh generation; a consumed action cannot reopen. Delivery budgets are persisted: at most five sends per action and ten across the same normalized recipient in a fifteen-minute window. Email-change initiation also has a per-user budget. A shared tenant/client IP policy bounds requests before handlers; throttled resend/reset responses remain neutral.
 
+Paid actions that exhaust the recipient budget remain scheduled in the existing outbox for the next available window. Their link lifetime starts only when delivery begins. Privacy headers also cover authentication, tenant-resolution and malformed-request failures.
+
 The token uses the existing Data Protection keys and contains only action references. The database owns expiry, generation and consumption. Outbox payloads contain references, never email addresses or bearer capabilities. API and Worker must use the same persisted Data Protection key ring.
 
 ## Email changes and password reset

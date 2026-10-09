@@ -132,6 +132,7 @@ public class AccountAccessEndpointTests(AccountAccessWebApplicationFactory facto
         AssertPrivate(resolved);
         using var noBearer = await anonymous.PostAsJsonAsync(Root + "/complete", new { seeded.Token });
         noBearer.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        AssertPrivate(noBearer);
         await AssertNoUserAsync(seeded.TenantId);
 
         using var signedIn = Client(seeded.TenantId, Token(seeded.TenantId, "new-subject"));
@@ -177,6 +178,7 @@ public class AccountAccessEndpointTests(AccountAccessWebApplicationFactory facto
         });
         result.IsSuccessStatusCode.Should().BeFalse();
         result.StatusCode.Should().NotBe(HttpStatusCode.InternalServerError);
+        AssertPrivate(result);
         (await result.Content.ReadAsStringAsync()).Should().NotContain("paid@example.test")
             .And.NotContain("untrusted-subject").And.NotContain("claimed-subject");
         await AssertNoUserAsync(seeded.TenantId);
@@ -236,7 +238,24 @@ public class AccountAccessEndpointTests(AccountAccessWebApplicationFactory facto
         }
         using var scan = await client.GetAsync(Root + "/complete?token=" + Uri.EscapeDataString(seeded.Token));
         scan.IsSuccessStatusCode.Should().BeFalse();
+        AssertPrivate(scan);
         await AssertNoUserAsync(seeded.TenantId);
+    }
+
+    [Fact]
+    public async Task SensitiveRoutes_Should_RemainPrivate_WhenBindingOrTenantResolutionFails()
+    {
+        var seeded = await SeedAsync();
+        using var client = Client(seeded.TenantId);
+        using var malformed = await client.PostAsync(Root + "/resolve",
+            new StringContent("{", Encoding.UTF8, "application/json"));
+        malformed.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        AssertPrivate(malformed);
+
+        using var unknownTenant = Client(Guid.NewGuid());
+        using var rejected = await unknownTenant.PostAsJsonAsync(Root + "/resolve", new { seeded.Token });
+        rejected.IsSuccessStatusCode.Should().BeFalse();
+        AssertPrivate(rejected);
     }
 
     private async Task<(Guid TenantId, string Token)> SeedAsync()

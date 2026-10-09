@@ -54,8 +54,9 @@ public static class AonikAuthenticationSetup
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var authOptions = configuration.GetSection("Auth").Get<AuthOptions>()
+        AuthOptions ReadAuthOptions() => configuration.GetSection("Auth").Get<AuthOptions>()
             ?? throw new InvalidOperationException("Auth configuration is missing");
+        _ = ReadAuthOptions();
 
         services.AddHttpContextAccessor();
         services.Configure<AuthOptions>(configuration.GetSection("Auth"));
@@ -68,15 +69,18 @@ public static class AonikAuthenticationSetup
             })
             .AddPolicyScheme("Aonik", "Aonik", options =>
             {
+                var authOptions = ReadAuthOptions();
                 options.ForwardDefaultSelector = context => SelectScheme(context, authOptions);
             })
             .AddJwtBearer("AzureAd", options =>
             {
+                var authOptions = ReadAuthOptions();
                 ConfigureJwtBearerOptions(options, authOptions, "AzureAd");
                 ConfigureTokenValidationEvents(options, authOptions);
             })
             .AddJwtBearer("Auth0", options =>
             {
+                var authOptions = ReadAuthOptions();
                 ConfigureJwtBearerOptions(options, authOptions, "Auth0");
                 ConfigureTokenValidationEvents(options, authOptions);
             })
@@ -86,6 +90,7 @@ public static class AonikAuthenticationSetup
             // matches the configured realm authority.
             .AddJwtBearer("Keycloak", options =>
             {
+                var authOptions = ReadAuthOptions();
                 ConfigureJwtBearerOptions(options, authOptions, "Keycloak");
                 ConfigureTokenValidationEvents(options, authOptions);
             });
@@ -244,7 +249,16 @@ public static class AonikAuthenticationSetup
 
         Guid? tenantId = null;
 
-        tenantId = await tenantResolver.ResolveTenantIdAsync(context.HttpContext.RequestAborted);
+        // JwtBearer has validated this principal but has not installed it on HttpContext.User
+        // yet. Read its tenant claim here so a new paid claimant needs no prior user association.
+        if (authOptions.TenantRouting == TenantRoutingMode.Claim)
+        {
+            var tenantClaims = claims.Where(c => c.Type == "aonik_tenant_id").Take(2).ToArray();
+            if (tenantClaims.Length == 1 && Guid.TryParse(tenantClaims[0].Value, out var claimedTenant)
+                && claimedTenant != Guid.Empty)
+                tenantId = claimedTenant;
+        }
+        tenantId ??= await tenantResolver.ResolveTenantIdAsync(context.HttpContext.RequestAborted);
         if (tenantId == null)
         {
             tenantId = await tenantResolver.ResolveFromHttpContextAsync(context.HttpContext.RequestAborted);

@@ -147,7 +147,7 @@ public class AccountAccessSqlServerTests(SqlLocalDbFixture database) : IClassFix
         await using var context = Context(tenantId);
         if (addTenant)
         {
-            context.Tenants.Add(new Tenant { Id = tenantId, Name = "Account action SQL tests", Status = "Active" });
+            context.Tenants.Add(new Tenant { Id = tenantId, Name = $"Account action SQL tests {tenantId}", Status = "Active" });
             await context.SaveChangesAsync();
         }
         var emails = new CapturingEmailSender();
