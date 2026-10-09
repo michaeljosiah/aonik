@@ -18,13 +18,16 @@ internal sealed class CommercePaymentCompletedHandler : IEventHandler<PaymentCom
 {
     private readonly ICheckoutService _checkout;
     private readonly IOrderConfirmationEmailService _confirmationEmail;
+    private readonly IPaidCheckoutAccountAccessService _accountAccess;
     private readonly ILogger<CommercePaymentCompletedHandler> _logger;
 
     public CommercePaymentCompletedHandler(ICheckoutService checkout, IOrderConfirmationEmailService confirmationEmail,
+        IPaidCheckoutAccountAccessService accountAccess,
         ILogger<CommercePaymentCompletedHandler> logger)
     {
         _checkout = checkout;
         _confirmationEmail = confirmationEmail;
+        _accountAccess = accountAccess;
         _logger = logger;
     }
 
@@ -38,7 +41,10 @@ internal sealed class CommercePaymentCompletedHandler : IEventHandler<PaymentCom
         // PaymentId identifies WHICH intent completed — an order may carry several, and only the
         // one checkout recorded may converge this cart's charge summary.
         if (await _checkout.ConfirmPaymentAsync(orderId, @event.PaymentId, @event.Amount, @event.Currency, cancellationToken))
+        {
+            await _accountAccess.IssueAsync(orderId, @event.PaymentId, cancellationToken);
             await _confirmationEmail.SendAsync(orderId, @event.PaymentId, cancellationToken);
+        }
         _logger.LogInformation("Processed commerce payment completion for order {OrderId}.", orderId);
     }
 }

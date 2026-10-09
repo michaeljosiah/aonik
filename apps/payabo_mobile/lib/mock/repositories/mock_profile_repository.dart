@@ -111,24 +111,12 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<UserProfile> updateEmail({
-    required String currentEmail,
+  Future<void> requestEmailChange({
     required String newEmail,
-    required String password,
   }) async {
     await MockBehavior.delay();
-    MockBehavior.throwIfEnabled('profile.updateEmail');
-
-    _profile = UserProfile(
-      firstName: _profile.firstName,
-      lastName: _profile.lastName,
-      email: newEmail.trim(),
-      phone: _profile.phone,
-      countryCode: _profile.countryCode,
-      photoUrl: _profile.photoUrl,
-    );
-
-    return _profile;
+    MockBehavior.throwIfEnabled('profile.requestEmailChange');
+    // Request acceptance does not confirm mailbox ownership or update the profile.
   }
 
   @override

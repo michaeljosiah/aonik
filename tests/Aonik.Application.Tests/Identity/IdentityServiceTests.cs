@@ -134,7 +134,7 @@ public class IdentityServiceTests
         public bool TryGetCurrentTenantId(out Guid tenantId)
         {
             tenantId = _tenantId;
-            return true;
+            return tenantId != Guid.Empty;
         }
     }
 
@@ -147,6 +147,7 @@ public class IdentityServiceTests
 
     private sealed class StubPasswordResetServiceFactory : IIdpPasswordResetServiceFactory
     {
+        public bool Fail { get; init; }
         public string? LastProvider { get; private set; }
         public string? LastEmail { get; private set; }
         public Guid? LastTenantId { get; private set; }
@@ -170,6 +171,7 @@ public class IdentityServiceTests
             {
                 _parent.LastEmail = email;
                 _parent.LastTenantId = tenantId;
+                if (_parent.Fail) throw new InvalidOperationException("Account user@example.com does not exist: provider secret");
                 return Task.CompletedTask;
             }
         }
@@ -213,29 +215,34 @@ public class IdentityServiceTests
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
             new AllowAllPermissionService(),
-            new NoOpPersonalProfileProvisioner());
+            new NoOpPersonalProfileProvisioner(), new TestTenantProvider(tenantId));
 
         var response = await service.TokenAsync(new TokenRequest("password", "client", "user", "pass", null, null, null, null, null));
 
         response.AccessToken.Should().Be("access");
     }
 
-    [Fact]
-    public async Task SendPasswordResetAsync_TriggersProviderService()
+    [Theory]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    public async Task SendPasswordResetAsync_Should_ReturnNeutralResponse_AndRespectTenant(bool providerFails, bool tenantResolved, bool tenantMatches)
     {
         var tenantId = Guid.NewGuid();
         var dbContext = CreateDbContext(tenantId);
         var settingProvider = new TestSettingProvider("AzureAd");
         var authTokenFactory = new StubAuthTokenServiceFactory();
-        var resetFactory = new StubPasswordResetServiceFactory();
+        var resetFactory = new StubPasswordResetServiceFactory { Fail = providerFails };
         var currentUserContext = new TestCurrentUserContext();
+        var audit = new TestAuditLogWriter();
 
         var service = new IdentityService(
             settingProvider,
             authTokenFactory,
             resetFactory,
             currentUserContext,
-            new TestAuditLogWriter(),
+            audit,
             new TestCorrelationContext(),
             dbContext,
             new UserProvisioningService(
@@ -250,15 +257,24 @@ public class IdentityServiceTests
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
             new AllowAllPermissionService(),
-            new NoOpPersonalProfileProvisioner());
+            new NoOpPersonalProfileProvisioner(), new TestTenantProvider(tenantResolved ? tenantId : Guid.Empty));
 
         var response = await service.SendPasswordResetAsync(
-            new ForgotPasswordRequest("user@example.com", tenantId));
+            new ForgotPasswordRequest("user@example.com", tenantMatches ? tenantId : Guid.NewGuid()));
 
         response.Status.Should().Be("ok");
+        if (!tenantResolved || !tenantMatches)
+        {
+            resetFactory.LastProvider.Should().BeNull();
+            resetFactory.LastEmail.Should().BeNull();
+            audit.LastEntry.Should().BeNull();
+            return;
+        }
         resetFactory.LastProvider.Should().Be("AzureAd");
         resetFactory.LastEmail.Should().Be("user@example.com");
         resetFactory.LastTenantId.Should().Be(tenantId);
+        audit.LastEntry!.DetailsJson.Should().Contain("u***@example.com").And.NotContain("user@example.com").And.NotContain("provider secret");
+        audit.LastEntry.DetailsJson.Should().Contain(providerFails ? "Unavailable" : "Submitted");
     }
 
     [Fact]
@@ -330,7 +346,7 @@ public class IdentityServiceTests
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
             new AllowAllPermissionService(),
-            new NoOpPersonalProfileProvisioner());
+            new NoOpPersonalProfileProvisioner(), new TestTenantProvider(tenantId));
 
         var response = await service.GetUserInfoAsync();
 

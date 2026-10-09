@@ -295,18 +295,12 @@ class ProfileCoreController extends StateNotifier<ProfileCoreState> {
     }
   }
 
-  Future<void> updateLoginEmail({
-    required String currentEmail,
+  Future<void> requestEmailChange({
     required String newEmail,
-    required String password,
   }) async {
-    final UserProfile profile = await _repository.updateEmail(
-      currentEmail: currentEmail,
+    await _repository.requestEmailChange(
       newEmail: newEmail,
-      password: password,
     );
-
-    _setProfile(profile);
   }
 
   Future<void> updatePassword({

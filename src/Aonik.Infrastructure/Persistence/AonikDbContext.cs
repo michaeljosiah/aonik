@@ -60,6 +60,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<TenantCountry> TenantCountries { get; set; } = null!;
     public virtual DbSet<TenantCurrency> TenantCurrencies { get; set; } = null!;
     public virtual DbSet<User> Users { get; set; } = null!;
+    public virtual DbSet<AccountAccessAction> AccountAccessActions { get; set; } = null!;
     public virtual DbSet<Role> Roles { get; set; } = null!;
     public virtual DbSet<Permission> Permissions { get; set; } = null!;
     public virtual DbSet<UserRole> UserRoles { get; set; } = null!;
@@ -419,6 +420,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<TenantCountry>(modelBuilder, "TenantCountries");
         MapPlatformTable<TenantCurrency>(modelBuilder, "TenantCurrencies");
         MapPlatformTable<User>(modelBuilder, "Users");
+        MapPlatformTable<AccountAccessAction>(modelBuilder, "AccountAccessActions");
         MapPlatformTable<Role>(modelBuilder, "Roles");
         MapPlatformTable<Permission>(modelBuilder, "Permissions");
         MapPlatformTable<UserRole>(modelBuilder, "UserRoles");

@@ -126,8 +126,7 @@ internal sealed class UserSessionBlocklist : IUserSessionBlocklist
         // new revoke immediately. FusionCache's RemoveAsync uses the
         // configured backplane (Redis pub/sub on the multi-replica deploy)
         // so all API replicas drop the entry at the same time.
-        var cacheKey = BuildCacheKey(tenantId, userId);
-        await _fusionCache.RemoveAsync(cacheKey, token: cancellationToken);
+        await InvalidateAsync(tenantId, userId, cancellationToken);
 
         _logger.LogInformation(
             "Revoked sessions for user {UserId} in tenant {TenantId} (reason='{Reason}'); blocklist row {EntryId} expires {ExpiresUtc}",
@@ -145,6 +144,9 @@ internal sealed class UserSessionBlocklist : IUserSessionBlocklist
             entry.RevokedByUserId,
             entry.Reason);
     }
+
+    public async Task InvalidateAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+        => await _fusionCache.RemoveAsync(BuildCacheKey(tenantId, userId), token: cancellationToken);
 
     private static string BuildCacheKey(Guid tenantId, Guid userId)
         => $"{CacheKeyPrefix}{tenantId:N}:{userId:N}";

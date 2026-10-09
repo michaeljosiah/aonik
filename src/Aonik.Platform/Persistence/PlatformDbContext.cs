@@ -44,6 +44,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<UserInviteLog> UserInviteLogs { get; set; } = null!;
     public DbSet<UserSessionBlocklistEntry> UserSessionBlocklist { get; set; } = null!;
     public DbSet<UserTombstone> UserTombstones { get; set; } = null!;
+    public DbSet<AccountAccessAction> AccountAccessActions { get; set; } = null!;
 
     // Party
     public DbSet<PartyEntity> Parties { get; set; } = null!;
@@ -180,6 +181,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<UserInviteLog>(modelBuilder, "UserInviteLogs");
         MapTable<UserSessionBlocklistEntry>(modelBuilder, "UserSessionBlocklist");
         MapTable<UserTombstone>(modelBuilder, "UserTombstones");
+        MapTable<AccountAccessAction>(modelBuilder, "AccountAccessActions");
 
         MapTable<PartyEntity>(modelBuilder, "Parties");
         MapTable<PartyAddress>(modelBuilder, "PartyAddresses");

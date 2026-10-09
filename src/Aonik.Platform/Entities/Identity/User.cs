@@ -17,6 +17,7 @@ public class User : AuditableEntity, ITenantScoped
     public string Status { get; set; } = "Active";                  // Active, Suspended, Deactivated
     public string PreferencesJson { get; set; } = string.Empty;
     public DateTime? LastLoginAt { get; set; }
+    public long IdentityRevision { get; set; }
 
     // ── Invite lifecycle (Spec 026 Part 1) ───────────────────────────────
     // Populated when the user is a placeholder created via the invite

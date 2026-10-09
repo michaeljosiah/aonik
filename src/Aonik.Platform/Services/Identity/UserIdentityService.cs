@@ -79,13 +79,7 @@ internal class UserIdentityService : IUserIdentityService
 
         if (existingUser != null)
         {
-            if (!string.IsNullOrEmpty(normalizedEmail) && existingUser.Email != normalizedEmail)
-            {
-                existingUser.Email = normalizedEmail;
-                await _dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Updated email for user {UserId}", existingUser.Id);
-            }
-
+            // Login claims must not undo a confirmed email change or bypass its confirmation flow.
             await EnsureDefaultPersonalUserRoleAsync(existingUser.Id, aonikTenantId, ct);
 
             return existingUser;

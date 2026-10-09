@@ -87,6 +87,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddKeyedScoped<IProposalHandler, CommerceCheckoutProposalHandler>(CommerceCheckoutProposalHandler.ProposalTypeKey);
         services.AddScoped<IOrderConfirmationEmailService, OrderConfirmationEmailService>();
+        services.AddScoped<IPaidCheckoutAccountAccessService, PaidCheckoutAccountAccessService>();
         services.AddScoped<IDiscountService, DiscountService>();
         // Default tax seam — charges no tax. Replace with a jurisdiction-aware calculator at the
         // composition root when VAT/sales tax is required (Spec 042 §5 follow-up).

@@ -26,12 +26,6 @@ public interface IUserProfileService
         UpdateCustomerProfileRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<CustomerProfileResponse?> UpdateCustomerEmailAsync(
-        Guid userId,
-        Guid tenantId,
-        UpdateCustomerEmailRequest request,
-        CancellationToken cancellationToken = default);
-
     Task<UpdateCustomerPasswordResponse> UpdateCustomerPasswordAsync(
         Guid userId,
         Guid tenantId,

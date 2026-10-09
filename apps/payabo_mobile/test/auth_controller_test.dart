@@ -401,21 +401,9 @@ class _SwitchingProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<UserProfile> updateEmail({
-    required String currentEmail,
+  Future<void> requestEmailChange({
     required String newEmail,
-    required String password,
-  }) async {
-    _profile = UserProfile(
-      firstName: _profile.firstName,
-      lastName: _profile.lastName,
-      email: newEmail,
-      phone: _profile.phone,
-      countryCode: _profile.countryCode,
-      photoUrl: _profile.photoUrl,
-    );
-    return _profile;
-  }
+  }) async {}
 
   @override
   Future<void> updatePassword({

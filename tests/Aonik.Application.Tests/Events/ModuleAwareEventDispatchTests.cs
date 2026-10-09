@@ -108,6 +108,7 @@ public class ModuleAwareEventDispatchTests
         var services = new ServiceCollection();
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(
             new CommercePaymentCompletedHandler(checkout, Mock.Of<IOrderConfirmationEmailService>(),
+                Mock.Of<IPaidCheckoutAccountAccessService>(),
                 NullLogger<CommercePaymentCompletedHandler>.Instance));
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(recording);
         if (reader is not null)

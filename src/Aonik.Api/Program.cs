@@ -48,6 +48,7 @@ builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 builder.Services.AddDeliveryCoverageRateLimit(builder.Configuration);
+builder.Services.AddAccountAccessRateLimit(builder.Configuration);
 
 // FastEndpoints — explicitly enumerate the module assemblies so endpoints
 // AND validators (Validator<TRequest>) defined in each module are

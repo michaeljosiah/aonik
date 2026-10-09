@@ -23,9 +23,12 @@ public interface IUserSessionBlocklist
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Writes a blocklist row and invalidates the FusionCache entry.
-    /// Returns the timestamps for the audit log / response.
+    /// Invalidates cached revocation state after an enclosing transaction commits.
     /// </summary>
+    Task InvalidateAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    /// <summary>Writes a blocklist row and invalidates its cached state.</summary>
     Task<UserSessionRevocation> RevokeAsync(
         Guid tenantId,
         Guid userId,

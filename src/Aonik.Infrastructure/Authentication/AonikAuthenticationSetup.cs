@@ -17,6 +17,7 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Infrastructure.Authentication.Configuration;
@@ -55,6 +56,10 @@ public static class AonikAuthenticationSetup
     {
         var authOptions = configuration.GetSection("Auth").Get<AuthOptions>()
             ?? throw new InvalidOperationException("Auth configuration is missing");
+
+        services.AddHttpContextAccessor();
+        services.Configure<AuthOptions>(configuration.GetSection("Auth"));
+        services.AddScoped<IAccountAccessIdentityProofAccessor, AccountAccessIdentityProofAccessor>();
 
         services.AddAuthentication(options =>
             {
@@ -250,7 +255,10 @@ public static class AonikAuthenticationSetup
         }
         var userIdentityService = context.HttpContext.RequestServices
             .GetRequiredService<IUserIdentityService>();
-        if (tenantId == null)
+        var accountCompletion = HttpMethods.IsPost(context.HttpContext.Request.Method)
+            && context.HttpContext.Request.Path.Equals(new PathString(AccountAccessCompletionEndpointMetadata.Route))
+            && context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<AccountAccessCompletionEndpointMetadata>() is not null;
+        if (tenantId == null && !accountCompletion)
         {
             tenantId = await userIdentityService.ResolvePendingTenantByEmailAsync(
                 email,
@@ -269,13 +277,36 @@ public static class AonikAuthenticationSetup
         tenantContext.TenantId = tenantId.Value;
         tenantContext.ResolutionSource = "Authentication";
 
-        var user = await userIdentityService.ResolveOrCreateUserAsync(
-            iss,
-            sub,
-            tid,
-            email,
-            tenantId.Value,
-            context.HttpContext.RequestAborted);
+        User user;
+        if (accountCompletion)
+        {
+            // This one route consumes a paid capability before provisioning. Do not run normal
+            // email-placeholder linking, nor grant local user/party authority to an unknown subject.
+            var activeTenant = await dbContext.Tenants.AsNoTracking()
+                .AnyAsync(t => t.Id == tenantId && !t.IsDeleted && t.Status == TenantStatus.Active, context.HttpContext.RequestAborted);
+            var knownUser = await dbContext.Users.AcrossTenants().AsNoTracking()
+                .SingleOrDefaultAsync(u => u.TenantId == tenantId && u.ExternalIssuer == iss && u.ExternalSubject == sub,
+                    context.HttpContext.RequestAborted);
+            if (!activeTenant || knownUser?.IsDeleted == true)
+            {
+                context.Fail("Account access is unavailable");
+                return;
+            }
+            if (knownUser is null)
+            {
+                context.HttpContext.RequestServices.GetRequiredService<ICurrentUserContext>().IsAuthenticated = false;
+                var proof = CreateAccountAccessProof(context, authOptions, activeProvider, tenantId.Value, iss, sub, claims, null);
+                if (proof is null) context.Fail("Verified identity evidence is required");
+                else context.HttpContext.Items[typeof(AccountAccessIdentityProof)] = proof;
+                return;
+            }
+            user = knownUser;
+        }
+        else
+        {
+            user = await userIdentityService.ResolveOrCreateUserAsync(
+                iss, sub, tid, email, tenantId.Value, context.HttpContext.RequestAborted);
+        }
 
         // Reject BEFORE populating any per-request identity state. context.Fail() does not stop
         // an AllowAnonymous endpoint from executing, so anything stamped into ICurrentUserContext
@@ -307,6 +338,15 @@ public static class AonikAuthenticationSetup
                 tokenIssuedUtc);
             context.HttpContext.Items[AuthFailureReasonItemKey] = "Sessions revoked";
             context.Fail("User session has been revoked");
+            return;
+        }
+
+        var accountProof = CreateAccountAccessProof(context, authOptions, activeProvider, tenantId.Value, iss, sub, claims, user);
+        if (accountProof is not null)
+            context.HttpContext.Items[typeof(AccountAccessIdentityProof)] = accountProof;
+        else if (accountCompletion)
+        {
+            context.Fail("Verified identity evidence is required");
             return;
         }
 
@@ -342,6 +382,39 @@ public static class AonikAuthenticationSetup
         // Intentionally not persisting last-login during token validation.
         // Token validation runs before tenant context middleware, and DB writes here can fail
         // for tenant-scoped entities.
+    }
+
+    private static AccountAccessIdentityProof? CreateAccountAccessProof(TokenValidatedContext context,
+        AuthOptions options, string provider, Guid tenantId, string issuer, string subject, IEnumerable<Claim> claims, User? user)
+    {
+        var authority = AuthProviderDispatch.ResolveByProvider(provider,
+            options.Auth0.Authority, options.AzureAd.Authority, options.Keycloak.Authority);
+        if (!context.Options.TokenValidationParameters.ValidateIssuer || string.IsNullOrWhiteSpace(authority)
+            || !string.Equals(issuer.TrimEnd('/'), authority.TrimEnd('/'), StringComparison.Ordinal)) return null;
+
+        // Read raw validated JWT claims. Mapped claims or an application JSON field cannot
+        // attest mailbox ownership; ambiguous duplicate claims also fail closed.
+        string? Single(string type)
+        {
+            var values = claims.Where(c => c.Type == type).Take(2).ToArray();
+            return values.Length == 1 ? values[0].Value : null;
+        }
+        DateTime? Timestamp(string type)
+        {
+            if (!long.TryParse(Single(type), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var seconds)) return null;
+            try { return DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime; }
+            catch (ArgumentOutOfRangeException) { return null; }
+        }
+        var email = Single(options.AccountAccess.EmailClaimType);
+        if (email is null || email.Length > 254 || email.Any(char.IsControl)
+            || !System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email
+            || !string.Equals(Single(options.AccountAccess.EmailVerifiedClaimType), "true", StringComparison.OrdinalIgnoreCase)) return null;
+        var issued = Timestamp("iat");
+        var authenticated = Timestamp(options.AccountAccess.AuthenticationTimeClaimType);
+        var now = context.HttpContext.RequestServices.GetRequiredService<IClock>().UtcNow;
+        if (issued is null || issued > now || authenticated > now || authenticated > issued) return null;
+        return new(tenantId, issuer, subject, email, issued.Value, authenticated, user?.Id, user?.IdentityRevision);
     }
 
     /// <summary>

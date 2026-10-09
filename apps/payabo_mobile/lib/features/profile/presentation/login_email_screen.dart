@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -24,69 +23,46 @@ class LoginEmailScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
-  late final TextEditingController _currentEmailController;
   final TextEditingController _newEmailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _hidePassword = true;
   bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentEmailController =
-        TextEditingController(text: ref.read(profileCoreProvider).email);
-  }
+  bool _requested = false;
 
   @override
   void dispose() {
-    _currentEmailController.dispose();
     _newEmailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = isValidPayaboEmailAddress(_currentEmailController.text) &&
-        isValidPayaboEmailAddress(_newEmailController.text) &&
-        _passwordController.text.isNotEmpty;
+    final canSubmit = isValidPayaboEmailAddress(_newEmailController.text);
 
     return ProfileScaffold(
       title: 'Email address',
       backRoute: '/profile/login-details',
       footer: PayaboButton(
-        label: _saving ? 'Saving...' : 'Save changes',
+        label: _saving ? 'Requesting...' : 'Send confirmation link',
         onPressed: canSubmit && !_saving ? _submit : null,
       ),
       child: Column(
         children: <Widget>[
-          PayaboTextField(
-            label: 'Current email address',
-            variant: PayaboInputVariant.floating,
-            controller: _currentEmailController,
-            keyboardType: TextInputType.emailAddress,
-            onChanged: (_) => setState(() {}),
+          const Text(
+            'Sign out and sign in again before requesting an email change. '
+            'Your current email stays unchanged until you confirm the new address.',
           ),
           const SizedBox(height: PayaboSpacing.md),
+          if (_requested) ...<Widget>[
+            const Text(
+              'If the request is eligible, check your new email for a confirmation link. '
+              'If no email arrives, sign in again and retry.',
+            ),
+            const SizedBox(height: PayaboSpacing.md),
+          ],
           PayaboTextField(
             label: 'Type your new email address',
             variant: PayaboInputVariant.floating,
             controller: _newEmailController,
             keyboardType: TextInputType.emailAddress,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          PayaboTextField(
-            label: 'Type your password',
-            variant: PayaboInputVariant.floating,
-            controller: _passwordController,
-            obscureText: _hidePassword,
-            suffixIcon: IconButton(
-              onPressed: () => setState(() => _hidePassword = !_hidePassword),
-              icon: Icon(_hidePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined),
-            ),
             onChanged: (_) => setState(() {}),
           ),
         ],
@@ -103,28 +79,32 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
 
     setState(() {
       _saving = true;
+      _requested = false;
     });
 
     try {
-      await ref.read(profileCoreProvider.notifier).updateLoginEmail(
-            currentEmail: _currentEmailController.text.trim(),
+      await ref.read(profileCoreProvider.notifier).requestEmailChange(
             newEmail: email,
-            password: _passwordController.text,
           );
 
       if (mounted) {
-        context.go('/profile/login-details');
+        setState(() {
+          _requested = true;
+          _newEmailController.clear();
+        });
       }
     } catch (error) {
-      final message = error is ApiException
-          ? error.message
-          : 'Unable to update your email right now.';
+      final message = error is ApiException &&
+              (error.statusCode == 401 || error.statusCode == 403)
+          ? 'Please sign in again before requesting an email change.'
+          : error is ApiException
+              ? error.message
+              : 'Unable to request an email change right now.';
       if (mounted) {
         _showError(context, message);
       }
-      setState(() {
-        _saving = false;
-      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }
